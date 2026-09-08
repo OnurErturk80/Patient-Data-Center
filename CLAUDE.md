@@ -55,7 +55,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~30 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..020.py   veritabanı göçleri (sırayla)
+  goc_002..021.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -108,6 +108,16 @@ kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)
+
+**Görüntü arşive kopyalanır, kaynağa dokunulmaz.** Kamera klasörü
+(`snapshot/`) temizlense de program görüntüyü `arsiv/`'den gösterir.
+Yapı: `arsiv/<hasta dosya no>/<cycle no>/` (v6.4; öncesi `<yıl>/<cycle no>`).
+Veritabanı **göreli** yol saklar — tam yol yazma, makine değişince bulunamaz.
+
+**Yol parçalarını `goruntuler.guvenli_ad()`'den geçir.** macOS NFD / Windows
+NFC farkı, Windows'un yasak karakterleri ve ayrılmış adları (`CON`, `NUL`)
+yüzünden klasör USB ile taşınınca yollar bozulabilir. Hasta **adı** klasör
+adında yok, sadece dosya no — ad değişse bile yol bozulmasın diye (README v6.4).
 
 **Otomatik skorlar kaynak işaretler.** Elle skor girilirse
 `cl_skor_kaynagi='elle'` yazılır, otomatik hesap onu ezmez.

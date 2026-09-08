@@ -1485,3 +1485,56 @@ olarak eklemek ~12 rotayı ve yazma mantığını değiştirmeyi gerektirirdi
 (CLAUDE.md tuzak #1: toplu değişiklik). Bunun yerine tek tablo + tek paylaşılan
 kutu: mevcut kayıt mantığına hiç dokunulmadı, riski düşük, sonradan cycle
 kartında/geçmişte göstermek kolay.
+
+---
+
+# v6.4 — arşiv hasta dosya numarasına göre + iki sistemde güvenli yollar
+
+## Ne değişti
+
+Arşiv klasör yapısı:
+
+```
+önce:  arsiv/<yıl>/<cycle no>/<dosya>        arsiv/2026/2026-0001/...
+sonra: arsiv/<hasta dosya no>/<cycle no>/    arsiv/527078/2026-0001/...
+```
+
+Yıl zaten cycle numarasının içinde (`2026-0001`), bilgi kaybı yok. Artık bir
+hastanın bütün cycle'ları ve görüntüleri Finder / Dosya Gezgini'nde tek klasörde.
+
+**`goc_021.py`** dosyaları taşır **ve** veritabanındaki yolları günceller;
+boşalan eski klasörleri siler. Dosyası bulunamayan kayda dokunmaz, bildirir.
+Birden fazla çalıştırılabilir.
+
+## Fotoğraflar zaten kaynaktan bağımsızdı
+
+Bu sürümde değişmedi, ama not: bir görüntü bir modüle kaydedildiğinde arşive
+**kopyalanır**, kaynağa dokunulmaz. Kamera klasörü (`snapshot/`) temizlense
+veya oradaki dosya silinse bile program görüntüyü arşivden gösterir.
+Veritabanı **göreli** yol saklar (`527078/2026-0001/...`), makineden bağımsız.
+
+Korunmayan tek şey `arsiv/` klasörünün kendisinin silinmesi — `yedek.py` bu
+yüzden `arsiv/`'i de yedekliyor.
+
+## Hasta adı neden klasör adında değil
+
+Sadece dosya numarası kullanılıyor. Üç sebep:
+
+1. **macOS NFD / Windows NFC.** macOS dosya adlarını ayrıştırılmış Unicode ile
+   saklar (`u` + birleşen umlaut), Windows birleştirilmiş (`ü`). Klasör USB ile
+   taşınınca Türkçe harfli yollar eşleşmeyebilir.
+2. **Windows yasakları.** `< > : " / \ | ? *`, sondaki nokta/boşluk ve `CON`,
+   `NUL`, `COM1`... ayrılmış adları kabul edilmez.
+3. **Ad değişir.** Evlilik veya düzeltmede hasta adı değişince eski yollar
+   bozulurdu. Dosya no değişmez.
+
+Hangi numaranın kime ait olduğu zaten programda görünüyor.
+
+## `guvenli_ad()` — yeni ortak süzgeç
+
+`goruntuler.py` içindeki bu fonksiyon yola giren her parçayı temizler: NFC'ye
+normalize eder, Windows'un yasakladığı karakterleri `_` yapar, sondaki
+nokta/boşluğu atar, ayrılmış adların önüne `_` koyar, boşsa varsayılana düşer.
+Klasör adlarında ve üretilen dosya adlarında kullanılıyor.
+
+Yeni bir yerde kullanıcı verisinden yol parçası üretirsen bunu kullan.

@@ -1,6 +1,7 @@
 """Snapshot klasörünü izler, görüntüleri specimen'lere bağlar ve arşive kopyalar."""
 
 import shutil
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -12,6 +13,33 @@ UZANTILAR = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
 ayar = db.ayar          # yerel_ayar.json önceliklidir
 
 
+# --------------------------------------------------------- iki sistemde de güvenli yol
+
+WINDOWS_YASAK = '<>:"/\\|?*'
+WINDOWS_AYRILMIS = {"CON", "PRN", "AUX", "NUL",
+                    *(f"COM{i}" for i in range(1, 10)),
+                    *(f"LPT{i}" for i in range(1, 10))}
+
+
+def guvenli_ad(metin, varsayilan: str = "bilinmeyen") -> str:
+    """Bir klasör/dosya adı parçasını Windows ve macOS'ta güvenli hale getirir.
+
+    Üç ayrı tuzak var:
+      - Windows `< > : " / \\ | ? *` karakterlerini ve sondaki nokta/boşluğu
+        kabul etmez; `CON`, `NUL`, `COM1`... adları ayrılmıştır.
+      - macOS dosya adlarını ayrıştırılmış (NFD), Windows birleştirilmiş (NFC)
+        Unicode ile saklar. Klasör USB ile taşınınca 'ü' iki farklı bayt
+        dizisi olur ve yol eşleşmez — bu yüzden NFC'ye normalize ediliyor.
+      - Boş ad klasör açtırmaz.
+    """
+    m = unicodedata.normalize("NFC", str(metin or "")).strip()
+    m = "".join("_" if (c in WINDOWS_YASAK or ord(c) < 32) else c for c in m)
+    m = m.rstrip(". ")
+    if m.upper().split(".")[0] in WINDOWS_AYRILMIS:
+        m = "_" + m
+    return m or varsayilan
+
+
 def kaynak_klasor() -> Path:
     return Path(ayar("goruntu_kaynak_klasor"))
 
@@ -20,8 +48,29 @@ def arsiv_klasor() -> Path:
     return Path(ayar("goruntu_arsiv_klasor", "arsiv"))
 
 
+def hasta_klasoru(cycle_id: int) -> str:
+    """Arşivde bu cycle'ın hastasına ait klasör adı — hasta dosya numarası.
+
+    Sadece dosya no kullanılır, hasta adı değil: rakam her iki işletim
+    sisteminde de sorunsuz, hasta adı değişse bile (evlilik, düzeltme) yol
+    bozulmaz. Hangi numaranın kime ait olduğu programdan görünür.
+    """
+    r = db.tek("SELECT h.dosya_no FROM cycle c JOIN hasta h ON h.id = c.hasta_id "
+               "WHERE c.id = ?", (cycle_id,))
+    return guvenli_ad(r["dosya_no"] if r else "", f"cycle{cycle_id}")
+
+
+def hedef_klasor(cycle_id: int, cycle_no: str) -> Path:
+    """Bu cycle'ın görüntülerinin yazılacağı arşiv klasörü.
+
+    `arsiv/<hasta dosya no>/<cycle no>/` — v6.4'e kadar `arsiv/<yıl>/<cycle no>/`
+    idi; yıl zaten cycle numarasının içinde olduğu için bilgi kaybı yok.
+    """
+    return arsiv_klasor() / hasta_klasoru(cycle_id) / guvenli_ad(cycle_no)
+
+
 def goreli_yap(tam: Path) -> str:
-    """Arşiv klasörüne göre göreli yol üretir: '2026/2026-0417/xxx.jpg'.
+    """Arşiv klasörüne göre göreli yol üretir: '527078/2026-0417/xxx.jpg'.
 
     Tam yol saklanırsa veritabanı başka bir makineye taşındığında
     fotoğraflar bulunamaz. Göreli yol makineden bağımsızdır.
@@ -159,14 +208,15 @@ def goruntu_bagla(im: str, cycle_id: int, cycle_no: str, specimen_id: str,
         return None
 
     ts = datetime.now()
-    hedef_klasor = arsiv_klasor() / str(ts.year) / str(cycle_no)
-    hedef_klasor.mkdir(parents=True, exist_ok=True)
+    klasor = hedef_klasor(cycle_id, cycle_no)
+    klasor.mkdir(parents=True, exist_ok=True)
 
-    ad = f"{specimen_id}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}{kaynak.suffix.lower()}"
-    hedef = hedef_klasor / ad
+    uzanti = kaynak.suffix.lower()
+    ad = guvenli_ad(f"{specimen_id}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}") + uzanti
+    hedef = klasor / ad
     sayac = 1
     while hedef.exists():                       # aynı saniyede ikinci kare
-        hedef = hedef_klasor / f"{hedef.stem}-{sayac}{kaynak.suffix.lower()}"
+        hedef = klasor / f"{hedef.stem}-{sayac}{uzanti}"
         sayac += 1
 
     shutil.copy2(kaynak, hedef)
@@ -241,15 +291,15 @@ def elle_ekle(icerik: bytes, orijinal_ad: str, cycle_id: int, cycle_no: str,
         return f"'{orijinal_ad}' boş."
 
     ts = datetime.now()
-    hedef_klasor = arsiv_klasor() / str(ts.year) / str(cycle_no)
-    hedef_klasor.mkdir(parents=True, exist_ok=True)
+    klasor = hedef_klasor(cycle_id, cycle_no)
+    klasor.mkdir(parents=True, exist_ok=True)
 
     kok = specimen_id or f"cycle{cycle_id}"
-    ad = f"{kok}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}{uzanti}"
-    hedef = hedef_klasor / ad
+    ad = guvenli_ad(f"{kok}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}") + uzanti
+    hedef = klasor / ad
     sayac = 1
     while hedef.exists():
-        hedef = hedef_klasor / f"{hedef.stem}-{sayac}{uzanti}"
+        hedef = klasor / f"{hedef.stem}-{sayac}{uzanti}"
         sayac += 1
 
     hedef.write_bytes(icerik)
