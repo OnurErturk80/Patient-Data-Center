@@ -22,7 +22,7 @@
   <div class="fsatir">
     {{ kf.kucuk(e) }}
     <div class="bilgi">
-      <div class="ad"><strong>Oosit {{ e.cycle_sira_no }}</strong>
+      <div class="ad"><strong>{{ ornek_adi('vitrifikasyon', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
         {% if e.skor %} · {{ e.skor }}{% endif %}</div>
       <div class="meta">
         <a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ e.tasiyici_etiket }}</a>
@@ -53,7 +53,7 @@
       <span class="kutu"></span>
       {{ kf.kucuk(e) }}
       <span class="bilgi">
-        <strong>Oosit {{ e.cycle_sira_no }}</strong>
+        <strong>{{ ornek_adi('vitrifikasyon', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
         {% if e.skor %}<em>{{ e.skor }}{% if e.gun %} · gün {{ e.gun }}{% endif %}</em>
         {% else %}<em>değerlendirilmemiş</em>{% endif %}
       </span>

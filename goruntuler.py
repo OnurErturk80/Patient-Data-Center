@@ -60,6 +60,18 @@ def hasta_klasoru(cycle_id: int) -> str:
     return guvenli_ad(r["dosya_no"] if r else "", f"cycle{cycle_id}")
 
 
+def ornek_kodu(cycle_id: int, specimen_id, cycle_no: str = "") -> str:
+    """Örneğin tam kodu: `<hasta dosya no>-<cycle no>-<sıra>`.
+
+    `specimen_id` zaten `<cycle no>-<sıra>` biçiminde (`2026-0001-03`), başına
+    hasta dosya numarası eklenir → `527078-2026-0001-03`. Örneğe bağlı olmayan
+    (cycle arşivi) fotoğraflarda `<hasta dosya no>-<cycle no>` olur.
+
+    Kaynak resmin adı kullanılmaz; dosya adı kendi kendini tanımlar.
+    """
+    return guvenli_ad(f"{hasta_klasoru(cycle_id)}-{specimen_id or cycle_no}")
+
+
 def hedef_klasor(cycle_id: int, cycle_no: str) -> Path:
     """Bu cycle'ın görüntülerinin yazılacağı arşiv klasörü.
 
@@ -212,7 +224,8 @@ def goruntu_bagla(im: str, cycle_id: int, cycle_no: str, specimen_id: str,
     klasor.mkdir(parents=True, exist_ok=True)
 
     uzanti = kaynak.suffix.lower()
-    ad = guvenli_ad(f"{specimen_id}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}") + uzanti
+    kod = ornek_kodu(cycle_id, specimen_id, cycle_no)
+    ad = guvenli_ad(f"{kod}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}") + uzanti
     hedef = klasor / ad
     sayac = 1
     while hedef.exists():                       # aynı saniyede ikinci kare
@@ -294,8 +307,8 @@ def elle_ekle(icerik: bytes, orijinal_ad: str, cycle_id: int, cycle_no: str,
     klasor = hedef_klasor(cycle_id, cycle_no)
     klasor.mkdir(parents=True, exist_ok=True)
 
-    kok = specimen_id or f"cycle{cycle_id}"
-    ad = guvenli_ad(f"{kok}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}") + uzanti
+    kod = ornek_kodu(cycle_id, specimen_id, cycle_no)
+    ad = guvenli_ad(f"{kod}_{asama}_{ts.strftime('%Y%m%d-%H%M%S')}") + uzanti
     hedef = klasor / ad
     sayac = 1
     while hedef.exists():

@@ -43,7 +43,7 @@
 
 <div class="say">
   <span class="bek">{{ oositler|selectattr('kayit_id')|list|length }} / {{ oositler|length }} kaydedildi</span>
-  <span class="hed">Oosit {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ "sağ" if sp.taraf == "sag" else "sol" }}</em>{% endif %}</span>
+  <span class="hed">{{ ornek_adi('blast', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ "sağ" if sp.taraf == "sag" else "sol" }}</em>{% endif %}</span>
 </div>
 
 {% if sp.pn and sp.pn != '2' %}

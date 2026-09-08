@@ -1538,3 +1538,62 @@ nokta/boşluğu atar, ayrılmış adların önüne `_` koyar, boşsa varsayılan
 Klasör adlarında ve üretilen dosya adlarında kullanılıyor.
 
 Yeni bir yerde kullanıcı verisinden yol parçası üretirsen bunu kullan.
+
+---
+
+# v6.5 — örnek kodu ve aşamaya göre isimlendirme
+
+## Örnek kodu
+
+Her örnek artık hasta dosya numarasını da içeren tam bir kodla anılıyor:
+
+```
+527078 - 2026-0001 - 03
+  │         │        └ cycle içindeki sıra
+  │         └ cycle no
+  └ hasta dosya no
+```
+
+`specimen.id` **değişmedi** (`2026-0001-03`) — dört tablonun (`olay`, `goruntu`,
+`specimen_bulgu`, `pgt_sonuc`) yabancı anahtarı, değiştirmek riskli ve
+gereksiz. Kod, gösterim ve dosya adı için `ornek_kodu()` ile üretiliyor.
+
+**Dosya adları** artık kodu kullanıyor, kaynak resmin adını değil:
+
+```
+527078-2026-0001-03_gun5_20260906-224440.jpg
+└ kod ────────────┘ └aşama┘ └ arşivlenme zamanı
+```
+
+Dosya klasöründen çıkarılıp bir yere kopyalansa bile hangi hasta, hangi cycle,
+kaçıncı örnek, hangi aşama olduğu adından okunur. Kaynak resmin adı
+(`oocyte2.jpg`) yalnızca `goruntu.orijinal_dosya_adi` alanında iz olarak
+kalıyor, hiçbir ekranda gösterilmiyor.
+
+**`goc_022.py`** mevcut dosyaları yeniden adlandırır ve veritabanı yollarını
+günceller. İdempotent.
+
+## Aşamaya göre isim — asıl karışıklık buydu
+
+Oosit → zigot → embriyo **aynı örnektir**; kod bilerek değişmez, yoksa "bu
+blastokist hangi oositten çıktı?" sorusu cevapsız kalır (soyağacı = akreditasyon
+gereği). Ama ekranlar her aşamada "Oosit 3" yazıyordu — gün 5 blastokiste
+bakarken "Oosit 3" görmek yanıltıcıydı. Artık ekran örneğin **o anki halini**
+yazıyor:
+
+| Aşama | Etiket |
+|---|---|
+| Denüdasyon, ICSI | Oosit 3 |
+| Fertilizasyon | Zigot 3 |
+| Gün 2 / 3 | Cleavage 3 |
+| Blastokist | Blastokist 3 |
+| Vitrifikasyon / Çözme / Transfer / Gebelik | Embriyo 3 — **oosit cryo cycle'ında Oosit 3** |
+
+`app.py` içindeki `ASAMA_ORNEK_ADI` + `ornek_adi(asama, cycle_tipi)` bunu
+belirliyor; Jinja global olarak şablonlardan çağrılıyor.
+
+## Silme ekranları
+
+Kalıcı silmeden önce kimliği doğrulayabilmek için her silme ekranı artık
+aşama adı **ve tam kodu** gösteriyor: `Blastokist 1 · 527078-2026-0001-01 · Gün 5`.
+Kaynak resim adı kaldırıldı — yerine örnek kodu ve zaman geldi.

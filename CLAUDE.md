@@ -55,7 +55,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~30 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..021.py   veritabanı göçleri (sırayla)
+  goc_002..022.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -108,6 +108,17 @@ kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)
+
+**Örnek kodu = `<hasta dosya no>-<cycle no>-<sıra>`** (`527078-2026-0001-03`).
+`specimen.id` bunun son iki parçası ve **değişmez** — dört tablonun yabancı
+anahtarı. Kodu `ornek_kodu()` üretir (Jinja global); dosya adlarında da bu
+kullanılır, kaynak resmin adı asla kullanılmaz.
+
+**Oosit → zigot → embriyo aynı örnektir, kod değişmez.** Soyağacı böyle
+korunur ("bu blastokist hangi oositten çıktı"). Değişen sadece ekrandaki
+isim: `ornek_adi(asama, cycle_tipi)` → Oosit / Zigot / Cleavage / Blastokist /
+Embriyo (oosit cryo'da vitrifikasyon-çözme-transferde yine Oosit). Yeni bir
+aşama ekranı yazarsan "Oosit" diye sabit yazma, bu fonksiyonu kullan.
 
 **Görüntü arşive kopyalanır, kaynağa dokunulmaz.** Kamera klasörü
 (`snapshot/`) temizlense de program görüntüyü `arsiv/`'den gösterir.

@@ -21,7 +21,7 @@
   <h2>Bu cycle'da transfer edilen ({{ transferler|length }})</h2>
   {% for t in transferler %}
   <div class="satir" style="cursor:default">
-    <div class="ad"><strong>Oosit {{ t.cycle_sira_no }}</strong>
+    <div class="ad"><strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ t.cycle_sira_no }}</strong>
       {% if t.skor %} · {{ t.skor }}{% endif %}</div>
     <div class="meta">
       {{ t.kaynak }} · {{ 'donmuş' if t.tr_tipi == 'donmus' else 'taze' }} · {{ t.zaman }}

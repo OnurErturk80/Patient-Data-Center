@@ -5,7 +5,7 @@
 <div class="kimlik">
   <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
   <div class="isim">{{ sp.ad_soyad }}</div>
-  <div class="alt">Oosit {{ sp.cycle_sira_no }}</div>
+  <div class="alt">Embriyo {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }}</div>
 </div>
 {% endblock %}
 {% block icerik %}

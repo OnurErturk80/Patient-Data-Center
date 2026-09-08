@@ -24,7 +24,7 @@
   <div class="fsatir">
     {{ kf.kucuk(e) }}
     <div class="bilgi">
-      <div class="ad"><strong>Oosit {{ e.cycle_sira_no }}</strong>
+      <div class="ad"><strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
         {% if e.skor %} · {{ e.skor }}{% endif %}</div>
       <div class="meta">
         {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ e.hasta_cycle_no }}. cycle){% endif %}
@@ -56,7 +56,7 @@
       <span class="kutu"></span>
       {{ kf.kucuk(e) }}
       <span class="bilgi">
-        <strong>Oosit {{ e.cycle_sira_no }}</strong>
+        <strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
         <em>
           {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ e.hasta_cycle_no }}. cycle){% endif %}
           {% if e.skor %} · {{ e.skor }}{% endif %}

@@ -37,6 +37,52 @@ def _islem_yapan_ad(cycle_id, asama):
 sablon.env.globals["islem_yapan_ad"] = _islem_yapan_ad
 
 
+# ------------------------------------------------------- örnek kodu ve aşama adı
+
+# Aşamaya göre örneğin o anki adı. Oosit → zigot → embriyo aynı örnektir
+# (specimen.id değişmez); değişen sadece ekranda yazan isim.
+# None olanlar cycle tipine göre belirlenir: oosit cryo'da donan bir oosittir.
+ASAMA_ORNEK_ADI = {
+    "androloji": "Örnek",
+    "denudasyon": "Oosit",
+    "icsi": "Oosit",
+    "fert": "Zigot",
+    "cleavage": "Cleavage",
+    "blast": "Blastokist",
+    "vitrifikasyon": None,
+    "thaw": None,
+    "transfer": None,
+    "gebelik": None,
+}
+
+
+def _ornek_adi(asama, cycle_tipi=None):
+    """Bu aşamada örneğe ne deniyor: Oosit / Zigot / Cleavage / Blastokist / Embriyo."""
+    ad = ASAMA_ORNEK_ADI.get(asama, "Örnek")
+    if ad is None:
+        ad = "Oosit" if cycle_tipi == "oosit_cryo" else "Embriyo"
+    return ad
+
+
+def _ornek_kodu(specimen_id):
+    """Örneğin tam kodu: `<hasta dosya no>-<cycle no>-<sıra>`.
+
+    `specimen.id` zaten `<cycle no>-<sıra>`; başına hasta dosya numarası
+    eklenir. Birincil anahtar değişmez — bu yalnızca gösterim ve dosya adı için.
+    """
+    if not specimen_id:
+        return ""
+    r = db.tek(
+        "SELECT h.dosya_no FROM specimen s "
+        "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE s.id = ?", (specimen_id,))
+    return f"{r['dosya_no']}-{specimen_id}" if r else str(specimen_id)
+
+
+sablon.env.globals["ornek_adi"] = _ornek_adi
+sablon.env.globals["ornek_kodu"] = _ornek_kodu
+
+
 def bos_ise_none(deger):
     """Boş form alanlarını NULL olarak kaydet, boş metin olarak değil."""
     if deger is None:

@@ -37,7 +37,7 @@
     {% for g in arsiv %}
     <div class="veri">
       <dt style="font-size:13px">{{ etiketler.get(g.asama, g.asama) }}</dt>
-      <dd style="font-size:13px">{{ g.orijinal_dosya_adi or '—' }}
+      <dd style="font-size:13px">{{ g.zaman }}
         <span style="color:var(--ink-3)">· {{ 'kamera' if g.kaynak == 'kamera' else 'elle' }}</span></dd>
     </div>
     {% endfor %}
