@@ -1440,3 +1440,48 @@ Listeleri sonradan düzenlemek: `python liste_duzenle.py sperm_hazirlama` vb.
 
 Hazırlama ve alınma yöntemi listeleri makul bir varsayılanla dolduruldu;
 laboratuvarın kendi listesi netleşince `liste_duzenle.py` ile düzenlenecek.
+
+---
+
+# v6.3 — "İşlemi yapan" alanı (tüm aşamalar)
+
+## Ne eklendi
+
+Her aşama ekranının **en altına**, elle yazılan bir **"İşlemi yapan"** alanı:
+androloji, denüdasyon, ICSI, fertilizasyon, gün 2/3, blastokist, vitrifikasyon,
+çözme, transfer, gebelik.
+
+Kaydı giren kullanıcıdan (`kullanici_id`) ayrıdır — CLAUDE.md'deki "saatler
+sonradan girilebilir" mantığıyla aynı: aşamayı fiilen yapan kişi, bilgisayara
+giren kişi olmayabilir. **Serbest metin** (açılır liste değil) — hesabı olmayan
+biri de yazılabilsin diye. **Aşama başına tek değer**, kaydedince ekranda
+kalır, sonradan düzeltilebilir; değişiklikler `degisiklik_log`'a yazılır.
+
+## Şema
+
+**`goc_020.py`** (idempotent) — yeni tablo:
+
+```
+islem_yapan (id, lab_id, cycle_id, asama, yapan_ad, zaman, kullanici_id)
+UNIQUE (cycle_id, asama)
+```
+
+`sema_guncel.sql`'e de eklendi (sıfırdan kurulum için). Cycle kalıcı silme
+kaskadına `DELETE FROM islem_yapan` eklendi (FK bütünlüğü).
+
+## Nasıl çalışıyor
+
+- Paylaşılan şablon parçası `_islem_yapan.html` → `{{ iy.kutu(c.id, "asama") }}`
+  her aşama şablonunun en altında, `gez.cubuk`'tan hemen önce.
+- Mevcut değer, Jinja global `islem_yapan_ad(cycle_id, asama)` ile okunur —
+  aşama GET rotalarına dokunulmadı.
+- Kaydetme: `POST /cycle/{id}/islem-yapan` (asama + yapan_ad), `Referer`'a
+  geri döner. Geçersiz aşama anahtarı yazılmaz.
+
+## Neden bu tasarım
+
+Değeri her aşama tablosuna (`olay`, `sperm_ornek`, `specimen`...) ayrı kolon
+olarak eklemek ~12 rotayı ve yazma mantığını değiştirmeyi gerektirirdi
+(CLAUDE.md tuzak #1: toplu değişiklik). Bunun yerine tek tablo + tek paylaşılan
+kutu: mevcut kayıt mantığına hiç dokunulmadı, riski düşük, sonradan cycle
+kartında/geçmişte göstermek kolay.

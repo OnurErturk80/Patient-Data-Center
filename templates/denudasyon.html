@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
+{% import "_islem_yapan.html" as iy %}
 {% import "_izgara.html" as izgara %}
 {% block ustbaslik %}Denüdasyon{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
@@ -127,5 +128,6 @@
 </div>
 
 {% include "_buyutec.html" %}
+{{ iy.kutu(c.id, "denudasyon") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

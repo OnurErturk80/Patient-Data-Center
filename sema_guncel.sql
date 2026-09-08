@@ -297,7 +297,20 @@ CREATE TABLE tasiyici (
     UNIQUE (lab_id, etiket)
 );
 
+CREATE TABLE islem_yapan (
+    id           INTEGER PRIMARY KEY,
+    lab_id       INTEGER NOT NULL REFERENCES lab(id),
+    cycle_id     INTEGER NOT NULL REFERENCES cycle(id),
+    asama        TEXT NOT NULL,
+    yapan_ad     TEXT,
+    zaman        TEXT,
+    kullanici_id INTEGER REFERENCES kullanici(id),
+    UNIQUE (cycle_id, asama)
+);
+
 CREATE INDEX idx_bulgu_specimen   ON specimen_bulgu(specimen_id, asama);
+
+CREATE INDEX idx_islem_yapan_cycle ON islem_yapan(cycle_id);
 
 CREATE INDEX idx_cycle_hasta      ON cycle(hasta_id);
 

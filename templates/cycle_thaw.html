@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
+{% import "_islem_yapan.html" as iy %}
 {% block ustbaslik %}Çözme (thaw){% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -59,5 +60,6 @@
 
 {% if c.cycle_tipi != "fet" %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">Vitrifikasyon ekranı</a>{% endif %}
 <a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+{{ iy.kutu(c.id, "thaw") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

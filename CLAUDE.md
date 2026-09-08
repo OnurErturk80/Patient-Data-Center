@@ -55,7 +55,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~30 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..019.py   veritabanı göçleri (sırayla)
+  goc_002..020.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -111,6 +111,13 @@ gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README
 
 **Otomatik skorlar kaynak işaretler.** Elle skor girilirse
 `cl_skor_kaynagi='elle'` yazılır, otomatik hesap onu ezmez.
+
+**"İşlemi yapan" her aşama ekranının altında.** Serbest metin, aşama başına tek
+(`islem_yapan` tablosu, `UNIQUE(cycle_id, asama)`). Kaydı giren `kullanici_id`
+ile karıştırma — biri "kim yaptı", diğeri "kim girdi". Paylaşılan parça
+`_islem_yapan.html`; değer Jinja global `islem_yapan_ad()` ile okunur. Yeni bir
+aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna `{{ iy.kutu(c.id, "<asama>") }}`
+ekle — gerisi otomatik (README v6.3).
 
 ---
 

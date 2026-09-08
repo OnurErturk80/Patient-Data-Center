@@ -23,6 +23,20 @@ TIP_KISA = {"ivf_icsi": "IVF/ICSI", "fet": "FET", "oosit_cryo": "Oosit cryo",
 sablon.env.globals["tip_kisa"] = lambda kod: TIP_KISA.get(kod, kod or "")
 
 
+def _islem_yapan_ad(cycle_id, asama):
+    """Bir cycle aşamasını fiilen yapan kişinin adı (yoksa boş).
+
+    Şablondan `islem_yapan_ad(c.id, "denudasyon")` diye çağrılır; `_islem_yapan`
+    kutusu her aşama ekranının altında bunu gösterir.
+    """
+    r = db.tek("SELECT yapan_ad FROM islem_yapan WHERE cycle_id = ? AND asama = ?",
+               (cycle_id, asama))
+    return r["yapan_ad"] if r and r["yapan_ad"] else ""
+
+
+sablon.env.globals["islem_yapan_ad"] = _islem_yapan_ad
+
+
 def bos_ise_none(deger):
     """Boş form alanlarını NULL olarak kaydet, boş metin olarak değil."""
     if deger is None:
@@ -754,6 +768,35 @@ async def androloji_kaydet(request: Request, cycle_id: int):
 
     return RedirectResponse(f"/cycle/{cycle_id}/androloji?ornek={oid}",
                             status_code=303)
+
+
+# ----------------------------------------------------------------- işlemi yapan
+
+@uygulama.post("/cycle/{cycle_id}/islem-yapan")
+async def islem_yapan_kaydet(request: Request, cycle_id: int):
+    f = dict(await request.form())
+    asama = (f.get("asama") or "").strip()
+    yapan = bos_ise_none(f.get("yapan_ad"))
+    kid = request.state.kullanici["id"]
+    c = db.tek("SELECT id FROM cycle WHERE id = ?", (cycle_id,))
+    gecerli_asamalar = {a[0] for a in ASAMA_SIRASI}
+    if c and asama in gecerli_asamalar:
+        simdi = _dt.now().isoformat(" ", "seconds")
+        mevcut = db.tek(
+            "SELECT * FROM islem_yapan WHERE cycle_id = ? AND asama = ?",
+            (cycle_id, asama))
+        if mevcut:
+            guvenlik.degisiklikleri_yaz("islem_yapan", mevcut["id"], mevcut,
+                                        {"yapan_ad": yapan}, kid)
+            db.yaz("UPDATE islem_yapan SET yapan_ad = ?, zaman = ?, "
+                   "kullanici_id = ? WHERE id = ?",
+                   (yapan, simdi, kid, mevcut["id"]))
+        else:
+            db.yaz("INSERT INTO islem_yapan (lab_id, cycle_id, asama, yapan_ad, "
+                   "zaman, kullanici_id) VALUES (?,?,?,?,?,?)",
+                   (db.LAB_ID, cycle_id, asama, yapan, simdi, kid))
+    geri = request.headers.get("referer") or f"/cycle/{cycle_id}"
+    return RedirectResponse(geri, status_code=303)
 
 
 @uygulama.get("/dosya/{goruntu_id}")
@@ -2782,6 +2825,7 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
     db.yaz("DELETE FROM sperm_analiz WHERE sperm_ornek_id IN "
            "(SELECT id FROM sperm_ornek WHERE cycle_id=?)", (cycle_id,))
     db.yaz("DELETE FROM sperm_ornek WHERE cycle_id=?", (cycle_id,))
+    db.yaz("DELETE FROM islem_yapan WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM specimen WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM cycle WHERE id=?", (cycle_id,))
 
