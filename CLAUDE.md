@@ -167,8 +167,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    değişecek — ona sor.
 6. **Bozuk tarih** — bir cycle'da OPU tarihi `0026-09-04` (yıl 4 haneli değil).
    Düzeltilmeli.
-7. `goc_018.py` (endikasyon kopyalarını birleştirir) kullanıcının makinesinde
-   henüz çalıştırılmadı.
+
+`goc_018.py` (endikasyon kopyalarını birleştirir) 2026-09-08'de bu makinede
+çalıştırıldı: `erkek faktoru` ve `tubal faktor` serbest metinleri resmi
+kodlara birleştirildi, endikasyon listesi 19 → 17 satır. Hiçbir cycle etkilenmedi.
 
 ---
 
