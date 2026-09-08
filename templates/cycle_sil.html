@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Cycle'ı iptal et veya sil{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+  <div class="alt">{% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle{% endif %}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+<div class="kart">
+  <h2>Bu cycle'a bağlı kayıtlar</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>Oosit / embriyo</dt><dd>{{ s.oosit }}</dd></div>
+    <div class="veri"><dt>İşlem kaydı</dt><dd>{{ s.olay }}</dd></div>
+    <div class="veri"><dt>Bulgu</dt><dd>{{ s.bulgu }}</dd></div>
+    <div class="veri"><dt>Fotoğraf</dt><dd>{{ s.goruntu }}</dd></div>
+    <div class="veri"><dt>Sperm örneği</dt><dd>{{ s.sperm }}</dd></div>
+    <div class="veri"><dt>Taşıyıcı</dt><dd>{{ s.tasiyici }}</dd></div>
+    <div class="veri"><dt>PGT sonucu</dt><dd>{{ s.pgt }}</dd></div>
+    <div class="veri"><dt>Gebelik sonucu</dt><dd>{{ s.gebelik }}</dd></div>
+  </dl>
+</div>
+
+{% if transferler %}
+<div class="tehlike">
+  <strong>Bu kayıt kalıcı olarak silinemez.</strong><br>
+  {{ transferler|length }} transfer kaydı var. Transfere gitmiş embriyo içeren
+  kayıtlar silinemez — hasta tedavi görmüş ve sonucu takip ediliyor olabilir.
+</div>
+
+<div class="kart">
+  <h2>Transfer kayıtları</h2>
+  {% for t in transferler %}
+  <div class="satir" style="cursor:default">
+    <div class="ad">{{ t.kaynak_cycle }} · oosit {{ t.cycle_sira_no }}</div>
+    <div class="meta">
+      {{ t.zaman }}{% if t.transfer_cycle and t.transfer_cycle != t.kaynak_cycle %}
+      · {{ t.transfer_cycle }} cycle'ında transfer{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<form method="post" action="/cycle/{{ c.id }}/sil" id="silform">
+
+  <div class="kart">
+    <h2>Ne yapılsın?</h2>
+    <label class="secsatir">
+      <input type="radio" name="eylem" value="iptal" checked>
+      <span class="kutu"></span>
+      <span class="bilgi">
+        <strong>{{ 'İptalde kalsın' if c.durum == 'iptal' else 'İptal et' }}</strong>
+        <em>Veriler korunur, cycle "iptal" işaretlenir. Lab kayıt numarası
+        başka kayda verilmez. Geri alınabilir.</em>
+      </span>
+    </label>
+    {% if not transferler %}
+    <label class="secsatir">
+      <input type="radio" name="eylem" value="sil">
+      <span class="kutu"></span>
+      <span class="bilgi">
+        <strong>Kalıcı olarak sil</strong>
+        <em>Cycle, oositleri, işlem kayıtları, fotoğrafları ve gebelik sonucu
+        silinir. Lab kayıt numarası boşa düşer. Geri alınamaz.</em>
+      </span>
+    </label>
+    {% endif %}
+  </div>
+
+  <div id="silUyari" hidden>
+    <div class="tehlike">
+      <strong>Bu işlem geri alınamaz.</strong><br>
+      {{ s.oosit }} oosit, {{ s.olay }} işlem kaydı ve {{ s.goruntu }} fotoğraf
+      kalıcı olarak silinecek. Arşivdeki dosyalar diskten kaldırılacak.
+      {% if s.tasiyici %}
+      Bu cycle'ın embriyolarını tutan {{ s.tasiyici }} taşıyıcı boşalacak ve
+      konumları haritada serbest kalacak.
+      {% endif %}
+    </div>
+    <div class="uyari">
+      Klinik kayıtların saklanmasına ilişkin yükümlülükler var. Kalıcı silmeyi
+      yalnızca yanlış açılmış kayıtlar veya hukuken gerekli hallerde kullan;
+      şüphedeysen iptal et.
+    </div>
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="onay">1. Lab kayıt numarasını yaz: <strong>{{ c.cycle_no }}</strong></label>
+      <input id="onay" name="onay" type="text" required autocomplete="off"
+             placeholder="{{ c.cycle_no }}">
+    </div>
+    <div class="alan" id="onay2alan" hidden>
+      <label for="onay2">2. Onaylamak için <strong>SIL</strong> yaz</label>
+      <input id="onay2" name="onay2" type="text" autocomplete="off"
+             autocapitalize="characters" placeholder="SIL">
+    </div>
+  </div>
+
+  <button class="dugme" id="gonder" type="submit">İptal et</button>
+</form>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">Vazgeç</a>
+
+<script>
+(function () {
+  var uyari = document.getElementById('silUyari');
+  var onay2 = document.getElementById('onay2alan');
+  var dugme = document.getElementById('gonder');
+  document.querySelectorAll('input[name="eylem"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      document.querySelectorAll('.secsatir').forEach(function (l) {
+        l.classList.toggle('secili', l.querySelector('input').checked);
+      });
+      var sil = document.querySelector('input[name="eylem"]:checked').value === 'sil';
+      uyari.hidden = !sil;
+      onay2.hidden = !sil;
+      document.getElementById('onay2').required = sil;
+      dugme.textContent = sil ? 'Kalıcı olarak sil' : 'İptal et';
+      dugme.classList.toggle('tehlikeli', sil);
+    });
+  });
+  document.getElementById('silform').addEventListener('submit', function (e) {
+    if (document.querySelector('input[name="eylem"]:checked').value !== 'sil') return;
+    if (!confirm('{{ s.oosit }} oosit ve {{ s.goruntu }} fotoğraf kalıcı olarak ' +
+                 'silinecek. Bu işlem geri alınamaz. Devam edilsin mi?')) {
+      e.preventDefault();
+    }
+  });
+})();
+</script>
+{% endblock %}

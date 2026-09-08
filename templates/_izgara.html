@@ -1,0 +1,117 @@
+{% macro oosit_izgara(kayitli) %}
+<div class="izgara">
+  {% for s in kayitli %}
+  <div class="hucre">
+    <button type="button" class="kk{% if not s.ilk_goruntu %} bos{% endif %}"
+            data-idler="{{ s.goruntu_idler or '' }}" data-no="{{ s.cycle_sira_no }}"
+            data-sid="{{ s.id }}" aria-expanded="false" aria-controls="satirfoto"
+            aria-label="Oosit {{ s.cycle_sira_no }}">
+      {% if s.ilk_goruntu %}
+      <img src="/dosya/{{ s.ilk_goruntu }}" alt="Oosit {{ s.cycle_sira_no }}">
+      {% if s.kare > 1 %}<span class="kare">{{ s.kare }}</span>{% endif %}
+      {% else %}
+      <span class="foto-yok">fotoğrafsız</span>
+      {% endif %}
+    </button>
+    <div class="alt">{{ s.cycle_sira_no }}{% if s.taraf %}<span class="tar">{{ 'S' if s.taraf == 'sag' else 'L' }}</span>{% endif %}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="satirfoto" id="satirfoto" hidden>
+  <div class="sfust">
+    <span id="sfbilgi"></span>
+    <button type="button" id="sfkapat" aria-label="Kapat">&times;</button>
+  </div>
+  <img id="sfimg" alt="">
+  <div class="sfbossuz" id="sfbossuz" hidden>Bu oosite ait fotoğraf yok.</div>
+  <div class="sfbar" id="sfbar">
+    <button type="button" id="sfonce" aria-label="Önceki kare">&#8249;</button>
+    <button type="button" id="sftam" class="sftam">Tam ekran</button>
+    <button type="button" id="sfsonra" aria-label="Sonraki kare">&#8250;</button>
+  </div>
+  <div class="sftaraf">
+    <span>Over:</span>
+    <form method="post" action="#" id="sftaraff">
+      <input type="hidden" name="geri" value="">
+      <button type="submit" name="taraf" value="sag">Sağ</button>
+      <button type="submit" name="taraf" value="sol">Sol</button>
+      <button type="submit" name="taraf" value="">—</button>
+    </form>
+  </div>
+  <div class="sfalt">
+    <a id="sfsil" href="#">Bu fotoğrafı sil</a>
+    <a id="sfoositsil" href="#">Oositi sil</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  var panel = document.getElementById('satirfoto');
+  var img = document.getElementById('sfimg');
+  var bossuz = document.getElementById('sfbossuz');
+  var bar = document.getElementById('sfbar');
+  var bilgi = document.getElementById('sfbilgi');
+  var once = document.getElementById('sfonce');
+  var sonra = document.getElementById('sfsonra');
+  var sil = document.getElementById('sfsil');
+  var oositSil = document.getElementById('sfoositsil');
+  var idler = [], sira = 0, no = '', sid = '', acikDugme = null;
+
+  function ciz() {
+    bilgi.textContent = idler.length > 1
+      ? 'Oosit ' + no + ' — kare ' + (sira + 1) + '/' + idler.length
+      : 'Oosit ' + no;
+    oositSil.href = '/specimen/' + sid + '/sil';
+    var tf = document.getElementById('sftaraff');
+    if (tf) {
+      tf.action = '/specimen/' + sid + '/taraf';
+      tf.querySelector('input[name="geri"]').value = location.pathname + location.search;
+    }
+
+    if (!idler.length) {
+      img.hidden = true; img.src = '';
+      bossuz.hidden = false; bar.hidden = true; sil.hidden = true;
+      return;
+    }
+    img.hidden = false; bossuz.hidden = true; bar.hidden = false; sil.hidden = false;
+    img.src = '/dosya/' + idler[sira];
+    img.alt = 'Oosit ' + no + ', kare ' + (sira + 1);
+    sil.href = '/goruntu/' + idler[sira] + '/sil';
+    once.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
+    sonra.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
+  }
+  function kapat() {
+    panel.hidden = true; img.src = '';
+    if (acikDugme) { acikDugme.setAttribute('aria-expanded', 'false');
+                     acikDugme.classList.remove('secili'); acikDugme = null; }
+  }
+  function ac(dugme) {
+    if (acikDugme === dugme) { kapat(); return; }
+    if (acikDugme) { acikDugme.setAttribute('aria-expanded', 'false');
+                     acikDugme.classList.remove('secili'); }
+    acikDugme = dugme;
+    dugme.setAttribute('aria-expanded', 'true');
+    dugme.classList.add('secili');
+    idler = (dugme.dataset.idler || '').split(',').filter(Boolean);
+    no = dugme.dataset.no; sid = dugme.dataset.sid; sira = 0;
+    ciz();
+    panel.hidden = false;
+  }
+
+  document.querySelectorAll('.kk').forEach(function (b) {
+    b.addEventListener('click', function () { ac(b); });
+  });
+  once.addEventListener('click', function () {
+    sira = (sira - 1 + idler.length) % idler.length; ciz();
+  });
+  sonra.addEventListener('click', function () {
+    sira = (sira + 1) % idler.length; ciz();
+  });
+  document.getElementById('sfkapat').addEventListener('click', kapat);
+  document.getElementById('sftam').addEventListener('click', function () {
+    if (window.buyutecAc && idler.length) window.buyutecAc(idler, no, sira);
+  });
+})();
+</script>
+{% endmacro %}

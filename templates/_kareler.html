@@ -1,0 +1,19 @@
+{% macro serit(kareler, sp, c, asama, geri) %}
+{% if kareler %}
+<div class="karestrip">
+  {% for g in kareler %}
+  <div class="fkare">
+    <button type="button" class="kfoto stripkare"
+            data-idler="{{ kareler|map(attribute='id')|join(',') }}"
+            data-baslangic="{{ loop.index0 }}" data-no="{{ sp.cycle_sira_no }}"
+            aria-label="Kare {{ loop.index }}">
+      <img src="/dosya/{{ g.id }}" alt="Kare {{ loop.index }}">
+    </button>
+    <a class="fsil" href="/goruntu/{{ g.id }}/sil?geri={{ geri|urlencode }}"
+       aria-label="Bu kareyi sil" title="Bu kareyi sil">&times;</a>
+  </div>
+  {% endfor %}
+</div>
+<div class="karebilgi">{{ kareler|length }} kare · bu aşamada</div>
+{% endif %}
+{% endmacro %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Cycle arşivini sil{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if not arsiv %}
+<div class="kart"><div class="bos">Bu cycle'ın arşivinde fotoğraf yok.</div></div>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">Geri dön</a>
+{% else %}
+
+<div class="tehlike">
+  <strong>{{ arsiv|length }} fotoğraf kalıcı olarak silinecek.</strong><br>
+  Yalnızca oosite bağlanmamış arşiv fotoğrafları silinir. Oositlere bağlı
+  fotoğraflar etkilenmez. Geri alınamaz.
+</div>
+
+<div class="kart">
+  <h2>Silinecek fotoğraflar</h2>
+  <div class="fkareler" style="padding:12px;justify-content:flex-start">
+    {% for g in arsiv %}
+    <div class="fkare">
+      <button type="button" class="kfoto arsivfoto"
+              data-idler="{{ arsiv|map(attribute='id')|join(',') }}"
+              data-baslangic="{{ loop.index0 }}" data-no="arşiv">
+        <img src="/dosya/{{ g.id }}" alt="Arşiv fotoğrafı {{ loop.index }}">
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+  <dl style="margin:0">
+    {% for g in arsiv %}
+    <div class="veri">
+      <dt style="font-size:13px">{{ etiketler.get(g.asama, g.asama) }}</dt>
+      <dd style="font-size:13px">{{ g.orijinal_dosya_adi or '—' }}
+        <span style="color:var(--ink-3)">· {{ 'kamera' if g.kaynak == 'kamera' else 'elle' }}</span></dd>
+    </div>
+    {% endfor %}
+  </dl>
+</div>
+
+<div class="uyari">
+  Kameradan gelen fotoğraflarda kaynak klasördeki orijinal dosyaya dokunulmaz;
+  dosyalar tekrar eşleştirilebilir hale gelir.
+</div>
+
+<form method="post" action="/cycle/{{ c.id }}/arsiv-sil">
+  <div class="kart">
+    <div class="alan">
+      <label for="onay">Onaylamak için fotoğraf sayısını yaz:
+        <strong>{{ arsiv|length }}</strong></label>
+      <input id="onay" name="onay" type="number" inputmode="numeric" required
+             autocomplete="off" placeholder="{{ arsiv|length }}">
+    </div>
+  </div>
+  <button class="dugme tehlikeli" type="submit">
+    {{ arsiv|length }} fotoğrafı sil</button>
+</form>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">Vazgeç</a>
+{% endif %}
+
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.arsivfoto').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
+  });
+});
+</script>
+{% endblock %}

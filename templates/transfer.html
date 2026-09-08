@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% import "_gezinme.html" as gez %}
+{% import "_kucukfoto.html" as kf %}
+{% block ustbaslik %}Transfer{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+  <div class="alt">
+    {% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
+  </div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+{% if edilen %}
+<div class="kart">
+  <h2>Bu cycle'da transfer edilenler ({{ edilen|length }})</h2>
+  {% for e in edilen %}
+  <div class="fsatir">
+    {{ kf.kucuk(e) }}
+    <div class="bilgi">
+      <div class="ad"><strong>Oosit {{ e.cycle_sira_no }}</strong>
+        {% if e.skor %} · {{ e.skor }}{% endif %}</div>
+      <div class="meta">
+        {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ e.hasta_cycle_no }}. cycle){% endif %}
+        · {{ 'donmuş' if e.tr_tipi == 'donmus' else 'taze' }}
+      </div>
+      <div class="meta">{{ e.zaman }}</div>
+      <div class="meta" style="margin-top:6px">
+        <a href="/specimen/{{ e.id }}/transfer-sil" style="color:#a11f1f">kaydı geri al</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not adaylar %}
+<div class="kart"><div class="bos">
+  Transfer edilebilir embriyo yok.<br>
+  Taze embriyolar blastokist/gün 3 aşamasında, dondurulmuşlar çözüldükten sonra listelenir.
+</div></div>
+{% else %}
+
+<form method="post" action="/cycle/{{ c.id }}/transfer" id="trform">
+  <div class="kart">
+    <h2>Transfer edilecek embriyolar</h2>
+    {% for e in adaylar %}
+    <label class="secsatir">
+      <input type="checkbox" name="embriyo" value="{{ e.id }}">
+      <span class="kutu"></span>
+      {{ kf.kucuk(e) }}
+      <span class="bilgi">
+        <strong>Oosit {{ e.cycle_sira_no }}</strong>
+        <em>
+          {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ e.hasta_cycle_no }}. cycle){% endif %}
+          {% if e.skor %} · {{ e.skor }}{% endif %}
+          {% if e.thaw == 'canli' %} · çözülmüş{% elif e.thaw %} · çözülmüş ({{ e.thaw|replace('_',' ') }}){% endif %}
+        </em>
+      </span>
+    </label>
+    {% endfor %}
+    <div class="alan" style="border:0">
+      <div class="ipucu">
+        Hastanın tüm cycle'larından uygun embriyolar listelenir.
+        Çözülmüş embriyolar "donmuş transfer", diğerleri "taze" olarak kaydedilir.
+      </div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="islem_zamani">Transfer saati</label>
+      <input id="islem_zamani" name="islem_zamani" type="datetime-local" value="{{ simdi }}">
+    </div>
+  </div>
+
+  <button class="dugme" type="submit">Transferi kaydet</button>
+</form>
+{% endif %}
+
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">Cycle kartına dön</a>
+
+{% include "_buyutec.html" %}
+{{ kf.baglama() }}
+<script>
+document.querySelectorAll('.secsatir input').forEach(function (i) {
+  i.addEventListener('change', function () {
+    i.closest('.secsatir').classList.toggle('secili', i.checked);
+  });
+});
+</script>
+{{ gez.cubuk(c, gezinme) }}
+{% endblock %}

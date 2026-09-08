@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Görüntüyü sil{% endblock %}
+{% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ g.dosya_no }}<span class="rozet">{{ g.cycle_no }}</span></div>
+  <div class="isim">{{ g.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+<div class="tehlike">
+  <strong>Bu görüntü kalıcı olarak silinecek.</strong><br>
+  Oosit kaydı silinmez, yalnızca bu fotoğraf.
+  {% if g.kaynak == 'kamera' %}
+  Kamera klasöründeki orijinal dosyaya dokunulmaz; dosya tekrar eşleştirilebilir hale gelir.
+  {% endif %}
+</div>
+
+<div class="kart">
+  <img src="/dosya/{{ g.id }}" alt="Silinecek görüntü"
+       style="display:block;width:100%;background:#0d1419">
+  <dl style="margin:0">
+    <div class="veri"><dt>Oosit</dt>
+      <dd>{% if g.cycle_sira_no %}{{ g.cycle_sira_no }}{% else %}bağlı değil{% endif %}</dd></div>
+    <div class="veri"><dt>Aşama</dt><dd>{{ asama_adi }}</dd></div>
+    <div class="veri"><dt>Kaynak</dt>
+      <dd>{{ 'Mikroskop kamerası' if g.kaynak == 'kamera' else 'Elle yüklendi' }}</dd></div>
+    <div class="veri"><dt>Dosya</dt><dd style="font-size:13px">{{ g.orijinal_dosya_adi or '—' }}</dd></div>
+    <div class="veri"><dt>Zaman</dt><dd>{{ g.zaman }}</dd></div>
+  </dl>
+</div>
+
+<form method="post" action="/goruntu/{{ g.id }}/sil">
+  <input type="hidden" name="geri" value="{{ geri }}">
+  <button class="dugme tehlikeli" type="submit">Görüntüyü sil</button>
+</form>
+<a class="dugme ikincil" href="{{ geri }}">Vazgeç</a>
+{% endblock %}

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block baslik %}Lab Kayıt{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="ust">
+  {% block geri %}{% endblock %}
+  <h1>{% block ustbaslik %}Lab Kayıt{% endblock %}</h1>
+  <span class="sag">{% block ustsag %}{% endblock %}</span>
+</div>
+{% block kimlik %}{% endblock %}
+<div class="kap">
+{% block icerik %}{% endblock %}
+</div>
+</body>
+</html>

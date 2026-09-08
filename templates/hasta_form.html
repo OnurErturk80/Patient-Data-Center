@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Yeni hasta{% endblock %}
+{% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block icerik %}
+<div class="uyari" id="mukerrer" hidden></div>
+
+<form method="post" action="/hasta/yeni">
+  <div class="kart">
+    <div class="alan">
+      <label for="dosya_no">Dosya no</label>
+      <input id="dosya_no" name="dosya_no" type="number" inputmode="numeric"
+             required autofocus value="{{ dosya_no }}">
+      <div class="ipucu">Aynı dosya no ikinci kez kaydedilemez.</div>
+    </div>
+    <div class="alan">
+      <label for="ad_soyad">Ad soyad</label>
+      <input id="ad_soyad" name="ad_soyad" type="text" required autocomplete="off">
+    </div>
+    <div class="alan">
+      <label for="dogum_tarihi">Doğum tarihi</label>
+      <input id="dogum_tarihi" name="dogum_tarihi" type="date">
+      <div class="ipucu">Yaş bundan hesaplanır, ayrıca girilmez.</div>
+    </div>
+    <div class="alan">
+      <label for="es_adi">Eş adı</label>
+      <input id="es_adi" name="es_adi" type="text" autocomplete="off">
+    </div>
+    <div class="alan">
+      <label for="es_dogum_tarihi">Eş doğum tarihi</label>
+      <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date">
+    </div>
+    <div class="alan">
+      <label for="notlar">Not</label>
+      <textarea id="notlar" name="notlar"></textarea>
+    </div>
+  </div>
+  <button class="dugme" type="submit">Hastayı kaydet</button>
+</form>
+
+<script>
+const alan = document.getElementById('dosya_no');
+const kutu = document.getElementById('mukerrer');
+let zamanlayici;
+alan.addEventListener('input', () => {
+  clearTimeout(zamanlayici);
+  zamanlayici = setTimeout(async () => {
+    if (!alan.value) { kutu.hidden = true; return; }
+    const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(alan.value));
+    const s = await y.json();
+    if (s.var) {
+      kutu.innerHTML = 'Bu dosya no zaten kayıtlı: <strong>' + s.ad_soyad +
+        '</strong> &mdash; <a href="/hasta/' + s.id + '">kaydı aç</a>';
+      kutu.hidden = false;
+    } else { kutu.hidden = true; }
+  }, 350);
+});
+</script>
+{% endblock %}

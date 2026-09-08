@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Gün {{ gun }} kaydını sil{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}/cleavage?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
+  <div class="isim">{{ sp.ad_soyad }}</div>
+  <div class="alt">Oosit {{ sp.cycle_sira_no }} · Gün {{ gun }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if not kayit and not bulgular %}
+<div class="kart"><div class="bos">
+  Bu oosite ait kaydedilmiş gün {{ gun }} kaydı yok.
+</div></div>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/cleavage?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">Geri dön</a>
+{% else %}
+
+<div class="tehlike">
+  <strong>Gün {{ gun }} değerlendirmesi temizlenecek.</strong><br>
+  Oosit, fotoğrafları ve diğer aşamaların kayıtları durur.
+</div>
+
+<div class="kart">
+  <h2>Silinecek kayıt</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>Hücre sayısı</dt>
+      <dd {% if not (kayit and kayit.cl_hucre_sayisi is not none) %}class="yok"{% endif %}>
+        {{ kayit.cl_hucre_sayisi if kayit and kayit.cl_hucre_sayisi is not none else 'yok' }}</dd></div>
+    <div class="veri"><dt>Simetri</dt>
+      <dd {% if not (kayit and kayit.cl_simetri) %}class="yok"{% endif %}>
+        {{ etiketler.get(kayit.cl_simetri, kayit.cl_simetri) if kayit and kayit.cl_simetri else 'yok' }}</dd></div>
+    <div class="veri"><dt>Fragmentasyon</dt>
+      <dd {% if not (kayit and kayit.cl_fragmentasyon is not none) %}class="yok"{% endif %}>
+        {{ (kayit.cl_fragmentasyon ~ '%') if kayit and kayit.cl_fragmentasyon is not none else 'yok' }}</dd></div>
+    <div class="veri"><dt>Skor</dt>
+      <dd {% if not (kayit and kayit.cl_skor) %}class="yok"{% endif %}>
+        {{ kayit.cl_skor if kayit and kayit.cl_skor else 'yok' }}</dd></div>
+    <div class="veri"><dt>Bulgular</dt>
+      <dd {% if not bulgular %}class="yok"{% endif %}>{{ bulgular|join(', ') if bulgular else 'yok' }}</dd></div>
+    {% if kayit %}
+    <div class="veri"><dt>Kaydedilme</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
+    {% endif %}
+  </dl>
+</div>
+
+<form method="post" action="/specimen/{{ sp.id }}/cleavage-sil">
+  <input type="hidden" name="gun" value="{{ gun }}">
+  <button class="dugme tehlikeli" type="submit">Gün {{ gun }} kaydını sil</button>
+</form>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/cleavage?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">Vazgeç</a>
+{% endif %}
+{% endblock %}

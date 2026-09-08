@@ -1,0 +1,177 @@
+# Lab Kayıt — proje belleği
+
+Bu dosyayı her oturumda oku. Tasarım kararlarının **gerekçeleri** `README.md`
+içinde, sürüm sürüm yazılmış. Bir davranışı değiştirmeden önce oradaki ilgili
+bölümü oku — çoğu "tuhaf" görünen karar bilinçli.
+
+---
+
+## Proje nedir
+
+IVF laboratuvarı için hasta / cycle / oosit kayıt sistemi. Klinikte bir mini PC
+üzerinde yerel sunucu olarak çalışır, personel iç ağdan telefonla girer.
+Mikroskop kamerası bir klasöre snapshot atar, program o kareleri oositlere
+bağlar ve arşivler.
+
+**Kullanıcı:** 22 yıllık embriyolog, Python'a yeni başlamış. Kod açıklamaları ve
+arayüz Türkçe; klinik terimler İngilizce kalır (blastocyst, ICSI, PN, ICM, TE,
+re-expansion, FET). Kullanıcı klinik doğruluk konusunda uzman, kod konusunda
+öğrenci — teknik kararları açıklayarak ver, klinik kararlarda ona sor.
+
+**Durum:** çalışır halde, gerçek hasta verisi henüz girilmedi.
+
+---
+
+## Çalıştırma
+
+```bash
+cd app
+python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Mac
+python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
+```
+
+Bağımlılıklar: `fastapi uvicorn jinja2 python-multipart`. Python 3.10+.
+
+Veritabanı göçleri: `python3 goc_hepsi.py` (idempotent, sırayla hepsini
+çalıştırır). `goc_002.py` soru sorduğu için ayrıdır, elle çalıştırılır.
+
+---
+
+## Mimari
+
+SQLite + FastAPI + Jinja2. Framework yok, ORM yok, build adımı yok. Mobil
+öncelikli responsive HTML.
+
+```
+app/
+  app.py            ~2900 satır — TÜM rotalar burada
+  db.py             bağlantı ve yardımcılar
+  guvenlik.py       oturum / kullanıcı
+  goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
+  templates/        ~30 Jinja2 şablonu
+  static/style.css  tüm görsel tasarım
+  goc_002..018.py   veritabanı göçleri (sırayla)
+  goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
+  teshis.py         genel sorun teşhisi
+  teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
+  liste_duzenle.py  seçim listelerini görüntüle / temizle
+  yerel_kur.py      bu makinenin klasör yollarını ayarlar
+  sifirdan_kur.py   boş veritabanı
+  yedek.py          yedekleme (HENÜZ KURULMADI)
+  sema_guncel.sql   güncel şema referansı
+```
+
+---
+
+## Klinik akış
+
+`Denüdasyon → ICSI → Fertilizasyon → Gün 2/3 → Blastokist (gün 4-7) →
+Vitrifikasyon → Çözme → Transfer → Gebelik sonucu`
+
+Tedavi tipine göre hangi aşamaların görüneceği değişir:
+- `ivf_icsi` → 9 aşamanın hepsi
+- `fet` → çözme, transfer, gebelik
+- `oosit_cryo` → denüdasyon, vitrifikasyon, çözme
+
+Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, transfer yok).
+
+---
+
+## Değişmeyen kurallar
+
+**Hasta kimliği her ekranda görünür.** Yanlış hasta bu işin en pahalı hatası.
+Üst çubuk sticky, dosya no koyu bantta.
+
+**İşlem saatleri elle girilebilir.** Her aşamada varsayılan "şu an", ama
+değiştirilebilir — personel işlemi yaparken değil sonra kaydediyor olabilir.
+Bu özelliği asla kaldırma.
+
+**Boş alan NULL kaydedilir**, boş metin değil. "Girilmedi" ile "sıfır/yok"
+ayırt edilebilsin diye.
+
+**Silme = iptal işaretleme.** Normal akışta fiziksel silme yok. Kalıcı silme
+ayrı, bilinçli bir yol: dosya no yaz → `SIL` yaz → tarayıcı onayı.
+**Transfer kaydı olan hasta/cycle kalıcı silinemez** — ekranda seçenek
+görünmez, sunucu da reddeder. Bu kuralı gevşetme.
+
+**Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
+kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
+
+**Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
+gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)
+
+**Otomatik skorlar kaynak işaretler.** Elle skor girilirse
+`cl_skor_kaynagi='elle'` yazılır, otomatik hesap onu ezmez.
+
+---
+
+## İki makine
+
+Kullanıcı aynı programı Mac'te (evde) ve Windows mini PC'de (klinikte)
+çalıştırıyor.
+
+`yerel_ayar.json` **makine adına göre bölümlenmiştir** (`platform.node()`).
+Her bilgisayarın kendi bölümü, tek dosyada. Varsayılan yollar uygulama
+klasörüne göreli (`app/snapshot`, `app/arsiv`), otomatik oluşturulur. Kayıtlı
+bir yol bu makinede yoksa sessizce varsayılana döner.
+
+**Bu dosyayı git'e ekleme.** Ayrıca `lab.db` ve `arsiv/` de git'e girmez —
+onlar veri, USB ile taşınır.
+
+**Kural:** aynı anda tek kopyaya kayıt gir. Birleştirme mümkün değil.
+
+---
+
+## Bilinen tuzaklar
+
+Bunlar gerçekten başa geldi, tekrarlanmasın:
+
+1. **Toplu metin değiştirme yapma.** `taraf` değişkeni eklenirken aynı kalıp
+   başka bir rotada da eşleşti ve denüdasyon zamanı kaydı bozuldu. `app.py`
+   içinde aynı kalıp defalarca geçiyor — hedefi daralt, değişiklikten sonra
+   uygulamayı çalıştır.
+
+2. **Import'ları koşullu dalların içine bırakma.** `_d` importu boş bir if
+   dalının altında kaldı, boş cycle'da ICSI ekranı 500 verdi.
+
+3. **Göç yazdıysan kullanıcının çalıştırdığını varsayma.** Gün 4/6/7 eksik
+   görünmesinin sebebi göçün çalıştırılmamasıydı. Ekranlarda göç uyarısı var,
+   yeni göçlerde de aynısını ekle.
+
+4. **`kaynak_dosya.cycle_id` silme kaskadını kırar.** Denüdasyonda "Atla"
+   denen kareler cycle'a bağlı satır bırakıyor. Yeni bir tabloya `cycle_id`
+   eklersen kalıcı silme adımlarına da ekle, yoksa FOREIGN KEY hatası.
+
+5. **Şablon değişikliği sessizce tutmayabilir.** Değiştirdiğin ekranı tarayıcıda
+   gerçekten aç.
+
+---
+
+## Bekleyen işler
+
+1. **Biyopsi / PGT modülü** — tek kalan ana modül. Biyopsi kaydı, tüp etiketi,
+   haftalar sonra gelen genetik sonucun eşleştirilmesi. `pgt_sonuc` tablosu
+   şemada hazır, kullanılmıyor.
+2. **Yedekleme kurulmadı.** `yedek.py` / `yedek.bat` / `goc_008.py` hazır ama
+   kurulmadı. **Gerçek hasta verisi girmeden önce kurulmalı.**
+3. **HTTPS yok** — iç ağ dışına açılmamalı.
+4. **Kullanıcı yönetimi ekranı yok** — Python'dan yapılıyor.
+5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
+   ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
+   değişecek — ona sor.
+6. **Bozuk tarih** — bir cycle'da OPU tarihi `0026-09-04` (yıl 4 haneli değil).
+   Düzeltilmeli.
+7. `goc_018.py` (endikasyon kopyalarını birleştirir) kullanıcının makinesinde
+   henüz çalıştırılmadı.
+
+---
+
+## Nasıl çalışılsın
+
+- Değişiklikten sonra uygulamayı **çalıştır** ve ilgili ekranı aç.
+- Şema değişikliği gerekiyorsa **yeni bir `goc_0XX.py` yaz**, mevcut göçü
+  değiştirme — kullanıcının veritabanında eskiler zaten çalışmış olabilir.
+  Göçler idempotent olmalı.
+- Yeni bir sürüm bitince `README.md`'ye o sürümün bölümünü ekle: ne değişti ve
+  **neden**. Bu dosya projenin hafızası.
+- Klinik bir varsayım yapman gerekiyorsa yapma — kullanıcıya sor. O embriyolog.

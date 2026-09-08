@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% import "_gezinme.html" as gez %}
+{% import "_izgara.html" as izgara %}
+{% block ustbaslik %}Denüdasyon{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if not klasor_var %}
+<div class="uyari">
+  Kamera klasörü bulunamadı:<br><code style="font-size:12px">{{ klasor }}</code><br>
+  Ayarlardan düzeltilmeli.
+</div>
+{% endif %}
+
+<div class="kart" style="margin-top:12px">
+  <form method="post" action="/cycle/{{ c.id }}/denudasyon-zaman">
+    <div class="alan">
+      <label for="denudasyon_zamani">Denüdasyon zamanı</label>
+      <div style="display:flex;gap:8px">
+        <input id="denudasyon_zamani" name="denudasyon_zamani" type="datetime-local"
+               value="{{ c.denudasyon_zamani[:16]|replace(' ','T') if c.denudasyon_zamani else '' }}"
+               style="flex:1">
+        <button class="minidugme" type="submit" style="min-width:88px">Kaydet</button>
+      </div>
+      <div class="ipucu">İlk oosit kaydedildiğinde otomatik dolar. Gerekirse düzelt.</div>
+    </div>
+  </form>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan">
+    <label>Toplandığı over</label>
+    <div class="tarafsec">
+      <a href="/cycle/{{ c.id }}/denudasyon"
+         class="{% if not taraf %}aktif{% endif %}">Belirtme</a>
+      {% for t in taraflar %}
+      <a href="/cycle/{{ c.id }}/denudasyon?taraf={{ t.kod }}"
+         class="{% if taraf == t.kod %}aktif{% endif %}">{{ t.etiket }}</a>
+      {% endfor %}
+    </div>
+    <div class="ipucu">Bundan sonra oluşturulan oositlere bu taraf yazılır.
+    Sağ overi bitirip sola geçerken değiştir.</div>
+  </div>
+</div>
+
+{% if bos_dosyalar %}
+<div class="uyari">
+  <strong>{{ bos_dosyalar|length }} dosya boş (0 bayt), atlandı:</strong><br>
+  <span style="font-size:13px">{{ bos_dosyalar|join(', ') }}</span><br>
+  Kopyalama yarım kalmış olabilir. Kaynağından yeniden kopyala.
+</div>
+{% endif %}
+
+{% if simdiki %}
+<div class="say">
+  <span class="bek">{{ bekleyen|length }} görüntü bekliyor</span>
+  <span class="hed">Oosit {{ sonraki_sira }}</span>
+</div>
+
+<div class="foto">
+  <img src="/onizleme?imza={{ simdiki.imza|urlencode }}" alt="Sıradaki görüntü">
+  <div class="dosyaadi">{{ simdiki.ad }}</div>
+</div>
+
+<form method="post" action="/cycle/{{ c.id }}/denudasyon">
+  <input type="hidden" name="imza" value="{{ simdiki.imza }}">
+  <input type="hidden" name="taraf" value="{{ taraf }}">
+  <button class="dugme" type="submit" name="eylem" value="yeni">
+    Kaydet &rarr; oosit {{ sonraki_sira }}
+  </button>
+  {% if kayitli %}
+  <button class="dugme ikincil" type="submit" name="eylem" value="ayni">
+    Aynı oosite ekle ({{ kayitli[-1].cycle_sira_no }})
+  </button>
+  {% endif %}
+  <div class="ikili" style="gap:10px;display:flex">
+    <button class="dugme ikincil" type="submit" name="eylem" value="atla">Atla</button>
+    <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz">Fotoğrafsız oosit</button>
+  </div>
+</form>
+
+{% else %}
+<div class="kart">
+  <div class="bos">
+    {% if kayitli %}
+      Bekleyen görüntü kalmadı.<br>{{ kayitli|length }} oosit kaydedildi.
+    {% else %}
+      Klasörde yeni görüntü yok.<br>Kameradan kare alıp sayfayı yenile.
+    {% endif %}
+  </div>
+</div>
+<form method="post" action="/cycle/{{ c.id }}/denudasyon">
+  <input type="hidden" name="taraf" value="{{ taraf }}">
+  <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz">
+    Fotoğrafsız oosit ekle
+  </button>
+</form>
+<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">Yenile</a>
+{% endif %}
+
+{% if son_goruntu %}
+<form method="post" action="/cycle/{{ c.id }}/denudasyon" style="margin-top:10px">
+  <input type="hidden" name="goruntu_id" value="{{ son_goruntu.id }}">
+  <button class="gerial" type="submit" name="eylem" value="geri">
+    Son kaydı geri al ({{ son_goruntu.specimen_id }})
+  </button>
+</form>
+{% endif %}
+
+<a class="dugme ikincil" style="margin-top:12px"
+   href="/cycle/{{ c.id }}/foto-ekle?specimen_id=__yeni__&asama=denudasyon&geri=/cycle/{{ c.id }}/denudasyon">
+  Elle fotoğraf ekle</a>
+
+<div class="kart" style="margin-top:16px">
+  <h2>Kaydedilen oositler ({{ kayitli|length }})</h2>
+  {% if kayitli %}
+  {{ izgara.oosit_izgara(kayitli) }}
+  {% else %}
+  <div class="bos">Henüz oosit kaydedilmedi.</div>
+  {% endif %}
+</div>
+
+{% include "_buyutec.html" %}
+{{ gez.cubuk(c, gezinme) }}
+{% endblock %}

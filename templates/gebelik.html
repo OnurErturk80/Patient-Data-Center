@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% import "_gezinme.html" as gez %}
+{% block ustbaslik %}Gebelik sonucu{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+  <div class="alt">
+    {% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
+  </div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+{% if transferler %}
+<div class="kart">
+  <h2>Bu cycle'da transfer edilen ({{ transferler|length }})</h2>
+  {% for t in transferler %}
+  <div class="satir" style="cursor:default">
+    <div class="ad"><strong>Oosit {{ t.cycle_sira_no }}</strong>
+      {% if t.skor %} · {{ t.skor }}{% endif %}</div>
+    <div class="meta">
+      {{ t.kaynak }} · {{ 'donmuş' if t.tr_tipi == 'donmus' else 'taze' }} · {{ t.zaman }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="uyari">
+  Bu cycle'da transfer kaydı yok. Sonuç yine de girilebilir, ama transferi
+  önce kaydetmek kayıtları birbirine bağlar.
+</div>
+{% endif %}
+
+<div class="kart">
+  <h2>Beta hCG ({{ betalar|length }})</h2>
+  {% for b in betalar %}
+  <div class="fsatir">
+    <div class="bilgi">
+      <div class="no">{{ b.deger }}</div>
+      <div class="meta">{{ b.zaman }}
+        {% for a in artis %}{% if a.i == loop.index0 + 1 %}{% endif %}{% endfor %}
+      </div>
+      {% for a in artis %}{% if a.i == loop.index %}
+      <div class="meta">{{ a.saat }} saatte {{ a.kat }} kat</div>
+      {% endif %}{% endfor %}
+    </div>
+    <form method="post" action="/cycle/{{ c.id }}/gebelik">
+      <input type="hidden" name="eylem" value="beta_sil">
+      <input type="hidden" name="beta_id" value="{{ b.id }}">
+      <button class="minidugme ikincil" type="submit">Sil</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="bos">Henüz beta hCG değeri girilmedi.</div>
+  {% endfor %}
+
+  <form method="post" action="/cycle/{{ c.id }}/gebelik">
+    <input type="hidden" name="eylem" value="beta_ekle">
+    <div class="alan ikili">
+      <div>
+        <label for="beta_deger">Beta hCG</label>
+        <input id="beta_deger" name="beta_deger" type="text" inputmode="decimal"
+               autocomplete="off" placeholder="mIU/mL">
+      </div>
+      <div>
+        <label for="beta_zaman">Ölçüm zamanı</label>
+        <input id="beta_zaman" name="beta_zaman" type="datetime-local" value="{{ simdi }}">
+      </div>
+    </div>
+    <div class="alan" style="border:0;padding-top:0">
+      <button class="dugme ikincil" type="submit" style="margin-top:0">Beta ekle</button>
+      <div class="ipucu">Değer sayı olarak saklanır; pozitif/negatif eşiği sonradan
+      istediğin gibi uygulanır. Birden fazla ölçüm girersen artış hızı hesaplanır.</div>
+    </div>
+  </form>
+</div>
+
+<form method="post" action="/cycle/{{ c.id }}/gebelik" id="gform">
+
+  <div class="kart">
+    <h2>Klinik gebelik</h2>
+    <div class="secenek">
+      {% for kod, et in [('evet','Var'), ('hayir','Yok'), ('bilinmiyor','Bilinmiyor')] %}
+      <label class="sec {% if k and k.klinik_gebelik == kod %}secili{% endif %}">
+        <input type="radio" name="klinik_gebelik" value="{{ kod }}"
+               {% if k and k.klinik_gebelik == kod %}checked{% endif %}>
+        <span>{{ et }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="alan">
+      <label for="gebelik_kesesi_sayisi">Gebelik kesesi sayısı</label>
+      <input id="gebelik_kesesi_sayisi" name="gebelik_kesesi_sayisi" type="number"
+             inputmode="numeric" min="0"
+             value="{{ k.gebelik_kesesi_sayisi if k and k.gebelik_kesesi_sayisi is not none else '' }}">
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>Fetal kalp atımı</h2>
+    <div class="secenek">
+      {% for kod, et in [('evet','Pozitif'), ('hayir','Negatif'), ('bilinmiyor','Bilinmiyor')] %}
+      <label class="sec {% if k and k.fk_pozitif == kod %}secili{% endif %}">
+        <input type="radio" name="fk_pozitif" value="{{ kod }}"
+               {% if k and k.fk_pozitif == kod %}checked{% endif %}>
+        <span>{{ et }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="alan">
+      <label for="fk_kontrol_zamani">Kontrol zamanı</label>
+      <input id="fk_kontrol_zamani" name="fk_kontrol_zamani" type="datetime-local"
+             value="{{ k.fk_kontrol_zamani[:16]|replace(' ','T') if k and k.fk_kontrol_zamani else '' }}">
+    </div>
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="sonlanma">Sonlanma</label>
+      <select id="sonlanma" name="sonlanma">
+        <option value="">— henüz belli değil</option>
+        {% for s in sonlanmalar %}
+        <option value="{{ s.kod }}" {% if k and k.sonlanma == s.kod %}selected{% endif %}>{{ s.etiket }}</option>
+        {% endfor %}
+      </select>
+      <div class="ipucu">Zamanla değişir: önce "devam ediyor", doğumdan sonra
+      "canlı doğum". Ulaşılamayan hasta için "takip kaybı" — bu, sonuç oranlarının
+      doğru çıkması için önemli.</div>
+    </div>
+    <div class="alan ikili">
+      <div>
+        <label for="dogum_zamani">Doğum zamanı</label>
+        <input id="dogum_zamani" name="dogum_zamani" type="datetime-local"
+               value="{{ k.dogum_zamani[:16]|replace(' ','T') if k and k.dogum_zamani else '' }}">
+      </div>
+      <div>
+        <label for="bebek_sayisi">Bebek sayısı</label>
+        <input id="bebek_sayisi" name="bebek_sayisi" type="number" inputmode="numeric" min="0"
+               value="{{ k.bebek_sayisi if k and k.bebek_sayisi is not none else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <button class="dugme" type="submit">Sonucu kaydet</button>
+</form>
+
+{% if k and k.guncelleme_zamani %}
+<div class="ipucu" style="text-align:center;margin-top:10px">
+  Son güncelleme: {{ k.guncelleme_zamani }}
+</div>
+{% endif %}
+
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">Cycle kartına dön</a>
+
+<script>
+document.querySelectorAll('.secenek').forEach(function (g) {
+  g.addEventListener('change', function () {
+    g.querySelectorAll('.sec').forEach(function (l) {
+      l.classList.toggle('secili', l.querySelector('input').checked);
+    });
+  });
+});
+</script>
+{{ gez.cubuk(c, gezinme) }}
+{% endblock %}

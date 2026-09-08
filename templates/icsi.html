@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% import "_kareler.html" as kr %}
+{% import "_gezinme.html" as gez %}
+{% import "_snapshot.html" as snap %}
+{% block ustbaslik %}ICSI{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if not oositler %}
+<div class="kart"><div class="bos">
+  Bu cycle'da henüz oosit yok.<br>Önce denüdasyon ekranından oositleri oluştur.
+</div></div>
+<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">Denüdasyon ekranı</a>
+{% else %}
+
+<div class="serit">
+  {% for o in oositler %}
+  <a href="/cycle/{{ c.id }}/icsi?oosit={{ o.cycle_sira_no }}"
+     class="sn {% if o.id == sp.id %}aktif{% endif %}
+            {% if o.mat %}dolu{% endif %}
+            {% if o.mat == 'degenere' or o.icsi == 'degenere' %}deg{% endif %}">
+    <b>{{ o.cycle_sira_no }}</b>{% if o.mat %}<i>-{{ o.mat|upper }}</i>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="say">
+  <span class="bek">{{ oositler|selectattr('mat')|list|length }} / {{ oositler|length }} kaydedildi</span>
+  <span class="hed">Oosit {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ "sağ" if sp.taraf == "sag" else "sol" }}</em>{% endif %}</span>
+</div>
+
+{{ snap.blok(sp, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no, bekleyen) }}
+
+{% if sp.ilk_goruntu %}
+<div class="foto">
+  <img src="/dosya/{{ sp.ilk_goruntu }}" alt="Oosit {{ sp.cycle_sira_no }}">
+</div>
+{{ kr.serit(kareler, sp, c, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no) }}
+<div class="fotoalt">
+  <a href="/goruntu/{{ sp.ilk_goruntu }}/sil?geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">Bu fotoğrafı sil</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+</div>
+{% else %}
+<div class="kart"><div class="bos">
+  Bu aşamaya ait fotoğraf yok.<br>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+</div></div>
+{% endif %}
+
+<form method="post" action="/cycle/{{ c.id }}/icsi" id="icsiform">
+  <input type="hidden" name="specimen_id" value="{{ sp.id }}">
+
+  <div class="kart">
+    <h2>Maturasyon</h2>
+    <div class="secenek" role="group">
+      {% for m in maturasyonlar %}
+      <label class="sec {% if mat and mat.mat_deger == m.kod %}secili{% endif %}">
+        <input type="radio" name="mat_deger" value="{{ m.kod }}" required
+               {% if mat and mat.mat_deger == m.kod %}checked{% endif %}>
+        <span>{{ m.etiket }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="bulguAc">Oosit bulguları</label>
+      <button type="button" class="acici" id="bulguAc">
+        <span id="bulguOzet">Bulgu yok</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="tabaka" id="bulguTabaka" hidden>
+    <div class="tperde" data-kapat></div>
+    <div class="tsayfa" role="dialog" aria-modal="true" aria-labelledby="tbaslik">
+      <div class="tust">
+        <span id="tbaslik">Oosit bulguları</span>
+        <button type="button" class="tkapat" data-kapat aria-label="Kapat">&times;</button>
+      </div>
+      <div class="tgovde">
+        <div class="cipler">
+          {% for b in bulgular %}
+          <label class="cip {% if b.kod in secili_bulgular %}secili{% endif %}">
+            <input type="checkbox" name="bulgu" value="{{ b.kod }}"
+                   {% if b.kod in secili_bulgular %}checked{% endif %}>
+            <span>{{ b.etiket }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="talt">
+        <button type="button" class="dugme ikincil" id="bulguTemizle">Temizle</button>
+        <button type="button" class="dugme" data-kapat>Tamam</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>Enjeksiyon</h2>
+    <div class="secenek">
+      <label class="sec {% if ic %}secili{% endif %}">
+        <input type="radio" name="enjekte" value="evet" {% if ic %}checked{% endif %}>
+        <span>Yapıldı</span>
+      </label>
+      <label class="sec {% if not ic %}secili{% endif %}">
+        <input type="radio" name="enjekte" value="hayir" {% if not ic %}checked{% endif %}>
+        <span>Yapılmadı</span>
+      </label>
+    </div>
+  </div>
+
+  <div id="icsiblok" {% if not ic %}hidden{% endif %}>
+    <div class="kart">
+      <h2>Geçiş zorluğu</h2>
+      <div class="secenek">
+        {% for z in zorluklar %}
+        <label class="sec {% if ic and ic.icsi_gecis_zorlugu == z.kod %}secili{% endif %}">
+          <input type="radio" name="gecis_zorlugu" value="{{ z.kod }}"
+                 {% if ic and ic.icsi_gecis_zorlugu == z.kod %}checked{% endif %}>
+          <span>{{ z.etiket }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="kart">
+      <h2>Enjeksiyon sonucu</h2>
+      <div class="secenek">
+        <label class="sec {% if not ic or ic.icsi_sonuc != 'degenere' %}secili{% endif %}">
+          <input type="radio" name="icsi_sonuc" value="basarili"
+                 {% if not ic or ic.icsi_sonuc != 'degenere' %}checked{% endif %}>
+          <span>Başarılı</span>
+        </label>
+        <label class="sec {% if ic and ic.icsi_sonuc == 'degenere' %}secili{% endif %}">
+          <input type="radio" name="icsi_sonuc" value="degenere"
+                 {% if ic and ic.icsi_sonuc == 'degenere' %}checked{% endif %}>
+          <span>Dejenere</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="islem_zamani">İşlem saati</label>
+      <input id="islem_zamani" name="islem_zamani" type="datetime-local"
+             value="{% set kz = (ic.zaman if ic else (mat.zaman if mat else None)) %}{{ kz[:16]|replace(' ','T') if kz else simdi }}">
+      <div class="ipucu">Şu an dolu geliyor. Geriye dönük kayıt giriyorsan değiştir.</div>
+    </div>
+  </div>
+
+  <button class="dugme" type="submit">Kaydet ve sonraki oosit</button>
+</form>
+
+<div class="ipucu" style="text-align:center;margin-top:10px">
+  Zaman ve operatör otomatik kaydedilir.
+</div>
+
+<a class="dugme ikincil" style="margin-top:12px"
+   href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">
+  Oosit {{ sp.cycle_sira_no }} için fotoğraf ekle</a>
+<a class="dugme ikincil"
+   href="/cycle/{{ c.id }}/icsi?oosit={{ sp.cycle_sira_no }}">Seçimleri geri al</a>
+<a class="dugme ikincil tehlike-bag"
+   href="/specimen/{{ sp.id }}/icsi-sil">Bu oositin kaydını sil</a>
+
+{% endif %}
+
+<script>
+(function () {
+  // Seçili görünümünü güncelle
+  document.querySelectorAll('.secenek').forEach(function (grup) {
+    grup.addEventListener('change', function () {
+      grup.querySelectorAll('.sec').forEach(function (l) {
+        l.classList.toggle('secili', l.querySelector('input').checked);
+      });
+    });
+  });
+  var tabaka = document.getElementById('bulguTabaka');
+  var ozet = document.getElementById('bulguOzet');
+
+  function ozetGuncelle() {
+    var secili = Array.prototype.slice
+      .call(document.querySelectorAll('.cip input:checked'))
+      .map(function (i) { return i.parentNode.querySelector('span').textContent; });
+    if (!secili.length) {
+      ozet.textContent = 'Bulgu yok';
+      ozet.classList.remove('dolu');
+    } else {
+      ozet.textContent = secili.join(', ');
+      ozet.classList.add('dolu');
+    }
+  }
+  document.querySelectorAll('.cip input').forEach(function (i) {
+    i.addEventListener('change', function () {
+      i.closest('.cip').classList.toggle('secili', i.checked);
+      ozetGuncelle();
+    });
+  });
+  ozetGuncelle();
+
+  function tabakaAc() { tabaka.hidden = false; document.body.classList.add('kilitli'); }
+  function tabakaKapat() { tabaka.hidden = true; document.body.classList.remove('kilitli'); }
+  document.getElementById('bulguAc').addEventListener('click', tabakaAc);
+  tabaka.querySelectorAll('[data-kapat]').forEach(function (e) {
+    e.addEventListener('click', tabakaKapat);
+  });
+  document.getElementById('bulguTemizle').addEventListener('click', function () {
+    document.querySelectorAll('.cip input:checked').forEach(function (i) {
+      i.checked = false;
+      i.closest('.cip').classList.remove('secili');
+    });
+    ozetGuncelle();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !tabaka.hidden) tabakaKapat();
+  });
+
+  // Kaydedilmemis degisiklik varsa sayfadan ayrilirken uyar
+  var form = document.getElementById('icsiform');
+  var degisti = false;
+  if (form) {
+    form.addEventListener('change', function () { degisti = true; });
+    form.addEventListener('submit', function () { degisti = false; });
+    window.addEventListener('beforeunload', function (e) {
+      if (!degisti) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+  }
+  // Enjeksiyon yapılmadıysa alt bloğu gizle
+  var blok = document.getElementById('icsiblok');
+  document.querySelectorAll('input[name="enjekte"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (blok) blok.hidden = (document.querySelector('input[name="enjekte"]:checked').value !== 'evet');
+    });
+  });
+  // MII değilse enjeksiyonu varsayılan olarak "yapılmadı" yap
+  document.querySelectorAll('input[name="mat_deger"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (r.value !== 'mii' && r.checked) {
+        var hayir = document.querySelector('input[name="enjekte"][value="hayir"]');
+        if (hayir) { hayir.checked = true; hayir.dispatchEvent(new Event('change', {bubbles: true})); }
+      }
+    });
+  });
+})();
+</script>
+{{ gez.cubuk(c, gezinme) }}
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.stripkare').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
+  });
+});
+</script>
+{% endblock %}

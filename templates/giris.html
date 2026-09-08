@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Giriş{% endblock %}
+{% block icerik %}
+<div style="height:24px"></div>
+{% if hata %}
+<div class="uyari">Kullanıcı adı veya şifre hatalı.</div>
+{% endif %}
+<form method="post" action="/giris">
+  <div class="kart">
+    <div class="alan">
+      <label for="kullanici_adi">Kullanıcı adı</label>
+      <input id="kullanici_adi" name="kullanici_adi" type="text" required autofocus
+             autocomplete="username" autocapitalize="none" spellcheck="false">
+    </div>
+    <div class="alan">
+      <label for="sifre">Şifre</label>
+      <input id="sifre" name="sifre" type="password" required
+             autocomplete="current-password">
+    </div>
+  </div>
+  <button class="dugme" type="submit">Giriş yap</button>
+</form>
+{% endblock %}

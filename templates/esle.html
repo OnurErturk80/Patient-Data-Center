@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Görüntü eşleştirme{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+<div class="kart">
+  <div class="alan">
+    <label for="asamasec">Hangi aşamaya</label>
+    <select id="asamasec" onchange="location.href='/cycle/{{ c.id }}/esle?asama='+this.value">
+      {% for a in asamalar %}
+      <option value="{{ a.kod }}" {% if a.kod == asama %}selected{% endif %}>{{ a.etiket }}</option>
+      {% endfor %}
+    </select>
+    <div class="ipucu">Eklenen fotoğraflar bu aşamaya kaydedilir.</div>
+  </div>
+</div>
+
+{% if not oositler %}
+<div class="kart"><div class="bos">
+  Bu cycle'da oosit yok.<br>Önce denüdasyon ekranından oositleri oluştur.
+</div></div>
+
+{% elif not simdiki %}
+<div class="kart"><div class="bos">
+  Kamera klasöründe bekleyen kare yok.<br>
+  Mikroskop kamerasından kare alıp sayfayı yenile.
+</div></div>
+<a class="dugme" href="/cycle/{{ c.id }}/esle?asama={{ asama }}">Yenile</a>
+
+{% else %}
+
+<div class="say">
+  <span class="bek">{{ bekleyen_adet }} kare bekliyor</span>
+  <span class="hed">{{ asama_etiket }}</span>
+</div>
+
+<div class="foto">
+  <img src="/onizleme?imza={{ simdiki.imza|urlencode }}" alt="Sıradaki kare">
+  <div class="dosyaadi">{{ simdiki.ad }}</div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <h2>Hangi oosite eklensin?</h2>
+  <form method="post" action="/cycle/{{ c.id }}/esle">
+    <input type="hidden" name="asama" value="{{ asama }}">
+    <input type="hidden" name="imza" value="{{ simdiki.imza }}">
+    <input type="hidden" name="eylem" value="ata">
+    <div class="oositler">
+      {% for o in oositler %}
+      <button class="onum {% if sp and o.id == sp.id %}hedef{% endif %}
+                     {% if o.asama_kare %}dolu{% endif %}"
+              type="submit" name="specimen_id" value="{{ o.id }}">
+        <b>{{ o.cycle_sira_no }}{% if o.taraf %}<span class="tar">{{ 'S' if o.taraf == 'sag' else 'L' }}</span>{% endif %}</b>
+        {% if o.asama_kare %}<i>{{ o.asama_kare }}</i>{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+    <div class="alan" style="border:0;padding-top:0">
+      <div class="ipucu">
+        Numaraya dokun, kare o oosite eklenir ve sonraki oosit hedef olur.
+        Çerçeveli olan sıradaki hedef; altındaki sayı o aşamada kaç kare olduğunu gösterir.
+      </div>
+    </div>
+  </form>
+</div>
+
+<form method="post" action="/cycle/{{ c.id }}/esle">
+  <input type="hidden" name="asama" value="{{ asama }}">
+  <input type="hidden" name="imza" value="{{ simdiki.imza }}">
+  <input type="hidden" name="hedef" value="{{ sp.cycle_sira_no if sp else '' }}">
+  <button class="dugme ikincil" type="submit" name="eylem" value="atla">
+    Bu kareyi atla</button>
+</form>
+{% endif %}
+
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">Cycle kartına dön</a>
+{% endblock %}

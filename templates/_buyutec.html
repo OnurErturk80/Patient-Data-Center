@@ -1,0 +1,73 @@
+<div id="buyut" class="buyut" hidden>
+  <div class="bust">
+    <span id="bbilgi"></span>
+    <button type="button" class="bkapat" aria-label="Kapat">&times;</button>
+  </div>
+  <div class="bgovde" id="bgovde">
+    <img id="bimg" alt="">
+  </div>
+  <div class="bbar">
+    <button type="button" id="bonce" aria-label="Önceki kare">&#8249;</button>
+    <button type="button" id="byakin" class="byakin">Yakınlaştır</button>
+    <button type="button" id="bsonra" aria-label="Sonraki kare">&#8250;</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var kat = document.getElementById('buyut');
+  var govde = document.getElementById('bgovde');
+  var img = document.getElementById('bimg');
+  var bilgi = document.getElementById('bbilgi');
+  var once = document.getElementById('bonce');
+  var sonra = document.getElementById('bsonra');
+  var yakinDugme = document.getElementById('byakin');
+  var idler = [], sira = 0, no = '', yakin = false;
+
+  function yakinAyarla(durum) {
+    yakin = durum;
+    img.classList.toggle('yakin', yakin);
+    yakinDugme.textContent = yakin ? 'Sığdır' : 'Yakınlaştır';
+    if (!yakin) { govde.scrollTop = 0; govde.scrollLeft = 0; }
+  }
+  function ciz() {
+    img.src = '/dosya/' + idler[sira];
+    img.alt = 'Oosit ' + no + ', kare ' + (sira + 1);
+    bilgi.textContent = idler.length > 1
+      ? 'Oosit ' + no + ' — ' + (sira + 1) + '/' + idler.length
+      : 'Oosit ' + no;
+    once.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
+    sonra.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
+    yakinAyarla(false);
+  }
+  function kapat() {
+    kat.hidden = true; img.src = '';
+    document.body.classList.remove('kilitli');
+  }
+
+  // Satır içi panelden çağrılır
+  window.buyutecAc = function (yeniIdler, yeniNo, baslangic) {
+    idler = yeniIdler; no = yeniNo; sira = baslangic || 0;
+    if (!idler.length) return;
+    ciz();
+    kat.hidden = false;
+    document.body.classList.add('kilitli');
+  };
+
+  once.addEventListener('click', function () {
+    sira = (sira - 1 + idler.length) % idler.length; ciz();
+  });
+  sonra.addEventListener('click', function () {
+    sira = (sira + 1) % idler.length; ciz();
+  });
+  yakinDugme.addEventListener('click', function () { yakinAyarla(!yakin); });
+  document.querySelector('.bkapat').addEventListener('click', kapat);
+  govde.addEventListener('click', function (e) { if (e.target === govde) kapat(); });
+  document.addEventListener('keydown', function (e) {
+    if (kat.hidden) return;
+    if (e.key === 'Escape') kapat();
+    if (e.key === 'ArrowLeft' && idler.length > 1) { sira = (sira - 1 + idler.length) % idler.length; ciz(); }
+    if (e.key === 'ArrowRight' && idler.length > 1) { sira = (sira + 1) % idler.length; ciz(); }
+  });
+})();
+</script>

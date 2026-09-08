@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "_gezinme.html" as gez %}
+{% block ustbaslik %}Çözme (thaw){% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% set dolu = tasiyicilar|selectattr('durum','equalto','dolu')|list %}
+{% set bos = tasiyicilar|rejectattr('durum','equalto','dolu')|list %}
+
+<div class="kart">
+  <h2>Tankta duran taşıyıcılar ({{ dolu|length }})</h2>
+  {% if c.cycle_tipi == "fet" %}<div class="ipucu" style="padding:0 14px 8px">Hastanın tüm tedavilerindeki taşıyıcılar listelenir.</div>{% endif %}
+  {% for t in dolu %}
+  <div class="fsatir">
+    <div class="bilgi">
+      <div class="no">{{ t.etiket }}</div>
+      <div class="meta">
+        {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
+        · {{ t.adet }} embriyo
+      </div>
+      <div class="meta">
+        {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">konum girilmemiş</span>{% endif %}
+      </div>
+      {% if t.kaynak_cycle and t.kaynak_cycle != c.cycle_no %}
+      <div class="meta">dondurulduğu cycle: {{ t.kaynak_cycle }}</div>
+      {% endif %}
+      <div class="meta" style="margin-top:6px">
+        <a href="/cryo/tasiyici/{{ t.id }}">içeriği gör</a>
+      </div>
+    </div>
+    <a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw">Çöz</a>
+  </div>
+  {% else %}
+  <div class="bos">
+    {% if c.cycle_tipi == 'fet' %}Bu hastanın tankta duran taşıyıcısı yok.
+    {% else %}Bu cycle'a ait tankta duran taşıyıcı yok.{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if bos %}
+<div class="kart">
+  <h2>Çözülmüş taşıyıcılar ({{ bos|length }})</h2>
+  {% for t in bos %}
+  <a class="satir" href="/cryo/tasiyici/{{ t.id }}">
+    <div class="no">{{ t.etiket }}</div>
+    <div class="meta">{{ t.adet }} embriyo · {{ t.cozulen }} çözme kaydı</div>
+    <div class="meta">{{ t.tam_yol or '—' }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if c.cycle_tipi != "fet" %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">Vitrifikasyon ekranı</a>{% endif %}
+<a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+{{ gez.cubuk(c, gezinme) }}
+{% endblock %}

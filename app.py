@@ -1,0 +1,2890 @@
+"""IVF Laboratuvar Kayıt Modülü — hasta ve cycle ekranları, giriş ve düzenleme."""
+
+from pathlib import Path
+
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+import db
+import guvenlik
+
+KOK = Path(__file__).parent
+uygulama = FastAPI(title="Lab Kayit")
+uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
+sablon = Jinja2Templates(directory=KOK / "templates")
+
+ACIK_YOLLAR = {"/giris"}
+
+# Başlıklarda kullanılan kısa tedavi tipi gösterimi
+TIP_KISA = {"ivf_icsi": "IVF/ICSI", "fet": "FET", "oosit_cryo": "Oosit cryo",
+            "taze": "IVF/ICSI"}   # eski kod, gecis icin
+sablon.env.globals["tip_kisa"] = lambda kod: TIP_KISA.get(kod, kod or "")
+
+
+def bos_ise_none(deger):
+    """Boş form alanlarını NULL olarak kaydet, boş metin olarak değil."""
+    if deger is None:
+        return None
+    deger = deger.strip()
+    return deger if deger else None
+
+
+class FormHatasi(Exception):
+    """Kullanıcıya gösterilecek doğrulama hatası."""
+
+
+def sayi(v, alan="Sayı"):
+    """Ondalık sayı. Virgül de nokta gibi kabul edilir (2,1 = 2.1)."""
+    v = (v or "").strip().replace(",", ".")
+    if not v:
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        raise FormHatasi(f"{alan} alanına sayı yazılmalı. Girilen: {v}")
+
+
+def tam(v, alan="Sayı"):
+    v = (v or "").strip().replace(",", ".")
+    if not v:
+        return None
+    try:
+        return int(float(v))
+    except ValueError:
+        raise FormHatasi(f"{alan} alanına tam sayı yazılmalı. Girilen: {v}")
+
+
+def zaman(v):
+    """datetime-local alanı '2026-04-17T09:45' verir, veritabanı boşluk ister."""
+    return bos_ise_none((v or "").replace("T", " "))
+
+
+def islem_zamani(v):
+    """Ekrandan gelen işlem saati. Boş veya geçersizse şu an."""
+    from datetime import datetime as _d
+    t = zaman(v)
+    if not t:
+        return _d.now().isoformat(" ", "seconds")
+    try:
+        _d.fromisoformat(t)
+    except ValueError:
+        return _d.now().isoformat(" ", "seconds")
+    return t if len(t) > 16 else t + ":00"
+
+
+# ----------------------------------------------------------------- lab kayıt no
+
+import re
+from datetime import datetime as _dt
+
+
+_ayar = db.ayar         # yerel_ayar.json önceliklidir
+
+
+def sonraki_lab_no() -> str:
+    """Bir sonraki lab kayıt numarasını üretir.
+
+    Boşluk doldurma açıksa, silinen bir kaydın numarası yeniden kullanılır:
+    kullanılmayan en küçük sıra numarası seçilir. Kapalıysa en yüksek + 1.
+    """
+    onek = _ayar("lab_no_onek", str(_dt.now().year))
+    if _ayar("lab_no_yillik_sifirla", "1") == "1":
+        onek = str(_dt.now().year)
+    basamak = int(_ayar("lab_no_basamak", "4") or 4)
+    bosluk_doldur = _ayar("lab_no_bosluk_doldur", "1") == "1"
+
+    kalip = re.compile(rf"^{re.escape(onek)}-(\d+)$")
+    kullanilan = set()
+    for r in db.sorgu("SELECT cycle_no FROM cycle WHERE lab_id = ?", (db.LAB_ID,)):
+        m = kalip.match(r["cycle_no"] or "")
+        if m:
+            kullanilan.add(int(m.group(1)))
+
+    if bosluk_doldur:
+        sira = 1
+        while sira in kullanilan:
+            sira += 1
+    else:
+        sira = (max(kullanilan) + 1) if kullanilan else 1
+
+    return f"{onek}-{sira:0{basamak}d}"
+
+
+# ----------------------------------------------------------------- oturum
+
+@uygulama.middleware("http")
+async def oturum_kontrolu(request: Request, sonraki):
+    yol = request.url.path
+    if yol.startswith("/static") or yol in ACIK_YOLLAR:
+        return await sonraki(request)
+
+    kullanici = guvenlik.oturumdaki_kullanici(request.cookies.get(guvenlik.CEREZ_ADI))
+    if not kullanici:
+        return RedirectResponse("/giris", status_code=303)
+
+    request.state.kullanici = kullanici
+    return await sonraki(request)
+
+
+@uygulama.get("/giris")
+def giris_ekrani(request: Request, hata: str = ""):
+    return sablon.TemplateResponse(request, "giris.html", {"hata": hata})
+
+
+@uygulama.post("/giris")
+def giris(kullanici_adi: str = Form(...), sifre: str = Form(...)):
+    jeton = guvenlik.giris_yap(kullanici_adi, sifre)
+    if not jeton:
+        return RedirectResponse("/giris?hata=1", status_code=303)
+    yanit = RedirectResponse("/hastalar", status_code=303)
+    yanit.set_cookie(
+        guvenlik.CEREZ_ADI, jeton,
+        httponly=True,          # JavaScript okuyamaz
+        samesite="lax",         # baska siteden gelen istekte tasinmaz
+        max_age=60 * 60 * guvenlik.OTURUM_SURESI_SAAT,
+    )
+    return yanit
+
+
+@uygulama.get("/cikis")
+def cikis(request: Request):
+    guvenlik.cikis_yap(request.cookies.get(guvenlik.CEREZ_ADI))
+    yanit = RedirectResponse("/giris", status_code=303)
+    yanit.delete_cookie(guvenlik.CEREZ_ADI)
+    return yanit
+
+
+def yedek_durumu():
+    """Son yedek eskiyse uyarı metni döndürür, sorun yoksa None."""
+    son = _ayar("son_yedek", "")
+    sinir = int(_ayar("yedek_uyari_gun", "3") or 3)
+    if not son:
+        return "Henüz hiç yedek alınmadı. yedek.py çalıştırılmalı."
+    try:
+        t = _dt.fromisoformat(son)
+    except ValueError:
+        return None
+    gun = (_dt.now() - t).days
+    if gun >= sinir:
+        return f"Son yedek {gun} gün önce alındı ({son}). Yedekleme çalışmıyor olabilir."
+    return None
+
+
+# ----------------------------------------------------------------- hasta
+
+@uygulama.get("/")
+def anasayfa():
+    return RedirectResponse("/hastalar")
+
+
+@uygulama.get("/hastalar")
+def hastalar(request: Request, ara: str = "", arsiv: int = 0):
+    durum = "arsiv" if arsiv else "aktif"
+    ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
+             "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
+    if ara.strip():
+        kayitlar = db.sorgu(
+            ortak + " AND (CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?)"
+                    " ORDER BY h.dosya_no",
+            (db.LAB_ID, durum, f"%{ara.strip()}%", f"%{ara.strip()}%"),
+        )
+    else:
+        kayitlar = db.sorgu(
+            ortak + " ORDER BY h.olusturma_zamani DESC LIMIT 50", (db.LAB_ID, durum)
+        )
+    arsiv_sayisi = db.tek(
+        "SELECT COUNT(*) k FROM hasta WHERE lab_id=? AND durum='arsiv'", (db.LAB_ID,)
+    )["k"]
+    return sablon.TemplateResponse(
+        request, "hastalar.html",
+        {"hastalar": kayitlar, "ara": ara, "arsiv": arsiv,
+         "arsiv_sayisi": arsiv_sayisi, "kullanici": request.state.kullanici,
+         "yedek": yedek_durumu()},
+    )
+
+
+@uygulama.get("/hasta/yeni")
+def hasta_yeni(request: Request, dosya_no: str = ""):
+    return sablon.TemplateResponse(request, "hasta_form.html", {"dosya_no": dosya_no})
+
+
+@uygulama.post("/hasta/yeni")
+def hasta_kaydet(
+    dosya_no: str = Form(...),
+    ad_soyad: str = Form(...),
+    dogum_tarihi: str = Form(""),
+    es_adi: str = Form(""),
+    es_dogum_tarihi: str = Form(""),
+    notlar: str = Form(""),
+):
+    mevcut = db.tek(
+        "SELECT id FROM hasta WHERE lab_id = ? AND dosya_no = ?",
+        (db.LAB_ID, int(dosya_no)),
+    )
+    if mevcut:
+        return RedirectResponse(f"/hasta/{mevcut['id']}", status_code=303)
+
+    yeni_id = db.yaz(
+        "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, dogum_tarihi, es_adi, "
+        "es_dogum_tarihi, notlar) VALUES (?,?,?,?,?,?,?)",
+        (db.LAB_ID, int(dosya_no), ad_soyad.strip(), bos_ise_none(dogum_tarihi),
+         bos_ise_none(es_adi), bos_ise_none(es_dogum_tarihi), bos_ise_none(notlar)),
+    )
+    return RedirectResponse(f"/hasta/{yeni_id}", status_code=303)
+
+
+@uygulama.get("/hasta/kontrol")
+def hasta_kontrol(dosya_no: str = ""):
+    if not dosya_no.strip().isdigit():
+        return {"var": False}
+    h = db.tek(
+        "SELECT id, ad_soyad FROM hasta WHERE lab_id = ? AND dosya_no = ?",
+        (db.LAB_ID, int(dosya_no)),
+    )
+    return {"var": True, "id": h["id"], "ad_soyad": h["ad_soyad"]} if h else {"var": False}
+
+
+@uygulama.get("/hasta/{hasta_id}")
+def hasta_detay(request: Request, hasta_id: int):
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    cycles = db.sorgu(
+        "SELECT * FROM cycle WHERE hasta_id = ? "
+        "ORDER BY COALESCE(opu_zamani, hcg_zamani) DESC", (hasta_id,)
+    )
+    return sablon.TemplateResponse(
+        request, "hasta_detay.html", {"hasta": hasta, "cycles": cycles}
+    )
+
+
+@uygulama.get("/hasta/{hasta_id}/duzenle")
+def hasta_duzenle(request: Request, hasta_id: int):
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    return sablon.TemplateResponse(request, "hasta_duzenle.html", {"h": hasta})
+
+
+@uygulama.post("/hasta/{hasta_id}/duzenle")
+def hasta_guncelle(
+    request: Request,
+    hasta_id: int,
+    ad_soyad: str = Form(...),
+    dogum_tarihi: str = Form(""),
+    es_adi: str = Form(""),
+    es_dogum_tarihi: str = Form(""),
+    notlar: str = Form(""),
+):
+    eski = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    yeni = {
+        "ad_soyad": ad_soyad.strip(),
+        "dogum_tarihi": bos_ise_none(dogum_tarihi),
+        "es_adi": bos_ise_none(es_adi),
+        "es_dogum_tarihi": bos_ise_none(es_dogum_tarihi),
+        "notlar": bos_ise_none(notlar),
+    }
+    db.yaz(
+        "UPDATE hasta SET ad_soyad=?, dogum_tarihi=?, es_adi=?, es_dogum_tarihi=?, "
+        "notlar=? WHERE id=?",
+        (*yeni.values(), hasta_id),
+    )
+    guvenlik.degisiklikleri_yaz(
+        "hasta", hasta_id, eski, yeni, request.state.kullanici["id"]
+    )
+    return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
+
+
+# ----------------------------------------------------------------- cycle
+
+CYCLE_ALANLARI = [
+    "cycle_no", "hasta_cycle_no", "cycle_tipi", "endikasyon", "protokol_tipi", "gonadotropin_tipi",
+    "baslangic_doz", "toplam_doz", "stim_gun_sayisi", "trigger_tipi", "hcg_gunu_e2",
+    "endometrium_mm", "folikul_sayisi", "amh", "hcg_zamani", "opu_zamani",
+    "denudasyon_zamani", "opu_sag_oosit", "opu_sol_oosit", "protokol_notu",
+]
+
+
+def cycle_formu_oku(f: dict) -> dict:
+    return {
+        "cycle_no": (f.get("cycle_no") or "").strip(),
+        "hasta_cycle_no": tam(f.get("hasta_cycle_no"), "Kaçıncı cycle"),
+        "cycle_tipi": f.get("cycle_tipi") or "ivf_icsi",
+        "endikasyon": bos_ise_none(f.get("endikasyon")),
+        "protokol_tipi": bos_ise_none(f.get("protokol_tipi")),
+        "gonadotropin_tipi": bos_ise_none(f.get("gonadotropin_tipi")),
+        "baslangic_doz": sayi(f.get("baslangic_doz"), "Başlangıç doz"),
+        "toplam_doz": sayi(f.get("toplam_doz"), "Toplam doz"),
+        "stim_gun_sayisi": tam(f.get("stim_gun_sayisi"), "Stim. gün"),
+        "trigger_tipi": bos_ise_none(f.get("trigger_tipi")),
+        "hcg_gunu_e2": sayi(f.get("hcg_gunu_e2"), "hCG günü E2"),
+        "endometrium_mm": sayi(f.get("endometrium_mm"), "Endometrium"),
+        "folikul_sayisi": tam(f.get("folikul_sayisi"), "Folikül sayısı"),
+        "amh": sayi(f.get("amh"), "AMH"),
+        "hcg_zamani": zaman(f.get("hcg_zamani")),
+        "opu_zamani": zaman(f.get("opu_zamani")),
+        "denudasyon_zamani": zaman(f.get("denudasyon_zamani")),
+        "opu_sag_oosit": tam(f.get("opu_sag_oosit")),
+        "opu_sol_oosit": tam(f.get("opu_sol_oosit")),
+        "protokol_notu": bos_ise_none(f.get("protokol_notu")),
+    }
+
+
+def cycle_listeleri():
+    return {
+        "tipler": db.liste("cycle_tipi"),
+        "protokoller": db.liste("protokol_tipi"),
+        "triggerlar": db.liste("trigger_tipi"),
+        "endikasyonlar": db.liste("endikasyon"),
+    }
+
+
+def sonraki_hasta_cycle_no(hasta_id: int) -> int:
+    """Hastanın kaçıncı cycle'ı olacağı — en yüksek numaranın bir fazlası."""
+    r = db.tek(
+        "SELECT MAX(hasta_cycle_no) m FROM cycle WHERE hasta_id = ?", (hasta_id,)
+    )
+    return (r["m"] or 0) + 1
+
+
+@uygulama.get("/hasta/{hasta_id}/cycle/yeni")
+def cycle_yeni(request: Request, hasta_id: int):
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    return sablon.TemplateResponse(
+        request, "cycle_form.html",
+        {"hasta": hasta,
+         "v": {"hasta_cycle_no": sonraki_hasta_cycle_no(hasta_id),
+               "cycle_no": sonraki_lab_no()},
+         "duzenleme": False, "hata": None,
+         "hedef": f"/hasta/{hasta_id}/cycle/yeni", **cycle_listeleri()},
+    )
+
+
+@uygulama.post("/hasta/{hasta_id}/cycle/yeni")
+async def cycle_kaydet(request: Request, hasta_id: int):
+    f = dict(await request.form())
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+
+    def formu_goster(mesaj):
+        return sablon.TemplateResponse(
+            request, "cycle_form.html",
+            {"hasta": hasta, "v": f, "duzenleme": False, "hata": mesaj,
+             "hedef": f"/hasta/{hasta_id}/cycle/yeni", **cycle_listeleri()},
+        )
+
+    try:
+        d = cycle_formu_oku(f)
+    except FormHatasi as e:
+        return formu_goster(str(e))
+
+    if not d["cycle_no"]:
+        return formu_goster("Cycle no boş bırakılamaz.")
+
+    ayni = db.tek(
+        "SELECT c.id, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.lab_id = ? AND c.cycle_no = ?",
+        (db.LAB_ID, d["cycle_no"]),
+    )
+    if ayni:
+        return formu_goster(
+            f"'{d['cycle_no']}' numaralı cycle zaten var "
+            f"(dosya {ayni['dosya_no']}, {ayni['ad_soyad']}). Farklı bir numara gir."
+        )
+
+    yeni_id = db.yaz(
+        f"INSERT INTO cycle (lab_id, hasta_id, {', '.join(CYCLE_ALANLARI)}) "
+        f"VALUES (?, ?, {', '.join('?' * len(CYCLE_ALANLARI))})",
+        (db.LAB_ID, hasta_id, *[d[a] for a in CYCLE_ALANLARI]),
+    )
+    return RedirectResponse(f"/cycle/{yeni_id}", status_code=303)
+
+
+@uygulama.get("/cycle/{cycle_id}")
+def cycle_detay(request: Request, cycle_id: int):
+    cycle = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad, h.es_adi, h.dogum_tarihi "
+        "FROM cycle c JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
+    )
+    specimenler = db.sorgu(
+        "SELECT s.*, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id) AS kare, "
+        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "   ORDER BY g.id LIMIT 1) AS ilk_goruntu, "
+        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id = s.id) "
+        "  AS goruntu_idler "
+        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no", (cycle_id,)
+    )
+    etiketler = {
+        r["kod"]: r["etiket"]
+        for r in db.sorgu("SELECT kod, etiket FROM liste_degeri WHERE lab_id = ?",
+                          (db.LAB_ID,))
+    }
+    arsiv = db.sorgu(
+        "SELECT id, asama, zaman, orijinal_dosya_adi FROM goruntu "
+        "WHERE cycle_id = ? AND specimen_id IS NULL ORDER BY id", (cycle_id,))
+    taraf_sayilari = db.tek(
+        "SELECT SUM(CASE WHEN taraf='sag' THEN 1 ELSE 0 END) AS sag, "
+        "       SUM(CASE WHEN taraf='sol' THEN 1 ELSE 0 END) AS sol, "
+        "       SUM(CASE WHEN taraf IS NULL THEN 1 ELSE 0 END) AS belirsiz "
+        "FROM specimen WHERE cycle_id = ?", (cycle_id,))
+    return sablon.TemplateResponse(
+        request, "cycle_detay.html",
+        {"c": cycle, "specimenler": specimenler, "etiketler": etiketler,
+         "arsiv": arsiv, "taraf": taraf_sayilari,
+         "asamalar": cycle_asamalari(cycle["cycle_tipi"])},
+    )
+
+
+@uygulama.get("/cycle/{cycle_id}/duzenle")
+def cycle_duzenle(request: Request, cycle_id: int):
+    cycle = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (cycle["hasta_id"],))
+    return sablon.TemplateResponse(
+        request, "cycle_form.html",
+        {"hasta": hasta, "v": dict(cycle), "duzenleme": True, "hata": None,
+         "cycle_id": cycle_id, "hedef": f"/cycle/{cycle_id}/duzenle",
+         **cycle_listeleri()},
+    )
+
+
+@uygulama.post("/cycle/{cycle_id}/duzenle")
+async def cycle_guncelle(request: Request, cycle_id: int):
+    eski = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    f = dict(await request.form())
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (eski["hasta_id"],))
+
+    def formu_goster(mesaj):
+        return sablon.TemplateResponse(
+            request, "cycle_form.html",
+            {"hasta": hasta, "v": f, "duzenleme": True, "hata": mesaj,
+             "cycle_id": cycle_id, "hedef": f"/cycle/{cycle_id}/duzenle",
+             **cycle_listeleri()},
+        )
+
+    try:
+        d = cycle_formu_oku(f)
+    except FormHatasi as e:
+        return formu_goster(str(e))
+
+    if not d["cycle_no"]:
+        return formu_goster("Cycle no boş bırakılamaz.")
+
+    ayni = db.tek(
+        "SELECT id FROM cycle WHERE lab_id = ? AND cycle_no = ? AND id <> ?",
+        (db.LAB_ID, d["cycle_no"], cycle_id),
+    )
+    if ayni:
+        return formu_goster(f"'{d['cycle_no']}' numaralı başka bir cycle var.")
+
+    db.yaz(
+        f"UPDATE cycle SET {', '.join(a + '=?' for a in CYCLE_ALANLARI)} WHERE id=?",
+        (*[d[a] for a in CYCLE_ALANLARI], cycle_id),
+    )
+    guvenlik.degisiklikleri_yaz("cycle", cycle_id, eski, d, request.state.kullanici["id"])
+    return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+# ----------------------------------------------------------------- geçmiş
+
+@uygulama.get("/gecmis/{tablo}/{kayit_id}")
+def gecmis(request: Request, tablo: str, kayit_id: int):
+    if tablo not in ("hasta", "cycle"):
+        return RedirectResponse("/hastalar", status_code=303)
+    kayitlar = db.sorgu(
+        "SELECT d.*, k.ad_soyad FROM degisiklik_log d "
+        "JOIN kullanici k ON k.id = d.kullanici_id "
+        "WHERE d.tablo_adi = ? AND d.kayit_id = ? ORDER BY d.zaman DESC",
+        (tablo, str(kayit_id)),
+    )
+    return sablon.TemplateResponse(
+        request, "gecmis.html",
+        {"kayitlar": kayitlar, "geri": f"/{tablo}/{kayit_id}", "tablo": tablo},
+    )
+
+
+# ----------------------------------------------------------------- denüdasyon
+
+import goruntuler
+from fastapi.responses import FileResponse, Response
+
+
+@uygulama.get("/cycle/{cycle_id}/denudasyon")
+def denudasyon(request: Request, cycle_id: int, taraf: str = ""):
+    c = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
+    )
+    bekleyen = goruntuler.bekleyen_dosyalar()
+    kayitli = db.sorgu(
+        "SELECT s.id, s.cycle_sira_no, s.taraf, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id) AS kare, "
+        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "   ORDER BY g.id LIMIT 1) AS ilk_goruntu, "
+        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id = s.id) "
+        "  AS goruntu_idler "
+        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no", (cycle_id,)
+    )
+    son = db.tek(
+        "SELECT id, specimen_id FROM goruntu WHERE cycle_id = ? AND asama = 'denudasyon' "
+        "ORDER BY id DESC LIMIT 1", (cycle_id,)
+    )
+    return sablon.TemplateResponse(
+        request, "denudasyon.html",
+        {
+            "c": c,
+            "bekleyen": bekleyen,
+            "simdiki": bekleyen[0] if bekleyen else None,
+            "kayitli": kayitli,
+            "sonraki_sira": goruntuler.sonraki_sira(cycle_id),
+            "son_goruntu": son,
+            "gezinme": asama_gezinme(cycle_id, "denudasyon"),
+         "taraf": taraf, "taraflar": db.liste("taraf"),
+         "klasor": str(goruntuler.kaynak_klasor()),
+            "klasor_var": goruntuler.kaynak_klasor().is_dir(),
+            "bos_dosyalar": goruntuler.bos_dosyalar(),
+        },
+    )
+
+
+@uygulama.post("/cycle/{cycle_id}/denudasyon")
+async def denudasyon_islem(request: Request, cycle_id: int):
+    f = dict(await request.form())
+    eylem = f.get("eylem")
+    im = f.get("imza") or ""
+    kid = request.state.kullanici["id"]
+    c = db.tek("SELECT id, cycle_no FROM cycle WHERE id = ?", (cycle_id,))
+
+    taraf = f.get("taraf") or None
+
+    if eylem == "yeni":
+        sid = goruntuler.specimen_olustur(cycle_id, c["cycle_no"], taraf)
+        goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], sid, "denudasyon", kid)
+
+    elif eylem == "ayni":
+        son = db.tek(
+            "SELECT id FROM specimen WHERE cycle_id=? ORDER BY cycle_sira_no DESC LIMIT 1",
+            (cycle_id,),
+        )
+        if son:
+            goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], son["id"],
+                                     "denudasyon", kid)
+
+    elif eylem == "fotografsiz":
+        goruntuler.specimen_olustur(cycle_id, c["cycle_no"], taraf)
+
+    elif eylem == "atla":
+        goruntuler.atla(im, cycle_id)
+
+    elif eylem == "geri":
+        goruntuler.geri_al(int(f.get("goruntu_id")))
+
+    yol = f"/cycle/{cycle_id}/denudasyon"
+    if taraf:
+        yol += f"?taraf={taraf}"
+    return RedirectResponse(yol, status_code=303)
+
+
+@uygulama.get("/dosya/{goruntu_id}")
+def dosya(goruntu_id: int):
+    g = db.tek("SELECT dosya_yolu FROM goruntu WHERE id = ?", (goruntu_id,))
+    if not g:
+        return Response(status_code=404)
+    p = goruntuler.tam_yol(g["dosya_yolu"])
+    if not p.is_file():
+        return Response(status_code=404)
+    return FileResponse(p)
+
+
+@uygulama.get("/onizleme")
+def onizleme(imza: str = ""):
+    """Kuyruktaki dosyanın önizlemesi. Yol dışarıdan gelmez, imzayla bulunur."""
+    p = goruntuler.dosya_bul(imza)
+    if not p:
+        return Response(status_code=404)
+    return FileResponse(p)
+
+
+# ----------------------------------------------------------------- silme
+
+@uygulama.get("/hasta/{hasta_id}/sil")
+def hasta_sil_ekran(request: Request, hasta_id: int, hata: str = ""):
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    if not hasta:
+        return RedirectResponse("/hastalar", status_code=303)
+    sayilar = db.tek(
+        "SELECT (SELECT COUNT(*) FROM cycle WHERE hasta_id=?) AS cycle, "
+        "  (SELECT COUNT(*) FROM specimen s JOIN cycle c ON c.id=s.cycle_id "
+        "   WHERE c.hasta_id=?) AS oosit, "
+        "  (SELECT COUNT(*) FROM goruntu g JOIN cycle c ON c.id=g.cycle_id "
+        "   WHERE c.hasta_id=?) AS goruntu, "
+        "  (SELECT COUNT(*) FROM olay o JOIN cycle c ON c.id=o.cycle_id "
+        "   WHERE c.hasta_id=?) AS olay, "
+        "  (SELECT COUNT(*) FROM gebelik_sonucu g JOIN cycle c ON c.id=g.cycle_id "
+        "   WHERE c.hasta_id=?) AS gebelik",
+        (hasta_id,) * 5,
+    )
+    transferler = hasta_transfer_kayitlari(hasta_id)
+    return sablon.TemplateResponse(
+        request, "hasta_sil.html",
+        {"h": hasta, "s": sayilar, "hata": hata, "transferler": transferler}
+    )
+
+
+@uygulama.post("/hasta/{hasta_id}/sil")
+async def hasta_sil(request: Request, hasta_id: int):
+    from urllib.parse import quote
+    f = dict(await request.form())
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    if not hasta:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(
+            f"/hasta/{hasta_id}/sil?hata={quote(m)}", status_code=303)
+
+    if (f.get("onay") or "").strip() != str(hasta["dosya_no"]):
+        return hata("Dosya numarası doğru yazılmadı.")
+
+    kid = request.state.kullanici["id"]
+    eylem = f.get("eylem") or "arsivle"
+
+    if eylem == "sil":
+        tr = hasta_transfer_kayitlari(hasta_id)
+        if tr:
+            return hata(
+                f"Bu hastanın {len(tr)} transfer kaydı var. Transfere gitmiş "
+                "embriyo içeren kayıtlar kalıcı olarak silinemez; arşivle.")
+        if (f.get("onay2") or "").strip().upper() != "SIL":
+            return hata("Kalıcı silme için ikinci onay kutusuna SIL yazılmalı.")
+
+        cycles = [r["id"] for r in db.sorgu(
+            "SELECT id FROM cycle WHERE hasta_id=?", (hasta_id,))]
+        say = db.tek(
+            "SELECT (SELECT COUNT(*) FROM specimen s JOIN cycle c ON c.id=s.cycle_id "
+            "        WHERE c.hasta_id=?) AS oosit, "
+            "  (SELECT COUNT(*) FROM goruntu g JOIN cycle c ON c.id=g.cycle_id "
+            "   WHERE c.hasta_id=?) AS goruntu", (hasta_id, hasta_id))
+        silme_logla(
+            "hasta", hasta_id,
+            f"dosya {hasta['dosya_no']} · {hasta['ad_soyad']} · "
+            f"{len(cycles)} cycle · {say['oosit']} oosit · {say['goruntu']} goruntu",
+            kid)
+        try:
+            for cid in cycles:
+                cycle_tamamen_sil(cid, kid)
+            db.yaz("DELETE FROM hasta WHERE id = ?", (hasta_id,))
+        except Exception as e:
+            return hata(f"Silme sırasında hata: {type(e).__name__}: {e}")
+        return RedirectResponse("/hastalar", status_code=303)
+
+    guvenlik.degisiklikleri_yaz("hasta", hasta_id, hasta, {"durum": "arsiv"}, kid)
+    db.yaz("UPDATE hasta SET durum = 'arsiv' WHERE id = ?", (hasta_id,))
+    return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
+
+
+@uygulama.post("/hasta/{hasta_id}/geri-al")
+def hasta_geri_al(request: Request, hasta_id: int):
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    if hasta:
+        guvenlik.degisiklikleri_yaz(
+            "hasta", hasta_id, hasta, {"durum": "aktif"},
+            request.state.kullanici["id"],
+        )
+        db.yaz("UPDATE hasta SET durum = 'aktif' WHERE id = ?", (hasta_id,))
+    return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
+
+
+# ----------------------------------------------------------------- cycle silme
+
+def cycle_bagli_sayilar(cycle_id: int):
+    return db.tek(
+        "SELECT (SELECT COUNT(*) FROM specimen WHERE cycle_id=?) AS oosit, "
+        "       (SELECT COUNT(*) FROM goruntu WHERE cycle_id=?) AS goruntu, "
+        "       (SELECT COUNT(*) FROM olay WHERE cycle_id=?) AS olay, "
+        "       (SELECT COUNT(*) FROM sperm_ornek WHERE cycle_id=?) AS sperm, "
+        "       (SELECT COUNT(*) FROM gebelik_sonucu WHERE cycle_id=?) AS gebelik",
+        (cycle_id, cycle_id, cycle_id, cycle_id, cycle_id),
+    )
+
+
+@uygulama.get("/cycle/{cycle_id}/sil")
+def cycle_sil_ekran(request: Request, cycle_id: int, hata: str = ""):
+    c = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
+    )
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    s = cycle_icerik_sayilari(cycle_id)
+    bos = all(s[k] == 0 for k in s.keys())
+    transferler = cycle_transfer_kayitlari(cycle_id)
+    return sablon.TemplateResponse(
+        request, "cycle_sil.html",
+        {"c": c, "s": s, "bos": bos, "hata": hata, "transferler": transferler}
+    )
+
+
+@uygulama.post("/cycle/{cycle_id}/sil")
+async def cycle_sil(request: Request, cycle_id: int):
+    from urllib.parse import quote
+    f = dict(await request.form())
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/sil?hata={quote(m)}", status_code=303)
+
+    if (f.get("onay") or "").strip() != str(c["cycle_no"]):
+        return hata("Lab kayıt numarası doğru yazılmadı.")
+
+    kid = request.state.kullanici["id"]
+    hasta_id = c["hasta_id"]
+    eylem = f.get("eylem") or "iptal"
+
+    if eylem == "sil":
+        tr = cycle_transfer_kayitlari(cycle_id)
+        if tr:
+            return hata(
+                f"Bu cycle'ın {len(tr)} transfer kaydı var. Transfere gitmiş "
+                "cycle kalıcı olarak silinemez; iptal et.")
+        if (f.get("onay2") or "").strip().upper() != "SIL":
+            return hata("Kalıcı silme için ikinci onay kutusuna SIL yazılmalı.")
+        say = cycle_icerik_sayilari(cycle_id)
+        silme_logla(
+            "cycle", cycle_id,
+            f"lab no {c['cycle_no']} · {say['oosit']} oosit · {say['olay']} islem · "
+            f"{say['goruntu']} goruntu",
+            kid)
+        try:
+            cycle_tamamen_sil(cycle_id, kid)
+        except Exception as e:
+            return hata(f"Silme sırasında hata: {type(e).__name__}: {e}")
+        return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
+
+    guvenlik.degisiklikleri_yaz("cycle", cycle_id, c, {"durum": "iptal"}, kid)
+    db.yaz("UPDATE cycle SET durum = 'iptal' WHERE id = ?", (cycle_id,))
+    return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+@uygulama.post("/cycle/{cycle_id}/geri-al")
+def cycle_geri_al(request: Request, cycle_id: int):
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if c:
+        guvenlik.degisiklikleri_yaz(
+            "cycle", cycle_id, c, {"durum": "aktif"}, request.state.kullanici["id"]
+        )
+        db.yaz("UPDATE cycle SET durum = 'aktif' WHERE id = ?", (cycle_id,))
+    return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+# ----------------------------------------------------------------- görüntü
+
+@uygulama.get("/goruntu/{goruntu_id}/sil")
+def goruntu_sil_ekran(request: Request, goruntu_id: int, geri: str = ""):
+    g = db.tek(
+        "SELECT g.*, c.cycle_no, h.dosya_no, h.ad_soyad, s.cycle_sira_no "
+        "FROM goruntu g JOIN cycle c ON c.id = g.cycle_id "
+        "JOIN hasta h ON h.id = c.hasta_id "
+        "LEFT JOIN specimen s ON s.id = g.specimen_id WHERE g.id = ?",
+        (goruntu_id,),
+    )
+    if not g:
+        return RedirectResponse("/hastalar", status_code=303)
+    etiketler = {r["kod"]: r["etiket"] for r in db.liste("goruntu_asama")}
+    return sablon.TemplateResponse(
+        request, "goruntu_sil.html",
+        {"g": g, "asama_adi": etiketler.get(g["asama"], g["asama"]),
+         "geri": geri or f"/cycle/{g['cycle_id']}"},
+    )
+
+
+@uygulama.post("/goruntu/{goruntu_id}/sil")
+async def goruntu_sil(request: Request, goruntu_id: int):
+    f = dict(await request.form())
+    g = db.tek("SELECT * FROM goruntu WHERE id = ?", (goruntu_id,))
+    if not g:
+        return RedirectResponse("/hastalar", status_code=303)
+    cycle_id = g["cycle_id"]
+    geri = f.get("geri") or f"/cycle/{cycle_id}"
+    guvenlik.degisiklikleri_yaz(
+        "goruntu", goruntu_id, g,
+        {"durum": f"SILINDI ({g['asama']}, {g['orijinal_dosya_adi']})"},
+        request.state.kullanici["id"],
+    )
+    goruntuler.goruntu_sil(goruntu_id)
+    return RedirectResponse(geri, status_code=303)
+
+
+@uygulama.get("/cycle/{cycle_id}/foto-ekle")
+def foto_ekle_ekran(request: Request, cycle_id: int, hata: str = "",
+                    specimen_id: str = "", asama: str = "", geri: str = ""):
+    c = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
+    )
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    specimenler = db.sorgu(
+        "SELECT id, cycle_sira_no FROM specimen WHERE cycle_id = ? "
+        "ORDER BY cycle_sira_no", (cycle_id,)
+    )
+    return sablon.TemplateResponse(
+        request, "foto_ekle.html",
+        {"c": c, "specimenler": specimenler,
+         "asamalar": db.liste("goruntu_asama"), "hata": hata,
+         "secili_specimen": specimen_id, "secili_asama": asama or "diger",
+         "geri": geri or f"/cycle/{cycle_id}"},
+    )
+
+
+@uygulama.post("/cycle/{cycle_id}/foto-ekle")
+async def foto_ekle(request: Request, cycle_id: int):
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    form = await request.form()
+    secim = form.get("specimen_id") or ""
+    asama = form.get("asama") or "diger"
+    geri = form.get("geri") or f"/cycle/{cycle_id}"
+    dosyalar = form.getlist("dosyalar")
+    kid = request.state.kullanici["id"]
+
+    hatalar, eklenen = [], 0
+    for d in dosyalar:
+        ad = getattr(d, "filename", "") or ""
+        if not ad:
+            continue
+        icerik = await d.read()
+
+        if secim == "__yeni__":
+            # Her dosya kendi oositini alir
+            hedef = goruntuler.specimen_olustur(cycle_id, c["cycle_no"])
+        else:
+            hedef = secim or None
+
+        mesaj = goruntuler.elle_ekle(
+            icerik, ad, cycle_id, c["cycle_no"], hedef, asama, kid
+        )
+        if mesaj:
+            hatalar.append(mesaj)
+            # Bos kalan oositi geri al
+            if secim == "__yeni__":
+                bos = db.tek("SELECT COUNT(*) k FROM goruntu WHERE specimen_id=?",
+                             (hedef,))["k"]
+                if bos == 0:
+                    db.yaz("DELETE FROM specimen WHERE id=?", (hedef,))
+        else:
+            eklenen += 1
+
+    from urllib.parse import quote
+    geri_ek = (f"&specimen_id={quote(secim)}&asama={quote(asama)}"
+               f"&geri={quote(geri)}")
+    if hatalar:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/foto-ekle?hata=" + quote(" ".join(hatalar)) + geri_ek,
+            status_code=303,
+        )
+    if eklenen == 0:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/foto-ekle?hata=" + quote("Dosya secilmedi.") + geri_ek,
+            status_code=303,
+        )
+    return RedirectResponse(geri, status_code=303)
+
+
+# ----------------------------------------------------------------- oosit silme
+
+@uygulama.get("/specimen/{specimen_id}/sil")
+def specimen_sil_ekran(request: Request, specimen_id: str):
+    sp = db.tek(
+        "SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+        "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE s.id = ?", (specimen_id,)
+    )
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    sayilar = db.tek(
+        "SELECT (SELECT COUNT(*) FROM goruntu WHERE specimen_id=?) AS goruntu, "
+        "       (SELECT COUNT(*) FROM olay WHERE specimen_id=? AND iptal_mi=0) AS olay, "
+        "       (SELECT COUNT(*) FROM specimen_bulgu WHERE specimen_id=?) AS bulgu",
+        (specimen_id, specimen_id, specimen_id),
+    )
+    return sablon.TemplateResponse(
+        request, "specimen_sil.html", {"sp": sp, "s": sayilar}
+    )
+
+
+@uygulama.post("/specimen/{specimen_id}/sil")
+def specimen_sil(request: Request, specimen_id: str):
+    sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    olay = db.tek(
+        "SELECT COUNT(*) k FROM olay WHERE specimen_id=? AND iptal_mi=0", (specimen_id,)
+    )["k"]
+    if olay:
+        return RedirectResponse(f"/specimen/{specimen_id}/sil?hata=1", status_code=303)
+
+    cycle_id = sp["cycle_id"]
+    kid = request.state.kullanici["id"]
+
+    guvenlik.degisiklikleri_yaz(
+        "specimen", specimen_id, sp,
+        {"durum": f"SILINDI (oosit {sp['cycle_sira_no']})"}, kid,
+    )
+
+    # Bagli goruntuleri de kaldir (kameradan gelenler kuyruga doner)
+    for g in db.sorgu("SELECT id FROM goruntu WHERE specimen_id = ?", (specimen_id,)):
+        goruntuler.goruntu_sil(g["id"])
+
+    db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id = ?", (specimen_id,))
+    db.yaz("DELETE FROM specimen WHERE id = ?", (specimen_id,))
+    return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+
+# ----------------------------------------------------------------- ICSI
+
+def asama_goruntuleri(specimen_id, asama):
+    """Bir oositin belirli bir aşamadaki tüm kareleri."""
+    if not specimen_id:
+        return []
+    return db.sorgu(
+        "SELECT id FROM goruntu WHERE specimen_id=? AND asama=? ORDER BY id",
+        (specimen_id, asama))
+
+
+def icsi_durum(cycle_id: int):
+    """Cycle'daki oositler ve ICSI kayıt durumları."""
+    return db.sorgu(
+        "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
+        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama='icsi' ORDER BY g.id DESC LIMIT 1) AS ilk_goruntu, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama='icsi') AS asama_kare, "
+        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id = s.id) "
+        "  AS goruntu_idler, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id) AS kare, "
+        "  (SELECT o.mat_deger FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS mat, "
+        "  (SELECT o.icsi_sonuc FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='icsi' AND o.iptal_mi=0 ORDER BY o.id DESC LIMIT 1) AS icsi "
+        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        (cycle_id,),
+    )
+
+
+def olay_kaydet_veya_guncelle(specimen_id, cycle_id, tip, alanlar, kullanici_id,
+                              zaman=None):
+    """Aynı tipte kayıt varsa günceller (değişiklikleri loglar), yoksa ekler.
+
+    zaman verilmezse şu an kullanılır. Geriye dönük kayıt için elle verilir.
+    """
+    mevcut = db.tek(
+        "SELECT * FROM olay WHERE specimen_id=? AND tip=? AND iptal_mi=0 "
+        "ORDER BY id DESC LIMIT 1", (specimen_id, tip)
+    )
+    from datetime import datetime as _d
+    simdi = zaman or _d.now().isoformat(" ", "seconds")
+
+    if mevcut:
+        guvenlik.degisiklikleri_yaz("olay", mevcut["id"], mevcut, alanlar, kullanici_id)
+        set_ifade = ", ".join(f"{a}=?" for a in alanlar)
+        db.yaz(
+            f"UPDATE olay SET {set_ifade}, zaman=?, kullanici_id=? WHERE id=?",
+            (*alanlar.values(), simdi, kullanici_id, mevcut["id"]),
+        )
+        return mevcut["id"]
+
+    kolonlar = ", ".join(alanlar)
+    isaret = ", ".join("?" * len(alanlar))
+    return db.yaz(
+        f"INSERT INTO olay (lab_id, specimen_id, cycle_id, tip, zaman, "
+        f"kullanici_id, {kolonlar}) VALUES (?,?,?,?,?,?,{isaret})",
+        (db.LAB_ID, specimen_id, cycle_id, tip, simdi, kullanici_id,
+         *alanlar.values()),
+    )
+
+
+@uygulama.get("/cycle/{cycle_id}/icsi")
+def icsi_ekran(request: Request, cycle_id: int, oosit: str = ""):
+    c = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
+    )
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    oositler = icsi_durum(cycle_id)
+    if not oositler:
+        return sablon.TemplateResponse(
+            request, "icsi.html",
+            {"c": c, "oositler": [], "sp": None, "kayit": None,
+             "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+             "gezinme": asama_gezinme(cycle_id, "icsi"),
+             "bekleyen": bekleyen_ozet(),
+             "bulgular": [], "secili_bulgular": set(), "kareler": [],
+             "maturasyonlar": db.liste("maturasyon"),
+             "zorluklar": db.liste("gecis_zorlugu")},
+        )
+
+    # Hangi oosit gösterilecek: istenen, yoksa ilk kaydedilmemiş, yoksa sonuncu
+    sp = None
+    if oosit:
+        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
+    if sp is None:
+        sp = next((o for o in oositler if o["mat"] is None), oositler[-1])
+
+    mat = db.tek(
+        "SELECT * FROM olay WHERE specimen_id=? AND tip='maturasyon_kontrolu' "
+        "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sp["id"],)
+    )
+    ic = db.tek(
+        "SELECT * FROM olay WHERE specimen_id=? AND tip='icsi' AND iptal_mi=0 "
+        "ORDER BY id DESC LIMIT 1", (sp["id"],)
+    )
+    secili = {
+        r["bulgu_kodu"] for r in db.sorgu(
+            "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
+            (sp["id"],)
+        )
+    }
+    return sablon.TemplateResponse(
+        request, "icsi.html",
+        {
+            "c": c, "oositler": oositler, "sp": sp,
+            "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+            "gezinme": asama_gezinme(cycle_id, "icsi"),
+            "kareler": asama_goruntuleri(sp["id"], "icsi"),
+            "bekleyen": bekleyen_ozet(),
+            "mat": mat, "ic": ic, "secili_bulgular": secili,
+            "bulgular": db.liste("bulgu_icsi"),
+            "maturasyonlar": db.liste("maturasyon"),
+            "zorluklar": db.liste("gecis_zorlugu"),
+        },
+    )
+
+
+@uygulama.post("/cycle/{cycle_id}/icsi")
+async def icsi_kaydet(request: Request, cycle_id: int):
+    f = await request.form()
+    specimen_id = f.get("specimen_id")
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse(f"/cycle/{cycle_id}/icsi", status_code=303)
+
+    kid = request.state.kullanici["id"]
+    mat = f.get("mat_deger") or None
+    if not mat:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/icsi?oosit={sp['cycle_sira_no']}", status_code=303
+        )
+
+    simdi = islem_zamani(f.get("islem_zamani"))
+    olay_kaydet_veya_guncelle(
+        specimen_id, cycle_id, "maturasyon_kontrolu", {"mat_deger": mat}, kid, simdi
+    )
+
+    # Bulgular: küme olarak yazılır
+    yeni_bulgular = set(f.getlist("bulgu"))
+    eski_bulgular = {
+        r["bulgu_kodu"] for r in db.sorgu(
+            "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
+            (specimen_id,))
+    }
+    if yeni_bulgular != eski_bulgular:
+        guvenlik.degisiklikleri_yaz(
+            "specimen_bulgu", specimen_id, {"bulgu": ", ".join(sorted(eski_bulgular))},
+            {"bulgu": ", ".join(sorted(yeni_bulgular))}, kid,
+        )
+        db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
+               (specimen_id,))
+        for b in sorted(yeni_bulgular):
+            db.yaz("INSERT INTO specimen_bulgu (specimen_id, asama, bulgu_kodu, "
+                   "zaman, kullanici_id) VALUES (?,'icsi',?,?,?)",
+                   (specimen_id, b, simdi, kid))
+
+    # Enjeksiyon
+    enjekte = f.get("enjekte") == "evet"
+    if enjekte:
+        olay_kaydet_veya_guncelle(
+            specimen_id, cycle_id, "icsi",
+            {"icsi_gecis_zorlugu": f.get("gecis_zorlugu") or None,
+             "icsi_sonuc": f.get("icsi_sonuc") or "basarili"}, kid, simdi,
+        )
+        yeni_durum = ("degenere" if f.get("icsi_sonuc") == "degenere" else "enjekte")
+    else:
+        # Enjekte edilmediyse varsa eski ICSI kaydını iptal et
+        eski = db.tek("SELECT id FROM olay WHERE specimen_id=? AND tip='icsi' "
+                      "AND iptal_mi=0", (specimen_id,))
+        if eski:
+            db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+                   "iptal_sebep='enjekte edilmedi olarak degistirildi' WHERE id=?",
+                   (kid, simdi, eski["id"]))
+        yeni_durum = "degenere" if mat == "degenere" else "immatur"
+
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (yeni_durum, specimen_id))
+
+    # Sıradaki kaydedilmemiş oosite geç
+    sonraki = db.tek(
+        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
+        "AND s.cycle_sira_no > ? AND NOT EXISTS "
+        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
+        " AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0) "
+        "ORDER BY s.cycle_sira_no LIMIT 1",
+        (cycle_id, sp["cycle_sira_no"]),
+    )
+    hedef = f"/cycle/{cycle_id}/icsi"
+    if sonraki:
+        hedef += f"?oosit={sonraki['n']}"
+    return RedirectResponse(hedef, status_code=303)
+
+
+@uygulama.get("/specimen/{specimen_id}/icsi-sil")
+def icsi_sil_ekran(request: Request, specimen_id: str):
+    sp = db.tek(
+        "SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+        "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE s.id = ?", (specimen_id,)
+    )
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    etiketler = {r["kod"]: r["etiket"]
+                 for r in db.sorgu("SELECT kod, etiket FROM liste_degeri WHERE lab_id=?",
+                                   (db.LAB_ID,))}
+    mat = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='maturasyon_kontrolu' "
+                 "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
+    ic = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='icsi' AND iptal_mi=0 "
+                "ORDER BY id DESC LIMIT 1", (specimen_id,))
+    bulgular = [etiketler.get(r["bulgu_kodu"], r["bulgu_kodu"]) for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
+        (specimen_id,))]
+    return sablon.TemplateResponse(
+        request, "icsi_sil.html",
+        {"sp": sp, "mat": mat, "ic": ic, "bulgular": bulgular, "etiketler": etiketler},
+    )
+
+
+@uygulama.post("/specimen/{specimen_id}/icsi-sil")
+def icsi_sil(request: Request, specimen_id: str):
+    sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    simdi = _d.now().isoformat(" ", "seconds")
+    kid = request.state.kullanici["id"]
+
+    # Olay kayitlari silinmez, iptal isaretlenir — denetim izi korunur
+    for o in db.sorgu(
+        "SELECT id, tip FROM olay WHERE specimen_id=? AND iptal_mi=0 "
+        "AND tip IN ('maturasyon_kontrolu','icsi')", (specimen_id,)
+    ):
+        db.yaz(
+            "UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+            "iptal_sebep='ICSI kaydi temizlendi' WHERE id=?",
+            (kid, simdi, o["id"]),
+        )
+
+    eski = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
+        (specimen_id,))}
+    if eski:
+        guvenlik.degisiklikleri_yaz(
+            "specimen_bulgu", specimen_id, {"bulgu": ", ".join(sorted(eski))},
+            {"bulgu": ""}, kid,
+        )
+        db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
+               (specimen_id,))
+
+    guvenlik.degisiklikleri_yaz(
+        "specimen", specimen_id, sp, {"durum": "oosit"}, kid
+    )
+    db.yaz("UPDATE specimen SET durum='oosit' WHERE id=?", (specimen_id,))
+
+    return RedirectResponse(
+        f"/cycle/{sp['cycle_id']}/icsi?oosit={sp['cycle_sira_no']}", status_code=303
+    )
+
+
+# ----------------------------------------------------------------- fertilizasyon
+
+def fert_durum(cycle_id: int):
+    return db.sorgu(
+        "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
+        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama='fertilizasyon_kontrolu' ORDER BY g.id DESC LIMIT 1) "
+        "  AS son_goruntu, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama='fertilizasyon_kontrolu') AS asama_kare, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id) AS kare, "
+        "  (SELECT o.mat_deger FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS mat, "
+        "  (SELECT o.icsi_sonuc FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='icsi' AND o.iptal_mi=0 ORDER BY o.id DESC LIMIT 1) AS icsi, "
+        "  (SELECT o.zaman FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='icsi' AND o.iptal_mi=0 ORDER BY o.id DESC LIMIT 1) AS icsi_zaman, "
+        "  (SELECT o.fert_pn_sayisi FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS pn, "
+        "  (SELECT o.fert_sonuc FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS fert "
+        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        (cycle_id,),
+    )
+
+
+@uygulama.get("/cycle/{cycle_id}/fert")
+def fert_ekran(request: Request, cycle_id: int, oosit: str = ""):
+    c = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
+    )
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    oositler = fert_durum(cycle_id)
+    from datetime import datetime as _d
+    ortak = {
+        "c": c, "oositler": oositler,
+        "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+        "gezinme": asama_gezinme(cycle_id, "fert"),
+        "bekleyen": bekleyen_ozet(),
+        "sonuclar": db.liste("fert_sonuc"),
+        "pn_sayilari": db.liste("pn_sayisi"),
+        "pn_skorlari": db.liste("pn_skoru"),
+        "bulgular": db.liste("bulgu_fert"),
+        "hedef_saat": db.ayar("fert_kontrol_saat", "17"),
+    }
+    if not oositler:
+        return sablon.TemplateResponse(
+            request, "fert.html",
+            {**ortak, "sp": None, "kayit": None, "secili_bulgular": set(),
+             "gecen": None, "kareler": []},
+        )
+
+    sp = None
+    if oosit:
+        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
+    if sp is None:
+        sp = next((o for o in oositler if o["fert"] is None), oositler[-1])
+
+    kayit = db.tek(
+        "SELECT * FROM olay WHERE specimen_id=? AND tip='fertilizasyon_kontrolu' "
+        "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sp["id"],)
+    )
+    secili = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? "
+        "AND asama='fertilizasyon_kontrolu'", (sp["id"],))}
+
+    # ICSI'den bu yana geçen süre
+    gecen = None
+    if sp["icsi_zaman"]:
+        from datetime import datetime as _d
+        try:
+            gecen = round((_d.now() - _d.fromisoformat(sp["icsi_zaman"]))
+                          .total_seconds() / 3600, 1)
+        except ValueError:
+            gecen = None
+
+    return sablon.TemplateResponse(
+        request, "fert.html",
+        {**ortak, "sp": sp, "kayit": kayit, "secili_bulgular": secili, "gecen": gecen},
+    )
+
+
+@uygulama.post("/cycle/{cycle_id}/fert")
+async def fert_kaydet(request: Request, cycle_id: int):
+    f = await request.form()
+    specimen_id = f.get("specimen_id")
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse(f"/cycle/{cycle_id}/fert", status_code=303)
+
+    kid = request.state.kullanici["id"]
+    sonuc = f.get("fert_sonuc") or None
+    if not sonuc:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/fert?oosit={sp['cycle_sira_no']}", status_code=303
+        )
+
+    pn = f.get("fert_pn_sayisi") or None
+    skor = f.get("fert_pn_skoru") or None
+    if sonuc != "normal":
+        pn = skor = None            # dejenere/kayıpta PN sorulmaz
+    if pn != "2":
+        skor = None                 # Z sınıflaması yalnız 2PN için tanımlı
+
+    simdi = islem_zamani(f.get("islem_zamani"))
+    olay_kaydet_veya_guncelle(
+        specimen_id, cycle_id, "fertilizasyon_kontrolu",
+        {"fert_sonuc": sonuc, "fert_pn_sayisi": pn, "fert_pn_skoru": skor}, kid, simdi,
+    )
+    yeni_b = set(f.getlist("bulgu"))
+    eski_b = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? "
+        "AND asama='fertilizasyon_kontrolu'", (specimen_id,))}
+    if yeni_b != eski_b:
+        guvenlik.degisiklikleri_yaz(
+            "specimen_bulgu", specimen_id,
+            {"fert_bulgu": ", ".join(sorted(eski_b))},
+            {"fert_bulgu": ", ".join(sorted(yeni_b))}, kid)
+        db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? "
+               "AND asama='fertilizasyon_kontrolu'", (specimen_id,))
+        for b in sorted(yeni_b):
+            db.yaz("INSERT INTO specimen_bulgu (specimen_id, asama, bulgu_kodu, "
+                   "zaman, kullanici_id) "
+                   "VALUES (?,'fertilizasyon_kontrolu',?,?,?)", (specimen_id, b, simdi, kid))
+
+    if sonuc == "degenere":
+        durum = "degenere"
+    elif sonuc == "kayip":
+        durum = "kayip"
+    elif pn == "2":
+        durum = "zigot"
+    else:
+        durum = f"{pn}pn" if pn else "kontrol_edildi"
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (durum, specimen_id))
+
+    sonraki = db.tek(
+        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
+        "AND s.cycle_sira_no > ? AND NOT EXISTS "
+        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
+        " AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0) "
+        "ORDER BY s.cycle_sira_no LIMIT 1",
+        (cycle_id, sp["cycle_sira_no"]),
+    )
+    hedef = f"/cycle/{cycle_id}/fert"
+    if sonraki:
+        hedef += f"?oosit={sonraki['n']}"
+    return RedirectResponse(hedef, status_code=303)
+
+
+@uygulama.get("/specimen/{specimen_id}/fert-sil")
+def fert_sil_ekran(request: Request, specimen_id: str):
+    sp = db.tek(
+        "SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+        "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE s.id = ?", (specimen_id,)
+    )
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    kayit = db.tek(
+        "SELECT * FROM olay WHERE specimen_id=? AND tip='fertilizasyon_kontrolu' "
+        "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
+    bulgular = [etiketler.get(r["bulgu_kodu"], r["bulgu_kodu"]) for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? "
+        "AND asama='fertilizasyon_kontrolu'", (specimen_id,))]
+    return sablon.TemplateResponse(
+        request, "fert_sil.html",
+        {"sp": sp, "kayit": kayit, "bulgular": bulgular, "etiketler": etiketler},
+    )
+
+
+@uygulama.post("/specimen/{specimen_id}/fert-sil")
+def fert_sil(request: Request, specimen_id: str):
+    sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    from datetime import datetime as _d
+    simdi = _d.now().isoformat(" ", "seconds")
+    kid = request.state.kullanici["id"]
+
+    for o in db.sorgu("SELECT id FROM olay WHERE specimen_id=? AND iptal_mi=0 "
+                      "AND tip='fertilizasyon_kontrolu'", (specimen_id,)):
+        db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+               "iptal_sebep='Fertilizasyon kaydi temizlendi' WHERE id=?",
+               (kid, simdi, o["id"]))
+
+    eski = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? "
+        "AND asama='fertilizasyon_kontrolu'", (specimen_id,))}
+    if eski:
+        guvenlik.degisiklikleri_yaz("specimen_bulgu", specimen_id,
+            {"fert_bulgu": ", ".join(sorted(eski))}, {"fert_bulgu": ""}, kid)
+        db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? "
+               "AND asama='fertilizasyon_kontrolu'", (specimen_id,))
+
+    onceki = "enjekte" if db.tek(
+        "SELECT id FROM olay WHERE specimen_id=? AND tip='icsi' AND iptal_mi=0",
+        (specimen_id,)) else "oosit"
+    guvenlik.degisiklikleri_yaz("specimen", specimen_id, sp, {"durum": onceki}, kid)
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (onceki, specimen_id))
+
+    return RedirectResponse(
+        f"/cycle/{sp['cycle_id']}/fert?oosit={sp['cycle_sira_no']}", status_code=303)
+
+
+# ----------------------------------------------------------------- cleavage
+
+def cleavage_durum(cycle_id: int, gun: int):
+    return db.sorgu(
+        "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
+        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama = ? ORDER BY g.id DESC LIMIT 1) AS goruntu, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama = ?) AS kare, "
+        "  (SELECT o.fert_pn_sayisi FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS pn, "
+        "  (SELECT o.cl_hucre_sayisi FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='cleavage_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS hucre, "
+        "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='cleavage_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS kayit_id "
+        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        (f"gun{gun}", f"gun{gun}", gun, gun, cycle_id),
+    )
+
+
+def _gun_olay(specimen_id, tip, gun):
+    return db.tek(
+        "SELECT * FROM olay WHERE specimen_id=? AND tip=? AND gun=? AND iptal_mi=0 "
+        "ORDER BY id DESC LIMIT 1", (specimen_id, tip, gun)
+    )
+
+
+def _gun_olay_kaydet(specimen_id, cycle_id, tip, gun, alanlar, kid, zaman):
+    mevcut = _gun_olay(specimen_id, tip, gun)
+    if mevcut:
+        guvenlik.degisiklikleri_yaz("olay", mevcut["id"], mevcut, alanlar, kid)
+        set_ifade = ", ".join(f"{a}=?" for a in alanlar)
+        db.yaz(f"UPDATE olay SET {set_ifade}, zaman=?, kullanici_id=? WHERE id=?",
+               (*alanlar.values(), zaman, kid, mevcut["id"]))
+        return mevcut["id"]
+    kolonlar = ", ".join(alanlar)
+    isaret = ", ".join("?" * len(alanlar))
+    return db.yaz(
+        f"INSERT INTO olay (lab_id, specimen_id, cycle_id, tip, gun, zaman, "
+        f"kullanici_id, {kolonlar}) VALUES (?,?,?,?,?,?,?,{isaret})",
+        (db.LAB_ID, specimen_id, cycle_id, tip, gun, zaman, kid, *alanlar.values()),
+    )
+
+
+def cleavage_skor(hucre, simetri, frag, gun):
+    """Hücre sayısı, simetri ve fragmentasyondan A/B/C skoru türetir.
+
+    Basit ve açık bir kural: her boyut ayrı puanlanır, en kötüsü skoru belirler.
+    Lab kendi kuralını benimserse burası değiştirilir.
+    """
+    if hucre is None or not simetri or frag is None:
+        return None
+    beklenen = {2: (2, 4), 3: (6, 8)}.get(gun, (6, 8))
+    if beklenen[0] <= hucre <= beklenen[1]:
+        h = "A"
+    elif abs(hucre - beklenen[0]) <= 1 or abs(hucre - beklenen[1]) <= 1:
+        h = "B"
+    else:
+        h = "C"
+    sm = {"esit": "A", "hafif_esitsiz": "B", "esitsiz": "C"}.get(simetri, "C")
+    f = "A" if frag < 10 else ("B" if frag <= 25 else "C")
+    return max(h, sm, f)          # harf sıralamasında en kötü olan
+
+
+@uygulama.get("/cycle/{cycle_id}/cleavage")
+def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = ""):
+    if gun not in (2, 3):
+        gun = 3
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    oositler = cleavage_durum(cycle_id, gun)
+    ortak = {
+        "c": c, "gun": gun, "oositler": oositler,
+        "gezinme": asama_gezinme(cycle_id, "cleavage"),
+        "bekleyen": bekleyen_ozet(),
+        "simetriler": db.liste("simetri"),
+        "bulgular": db.liste("bulgu_cleavage"),
+        "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+        "hedef_saat": db.ayar("gun3_kontrol_saat", "68") if gun == 3 else None,
+    }
+    if not oositler:
+        return sablon.TemplateResponse(
+            request, "cleavage.html",
+            {**ortak, "sp": None, "kayit": None, "secili_bulgular": set(), "kareler": []})
+
+    sp = None
+    if oosit:
+        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
+    if sp is None:
+        sp = next((o for o in oositler if o["kayit_id"] is None), oositler[-1])
+
+    kayit = _gun_olay(sp["id"], "cleavage_degerlendirme", gun)
+    secili = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama=?",
+        (sp["id"], f"gun{gun}"))}
+    return sablon.TemplateResponse(
+        request, "cleavage.html",
+        {**ortak, "sp": sp, "kayit": kayit, "secili_bulgular": secili,
+         "kareler": asama_goruntuleri(sp["id"], f"gun{gun}")})
+
+
+@uygulama.post("/cycle/{cycle_id}/cleavage")
+async def cleavage_kaydet(request: Request, cycle_id: int):
+    f = await request.form()
+    gun = int(f.get("gun") or 3)
+    specimen_id = f.get("specimen_id")
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse(f"/cycle/{cycle_id}/cleavage?gun={gun}", status_code=303)
+
+    kid = request.state.kullanici["id"]
+    try:
+        hucre = tam(f.get("cl_hucre_sayisi"), "Hücre sayısı")
+        frag = sayi(f.get("cl_fragmentasyon"), "Fragmentasyon")
+    except FormHatasi:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
+            status_code=303)
+    simetri = f.get("cl_simetri") or None
+    if hucre is None and not simetri and frag is None:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
+            status_code=303)
+
+    elle_skor = (f.get("cl_skor") or "").strip().upper() or None
+    otomatik = cleavage_skor(hucre, simetri, frag, gun)
+    skor = elle_skor or otomatik
+    kaynak = "elle" if elle_skor else ("otomatik" if otomatik else None)
+
+    simdi = islem_zamani(f.get("islem_zamani"))
+    _gun_olay_kaydet(specimen_id, cycle_id, "cleavage_degerlendirme", gun,
+                     {"cl_hucre_sayisi": hucre, "cl_simetri": simetri,
+                      "cl_fragmentasyon": frag, "cl_skor": skor,
+                      "cl_skor_kaynagi": kaynak}, kid, simdi)
+
+    asama = f"gun{gun}"
+    yeni_b = set(f.getlist("bulgu"))
+    eski_b = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama=?",
+        (specimen_id, asama))}
+    if yeni_b != eski_b:
+        guvenlik.degisiklikleri_yaz("specimen_bulgu", specimen_id,
+            {f"{asama}_bulgu": ", ".join(sorted(eski_b))},
+            {f"{asama}_bulgu": ", ".join(sorted(yeni_b))}, kid)
+        db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? AND asama=?",
+               (specimen_id, asama))
+        for b in sorted(yeni_b):
+            db.yaz("INSERT INTO specimen_bulgu (specimen_id, asama, bulgu_kodu, "
+                   "zaman, kullanici_id) VALUES (?,?,?,?,?)",
+                   (specimen_id, asama, b, simdi, kid))
+
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (f"gun{gun}", specimen_id))
+
+    sonraki = db.tek(
+        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
+        "AND s.cycle_sira_no > ? AND NOT EXISTS "
+        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
+        " AND o.tip='cleavage_degerlendirme' AND o.gun=? AND o.iptal_mi=0) "
+        "ORDER BY s.cycle_sira_no LIMIT 1",
+        (cycle_id, sp["cycle_sira_no"], gun))
+    hedef = f"/cycle/{cycle_id}/cleavage?gun={gun}"
+    if sonraki:
+        hedef += f"&oosit={sonraki['n']}"
+    return RedirectResponse(hedef, status_code=303)
+
+
+@uygulama.get("/specimen/{specimen_id}/cleavage-sil")
+def cleavage_sil_ekran(request: Request, specimen_id: str, gun: int = 3):
+    sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+                "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+                "WHERE s.id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    kayit = _gun_olay(specimen_id, "cleavage_degerlendirme", gun)
+    bulgular = [etiketler.get(r["bulgu_kodu"], r["bulgu_kodu"]) for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama=?",
+        (specimen_id, f"gun{gun}"))]
+    return sablon.TemplateResponse(
+        request, "cleavage_sil.html",
+        {"sp": sp, "gun": gun, "kayit": kayit, "bulgular": bulgular,
+         "etiketler": etiketler})
+
+
+@uygulama.post("/specimen/{specimen_id}/cleavage-sil")
+async def cleavage_sil(request: Request, specimen_id: str):
+    f = dict(await request.form())
+    gun = int(f.get("gun") or 3)
+    sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    from datetime import datetime as _d
+    simdi = _d.now().isoformat(" ", "seconds")
+    kid = request.state.kullanici["id"]
+
+    k = _gun_olay(specimen_id, "cleavage_degerlendirme", gun)
+    if k:
+        db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+               "iptal_sebep=? WHERE id=?",
+               (kid, simdi, f"Gun {gun} kaydi temizlendi", k["id"]))
+    asama = f"gun{gun}"
+    eski = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama=?",
+        (specimen_id, asama))}
+    if eski:
+        guvenlik.degisiklikleri_yaz("specimen_bulgu", specimen_id,
+            {f"{asama}_bulgu": ", ".join(sorted(eski))}, {f"{asama}_bulgu": ""}, kid)
+        db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? AND asama=?",
+               (specimen_id, asama))
+    return RedirectResponse(
+        f"/cycle/{sp['cycle_id']}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
+        status_code=303)
+
+
+# ----------------------------------------------------------------- blastokist
+
+BLAST_GUNLERI = (4, 5, 6, 7)
+BLAST_DISI = ("erken_morula", "morula", "kavitasyon", "arrest")
+BLAST_DERECELI = ("erken_morula", "morula", "kavitasyon")   # arrest derecelendirilmez
+BLAST_KISA = {"erken_morula": "EM", "morula": "M",
+              "kavitasyon": "KAV", "arrest": "ARR"}
+
+
+def blast_durum(cycle_id: int, gun: int):
+    return db.sorgu(
+        "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
+        "  COALESCE( "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "     AND g.asama = ? ORDER BY g.id DESC LIMIT 1), "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "     AND g.asama = 'blastokist' ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama IN (?, 'blastokist')) AS kare, "
+        "  (SELECT o.fert_pn_sayisi FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS pn, "
+        "  (SELECT o.bl_skor FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='blastokist_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS skor, "
+        "  (SELECT o.bl_genisleme FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='blastokist_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS gen, "
+        "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
+        "   AND o.tip='blastokist_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
+        "   ORDER BY o.id DESC LIMIT 1) AS kayit_id "
+        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        (f"gun{gun}", f"gun{gun}", gun, gun, gun, cycle_id),
+    )
+
+
+def blast_skor(genisleme, icm, te, derece=None):
+    """Blastokistte genişleme+ICM+TE ('4AA'); dışında kısaltma+derece ('M2')."""
+    if not genisleme:
+        return None
+    if genisleme in BLAST_DISI:
+        kisa = BLAST_KISA[genisleme]
+        return f"{kisa}{derece}" if derece else kisa
+    if not icm or not te:
+        return genisleme
+    return f"{genisleme}{icm.upper()}{te.upper()}"
+
+
+@uygulama.get("/cycle/{cycle_id}/blast")
+def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = ""):
+    if gun not in BLAST_GUNLERI:
+        gun = 5
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    oositler = blast_durum(cycle_id, gun)
+
+    dereceler = db.liste("bl_derece")
+    if not dereceler:                       # göç çalıştırılmamış olabilir
+        dereceler = [{"kod": k, "etiket": e} for k, e in
+                     (("1", "Derece 1"), ("2", "Derece 2"), ("3", "Derece 3"))]
+    kolonlar = [r["name"] for r in db.sorgu("PRAGMA table_info(olay)")]
+    eksik_goc = "bl_derece" not in kolonlar
+
+    genislemeler = db.liste("bl_genisleme")
+    if not any(g["kod"] == "kavitasyon" for g in genislemeler):
+        eksik_goc = True
+
+    ortak = {
+        "c": c, "gun": gun, "gunler": BLAST_GUNLERI, "oositler": oositler,
+        "gezinme": asama_gezinme(cycle_id, "blast"),
+        "bekleyen": bekleyen_ozet(),
+        "genislemeler": genislemeler,
+        "icmler": db.liste("bl_icm"),
+        "teler": db.liste("bl_te"),
+        "dereceler": dereceler,
+        "eksik_goc": eksik_goc,
+        "blast_disi": BLAST_DISI,
+        "blast_dereceli": BLAST_DERECELI,
+        "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+    }
+    if not oositler:
+        return sablon.TemplateResponse(
+            request, "blast.html", {**ortak, "sp": None, "kayit": None, "kareler": []})
+
+    sp = None
+    if oosit:
+        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
+    if sp is None:
+        sp = next((o for o in oositler if o["kayit_id"] is None), oositler[-1])
+
+    kayit = _gun_olay(sp["id"], "blastokist_degerlendirme", gun)
+    return sablon.TemplateResponse(
+        request, "blast.html",
+        {**ortak, "sp": sp, "kayit": kayit,
+         "kareler": asama_goruntuleri(sp["id"], f"gun{gun}")})
+
+
+@uygulama.post("/cycle/{cycle_id}/blast")
+async def blast_kaydet(request: Request, cycle_id: int):
+    f = await request.form()
+    gun = int(f.get("gun") or 5)
+    if gun not in BLAST_GUNLERI:
+        gun = 5
+    specimen_id = f.get("specimen_id")
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse(f"/cycle/{cycle_id}/blast?gun={gun}", status_code=303)
+
+    genisleme = f.get("bl_genisleme") or None
+    if not genisleme:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/blast?gun={gun}&oosit={sp['cycle_sira_no']}",
+            status_code=303)
+
+    icm = f.get("bl_icm") or None
+    te = f.get("bl_te") or None
+    derece = f.get("bl_derece") or None
+    if genisleme in BLAST_DISI:
+        icm = te = None             # morula/kavitasyon/arrest'te ICM ve TE tanımsız
+    else:
+        derece = None               # blastokistte derece yerine ICM/TE kullanılır
+    if genisleme not in BLAST_DERECELI:
+        derece = None               # arrest derecelendirilmez
+
+    elle = (f.get("bl_skor") or "").strip().upper() or None
+    otomatik = blast_skor(genisleme, icm, te, derece)
+    skor = elle or otomatik
+    kaynak = "elle" if elle else ("otomatik" if otomatik else None)
+
+    kid = request.state.kullanici["id"]
+    simdi = islem_zamani(f.get("islem_zamani"))
+    _gun_olay_kaydet(specimen_id, cycle_id, "blastokist_degerlendirme", gun,
+                     {"bl_genisleme": genisleme, "bl_icm": icm, "bl_te": te,
+                      "bl_derece": derece, "bl_skor": skor,
+                      "bl_skor_kaynagi": kaynak}, kid, simdi)
+
+    if genisleme == "arrest":
+        durum = "arrest"
+    elif genisleme == "kavitasyon":
+        durum = "kavitasyon"
+    elif genisleme in ("morula", "erken_morula"):
+        durum = "morula"
+    else:
+        durum = "blastokist"
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (durum, specimen_id))
+
+    sonraki = db.tek(
+        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
+        "AND s.cycle_sira_no > ? AND NOT EXISTS "
+        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
+        " AND o.tip='blastokist_degerlendirme' AND o.gun=? AND o.iptal_mi=0) "
+        "ORDER BY s.cycle_sira_no LIMIT 1",
+        (cycle_id, sp["cycle_sira_no"], gun))
+    hedef = f"/cycle/{cycle_id}/blast?gun={gun}"
+    if sonraki:
+        hedef += f"&oosit={sonraki['n']}"
+    return RedirectResponse(hedef, status_code=303)
+
+
+@uygulama.get("/specimen/{specimen_id}/blast-sil")
+def blast_sil_ekran(request: Request, specimen_id: str, gun: int = 5):
+    sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+                "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+                "WHERE s.id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "blast_sil.html",
+        {"sp": sp, "gun": gun,
+         "kayit": _gun_olay(specimen_id, "blastokist_degerlendirme", gun),
+         "etiketler": etiketler})
+
+
+@uygulama.post("/specimen/{specimen_id}/blast-sil")
+async def blast_sil(request: Request, specimen_id: str):
+    f = dict(await request.form())
+    gun = int(f.get("gun") or 5)
+    sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    from datetime import datetime as _d
+    k = _gun_olay(specimen_id, "blastokist_degerlendirme", gun)
+    if k:
+        db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+               "iptal_sebep=? WHERE id=?",
+               (request.state.kullanici["id"],
+                _d.now().isoformat(" ", "seconds"),
+                f"Gun {gun} blastokist kaydi temizlendi", k["id"]))
+    return RedirectResponse(
+        f"/cycle/{sp['cycle_id']}/blast?gun={gun}&oosit={sp['cycle_sira_no']}",
+        status_code=303)
+
+
+# ----------------------------------------------------------------- kriyo
+
+DONMUS_DURUMLAR = ("dondurulmus",)
+BITMIS_DURUMLAR = ("transfer_edildi", "discard", "degenere", "kayip", "arrest")
+
+
+def konum_semasi():
+    return db.sorgu(
+        "SELECT seviye_sirasi, seviye_adi, deger_tipi FROM konum_semasi "
+        "WHERE lab_id = ? ORDER BY seviye_sirasi", (db.LAB_ID,))
+
+
+def konum_bul_veya_olustur(seviyeler):
+    """seviyeler: ['T2','K3','G5','12'] — boş olanlar atlanır."""
+    temiz = [(s or "").strip() for s in seviyeler] + ["", "", "", ""]
+    temiz = temiz[:4]
+    if not any(temiz):
+        return None
+    tam_yol = " / ".join(x for x in temiz if x)
+    mevcut = db.tek("SELECT * FROM konum WHERE lab_id=? AND tam_yol=?",
+                    (db.LAB_ID, tam_yol))
+    if mevcut:
+        return mevcut["id"]
+    return db.yaz(
+        "INSERT INTO konum (lab_id, seviye1, seviye2, seviye3, seviye4, tam_yol, durum) "
+        "VALUES (?,?,?,?,?,?,'dolu')",
+        (db.LAB_ID, temiz[0] or None, temiz[1] or None, temiz[2] or None,
+         temiz[3] or None, tam_yol))
+
+
+def tasiyici_icerigi(tasiyici_id):
+    return db.sorgu(
+        "SELECT s.id, s.cycle_sira_no, s.durum, o.zaman, o.id AS olay_id, "
+        "  c.id AS cycle_id, c.cycle_no, h.dosya_no, h.ad_soyad, "
+        "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
+        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
+        "  COALESCE( "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     AND g.asama='blastokist' ORDER BY g.id DESC LIMIT 1), "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
+        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
+        "  AS goruntu_idler, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
+        "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
+        "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND o.vit_tasiyici_id=? "
+        "ORDER BY s.cycle_sira_no", (tasiyici_id,))
+
+
+@uygulama.get("/cycle/{cycle_id}/vitrifikasyon")
+def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    embriyolar = db.sorgu(
+        "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
+        "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
+        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
+        "  (SELECT b.gun FROM olay b WHERE b.specimen_id=s.id "
+        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        "   ORDER BY b.gun DESC LIMIT 1) AS gun, "
+        "  (SELECT o.vit_tasiyici_id FROM olay o WHERE o.specimen_id=s.id "
+        "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 LIMIT 1) AS tasiyici_id, "
+        "  (SELECT t.etiket FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+        "   WHERE o.specimen_id=s.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        "   LIMIT 1) AS tasiyici_etiket, "
+        "  (SELECT k.tam_yol FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+        "   JOIN konum k ON k.id=t.konum_id WHERE o.specimen_id=s.id "
+        "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 LIMIT 1) AS konum, "
+        "  COALESCE( "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     AND g.asama='blastokist' ORDER BY g.id DESC LIMIT 1), "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
+        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
+        "  AS goruntu_idler, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
+        "FROM specimen s WHERE s.cycle_id=? ORDER BY s.cycle_sira_no", (cycle_id,))
+
+    return sablon.TemplateResponse(
+        request, "vitrifikasyon.html",
+        {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(),
+         "gezinme": asama_gezinme(cycle_id, "vitrifikasyon"),
+         "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
+         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
+         "onerilen": f"{c['cycle_no']}-{_d.now().strftime('%H%M')}"})
+
+
+@uygulama.post("/cycle/{cycle_id}/vitrifikasyon")
+async def vit_kaydet(request: Request, cycle_id: int):
+    from urllib.parse import quote
+    f = await request.form()
+    c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/vitrifikasyon?hata={quote(m)}", status_code=303)
+
+    secilen = f.getlist("embriyo")
+    if not secilen:
+        return hata("Hiç embriyo seçilmedi.")
+
+    etiket = (f.get("etiket") or "").strip()
+    if not etiket:
+        return hata("Taşıyıcı etiketi boş bırakılamaz.")
+    if db.tek("SELECT id FROM tasiyici WHERE lab_id=? AND etiket=?", (db.LAB_ID, etiket)):
+        return hata(f"'{etiket}' etiketli bir taşıyıcı zaten var.")
+
+    seviyeler = [f.get(f"seviye{i}") for i in (1, 2, 3, 4)]
+    konum_id = konum_bul_veya_olustur(seviyeler)
+
+    kid = request.state.kullanici["id"]
+    simdi = islem_zamani(f.get("islem_zamani"))
+
+    tid = db.yaz(
+        "INSERT INTO tasiyici (lab_id, tip, etiket, renk, konum_id, "
+        "vitrifikasyon_zamani, kullanici_id, durum) VALUES (?,?,?,?,?,?,?,'dolu')",
+        (db.LAB_ID, f.get("tip") or "cryotop", etiket, f.get("renk") or None,
+         konum_id, simdi, kid))
+    if konum_id:
+        db.yaz("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+
+    eski_tasiyicilar = set()
+    for sid in secilen:
+        sp = db.tek("SELECT * FROM specimen WHERE id=? AND cycle_id=?", (sid, cycle_id))
+        if not sp:
+            continue
+        onceki = db.tek(
+            "SELECT vit_tasiyici_id FROM olay WHERE specimen_id=? "
+            "AND tip='vitrifikasyon' AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sid,))
+        if onceki and onceki["vit_tasiyici_id"] and onceki["vit_tasiyici_id"] != tid:
+            eski_tasiyicilar.add(onceki["vit_tasiyici_id"])
+        olay_kaydet_veya_guncelle(sid, cycle_id, "vitrifikasyon",
+                                  {"vit_tasiyici_id": tid}, kid, simdi)
+        db.yaz("UPDATE specimen SET durum='dondurulmus' WHERE id=?", (sid,))
+
+    # Boşalan eski taşıyıcıları ve konumlarını serbest bırak
+    for et in eski_tasiyicilar:
+        kalan = db.tek("SELECT COUNT(*) k FROM olay WHERE vit_tasiyici_id=? "
+                       "AND tip='vitrifikasyon' AND iptal_mi=0", (et,))["k"]
+        if kalan == 0:
+            e = db.tek("SELECT konum_id FROM tasiyici WHERE id=?", (et,))
+            db.yaz("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?", (et,))
+            if e and e["konum_id"]:
+                db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (e["konum_id"],))
+
+    return RedirectResponse(f"/cryo/tasiyici/{tid}", status_code=303)
+
+
+@uygulama.get("/cryo")
+def cryo_harita(request: Request, ara: str = ""):
+    if ara.strip():
+        tasiyicilar = db.sorgu(
+            "SELECT DISTINCT t.id, t.etiket, t.tip, t.renk, t.durum, "
+            "  k.tam_yol, t.vitrifikasyon_zamani, "
+            "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
+            "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet "
+            "FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
+            "LEFT JOIN olay o ON o.vit_tasiyici_id=t.id AND o.iptal_mi=0 "
+            "LEFT JOIN specimen s ON s.id=o.specimen_id "
+            "LEFT JOIN cycle c ON c.id=s.cycle_id "
+            "LEFT JOIN hasta h ON h.id=c.hasta_id "
+            "WHERE t.lab_id=? AND t.durum='dolu' AND ("
+            "  t.etiket LIKE ? OR k.tam_yol LIKE ? "
+            "  OR CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?) "
+            "ORDER BY k.tam_yol, t.etiket",
+            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{ara}%"))
+    else:
+        tasiyicilar = db.sorgu(
+            "SELECT t.id, t.etiket, t.tip, t.renk, t.durum, k.tam_yol, "
+            "  t.vitrifikasyon_zamani, "
+            "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
+            "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet "
+            "FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
+            "WHERE t.lab_id=? AND t.durum='dolu' ORDER BY k.tam_yol, t.etiket",
+            (db.LAB_ID,))
+
+    tanklar = db.sorgu(
+        "SELECT k.seviye1 AS tank, COUNT(DISTINCT t.id) AS tasiyici, "
+        "  (SELECT COUNT(*) FROM olay o JOIN tasiyici t2 ON t2.id=o.vit_tasiyici_id "
+        "   JOIN konum k2 ON k2.id=t2.konum_id "
+        "   WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND t2.durum='dolu' "
+        "   AND k2.seviye1 = k.seviye1) AS embriyo "
+        "FROM konum k JOIN tasiyici t ON t.konum_id=k.id AND t.durum='dolu' "
+        "WHERE k.lab_id=? AND k.seviye1 IS NOT NULL "
+        "GROUP BY k.seviye1 ORDER BY k.seviye1", (db.LAB_ID,))
+
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "cryo.html",
+        {"tasiyicilar": tasiyicilar, "tanklar": tanklar, "ara": ara,
+         "etiketler": etiketler, "kullanici": request.state.kullanici})
+
+
+@uygulama.get("/cryo/tasiyici/{tasiyici_id}")
+def tasiyici_detay(request: Request, tasiyici_id: int):
+    t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t "
+               "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
+    if not t:
+        return RedirectResponse("/cryo", status_code=303)
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    icerik = tasiyici_icerigi(tasiyici_id)
+    thawlar = db.sorgu(
+        "SELECT o.thaw_sagkalim, o.thaw_canlilik FROM olay o "
+        "JOIN specimen s ON s.id=o.specimen_id "
+        "JOIN olay v ON v.specimen_id=s.id AND v.tip='vitrifikasyon' AND v.iptal_mi=0 "
+        "WHERE o.tip='thaw' AND o.iptal_mi=0 AND v.vit_tasiyici_id=?", (tasiyici_id,))
+    ozet = None
+    if thawlar:
+        canli = sum(1 for r in thawlar if r["thaw_sagkalim"] == "canli")
+        oranlar = [r["thaw_canlilik"] for r in thawlar if r["thaw_canlilik"] is not None]
+        ozet = {"toplam": len(thawlar), "canli": canli,
+                "oran": round(100 * canli / len(thawlar)),
+                "ortalama_canlilik": round(sum(oranlar) / len(oranlar), 1) if oranlar else None}
+    return sablon.TemplateResponse(
+        request, "tasiyici.html",
+        {"t": t, "icerik": icerik, "etiketler": etiketler, "ozet": ozet})
+
+
+@uygulama.get("/specimen/{specimen_id}/vit-sil")
+def vit_sil_ekran(request: Request, specimen_id: str):
+    sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+                "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
+                "WHERE s.id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    kayit = db.tek(
+        "SELECT o.*, t.etiket, k.tam_yol FROM olay o "
+        "LEFT JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+        "LEFT JOIN konum k ON k.id=t.konum_id "
+        "WHERE o.specimen_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+    kardes = 0
+    if kayit and kayit["vit_tasiyici_id"]:
+        kardes = db.tek("SELECT COUNT(*) k FROM olay WHERE vit_tasiyici_id=? "
+                        "AND tip='vitrifikasyon' AND iptal_mi=0",
+                        (kayit["vit_tasiyici_id"],))["k"]
+    return sablon.TemplateResponse(
+        request, "vit_sil.html", {"sp": sp, "kayit": kayit, "kardes": kardes})
+
+
+@uygulama.post("/specimen/{specimen_id}/vit-sil")
+def vit_sil(request: Request, specimen_id: str):
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    from datetime import datetime as _d
+    kid = request.state.kullanici["id"]
+    simdi = _d.now().isoformat(" ", "seconds")
+
+    k = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='vitrifikasyon' "
+               "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
+    if k:
+        db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+               "iptal_sebep='Vitrifikasyon kaydi temizlendi' WHERE id=?",
+               (kid, simdi, k["id"]))
+        tid = k["vit_tasiyici_id"]
+        if tid:
+            kalan = db.tek("SELECT COUNT(*) k FROM olay WHERE vit_tasiyici_id=? "
+                           "AND tip='vitrifikasyon' AND iptal_mi=0", (tid,))["k"]
+            if kalan == 0:
+                t = db.tek("SELECT konum_id FROM tasiyici WHERE id=?", (tid,))
+                db.yaz("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?", (tid,))
+                if t and t["konum_id"]:
+                    db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+
+    guvenlik.degisiklikleri_yaz("specimen", specimen_id, sp,
+                                {"durum": "blastokist"}, kid)
+    db.yaz("UPDATE specimen SET durum='blastokist' WHERE id=?", (specimen_id,))
+    return RedirectResponse(f"/cycle/{sp['cycle_id']}/vitrifikasyon", status_code=303)
+
+
+# ----------------------------------------------------------------- thaw
+
+@uygulama.get("/cryo/tasiyici/{tasiyici_id}/thaw")
+def thaw_ekran(request: Request, tasiyici_id: int, hata: str = ""):
+    t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t "
+               "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
+    if not t:
+        return RedirectResponse("/cryo", status_code=303)
+
+    from datetime import datetime as _d
+    icerik = tasiyici_icerigi(tasiyici_id)
+    mevcut, fotolar = {}, {}
+    for e in icerik:
+        k = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='thaw' "
+                   "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (e["id"],))
+        if k:
+            mevcut[e["id"]] = k
+        fotolar[e["id"]] = {}
+        for asama in ("thaw_sonrasi", "transfer_oncesi"):
+            fotolar[e["id"]][asama] = db.sorgu(
+                "SELECT id FROM goruntu WHERE specimen_id=? AND asama=? ORDER BY id",
+                (e["id"], asama))
+
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "thaw.html",
+        {"t": t, "icerik": icerik, "mevcut": mevcut, "fotolar": fotolar,
+         "hata": hata,
+         "sagkalimlar": db.liste("thaw_sagkalim"), "etiketler": etiketler,
+         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
+
+
+@uygulama.post("/cryo/tasiyici/{tasiyici_id}/thaw")
+async def thaw_kaydet(request: Request, tasiyici_id: int):
+    from urllib.parse import quote
+    f = await request.form()
+    t = db.tek("SELECT * FROM tasiyici WHERE id=?", (tasiyici_id,))
+    if not t:
+        return RedirectResponse("/cryo", status_code=303)
+
+    icerik = tasiyici_icerigi(tasiyici_id)
+    if not icerik:
+        return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
+
+    kid = request.state.kullanici["id"]
+    simdi = islem_zamani(f.get("islem_zamani"))
+
+    eksik = [e for e in icerik if not f.get(f"sagkalim_{e['id']}")]
+    if eksik:
+        return RedirectResponse(
+            f"/cryo/tasiyici/{tasiyici_id}/thaw?hata=" +
+            quote("Her embriyo için sağkalım seçilmeli. "
+                  "Taşıyıcı çözüldüğünde içindekilerin hepsi etkilenir."),
+            status_code=303)
+
+    kontrol_zamani = zaman(f.get("kontrol_zamani"))
+
+    def yuzde(v, ad):
+        try:
+            x = sayi(v, ad)
+        except FormHatasi:
+            return None
+        return None if x is None else max(0.0, min(100.0, x))
+
+    for e in icerik:
+        sagkalim = f.get(f"sagkalim_{e['id']}")
+        re_exp = yuzde(f.get(f"reexp_{e['id']}"), "Re-expansion")
+        canlilik = yuzde(f.get(f"canlilik_{e['id']}"), "Canlılık oranı")
+
+        olay_kaydet_veya_guncelle(
+            e["id"], e["cycle_id"], "thaw",
+            {"thaw_sagkalim": sagkalim, "thaw_canlilik": canlilik,
+             "thaw_re_expansion": re_exp,
+             "thaw_kontrol_zamani": kontrol_zamani}, kid, simdi)
+        db.yaz("UPDATE specimen SET durum=? WHERE id=?",
+               ("cozuldu" if sagkalim == "canli" else sagkalim, e["id"]))
+
+    # Taşıyıcı boşaldı, konumu serbest kaldı
+    db.yaz("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?", (tasiyici_id,))
+    if t["konum_id"]:
+        db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+
+    return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
+
+
+@uygulama.get("/specimen/{specimen_id}/thaw-sil")
+def thaw_sil_ekran(request: Request, specimen_id: str):
+    sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+                "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
+                "WHERE s.id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    kayit = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='thaw' "
+                   "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
+    vit = db.tek("SELECT o.vit_tasiyici_id, t.etiket FROM olay o "
+                 "LEFT JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+                 "WHERE o.specimen_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+                 "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "thaw_sil.html",
+        {"sp": sp, "kayit": kayit, "vit": vit, "etiketler": etiketler})
+
+
+@uygulama.post("/specimen/{specimen_id}/thaw-sil")
+def thaw_sil(request: Request, specimen_id: str):
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    from datetime import datetime as _d
+    kid = request.state.kullanici["id"]
+    k = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='thaw' AND iptal_mi=0 "
+               "ORDER BY id DESC LIMIT 1", (specimen_id,))
+    if k:
+        db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+               "iptal_sebep='Thaw kaydi temizlendi' WHERE id=?",
+               (kid, _d.now().isoformat(" ", "seconds"), k["id"]))
+    db.yaz("UPDATE specimen SET durum='dondurulmus' WHERE id=?", (specimen_id,))
+
+    vit = db.tek("SELECT vit_tasiyici_id FROM olay WHERE specimen_id=? "
+                 "AND tip='vitrifikasyon' AND iptal_mi=0 ORDER BY id DESC LIMIT 1",
+                 (specimen_id,))
+    hedef = f"/cryo/tasiyici/{vit['vit_tasiyici_id']}" if vit and vit["vit_tasiyici_id"] else "/cryo"
+    return RedirectResponse(hedef, status_code=303)
+
+
+@uygulama.get("/cycle/{cycle_id}/thaw")
+def cycle_thaw_listesi(request: Request, cycle_id: int):
+    """Bu cycle'ın embriyolarını içeren taşıyıcılar — çözme girişi."""
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    # FET cycle'inda hastanin tum cycle'larindaki tasiyicilar listelenir;
+    # dondurulan embriyo baska bir cycle'dan gelir.
+    if c["cycle_tipi"] == "fet":
+        kosul = "c2.hasta_id = ?"
+        par = (c["hasta_id"],)
+    else:
+        kosul = "s.cycle_id = ?"
+        par = (cycle_id,)
+
+    tasiyicilar = db.sorgu(
+        "SELECT DISTINCT t.id, t.etiket, t.tip, t.renk, t.durum, k.tam_yol, "
+        "  t.vitrifikasyon_zamani, "
+        "  (SELECT COUNT(*) FROM olay o2 WHERE o2.vit_tasiyici_id=t.id "
+        "   AND o2.tip='vitrifikasyon' AND o2.iptal_mi=0) AS adet, "
+        "  (SELECT COUNT(*) FROM olay o3 JOIN olay v3 ON v3.specimen_id=o3.specimen_id "
+        "   AND v3.tip='vitrifikasyon' AND v3.iptal_mi=0 AND v3.vit_tasiyici_id=t.id "
+        "   WHERE o3.tip='thaw' AND o3.iptal_mi=0) AS cozulen, "
+        "  (SELECT group_concat(DISTINCT c3.cycle_no) FROM olay o4 "
+        "   JOIN specimen s4 ON s4.id=o4.specimen_id "
+        "   JOIN cycle c3 ON c3.id=s4.cycle_id "
+        "   WHERE o4.vit_tasiyici_id=t.id AND o4.tip='vitrifikasyon' "
+        "   AND o4.iptal_mi=0) AS kaynak_cycle "
+        "FROM tasiyici t "
+        "JOIN olay o ON o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        "JOIN specimen s ON s.id=o.specimen_id "
+        "JOIN cycle c2 ON c2.id = s.cycle_id "
+        "LEFT JOIN konum k ON k.id=t.konum_id "
+        f"WHERE {kosul} ORDER BY t.durum DESC, t.etiket", par)
+
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "cycle_thaw.html",
+        {"c": c, "tasiyicilar": tasiyicilar, "etiketler": etiketler,
+         "gezinme": asama_gezinme(cycle_id, "thaw")})
+
+
+# ----------------------------------------------------------------- transfer
+
+TRANSFERE_UYGUN = ("blastokist", "morula", "kavitasyon", "cozuldu", "kismi_hasar",
+                   "zigot", "gun2", "gun3")
+
+
+def transfer_adaylari(hasta_id: int):
+    """Bu hastanın transfer edilebilir embriyoları — taze ve çözülmüş."""
+    return db.sorgu(
+        "SELECT s.id, s.cycle_sira_no, s.durum, s.cycle_id, c.cycle_no, "
+        "  c.hasta_cycle_no, "
+        "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
+        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
+        "  (SELECT o.thaw_sagkalim FROM olay o WHERE o.specimen_id=s.id "
+        "   AND o.tip='thaw' AND o.iptal_mi=0 ORDER BY o.id DESC LIMIT 1) AS thaw, "
+        "  COALESCE( "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     AND g.asama IN ('transfer_oncesi','blastokist') ORDER BY g.id DESC LIMIT 1), "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
+        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
+        "  AS goruntu_idler, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
+        "FROM specimen s JOIN cycle c ON c.id=s.cycle_id "
+        "WHERE c.hasta_id=? AND s.durum IN "
+        "  ('blastokist','morula','kavitasyon','cozuldu','kismi_hasar', "
+        "   'zigot','gun2','gun3') "
+        "AND NOT EXISTS (SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
+        "                AND o.tip='transfer' AND o.iptal_mi=0) "
+        "ORDER BY c.hasta_cycle_no, s.cycle_sira_no", (hasta_id,))
+
+
+@uygulama.get("/cycle/{cycle_id}/transfer")
+def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad, h.id AS hasta_id FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    adaylar = transfer_adaylari(c["hasta_id"])
+    edilen = db.sorgu(
+        "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no, c2.hasta_cycle_no, "
+        "  o.zaman, o.tr_tipi, o.id AS olay_id, "
+        "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
+        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
+        "  COALESCE( "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     AND g.asama IN ('transfer_oncesi','blastokist') ORDER BY g.id DESC LIMIT 1), "
+        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
+        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
+        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
+        "  AS goruntu_idler, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
+        "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "JOIN cycle c2 ON c2.id=s.cycle_id "
+        "WHERE o.tip='transfer' AND o.iptal_mi=0 AND o.tr_cycle_id=? "
+        "ORDER BY s.cycle_sira_no", (cycle_id,))
+
+    return sablon.TemplateResponse(
+        request, "transfer.html",
+        {"c": c, "adaylar": adaylar, "edilen": edilen, "hata": hata,
+         "gezinme": asama_gezinme(cycle_id, "transfer"),
+         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
+
+
+@uygulama.post("/cycle/{cycle_id}/transfer")
+async def transfer_kaydet(request: Request, cycle_id: int):
+    from urllib.parse import quote
+    f = await request.form()
+    c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    secilen = f.getlist("embriyo")
+    if not secilen:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/transfer?hata=" + quote("Hiç embriyo seçilmedi."),
+            status_code=303)
+
+    kid = request.state.kullanici["id"]
+    simdi = islem_zamani(f.get("islem_zamani"))
+
+    for sid in secilen:
+        sp = db.tek("SELECT * FROM specimen WHERE id=?", (sid,))
+        if not sp:
+            continue
+        # Çözülmüşse donmuş, değilse taze
+        cozuldu = db.tek("SELECT id FROM olay WHERE specimen_id=? AND tip='thaw' "
+                         "AND iptal_mi=0", (sid,))
+        olay_kaydet_veya_guncelle(
+            sid, sp["cycle_id"], "transfer",
+            {"tr_cycle_id": cycle_id, "tr_tipi": "donmus" if cozuldu else "taze"},
+            kid, simdi)
+        db.yaz("UPDATE specimen SET durum='transfer_edildi' WHERE id=?", (sid,))
+
+    return RedirectResponse(f"/cycle/{cycle_id}/transfer", status_code=303)
+
+
+@uygulama.get("/specimen/{specimen_id}/transfer-sil")
+def transfer_sil_ekran(request: Request, specimen_id: str):
+    sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+                "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
+                "WHERE s.id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    kayit = db.tek("SELECT o.*, c.cycle_no AS tr_cycle_no FROM olay o "
+                   "LEFT JOIN cycle c ON c.id=o.tr_cycle_id "
+                   "WHERE o.specimen_id=? AND o.tip='transfer' AND o.iptal_mi=0 "
+                   "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+    return sablon.TemplateResponse(
+        request, "transfer_sil.html", {"sp": sp, "kayit": kayit})
+
+
+@uygulama.post("/specimen/{specimen_id}/transfer-sil")
+def transfer_sil(request: Request, specimen_id: str):
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    from datetime import datetime as _d
+    kid = request.state.kullanici["id"]
+    k = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='transfer' "
+               "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
+    hedef_cycle = k["tr_cycle_id"] if k else sp["cycle_id"]
+    if k:
+        db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+               "iptal_sebep='Transfer kaydi temizlendi' WHERE id=?",
+               (kid, _d.now().isoformat(" ", "seconds"), k["id"]))
+
+    # Önceki duruma dön
+    thaw = db.tek("SELECT thaw_sagkalim FROM olay WHERE specimen_id=? AND tip='thaw' "
+                  "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
+    if thaw:
+        onceki = "cozuldu" if thaw["thaw_sagkalim"] == "canli" else thaw["thaw_sagkalim"]
+    else:
+        bl = db.tek("SELECT bl_genisleme FROM olay WHERE specimen_id=? "
+                    "AND tip='blastokist_degerlendirme' AND iptal_mi=0 "
+                    "ORDER BY gun DESC LIMIT 1", (specimen_id,))
+        if bl:
+            onceki = ("arrest" if bl["bl_genisleme"] == "arrest"
+                      else "kavitasyon" if bl["bl_genisleme"] == "kavitasyon"
+                      else "morula" if bl["bl_genisleme"] in ("morula", "erken_morula")
+                      else "blastokist")
+        else:
+            onceki = "gun3"
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (onceki, specimen_id))
+    return RedirectResponse(f"/cycle/{hedef_cycle}/transfer", status_code=303)
+
+
+# ----------------------------------------------------------------- snapshot alma
+
+def bekleyen_ozet():
+    """Snapshot klasöründe bekleyen kareler — en yenisi başta."""
+    b = goruntuler.bekleyen_dosyalar()
+    return {"adet": len(b), "son": b[-1] if b else None}
+
+
+@uygulama.post("/specimen/{specimen_id}/snapshot-al")
+async def snapshot_al(request: Request, specimen_id: str):
+    f = dict(await request.form())
+    asama = f.get("asama") or "diger"
+    geri = f.get("geri") or "/hastalar"
+    hepsi = f.get("hepsi") == "1"
+
+    sp = db.tek("SELECT s.*, c.cycle_no FROM specimen s "
+                "JOIN cycle c ON c.id=s.cycle_id WHERE s.id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse(geri, status_code=303)
+
+    kid = request.state.kullanici["id"]
+    bekleyen = goruntuler.bekleyen_dosyalar()
+    if not bekleyen:
+        return RedirectResponse(geri, status_code=303)
+
+    alinacak = bekleyen if hepsi else [bekleyen[-1]]
+    for d in alinacak:
+        goruntuler.goruntu_bagla(d["imza"], sp["cycle_id"], sp["cycle_no"],
+                                 specimen_id, asama, kid)
+    return RedirectResponse(geri, status_code=303)
+
+
+@uygulama.get("/cycle/{cycle_id}/arsiv-sil")
+def arsiv_sil_ekran(request: Request, cycle_id: int):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id=c.hasta_id WHERE c.id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    arsiv = db.sorgu(
+        "SELECT id, asama, zaman, orijinal_dosya_adi, kaynak FROM goruntu "
+        "WHERE cycle_id=? AND specimen_id IS NULL ORDER BY id", (cycle_id,))
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "arsiv_sil.html",
+        {"c": c, "arsiv": arsiv, "etiketler": etiketler})
+
+
+@uygulama.post("/cycle/{cycle_id}/arsiv-sil")
+async def arsiv_sil(request: Request, cycle_id: int):
+    f = dict(await request.form())
+    c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    arsiv = db.sorgu("SELECT id FROM goruntu WHERE cycle_id=? AND specimen_id IS NULL",
+                     (cycle_id,))
+    if (f.get("onay") or "").strip() != str(len(arsiv)):
+        return RedirectResponse(f"/cycle/{cycle_id}/arsiv-sil?hata=1", status_code=303)
+
+    kid = request.state.kullanici["id"]
+    for g in arsiv:
+        tam = db.tek("SELECT * FROM goruntu WHERE id=?", (g["id"],))
+        guvenlik.degisiklikleri_yaz(
+            "goruntu", g["id"], tam,
+            {"durum": f"SILINDI (cycle arsivi, {tam['orijinal_dosya_adi']})"}, kid)
+        goruntuler.goruntu_sil(g["id"])
+    return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+# ----------------------------------------------------------------- kalıcı silme
+
+def cycle_transfer_kayitlari(cycle_id: int):
+    """Bu cycle'ı transfere bağlayan kayıtlar.
+
+    İki yönü var: bu cycle'ın embriyoları transfer edilmiş olabilir, ya da
+    bu cycle bir FET olarak başka cycle'ın embriyolarının transfer edildiği
+    cycle olabilir. İkisi de silmeyi engeller.
+    """
+    return db.sorgu(
+        "SELECT o.id, o.zaman, o.tr_tipi, s.cycle_sira_no, s.cycle_id, "
+        "  c.cycle_no AS kaynak_cycle, tc.cycle_no AS transfer_cycle "
+        "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "JOIN cycle c ON c.id=s.cycle_id "
+        "LEFT JOIN cycle tc ON tc.id=o.tr_cycle_id "
+        "WHERE o.tip='transfer' AND o.iptal_mi=0 "
+        "AND (s.cycle_id=? OR o.tr_cycle_id=?) "
+        "ORDER BY o.zaman", (cycle_id, cycle_id))
+
+
+def hasta_transfer_kayitlari(hasta_id: int):
+    return db.sorgu(
+        "SELECT o.id, o.zaman, s.cycle_sira_no, c.cycle_no AS kaynak_cycle, "
+        "  tc.cycle_no AS transfer_cycle "
+        "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "JOIN cycle c ON c.id=s.cycle_id "
+        "LEFT JOIN cycle tc ON tc.id=o.tr_cycle_id "
+        "WHERE o.tip='transfer' AND o.iptal_mi=0 AND c.hasta_id=? "
+        "ORDER BY o.zaman", (hasta_id,))
+
+
+def cycle_icerik_sayilari(cycle_id: int):
+    return db.tek(
+        "SELECT (SELECT COUNT(*) FROM specimen WHERE cycle_id=?) AS oosit, "
+        "  (SELECT COUNT(*) FROM olay WHERE cycle_id=?) AS olay, "
+        "  (SELECT COUNT(*) FROM goruntu WHERE cycle_id=?) AS goruntu, "
+        "  (SELECT COUNT(*) FROM specimen_bulgu WHERE specimen_id IN "
+        "     (SELECT id FROM specimen WHERE cycle_id=?)) AS bulgu, "
+        "  (SELECT COUNT(*) FROM sperm_ornek WHERE cycle_id=?) AS sperm, "
+        "  (SELECT COUNT(*) FROM gebelik_sonucu WHERE cycle_id=?) AS gebelik, "
+        "  (SELECT COUNT(*) FROM pgt_sonuc WHERE specimen_id IN "
+        "     (SELECT id FROM specimen WHERE cycle_id=?)) AS pgt, "
+        "  (SELECT COUNT(DISTINCT o.vit_tasiyici_id) FROM olay o "
+        "     JOIN specimen s ON s.id=o.specimen_id "
+        "     WHERE s.cycle_id=? AND o.tip='vitrifikasyon' AND o.vit_tasiyici_id IS NOT NULL) "
+        "   AS tasiyici",
+        (cycle_id,) * 8)
+
+
+def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
+    """Cycle'ı ve ona bağlı her şeyi kalıcı olarak siler."""
+    specimenler = [r["id"] for r in db.sorgu(
+        "SELECT id FROM specimen WHERE cycle_id=?", (cycle_id,))]
+
+    # 1. Görüntüler (arşiv dosyaları dahil)
+    for g in db.sorgu("SELECT id FROM goruntu WHERE cycle_id=?", (cycle_id,)):
+        goruntuler.goruntu_sil(g["id"])
+    for sid in specimenler:
+        for g in db.sorgu("SELECT id FROM goruntu WHERE specimen_id=?", (sid,)):
+            goruntuler.goruntu_sil(g["id"])
+
+    # 2. Başka cycle'lardan bu cycle'a yapılmış transferleri serbest bırak
+    db.yaz("UPDATE olay SET tr_cycle_id=NULL, iptal_mi=1, "
+           "iptal_sebep='Transfer cycle''i silindi' "
+           "WHERE tr_cycle_id=? AND cycle_id<>?", (cycle_id, cycle_id))
+
+    # 3. Bu cycle'ın embriyolarının kullandığı taşıyıcılar
+    tasiyicilar = [r["vit_tasiyici_id"] for r in db.sorgu(
+        "SELECT DISTINCT o.vit_tasiyici_id FROM olay o "
+        "JOIN specimen s ON s.id=o.specimen_id "
+        "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' "
+        "AND o.vit_tasiyici_id IS NOT NULL", (cycle_id,))]
+
+    # 4. Bağlı kayıtlar
+    if specimenler:
+        isaret = ",".join("?" * len(specimenler))
+        db.yaz(f"DELETE FROM specimen_bulgu WHERE specimen_id IN ({isaret})", specimenler)
+        db.yaz(f"DELETE FROM pgt_sonuc WHERE specimen_id IN ({isaret})", specimenler)
+        db.yaz(f"DELETE FROM olay WHERE specimen_id IN ({isaret})", specimenler)
+    db.yaz("DELETE FROM olay WHERE cycle_id=?", (cycle_id,))
+    # Kuyruk isaretleri: "atla" denen kareler goruntuye bagli degil, cycle'a bagli
+    db.yaz("DELETE FROM kaynak_dosya WHERE cycle_id=?", (cycle_id,))
+    db.yaz("DELETE FROM beta_hcg WHERE cycle_id=?", (cycle_id,))
+    db.yaz("DELETE FROM gebelik_sonucu WHERE cycle_id=?", (cycle_id,))
+    db.yaz("DELETE FROM sperm_analiz WHERE sperm_ornek_id IN "
+           "(SELECT id FROM sperm_ornek WHERE cycle_id=?)", (cycle_id,))
+    db.yaz("DELETE FROM sperm_ornek WHERE cycle_id=?", (cycle_id,))
+    db.yaz("DELETE FROM specimen WHERE cycle_id=?", (cycle_id,))
+    db.yaz("DELETE FROM cycle WHERE id=?", (cycle_id,))
+
+    # 5. Boşalan taşıyıcıları ve konumları serbest bırak
+    for tid in tasiyicilar:
+        kalan = db.tek("SELECT COUNT(*) k FROM olay WHERE vit_tasiyici_id=?",
+                       (tid,))["k"]
+        if kalan == 0:
+            t = db.tek("SELECT konum_id FROM tasiyici WHERE id=?", (tid,))
+            db.yaz("DELETE FROM tasiyici WHERE id=?", (tid,))
+            if t and t["konum_id"]:
+                db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+
+
+def silme_logla(tablo, kayit_id, ozet, kullanici_id):
+    from datetime import datetime as _d
+    db.yaz("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+           "eski_deger, yeni_deger, kullanici_id, zaman) "
+           "VALUES (?,?,?,'KALICI_SILME',?,'silindi',?,?)",
+           (db.LAB_ID, tablo, str(kayit_id), ozet, kullanici_id,
+            _d.now().isoformat(" ", "seconds")))
+
+
+@uygulama.post("/cycle/{cycle_id}/denudasyon-zaman")
+async def denudasyon_zaman(request: Request, cycle_id: int):
+    f = dict(await request.form())
+    c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+    if c:
+        yeni = zaman(f.get("denudasyon_zamani"))
+        guvenlik.degisiklikleri_yaz("cycle", cycle_id, c,
+                                    {"denudasyon_zamani": yeni},
+                                    request.state.kullanici["id"])
+        db.yaz("UPDATE cycle SET denudasyon_zamani=? WHERE id=?", (yeni, cycle_id))
+    return RedirectResponse(f"/cycle/{cycle_id}/denudasyon", status_code=303)
+
+
+# ----------------------------------------------------------------- aşama gezinme
+
+ASAMA_SIRASI = [
+    ("denudasyon", "Denüdasyon", "/cycle/{id}/denudasyon"),
+    ("icsi", "ICSI", "/cycle/{id}/icsi"),
+    ("fert", "Fertilizasyon", "/cycle/{id}/fert"),
+    ("cleavage", "Gün 2 / 3", "/cycle/{id}/cleavage?gun=2"),
+    ("blast", "Blastokist", "/cycle/{id}/blast?gun=5"),
+    ("vitrifikasyon", "Vitrifikasyon", "/cycle/{id}/vitrifikasyon"),
+    ("thaw", "Çözme", "/cycle/{id}/thaw"),
+    ("transfer", "Transfer", "/cycle/{id}/transfer"),
+    ("gebelik", "Gebelik sonucu", "/cycle/{id}/gebelik"),
+]
+
+
+TIP_ASAMALARI = {
+    "ivf_icsi": ["denudasyon", "icsi", "fert", "cleavage", "blast",
+                 "vitrifikasyon", "thaw", "transfer", "gebelik"],
+    "fet": ["thaw", "transfer", "gebelik"],
+    "oosit_cryo": ["denudasyon", "vitrifikasyon", "thaw"],
+}
+
+
+def cycle_asamalari(cycle_tipi: str):
+    """Bu tedavi tipinde gösterilecek aşamalar."""
+    kodlar = TIP_ASAMALARI.get(cycle_tipi, TIP_ASAMALARI["ivf_icsi"])
+    return [a for a in ASAMA_SIRASI if a[0] in kodlar]
+
+
+def asama_gezinme(cycle_id: int, anahtar: str):
+    """Bir aşama ekranının önceki/sonraki bağlantıları."""
+    c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
+    liste = cycle_asamalari(c["cycle_tipi"] if c else "ivf_icsi")
+    kodlar = [a[0] for a in liste]
+    if anahtar not in kodlar:
+        return {"onceki": None, "sonraki": None, "sira": None, "toplam": len(kodlar)}
+    i = kodlar.index(anahtar)
+    def yap(j):
+        if 0 <= j < len(liste):
+            k, ad, yol = liste[j]
+            return {"ad": ad, "yol": yol.format(id=cycle_id)}
+        return None
+    return {"onceki": yap(i - 1), "sonraki": yap(i + 1),
+            "sira": i + 1, "toplam": len(liste)}
+
+
+# ----------------------------------------------------------------- toplu eşleştirme
+
+@uygulama.get("/cycle/{cycle_id}/esle")
+def esle_ekran(request: Request, cycle_id: int, asama: str = "icsi", hedef: str = ""):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id=c.hasta_id WHERE c.id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    oositler = db.sorgu(
+        "SELECT s.id, s.cycle_sira_no, s.taraf, "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id AND g.asama=?) "
+        "  AS asama_kare, "
+        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id AND g.asama=? "
+        "   ORDER BY g.id DESC LIMIT 1) AS goruntu "
+        "FROM specimen s WHERE s.cycle_id=? ORDER BY s.cycle_sira_no",
+        (asama, asama, cycle_id))
+
+    bekleyen = goruntuler.bekleyen_dosyalar()
+    asamalar = db.liste("goruntu_asama")
+    etiket = next((a["etiket"] for a in asamalar if a["kod"] == asama), asama)
+
+    # Hedef oosit: istenen, yoksa bu aşamada fotoğrafı olmayan ilk oosit
+    sp = None
+    if hedef:
+        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == hedef), None)
+    if sp is None:
+        sp = next((o for o in oositler if o["asama_kare"] == 0), None)
+    if sp is None and oositler:
+        sp = oositler[0]
+
+    return sablon.TemplateResponse(
+        request, "esle.html",
+        {"c": c, "asama": asama, "asama_etiket": etiket, "asamalar": asamalar,
+         "oositler": oositler, "sp": sp,
+         "simdiki": bekleyen[0] if bekleyen else None,
+         "bekleyen_adet": len(bekleyen),
+         "gezinme": None})
+
+
+@uygulama.post("/cycle/{cycle_id}/esle")
+async def esle_islem(request: Request, cycle_id: int):
+    f = dict(await request.form())
+    asama = f.get("asama") or "icsi"
+    eylem = f.get("eylem")
+    im = f.get("imza") or ""
+    kid = request.state.kullanici["id"]
+    c = db.tek("SELECT id, cycle_no FROM cycle WHERE id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    hedef_sira = ""
+    if eylem == "ata":
+        sid = f.get("specimen_id")
+        sp = db.tek("SELECT * FROM specimen WHERE id=? AND cycle_id=?", (sid, cycle_id))
+        if sp:
+            goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], sid, asama, kid)
+            sonraki = db.tek(
+                "SELECT cycle_sira_no n FROM specimen WHERE cycle_id=? "
+                "AND cycle_sira_no > ? ORDER BY cycle_sira_no LIMIT 1",
+                (cycle_id, sp["cycle_sira_no"]))
+            hedef_sira = str(sonraki["n"]) if sonraki else str(sp["cycle_sira_no"])
+    elif eylem == "atla":
+        goruntuler.atla(im, cycle_id)
+        hedef_sira = f.get("hedef") or ""
+
+    yol = f"/cycle/{cycle_id}/esle?asama={asama}"
+    if hedef_sira:
+        yol += f"&hedef={hedef_sira}"
+    return RedirectResponse(yol, status_code=303)
+
+
+@uygulama.post("/specimen/{specimen_id}/taraf")
+async def specimen_taraf(request: Request, specimen_id: str):
+    f = dict(await request.form())
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    yeni = f.get("taraf") or None
+    if yeni not in ("sag", "sol", None):
+        yeni = None
+    guvenlik.degisiklikleri_yaz("specimen", specimen_id, sp, {"taraf": yeni},
+                                request.state.kullanici["id"])
+    db.yaz("UPDATE specimen SET taraf=? WHERE id=?", (yeni, specimen_id))
+    return RedirectResponse(f.get("geri") or f"/cycle/{sp['cycle_id']}", status_code=303)
+
+
+
+# ----------------------------------------------------------------- gebelik sonucu
+
+@uygulama.get("/cycle/{cycle_id}/gebelik")
+def gebelik_ekran(request: Request, cycle_id: int, hata: str = ""):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id=c.hasta_id WHERE c.id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    kayit = db.tek("SELECT * FROM gebelik_sonucu WHERE cycle_id=?", (cycle_id,))
+    betalar = db.sorgu("SELECT * FROM beta_hcg WHERE cycle_id=? ORDER BY zaman, id",
+                       (cycle_id,))
+
+    transferler = db.sorgu(
+        "SELECT s.cycle_sira_no, s.id, o.zaman, o.tr_tipi, c2.cycle_no AS kaynak, "
+        "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
+        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        "   ORDER BY b.gun DESC LIMIT 1) AS skor "
+        "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "JOIN cycle c2 ON c2.id=s.cycle_id "
+        "WHERE o.tip='transfer' AND o.iptal_mi=0 AND o.tr_cycle_id=? "
+        "ORDER BY s.cycle_sira_no", (cycle_id,))
+
+    # Beta artış hızı (ardışık ikisi arası)
+    artis = []
+    for i in range(1, len(betalar)):
+        onceki, simdi = betalar[i - 1], betalar[i]
+        try:
+            t1 = _d.fromisoformat(onceki["zaman"])
+            t2 = _d.fromisoformat(simdi["zaman"])
+            saat = (t2 - t1).total_seconds() / 3600
+            if saat > 0 and onceki["deger"] > 0:
+                kat = simdi["deger"] / onceki["deger"]
+                artis.append({"i": i, "saat": round(saat, 1), "kat": round(kat, 2)})
+        except (ValueError, TypeError, ZeroDivisionError):
+            pass
+
+    return sablon.TemplateResponse(
+        request, "gebelik.html",
+        {"c": c, "k": kayit, "betalar": betalar, "artis": artis,
+         "transferler": transferler, "hata": hata,
+         "sonlanmalar": db.liste("sonlanma"),
+         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+         "gezinme": asama_gezinme(cycle_id, "gebelik")})
+
+
+@uygulama.post("/cycle/{cycle_id}/gebelik")
+async def gebelik_kaydet(request: Request, cycle_id: int):
+    from urllib.parse import quote
+    f = dict(await request.form())
+    c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(f"/cycle/{cycle_id}/gebelik?hata={quote(m)}",
+                                status_code=303)
+
+    kid = request.state.kullanici["id"]
+    from datetime import datetime as _d
+
+    # --- beta hCG ekleme / silme ---
+    if f.get("eylem") == "beta_ekle":
+        try:
+            deger = sayi(f.get("beta_deger"), "Beta hCG")
+        except FormHatasi as e:
+            return hata(str(e))
+        if deger is None:
+            return hata("Beta hCG değeri girilmeli.")
+        z = zaman(f.get("beta_zaman")) or _d.now().isoformat(" ", "seconds")
+        db.yaz("INSERT INTO beta_hcg (cycle_id, zaman, deger) VALUES (?,?,?)",
+               (cycle_id, z, deger))
+        return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)
+
+    if f.get("eylem") == "beta_sil":
+        db.yaz("DELETE FROM beta_hcg WHERE id=? AND cycle_id=?",
+               (f.get("beta_id"), cycle_id))
+        return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)
+
+    # --- ana sonuç ---
+    try:
+        kese = tam(f.get("gebelik_kesesi_sayisi"), "Gebelik kesesi sayısı")
+        bebek = tam(f.get("bebek_sayisi"), "Bebek sayısı")
+    except FormHatasi as e:
+        return hata(str(e))
+
+    yeni = {
+        "klinik_gebelik": bos_ise_none(f.get("klinik_gebelik")),
+        "gebelik_kesesi_sayisi": kese,
+        "fk_pozitif": bos_ise_none(f.get("fk_pozitif")),
+        "fk_kontrol_zamani": zaman(f.get("fk_kontrol_zamani")),
+        "sonlanma": bos_ise_none(f.get("sonlanma")),
+        "dogum_zamani": zaman(f.get("dogum_zamani")),
+        "bebek_sayisi": bebek,
+        "guncelleme_zamani": _d.now().isoformat(" ", "seconds"),
+    }
+
+    mevcut = db.tek("SELECT * FROM gebelik_sonucu WHERE cycle_id=?", (cycle_id,))
+    if mevcut:
+        guvenlik.degisiklikleri_yaz("gebelik_sonucu", mevcut["id"], mevcut, yeni, kid)
+        db.yaz("UPDATE gebelik_sonucu SET " +
+               ", ".join(f"{a}=?" for a in yeni) + " WHERE cycle_id=?",
+               (*yeni.values(), cycle_id))
+    else:
+        db.yaz("INSERT INTO gebelik_sonucu (lab_id, cycle_id, " +
+               ", ".join(yeni) + ") VALUES (?,?," +
+               ", ".join("?" * len(yeni)) + ")",
+               (db.LAB_ID, cycle_id, *yeni.values()))
+    return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)

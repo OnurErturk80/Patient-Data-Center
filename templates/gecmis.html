@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Değişiklik geçmişi{% endblock %}
+{% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
+{% block icerik %}
+<div class="kart">
+  <h2>Kayıtlı değişiklikler</h2>
+  {% for d in kayitlar %}
+  <div class="satir" style="cursor:default">
+    <div class="ad"><strong>{{ d.alan }}</strong></div>
+    <div class="meta" style="margin-top:4px">
+      <span style="text-decoration:line-through;color:var(--ink-3)">{{ d.eski_deger or '—' }}</span>
+      &rarr; {{ d.yeni_deger or '—' }}
+    </div>
+    <div class="meta">{{ d.ad_soyad }} · {{ d.zaman }}</div>
+  </div>
+  {% else %}
+  <div class="bos">Bu kayıtta henüz değişiklik yapılmamış.</div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% macro d(alan) %}{{ v.get(alan) if v.get(alan) is not none else '' }}{% endmacro %}
+{% macro dz(alan) %}{{ (v.get(alan)|string|replace(' ','T')) if v.get(alan) else '' }}{% endmacro %}
+{% block ustbaslik %}{{ 'Cycle düzenle' if duzenleme else 'Yeni cycle' }}{% endblock %}
+{% block geri %}<a class="geri" href="{{ '/cycle/' ~ cycle_id if duzenleme else '/hasta/' ~ hasta.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ hasta.dosya_no }}{% if duzenleme %}<span class="rozet">{{ d('cycle_no') }}</span>{% endif %}</div>
+  <div class="isim">{{ hasta.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+<form method="post" action="{{ hedef }}">
+
+  <div class="kart">
+    <h2>Cycle</h2>
+    <div class="alan ikili">
+      <div>
+        <label for="cycle_no">Lab kayıt no</label>
+        <input id="cycle_no" name="cycle_no" type="text" required autocomplete="off"
+               value="{{ d('cycle_no') }}" {% if not duzenleme %}autofocus{% endif %}>
+      </div>
+      <div>
+        <label for="hasta_cycle_no">Kaçıncı cycle</label>
+        <input id="hasta_cycle_no" name="hasta_cycle_no" type="number"
+               inputmode="numeric" min="1" value="{{ d('hasta_cycle_no') }}">
+      </div>
+    </div>
+    <div class="alan" style="padding-top:0;border:0">
+      <div class="ipucu">Lab kayıt no otomatik atandı; gerekirse değiştirebilirsin.
+      Kaçıncı cycle hastanın denemesidir — başka merkezdeki tedavileri de sayıyorsan
+      elle değiştir.</div>
+    </div>
+    <div class="alan">
+      <label for="cycle_tipi">Tedavi tipi</label>
+      <select id="cycle_tipi" name="cycle_tipi">
+        {% for t in tipler %}
+        <option value="{{ t.kod }}"
+          {% if d('cycle_tipi')==t.kod or (not d('cycle_tipi') and t.kod=='ivf_icsi') %}selected{% endif %}>
+          {{ t.etiket }}</option>
+        {% endfor %}
+      </select>
+      <div class="ipucu">FET seçilirse laboratuvar aşamaları gösterilmez;
+      doğrudan çözme ve transferle başlanır.</div>
+    </div>
+    <div class="alan">
+      <label for="endikasyon">Endikasyon</label>
+      <select id="endikasyon" name="endikasyon">
+        <option value="">—</option>
+        {% for e in endikasyonlar %}
+        <option value="{{ e.kod }}" {% if d('endikasyon')==e.kod %}selected{% endif %}>{{ e.etiket }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>Klinik protokol</h2>
+    <div class="alan">
+      <label for="protokol_tipi">Protokol</label>
+      <select id="protokol_tipi" name="protokol_tipi">
+        <option value="">—</option>
+        {% for p in protokoller %}
+        <option value="{{ p.kod }}" {% if d('protokol_tipi')==p.kod %}selected{% endif %}>{{ p.etiket }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="alan">
+      <label for="gonadotropin_tipi">Gonadotropin</label>
+      <input id="gonadotropin_tipi" name="gonadotropin_tipi" type="text" autocomplete="off" value="{{ d('gonadotropin_tipi') }}">
+    </div>
+    <div class="alan ikili">
+      <div>
+        <label for="baslangic_doz">Başlangıç doz</label>
+        <input id="baslangic_doz" name="baslangic_doz" type="text" inputmode="decimal" value="{{ d('baslangic_doz') }}">
+      </div>
+      <div>
+        <label for="toplam_doz">Toplam doz</label>
+        <input id="toplam_doz" name="toplam_doz" type="text" inputmode="decimal" value="{{ d('toplam_doz') }}">
+      </div>
+    </div>
+    <div class="alan ikili">
+      <div>
+        <label for="stim_gun_sayisi">Stim. gün</label>
+        <input id="stim_gun_sayisi" name="stim_gun_sayisi" type="number" inputmode="numeric" value="{{ d('stim_gun_sayisi') }}">
+      </div>
+      <div>
+        <label for="trigger_tipi">Trigger</label>
+        <select id="trigger_tipi" name="trigger_tipi">
+          <option value="">—</option>
+          {% for t in triggerlar %}
+          <option value="{{ t.kod }}" {% if d('trigger_tipi')==t.kod %}selected{% endif %}>{{ t.etiket }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="alan ikili">
+      <div>
+        <label for="hcg_gunu_e2">hCG günü E2</label>
+        <input id="hcg_gunu_e2" name="hcg_gunu_e2" type="text" inputmode="decimal" value="{{ d('hcg_gunu_e2') }}">
+      </div>
+      <div>
+        <label for="endometrium_mm">Endometrium (mm)</label>
+        <input id="endometrium_mm" name="endometrium_mm" type="text" inputmode="decimal" value="{{ d('endometrium_mm') }}">
+      </div>
+    </div>
+    <div class="alan ikili">
+      <div>
+        <label for="folikul_sayisi">Folikül sayısı</label>
+        <input id="folikul_sayisi" name="folikul_sayisi" type="number" inputmode="numeric" value="{{ d('folikul_sayisi') }}">
+      </div>
+      <div>
+        <label for="amh">AMH</label>
+        <input id="amh" name="amh" type="text" inputmode="decimal" value="{{ d('amh') }}">
+      </div>
+    </div>
+    <div class="alan">
+      <label for="protokol_notu">Protokol notu</label>
+      <textarea id="protokol_notu" name="protokol_notu">{{ d('protokol_notu') }}</textarea>
+      <div class="ipucu">Arşiv amaçlı. İstatistikte kullanılmaz.</div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>Zamanlar ve OPU</h2>
+    <div class="alan">
+      <label for="hcg_zamani">hCG zamanı</label>
+      <input id="hcg_zamani" name="hcg_zamani" type="datetime-local" value="{{ dz('hcg_zamani') }}">
+      <div class="ipucu">Saat dahil girilmeli — OPU ve ICSI aralıkları buna göre hesaplanır.</div>
+    </div>
+    <div class="alan">
+      <label for="opu_zamani">OPU zamanı</label>
+      <input id="opu_zamani" name="opu_zamani" type="datetime-local" value="{{ dz('opu_zamani') }}">
+    </div>
+    <input type="hidden" name="denudasyon_zamani" value="{{ dz('denudasyon_zamani') }}">
+    <div class="alan" style="border:0;padding-bottom:0">
+      <div class="ipucu">OPU'da toplanan oosit sayıları</div>
+    </div>
+    <div class="alan ikili">
+      <div>
+        <label for="opu_sag_oosit">Sağ overden toplanan</label>
+        <input id="opu_sag_oosit" name="opu_sag_oosit" type="number" inputmode="numeric" min="0" value="{{ d('opu_sag_oosit') }}">
+      </div>
+      <div>
+        <label for="opu_sol_oosit">Sol overden toplanan</label>
+        <input id="opu_sol_oosit" name="opu_sol_oosit" type="number" inputmode="numeric" min="0" value="{{ d('opu_sol_oosit') }}">
+      </div>
+    </div>
+  </div>
+
+  <button class="dugme" type="submit">{{ 'Değişiklikleri kaydet' if duzenleme else "Cycle'ı kaydet" }}</button>
+  {% if duzenleme %}<a class="dugme ikincil" href="/cycle/{{ cycle_id }}">Vazgeç</a>{% endif %}
+</form>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Hastayı düzenle{% endblock %}
+{% block geri %}<a class="geri" href="/hasta/{{ h.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ h.dosya_no }}</div>
+  <div class="isim">{{ h.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+<form method="post" action="/hasta/{{ h.id }}/duzenle">
+  <div class="kart">
+    <div class="alan">
+      <label>Dosya no</label>
+      <input type="text" value="{{ h.dosya_no }}" disabled
+             style="background:var(--zemin);color:var(--ink-2)">
+      <div class="ipucu">Dosya no değiştirilemez. Yanlışsa kayıt silinip yeniden açılmalı.</div>
+    </div>
+    <div class="alan">
+      <label for="ad_soyad">Ad soyad</label>
+      <input id="ad_soyad" name="ad_soyad" type="text" required value="{{ h.ad_soyad }}">
+    </div>
+    <div class="alan">
+      <label for="dogum_tarihi">Doğum tarihi</label>
+      <input id="dogum_tarihi" name="dogum_tarihi" type="date" value="{{ h.dogum_tarihi or '' }}">
+    </div>
+    <div class="alan">
+      <label for="es_adi">Eş adı</label>
+      <input id="es_adi" name="es_adi" type="text" value="{{ h.es_adi or '' }}">
+    </div>
+    <div class="alan">
+      <label for="es_dogum_tarihi">Eş doğum tarihi</label>
+      <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date" value="{{ h.es_dogum_tarihi or '' }}">
+    </div>
+    <div class="alan">
+      <label for="notlar">Not</label>
+      <textarea id="notlar" name="notlar">{{ h.notlar or '' }}</textarea>
+    </div>
+  </div>
+  <button class="dugme" type="submit">Değişiklikleri kaydet</button>
+  <a class="dugme ikincil" href="/hasta/{{ h.id }}">Vazgeç</a>
+</form>
+{% endblock %}

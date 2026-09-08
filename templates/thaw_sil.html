@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Çözme kaydını sil{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
+  <div class="isim">{{ sp.ad_soyad }}</div>
+  <div class="alt">Oosit {{ sp.cycle_sira_no }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if not kayit %}
+<div class="kart"><div class="bos">Bu embriyonun çözme kaydı yok.</div></div>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}">Geri dön</a>
+{% else %}
+
+<div class="tehlike">
+  <strong>Çözme kaydı geri alınacak.</strong><br>
+  Embriyo "dondurulmuş" durumuna döner. Bu yalnızca yanlış girilmiş bir kayıt içindir.
+</div>
+
+<div class="kart">
+  <h2>Silinecek kayıt</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>Sağkalım</dt>
+      <dd>{{ etiketler.get(kayit.thaw_sagkalim, kayit.thaw_sagkalim) }}</dd></div>
+    <div class="veri"><dt>Canlılık oranı</dt>
+      <dd {% if kayit.thaw_canlilik is none %}class="yok"{% endif %}>
+        {{ ('%' ~ kayit.thaw_canlilik) if kayit.thaw_canlilik is not none else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>Re-expansion</dt>
+      <dd {% if kayit.thaw_re_expansion is none %}class="yok"{% endif %}>
+        {{ (kayit.thaw_re_expansion ~ '%') if kayit.thaw_re_expansion is not none else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>Taşıyıcı</dt><dd>{{ vit.etiket if vit else '—' }}</dd></div>
+    <div class="veri"><dt>Zaman</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
+  </dl>
+</div>
+
+<div class="uyari">
+  Taşıyıcı "boşaltıldı" durumunda kalır ve konumu boşta görünmeye devam eder.
+  Fiziksel olarak geri koyduysan yeni bir vitrifikasyon kaydı girilmelidir.
+</div>
+
+<form method="post" action="/specimen/{{ sp.id }}/thaw-sil">
+  <button class="dugme tehlikeli" type="submit">Kaydı geri al</button>
+</form>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}">Vazgeç</a>
+{% endif %}
+{% endblock %}

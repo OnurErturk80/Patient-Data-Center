@@ -1,0 +1,35 @@
+{% macro blok(sp, asama, geri, bekleyen) %}
+{% if bekleyen and bekleyen.son %}
+<div class="kart snapkart">
+  <h2>Kamera klasöründe {{ bekleyen.adet }} kare bekliyor</h2>
+  <div class="snapgovde">
+    <img src="/onizleme?imza={{ bekleyen.son.imza|urlencode }}" alt="Bekleyen kare">
+    <div class="snapbilgi">
+      <div class="snapad">{{ bekleyen.son.ad }}</div>
+      <form method="post" action="/specimen/{{ sp.id }}/snapshot-al">
+        <input type="hidden" name="asama" value="{{ asama }}">
+        <input type="hidden" name="geri" value="{{ geri }}">
+        <button class="dugme" type="submit" style="margin-top:0">
+          Bu kareyi oosit {{ sp.cycle_sira_no }}'e ekle</button>
+      </form>
+      {% if bekleyen.adet > 1 %}
+      <form method="post" action="/specimen/{{ sp.id }}/snapshot-al">
+        <input type="hidden" name="asama" value="{{ asama }}">
+        <input type="hidden" name="geri" value="{{ geri }}">
+        <input type="hidden" name="hepsi" value="1">
+        <button class="dugme ikincil" type="submit">
+          {{ bekleyen.adet }} karenin hepsini ekle</button>
+      </form>
+      {% endif %}
+      <a class="fekle" style="display:block;margin-top:8px"
+         href="/cycle/{{ sp.cycle_id }}/esle?asama={{ asama }}">
+        oositlere tek tek dağıt ({{ bekleyen.adet }} kare)</a>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="esleseridi">
+  <a href="/cycle/{{ sp.cycle_id }}/esle?asama={{ asama }}">Görüntü eşleştirme</a>
+</div>
+{% endif %}
+{% endmacro %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Fotoğraf ekle{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+<form method="post" action="/cycle/{{ c.id }}/foto-ekle" enctype="multipart/form-data">
+  <input type="hidden" name="geri" value="{{ geri }}">
+  <div class="kart">
+    <div class="alan">
+      <label for="specimen_id">Hangi oosite</label>
+      <select id="specimen_id" name="specimen_id">
+        <option value="__yeni__" {% if secili_specimen == '__yeni__' %}selected{% endif %}>Her dosya ayrı oosit olsun (yeni numaralar)</option>
+        <option value="" {% if not secili_specimen %}selected{% endif %}>Oosite bağlama — cycle arşivine koy</option>
+        {% for s in specimenler %}
+        <option value="{{ s.id }}" {% if secili_specimen == s.id %}selected{% endif %}>Oosit {{ s.cycle_sira_no }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="alan">
+      <label for="asama">Aşama</label>
+      <select id="asama" name="asama">
+        {% for a in asamalar %}
+        <option value="{{ a.kod }}" {% if a.kod == secili_asama %}selected{% endif %}>{{ a.etiket }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="alan">
+      <label for="dosyalar">Dosyalar</label>
+      <input id="dosyalar" name="dosyalar" type="file" multiple
+             accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp">
+      <div class="ipucu">Birden fazla seçebilirsin. "Her dosya ayrı oosit" seçiliyse
+      her dosya kendi oosit numarasını alır; belirli bir oosit seçiliyse hepsi ona
+      eklenir. En fazla 25 MB, jpg/png/tif/bmp/webp.</div>
+    </div>
+  </div>
+  <button class="dugme" type="submit">Yükle</button>
+  <a class="dugme ikincil" href="{{ geri }}">Vazgeç</a>
+</form>
+{% endblock %}

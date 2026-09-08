@@ -1,0 +1,22 @@
+# Veri — git'e girmez, USB ile taşınır
+lab.db
+lab.db-journal
+lab.db-wal
+lab.db-shm
+arsiv/
+snapshot/
+yedek/
+yedek.log
+
+# Makineye özel ayar
+yerel_ayar.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# İşletim sistemi
+.DS_Store
+Thumbs.db

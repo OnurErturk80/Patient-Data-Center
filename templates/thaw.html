@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Çözme{% endblock %}
+{% block geri %}<a class="geri" href="/cryo/tasiyici/{{ t.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ t.etiket }}</div>
+  <div class="alt">{{ t.tam_yol or 'konum girilmemiş' }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+{% if icerik|length > 1 %}
+<div class="uyari">
+  Bu taşıyıcıda <strong>{{ icerik|length }} embriyo</strong> var.
+  Taşıyıcı çözüldüğünde hepsi etkilenir; her biri için sağkalım girilmeli.
+</div>
+{% endif %}
+
+<form method="post" action="/cryo/tasiyici/{{ t.id }}/thaw" id="thawform">
+
+  {% if icerik %}
+  <div class="kart">
+    <h2>Zamanlar</h2>
+    <div class="alan">
+      <label for="islem_zamani">Çözme saati</label>
+      {% set ilk = mevcut.get(icerik[0].id) %}
+      <input id="islem_zamani" name="islem_zamani" type="datetime-local"
+             value="{{ ilk.zaman[:16]|replace(' ','T') if ilk else simdi }}">
+    </div>
+    <div class="alan">
+      <label for="kontrol_zamani">İkinci kontrol saati</label>
+      <input id="kontrol_zamani" name="kontrol_zamani" type="datetime-local"
+             value="{{ ilk.thaw_kontrol_zamani[:16]|replace(' ','T') if ilk and ilk.thaw_kontrol_zamani else '' }}">
+      <div class="ipucu">Re-expansion değerlendirmesinin yapıldığı saat.
+      Henüz yapılmadıysa boş bırak, sonra doldur.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% for e in icerik %}
+  <div class="kart">
+    <h2>{{ e.dosya_no }} · {{ e.ad_soyad }} · oosit {{ e.cycle_sira_no }}
+        {% if e.skor %}· {{ e.skor }}{% endif %}</h2>
+
+    <div class="fotoikili">
+      {% for asama, baslik in [('thaw_sonrasi','Çözme sonrası'),
+                               ('transfer_oncesi','İkinci kontrol')] %}
+      <div class="fslot">
+        <div class="fbaslik">{{ baslik }}</div>
+        {% set gs = fotolar[e.id][asama] %}
+        {% if gs %}
+        <div class="fkareler">
+          {% for g in gs %}
+          <div class="fkare">
+            <button type="button" class="kfoto"
+                    data-idler="{{ gs|map(attribute='id')|join(',') }}"
+                    data-baslangic="{{ loop.index0 }}"
+                    data-no="{{ e.cycle_sira_no }}"
+                    aria-label="{{ baslik }} fotoğraf {{ loop.index }}">
+              <img src="/dosya/{{ g.id }}" alt="{{ baslik }} {{ loop.index }}">
+            </button>
+            <a class="fsil"
+               href="/goruntu/{{ g.id }}/sil?geri=/cryo/tasiyici/{{ t.id }}/thaw"
+               aria-label="Bu fotoğrafı sil" title="Bu fotoğrafı sil">&times;</a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <span class="kfoto yok">—</span>
+        {% endif %}
+        <a class="fekle"
+           href="/cycle/{{ e.cycle_id }}/foto-ekle?specimen_id={{ e.id }}&asama={{ asama }}&geri=/cryo/tasiyici/{{ t.id }}/thaw">
+          {{ 'fotoğraf ekle' if not gs else '+ ekle' }}</a>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="secenek">
+      {% for s in sagkalimlar %}
+      <label class="sec {% if mevcut.get(e.id) and mevcut[e.id].thaw_sagkalim == s.kod %}secili{% endif %}">
+        <input type="radio" name="sagkalim_{{ e.id }}" value="{{ s.kod }}" required
+               {% if mevcut.get(e.id) and mevcut[e.id].thaw_sagkalim == s.kod %}checked{% endif %}>
+        <span>{{ s.etiket }}</span>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="alan ikili">
+      <div>
+        <label for="canlilik_{{ e.id }}">Canlılık oranı (%)</label>
+        <input id="canlilik_{{ e.id }}" name="canlilik_{{ e.id }}" type="text"
+               inputmode="decimal"
+               value="{{ mevcut[e.id].thaw_canlilik if mevcut.get(e.id) and mevcut[e.id].thaw_canlilik is not none else '' }}">
+      </div>
+      <div>
+        <label for="reexp_{{ e.id }}">Re-expansion (%)</label>
+        <input id="reexp_{{ e.id }}" name="reexp_{{ e.id }}" type="text"
+               inputmode="decimal"
+               value="{{ mevcut[e.id].thaw_re_expansion if mevcut.get(e.id) and mevcut[e.id].thaw_re_expansion is not none else '' }}">
+      </div>
+    </div>
+    <div class="alan" style="border:0;padding-top:0">
+      <div class="ipucu">Canlılık: çözme anında canlı kalan hücre oranı.
+      Re-expansion: ikinci kontroldeki yeniden genişleme.</div>
+    </div>
+  </div>
+  {% else %}
+  <div class="kart"><div class="bos">Bu taşıyıcı boş.</div></div>
+  {% endfor %}
+
+  {% if icerik %}
+  <div class="uyari">
+    Kaydedince taşıyıcı <strong>boşaltıldı</strong> işaretlenir ve konumu haritada boşa düşer.
+  </div>
+  <button class="dugme" type="submit">Çözmeyi kaydet</button>
+  {% endif %}
+</form>
+
+<a class="dugme ikincil" href="/cryo/tasiyici/{{ t.id }}">Vazgeç</a>
+
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.secenek').forEach(function (g) {
+  g.addEventListener('change', function () {
+    g.querySelectorAll('.sec').forEach(function (l) {
+      l.classList.toggle('secili', l.querySelector('input').checked);
+    });
+  });
+});
+document.querySelectorAll('.kfoto[data-idler]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
+  });
+});
+</script>
+{% endblock %}

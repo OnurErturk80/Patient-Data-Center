@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Oositi sil{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
+  <div class="isim">{{ sp.ad_soyad }}</div>
+  <div class="alt">Oosit {{ sp.cycle_sira_no }} · {{ sp.id }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if s.olay %}
+<div class="uyari">
+  <strong>Bu oosit silinemez.</strong><br>
+  {{ s.olay }} işlem kaydı bağlı (maturasyon, ICSI, fertilizasyon gibi).
+  Klinik işlem kaydı olan bir oosit silinmez. Önce ilgili işlem kayıtları
+  iptal edilmeli.
+</div>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}">Geri dön</a>
+{% else %}
+<div class="tehlike">
+  <strong>Bu oosit kalıcı olarak silinecek.</strong><br>
+  {% if s.goruntu %}
+  Bağlı {{ s.goruntu }} fotoğraf da silinir. Kameradan gelenler denüdasyon
+  kuyruğuna geri döner, kamera klasöründeki orijinallere dokunulmaz.
+  {% else %}
+  Bağlı fotoğraf yok.
+  {% endif %}
+</div>
+
+<div class="kart">
+  <h2>Bağlı kayıtlar</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>Fotoğraf</dt><dd>{{ s.goruntu }}</dd></div>
+    <div class="veri"><dt>İşlem kaydı</dt><dd>{{ s.olay }}</dd></div>
+    <div class="veri"><dt>Bulgu</dt><dd>{{ s.bulgu }}</dd></div>
+  </dl>
+</div>
+
+<div class="uyari">
+  Numara boşluğu oluşabilir: 1, 2, 4 gibi. Verilen oosit kimlikleri kalıcıdır,
+  geriye dönük numaralandırma yapılmaz.
+</div>
+
+<form method="post" action="/specimen/{{ sp.id }}/sil">
+  <button class="dugme tehlikeli" type="submit">Oositi sil</button>
+</form>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}">Vazgeç</a>
+{% endif %}
+{% endblock %}

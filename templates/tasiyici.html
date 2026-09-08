@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "_kucukfoto.html" as kf %}
+{% block ustbaslik %}Taşıyıcı{% endblock %}
+{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ t.etiket }}</div>
+  <div class="alt">
+    {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
+    {% if t.durum != 'dolu' %}<span class="rozet arsiv">{{ t.durum }}</span>{% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+<div class="kart">
+  <dl style="margin:0">
+    <div class="veri"><dt>Konum</dt>
+      <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or 'girilmemiş' }}</dd></div>
+    <div class="veri"><dt>Vitrifikasyon</dt><dd>{{ t.vitrifikasyon_zamani or '—' }}</dd></div>
+    <div class="veri"><dt>İçerik</dt><dd>{{ icerik|length }} embriyo</dd></div>
+  </dl>
+</div>
+
+{% if ozet %}
+<div class="kart">
+  <div class="ozet">
+    <div><div class="sayi">{{ ozet.canli }}/{{ ozet.toplam }}</div>
+         <div class="etiket">Canlı</div></div>
+    <div><div class="sayi">%{{ ozet.oran }}</div>
+         <div class="etiket">Sağkalım</div></div>
+    <div><div class="sayi">{{ ('%' ~ ozet.ortalama_canlilik) if ozet.ortalama_canlilik is not none else '—' }}</div>
+         <div class="etiket">Ort. canlılık</div></div>
+  </div>
+</div>
+{% endif %}
+
+{% if icerik|length > 1 %}
+<div class="uyari">
+  Bu taşıyıcıda {{ icerik|length }} embriyo var. Çözüldüğünde hepsi etkilenir.
+</div>
+{% endif %}
+
+<div class="kart">
+  <h2>İçindeki embriyolar</h2>
+  {% for e in icerik %}
+  <div class="fsatir">
+    {{ kf.kucuk(e) }}
+    <div class="bilgi">
+      <div class="no">{{ e.dosya_no }}</div>
+      <div class="ad">{{ e.ad_soyad }}</div>
+      <div class="meta">
+        {{ e.cycle_no }} · oosit {{ e.cycle_sira_no }}{% if e.skor %} · {{ e.skor }}{% endif %}
+      </div>
+      <div class="meta"><a href="/cycle/{{ e.cycle_id }}">cycle'ı aç</a></div>
+    </div>
+  </div>
+  {% else %}
+  <div class="bos">Bu taşıyıcı boşaltılmış.</div>
+  {% endfor %}
+</div>
+{% if t.durum == 'dolu' and icerik %}
+<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw">Bu taşıyıcıyı çöz</a>
+{% endif %}
+<a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+
+{% include "_buyutec.html" %}
+{{ kf.baglama() }}
+{% endblock %}

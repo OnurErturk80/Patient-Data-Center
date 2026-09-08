@@ -1,0 +1,24 @@
+{% macro cubuk(c, g) %}
+{% if g %}
+<div class="gezinme">
+  {% if g.onceki %}
+  <a class="gez onceki" href="{{ g.onceki.yol }}">
+    <span class="ok">&#8249;</span>
+    <span class="ad">{{ g.onceki.ad }}</span>
+  </a>
+  {% else %}<span class="gez bos"></span>{% endif %}
+
+  <a class="gez orta" href="/cycle/{{ c.id }}">
+    <span class="ad">Cycle</span>
+    {% if g.sira %}<span class="sayac">{{ g.sira }}/{{ g.toplam }}</span>{% endif %}
+  </a>
+
+  {% if g.sonraki %}
+  <a class="gez sonraki" href="{{ g.sonraki.yol }}">
+    <span class="ad">{{ g.sonraki.ad }}</span>
+    <span class="ok">&#8250;</span>
+  </a>
+  {% else %}<span class="gez bos"></span>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}
