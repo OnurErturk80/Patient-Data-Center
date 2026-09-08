@@ -24,8 +24,10 @@ re-expansion, FET). Kullanıcı klinik doğruluk konusunda uzman, kod konusunda
 
 ## Çalıştırma
 
+Komutlar proje klasörünün kökünde çalışır (v6.1'de `app/` alt klasörü
+kaldırıldı — README v6.1 bölümü):
+
 ```bash
-cd app
 python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Mac
 python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
 ```
@@ -42,8 +44,11 @@ Veritabanı göçleri: `python3 goc_hepsi.py` (idempotent, sırayla hepsini
 SQLite + FastAPI + Jinja2. Framework yok, ORM yok, build adımı yok. Mobil
 öncelikli responsive HTML.
 
+Tüm dosyalar proje klasörünün kökünde (v6.1'e kadar bir `app/` alt
+klasöründeydi):
+
 ```
-app/
+Patient Data Center/
   app.py            ~2900 satır — TÜM rotalar burada
   db.py             bağlantı ve yardımcılar
   guvenlik.py       oturum / kullanıcı
@@ -111,12 +116,13 @@ Kullanıcı aynı programı Mac'te (evde) ve Windows mini PC'de (klinikte)
 çalıştırıyor.
 
 `yerel_ayar.json` **makine adına göre bölümlenmiştir** (`platform.node()`).
-Her bilgisayarın kendi bölümü, tek dosyada. Varsayılan yollar uygulama
-klasörüne göreli (`app/snapshot`, `app/arsiv`), otomatik oluşturulur. Kayıtlı
-bir yol bu makinede yoksa sessizce varsayılana döner.
+Her bilgisayarın kendi bölümü, tek dosyada. Varsayılan yollar proje klasörüne
+göreli (`snapshot/`, `arsiv/`), otomatik oluşturulur. Kayıtlı bir yol bu
+makinede yoksa sessizce varsayılana döner.
 
-**Bu dosyayı git'e ekleme.** Ayrıca `lab.db` ve `arsiv/` de git'e girmez —
-onlar veri, USB ile taşınır.
+**`.gitignore` bunları depo dışında tutar** (v6.1'de eklendi): `lab.db` (+
+`-journal/-wal/-shm`), `arsiv/`, `snapshot/`, `yedek/`, `yedek.log`,
+`yerel_ayar.json`. Hepsi veri veya makineye özel — git'e girmez, USB ile taşınır.
 
 **Kural:** aynı anda tek kopyaya kayıt gir. Birleştirme mümkün değil.
 

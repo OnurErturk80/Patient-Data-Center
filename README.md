@@ -12,9 +12,11 @@ pip install fastapi uvicorn jinja2 python-multipart
 
 ## Çalıştırma
 
+Proje klasöründe (dosyalar artık alt klasörde değil — bkz. v6.1 bölümü):
+
 ```bash
-cd app
-uvicorn app:uygulama --host 0.0.0.0 --port 8000
+python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Mac
+python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
 ```
 
 Tarayıcıda `http://localhost:8000` adresine git.
@@ -23,8 +25,10 @@ Tarayıcıda `http://localhost:8000` adresine git.
 
 ## Dosyalar
 
+Tüm dosyalar proje klasörünün kökünde (v6.1'e kadar bir `app/` alt klasöründeydi):
+
 ```
-app/
+Patient Data Center/
   app.py              rotalar (hangi adres hangi ekranı açar)
   db.py               veritabanı bağlantısı ve yardımcılar
   lab.db              veritabanı
@@ -1337,3 +1341,46 @@ Kamera klasörünü başka bir yerde tutmak istersen `python yerel_kur.py` ile o
 ## Kural değişmedi
 
 Aynı anda tek kopyaya kayıt gir. İki makinede birden kayıt girip sonra birini taşırsan diğerindekiler kaybolur — bunun teknik çözümü yok, birleştirme mümkün değil.
+
+---
+
+# v6.1 — Claude Code'a geçiş + düz klasör yapısı
+
+## Ne değişti
+
+**Proje artık bir git deposu.** `git init` yapıldı, ilk commit atıldı. Git yerel
+çalışır, buluta bir şey gitmez. Amaç: her değişiklikten ön­ce/sonra "geri al"
+imkânı ve neyin ne zaman değiştiğinin kaydı.
+
+**`.gitignore` hasta verisini ve makineye özel ayarı depo dışında tutar:**
+`lab.db`, `lab.db-journal/-wal/-shm`, `arsiv/`, `snapshot/`, `yedek/`,
+`yedek.log`, `yerel_ayar.json`. Bunlar eskisi gibi USB ile taşınır. Kod
+senkronizasyonu istersen GitHub'da **private** bir depo aç — hasta verisi zaten
+ignore'da olduğu için depoya girmez.
+
+**Klasör düzleştirildi.** v6.1'e kadar tüm kod bir `app/` alt klasöründeydi ve
+çalıştırmak için `cd app` gerekiyordu. Artık dosyalar doğrudan proje klasörünün
+(`Patient Data Center/`) kökünde. `db.py` yolları `Path(__file__).parent`'a
+göreli olduğu için kod bundan etkilenmedi; sadece `cd app` adımı kalktı.
+
+## Neden düz yapı
+
+Proje klasörünün kendisi git deposu ve çalışma dizini. Kodu tekrar `app/`
+içine gömmek, üstte boş bir sarmalayıcı klasör bırakırdı. Tek katman = daha az
+kafa karışıklığı.
+
+## Eski sürüm bölümlerindeki `app/` referansları
+
+Bu dosyadaki v0.1–v5.8 bölümleri o dönemin `app/` alt klasörü yapısına göre
+yazılmış ("app klasörünün üzerine kopyala", "app klasöründe `python goc_XXX.py`"
+gibi). Onlar tarihsel kayıt, olduğu gibi bırakıldı. Bugün geçerli olan:
+komutları **proje klasörünün kökünde** çalıştır, `cd app` yok.
+
+## Çalıştırma (güncel)
+
+```bash
+python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Mac
+python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
+```
+
+Göçler: `python3 goc_hepsi.py` (kök dizinde).
