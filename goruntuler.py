@@ -188,24 +188,38 @@ def dosya_bul(im: str):
 
 # ----------------------------------------------------------------- kayıt
 
+class _KareZatenAlinmis(Exception):
+    """Aynı kareyi başka bir personel bu arada kaydetmiş — sessizce vazgeç."""
+
+
 def sonraki_sira(cycle_id: int) -> int:
     r = db.tek("SELECT MAX(cycle_sira_no) m FROM specimen WHERE cycle_id=?", (cycle_id,))
     return (r["m"] or 0) + 1
 
 
 def specimen_olustur(cycle_id: int, cycle_no: str, taraf=None) -> str:
-    sira = sonraki_sira(cycle_id)
-    sid = f"{cycle_no}-{sira:02d}"
-    db.yaz(
-        "INSERT INTO specimen (id, lab_id, cycle_id, cycle_sira_no, durum, taraf) "
-        "VALUES (?,?,?,?,?,?)",
-        (sid, db.LAB_ID, cycle_id, sira, "oosit", taraf or None),
-    )
-    # Cycle'ın denüdasyon zamanı boşsa ilk oositle birlikte doldur
-    c = db.tek("SELECT denudasyon_zamani FROM cycle WHERE id=?", (cycle_id,))
-    if not c["denudasyon_zamani"]:
-        db.yaz("UPDATE cycle SET denudasyon_zamani=? WHERE id=?",
-               (datetime.now().isoformat(" ", "seconds"), cycle_id))
+    """Cycle'a sıradaki numarayla yeni bir oosit ekler.
+
+    Sıra numarasının okunması ve yazılması **tek atomik işlemde** olmalı: iki
+    personel aynı cycle'a aynı anda oosit eklerse ikisi de aynı numarayı
+    hesaplar ve biri UNIQUE hatası alırdı (README v6.6).
+    """
+    with db.yazma_islemi() as b:
+        r = b.execute("SELECT MAX(cycle_sira_no) m FROM specimen WHERE cycle_id=?",
+                      (cycle_id,)).fetchone()
+        sira = (r["m"] or 0) + 1
+        sid = f"{cycle_no}-{sira:02d}"
+        b.execute(
+            "INSERT INTO specimen (id, lab_id, cycle_id, cycle_sira_no, durum, taraf) "
+            "VALUES (?,?,?,?,?,?)",
+            (sid, db.LAB_ID, cycle_id, sira, "oosit", taraf or None),
+        )
+        # Cycle'ın denüdasyon zamanı boşsa ilk oositle birlikte doldur
+        c = b.execute("SELECT denudasyon_zamani FROM cycle WHERE id=?",
+                      (cycle_id,)).fetchone()
+        if not c["denudasyon_zamani"]:
+            b.execute("UPDATE cycle SET denudasyon_zamani=? WHERE id=?",
+                      (datetime.now().isoformat(" ", "seconds"), cycle_id))
     return sid
 
 
@@ -232,21 +246,32 @@ def goruntu_bagla(im: str, cycle_id: int, cycle_no: str, specimen_id: str,
         hedef = klasor / f"{hedef.stem}-{sayac}{uzanti}"
         sayac += 1
 
-    shutil.copy2(kaynak, hedef)
+    shutil.copy2(kaynak, hedef)         # dosya kopyası kilit dışında kalsın
 
-    gid = db.yaz(
-        "INSERT INTO goruntu (lab_id, cycle_id, specimen_id, asama, zaman, "
-        "dosya_yolu, orijinal_dosya_adi, kullanici_id, kaynak_imza) "
-        "VALUES (?,?,?,?,?,?,?,?,?)",
-        (db.LAB_ID, cycle_id, specimen_id, asama,
-         ts.isoformat(" ", "seconds"), goreli_yap(hedef), kaynak.name,
-         kullanici_id, im),
-    )
-    db.yaz(
-        "INSERT INTO kaynak_dosya (imza, dosya_adi, cycle_id, goruntu_id, durum, zaman) "
-        "VALUES (?,?,?,?,?,?)",
-        (im, kaynak.name, cycle_id, gid, "eslesti", ts.isoformat(" ", "seconds")),
-    )
+    # İki kayıt tek atomik işlemde: aynı kareyi başka bir personel az önce
+    # kaydetmiş olabilir (iki kişi aynı anda denüdasyon yapıyor).
+    try:
+        with db.yazma_islemi() as b:
+            if b.execute("SELECT 1 FROM kaynak_dosya WHERE imza = ?",
+                         (im,)).fetchone():
+                raise _KareZatenAlinmis
+            gid = b.execute(
+                "INSERT INTO goruntu (lab_id, cycle_id, specimen_id, asama, zaman, "
+                "dosya_yolu, orijinal_dosya_adi, kullanici_id, kaynak_imza) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (db.LAB_ID, cycle_id, specimen_id, asama,
+                 ts.isoformat(" ", "seconds"), goreli_yap(hedef), kaynak.name,
+                 kullanici_id, im),
+            ).lastrowid
+            b.execute(
+                "INSERT INTO kaynak_dosya (imza, dosya_adi, cycle_id, goruntu_id, "
+                "durum, zaman) VALUES (?,?,?,?,?,?)",
+                (im, kaynak.name, cycle_id, gid, "eslesti",
+                 ts.isoformat(" ", "seconds")),
+            )
+    except _KareZatenAlinmis:
+        hedef.unlink(missing_ok=True)   # boşa alınan kopyayı geri al
+        return None
     return gid
 
 

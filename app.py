@@ -1,5 +1,6 @@
 """IVF Laboratuvar Kayıt Modülü — hasta ve cycle ekranları, giriş ve düzenleme."""
 
+import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
@@ -449,11 +450,20 @@ async def cycle_kaydet(request: Request, hasta_id: int):
             f"(dosya {ayni['dosya_no']}, {ayni['ad_soyad']}). Farklı bir numara gir."
         )
 
-    yeni_id = db.yaz(
-        f"INSERT INTO cycle (lab_id, hasta_id, {', '.join(CYCLE_ALANLARI)}) "
-        f"VALUES (?, ?, {', '.join('?' * len(CYCLE_ALANLARI))})",
-        (db.LAB_ID, hasta_id, *[d[a] for a in CYCLE_ALANLARI]),
-    )
+    try:
+        yeni_id = db.yaz(
+            f"INSERT INTO cycle (lab_id, hasta_id, {', '.join(CYCLE_ALANLARI)}) "
+            f"VALUES (?, ?, {', '.join('?' * len(CYCLE_ALANLARI))})",
+            (db.LAB_ID, hasta_id, *[d[a] for a in CYCLE_ALANLARI]),
+        )
+    except sqlite3.IntegrityError:
+        # Yukarıdaki kontrolle bu INSERT arasında başkası aynı numarayı almış
+        # olabilir (iki personel aynı anda cycle açıyor). Yeni numara öner.
+        f["cycle_no"] = sonraki_lab_no()
+        return formu_goster(
+            f"'{d['cycle_no']}' numarasını az önce başka bir kullanıcı aldı. "
+            f"Sıradaki boş numara yazıldı: {f['cycle_no']} — kontrol edip kaydet."
+        )
     return RedirectResponse(f"/cycle/{yeni_id}", status_code=303)
 
 

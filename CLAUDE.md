@@ -55,7 +55,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~30 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..022.py   veritabanı göçleri (sırayla)
+  goc_002..023.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -130,6 +130,15 @@ NFC farkı, Windows'un yasak karakterleri ve ayrılmış adları (`CON`, `NUL`)
 yüzünden klasör USB ile taşınınca yollar bozulabilir. Hasta **adı** klasör
 adında yok, sadece dosya no — ad değişse bile yol bozulmasın diye (README v6.4).
 
+**Numara üretirken `db.yazma_islemi()` kullan.** "En yüksek numarayı oku →
+artır → kaydet" iki kullanıcıda aynı numarayı üretir; `BEGIN IMMEDIATE` bunu
+atomik yapar. Dosya kopyalama gibi yavaş işleri işlemin içine koyma — kilit
+boyunca herkes bekler. `journal_mode` WAL, bekleme 15 sn (README v6.6).
+
+**`lab.db` ağ sürücüsüne konmaz.** SMB/NFS'te dosya kilitleme güvenilmez
+(bozulma riski) ve WAL hiç çalışmaz. İkinci makine programı çalıştırmaz,
+tarayıcıdan mini PC'ye bağlanır. `arsiv/` ağa taşınabilir (`yerel_kur.py`).
+
 **Otomatik skorlar kaynak işaretler.** Elle skor girilirse
 `cl_skor_kaynagi='elle'` yazılır, otomatik hesap onu ezmez.
 
@@ -183,7 +192,12 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 5. **Şablon değişikliği sessizce tutmayabilir.** Değiştirdiğin ekranı tarayıcıda
    gerçekten aç.
 
-6. **`yedek.py`'nin kendi `ayar()`'ı makineye bölümlü `yerel_ayar.json`'ı
+6. **Es zamanli kullanici var.** Klinikte birkac telefon ayni anda kayit
+   giriyor. Yeni bir "siradaki numara" mantigi yazarsan `db.yazma_islemi()`
+   kullan, yoksa UNIQUE hatasi alan personelin girdigi kayit kaybolur
+   (v6.6'da denudasyonda oosit numarasi tam olarak boyle patliyordu).
+
+7. **`yedek.py`'nin kendi `ayar()`'ı makineye bölümlü `yerel_ayar.json`'ı
    tanımıyor.** `db.py` dosyayı `{"makine-adi": {...}}` biçimine çevirdikten
    sonra `yedek.py` `yedek_klasor`'ü bulamıyor ve DB'deki Windows yoluna
    (`E:\yedek`) düşüyor; Mac'te cwd altında `E:\yedek` diye klasör açar.

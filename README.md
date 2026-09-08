@@ -1597,3 +1597,81 @@ belirliyor; Jinja global olarak şablonlardan çağrılıyor.
 Kalıcı silmeden önce kimliği doğrulayabilmek için her silme ekranı artık
 aşama adı **ve tam kodu** gösteriyor: `Blastokist 1 · 527078-2026-0001-01 · Gün 5`.
 Kaynak resim adı kaldırıldı — yerine örnek kodu ve zaman geldi.
+
+---
+
+# v6.6 — eş zamanlı kullanım (birden fazla personel)
+
+Klinikte program mini PC'de sunucu olarak çalışıyor, personel telefondan
+bağlanıyor — yani **birden fazla kullanıcı aynı anda** kayıt giriyor. Test
+edince üç sorun çıktı, üçü de düzeltildi.
+
+## 1. Numara yarışı — en ciddisi
+
+`specimen_olustur()` "en yüksek sıra numarasını oku → bir artır → kaydet"
+yapıyordu, arada kilit yoktu. İki personel aynı cycle'a aynı anda oosit
+eklerse ikisi de aynı numarayı hesaplıyordu.
+
+Ölçüm — 8 personel aynı cycle'a aynı anda oosit ekliyor:
+
+```
+önce:   1 başarılı, 7 HATA (UNIQUE constraint failed: specimen.cycle_sira_no)
+sonra:  8 başarılı, 0 hata — sıralar 1..8 kesintisiz
+```
+
+Gerçek hayattaki karşılığı: biri telefonla, biri mini PC'de aynı cycle'ı
+denüde ederken birinin ekranı 500 veriyor ve girdiği oosit kayboluyordu.
+
+**Çözüm:** `db.yazma_islemi()` — `BEGIN IMMEDIATE` ile okuma ve yazmayı tek
+atomik işleme alır. Yazma kilidini baştan aldığı için ikinci kullanıcı bekler,
+sonra bir sonraki numarayı alır.
+
+> Yeni bir yerde "sıradaki numarayı üret" yazarsan bu yardımcıyı kullan.
+> Dosya kopyalama gibi yavaş işleri işlemin **içine koyma** — kilit boyunca
+> herkes bekler.
+
+## 2. Okuyanlar yazana takılıyordu
+
+`journal_mode = delete` idi: biri yazarken okuyanlar da bekliyordu. **WAL**
+moduna alındı (`goc_023.py`, kalıcı ayar; `db.py` açılışta da garantiler).
+
+```
+4 okuyucu + 3 yazıcı eş zamanlı: 120 okuma, 30 yazma, 0 hata, 0,40 sn
+```
+
+Bekleme süresi de 5 → **15 saniye** çıkarıldı (`db.BEKLEME_SN`).
+
+## 3. Aynı kareyi iki kişi bağlarsa
+
+`goruntu_bagla()` kaynak kareyi arşive kopyalayıp iki kayıt yazıyordu; iki
+personel aynı kareyi aynı anda bağlarsa ikincisi `kaynak_dosya.imza` birincil
+anahtarında patlıyordu. Artık iki kayıt tek atomik işlemde ve kare alınmışsa
+ikinci kullanıcı sessizce vazgeçiyor, **boşa alınan arşiv kopyası da siliniyor.**
+
+Cycle numarasında da benzer bir açık vardı (kontrol ile INSERT arasında);
+`sqlite3.IntegrityError` yakalanıp "bu numarayı az önce başkası aldı, sıradaki
+boş numara: X" mesajı gösteriliyor.
+
+## Kalan bilinen sınır
+
+**Aynı kaydı iki kişi aynı anda düzenlerse son yazan kazanır** — çakışma
+uyarısı yok, diğerinin girdiği sessizce gider. Nadir ve fark edilir olduğu için
+şimdilik bırakıldı.
+
+## Veritabanı ağ sürücüsüne konmamalı
+
+SQLite dosya kilitleriyle çalışır; SMB/NFS paylaşımlarında kilitleme birçok
+uygulamada hatalıdır (bozulma riski) ve **WAL ağ sürücüsünde hiç çalışmaz** —
+SQLite sessizce eski moda döner, yani yukarıdaki iyileştirme kaybolur.
+
+Buna ihtiyaç da yok: veritabanına **yalnızca mini PC** dokunuyor, diğer
+cihazlar HTTP ile bağlanıyor. İkinci bir bilgisayardan girmek için orada
+programı çalıştırma, tarayıcıdan `http://<mini-pc-ip>:8000` adresine git.
+
+**Ağa taşınabilecek olan `arsiv/`** (fotoğraflar): disk dolunca
+`python yerel_kur.py` ile `goruntu_arsiv_klasor` NAS yolunu gösterebilir,
+kod değişikliği gerekmez. Veritabanı göreli yol sakladığı için eski kayıtlar da
+yeni konumdan okunur. Ölçü: fotoğraf başına ~178 KB, cycle başına ~18 MB.
+
+Veritabanının kendisi gerçekten merkezileşmesi gerekirse tek doğru yol
+PostgreSQL'e geçmektir — ölçek bunu gerektirmiyor.

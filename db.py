@@ -3,18 +3,76 @@
 import json
 import platform
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 DB_YOLU = Path(__file__).parent / "lab.db"
 LAB_ID = 1          # v1 tek laboratuvar
 
+# Kilitli veritabanında ne kadar beklenecek. Klinikte birkaç telefon aynı anda
+# kayıt girer; varsayılan 5 sn kısa kalabiliyor.
+BEKLEME_SN = 15
 
-def baglan():
-    """Yeni bir bağlantı açar. Her istek kendi bağlantısını kullanır."""
-    b = sqlite3.connect(DB_YOLU)
+
+def _wal_ac():
+    """Süreç başına bir kez: WAL journal modunu garanti eder.
+
+    WAL'da okuyanlar yazana takılmaz — birkaç kişi aynı anda ekran yenilerken
+    fark edilir. Ayar veritabanı dosyasında kalıcıdır, her açılışta yazılması
+    gerekmez; yine de yeni bir kopyada (sifirdan_kur) unutulmasın diye burada.
+
+    Ağ sürücüsünde WAL desteklenmez; SQLite sessizce eski moda düşer, hata
+    vermez. Bu yüzden `lab.db` yerel diskte kalmalı (README v6.6).
+    """
+    if not DB_YOLU.exists():
+        return
+    try:
+        b = sqlite3.connect(DB_YOLU, timeout=BEKLEME_SN)
+        b.execute("PRAGMA journal_mode = WAL")
+        b.close()
+    except sqlite3.Error:
+        pass                          # salt okunur disk vb. — çalışmaya devam et
+
+
+def baglan(otomatik_islem: bool = True):
+    """Yeni bir bağlantı açar. Her istek kendi bağlantısını kullanır.
+
+    `otomatik_islem=False` verilirse Python kendi işlemini başlatmaz; açıkça
+    `BEGIN IMMEDIATE` yazabilmek için gerekir (bkz. `yazma_islemi`).
+    """
+    b = sqlite3.connect(DB_YOLU, timeout=BEKLEME_SN,
+                        isolation_level="" if otomatik_islem else None)
     b.row_factory = sqlite3.Row      # sonuçlara kolon adıyla eriş
     b.execute("PRAGMA foreign_keys = ON")
     return b
+
+
+@contextmanager
+def yazma_islemi():
+    """Okuma + yazmayı tek atomik işlem yapar.
+
+    "Sıradaki numarayı oku, bir artır, kaydet" gibi yerlerde şart: iki kullanıcı
+    aynı anda aynı numarayı hesaplayıp UNIQUE hatası almasın diye. `BEGIN
+    IMMEDIATE` yazma kilidini baştan alır, diğer yazar bekler.
+
+    Dosya kopyalama gibi yavaş işleri buraya koyma — kilit boyunca herkes bekler.
+    """
+    b = baglan(otomatik_islem=False)
+    try:
+        b.execute("BEGIN IMMEDIATE")
+        yield b
+        b.execute("COMMIT")
+    except BaseException:
+        try:
+            b.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass
+        raise
+    finally:
+        b.close()
+
+
+_wal_ac()
 
 
 def sorgu(sql, parametre=()):
