@@ -58,12 +58,17 @@ if cycles:
         ("olay.tr_cycle_id (baska cycle'dan)",
          f"SELECT COUNT(*) FROM olay WHERE tr_cycle_id IN ({q}) AND cycle_id NOT IN ({q})",
          cycles + cycles),
+        ("olay.thaw_cycle_id (baska cycle'dan)",
+         f"SELECT COUNT(*) FROM olay WHERE thaw_cycle_id IN ({q}) AND cycle_id NOT IN ({q})",
+         cycles + cycles),
         ("goruntu.cycle_id", f"SELECT COUNT(*) FROM goruntu WHERE cycle_id IN ({q})", cycles),
         ("sperm_ornek.cycle_id", f"SELECT COUNT(*) FROM sperm_ornek WHERE cycle_id IN ({q})", cycles),
         ("gebelik_sonucu.cycle_id", f"SELECT COUNT(*) FROM gebelik_sonucu WHERE cycle_id IN ({q})", cycles),
         ("beta_hcg.cycle_id", f"SELECT COUNT(*) FROM beta_hcg WHERE cycle_id IN ({q})", cycles),
         ("kaynak_dosya.cycle_id (atlanan kareler)",
          f"SELECT COUNT(*) FROM kaynak_dosya WHERE cycle_id IN ({q})", cycles),
+        ("islem_yapan.cycle_id",
+         f"SELECT COUNT(*) FROM islem_yapan WHERE cycle_id IN ({q})", cycles),
     ]
     for ad, sql, par in taramalar:
         n = b.execute(sql, par).fetchone()[0]
@@ -82,6 +87,9 @@ for cid in cycles:
     ADIMLAR += [
         (f"cycle {cid}: transfer baglarini kopar",
          "UPDATE olay SET tr_cycle_id=NULL, iptal_mi=1 WHERE tr_cycle_id=? AND cycle_id<>?",
+         (cid, cid)),
+        (f"cycle {cid}: cozme baglarini kopar",
+         "UPDATE olay SET thaw_cycle_id=NULL WHERE thaw_cycle_id=? AND cycle_id<>?",
          (cid, cid)),
         (f"cycle {cid}: kaynak_dosya (cycle goruntuleri)",
          "DELETE FROM kaynak_dosya WHERE goruntu_id IN "
@@ -111,6 +119,7 @@ for cid in cycles:
          "DELETE FROM sperm_analiz WHERE sperm_ornek_id IN "
          "(SELECT id FROM sperm_ornek WHERE cycle_id=?)", (cid,)),
         (f"cycle {cid}: sperm_ornek", "DELETE FROM sperm_ornek WHERE cycle_id=?", (cid,)),
+        (f"cycle {cid}: islem_yapan", "DELETE FROM islem_yapan WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: specimen", "DELETE FROM specimen WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: CYCLE", "DELETE FROM cycle WHERE id=?", (cid,)),
     ]

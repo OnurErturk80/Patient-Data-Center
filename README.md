@@ -1675,3 +1675,85 @@ yeni konumdan okunur. Ölçü: fotoğraf başına ~178 KB, cycle başına ~18 MB
 
 Veritabanının kendisi gerçekten merkezileşmesi gerekirse tek doğru yol
 PostgreSQL'e geçmektir — ölçek bunu gerektirmiyor.
+
+---
+
+# v6.7 — çözme hangi tedavi için yapıldı (göç 024)
+
+## Sorun
+
+Donmuş embriyo doğduğu cycle'a bağlı kalır (`specimen.cycle_id` değişmez), FET
+cycle'ı ile bağı **transfer** kaydı kurardı (`olay.tr_cycle_id` — v5.4).
+
+Eksik olan: **transfere ulaşmayan çözme.** FET'te iki embriyo çözülüp ikisi de
+canlı çıkmazsa transfer kaydı oluşmuyor, dolayısıyla o FET cycle'ında tek satır
+iz kalmıyordu. Aylar sonra ikinci bir FET açıldığında çözme ekranı yine aynı
+listeyi gösteriyordu; hangi çözmenin hangi tedaviye ait olduğu veriden
+okunamıyordu. Cycle bazında sağkalım oranı da hesaplanamıyordu.
+
+Embriyolog için başarısız çözme o FET'in kaydıdır — görünmesi gerekir.
+
+## Çözüm: `olay.thaw_cycle_id`
+
+`tr_cycle_id` ile aynı mantık, bir aşama önce:
+
+| Alan | Ne söyler |
+|---|---|
+| `specimen.cycle_id` | embriyo **nereden geldi** — OPU/ICSI cycle'ı (değişmez) |
+| `olay.thaw_cycle_id` | **hangi tedavi için çözüldü** (yeni) |
+| `olay.tr_cycle_id` | **nerede transfer edildi** |
+
+Artık üç soru da ayrı ayrı yanıtlanıyor ve çözme transfere ulaşmasa da kayıtta.
+
+## Ekranda
+
+**Çözme formunda** (`/cryo/tasiyici/<id>/thaw`) en üste bir seçim geldi: *"Bu
+çözme hangi tedavi için?"* — hastanın tüm cycle'ları listelenir. FET'in çözme
+ekranındaki **Çöz** düğmesi `?cycle=<id>` taşıdığı için doğru tedavi zaten
+seçili gelir; cryo haritasından girilirse embriyonun kendi cycle'ı seçili olur
+ve elle değiştirilebilir. Kaydedilmiş bir çözme yeniden açılırsa önceki seçim
+korunur.
+
+Seçim **elle değiştirilebilir olmalıydı**: taşıyıcı cryo haritasından da
+çözülebiliyor, orada cycle bağlamı yok. Tahmin etmek yerine sormak, yanlış
+tedaviye sessizce yazmaktan iyidir.
+
+**FET cycle'ının çözme ekranına** "Bu tedavide çözülenler" kartı eklendi: örnek
+kodu, sağkalım, canlılık %, re-expansion %, taşıyıcı, kaynak cycle ve
+**transfer edildi / transfer edilmedi**. Üstte özet: `Canlı 1/2 (%50) · transfer
+edilen 1`.
+
+Taşıyıcı tek bir vitrifikasyon ekranından doldurulduğu için tek hastaya aittir.
+Karışık bir taşıyıcı çıkarsa (elle veri düzeltmesi) seçim hiç sunulmaz, her
+embriyo kendi kaynak cycle'ına yazılır — sessiz yanlış veri üretmez.
+
+## Göç 024 ve geriye dönük doldurma
+
+Mevcut çözme kayıtları boş kalmasın diye:
+
+1. Embriyo sonradan transfer edilmişse → transferin yapıldığı cycle
+2. Edilmemişse → çözmenin yazıldığı cycle (bugüne kadarki davranış)
+
+Göç çalıştırılmadan da ekranlar açılır: `thaw_cycle_var()` kolonun varlığına bir
+kez bakar, yoksa çözme ekranında `python goc_024.py` uyarısı çıkar ve yeni alan
+yazılmaz (tuzak #3).
+
+## Silme kaskadı
+
+`thaw_cycle_id` de tıpkı `tr_cycle_id` gibi **başka bir cycle'a** işaret
+edebiliyor. Kalıcı silmede bağı koparmadan `DELETE FROM cycle` denenirse
+`FOREIGN KEY constraint failed` alınıyor (tuzak #4 — test edildi, hata
+üretildiği doğrulandı). `cycle_tamamen_sil` artık bağı `NULL`'a çekiyor; çözme
+kaydının kendisi silinmiyor, yalnızca hangi tedavi için olduğu bilinmez oluyor.
+
+`teshis_silme.py` de güncellendi. Bu arada v6.3'ten kalma bir eksik çıktı:
+`islem_yapan` adımı teşhis aracında yoktu, bu yüzden araç silinebilir bir hastayı
+"CYCLE → FOREIGN KEY constraint failed" diye **yanlış** raporluyordu. Eklendi.
+
+## Doğrulanan senaryo
+
+2026-0001 (IVF/ICSI) cycle'ında iki blastokist vitrifiye edildi, 2026-0002 (FET)
+cycle'ından çözüldü: biri canlı, biri dejenere. FET'in çözme ekranı
+`Canlı 1/2 (%50) · transfer edilen 0` ve dejenere olan için "transfer edilmedi"
+gösterdi. Canlı olan transfer edilince özet `transfer edilen 1` oldu. Kaynak
+cycle'ın (2026-0001) ekranında bu liste **görünmedi** — çözme oraya ait değil.

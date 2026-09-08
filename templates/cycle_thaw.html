@@ -11,6 +11,13 @@
 {% endblock %}
 {% block icerik %}
 
+{% if goc_gerekli %}
+<div class="uyari">
+  Çözmelerin hangi tedavi için yapıldığı henüz kaydedilmiyor.
+  Terminalde <code>python goc_024.py</code> çalıştır.
+</div>
+{% endif %}
+
 {% set dolu = tasiyicilar|selectattr('durum','equalto','dolu')|list %}
 {% set bos = tasiyicilar|rejectattr('durum','equalto','dolu')|list %}
 
@@ -35,7 +42,7 @@
         <a href="/cryo/tasiyici/{{ t.id }}">içeriği gör</a>
       </div>
     </div>
-    <a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw">Çöz</a>
+    <a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw?cycle={{ c.id }}">Çöz</a>
   </div>
   {% else %}
   <div class="bos">
@@ -44,6 +51,37 @@
   </div>
   {% endfor %}
 </div>
+
+{% if cozulenler %}
+<div class="kart">
+  <h2>Bu tedavide çözülenler ({{ ozet.toplam }})</h2>
+  <div class="ipucu" style="padding:0 14px 8px">
+    Canlı {{ ozet.canli }}/{{ ozet.toplam }} (%{{ ozet.oran }})
+    · transfer edilen {{ ozet.transfer }}
+  </div>
+  {% for e in cozulenler %}
+  <div class="fsatir">
+    <div class="bilgi">
+      <div class="no">{{ ornek_kodu(e.id) }}</div>
+      <div class="meta">
+        {{ etiketler.get(e.thaw_sagkalim, e.thaw_sagkalim or '—') }}
+        {% if e.thaw_canlilik is not none %} · canlılık %{{ e.thaw_canlilik|round|int }}{% endif %}
+        {% if e.thaw_re_expansion is not none %} · re-exp %{{ e.thaw_re_expansion|round|int }}{% endif %}
+      </div>
+      <div class="meta">
+        {{ e.zaman[:16] }}
+        {% if e.tasiyici_etiket %} · {{ e.tasiyici_etiket }}{% endif %}
+        {% if e.cycle_id != c.id %} · kaynak: {{ e.kaynak_cycle_no }}{% endif %}
+      </div>
+      <div class="meta">
+        {% if e.transfer_id %}transfer edildi
+        {% else %}<span style="color:var(--uyari)">transfer edilmedi</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if bos %}
 <div class="kart">

@@ -55,7 +55,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~30 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..023.py   veritabanı göçleri (sırayla)
+  goc_002..024.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -105,6 +105,14 @@ görünmez, sunucu da reddeder. Bu kuralı gevşetme.
 
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
+
+**Embriyo cycle değiştirmez; üç alan üç soruyu yanıtlar.**
+`specimen.cycle_id` nereden geldiği (OPU/ICSI cycle'ı, değişmez),
+`olay.thaw_cycle_id` hangi tedavi için çözüldüğü, `olay.tr_cycle_id` nerede
+transfer edildiği. FET böyle bağlanır — embriyo kopyalanmaz, taşınmaz.
+Transfere ulaşmayan çözme de FET'in kaydıdır, görünmesi gerekir (README v6.7).
+Bu iki alan **başka bir cycle'a** işaret edebildiği için kalıcı silmede
+`NULL`'a çekilmeleri şart (bkz. tuzak #4).
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)
@@ -188,6 +196,8 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 4. **`kaynak_dosya.cycle_id` silme kaskadını kırar.** Denüdasyonda "Atla"
    denen kareler cycle'a bağlı satır bırakıyor. Yeni bir tabloya `cycle_id`
    eklersen kalıcı silme adımlarına da ekle, yoksa FOREIGN KEY hatası.
+   Aynısını `teshis_silme.py`'ye de ekle — `islem_yapan` (v6.3) oraya
+   eklenmediği için araç silinebilir bir hastayı aylarca yanlış raporladı.
 
 5. **Şablon değişikliği sessizce tutmayabilir.** Değiştirdiğin ekranı tarayıcıda
    gerçekten aç.

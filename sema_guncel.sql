@@ -193,6 +193,7 @@ CREATE TABLE olay (
     vit_tasiyici_id    INTEGER REFERENCES tasiyici(id),
     thaw_sagkalim      TEXT,
     thaw_re_expansion  REAL,
+    thaw_cycle_id      INTEGER REFERENCES cycle(id),
     tr_cycle_id        INTEGER REFERENCES cycle(id),
     tr_tipi            TEXT,
     dis_sebep          TEXT,

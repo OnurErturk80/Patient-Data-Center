@@ -2151,7 +2151,7 @@ def konum_bul_veya_olustur(seviyeler):
 def tasiyici_icerigi(tasiyici_id):
     return db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.durum, o.zaman, o.id AS olay_id, "
-        "  c.id AS cycle_id, c.cycle_no, h.dosya_no, h.ad_soyad, "
+        "  c.id AS cycle_id, c.cycle_no, h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
@@ -2402,8 +2402,41 @@ def vit_sil(request: Request, specimen_id: str):
 
 # ----------------------------------------------------------------- thaw
 
+_THAW_CYCLE_KOLONU = None
+
+
+def thaw_cycle_var() -> bool:
+    """`goc_024` çalıştırıldı mı — `olay.thaw_cycle_id` kolonu var mı.
+
+    Göç çalıştırılmadan ekranlar 500 vermesin diye (tuzak #3). Bir kez bakılır;
+    kolon sonradan eklenirse uygulama yeniden başlatılır.
+    """
+    global _THAW_CYCLE_KOLONU
+    if _THAW_CYCLE_KOLONU is None:
+        _THAW_CYCLE_KOLONU = any(
+            r["name"] == "thaw_cycle_id"
+            for r in db.sorgu("PRAGMA table_info(olay)"))
+    return _THAW_CYCLE_KOLONU
+
+
+def thaw_cycle_secenekleri(icerik):
+    """Bu taşıyıcı hangi cycle'lar için çözülebilir — hastanın tüm cycle'ları.
+
+    Taşıyıcı tek bir vitrifikasyon ekranından doldurulur, yani tek hastaya
+    aittir. Yine de karışık bir taşıyıcı varsa (elle veri düzeltmesi vb.) seçim
+    sunmuyoruz — o zaman her embriyo kendi kaynak cycle'ına yazılır.
+    """
+    hastalar = {r["hasta_id"] for r in icerik}
+    if len(hastalar) != 1:
+        return []
+    return db.sorgu(
+        "SELECT id, cycle_no, cycle_tipi, hasta_cycle_no FROM cycle "
+        "WHERE hasta_id=? ORDER BY hasta_cycle_no DESC, id DESC",
+        (hastalar.pop(),))
+
+
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}/thaw")
-def thaw_ekran(request: Request, tasiyici_id: int, hata: str = ""):
+def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 0):
     t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t "
                "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
     if not t:
@@ -2423,12 +2456,24 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = ""):
                 "SELECT id FROM goruntu WHERE specimen_id=? AND asama=? ORDER BY id",
                 (e["id"], asama))
 
+    # Çözme hangi tedavi için yapılıyor. Geldiğimiz cycle varsayılan; yoksa
+    # daha önce kaydedilmiş değer, o da yoksa embriyonun kaynak cycle'ı.
+    secenekler = thaw_cycle_secenekleri(icerik) if thaw_cycle_var() else []
+    gecerli = {r["id"] for r in secenekler}
+    secili = cycle if cycle in gecerli else 0
+    if not secili and mevcut and secenekler:
+        ilk = next(iter(mevcut.values()))
+        secili = ilk["thaw_cycle_id"] if ilk["thaw_cycle_id"] in gecerli else 0
+    if not secili and icerik:
+        secili = icerik[0]["cycle_id"]
+
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
         request, "thaw.html",
         {"t": t, "icerik": icerik, "mevcut": mevcut, "fotolar": fotolar,
-         "hata": hata,
+         "hata": hata, "cycle_secenekleri": secenekler, "secili_cycle": secili,
+         "geri_cycle": cycle if cycle in gecerli else 0,
          "sagkalimlar": db.liste("thaw_sagkalim"), "etiketler": etiketler,
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -2458,6 +2503,17 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
 
     kontrol_zamani = zaman(f.get("kontrol_zamani"))
 
+    # Çözme hangi tedavi için yapıldı. Formdaki değer aynı hastanın bir cycle'ı
+    # olmalı; değilse embriyonun kendi cycle'ına yazılır (eski davranış).
+    gecerli = ({r["id"] for r in thaw_cycle_secenekleri(icerik)}
+               if thaw_cycle_var() else set())
+    try:
+        secili_cycle = int(f.get("thaw_cycle") or 0)
+    except ValueError:
+        secili_cycle = 0
+    if secili_cycle not in gecerli:
+        secili_cycle = 0
+
     def yuzde(v, ad):
         try:
             x = sayi(v, ad)
@@ -2470,11 +2526,13 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
         re_exp = yuzde(f.get(f"reexp_{e['id']}"), "Re-expansion")
         canlilik = yuzde(f.get(f"canlilik_{e['id']}"), "Canlılık oranı")
 
-        olay_kaydet_veya_guncelle(
-            e["id"], e["cycle_id"], "thaw",
-            {"thaw_sagkalim": sagkalim, "thaw_canlilik": canlilik,
-             "thaw_re_expansion": re_exp,
-             "thaw_kontrol_zamani": kontrol_zamani}, kid, simdi)
+        alanlar = {"thaw_sagkalim": sagkalim, "thaw_canlilik": canlilik,
+                   "thaw_re_expansion": re_exp,
+                   "thaw_kontrol_zamani": kontrol_zamani}
+        if thaw_cycle_var():
+            alanlar["thaw_cycle_id"] = secili_cycle or e["cycle_id"]
+        olay_kaydet_veya_guncelle(e["id"], e["cycle_id"], "thaw",
+                                  alanlar, kid, simdi)
         db.yaz("UPDATE specimen SET durum=? WHERE id=?",
                ("cozuldu" if sagkalim == "canli" else sagkalim, e["id"]))
 
@@ -2483,6 +2541,9 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     if t["konum_id"]:
         db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
 
+    # Bir cycle ekranından gelindiyse oraya dön — sonuç orada listelenir
+    if f.get("geri_cycle") and secili_cycle:
+        return RedirectResponse(f"/cycle/{secili_cycle}/thaw", status_code=303)
     return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
 
@@ -2565,11 +2626,35 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         "LEFT JOIN konum k ON k.id=t.konum_id "
         f"WHERE {kosul} ORDER BY t.durum DESC, t.etiket", par)
 
+    # Bu cycle için yapılmış çözmeler. Transfere ulaşmayan (canlı çıkmayan)
+    # embriyo da burada görünür — FET'in kaydı budur (README v6.7).
+    cozulenler = [] if not thaw_cycle_var() else db.sorgu(
+        "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no AS kaynak_cycle_no, "
+        "  c2.hasta_cycle_no AS kaynak_hasta_cycle_no, "
+        "  o.zaman, o.thaw_sagkalim, o.thaw_canlilik, o.thaw_re_expansion, "
+        "  t.etiket AS tasiyici_etiket, "
+        "  (SELECT tr.id FROM olay tr WHERE tr.specimen_id=s.id "
+        "   AND tr.tip='transfer' AND tr.iptal_mi=0) AS transfer_id "
+        "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "JOIN cycle c2 ON c2.id=s.cycle_id "
+        "LEFT JOIN olay v ON v.specimen_id=s.id AND v.tip='vitrifikasyon' "
+        "  AND v.iptal_mi=0 "
+        "LEFT JOIN tasiyici t ON t.id=v.vit_tasiyici_id "
+        "WHERE o.tip='thaw' AND o.iptal_mi=0 AND o.thaw_cycle_id=? "
+        "ORDER BY o.zaman, s.cycle_sira_no", (cycle_id,))
+    ozet = None
+    if cozulenler:
+        canli = sum(1 for r in cozulenler if r["thaw_sagkalim"] == "canli")
+        ozet = {"toplam": len(cozulenler), "canli": canli,
+                "oran": round(100 * canli / len(cozulenler)),
+                "transfer": sum(1 for r in cozulenler if r["transfer_id"])}
+
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
         request, "cycle_thaw.html",
         {"c": c, "tasiyicilar": tasiyicilar, "etiketler": etiketler,
+         "cozulenler": cozulenler, "ozet": ozet, "goc_gerekli": not thaw_cycle_var(),
          "gezinme": asama_gezinme(cycle_id, "thaw")})
 
 
@@ -2859,6 +2944,10 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
     db.yaz("UPDATE olay SET tr_cycle_id=NULL, iptal_mi=1, "
            "iptal_sebep='Transfer cycle''i silindi' "
            "WHERE tr_cycle_id=? AND cycle_id<>?", (cycle_id, cycle_id))
+    # Aynısı çözme için: bu cycle'a yapılmış ama embriyosu başka cycle'dan olan
+    # çözmelerin bağı kopar (kayıt kalır, hangi tedavi için olduğu bilinmez)
+    db.yaz("UPDATE olay SET thaw_cycle_id=NULL "
+           "WHERE thaw_cycle_id=? AND cycle_id<>?", (cycle_id, cycle_id))
 
     # 3. Bu cycle'ın embriyolarının kullandığı taşıyıcılar
     tasiyicilar = [r["vit_tasiyici_id"] for r in db.sorgu(

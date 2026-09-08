@@ -20,9 +20,25 @@
 
 <form method="post" action="/cryo/tasiyici/{{ t.id }}/thaw" id="thawform">
 
+  {% if geri_cycle %}<input type="hidden" name="geri_cycle" value="{{ geri_cycle }}">{% endif %}
+
   {% if icerik %}
   <div class="kart">
     <h2>Zamanlar</h2>
+    {% if cycle_secenekleri %}
+    <div class="alan">
+      <label for="thaw_cycle">Bu çözme hangi tedavi için?</label>
+      <select id="thaw_cycle" name="thaw_cycle">
+        {% for s in cycle_secenekleri %}
+        <option value="{{ s.id }}" {% if s.id == secili_cycle %}selected{% endif %}>
+          {{ s.cycle_no }}{% if s.hasta_cycle_no %} ({{ s.hasta_cycle_no }}. cycle){% endif %}
+          · {{ tip_kisa(s.cycle_tipi) }}</option>
+        {% endfor %}
+      </select>
+      <div class="ipucu">Çözme bu cycle'ın kaydına yazılır. Embriyo canlı
+      çıkmasa da o tedavide çözüldüğü görünür.</div>
+    </div>
+    {% endif %}
     <div class="alan">
       <label for="islem_zamani">Çözme saati</label>
       {% set ilk = mevcut.get(icerik[0].id) %}
@@ -62,7 +78,7 @@
               <img src="/dosya/{{ g.id }}" alt="{{ baslik }} {{ loop.index }}">
             </button>
             <a class="fsil"
-               href="/goruntu/{{ g.id }}/sil?geri=/cryo/tasiyici/{{ t.id }}/thaw"
+               href="/goruntu/{{ g.id }}/sil?geri=/cryo/tasiyici/{{ t.id }}/thaw{% if geri_cycle %}%3Fcycle={{ geri_cycle }}{% endif %}"
                aria-label="Bu fotoğrafı sil" title="Bu fotoğrafı sil">&times;</a>
           </div>
           {% endfor %}
@@ -71,7 +87,7 @@
         <span class="kfoto yok">—</span>
         {% endif %}
         <a class="fekle"
-           href="/cycle/{{ e.cycle_id }}/foto-ekle?specimen_id={{ e.id }}&asama={{ asama }}&geri=/cryo/tasiyici/{{ t.id }}/thaw">
+           href="/cycle/{{ e.cycle_id }}/foto-ekle?specimen_id={{ e.id }}&asama={{ asama }}&geri=/cryo/tasiyici/{{ t.id }}/thaw{% if geri_cycle %}%3Fcycle={{ geri_cycle }}{% endif %}">
           {{ 'fotoğraf ekle' if not gs else '+ ekle' }}</a>
       </div>
       {% endfor %}
