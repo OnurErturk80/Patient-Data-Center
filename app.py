@@ -582,6 +582,180 @@ async def denudasyon_islem(request: Request, cycle_id: int):
     return RedirectResponse(yol, status_code=303)
 
 
+# ----------------------------------------------------------------- androloji (sperm)
+
+SPERM_ORNEK_KOLON = [
+    "alinma_zamani", "alinma_yontemi", "abstinans_gun", "likefaksiyon_zamani",
+    "hacim_ml", "renk", "viskozite", "ph", "hazirlama_yontemi",
+    "hazirlama_zamani", "notlar",
+]
+
+SPERM_ANALIZ_KOLON = [
+    "hacim_ml", "konsantrasyon_milyon_ml", "pr_yuzde", "np_yuzde", "im_yuzde",
+    "total_motil_yuzde", "toplam_motil_sayi", "morfoloji_normal_yuzde",
+    "vitalite_yuzde", "yuvarlak_hucre_milyon_ml", "lokosit_milyon_ml",
+    "aglutinasyon", "notlar",
+]
+
+
+def _sperm_ornek_form(f):
+    """Form sözlüğünden sperm_ornek alanlarını çıkarır (sayı alanları doğrulanır)."""
+    return {
+        "alinma_zamani": zaman(f.get("alinma_zamani")),
+        "alinma_yontemi": bos_ise_none(f.get("alinma_yontemi")),
+        "abstinans_gun": tam(f.get("abstinans_gun"), "Abstinans günü"),
+        "likefaksiyon_zamani": zaman(f.get("likefaksiyon_zamani")),
+        "hacim_ml": sayi(f.get("hacim_ml"), "Hacim"),
+        "renk": bos_ise_none(f.get("renk")),
+        "viskozite": bos_ise_none(f.get("viskozite")),
+        "ph": sayi(f.get("ph"), "pH"),
+        "hazirlama_yontemi": bos_ise_none(f.get("hazirlama_yontemi")),
+        "hazirlama_zamani": zaman(f.get("hazirlama_zamani")),
+        "notlar": bos_ise_none(f.get("ornek_notlar")),
+    }
+
+
+def _sperm_analiz_form(f, on):
+    """`on` = 'bazal_' veya 'sonrasi_'. sperm_analiz alan sözlüğü döndürür."""
+    def s(ad, etiket):
+        return sayi(f.get(on + ad), etiket)
+    return {
+        "hacim_ml": s("hacim_ml", "Hacim"),
+        "konsantrasyon_milyon_ml": s("konsantrasyon_milyon_ml", "Konsantrasyon"),
+        "pr_yuzde": s("pr_yuzde", "İlerleyen (PR) %"),
+        "np_yuzde": s("np_yuzde", "İlerlemeyen (NP) %"),
+        "im_yuzde": s("im_yuzde", "Hareketsiz (IM) %"),
+        "total_motil_yuzde": s("total_motil_yuzde", "Total motilite %"),
+        "toplam_motil_sayi": s("toplam_motil_sayi", "TMSC"),
+        "morfoloji_normal_yuzde": s("morfoloji_normal_yuzde", "Morfoloji %"),
+        "vitalite_yuzde": s("vitalite_yuzde", "Vitalite %"),
+        "yuvarlak_hucre_milyon_ml": s("yuvarlak_hucre_milyon_ml", "Yuvarlak hücre"),
+        "lokosit_milyon_ml": s("lokosit_milyon_ml", "Lökosit"),
+        "aglutinasyon": bos_ise_none(f.get(on + "aglutinasyon")),
+        "notlar": bos_ise_none(f.get(on + "notlar")),
+    }
+
+
+@uygulama.get("/cycle/{cycle_id}/androloji")
+def androloji(request: Request, cycle_id: int, ornek: str = "", hata: str = ""):
+    c = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    ornekler = db.sorgu(
+        "SELECT * FROM sperm_ornek WHERE cycle_id = ? ORDER BY id", (cycle_id,))
+
+    yeni_mi = ornek == "yeni" or not ornekler
+    secili = None
+    if not yeni_mi:
+        if ornek:
+            secili = next((o for o in ornekler if str(o["id"]) == ornek), None)
+        secili = secili or (ornekler[0] if ornekler else None)
+
+    analizler = {}
+    if secili:
+        for r in db.sorgu("SELECT * FROM sperm_analiz WHERE sperm_ornek_id = ?",
+                          (secili["id"],)):
+            analizler[r["asama"]] = r
+
+    return sablon.TemplateResponse(
+        request, "androloji.html",
+        {
+            "c": c,
+            "ornekler": ornekler,
+            "secili": secili,
+            "yeni_mi": yeni_mi,
+            "bazal": analizler.get("bazal"),
+            "sonrasi": analizler.get("hazirlik_sonrasi"),
+            "alinma": db.liste("sperm_alinma"),
+            "hazirlama": db.liste("sperm_hazirlama"),
+            "viskoziteler": db.liste("viskozite"),
+            "aglutinasyonlar": db.liste("sperm_aglutinasyon"),
+            "gorunumler": db.liste("sperm_gorunum"),
+            "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
+            "hata": hata,
+            "gezinme": asama_gezinme(cycle_id, "androloji"),
+        },
+    )
+
+
+@uygulama.post("/cycle/{cycle_id}/androloji")
+async def androloji_kaydet(request: Request, cycle_id: int):
+    from urllib.parse import quote
+
+    f = dict(await request.form())
+    kid = request.state.kullanici["id"]
+    c = db.tek("SELECT id FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    ornek_id = (f.get("ornek_id") or "").strip()
+
+    try:
+        ornek_d = _sperm_ornek_form(f)
+        analiz_d = {
+            "bazal": _sperm_analiz_form(f, "bazal_"),
+            "hazirlik_sonrasi": _sperm_analiz_form(f, "sonrasi_"),
+        }
+    except FormHatasi as e:
+        geri = f"/cycle/{cycle_id}/androloji?hata={quote(str(e))}"
+        if ornek_id:
+            geri += f"&ornek={ornek_id}"
+        return RedirectResponse(geri, status_code=303)
+
+    analiz_dolu = {a: any(v is not None for v in d.values())
+                   for a, d in analiz_d.items()}
+
+    if ornek_id:
+        eski = db.tek("SELECT * FROM sperm_ornek WHERE id = ?", (ornek_id,))
+        if not eski or eski["cycle_id"] != cycle_id:
+            return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
+        oid = int(ornek_id)
+        guvenlik.degisiklikleri_yaz("sperm_ornek", oid, eski, ornek_d, kid)
+        set_ifade = ", ".join(f"{k} = ?" for k in SPERM_ORNEK_KOLON)
+        db.yaz(f"UPDATE sperm_ornek SET {set_ifade} WHERE id = ?",
+               (*[ornek_d[k] for k in SPERM_ORNEK_KOLON], oid))
+    else:
+        # Yeni örnek: hiçbir örnek alanı ve hiçbir analiz dolu değilse kayıt açma
+        if not any(v is not None for v in ornek_d.values()) \
+                and not any(analiz_dolu.values()):
+            return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
+        kolon = ", ".join(["lab_id", "cycle_id", "kullanici_id"] + SPERM_ORNEK_KOLON)
+        isaret = ", ".join(["?"] * (3 + len(SPERM_ORNEK_KOLON)))
+        oid = db.yaz(
+            f"INSERT INTO sperm_ornek ({kolon}) VALUES ({isaret})",
+            (db.LAB_ID, cycle_id, kid, *[ornek_d[k] for k in SPERM_ORNEK_KOLON]))
+
+    for asama, d in analiz_d.items():
+        mevcut = db.tek(
+            "SELECT * FROM sperm_analiz WHERE sperm_ornek_id = ? AND asama = ?",
+            (oid, asama))
+        if analiz_dolu[asama]:
+            zamani = islem_zamani(
+                f.get("bazal_zaman" if asama == "bazal" else "sonrasi_zaman"))
+            if mevcut:
+                guvenlik.degisiklikleri_yaz("sperm_analiz", mevcut["id"], mevcut,
+                                            {**d, "zaman": zamani}, kid)
+                set_ifade = ", ".join(f"{k} = ?" for k in SPERM_ANALIZ_KOLON)
+                db.yaz(f"UPDATE sperm_analiz SET {set_ifade}, zaman = ?, "
+                       "kullanici_id = ? WHERE id = ?",
+                       (*[d[k] for k in SPERM_ANALIZ_KOLON], zamani, kid,
+                        mevcut["id"]))
+            else:
+                kolon = ", ".join(["sperm_ornek_id", "asama", "zaman",
+                                   "kullanici_id"] + SPERM_ANALIZ_KOLON)
+                isaret = ", ".join(["?"] * (4 + len(SPERM_ANALIZ_KOLON)))
+                db.yaz(f"INSERT INTO sperm_analiz ({kolon}) VALUES ({isaret})",
+                       (oid, asama, zamani, kid, *[d[k] for k in SPERM_ANALIZ_KOLON]))
+        elif mevcut:
+            db.yaz("DELETE FROM sperm_analiz WHERE id = ?", (mevcut["id"],))
+
+    return RedirectResponse(f"/cycle/{cycle_id}/androloji?ornek={oid}",
+                            status_code=303)
+
+
 @uygulama.get("/dosya/{goruntu_id}")
 def dosya(goruntu_id: int):
     g = db.tek("SELECT dosya_yolu FROM goruntu WHERE id = ?", (goruntu_id,))
@@ -2647,6 +2821,7 @@ async def denudasyon_zaman(request: Request, cycle_id: int):
 # ----------------------------------------------------------------- aşama gezinme
 
 ASAMA_SIRASI = [
+    ("androloji", "Androloji", "/cycle/{id}/androloji"),
     ("denudasyon", "Denüdasyon", "/cycle/{id}/denudasyon"),
     ("icsi", "ICSI", "/cycle/{id}/icsi"),
     ("fert", "Fertilizasyon", "/cycle/{id}/fert"),
@@ -2660,7 +2835,7 @@ ASAMA_SIRASI = [
 
 
 TIP_ASAMALARI = {
-    "ivf_icsi": ["denudasyon", "icsi", "fert", "cleavage", "blast",
+    "ivf_icsi": ["androloji", "denudasyon", "icsi", "fert", "cleavage", "blast",
                  "vitrifikasyon", "thaw", "transfer", "gebelik"],
     "fet": ["thaw", "transfer", "gebelik"],
     "oosit_cryo": ["denudasyon", "vitrifikasyon", "thaw"],

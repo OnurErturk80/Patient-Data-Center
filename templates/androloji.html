@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% import "_gezinme.html" as gez %}
+{% block ustbaslik %}Androloji{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+  <div class="alt">
+    {% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
+  </div>
+</div>
+{% endblock %}
+
+{# --- kısa yardımcı makrolar: hepsi çıplak <div> döndürür, saran .alan çağıranda --- #}
+{% macro num(ad, etiket, kaynak, alan) %}
+<div>
+  <label for="{{ ad }}">{{ etiket }}</label>
+  <input id="{{ ad }}" name="{{ ad }}" type="text" inputmode="decimal" autocomplete="off"
+         value="{{ kaynak[alan] if kaynak and kaynak[alan] is not none else '' }}">
+</div>
+{% endmacro %}
+
+{% macro sec(ad, etiket, liste, kaynak, alan) %}
+<div>
+  <label for="{{ ad }}">{{ etiket }}</label>
+  <select id="{{ ad }}" name="{{ ad }}">
+    <option value="">—</option>
+    {% for o in liste %}
+    <option value="{{ o.kod }}" {% if kaynak and kaynak[alan] == o.kod %}selected{% endif %}>{{ o.etiket }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro dt(ad, etiket, kaynak, alan, varsayilan='') %}
+<div>
+  <label for="{{ ad }}">{{ etiket }}</label>
+  <input id="{{ ad }}" name="{{ ad }}" type="datetime-local"
+         value="{{ kaynak[alan][:16]|replace(' ','T') if kaynak and kaynak[alan] else varsayilan }}">
+</div>
+{% endmacro %}
+
+{% block icerik %}
+
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+{% if ornekler %}
+<div class="alan" style="border:0;padding-bottom:0">
+  <label>Sperm örneği</label>
+  <div class="tarafsec">
+    {% for o in ornekler %}
+    <a href="/cycle/{{ c.id }}/androloji?ornek={{ o.id }}"
+       class="{% if secili and secili.id == o.id %}aktif{% endif %}">
+      {{ loop.index }}{% if o.alinma_zamani %} · {{ o.alinma_zamani[:10] }}{% endif %}
+    </a>
+    {% endfor %}
+    <a href="/cycle/{{ c.id }}/androloji?ornek=yeni"
+       class="{% if yeni_mi %}aktif{% endif %}">+ Yeni</a>
+  </div>
+  <div class="ipucu">Genelde tek örnek. Yedek / ikinci örnek gerekiyorsa "+ Yeni".</div>
+</div>
+{% endif %}
+
+<form method="post" action="/cycle/{{ c.id }}/androloji">
+  <input type="hidden" name="ornek_id" value="{{ secili.id if secili else '' }}">
+
+  <div class="kart">
+    <h2>Örnek bilgisi</h2>
+    <div class="alan ikili">
+      {{ dt('alinma_zamani', 'Alınma zamanı', secili, 'alinma_zamani', simdi if yeni_mi else '') }}
+      {{ num('abstinans_gun', 'Abstinans (gün)', secili, 'abstinans_gun') }}
+    </div>
+    <div class="alan">
+      {{ sec('alinma_yontemi', 'Alınma yöntemi', alinma, secili, 'alinma_yontemi') }}
+    </div>
+    <div class="alan">
+      {{ dt('likefaksiyon_zamani', 'Likefaksiyon zamanı', secili, 'likefaksiyon_zamani') }}
+      <div class="ipucu">Likefaksiyonun tamamlandığı saat.</div>
+    </div>
+    <div class="alan ikili">
+      {{ sec('hazirlama_yontemi', 'Hazırlama yöntemi', hazirlama, secili, 'hazirlama_yontemi') }}
+      {{ dt('hazirlama_zamani', 'Hazırlama zamanı', secili, 'hazirlama_zamani') }}
+    </div>
+    <div class="alan">
+      <label for="ornek_notlar">Örnek notu</label>
+      <textarea id="ornek_notlar" name="ornek_notlar" rows="2">{{ secili.notlar if secili and secili.notlar else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>Makroskopik</h2>
+    <div class="alan ikili">
+      {{ num('hacim_ml', 'Hacim (mL)', secili, 'hacim_ml') }}
+      {{ num('ph', 'pH', secili, 'ph') }}
+    </div>
+    <div class="alan ikili">
+      {{ sec('renk', 'Görünüm / renk', gorunumler, secili, 'renk') }}
+      {{ sec('viskozite', 'Viskozite', viskoziteler, secili, 'viskozite') }}
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>Bazal analiz — hazırlık öncesi</h2>
+    <div class="alan">
+      {{ dt('bazal_zaman', 'Analiz zamanı', bazal, 'zaman', simdi if not bazal else '') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('bazal_konsantrasyon_milyon_ml', 'Konsantrasyon (milyon/mL)', bazal, 'konsantrasyon_milyon_ml') }}
+      {{ num('bazal_total_motil_yuzde', 'Total motilite (%)', bazal, 'total_motil_yuzde') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('bazal_pr_yuzde', 'İlerleyen — PR (%)', bazal, 'pr_yuzde') }}
+      {{ num('bazal_np_yuzde', 'İlerlemeyen — NP (%)', bazal, 'np_yuzde') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('bazal_im_yuzde', 'Hareketsiz — IM (%)', bazal, 'im_yuzde') }}
+      {{ num('bazal_morfoloji_normal_yuzde', 'Normal morfoloji (%)', bazal, 'morfoloji_normal_yuzde') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('bazal_vitalite_yuzde', 'Vitalite (%)', bazal, 'vitalite_yuzde') }}
+      {{ num('bazal_toplam_motil_sayi', 'TMSC (milyon)', bazal, 'toplam_motil_sayi') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('bazal_yuvarlak_hucre_milyon_ml', 'Yuvarlak hücre (milyon/mL)', bazal, 'yuvarlak_hucre_milyon_ml') }}
+      {{ num('bazal_lokosit_milyon_ml', 'Lökosit (milyon/mL)', bazal, 'lokosit_milyon_ml') }}
+    </div>
+    <div class="alan">
+      {{ sec('bazal_aglutinasyon', 'Aglütinasyon', aglutinasyonlar, bazal, 'aglutinasyon') }}
+    </div>
+    <div class="alan">
+      <label for="bazal_notlar">Bazal analiz notu</label>
+      <textarea id="bazal_notlar" name="bazal_notlar" rows="2">{{ bazal.notlar if bazal and bazal.notlar else '' }}</textarea>
+    </div>
+    <div class="ipucu">TMSC ≈ hacim × konsantrasyon × motilite/100. Boş bırakılan alan
+    "girilmedi" olarak saklanır.</div>
+  </div>
+
+  <div class="kart">
+    <h2>Hazırlık sonrası analiz</h2>
+    <div class="alan">
+      {{ dt('sonrasi_zaman', 'Analiz zamanı', sonrasi, 'zaman', simdi if not sonrasi else '') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('sonrasi_hacim_ml', 'Hazırlık hacmi (mL)', sonrasi, 'hacim_ml') }}
+      {{ num('sonrasi_konsantrasyon_milyon_ml', 'Konsantrasyon (milyon/mL)', sonrasi, 'konsantrasyon_milyon_ml') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('sonrasi_pr_yuzde', 'İlerleyen — PR (%)', sonrasi, 'pr_yuzde') }}
+      {{ num('sonrasi_total_motil_yuzde', 'Total motilite (%)', sonrasi, 'total_motil_yuzde') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('sonrasi_morfoloji_normal_yuzde', 'Normal morfoloji (%)', sonrasi, 'morfoloji_normal_yuzde') }}
+      {{ num('sonrasi_toplam_motil_sayi', 'TMSC (milyon)', sonrasi, 'toplam_motil_sayi') }}
+    </div>
+    <div class="alan">
+      <label for="sonrasi_notlar">Hazırlık sonrası not</label>
+      <textarea id="sonrasi_notlar" name="sonrasi_notlar" rows="2">{{ sonrasi.notlar if sonrasi and sonrasi.notlar else '' }}</textarea>
+    </div>
+  </div>
+
+  <button class="dugme" type="submit">Kaydet</button>
+</form>
+
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">Cycle kartına dön</a>
+
+{{ gez.cubuk(c, gezinme) }}
+{% endblock %}

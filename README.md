@@ -1384,3 +1384,59 @@ python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
 ```
 
 Göçler: `python3 goc_hepsi.py` (kök dizinde).
+
+---
+
+# v6.2 — androloji (sperm) modülü
+
+## Ne eklendi
+
+Cycle akışına **Denüdasyon'dan önce** yeni bir aşama: **Androloji**. Yalnızca
+`ivf_icsi` tipinde görünür (`fet` ve `oosit_cryo`'da sperm yok).
+
+Ekran üç bölüm:
+
+1. **Örnek bilgisi** — alınma zamanı, abstinans günü, alınma yöntemi,
+   likefaksiyon zamanı (tamamlandığı saat), hazırlama yöntemi ve zamanı, not.
+2. **Makroskopik** — hacim, pH, görünüm/renk, viskozite.
+3. **Bazal analiz (hazırlık öncesi)** ve **Hazırlık sonrası analiz** — WHO
+   parametreleri: konsantrasyon, total motilite %, PR / NP / IM %, normal
+   morfoloji %, vitalite %, TMSC, yuvarlak hücre, lökosit, aglütinasyon.
+
+Bir cycle'da genelde **tek örnek**; yedek / ikinci örnek için "+ Yeni".
+İşlem saatleri her yerde olduğu gibi elle düzenlenebilir, varsayılan "şu an".
+Boş alan NULL kaydedilir.
+
+## Şema
+
+Tablolar (`sperm_ornek`, `sperm_analiz`) ve `sperm_alinma` / `sperm_hazirlama`
+/ `viskozite` listeleri şemada zaten vardı; kalıcı silme kaskadı da sperm
+kayıtlarını zaten temizliyordu. Eksik olan ekranlar, rotalar ve şu ekler:
+
+**`goc_019.py`** (idempotent):
+- `sperm_analiz` tablosuna: `total_motil_yuzde`, `morfoloji_normal_yuzde`,
+  `vitalite_yuzde`, `yuvarlak_hucre_milyon_ml`, `lokosit_milyon_ml`,
+  `aglutinasyon`.
+- `sperm_hazirlama` listesine: Gradient + swim-up, MACS, PICSI, Mikroakışkan
+  (ZyMōt), TESE örneği işleme.
+- `sperm_alinma` listesine: Kesintili ilişki (kondom), Elektroejakülasyon,
+  Retrograd ejakülasyon, mikroTESE, PESA.
+- Yeni listeler: `sperm_aglutinasyon` (Yok / İzole / Hafif / Orta / Ağır),
+  `sperm_gorunum` (Normal / Berrak / Sarımsı / Kırmızı-kahve / Bulanık).
+
+Listeleri sonradan düzenlemek: `python liste_duzenle.py sperm_hazirlama` vb.
+
+## Neden bu tasarım
+
+- **Denüdasyon'dan önce**, çünkü sperm hazırlığı klinik akışta oositler
+  işlenmeden yapılır ve ICSI'ye girecek örneği belirler.
+- **Bazal / hazırlık sonrası ayrı satır** (`asama` kolonu) — aynı tabloda iki
+  kayıt; hazırlık öncesi ve sonrası değerler yan yana okunabilsin, geri
+  kazanım (recovery) değerlendirilebilsin diye.
+- **Makroskopik alanlar örnekte, mikroskopik alanlar analizde** — makroskopik
+  bulgu örnek başına tek; mikroskopik değerlendirme her aşamada tekrarlanır.
+
+## Bilinmeyen / sonra netleşecek
+
+Hazırlama ve alınma yöntemi listeleri makul bir varsayılanla dolduruldu;
+laboratuvarın kendi listesi netleşince `liste_duzenle.py` ile düzenlenecek.

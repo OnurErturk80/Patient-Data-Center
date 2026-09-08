@@ -55,7 +55,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~30 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..018.py   veritabanı göçleri (sırayla)
+  goc_002..019.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -70,13 +70,17 @@ Patient Data Center/
 
 ## Klinik akış
 
-`Denüdasyon → ICSI → Fertilizasyon → Gün 2/3 → Blastokist (gün 4-7) →
-Vitrifikasyon → Çözme → Transfer → Gebelik sonucu`
+`Androloji → Denüdasyon → ICSI → Fertilizasyon → Gün 2/3 → Blastokist (gün 4-7)
+→ Vitrifikasyon → Çözme → Transfer → Gebelik sonucu`
 
 Tedavi tipine göre hangi aşamaların görüneceği değişir:
-- `ivf_icsi` → 9 aşamanın hepsi
+- `ivf_icsi` → 10 aşamanın hepsi (androloji dahil)
 - `fet` → çözme, transfer, gebelik
 - `oosit_cryo` → denüdasyon, vitrifikasyon, çözme
+
+Aşama sırası ve tip-aşama eşlemesi `app.py` içinde `ASAMA_SIRASI` ve
+`TIP_ASAMALARI`. Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
+hazırlık sonrası) yalnızca `ivf_icsi`'de. Şema/listeler: README v6.2, `goc_019`.
 
 Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, transfer yok).
 
