@@ -151,6 +151,13 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 5. **Şablon değişikliği sessizce tutmayabilir.** Değiştirdiğin ekranı tarayıcıda
    gerçekten aç.
 
+6. **`yedek.py`'nin kendi `ayar()`'ı makineye bölümlü `yerel_ayar.json`'ı
+   tanımıyor.** `db.py` dosyayı `{"makine-adi": {...}}` biçimine çevirdikten
+   sonra `yedek.py` `yedek_klasor`'ü bulamıyor ve DB'deki Windows yoluna
+   (`E:\yedek`) düşüyor; Mac'te cwd altında `E:\yedek` diye klasör açar.
+   Çözüm gelene kadar hedefi komuta yaz: `python3 yedek.py ~/lab_yedek`.
+   Kalıcı düzeltme: `yedek.py` `import db; db.ayar(...)` kullansın.
+
 ---
 
 ## Bekleyen işler
@@ -158,8 +165,21 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 1. **Biyopsi / PGT modülü** — tek kalan ana modül. Biyopsi kaydı, tüp etiketi,
    haftalar sonra gelen genetik sonucun eşleştirilmesi. `pgt_sonuc` tablosu
    şemada hazır, kullanılmıyor.
-2. **Yedekleme kurulmadı.** `yedek.py` / `yedek.bat` / `goc_008.py` hazır ama
-   kurulmadı. **Gerçek hasta verisi girmeden önce kurulmalı.**
+2. **Yedekleme — kısmen kuruldu (2026-09-08).**
+   - `goc_008.py` ayarları veritabanında zaten var (`yedek_klasor`,
+     `yedek_uyari_gun=3`). Değerler Windows'a ait (`E:\yedek`).
+   - Bu Mac'te elle test edildi: `python3 yedek.py ~/lab_yedek` → tutarlı db
+     kopyası + arşiv + doğrulama çalışıyor, `son_yedek` yazıldı.
+   - **Mac'te komutu hedefle ver:** `python3 yedek.py ~/lab_yedek`. Argümansız
+     çalıştırma `yerel_ayar.json` eski düz biçimdeyken doğru, ama uygulama bir
+     kez çalışıp dosyayı makineye bölümlü biçime çevirince `yedek.py`'nin kendi
+     `ayar()` fonksiyonu bu biçimi tanımıyor ve DB'deki `E:\yedek`'e düşüyor
+     (bkz. aşağıdaki tuzak). O yüzden hedefi hep açıkça yaz.
+   - **Mac'te otomatik zamanlama YOK.** `yedek.bat` sadece Windows Görev
+     Zamanlayıcı için. İstenirse `launchd` görevi kurulacak.
+   - **Asıl iş klinikteki Windows mini PC'de:** gerçek hasta verisi orada.
+     Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
+     `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.
 3. **HTTPS yok** — iç ağ dışına açılmamalı.
 4. **Kullanıcı yönetimi ekranı yok** — Python'dan yapılıyor.
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
