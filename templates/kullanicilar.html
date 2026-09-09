@@ -43,6 +43,16 @@
       </form>
     </details>
 
+    <form method="post" action="/kullanici/{{ k.id }}/rol"
+          style="display:flex;gap:8px;margin-top:10px;align-items:center">
+      <select name="rol" style="flex:1">
+        {% for kod, ad in roller %}
+        <option value="{{ kod }}" {% if k.rol == kod %}selected{% endif %}>{{ ad }}</option>
+        {% endfor %}
+      </select>
+      <button class="minidugme" type="submit">Rolü değiştir</button>
+    </form>
+
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       <form method="post" action="/kullanici/{{ k.id }}/durum">
         <input type="hidden" name="eylem" value="{{ 'pasif' if k.aktif_mi else 'aktif' }}">

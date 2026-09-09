@@ -1,9 +1,9 @@
-"""Kullanıcıları görüntüler, ekler, şifre sıfırlar.
+"""Kullanıcıları görüntüler, ekler, şifre sıfırlar, rol değiştirir.
 
-Arayüzde kullanıcı yönetimi ekranı yok (bilinçli — bkz. CLAUDE.md bekleyen iş
-4). Şifreler scrypt ile karmalanıyor, geri okunamaz; unutulan şifre
-kurtarılamaz, ancak **sıfırlanır**. Bu script o işi elle Python yazmadan
-yapmak için.
+Aynı işlerin çoğu artık arayüzde de var (`/kullanicilar`, v6.11). Bu script
+**yönetici de kilitlendiğinde** tek çıkış yolu: yönetici olmayan biri o ekranı
+göremez, şifresini unutan yönetici de giremez. Şifreler scrypt ile karmalanıyor,
+geri okunamaz; unutulan şifre kurtarılamaz, ancak **sıfırlanır**.
 
 Kullanım:
     python3 kullanici.py                    kullanıcıları listele
@@ -11,6 +11,8 @@ Kullanım:
     python3 kullanici.py yeni               yeni kullanıcı ekle
     python3 kullanici.py aktif <kullanici>  girişe tekrar izin ver
     python3 kullanici.py pasif <kullanici>  girişi kapat (kayıtları durur)
+    python3 kullanici.py rol <kullanici> yonetici     yönetici yap
+    python3 kullanici.py rol <kullanici> embriyolog   yöneticiliği kaldır
 
 Windows'ta `python kullanici.py`.
 
@@ -24,6 +26,7 @@ import db
 import guvenlik
 
 MIN_UZUNLUK = 8
+ROLLER = ("yonetici", "embriyolog")
 
 
 def kullanicilar():
@@ -109,6 +112,36 @@ def yeni_kullanici():
     print(f"\nKullanici olusturuldu: {kadi}")
 
 
+def aktif_yonetici_sayisi() -> int:
+    return db.tek("SELECT COUNT(*) n FROM kullanici WHERE lab_id = ? "
+                  "AND rol = 'yonetici' AND aktif_mi = 1", (db.LAB_ID,))["n"]
+
+
+def rol_degistir(kadi: str, yeni_rol: str):
+    """Rolü değiştirir. Son yöneticiyi düşürmeye izin vermez.
+
+    Yönetici olmayan biri kullanıcı yönetimi ekranlarına giremez; son yönetici
+    de embriyolog yapılırsa kimse giremez ve tek çıkış yolu yine bu script
+    olurdu. Baştan engellemek daha iyi (README v6.13).
+    """
+    if yeni_rol not in ROLLER:
+        sys.exit(f"Rol '{yeni_rol}' gecersiz. Secenekler: {', '.join(ROLLER)}")
+    k = bul(kadi)
+    if not k:
+        sys.exit(f"'{kadi}' diye bir kullanici yok. Listelemek icin: "
+                 "python3 kullanici.py")
+    if k["rol"] == yeni_rol:
+        print(f"{k['kullanici_adi']} zaten {yeni_rol}.")
+        return
+    if k["rol"] == "yonetici" and k["aktif_mi"] and aktif_yonetici_sayisi() <= 1:
+        sys.exit("Tek aktif yonetici bu. Rolu dusurulurse yonetim ekranlarina "
+                 "kimse giremez. Once baska bir yonetici yap.")
+    db.yaz("UPDATE kullanici SET rol = ? WHERE id = ?", (yeni_rol, k["id"]))
+    print(f"{k['kullanici_adi']}: {k['rol']} -> {yeni_rol}")
+    if yeni_rol == "yonetici":
+        print("Artik Yonetim ekranini gorebilir (tarayicida sayfayi yenile).")
+
+
 def durum_degistir(kadi: str, aktif: bool):
     k = bul(kadi)
     if not k:
@@ -135,6 +168,12 @@ def main():
         listele()
     elif komut == "yeni":
         yeni_kullanici()
+    elif komut == "rol":
+        rol_arg = sys.argv[3] if len(sys.argv) > 3 else ""
+        if not arg or not rol_arg:
+            sys.exit("Kullanim:  python3 kullanici.py rol <kullanici> "
+                     f"<{'|'.join(ROLLER)}>")
+        rol_degistir(arg, rol_arg.lower())
     elif komut in ("sifre", "aktif", "pasif"):
         if not arg:
             sys.exit(f"Kullanici adi eksik.  python3 kullanici.py {komut} <kullanici>")

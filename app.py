@@ -221,6 +221,8 @@ def cikis(request: Request):
 # ------------------------------------------------------- kullanıcı yönetimi
 
 MIN_SIFRE = 8
+ROLLER = ("yonetici", "embriyolog")
+ROL_ADI = {"yonetici": "Yönetici", "embriyolog": "Embriyolog"}
 
 # Kullanıcı silmeyi engelleyen tablolar: (tablo, kolon, ekranda görünen ad).
 # `oturum` burada yok — o veri değil, açık tarayıcı; silmekle geçmiş bozulmaz.
@@ -446,6 +448,7 @@ def kullanicilar_ekran(request: Request, hata: str = "", bilgi: str = ""):
              "FROM kullanici WHERE lab_id = ? ORDER BY aktif_mi DESC, "
              "kullanici_adi", (db.LAB_ID,)),
          "yonetici_sayisi": aktif_yonetici_sayisi(),
+         "roller": [(k, ROL_ADI[k]) for k in ROLLER],
          "min_sifre": MIN_SIFRE, "hata": hata, "bilgi": bilgi})
 
 
@@ -549,6 +552,45 @@ async def kullanici_durum(request: Request, kid: int):
                  "kapatıldı. Girdiği kayıtlar duruyor.")
     else:
         mesaj = f"{k['kullanici_adi']} tekrar giriş yapabilir."
+    return RedirectResponse(f"/kullanicilar?bilgi={quote(mesaj)}", status_code=303)
+
+
+@uygulama.post("/kullanici/{kid}/rol")
+async def kullanici_rol(request: Request, kid: int):
+    """Rolü değiştirir. Son aktif yöneticinin rolü düşürülemez.
+
+    Yönetici olmayan biri bu ekranı göremez; son yönetici de embriyolog
+    yapılırsa kimse giremez ve tek çıkış terminaldeki `kullanici.py` olurdu
+    (README v6.13).
+    """
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = dict(await request.form())
+    k = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND id = ?",
+               (db.LAB_ID, kid))
+    if not k:
+        return RedirectResponse("/kullanicilar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(f"/kullanicilar?hata={quote(m)}", status_code=303)
+
+    yeni_rol = (f.get("rol") or "").strip()
+    if yeni_rol not in ROLLER:
+        return hata("Geçersiz rol.")
+    if yeni_rol == k["rol"]:
+        return RedirectResponse("/kullanicilar", status_code=303)
+    if (k["rol"] == "yonetici" and k["aktif_mi"]
+            and aktif_yonetici_sayisi() <= 1):
+        return hata("Tek aktif yönetici bu. Rolü düşürülürse yönetim "
+                    "ekranlarına kimse giremez. Önce başka bir yönetici yap.")
+
+    db.yaz("UPDATE kullanici SET rol = ? WHERE id = ?", (yeni_rol, kid))
+    mesaj = f"{k['kullanici_adi']}: {ROL_ADI.get(yeni_rol, yeni_rol)} yapıldı."
+    if kid == request.state.kullanici["id"] and yeni_rol != "yonetici":
+        # Kendi yöneticiliğini bıraktı — bu ekrana artık giremez.
+        return RedirectResponse("/hastalar", status_code=303)
     return RedirectResponse(f"/kullanicilar?bilgi={quote(mesaj)}", status_code=303)
 
 

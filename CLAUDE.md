@@ -284,7 +284,9 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    Yönetici `/yonetim` panelinden `/kullanicilar`'a girer; ekler, şifre sıfırlar,
    pasif yapar, siler. Şifre değiştirme `/sifre` — giriş ekranından da açılır.
    `kullanici.py` terminal aracı duruyor: yönetici de kilitlenirse tek çıkış o.
-   **Rol sonradan değiştirilemiyor** — yalnızca kullanıcı oluşturulurken seçilir.
+   Rol sonradan değiştirilebiliyor (v6.13): ekrandan ya da
+   `python3 kullanici.py rol <kullanici> yonetici`. **Son aktif yöneticinin rolü
+   düşürülemez** — her iki yolda da engelleniyor.
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
    değişecek — ona sor.
