@@ -10,14 +10,49 @@ Bu dosyayı takıldığında aç. Emin olmadığın adımda dur, Claude Code'a s
 1. **Kod** GitHub üzerinden gider gelir: `git pull` (indir) / `git push` (gönder).
 2. **Veri** git'e girmez, GitHub'a gitmez: `lab.db`, `arsiv/`, `snapshot/`,
    `yedek.log`, `yerel_ayar.json`. (`.gitignore` bunları dışarıda tutar.)
-3. **Gerçek hasta verisi klinikteki Windows mini PC'de yaşar.** Mac'te test
-   verisiyle çalışırsın. Mac'in `lab.db`'sini Windows'a **götürme**.
-4. **Aynı anda tek makinede kayıt gir.** İki makinede birden gerçek kayıt girip
-   sonra birini taşırsan diğerindekiler kaybolur — birleştirmenin yolu yok.
-5. `yerel_ayar.json` her makinede **ayrı kalır**, taşınmaz. (Kamera klasörü
-   yolları gibi makineye özel ayarlar burada.)
+3. **Veri USB ile taşınır** — `tasi.py` ile (v6.16). Kod git'ten, veri USB'den.
+4. **Aynı anda tek makinede kayıt gir.** `lab.db` tek dosyadır; "sadece yeni
+   kayıtları" ayırmanın yolu yok. Taşınan dosyanın tamamıdır ve karşıdakinin
+   **üzerine yazar**. İki makinede birden kayıt girip sonra birini taşırsan
+   diğerindekiler kaybolur — birleştirmenin yolu yok.
+5. **Her makineye oturmadan önce `iceri`, kalkmadan önce `disari`.** Bu sıra
+   bozulursa veri kaybı olur; `tasi.py` yanlış yönü yakalayıp durur ama
+   alışkanlığı sen kurmalısın.
+6. `yerel_ayar.json` taşınmasa da olur — makine adına bölümlü, her bilgisayar
+   kendi bölümünü okur.
 
-Kısa hali: **kodu senkronize et, veriyi etme.**
+Kısa hali: **kodu git ile, veriyi USB ile taşı; her ikisinde de yön önemli.**
+
+---
+
+## Veri taşıma — `tasi.py`
+
+```
+python3 tasi.py durum  /Volumes/USB     sadece karşılaştır, hiçbir şey yapma
+python3 tasi.py disari /Volumes/USB     bu makineden USB'ye
+python3 tasi.py iceri  /Volumes/USB     USB'den bu makineye
+```
+
+Windows'ta `python tasi.py durum E:\`.
+
+**Rutin:**
+
+```
+Makineden kalkarken :  python3 tasi.py disari <usb>
+Makineye otururken  :  python3 tasi.py iceri  <usb>
+                       python3 goc_hepsi.py
+```
+
+`iceri` üzerine yazmadan önce iki tarafı karşılaştırır. Bu makinedeki veri
+USB'dekinden yeniyse **durur ve açık onay ister** — "önce disari yapman
+gerekiyordu" der. Ayrıca eski veritabanının yedeğini `lab_ONCEKI_<tarih>.db`
+olarak bırakır; her şey yolundaysa o dosyayı silebilirsin.
+
+`iceri` çalıştırmadan önce uygulamayı durdur (Ctrl+C) — açık dosyanın üzerine
+yazılamaz.
+
+Emin değilsen önce `durum` çalıştır: hiçbir şeyi değiştirmeden iki tarafı
+gösterir.
 
 ---
 

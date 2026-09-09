@@ -3,6 +3,8 @@ lab.db
 lab.db-journal
 lab.db-wal
 lab.db-shm
+lab.db.yeni
+lab_ONCEKI_*.db
 arsiv/
 snapshot/
 yedek/

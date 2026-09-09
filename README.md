@@ -2328,3 +2328,102 @@ CLAUDE.md tuzak #6.
 - Seçiciye dokunmadan kaydedince rol değişmiyor
 - Bilerek "Embriyolog" seçilince normal çalışıyor
 - `kullanici.py yeni` tanımsız rolü reddediyor
+
+---
+
+# v6.16 — `tasi.py`: iki makine arasında güvenli veri taşıma
+
+## Sorun
+
+Kullanıcı iki makinede de aynı veriyi istiyor ve "hangi makinede yeni veri
+girdiysem diğerine taşımak istiyorum" diyor. Asıl makine yok — nöbet devri.
+
+Bunun teknik gerçeği şu: `lab.db` **tek dosyadır**, 23 tablo içinde. "Sadece
+dün girdiğim 3 hastayı" ayırmanın yolu yok. Taşınan dosyanın tamamıdır ve
+karşıdakinin **üzerine yazar**.
+
+Yani asıl tehlike kopyalama değil, **yanlış yöne kopyalama**:
+
+```
+Mac'te 3 hasta girdin, USB'ye almadın
+Klinikte 5 hasta girdin
+Sonra Mac'ten kliniğe kopyaladın  ->  kliniğin 5 hastası yok oldu
+```
+
+Elle dosya kopyalamada bu tek bir unutkanlıkla oluyor ve geri dönüşü yok.
+
+## Çözüm: kopyalamadan önce karşılaştır
+
+```
+python3 tasi.py durum  /Volumes/USB     sadece bak
+python3 tasi.py disari /Volumes/USB     bu makineden USB'ye
+python3 tasi.py iceri  /Volumes/USB     USB'den bu makineye
+```
+
+`iceri` iki tarafı yan yana koyar ve hedef daha yeniyse **durur**:
+
+```
+DIKKAT: BU MAKINEDEKI veri USB'dekinden YENI.
+  bu makinede son kayit : 2026-09-09 20:19:01
+  USB'de son kayit      : 2026-09-09 20:18:41
+Devam edersen bu makinede girdigin YENI KAYITLAR SILINIR.
+Muhtemelen once bu makineden 'disari' yapman gerekiyordu.
+  Devam etmek icin EVET yaz:
+```
+
+Aynı koruma ters yönde de var: USB'deki kopya daha yeniyken `disari`
+çalıştırılırsa uyarıyor.
+
+### "Daha yeni" nasıl ölçülüyor
+
+`olusturma_zamani` kolonları (satırın oluşturulma anı) ve değişiklik günlüğü.
+Klinik zamanlarına **bakılmıyor** — `opu_zamani` gibi alanlar elle geri
+tarihlenebiliyor ("işlem saatleri elle girilebilir" kuralı), o yüzden "bu
+veritabanına en son ne zaman yazıldı" sorusuna cevap veremezler.
+
+### Üzerine yazmadan önce yedek
+
+`iceri` mevcut veritabanını `lab_ONCEKI_<tarih>.db` olarak bırakıyor. Yanlışlıkla
+onay verildiyse geri dönülebilir. `.gitignore`'a eklendi — hasta verisi içerir,
+depoya sızmamalı.
+
+## WAL tuzağı — düz kopyalama veriyi yok eder
+
+Uygulama çalışırken `lab.db`'yi düz kopyalamayı denedim:
+
+```
+Uygulama calisirken sadece lab.db kopyalandi  ->  "no such table: hasta"
+Uc dosya birden (lab.db + -wal + -shm)        ->  1 hasta
+Uygulama duzgun kapandiktan sonra lab.db      ->  1 hasta
+```
+
+Kopya **bomboş** çıktı. SQLite WAL modunda yeni kayıtları önce `lab.db-wal`
+dosyasına yazıyor. Bu yüzden `tasi.py` de `yedek.py` gibi **SQLite backup API**
+kullanıyor: uygulama açıkken bile tutarlı kopya alıyor ve `integrity_check` ile
+doğruluyor.
+
+`iceri` sırasında eski `-wal`/`-shm` dosyaları siliniyor — yeni veritabanıyla
+tutarsız olurlardı.
+
+## Diğer ayrıntılar
+
+- **Arşiv birleşir, silinmez.** Fotoğraflar boyut karşılaştırmasıyla kopyalanıyor;
+  hedefte olan hiçbir şey silinmiyor.
+- **Yarım dosya bırakmıyor.** Önce `lab.db.yeni` yazılıp doğrulanıyor, sonra
+  yerine geçiyor.
+- **Uygulama açıksa** `iceri` Windows'ta dosya kilidine takılır; hata yakalanıp
+  "Ctrl+C ile durdur" deniyor ve önceki hal korunuyor.
+- `TASIMA_BILGI.txt` USB'ye yazılıyor: hangi makineden, ne zaman, ne içerikle.
+
+## Test edildi
+
+İki makine (`makineA`, `makineB`) ve bir USB klasörüyle tam tur:
+
+- Boş USB'de `durum` → doğru rapor, hiçbir şey değişmedi
+- A'ya hasta eklendi → `disari` → B'de `iceri` → **hasta B'ye geldi**, yedek alındı
+- B'ye hasta eklendi, eski USB'den `iceri` denendi → **uyardı, durdu, veri duruyor**
+- B `disari` → A `iceri` → B'nin hastası A'ya geldi
+- USB daha yeniyken `disari` denendi → **uyardı ve durdu**
+- Fotoğraflar taşındı; ikinci çalıştırmada "2 zaten guncel" dedi
+- USB takılı değil / taşıma klasörü yok / yanlış komut → anlaşılır hatalar
+- **Taşınan veritabanı uygulamada açıldı**, iki makinenin hastaları da ekranda

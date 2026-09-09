@@ -63,6 +63,7 @@ Patient Data Center/
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
+  tasi.py           iki makine arasında USB ile veri taşıma
   yerel_kur.py      bu makinenin klasör yollarını ayarlar
   sifirdan_kur.py   boş veritabanı
   yedek.py          yedekleme (Windows'ta zamanlama kurulmadı)
@@ -237,6 +238,19 @@ makinede yoksa sessizce varsayılana döner.
 `yerel_ayar.json`. Hepsi veri veya makineye özel — git'e girmez, USB ile taşınır.
 
 **Kural:** aynı anda tek kopyaya kayıt gir. Birleştirme mümkün değil.
+
+**Veri USB ile taşınır: `tasi.py`** (v6.16). `lab.db` tek dosya; "sadece yeni
+kayıtları" ayırmak mümkün değil, taşınan dosyanın tamamı ve karşıdakinin üzerine
+yazıyor. Bu yüzden araç kopyalamadan **önce iki tarafı karşılaştırıyor**: hedef
+daha yeniyse durup açık onay istiyor ve üzerine yazmadan önce
+`lab_ONCEKI_<tarih>.db` yedeği bırakıyor. "Daha yeni" ölçüsü `olusturma_zamani`
+kolonları — klinik zamanları (`opu_zamani` gibi) elle geri tarihlenebildiği için
+onlara bakılmaz.
+
+**Veritabanı kopyalarken SQLite backup API kullan**, düz dosya kopyası değil.
+WAL modunda yeni kayıtlar `lab.db-wal`'da olabilir; uygulama çalışırken
+`lab.db`'yi kopyalamak **bomboş bir dosya** verir ("no such table"). Test
+edildi. `yedek.py` ve `tasi.py` ikisi de backup API kullanıyor.
 
 ---
 
