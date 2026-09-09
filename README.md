@@ -2114,3 +2114,72 @@ görünmemeli, pasif yapmak normal yol.
 - Kendi şifresi: yanlış mevcut şifre, tutmayan tekrar, eskisiyle aynı reddedildi;
   tarayıcıyı atlayarak 3 karakterlik şifre POST edildi, sunucu reddetti
 - Başarılı değişiklikte oturum düştü, eski şifre çalışmadı, yenisi çalıştı
+
+---
+
+# v6.12 — şifre değiştirme giriş ekranında, yönetici paneli
+
+## Şifre değiştirme neden giriş ekranına taşındı
+
+v6.11'de `/sifre` yalnızca giriş yaptıktan sonra açılıyordu. Kullanıcının
+itirazı yerinde: şifresini değiştirmek isteyen biri zaten şifresini biliyor —
+önce giriş yapıp sonra ayrı bir ekrana gitmesi gereksiz bir adım.
+
+**Güvenliği düşürmüyor.** Ekran her iki durumda da **mevcut şifreyi** istiyor,
+yani kimlik yine kanıtlanıyor. Giriş yapmışsa kullanıcı adı hazır gelir,
+yapmamışsa kendisi yazar. Tek ekran, tek rota.
+
+Yeni bir saldırı yüzeyi de açmıyor: `/giris` zaten şifre denenebilen bir
+adres, `/sifre` fazladan bir şey vermiyor.
+
+### Kullanıcı adı sızdırmama
+
+Giriş yapmamış birine "böyle bir kullanıcı yok" demek, hangi kullanıcı
+adlarının geçerli olduğunu söylemek demektir. Bu yüzden üç durumda da **tek ve
+aynı** mesaj dönüyor:
+
+- kullanıcı yok
+- kullanıcı var, şifre yanlış
+- kullanıcı pasif
+
+Hepsi: *"Kullanıcı adı veya mevcut şifre yanlış."* Test edildi — var olan ve
+olmayan kullanıcı için mesajlar birebir aynı çıktı.
+
+Pasif kullanıcı bu yoldan da şifre değiştiremiyor (sorgu `aktif_mi = 1`
+istiyor). Test edildi: pasif hesapla doğru şifre girildi, reddedildi ve karma
+değişmedi.
+
+## Yönetici paneli
+
+`/kullanicilar` tek başına ana ekrandan asılı duruyordu. `/yonetim` bunları tek
+yerde topluyor:
+
+| Kart | Ne gösterir |
+|---|---|
+| Yedekleme | Son yedek, uyarı eşiği, nasıl alınacağı |
+| Veritabanı | Hasta / cycle / örnek / fotoğraf / olay sayıları, dosya boyutu, kırık referans |
+| Bu makinenin klasörleri | Makine adı + snapshot / arşiv / yedek yolları, her biri için "klasör var mı" |
+| Kullanıcılar | Aktif–pasif sayısı, `/kullanicilar`'a bağlantı |
+
+**Panel salt okunurdur.** Buradan hiçbir şey silinmez veya değiştirilmez —
+ayarlar yine kendi ekranlarından ve scriptlerinden yapılır. Amaç "her şey
+yolunda mı" sorusunu terminale inmeden yanıtlamak; `teshis.py`'nin ekran
+karşılığı.
+
+Klasör kartı özellikle iki makineli kullanım için: yolların bu makinede
+gerçekten var olup olmadığını gösteriyor, USB ile taşındıktan sonra ilk
+bakılacak yer orası.
+
+Ana ekrandaki "Kullanıcılar" düğmesi "Yönetim" oldu (yalnızca yöneticide
+görünür); kullanıcı listesinin geri düğmesi panele döner.
+
+## Test edildi
+
+- Giriş ekranında "Şifre değiştir" bağlantısı var; oturum açmadan `/sifre`
+  açılıyor ve kullanıcı adı soruyor
+- Var olan / olmayan kullanıcı için hata mesajları birebir aynı
+- Pasif kullanıcı doğru şifresiyle bile değiştiremedi, karma değişmedi
+- Giriş yapmışken kullanıcı adı sorulmuyor, kim olduğu yazıyor
+- Başarılı değişiklikte oturum düşüyor, giriş ekranına dönüyor
+- `/yonetim` yöneticide açılıyor; embriyologda düğme görünmüyor ve adres elle
+  yazılınca reddediliyor

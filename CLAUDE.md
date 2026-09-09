@@ -178,6 +178,16 @@ silinemez** (kilitlenme koruması). Yeni bir tabloya `kullanici_id` eklersen
 kendisi yapar; ayrı bir yol yazma. Yoksa eski şifreyle açılmış tarayıcı 12 saat
 daha çalışır.
 
+**`/sifre` giriş gerektirmez, ama mevcut şifre ister.** Giriş ekranından da
+açılır (v6.12). Güvenliği düşürmez — kimlik yine mevcut şifreyle kanıtlanıyor.
+Hata mesajı **tek ve aynı**: "Kullanıcı adı veya mevcut şifre yanlış." Ayrı
+mesaj yazma, hangi kullanıcı adının var olduğunu sızdırır. Pasif kullanıcı bu
+yoldan da şifre değiştiremez.
+
+**`/yonetim` paneli salt okunurdur.** Durumu gösterir, hiçbir şey değiştirmez;
+ayarlar kendi ekranlarından/scriptlerinden yapılır. Buraya yazma işlemi ekleme
+(v6.12).
+
 **"Şifremi unuttum" hiçbir şey sıfırlamaz.** Sistemde e-posta/SMS yok, kimliği
 doğrulayacak ikinci kanal yok; doğrulamasız sıfırlama iç ağdaki herkese yönetici
 şifresini değiştirme hakkı verirdi (HTTPS de yok). Sayfa kullanıcı adı da
@@ -270,10 +280,11 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
      `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.
 3. **HTTPS yok** — iç ağ dışına açılmamalı.
-4. **Kullanıcı yönetimi — v6.11'de arayüze taşındı.** Yönetici `/kullanicilar`
-   ekranından ekler, şifre sıfırlar, pasif yapar, siler; herkes `/sifre`'den
-   kendi şifresini değiştirir. `kullanici.py` terminal aracı duruyor — yönetici
-   de kilitlenirse tek çıkış yolu o.
+4. **Kullanıcı yönetimi — v6.11'de arayüze taşındı, v6.12'de panele bağlandı.**
+   Yönetici `/yonetim` panelinden `/kullanicilar`'a girer; ekler, şifre sıfırlar,
+   pasif yapar, siler. Şifre değiştirme `/sifre` — giriş ekranından da açılır.
+   `kullanici.py` terminal aracı duruyor: yönetici de kilitlenirse tek çıkış o.
+   **Rol sonradan değiştirilemiyor** — yalnızca kullanıcı oluşturulurken seçilir.
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
    değişecek — ona sor.

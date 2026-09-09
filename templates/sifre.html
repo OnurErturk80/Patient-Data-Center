@@ -1,20 +1,33 @@
 {% extends "base.html" %}
 {% block ustbaslik %}Şifre değiştir{% endblock %}
-{% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block geri %}
+<a class="geri" href="{{ '/hastalar' if kullanici else '/giris' }}">&#8249;</a>
+{% endblock %}
 {% block icerik %}
 
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
 
 <form method="post" action="/sifre">
   <div class="kart" style="margin-top:12px">
+    {% if kullanici %}
     <div class="alan">
       <label>Kullanıcı</label>
       <div style="padding:4px 0"><b>{{ kullanici.kullanici_adi }}</b>
         — {{ kullanici.ad_soyad }}</div>
     </div>
+    {% else %}
+    {# Giriş yapılmadan da değiştirilebilir; mevcut şifre kimliği kanıtlıyor. #}
+    <div class="alan">
+      <label for="kullanici_adi">Kullanıcı adı</label>
+      <input id="kullanici_adi" name="kullanici_adi" type="text" required autofocus
+             autocomplete="username" autocapitalize="none" spellcheck="false">
+    </div>
+    {% endif %}
+
     <div class="alan">
       <label for="mevcut">Mevcut şifre</label>
-      <input id="mevcut" name="mevcut" type="password" required autofocus
+      <input id="mevcut" name="mevcut" type="password" required
+             {% if kullanici %}autofocus{% endif %}
              autocomplete="current-password">
     </div>
     <div class="alan">
@@ -38,6 +51,9 @@
       Şifre değişince bu hesabın <b>açık oturumları kapatılır</b> — telefonunda
       veya başka bir bilgisayarda açık kalan sayfalar dahil. Yeniden giriş
       yapman gerekecek.
+      <br><br>
+      Mevcut şifreni bilmiyorsan bu ekran işe yaramaz —
+      <a href="/sifremi-unuttum">şifremi unuttum</a>.
     </div>
   </div>
 </div>

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Yönetim{% endblock %}
+{% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block icerik %}
+{# Salt okunur panel: buradan hiçbir şey silinmez veya değiştirilmez. #}
+
+{% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
+{% if kirik %}
+<div class="uyari">
+  Veritabanında {{ kirik }} kırık referans var. Terminalde
+  <code>python3 goc_hepsi.py</code> çalıştır, düzelmezse haber ver.
+</div>
+{% endif %}
+{% if yonetici_sayisi <= 1 %}
+<div class="uyari">
+  Tek yönetici var. O hesap kilitlenirse yönetim ekranına kimse giremez.
+</div>
+{% endif %}
+
+<a class="dugme" href="/kullanicilar">Kullanıcılar
+  ({{ aktif_kullanici }} aktif{% if toplam_kullanici > aktif_kullanici %},
+  {{ toplam_kullanici - aktif_kullanici }} pasif{% endif %})</a>
+<a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+
+<div class="kart" style="margin-top:12px">
+  <h2>Yedekleme</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>Son yedek</dt>
+      <dd {% if not son_yedek %}class="yok"{% endif %}>{{ son_yedek or 'hiç alınmadı' }}</dd></div>
+    <div class="veri"><dt>Uyarı eşiği</dt>
+      <dd>{{ yedek_uyari_gun }} gün</dd></div>
+  </dl>
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      Yedek almak için bu bilgisayarda terminalden
+      <code>python3 yedek.py</code>. Klinikte Görev Zamanlayıcı'ya kurulmalı —
+      henüz kurulmadı.
+    </div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <h2>Veritabanı</h2>
+  <dl style="margin:0">
+    {% for x in sayilar %}
+    <div class="veri"><dt>{{ x.ad }}</dt><dd>{{ x.n }}</dd></div>
+    {% endfor %}
+    <div class="veri"><dt>Dosya boyutu</dt>
+      <dd>{% if db_boyut is not none %}{{ "%.1f"|format(db_boyut) }} MB{% else %}okunamadı{% endif %}</dd></div>
+    <div class="veri"><dt>Kırık referans</dt>
+      <dd>{% if kirik is none %}bakılamadı{% else %}{{ kirik }}{% endif %}</dd></div>
+  </dl>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <h2>Bu makinenin klasörleri</h2>
+  <div class="alan">
+    <label>Makine</label>
+    <div style="padding:4px 0"><b>{{ makine }}</b></div>
+    <div class="ipucu">Ayarlar makine adına göre ayrı tutulur — Mac ve klinik
+      bilgisayarı birbirinin yollarını kullanmaz.</div>
+  </div>
+  {% for y in yollar %}
+  <div class="alan" {% if loop.last %}style="border:0"{% endif %}>
+    <label>{{ y.ad }}</label>
+    <div style="padding:4px 0;word-break:break-all;font-size:14px">
+      <code>{{ y.yol or '—' }}</code>
+    </div>
+    <div class="ipucu" {% if not y.var %}style="color:#a11f1f"{% endif %}>
+      {{ "klasör var" if y.var else "klasör bulunamadı" }}
+    </div>
+  </div>
+  {% endfor %}
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      Değiştirmek için terminalden <code>python3 yerel_kur.py</code>.
+      Yedek klasörünün <b>farklı bir diskte</b> olması gerekir.
+    </div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      <b>Bu panel salt okunur.</b> Buradan hiçbir kayıt silinmez veya
+      değiştirilmez — sadece durumu gösterir.
+    </div>
+  </div>
+</div>
+{% endblock %}

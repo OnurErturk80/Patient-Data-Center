@@ -16,7 +16,7 @@ uygulama = FastAPI(title="Lab Kayit")
 uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
-ACIK_YOLLAR = {"/giris", "/sifremi-unuttum"}
+ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
 TIP_KISA = {"ivf_icsi": "IVF/ICSI", "fet": "FET", "oosit_cryo": "Oosit cryo",
@@ -299,27 +299,52 @@ def sifremi_unuttum(request: Request):
     return sablon.TemplateResponse(request, "sifremi_unuttum.html", {})
 
 
+def oturumdaki(request: Request):
+    """Açık sayfalarda oturumdaki kullanıcı — yoksa None.
+
+    Middleware `request.state.kullanici`'yi yalnızca korumalı yollarda dolduruyor;
+    `/sifre` açık bir yol olduğu için çerezi kendisi okumak zorunda.
+    """
+    k = getattr(request.state, "kullanici", None)
+    if k:
+        return k
+    return guvenlik.oturumdaki_kullanici(request.cookies.get(guvenlik.CEREZ_ADI))
+
+
 @uygulama.get("/sifre")
-def sifre_ekran(request: Request, hata: str = "", tamam: int = 0):
+def sifre_ekran(request: Request, hata: str = ""):
+    """Giriş yapılmadan da açılır — giriş ekranından bağlantısı var.
+
+    Güvenliği düşürmez: her iki durumda da **mevcut şifre** isteniyor, yani
+    kimlik yine kanıtlanıyor. Giriş yapmışsa kullanıcı adı hazır gelir,
+    yapmamışsa kendisi yazar (README v6.12).
+    """
     return sablon.TemplateResponse(
         request, "sifre.html",
-        {"kullanici": request.state.kullanici, "hata": hata, "tamam": tamam})
+        {"kullanici": oturumdaki(request), "hata": hata})
 
 
 @uygulama.post("/sifre")
 async def sifre_kaydet(request: Request):
     from urllib.parse import quote
     f = dict(await request.form())
-    k = request.state.kullanici
+    oturum = oturumdaki(request)
 
     def hata(m):
         return RedirectResponse(f"/sifre?hata={quote(m)}", status_code=303)
 
-    # Mevcut şifre şart: açık kalmış bir tarayıcıyı bulan biri şifreyi
-    # değiştirip hesabı ele geçiremesin.
-    tam = db.tek("SELECT * FROM kullanici WHERE id = ?", (k["id"],))
-    if not guvenlik.dogrula(f.get("mevcut") or "", tam["sifre_hash"]):
-        return hata("Mevcut şifre yanlış.")
+    if oturum:
+        tam = db.tek("SELECT * FROM kullanici WHERE id = ?", (oturum["id"],))
+    else:
+        kadi = (f.get("kullanici_adi") or "").strip().lower()
+        tam = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND "
+                     "kullanici_adi = ? AND aktif_mi = 1", (db.LAB_ID, kadi))
+
+    # Tek ve aynı mesaj: giriş yapmamış birine hangi kullanıcı adının var
+    # olduğunu söylemez. Mevcut şifre şart — açık kalmış bir tarayıcıyı bulan
+    # biri de hesabı ele geçiremesin.
+    if not tam or not guvenlik.dogrula(f.get("mevcut") or "", tam["sifre_hash"]):
+        return hata("Kullanıcı adı veya mevcut şifre yanlış.")
 
     yeni = f.get("yeni") or ""
     m = sifre_gecerli(yeni, f.get("yeni2") or "")
@@ -328,8 +353,8 @@ async def sifre_kaydet(request: Request):
     if guvenlik.dogrula(yeni, tam["sifre_hash"]):
         return hata("Yeni şifre eskisiyle aynı.")
 
-    sifre_yaz(k["id"], yeni)
-    # Kendi oturumu da düştü — yeniden giriş yapmalı.
+    sifre_yaz(tam["id"], yeni)
+    # Oturumlar düştü (varsa kendisininki de) — yeniden giriş yapmalı.
     yanit = RedirectResponse("/giris?sifre=1", status_code=303)
     yanit.delete_cookie(guvenlik.CEREZ_ADI)
     return yanit
@@ -347,6 +372,65 @@ def yonetici_kontrol(request: Request):
     if not yonetici_mi(request.state.kullanici):
         return RedirectResponse("/hastalar", status_code=303)
     return None
+
+
+@uygulama.get("/yonetim")
+def yonetim_ekran(request: Request):
+    """Yönetici paneli — sistemin durumu tek ekranda, hepsi salt okunur.
+
+    Buradan hiçbir şey silinmez veya değiştirilmez; ayarlar yine kendi
+    ekranlarından/scriptlerinden yapılır. Amaç "her şey yolunda mı" sorusunu
+    terminale inmeden yanıtlamak (README v6.12).
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+
+    boyut = None
+    try:
+        boyut = db.DB_YOLU.stat().st_size / 1024 / 1024
+    except OSError:
+        pass
+
+    sayilar = []
+    for tablo, ad in [("hasta", "Hasta"), ("cycle", "Cycle"),
+                      ("specimen", "Örnek (oosit/embriyo)"), ("goruntu", "Fotoğraf"),
+                      ("olay", "Olay"), ("degisiklik_log", "Değişiklik kaydı")]:
+        try:
+            sayilar.append({"ad": ad,
+                            "n": db.tek(f"SELECT COUNT(*) n FROM {tablo}")["n"]})
+        except sqlite3.Error:
+            pass
+
+    try:
+        kirik = len(db.sorgu("PRAGMA foreign_key_check"))
+    except sqlite3.Error:
+        kirik = None
+
+    yollar = []
+    for anahtar, ad in [("goruntu_kaynak_klasor", "Kamera klasörü (snapshot)"),
+                        ("goruntu_arsiv_klasor", "Arşiv"),
+                        ("yedek_klasor", "Yedek")]:
+        yol = db.ayar(anahtar, "")
+        yollar.append({"ad": ad, "yol": yol,
+                       "var": bool(yol) and Path(yol).is_dir()})
+
+    kullanicilar = db.sorgu(
+        "SELECT rol, aktif_mi, COUNT(*) n FROM kullanici WHERE lab_id = ? "
+        "GROUP BY rol, aktif_mi", (db.LAB_ID,))
+
+    return sablon.TemplateResponse(
+        request, "yonetim.html",
+        {"kullanici": request.state.kullanici,
+         "yedek": yedek_durumu(),
+         "son_yedek": _ayar("son_yedek", ""),
+         "yedek_uyari_gun": _ayar("yedek_uyari_gun", "3"),
+         "db_boyut": boyut, "db_yolu": str(db.DB_YOLU),
+         "sayilar": sayilar, "kirik": kirik, "yollar": yollar,
+         "makine": db.MAKINE,
+         "toplam_kullanici": sum(r["n"] for r in kullanicilar),
+         "aktif_kullanici": sum(r["n"] for r in kullanicilar if r["aktif_mi"]),
+         "yonetici_sayisi": aktif_yonetici_sayisi()})
 
 
 @uygulama.get("/kullanicilar")
