@@ -2183,3 +2183,87 @@ görünür); kullanıcı listesinin geri düğmesi panele döner.
 - Başarılı değişiklikte oturum düşüyor, giriş ekranına dönüyor
 - `/yonetim` yöneticide açılıyor; embriyologda düğme görünmüyor ve adres elle
   yazılınca reddediliyor
+
+---
+
+# v6.14 — modül bazlı erişim izni
+
+Yönetici artık her kullanıcının hangi ekranlara girebileceğini tek tek
+belirliyor. 15 modül: hasta kaydı, 11 laboratuvar aşaması, cryo, fotoğraf,
+silme.
+
+## Kontrol nerede yapılıyor — ve neden orada
+
+~50 rota var. Her birine izin kontrolü eklemek tuzak #1'in tam tarifi: aynı
+kalıp defalarca geçiyor, biri atlanırsa açık kalıyor ve fark edilmiyor.
+
+Bunun yerine **tek nokta: middleware**. `yol_modulu(yol)` yolu modüle eşliyor,
+middleware izni yoksa `/hastalar`'a döndürüyor. Yollar zaten düzenli:
+
+```
+/cycle/{id}/transfer          -> transfer
+/cycle/{id}/denudasyon-zaman  -> denudasyon
+/specimen/{id}/taraf          -> denudasyon
+/cryo/tasiyici/{id}/thaw      -> thaw   (gerçek bir çözme işlemi)
+herhangi bir .../sil, -sil, geri-al -> silme
+```
+
+**Görüntüleme serbest.** Hasta listesi, hasta detayı, cycle özeti ve değişiklik
+geçmişi izin istemiyor — kısıtlanırsa program kullanılamaz hale gelir. İzin,
+**işlem yapılan** ekranlar için.
+
+Bir istisna rotanın içinde: `/cycle/{id}/islem-yapan` hangi aşamaya yazdığını
+form gövdesinde taşıyor, `yol_modulu` göremiyor. Kontrol o rotada. Test edildi —
+izinsiz aşamaya ad yazma denemesi reddedildi ve satır oluşmadı.
+
+## Ekranda gizlemek yetmez
+
+Düğmeleri gizlemek kolaylık; **asıl engel middleware'de**. İkisi de yapıldı:
+
+- Aşama düğmeleri ve gezinme çubuğu `cycle_asamalari()`'nden besleniyor, süzme
+  orada — tek yerde, ikisi birden doğru. "3/8" sayacı da kullanıcının kendi
+  adımlarını sayıyor.
+- Şablonlarda Jinja global `yetkim("modul")`: yeni hasta, cryo, fotoğraf ekle,
+  silme bağlantıları, taşıyıcı çözme.
+
+Doğrulandı: kısıtlı kullanıcı adresi elle yazdığında da, tarayıcıyı atlayıp POST
+attığında da engellendi ve **veritabanına hiçbir şey yazılmadı**.
+
+## Varsayılan: her şey açık
+
+Kısıtlama yöneticinin bilinçli olarak kaldırdığı kutulardan doğmalı, bir
+unutkanlıktan değil. Bu yüzden:
+
+- `goc_026` **mevcut tüm kullanıcılara tüm modülleri** verir — kimse göç sonrası
+  ekran kaybetmez
+- Sonradan açılan kullanıcı da hepsini alır (`tum_yetkileri_ver`), hem ekrandan
+  hem `kullanici.py yeni` ile. Bu atlanırsa yeni kullanıcı **hiçbir ekrana**
+  giremez ve sebebi anlaşılmaz — test sırasında tam olarak bu çıktı, düzeltildi.
+- Göç çalıştırılmadıysa herkes her yere girer (tuzak #3). Test edildi: `yetki`
+  tablosu silinmiş bir veritabanında kısıtlı kullanıcı bile 14 düğmenin hepsini
+  gördü, 500 yok, yönetici ekranında göç uyarısı çıktı.
+
+Yöneticiler bu tablodan bağımsız: `rol='yonetici'` her yere girer, kutulara
+bakılmaz. Ekranda da bu yazıyor.
+
+## Şema
+
+```sql
+yetki(id, lab_id, kullanici_id, modul, UNIQUE(kullanici_id, modul))
+```
+
+Satır varsa izin var. İzinler kaydedilirken önce hepsi silinip işaretliler
+yazılıyor — form işaretsiz kutuları hiç göndermediği için "kaldırılan izin" ayrı
+bir istek olarak gelmiyor. Tek işlemde (`db.yazma_islemi`).
+
+## Test edildi
+
+- Bir kullanıcı 15 modülden 2'sine indirildi (denüdasyon + ICSI)
+- Ana ekranda "Yeni hasta" ve "Cryo haritası" kayboldu; cycle ekranında 14
+  düğmeden 3'ü kaldı
+- İzinsiz 6 ekrana doğrudan gidildi, hepsi engellendi
+- İzinli 2 ekran normal açıldı
+- Tarayıcı atlanarak POST atıldı: `opu_sag_oosit` değişmedi,
+  `islem_yapan(transfer)` satırı oluşmadı
+- Yeni kullanıcı hem ekrandan hem terminalden 15/15 izinle açıldı
+- `yetki` tablosu yokken kimse ekran kaybetmedi

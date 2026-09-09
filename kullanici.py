@@ -27,6 +27,10 @@ import guvenlik
 
 MIN_UZUNLUK = 8
 ROLLER = ("yonetici", "embriyolog")
+# app.py ve goc_026.py'deki liste ile aynı kalmalı
+MODULLER = ["hasta", "opu", "androloji", "denudasyon", "icsi", "fert",
+            "cleavage", "blast", "vitrifikasyon", "thaw", "transfer",
+            "gebelik", "cryo", "foto", "silme"]
 
 
 def kullanicilar():
@@ -106,10 +110,30 @@ def yeni_kullanici():
                  f"python3 kullanici.py sifre {kadi}")
     rol = input("  Rol (embriyolog) : ").strip() or "embriyolog"
     sifre = _sifre_sor()
-    db.yaz("INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
-           "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
-           (db.LAB_ID, ad, kod, rol, kadi, guvenlik.sifrele(sifre)))
+    yeni_id = db.yaz("INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
+                     "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
+                     (db.LAB_ID, ad, kod, rol, kadi, guvenlik.sifrele(sifre)))
+    n = tum_yetkileri_ver(yeni_id)
     print(f"\nKullanici olusturuldu: {kadi}")
+    if n:
+        print(f"{n} modulun hepsine erisim verildi. Kisitlamak icin arayuzdeki "
+              "Kullanicilar ekranini kullan.")
+
+
+def tum_yetkileri_ver(kid: int) -> int:
+    """Yeni kullanıcıya tüm modülleri verir (bkz. app.py'deki aynı adlı işlev).
+
+    Boş bırakılırsa kullanıcı hiçbir ekrana giremez ve sebebi anlaşılmaz.
+    `yetki` tablosu yoksa (goc_026 çalışmamış) sessizce geçer.
+    """
+    if not db.tek("SELECT 1 FROM sqlite_master WHERE type='table' AND name='yetki'"):
+        return 0
+    n = 0
+    for m in MODULLER:
+        db.yaz("INSERT OR IGNORE INTO yetki (lab_id, kullanici_id, modul) "
+               "VALUES (?,?,?)", (db.LAB_ID, kid, m))
+        n += 1
+    return n
 
 
 def aktif_yonetici_sayisi() -> int:

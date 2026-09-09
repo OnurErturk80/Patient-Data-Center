@@ -13,7 +13,7 @@
 </div>
 {% endblock %}
 {% block icerik %}
-<a class="dugme" href="/hasta/{{ hasta.id }}/cycle/yeni">Yeni cycle aç</a>
+{% if yetkim("hasta") %}<a class="dugme" href="/hasta/{{ hasta.id }}/cycle/yeni">Yeni cycle aç</a>{% endif %}
 
 <div class="kart">
   <h2>Cycle'lar</h2>
@@ -40,10 +40,14 @@
 {% endif %}
 <a class="dugme ikincil" href="/gecmis/hasta/{{ hasta.id }}">Değişiklik geçmişi</a>
 {% if hasta.durum == "arsiv" %}
+{% if yetkim("silme") %}
 <form method="post" action="/hasta/{{ hasta.id }}/geri-al">
   <button class="dugme" type="submit">Arşivden çıkar</button>
 </form>
 {% endif %}
+{% endif %}
+{% if yetkim("silme") %}
 <a class="dugme ikincil tehlike-bag" href="/hasta/{{ hasta.id }}/sil">
   {{ 'Kalıcı olarak sil' if hasta.durum == 'arsiv' else 'Arşivle veya sil' }}</a>
+{% endif %}
 {% endblock %}

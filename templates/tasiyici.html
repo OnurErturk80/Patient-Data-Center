@@ -60,7 +60,7 @@
   {% endfor %}
 </div>
 {% if t.durum == 'dolu' and icerik %}
-<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw">Bu taşıyıcıyı çöz</a>
+{% if yetkim("thaw") %}<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw">Bu taşıyıcıyı çöz</a>{% endif %}
 {% endif %}
 <a class="dugme ikincil" href="/cryo">Cryo haritası</a>
 

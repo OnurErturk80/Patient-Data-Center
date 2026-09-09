@@ -1,5 +1,6 @@
 """IVF Laboratuvar Kayıt Modülü — hasta ve cycle ekranları, giriş ve düzenleme."""
 
+import contextvars
 import sqlite3
 from pathlib import Path
 
@@ -175,6 +176,112 @@ def sonraki_lab_no() -> str:
 
 # ----------------------------------------------------------------- oturum
 
+# --------------------------------------------------------- modül erişim izni
+
+# Yönetici, her kullanıcının hangi ekranlara girebileceğini tek tek belirler
+# (v6.14). `goc_026` ile aynı liste olmalı — yeni modül eklersen ikisine de.
+MODULLER = [
+    ("hasta",         "Hasta ve cycle kaydı"),
+    ("opu",           "OPU"),
+    ("androloji",     "Androloji"),
+    ("denudasyon",    "Denüdasyon"),
+    ("icsi",          "ICSI"),
+    ("fert",          "Fertilizasyon"),
+    ("cleavage",      "Gün 2 / 3"),
+    ("blast",         "Blastokist"),
+    ("vitrifikasyon", "Vitrifikasyon"),
+    ("thaw",          "Çözme"),
+    ("transfer",      "Transfer"),
+    ("gebelik",       "Gebelik sonucu"),
+    ("cryo",          "Cryo haritası"),
+    ("foto",          "Fotoğraf ekleme / eşleştirme"),
+    ("silme",         "Kayıt silme ve iptal"),
+]
+MODUL_KODLARI = {k for k, _ in MODULLER}
+_ASAMA_MODULLERI = {"opu", "androloji", "denudasyon", "icsi", "fert", "cleavage",
+                    "blast", "vitrifikasyon", "thaw", "transfer", "gebelik"}
+
+# Bu istekteki kullanıcının izinleri. Kontrolü middleware'de tek noktada
+# yapıyoruz: ~50 rotanın her birine kontrol eklemek tuzak #1'in tarifi.
+# `asama_gezinme` gibi request almayan fonksiyonlar da buradan okur.
+_YETKILER = contextvars.ContextVar("yetkiler", default=None)
+
+
+def yol_modulu(yol: str):
+    """Bu yol hangi modüle ait? İzin gerekmiyorsa None.
+
+    Görüntüleme ekranları (hasta listesi, hasta detay, cycle özeti) serbest —
+    kısıtlanırsa program kullanılamaz hale gelir. İzin, **işlem yapılan**
+    ekranlar için.
+    """
+    p = [x for x in yol.split("/") if x]
+    if not p:
+        return None
+    son = p[-1]
+    # Silme ve iptal, hangi ekranda olursa olsun tek modül
+    if son == "sil" or son.endswith("-sil") or son == "geri-al":
+        return "silme"
+    if p[0] == "cryo":
+        # /cryo/tasiyici/{id}/thaw gerçek bir çözme işlemi — çözme izni ister
+        return "thaw" if son == "thaw" else "cryo"
+    if p[0] == "cycle" and len(p) >= 3:
+        a = p[2]
+        if a in ("foto-ekle", "esle"):
+            return "foto"
+        if a == "duzenle":
+            return "hasta"
+        if a == "denudasyon-zaman":
+            return "denudasyon"
+        if a in _ASAMA_MODULLERI:
+            return a
+        return None                      # islem-yapan: aşama zaten korumalı
+    if p[0] == "hasta":
+        if len(p) >= 2 and p[1] == "yeni":
+            return "hasta"
+        if len(p) >= 3 and (p[2] == "duzenle" or p[2] == "cycle"):
+            return "hasta"
+        return None                      # /hasta/{id} görüntüleme serbest
+    if p[0] == "specimen" and len(p) >= 3:
+        if p[2] == "snapshot-al":
+            return "foto"
+        if p[2] == "taraf":
+            return "denudasyon"
+    return None
+
+
+_YETKI_TABLOSU = None
+
+
+def yetki_tablosu_var() -> bool:
+    """`goc_026` çalıştırıldı mı. Çalışmadıysa kimse ekran kaybetmez (tuzak #3)."""
+    global _YETKI_TABLOSU
+    if _YETKI_TABLOSU is None:
+        _YETKI_TABLOSU = bool(db.tek(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='yetki'"))
+    return _YETKI_TABLOSU
+
+
+def kullanici_yetkileri(k) -> set:
+    """Bu kullanıcının girebildiği modüller.
+
+    Yönetici her yere girer. Göç çalıştırılmadıysa da herkes her yere girer —
+    yarım kurulumda kimse ekran kaybetmesin.
+    """
+    if not k or k["rol"] == "yonetici" or not yetki_tablosu_var():
+        return set(MODUL_KODLARI)
+    return {r["modul"] for r in db.sorgu(
+        "SELECT modul FROM yetki WHERE kullanici_id = ?", (k["id"],))}
+
+
+def yetkim(modul: str) -> bool:
+    """Şablonlardan çağrılır: bu kullanıcı bu modüle girebiliyor mu?"""
+    y = _YETKILER.get()
+    return True if y is None else modul in y
+
+
+sablon.env.globals["yetkim"] = yetkim
+
+
 @uygulama.middleware("http")
 async def oturum_kontrolu(request: Request, sonraki):
     yol = request.url.path
@@ -186,7 +293,19 @@ async def oturum_kontrolu(request: Request, sonraki):
         return RedirectResponse("/giris", status_code=303)
 
     request.state.kullanici = kullanici
-    return await sonraki(request)
+    yetkiler = kullanici_yetkileri(kullanici)
+    request.state.yetkiler = yetkiler
+    jeton = _YETKILER.set(yetkiler)
+    try:
+        modul = yol_modulu(yol)
+        if modul and modul not in yetkiler:
+            from urllib.parse import quote
+            return RedirectResponse(
+                "/hastalar?yetkisiz=" + quote(dict(MODULLER).get(modul, modul)),
+                status_code=303)
+        return await sonraki(request)
+    finally:
+        _YETKILER.reset(jeton)
 
 
 @uygulama.get("/giris")
@@ -364,6 +483,31 @@ async def sifre_kaydet(request: Request):
 
 # --------------------------------------------- yönetici: kullanıcı listesi
 
+def tum_yetkileri_ver(kid: int):
+    """Yeni kullanıcıya tüm modülleri verir.
+
+    Göç mevcut kullanıcılara hepsini veriyor; sonradan açılan kullanıcı boş
+    kalırsa **hiçbir ekrana giremez** ve sebebi anlaşılmaz. Varsayılan "her şey
+    açık", kısıtlama yöneticinin bilinçli olarak kaldırdığı kutulardan doğar
+    (v6.14).
+    """
+    if not yetki_tablosu_var():
+        return
+    for kod, _ in MODULLER:
+        db.yaz("INSERT OR IGNORE INTO yetki (lab_id, kullanici_id, modul) "
+               "VALUES (?,?,?)", (db.LAB_ID, kid, kod))
+
+
+def _kullanici_yetki_haritasi() -> dict:
+    """{kullanici_id: {modul, ...}} — yetki ekranındaki kutuları işaretlemek için."""
+    if not yetki_tablosu_var():
+        return {}
+    harita = {}
+    for r in db.sorgu("SELECT kullanici_id, modul FROM yetki"):
+        harita.setdefault(r["kullanici_id"], set()).add(r["modul"])
+    return harita
+
+
 def yonetici_kontrol(request: Request):
     """Yönetici değilse yönlendirme döndürür, yöneticiyse None.
 
@@ -449,6 +593,9 @@ def kullanicilar_ekran(request: Request, hata: str = "", bilgi: str = ""):
              "kullanici_adi", (db.LAB_ID,)),
          "yonetici_sayisi": aktif_yonetici_sayisi(),
          "roller": [(k, ROL_ADI[k]) for k in ROLLER],
+         "moduller": MODULLER,
+         "yetki_goc_gerekli": not yetki_tablosu_var(),
+         "yetkiler": _kullanici_yetki_haritasi(),
          "min_sifre": MIN_SIFRE, "hata": hata, "bilgi": bilgi})
 
 
@@ -482,9 +629,10 @@ async def kullanici_yeni(request: Request):
 
     rol = "yonetici" if (f.get("rol") or "") == "yonetici" else "embriyolog"
     kod = ((f.get("kisa_kod") or "").strip() or ad[:2]).upper()
-    db.yaz("INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
-           "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
-           (db.LAB_ID, ad, kod, rol, kadi, guvenlik.sifrele(f.get("sifre"))))
+    yeni_id = db.yaz("INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
+                     "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
+                     (db.LAB_ID, ad, kod, rol, kadi, guvenlik.sifrele(f.get("sifre"))))
+    tum_yetkileri_ver(yeni_id)
     return RedirectResponse(
         f"/kullanicilar?bilgi={quote(kadi + ' eklendi.')}", status_code=303)
 
@@ -552,6 +700,43 @@ async def kullanici_durum(request: Request, kid: int):
                  "kapatıldı. Girdiği kayıtlar duruyor.")
     else:
         mesaj = f"{k['kullanici_adi']} tekrar giriş yapabilir."
+    return RedirectResponse(f"/kullanicilar?bilgi={quote(mesaj)}", status_code=303)
+
+
+@uygulama.post("/kullanici/{kid}/yetki")
+async def kullanici_yetki(request: Request, kid: int):
+    """Bir kullanıcının modül izinlerini toptan yazar.
+
+    Form işaretli kutuları gönderir; işaretsizler hiç gelmez. Bu yüzden önce
+    hepsi silinip işaretliler yazılıyor — "kaldırılan izin" ayrı bir istek
+    olarak gelmiyor (v6.14).
+    """
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    if not yetki_tablosu_var():
+        return RedirectResponse(
+            "/kullanicilar?hata=" + quote("Önce 'python3 goc_026.py' çalıştır."),
+            status_code=303)
+
+    f = await request.form()
+    k = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND id = ?",
+               (db.LAB_ID, kid))
+    if not k:
+        return RedirectResponse("/kullanicilar", status_code=303)
+
+    secili = [m for m in f.getlist("modul") if m in MODUL_KODLARI]
+    with db.yazma_islemi() as b:
+        b.execute("DELETE FROM yetki WHERE kullanici_id = ?", (kid,))
+        for m in secili:
+            b.execute("INSERT INTO yetki (lab_id, kullanici_id, modul) "
+                      "VALUES (?,?,?)", (db.LAB_ID, kid, m))
+
+    mesaj = (f"{k['kullanici_adi']}: {len(secili)} / {len(MODULLER)} modüle "
+             "erişebilir.")
+    if k["rol"] == "yonetici":
+        mesaj += " (Yönetici olduğu için yine her yere girer.)"
     return RedirectResponse(f"/kullanicilar?bilgi={quote(mesaj)}", status_code=303)
 
 
@@ -675,7 +860,8 @@ def anasayfa():
 
 
 @uygulama.get("/hastalar")
-def hastalar(request: Request, ara: str = "", arsiv: int = 0):
+def hastalar(request: Request, ara: str = "", arsiv: int = 0,
+             yetkisiz: str = ""):
     durum = "arsiv" if arsiv else "aktif"
     ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
              "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
@@ -696,7 +882,7 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0):
         request, "hastalar.html",
         {"hastalar": kayitlar, "ara": ara, "arsiv": arsiv,
          "arsiv_sayisi": arsiv_sayisi, "kullanici": request.state.kullanici,
-         "yedek": yedek_durumu()},
+         "yedek": yedek_durumu(), "yetkisiz": yetkisiz},
     )
 
 
@@ -1270,7 +1456,9 @@ async def islem_yapan_kaydet(request: Request, cycle_id: int):
     kid = request.state.kullanici["id"]
     c = db.tek("SELECT id FROM cycle WHERE id = ?", (cycle_id,))
     gecerli_asamalar = {a[0] for a in ASAMA_SIRASI}
-    if c and asama in gecerli_asamalar:
+    # Ekrana giremeyen kişi oraya ad da yazamamalı. `yol_modulu` form içeriğini
+    # göremediği için bu kontrol burada (v6.14).
+    if c and asama in gecerli_asamalar and yetkim(asama):
         simdi = _dt.now().isoformat(" ", "seconds")
         mevcut = db.tek(
             "SELECT * FROM islem_yapan WHERE cycle_id = ? AND asama = ?",
@@ -3532,9 +3720,14 @@ TIP_ASAMALARI = {
 
 
 def cycle_asamalari(cycle_tipi: str):
-    """Bu tedavi tipinde gösterilecek aşamalar."""
+    """Bu tedavi tipinde **ve bu kullanıcının izninde** olan aşamalar.
+
+    Gezinme çubuğu ve cycle detaydaki düğmeler buradan besleniyor; süzme tek
+    yerde olunca ikisi birden doğru davranıyor. İzni olmayan bir aşama listeden
+    çıkar, "3/8" sayacı da kullanıcının kendi adımlarını sayar (v6.14).
+    """
     kodlar = TIP_ASAMALARI.get(cycle_tipi, TIP_ASAMALARI["ivf_icsi"])
-    return [a for a in ASAMA_SIRASI if a[0] in kodlar]
+    return [a for a in ASAMA_SIRASI if a[0] in kodlar and yetkim(a[0])]
 
 
 def asama_gezinme(cycle_id: int, anahtar: str):

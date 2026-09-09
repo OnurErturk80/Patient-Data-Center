@@ -104,16 +104,20 @@
 {% for a in asamalar %}
 <a class="dugme" href="{{ a[2]|replace('{id}', c.id) }}">{{ a[1] }}</a>
 {% endfor %}
+{% if yetkim("foto") %}
 <a class="dugme ikincil" href="/cycle/{{ c.id }}/foto-ekle">Fotoğraf ekle</a>
+{% endif %}
 <a class="dugme ikincil" href="/gecmis/cycle/{{ c.id }}">Değişiklik geçmişi</a>
 
-{% if c.durum == "iptal" %}
+{% if c.durum == "iptal" and yetkim("silme") %}
 <form method="post" action="/cycle/{{ c.id }}/geri-al">
   <button class="dugme" type="submit">İptali geri al</button>
 </form>
 {% endif %}
+{% if yetkim("silme") %}
 <a class="dugme ikincil tehlike-bag" href="/cycle/{{ c.id }}/sil">
   {{ 'Kalıcı olarak sil' if c.durum == 'iptal' else 'İptal et veya sil' }}</a>
+{% endif %}
 
 {% include "_buyutec.html" %}
 <script>

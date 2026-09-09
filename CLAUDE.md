@@ -57,7 +57,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..025.py   veritabanı göçleri (sırayla)
+  goc_002..026.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -160,6 +160,19 @@ ile karıştırma — biri "kim yaptı", diğeri "kim girdi". Paylaşılan parç
 aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna `{{ iy.kutu(c.id, "<asama>") }}`
 ekle — gerisi otomatik (README v6.3). Makro isteğe bağlı `etiket`/`ipucu` alır;
 varsayılanı değiştirme, sadece belirsizlik olan ekranda ver (v6.9).
+
+**Modül izinleri tek noktada kontrol edilir: middleware.** `yol_modulu(yol)`
+yolu bir modüle eşler, middleware izni yoksa `/hastalar`'a döndürür. ~50 rotanın
+her birine kontrol eklemek tuzak #1'in tarifi — **rotalara tek tek ekleme**.
+Şablonlarda Jinja global `yetkim("modul")` ile bağlantı gizlenir; gizlemek tek
+başına yeterli değil, asıl engel middleware'de. Aşama düğmeleri ve gezinme
+çubuğu `cycle_asamalari()`'nden besleniyor, süzme orada.
+
+**Yeni modül eklersen üç yere ekle:** `app.py` `MODULLER`, `goc_026.py`
+`MODULLER`, `kullanici.py` `MODULLER` — sonra `goc_026`'yı tekrar çalıştır,
+yoksa kimse o ekrana giremez. Yeni kullanıcı **tüm** modülleri alır
+(`tum_yetkileri_ver`); kısıtlama yöneticinin bilinçli olarak kaldırdığı
+kutulardan doğar, boş bırakılmışlıktan değil (README v6.14).
 
 **Yetki: `rol='yonetici'` kullanıcı yönetimine girer.** v6.11'e kadar `rol`
 hiçbir yerde kontrol edilmiyordu. Yeni bir yönetici rotası yazarsan başına

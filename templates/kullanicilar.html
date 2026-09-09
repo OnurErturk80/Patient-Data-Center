@@ -6,6 +6,13 @@
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
 {% if bilgi %}<div class="uyari">{{ bilgi }}</div>{% endif %}
 
+{% if yetki_goc_gerekli %}
+<div class="uyari">
+  Modül izinleri henüz kullanılamıyor. Terminalde
+  <code>python3 goc_026.py</code> çalıştır.
+</div>
+{% endif %}
+
 {% if yonetici_sayisi <= 1 %}
 <div class="uyari">
   Tek yönetici var. O hesap kilitlenirse kullanıcı yönetimine kimse giremez —
@@ -52,6 +59,33 @@
       </select>
       <button class="minidugme" type="submit">Rolü değiştir</button>
     </form>
+
+    {% if not yetki_goc_gerekli %}
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:14px">
+        Erişebileceği ekranlar
+        ({{ yetkiler.get(k.id, [])|length }} / {{ moduller|length }})
+      </summary>
+      {% if k.rol == "yonetici" %}
+      <div class="ipucu" style="margin-top:6px">
+        Yönetici olduğu için bu kutulara bakılmaz — her yere girer.
+      </div>
+      {% endif %}
+      <form method="post" action="/kullanici/{{ k.id }}/yetki" style="margin-top:8px">
+        {% for kod, ad in moduller %}
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;
+                      min-height:40px;font-size:15px">
+          <input type="checkbox" name="modul" value="{{ kod }}"
+                 style="width:20px;height:20px;flex:0 0 auto"
+                 {% if kod in yetkiler.get(k.id, []) %}checked{% endif %}>
+          {{ ad }}
+        </label>
+        {% endfor %}
+        <button class="minidugme" type="submit" style="margin-top:8px">
+          İzinleri kaydet</button>
+      </form>
+    </details>
+    {% endif %}
 
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       <form method="post" action="/kullanici/{{ k.id }}/durum">

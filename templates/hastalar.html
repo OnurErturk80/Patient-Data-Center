@@ -3,14 +3,20 @@
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · Çıkış</a>{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
+{% if yetkisiz %}
+<div class="uyari">
+  <b>{{ yetkisiz }}</b> ekranına erişim iznin yok. Gerekiyorsa yöneticiye söyle.
+</div>
+{% endif %}
 <form class="arama" method="get" action="/hastalar">
   <input type="search" name="ara" value="{{ ara }}" placeholder="Dosya no veya ad ara"
          inputmode="search" autocomplete="off">
 </form>
 
 {% if arsiv %}<a class="dugme ikincil" href="/hastalar">Aktif hastalara dön</a>
-{% else %}<a class="dugme" href="/hasta/yeni">Yeni hasta</a>
-<a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+{% else %}
+{% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">Yeni hasta</a>{% endif %}
+{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">Cryo haritası</a>{% endif %}
 {% if kullanici.rol == "yonetici" %}
 <a class="dugme ikincil" href="/yonetim">Yönetim</a>
 {% endif %}

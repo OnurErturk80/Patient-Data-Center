@@ -42,7 +42,7 @@
         <a href="/cryo/tasiyici/{{ t.id }}">içeriği gör</a>
       </div>
     </div>
-    <a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw?cycle={{ c.id }}">Çöz</a>
+    {% if yetkim("thaw") %}<a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw?cycle={{ c.id }}">Çöz</a>{% endif %}
   </div>
   {% else %}
   <div class="bos">
