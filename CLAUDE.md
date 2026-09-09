@@ -160,8 +160,8 @@ aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna `{{ iy.kutu(c.id, "<asama>") 
 ekle — gerisi otomatik (README v6.3). Makro isteğe bağlı `etiket`/`ipucu` alır;
 varsayılanı değiştirme, sadece belirsizlik olan ekranda ver (v6.9).
 
-**Laboratuvar personeli olmayan kişi `islem_yapan`'a yazılmaz.** OPU'yu yapan
-hekim `cycle.opu_hekim` kolonunda, oositleri arayan embriyolog `islem_yapan`'da
+**Laboratuvar personeli olmayan kişi `islem_yapan`'a yazılmaz.** **OPU Hekimi**
+`cycle.opu_hekim` kolonunda, **OPU Embriyoloğu** `islem_yapan`'da
 (`asama='opu'`). `UNIQUE(cycle_id, asama)` aşama başına tek kişi demek; ikinci
 bir kişi gerekiyorsa onu bu kısıtı gevşeterek değil, cycle verisi olarak ekle
 (README v6.9).

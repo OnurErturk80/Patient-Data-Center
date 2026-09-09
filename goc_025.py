@@ -2,12 +2,12 @@
 
 OPU artık kendi ekranı olan bir aşama. İki kişi kaydediliyor:
 
-  - **Hekim** — oositleri aspire eden kişi. Laboratuvar personeli olmadığı
-    için `islem_yapan` tablosuna değil, cycle'ın kendi verisine yazılır;
-    `opu_zamani` / `opu_sag_oosit` ile aynı satırda durur.
-  - **Embriyolog** — folikül sıvısını tarayıp oositleri bulan kişi. Diğer tüm
-    aşamalarla aynı yoldan, `islem_yapan` tablosuna `asama='opu'` olarak
-    yazılır (v6.3). Bu yüzden burada ayrı bir kolon açılmıyor.
+  - **OPU Hekimi** — laboratuvar personeli olmadığı için `islem_yapan`
+    tablosuna değil, cycle'ın kendi verisine yazılır; `opu_zamani` /
+    `opu_sag_oosit` ile aynı satırda durur.
+  - **OPU Embriyoloğu** — diğer tüm aşamalarla aynı yoldan, `islem_yapan`
+    tablosuna `asama='opu'` olarak yazılır (v6.3). Bu yüzden burada ayrı bir
+    kolon açılmıyor.
 
 Bu göç yalnızca `cycle.opu_hekim` kolonunu ekler. `islem_yapan` tarafı için
 şema değişikliği gerekmiyor — tablo zaten aşama adına göre çalışıyor.
@@ -39,10 +39,10 @@ else:
 # ----------------------------------------------------------------------- ozet
 n = b.execute("SELECT COUNT(*) FROM cycle WHERE opu_hekim IS NOT NULL").fetchone()[0]
 toplam = b.execute("SELECT COUNT(*) FROM cycle").fetchone()[0]
-print(f"\nOPU hekimi girilmis cycle: {n} / {toplam}")
+print(f"\nOPU Hekimi girilmis cycle: {n} / {toplam}")
 
 iy = b.execute("SELECT COUNT(*) FROM islem_yapan WHERE asama='opu'").fetchone()[0]
-print(f"OPU embriyologu girilmis cycle: {iy} / {toplam}")
+print(f"OPU Embriyologu girilmis cycle: {iy} / {toplam}")
 
 kirik = b.execute("PRAGMA foreign_key_check").fetchall()
 print(f"Kirik referans: {len(kirik)}")

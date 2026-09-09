@@ -46,10 +46,9 @@
 
     {% if not goc_gerekli %}
     <div class="alan">
-      <label for="opu_hekim">OPU'yu yapan hekim</label>
+      <label for="opu_hekim">OPU Hekimi</label>
       <input id="opu_hekim" name="opu_hekim" type="text" autocomplete="off"
              placeholder="Ad soyad" value="{{ c.opu_hekim or '' }}">
-      <div class="ipucu">Oositleri aspire eden hekim.</div>
     </div>
     {% endif %}
 
@@ -71,9 +70,8 @@
 </div>
 {% endif %}
 
-{# İşlemi yapan = folikül sıvısını tarayıp oositleri bulan embriyolog.
-   Hekim ayrı bir alan (cycle.opu_hekim) — biri laboratuvar personeli değil. #}
-{{ iy.kutu(c.id, "opu", "Oositleri arayan embriyolog",
-           "Folikül sıvısını tarayıp oositleri bulan kişi.") }}
+{# OPU'da iki kişi var, bu yüzden etiket "İşlemi yapan" değil.
+   Hekim ayrı bir alan (cycle.opu_hekim) — laboratuvar personeli değil. #}
+{{ iy.kutu(c.id, "opu", "OPU Embriyoloğu") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

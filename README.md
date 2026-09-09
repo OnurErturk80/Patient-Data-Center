@@ -1911,8 +1911,8 @@ Kullanıcı kararı: **OPU'ya ayrı ekran, hem hekim hem embriyolog kaydedilsin.
 
 | Kim | Nereye | Neden |
 |---|---|---|
-| **Hekim** (aspire eden) | `cycle.opu_hekim` | Laboratuvar personeli değil. `opu_zamani` ile aynı satırda, cycle verisi. |
-| **Embriyolog** (oositleri arayan) | `islem_yapan`, `asama='opu'` | Diğer on aşamayla aynı yol. Şema değişikliği gerekmiyor. |
+| **OPU Hekimi** | `cycle.opu_hekim` | Laboratuvar personeli değil. `opu_zamani` ile aynı satırda, cycle verisi. |
+| **OPU Embriyoloğu** | `islem_yapan`, `asama='opu'` | Diğer on aşamayla aynı yol. Şema değişikliği gerekmiyor. |
 
 `islem_yapan` tablosunda `UNIQUE(cycle_id, asama)` var — aşama başına tek kişi.
 İkinci kişiyi oraya sığdırmak için `rol` kolonu eklemek ve bu kısıtı değiştirmek
@@ -1935,8 +1935,14 @@ Gezinme çubuğu, cycle detaydaki aşama düğmeleri ve `islem_yapan` doğrulama
 
 OPU'da iki kişi olduğu için alt kutunun "İşlemi yapan" demesi belirsiz kalıyordu.
 `_islem_yapan.html` makrosu isteğe bağlı `etiket` ve `ipucu` parametresi aldı;
-varsayılanlar aynı, **diğer on ekran hiç değişmedi** (test edildi). OPU'da
-"Oositleri arayan embriyolog" yazıyor.
+varsayılanlar aynı, **diğer on ekran hiç değişmedi** (test edildi). OPU'daki iki
+alan **"OPU Hekimi"** ve **"OPU Embriyoloğu"**.
+
+İlk yazımda alanların altına klinik açıklamalar koymuştum ("oositleri aspire
+eden hekim", "folikül sıvısını tarayıp oositleri bulan kişi"). Bunlar bana ait
+varsayımlardı ve kullanıcı ikincisinin doğru bir ifade olmadığını söyledi —
+kaldırıldı. Etiketler kendi başına yeterince açık; uydurulmuş klinik tanım
+ekranda kalmamalı (CLAUDE.md: klinik varsayım yapma, sor).
 
 ## Göç 025 ve göç çalıştırılmamış makine
 
