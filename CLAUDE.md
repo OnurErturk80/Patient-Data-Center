@@ -207,12 +207,14 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    kullan, yoksa UNIQUE hatasi alan personelin girdigi kayit kaybolur
    (v6.6'da denudasyonda oosit numarasi tam olarak boyle patliyordu).
 
-7. **`yedek.py`'nin kendi `ayar()`'ı makineye bölümlü `yerel_ayar.json`'ı
-   tanımıyor.** `db.py` dosyayı `{"makine-adi": {...}}` biçimine çevirdikten
-   sonra `yedek.py` `yedek_klasor`'ü bulamıyor ve DB'deki Windows yoluna
-   (`E:\yedek`) düşüyor; Mac'te cwd altında `E:\yedek` diye klasör açar.
-   Çözüm gelene kadar hedefi komuta yaz: `python3 yedek.py ~/lab_yedek`.
-   Kalıcı düzeltme: `yedek.py` `import db; db.ayar(...)` kullansın.
+7. **Ayarı iki yerden okuma — `yedek.py` tam bunu yapıyordu (v6.8'de
+   düzeltildi).** Kendi `ayar()` fonksiyonu `yerel_ayar.json`'ı düz sözlük
+   sanıyordu; `db.py` dosyayı `{"makine-adi": {...}}` biçimine çevirince
+   sessizce DB'deki Windows yoluna (`E:\yedek`) düşüyor, Mac'te cwd altında
+   `E:\yedek` adında klasör açıp "Yedekleme tamam" diyordu — hatasız, çıkış
+   kodu 0. Yeni bir script ayar okuyacaksa **kendi okuyucusunu yazma**,
+   `import db; db.ayar(...)` kullan. Yol ayarları makineye özgüdür, tek kaynak
+   `db.py` (README v6.8).
 
 ---
 
@@ -221,16 +223,14 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 1. **Biyopsi / PGT modülü** — tek kalan ana modül. Biyopsi kaydı, tüp etiketi,
    haftalar sonra gelen genetik sonucun eşleştirilmesi. `pgt_sonuc` tablosu
    şemada hazır, kullanılmıyor.
-2. **Yedekleme — kısmen kuruldu (2026-09-08).**
-   - `goc_008.py` ayarları veritabanında zaten var (`yedek_klasor`,
-     `yedek_uyari_gun=3`). Değerler Windows'a ait (`E:\yedek`).
-   - Bu Mac'te elle test edildi: `python3 yedek.py ~/lab_yedek` → tutarlı db
-     kopyası + arşiv + doğrulama çalışıyor, `son_yedek` yazıldı.
-   - **Mac'te komutu hedefle ver:** `python3 yedek.py ~/lab_yedek`. Argümansız
-     çalıştırma `yerel_ayar.json` eski düz biçimdeyken doğru, ama uygulama bir
-     kez çalışıp dosyayı makineye bölümlü biçime çevirince `yedek.py`'nin kendi
-     `ayar()` fonksiyonu bu biçimi tanımıyor ve DB'deki `E:\yedek`'e düşüyor
-     (bkz. aşağıdaki tuzak). O yüzden hedefi hep açıkça yaz.
+2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi.**
+   - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin
+     `yerel_ayar.json` bölümündeki `yedek_klasor`'e gider. Komut satırı argümanı
+     hep kazanır. Platforma uymayan yol (Mac'te `E:\yedek`) reddedilir.
+   - **Windows mini PC'de bir kez `python yerel_kur.py` çalıştırılmalı** ve
+     `yedek_klasor` `E:\yedek` yapılmalı. Yol ayarları artık makineye özgü
+     dosyadan okunuyor, DB'deki `goc_008` değeri hedefi belirlemiyor. Yapılmazsa
+     o makinede varsayılan `D:\lab_yedek` olur.
    - **Mac'te otomatik zamanlama YOK.** `yedek.bat` sadece Windows Görev
      Zamanlayıcı için. İstenirse `launchd` görevi kurulacak.
    - **Asıl iş klinikteki Windows mini PC'de:** gerçek hasta verisi orada.

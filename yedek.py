@@ -7,15 +7,20 @@
   3. Arşiv klasöründeki yeni fotoğrafları hedefe kopyalar
 
 Kullanım:
-    python yedek.py                 (hedef: ayarlar tablosundan)
-    python yedek.py D:\\lab_yedek    (hedefi elle ver)
+    python yedek.py                 (hedef: bu makinenin yerel_ayar.json bölümü)
+    python yedek.py D:\\lab_yedek    (hedefi elle ver — komut satırı her zaman önce gelir)
+
+Hedef klasörü kalıcı olarak değiştirmek için: python yerel_kur.py
 """
 
+import os
 import shutil
 import sqlite3
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
+import db
 
 KOK = Path(__file__).parent
 DB = KOK / "lab.db"
@@ -33,36 +38,42 @@ def yaz(mesaj):
 
 
 def ayar(anahtar, varsayilan=""):
-    yerel = KOK / "yerel_ayar.json"
-    if yerel.is_file():
-        import json
-        try:
-            d = json.loads(yerel.read_text(encoding="utf-8"))
-            if anahtar in d:
-                return str(d[anahtar])
-        except Exception:
-            pass
+    """Ayar okur — uygulamayla AYNI kaynaktan.
+
+    Eskiden bu dosyanin kendi okuyucusu vardi ve `yerel_ayar.json`'i duz bir
+    sozluk saniyordu. Uygulama dosyayi makineye bolumlu bicime
+    (`{"makine-adi": {...}}`) cevirdikten sonra `anahtar in d` artik tutmuyor,
+    okuyucu sessizce veritabanindaki Windows yoluna dusuyordu: Mac'te calisma
+    klasorunun altinda `E:\\yedek` diye bir klasor acilip "Yedekleme tamam"
+    yaziliyordu. Tek dogru kaynak `db.ayar()` (README v6.8).
+    """
     try:
-        b = sqlite3.connect(DB)
-        r = b.execute("SELECT deger FROM ayarlar WHERE lab_id=1 AND anahtar=?",
-                      (anahtar,)).fetchone()
-        b.close()
-        return r[0] if r else varsayilan
+        return db.ayar(anahtar, varsayilan)
     except sqlite3.Error:
         return varsayilan
 
 
 def ayar_yaz(anahtar, deger):
     try:
-        b = sqlite3.connect(DB)
-        b.execute(
-            "INSERT INTO ayarlar (lab_id, anahtar, deger) VALUES (1,?,?) "
+        db.yaz(
+            "INSERT INTO ayarlar (lab_id, anahtar, deger) VALUES (?,?,?) "
             "ON CONFLICT(lab_id, anahtar) DO UPDATE SET deger=excluded.deger",
-            (anahtar, deger))
-        b.commit()
-        b.close()
+            (db.LAB_ID, anahtar, deger))
     except sqlite3.Error as e:
-        yaz(f"UYARI: son_yedek ayari yazilamadi: {e}")
+        yaz(f"UYARI: {anahtar} ayari yazilamadi: {e}")
+
+
+def bu_makineye_uygun_mu(yol: str) -> bool:
+    """Yol bu isletim sisteminde gercekten mutlak bir yol mu?
+
+    `E:\\yedek` Mac'te gecerli bir dosya adidir — hata vermez, calisma
+    klasorunun altina o adda bir klasor acar ve yedek alinmis gibi gorunur.
+    Yanlis diske yedek almaktansa durup soylemek gerekir.
+    """
+    surucu_harfi = len(yol) > 1 and yol[1] == ":" and yol[0].isalpha()
+    if os.name == "nt":
+        return surucu_harfi or yol.startswith("\\\\")   # C:\... veya UNC
+    return not surucu_harfi
 
 
 def veritabani_yedekle(hedef_klasor: Path) -> Path:
@@ -144,15 +155,37 @@ def main():
         yaz("HATA: lab.db bulunamadi.")
         sys.exit(1)
 
-    hedef = sys.argv[1] if len(sys.argv) > 1 else ayar("yedek_klasor", "")
+    if len(sys.argv) > 1:
+        hedef, kaynak = sys.argv[1], "komut satiri"
+    else:
+        hedef, kaynak = ayar("yedek_klasor", ""), f"{db.MAKINE} ayari"
     if not hedef:
         yaz("HATA: yedek klasoru tanimli degil. "
-            "Kullanim: python yedek.py D:\\lab_yedek")
+            "Once 'python yerel_kur.py' calistir ya da hedefi elle ver: "
+            "python yedek.py D:\\lab_yedek")
+        sys.exit(1)
+
+    if not bu_makineye_uygun_mu(hedef):
+        yaz(f"HATA: '{hedef}' bu isletim sisteminin yolu degil ({kaynak}).")
+        yaz("      Yedek alinmadi. Bu makinenin hedefini 'python yerel_kur.py' "
+            "ile ayarla.")
         sys.exit(1)
 
     hedef_klasor = Path(hedef)
     yaz("=" * 55)
-    yaz(f"Yedekleme basladi -> {hedef_klasor}")
+    yaz(f"Yedekleme basladi -> {hedef_klasor}   (kaynak: {kaynak})")
+
+    # Veritabanindaki eski deger baska bir makineye ait olabilir. Yol ayarlari
+    # artik makineye ozgu dosyadan okunuyor; fark varsa sessiz kalma.
+    try:
+        r = db.tek("SELECT deger FROM ayarlar WHERE lab_id = ? AND anahtar = ?",
+                   (db.LAB_ID, "yedek_klasor"))
+        db_deger = (r["deger"] or "") if r else ""
+    except sqlite3.Error:
+        db_deger = ""            # sadece bilgi notu — yedeklemeyi engellemesin
+    if db_deger and db_deger != hedef:
+        yaz(f"NOT: veritabanindaki yedek_klasor ({db_deger}) baska bir makineye "
+            "ait, kullanilmadi.")
 
     try:
         hedef_klasor.mkdir(parents=True, exist_ok=True)

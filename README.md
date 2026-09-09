@@ -1757,3 +1757,97 @@ cycle'ından çözüldü: biri canlı, biri dejenere. FET'in çözme ekranı
 `Canlı 1/2 (%50) · transfer edilen 0` ve dejenere olan için "transfer edilmedi"
 gösterdi. Canlı olan transfer edilince özet `transfer edilen 1` oldu. Kaynak
 cycle'ın (2026-0001) ekranında bu liste **görünmedi** — çözme oraya ait değil.
+
+---
+
+# v6.8 — `yedek.py` ayarları uygulamayla aynı yerden okur
+
+## Sorun
+
+`yedek.py`'nin kendi `ayar()` fonksiyonu vardı ve `yerel_ayar.json`'ı **düz bir
+sözlük** sanıyordu:
+
+```python
+d = json.loads(yerel.read_text())
+if anahtar in d:            # {"yedek_klasor": "..."} bekliyor
+    return str(d[anahtar])
+```
+
+v6.4'te `db.py` bu dosyayı makine adına göre bölümlü biçime çevirdi
+(`{"vm": {"yedek_klasor": "..."}}` — her bilgisayarın kendi bölümü). Artık üst
+seviyede yalnızca makine adı var, `"yedek_klasor" in d` hiçbir zaman tutmuyor.
+Okuyucu sessizce bir alt seçeneğe, veritabanındaki değere düşüyordu — orada da
+Windows mini PC'nin yolu yazılı: `E:\yedek`.
+
+Sonuç, Mac'te argümansız `python3 yedek.py`:
+
+```
+Yedekleme basladi -> E:\yedek
+Veritabani: lab_20260909_0957.db  (0.2 MB, 22 tablo, ...)
+Yedekleme tamam.
+```
+
+`E:\yedek` POSIX'te yasak bir ad değil — sıradan bir dosya adıdır. Program
+çalışma klasörünün altına **`E:\yedek` adında bir klasör** açtı, yedeği oraya
+yazdı ve "tamam" dedi. Hata yok, çıkış kodu 0. En kötü yedekleme hatası budur:
+yedek aldığını sanırsın.
+
+## Çözüm
+
+`yedek.py` artık `db.ayar()` kullanıyor — uygulamanın okuduğu kaynağın aynısı.
+Yol ayarları makineye özgü dosyadan gelir, gerisi (`yedek_uyari_gun`,
+`son_yedek`) veritabanından. Tek kaynak, iki okuyucu yok.
+
+Öncelik sırası: **komut satırı argümanı → bu makinenin `yerel_ayar.json`
+bölümü.** Argüman her zaman kazanır, ki elle test yapılabilsin.
+
+Üç şey daha eklendi:
+
+**1. Hedefin nereden geldiği yazılıyor.**
+
+```
+Yedekleme basladi -> /Users/onur/lab_yedek   (kaynak: MacBook ayari)
+```
+
+**2. Platforma uymayan yol reddediliyor.** Sürücü harfli bir yol
+(`E:\yedek`) Mac/Linux'ta, `/` ile başlayan bir yol Windows'ta kabul edilmiyor:
+
+```
+HATA: 'E:\yedek' bu isletim sisteminin yolu degil (vm ayari).
+      Yedek alinmadi. Bu makinenin hedefini 'python yerel_kur.py' ile ayarla.
+```
+
+Çıkış kodu 1 — Görev Zamanlayıcı başarısızlığı böyle görür. Bu, `db.ayar()`
+düzeltmesinden bağımsız ikinci bir emniyet: ayar başka bir yoldan bozulsa bile
+program yanlış yere yedek alıp "tamam" demez.
+
+**3. Veritabanındaki eski değer farklıysa söyleniyor**, sessizce yok
+sayılmıyor:
+
+```
+NOT: veritabanindaki yedek_klasor (E:\yedek) baska bir makineye ait, kullanilmadi.
+```
+
+## Windows mini PC'de dikkat
+
+Yol ayarları artık **makineye özgü dosyadan** okunduğu için, veritabanındaki
+`yedek_klasor = E:\yedek` (göç 008) yedek hedefini belirlemiyor. Klinikteki
+makinede bir kez şu çalıştırılmalı:
+
+```
+python yerel_kur.py
+```
+
+ve `yedek_klasor` `E:\yedek` (ya da hangi diskse) olarak yazılmalı. Yapılmazsa
+o makinenin varsayılanı `D:\lab_yedek` olur — D: yoksa program hata verip durur
+(sessiz başarı yok), D: varsa yedek yanlış diske gider. Ayarın amacı yedeğin
+**farklı bir diskte** olması; bunu makine başına doğrulamak gerekiyor.
+
+## Test edildi
+
+- Argümansız çalıştırma → `~/lab_yedek`, cwd altında sahte klasör yok
+- Makine ayarına `E:\yedek` konarak → reddedildi, çıkış kodu 1, klasör açılmadı
+- Komut satırı argümanı → makine ayarını eziyor
+- `son_yedek` veritabanına yazıldı; uygulama ana ekranı taze yedekte uyarı
+  göstermedi, tarih elle eskitilince "Son yedek 39 gün önce alındı" uyarısı çıktı
+- Arşiv kopyalama ve `integrity_check` doğrulaması bozulmadı
