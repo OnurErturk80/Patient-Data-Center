@@ -1961,3 +1961,66 @@ bir veritabanında ekran HTTP 200 verdi, uyarı göründü, kayıt çalıştı, 
 - 11 aşama ekranının hepsi HTTP 200; diğer onunda etiket hâlâ "İşlemi yapan"
 - FET cycle'ında OPU görünmüyor, `ivf_icsi` ve `oosit_cryo`'da görünüyor
 - Göçsüz veritabanında OPU ekranı çökmüyor, uyarı gösteriyor
+
+---
+
+# v6.10 — `kullanici.py`: giriş sorunlarını çözen araç
+
+## Sorun
+
+Kullanıcı Mac'te giriş yapamadı. Arayüzde kullanıcı yönetimi ekranı yok
+(bilinçli), şifreler scrypt ile karmalanıyor ve **geri okunamıyor**. Giriş
+reddedilirse ekranda tek bir "hata" görünüyor; sebebin hangisi olduğu
+anlaşılmıyor. `guvenlik.giris_yap` üç ayrı durumda `None` döndürüyor:
+
+1. Kullanıcı adı yok
+2. `aktif_mi = 0` — kullanıcı pasif
+3. Şifre yanlış
+
+Bunları ayırt etmenin tek yolu terminalde elle Python yazmaktı. Python'a yeni
+başlamış bir kullanıcı için bu, tırnak ve girinti hatasıyla dolu bir yol.
+
+## Çözüm
+
+`kullanici.py` — `teshis.py` / `liste_duzenle.py` / `yerel_kur.py` ile aynı
+ailede küçük bir yönetim aracı:
+
+```
+python3 kullanici.py                    kullanıcıları listele
+python3 kullanici.py sifre <kullanici>  şifresini değiştir
+python3 kullanici.py yeni               yeni kullanıcı ekle
+python3 kullanici.py aktif <kullanici>  girişe tekrar izin ver
+python3 kullanici.py pasif <kullanici>  girişi kapat
+```
+
+Argümansız çalıştırma sadece listelemiyor, **üç sebebi de hatırlatıyor** —
+teşhis araçlarının işi bu.
+
+## Kararlar
+
+**Şifre değişince açık oturumlar düşürülür.** `oturum` satırları siliniyor.
+Yoksa "şifreyi değiştirdim" yanıltıcı olurdu: eski şifreyle açılmış bir
+tarayıcı 12 saat daha çalışmaya devam ederdi.
+
+**Pasif kullanıcının şifresi değiştirilebilir, ama uyarı veriliyor.** Sıfırlayıp
+"neden hâlâ giremiyorum" demesin diye; `aktif` komutu ekranda gösteriliyor.
+
+**Pasif ≠ silinmiş.** Kullanıcı silinmiyor, `aktif_mi = 0` yapılıyor — girdiği
+kayıtlar `kullanici_id` ile bağlı, silmek geçmişi bozar. Projenin "silme = iptal
+işaretleme" kuralıyla aynı mantık.
+
+**Şifre karması hiçbir zaman ekrana yazılmaz.** Liste çıktısında `sifre_hash`
+kolonu yok.
+
+**Kullanıcı adı küçük harfe çevrilir.** `giris_yap` da öyle arıyor, yani `ONUR`
+ile `onur` aynı kullanıcı. Test edildi.
+
+## Test edildi
+
+- Listeleme; olmayan kullanıcı için anlaşılır hata
+- Şifre sıfırlama → eski şifre reddedildi, yenisi kabul edildi
+- 8 karakterden kısa ve birbirini tutmayan şifre reddedildi
+- Pasif yapma → giriş reddedildi; tekrar aktif → giriş kabul edildi
+- Pasif kullanıcının şifresi değiştirilince uyarı çıktı
+- Yeni kullanıcı eklendi; aynı kullanıcı adı ikinci kez reddedildi
+- Tarayıcıdan gerçek giriş: `ayse`, `onur` ve `ONUR` girdi, yanlış şifre giremedi

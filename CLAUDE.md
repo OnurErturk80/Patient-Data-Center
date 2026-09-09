@@ -62,6 +62,7 @@ Patient Data Center/
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
   liste_duzenle.py  seçim listelerini görüntüle / temizle
+  kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   yerel_kur.py      bu makinenin klasör yollarını ayarlar
   sifirdan_kur.py   boş veritabanı
   yedek.py          yedekleme (Windows'ta zamanlama kurulmadı)
@@ -246,7 +247,9 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
      `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.
 3. **HTTPS yok** — iç ağ dışına açılmamalı.
-4. **Kullanıcı yönetimi ekranı yok** — Python'dan yapılıyor.
+4. **Kullanıcı yönetimi ekranı yok** — `kullanici.py` ile yapılıyor (v6.10).
+   Listeleme, şifre sıfırlama, yeni kullanıcı, aktif/pasif. Arayüz ekranı
+   hâlâ yok; şifre sıfırlamak için terminale erişim gerekiyor.
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
    değişecek — ona sor.
