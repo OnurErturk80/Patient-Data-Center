@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "_gezinme.html" as gez %}
+{% import "_islem_yapan.html" as iy %}
+{% block ustbaslik %}OPU{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if goc_gerekli %}
+<div class="uyari">
+  OPU'yu yapan hekim henüz kaydedilmiyor.
+  Terminalde <code>python goc_025.py</code> çalıştır.
+</div>
+{% endif %}
+
+{% if hata %}
+<div class="uyari">{{ hata }}</div>
+{% endif %}
+
+<form method="post" action="/cycle/{{ c.id }}/opu">
+  <div class="kart" style="margin-top:12px">
+    <div class="alan">
+      <label for="opu_zamani">OPU zamanı</label>
+      <input id="opu_zamani" name="opu_zamani" type="datetime-local"
+             value="{{ c.opu_zamani[:16]|replace(' ','T') if c.opu_zamani else simdi }}">
+      <div class="ipucu">Varsayılan şu an. İşlem sonradan kaydediliyorsa değiştir.</div>
+    </div>
+
+    <div class="alan">
+      <label for="opu_sag_oosit">Sağ overden toplanan oosit</label>
+      <input id="opu_sag_oosit" name="opu_sag_oosit" type="number" min="0" step="1"
+             inputmode="numeric" value="{{ c.opu_sag_oosit if c.opu_sag_oosit is not none else '' }}">
+    </div>
+
+    <div class="alan">
+      <label for="opu_sol_oosit">Sol overden toplanan oosit</label>
+      <input id="opu_sol_oosit" name="opu_sol_oosit" type="number" min="0" step="1"
+             inputmode="numeric" value="{{ c.opu_sol_oosit if c.opu_sol_oosit is not none else '' }}">
+      <div class="ipucu">Boş bırakılırsa "girilmedi" olarak kalır, sıfır yazılmaz.</div>
+    </div>
+
+    {% if not goc_gerekli %}
+    <div class="alan">
+      <label for="opu_hekim">OPU'yu yapan hekim</label>
+      <input id="opu_hekim" name="opu_hekim" type="text" autocomplete="off"
+             placeholder="Ad soyad" value="{{ c.opu_hekim or '' }}">
+      <div class="ipucu">Oositleri aspire eden hekim.</div>
+    </div>
+    {% endif %}
+
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">Kaydet</button>
+    </div>
+  </div>
+</form>
+
+{% if c.opu_sag_oosit is not none or c.opu_sol_oosit is not none %}
+<div class="kart" style="margin-top:12px">
+  <h2>Özet</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>Toplanan oosit</dt>
+      <dd>{{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }}</dd></div>
+    <div class="veri"><dt>Folikül</dt>
+      <dd {% if c.folikul_sayisi is none %}class="yok"{% endif %}>{{ c.folikul_sayisi if c.folikul_sayisi is not none else 'girilmedi' }}</dd></div>
+  </dl>
+</div>
+{% endif %}
+
+{# İşlemi yapan = folikül sıvısını tarayıp oositleri bulan embriyolog.
+   Hekim ayrı bir alan (cycle.opu_hekim) — biri laboratuvar personeli değil. #}
+{{ iy.kutu(c.id, "opu", "Oositleri arayan embriyolog",
+           "Folikül sıvısını tarayıp oositleri bulan kişi.") }}
+{{ gez.cubuk(c, gezinme) }}
+{% endblock %}

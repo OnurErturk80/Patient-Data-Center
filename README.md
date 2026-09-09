@@ -1851,3 +1851,107 @@ o makinenin varsayılanı `D:\lab_yedek` olur — D: yoksa program hata verip du
 - `son_yedek` veritabanına yazıldı; uygulama ana ekranı taze yedekte uyarı
   göstermedi, tarih elle eskitilince "Son yedek 39 gün önce alındı" uyarısı çıktı
 - Arşiv kopyalama ve `integrity_check` doğrulaması bozulmadı
+
+---
+
+# v6.9 — OPU kendi ekranı + kurulum göçleri kendisi çalıştırıyor
+
+## Sorun 1: androloji ekranında seçenekler boş
+
+Kullanıcı yeni bir Windows kurulumunda üç şey bildirdi: androloji renk seçeneği
+yok, aglütinasyon seçeneği yok, OPU'da işlemi yapan alanı yok. İlk ikisi aynı
+kökten.
+
+`sifirdan_kur.py` şemayı `sema_guncel.sql`'den kurar. O dosya `goc_019`,
+`goc_021` ve `goc_022`'nin gerisinde kalmış. Temiz bir kurulum yapıp ölçtük:
+
+| Eksik | Etkisi |
+|---|---|
+| `sperm_gorunum` listesi | Renk seçeneği boş |
+| `sperm_aglutinasyon` listesi | Aglütinasyon seçeneği boş |
+| `sperm_analiz`'de 6 kolon | Aglütinasyon, morfoloji, vitalite, lökosit kaydedilemez |
+| `specimen.taraf` + `taraf` listesi | Denüdasyonda sağ/sol çalışmaz |
+| `olay.thaw_canlilik`, `thaw_kontrol_zamani` | Çözmede canlılık kaydı |
+| `tasiyici_tipi`, `tasiyici_renk` listeleri | Taşıyıcı ekranı |
+
+Yani hata androloji ile sınırlı değildi; kullanıcının henüz açmadığı üç ekran
+daha yarım çalışıyordu. Program **hata vermiyor** — sadece seçenekler boş
+görünüyor, sebebi ekrandan anlaşılmıyor. Tuzak #3'ün en pahalı hâli.
+
+### Çözüm: kurulum göçleri kendisi çalıştırır
+
+`sifirdan_kur.py` sonunda `goc_hepsi.py`'yi alt süreç olarak çalıştırıyor.
+Göçler zaten idempotent, tekrar çalışmalarının zararı yok. Başarısız olursa
+uyarı basıp elle komutu gösteriyor, kurulumu sessizce yarım bırakmıyor.
+
+`sema_guncel.sql`'i yeniden üretmek de bir seçenekti; kullanıcı bu yolu seçti.
+Göçler her kurulumda çalıştığı için sonuç aynı yere varıyor, ama
+`sema_guncel.sql` hâlâ güncel değil — CLAUDE.md onu "güncel şema referansı"
+diye tanımlıyor, artık öyle değil. Ayrı bir işte tazelenmeli.
+
+Doğrulandı — tek komutluk temiz kurulum sonrası:
+
+```
+sperm_gorunum      5 deger      specimen.taraf        var
+sperm_aglutinasyon 5 deger      olay.thaw_canlilik    var
+taraf              2 deger      sperm_analiz.aglutinasyon  var
+tasiyici_tipi      5 deger      cycle.opu_hekim       var
+tasiyici_renk      8 deger
+```
+
+## Sorun 2: OPU'da işlemi yapan yok
+
+Bu bir hata değildi — OPU aşama olarak tanımlı değildi. `ASAMA_SIRASI`'ndaki 10
+aşamanın hepsinde "işlemi yapan" kutusu var, ama OPU verileri (zaman, sağ/sol
+oosit sayısı) cycle formunda duruyordu, kendi ekranı yoktu.
+
+Kullanıcı kararı: **OPU'ya ayrı ekran, hem hekim hem embriyolog kaydedilsin.**
+
+### İki kişi, iki ayrı yer — neden
+
+| Kim | Nereye | Neden |
+|---|---|---|
+| **Hekim** (aspire eden) | `cycle.opu_hekim` | Laboratuvar personeli değil. `opu_zamani` ile aynı satırda, cycle verisi. |
+| **Embriyolog** (oositleri arayan) | `islem_yapan`, `asama='opu'` | Diğer on aşamayla aynı yol. Şema değişikliği gerekmiyor. |
+
+`islem_yapan` tablosunda `UNIQUE(cycle_id, asama)` var — aşama başına tek kişi.
+İkinci kişiyi oraya sığdırmak için `rol` kolonu eklemek ve bu kısıtı değiştirmek
+gerekirdi; bu on aşamanın tamamını etkiler. Hekim zaten laboratuvar aşamasını
+yapan kişi değil, dolayısıyla cycle verisi olarak durması hem daha doğru hem
+daha az riskli.
+
+### Aşama sırası
+
+OPU **en başa** kondu: oositlerin kaynağı, denüdasyondan önce gelir.
+
+- `ivf_icsi` → 11 aşama (OPU dahil)
+- `oosit_cryo` → OPU, denüdasyon, vitrifikasyon, çözme
+- `fet` → **OPU yok** — oosit toplanmaz, embriyo başka bir cycle'dan gelir
+
+Gezinme çubuğu, cycle detaydaki aşama düğmeleri ve `islem_yapan` doğrulaması
+`ASAMA_SIRASI`'ndan türediği için hepsi kendiliğinden güncellendi.
+
+### "İşlemi yapan" etiketi artık değiştirilebilir
+
+OPU'da iki kişi olduğu için alt kutunun "İşlemi yapan" demesi belirsiz kalıyordu.
+`_islem_yapan.html` makrosu isteğe bağlı `etiket` ve `ipucu` parametresi aldı;
+varsayılanlar aynı, **diğer on ekran hiç değişmedi** (test edildi). OPU'da
+"Oositleri arayan embriyolog" yazıyor.
+
+## Göç 025 ve göç çalıştırılmamış makine
+
+`goc_025.py` yalnızca `cycle.opu_hekim` kolonunu ekler.
+
+Göç çalıştırılmadan da ekran çalışmalı (tuzak #3). `opu_hekim_var()`,
+`thaw_cycle_var()` ile aynı kalıp: kolon yoksa ekranda göç uyarısı çıkar, hekim
+alanı gizlenir, diğer alanlar normal kaydedilir. Test edildi — kolonu silinmiş
+bir veritabanında ekran HTTP 200 verdi, uyarı göründü, kayıt çalıştı, 500 yok.
+
+## Test edildi
+
+- Temiz kurulum tek komutla eksiksiz (yukarıdaki tablo)
+- OPU ekranından zaman, sağ/sol oosit, hekim ve embriyolog kaydedildi;
+  veritabanında `cycle.opu_hekim` ve `islem_yapan(asama='opu')` doğrulandı
+- 11 aşama ekranının hepsi HTTP 200; diğer onunda etiket hâlâ "İşlemi yapan"
+- FET cycle'ında OPU görünmüyor, `ivf_icsi` ve `oosit_cryo`'da görünüyor
+- Göçsüz veritabanında OPU ekranı çökmüyor, uyarı gösteriyor

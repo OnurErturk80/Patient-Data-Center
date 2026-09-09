@@ -36,6 +36,8 @@ Bağımlılıklar: `fastapi uvicorn jinja2 python-multipart`. Python 3.10+.
 
 Veritabanı göçleri: `python3 goc_hepsi.py` (idempotent, sırayla hepsini
 çalıştırır). `goc_002.py` soru sorduğu için ayrıdır, elle çalıştırılır.
+`sifirdan_kur.py` sonunda göçleri **kendisi** çalıştırır (v6.9) — yeni kurulumda
+ayrıca çalıştırmaya gerek yok.
 
 ---
 
@@ -49,34 +51,34 @@ klasöründeydi):
 
 ```
 Patient Data Center/
-  app.py            ~2900 satır — TÜM rotalar burada
+  app.py            ~3300 satır — TÜM rotalar burada
   db.py             bağlantı ve yardımcılar
   guvenlik.py       oturum / kullanıcı
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
-  templates/        ~30 Jinja2 şablonu
+  templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..024.py   veritabanı göçleri (sırayla)
+  goc_002..025.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   yerel_kur.py      bu makinenin klasör yollarını ayarlar
   sifirdan_kur.py   boş veritabanı
-  yedek.py          yedekleme (HENÜZ KURULMADI)
-  sema_guncel.sql   güncel şema referansı
+  yedek.py          yedekleme (Windows'ta zamanlama kurulmadı)
+  sema_guncel.sql   şema referansı — GÜNCEL DEĞİL, bkz. bekleyen iş 7
 ```
 
 ---
 
 ## Klinik akış
 
-`Androloji → Denüdasyon → ICSI → Fertilizasyon → Gün 2/3 → Blastokist (gün 4-7)
-→ Vitrifikasyon → Çözme → Transfer → Gebelik sonucu`
+`OPU → Androloji → Denüdasyon → ICSI → Fertilizasyon → Gün 2/3 → Blastokist
+(gün 4-7) → Vitrifikasyon → Çözme → Transfer → Gebelik sonucu`
 
 Tedavi tipine göre hangi aşamaların görüneceği değişir:
-- `ivf_icsi` → 10 aşamanın hepsi (androloji dahil)
-- `fet` → çözme, transfer, gebelik
-- `oosit_cryo` → denüdasyon, vitrifikasyon, çözme
+- `ivf_icsi` → 11 aşamanın hepsi (OPU ve androloji dahil)
+- `fet` → çözme, transfer, gebelik (**OPU yok** — oosit toplanmaz)
+- `oosit_cryo` → OPU, denüdasyon, vitrifikasyon, çözme
 
 Aşama sırası ve tip-aşama eşlemesi `app.py` içinde `ASAMA_SIRASI` ve
 `TIP_ASAMALARI`. Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
@@ -155,7 +157,14 @@ tarayıcıdan mini PC'ye bağlanır. `arsiv/` ağa taşınabilir (`yerel_kur.py`
 ile karıştırma — biri "kim yaptı", diğeri "kim girdi". Paylaşılan parça
 `_islem_yapan.html`; değer Jinja global `islem_yapan_ad()` ile okunur. Yeni bir
 aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna `{{ iy.kutu(c.id, "<asama>") }}`
-ekle — gerisi otomatik (README v6.3).
+ekle — gerisi otomatik (README v6.3). Makro isteğe bağlı `etiket`/`ipucu` alır;
+varsayılanı değiştirme, sadece belirsizlik olan ekranda ver (v6.9).
+
+**Laboratuvar personeli olmayan kişi `islem_yapan`'a yazılmaz.** OPU'yu yapan
+hekim `cycle.opu_hekim` kolonunda, oositleri arayan embriyolog `islem_yapan`'da
+(`asama='opu'`). `UNIQUE(cycle_id, asama)` aşama başına tek kişi demek; ikinci
+bir kişi gerekiyorsa onu bu kısıtı gevşeterek değil, cycle verisi olarak ekle
+(README v6.9).
 
 ---
 
@@ -243,6 +252,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    değişecek — ona sor.
 6. **Bozuk tarih** — bir cycle'da OPU tarihi `0026-09-04` (yıl 4 haneli değil).
    Düzeltilmeli.
+7. **`sema_guncel.sql` güncel değil.** `goc_019`, `goc_021`, `goc_022` ve
+   `goc_025`'in getirdiklerini içermiyor. v6.9'da `sifirdan_kur.py` göçleri
+   kendisi çalıştırdığı için kurulum artık eksiksiz çıkıyor, ama dosyanın adı
+   yalan söylüyor. Mevcut şemadan yeniden üretilmeli.
 
 `goc_018.py` (endikasyon kopyalarını birleştirir) 2026-09-08'de bu makinede
 çalıştırıldı: `erkek faktoru` ve `tubal faktor` serbest metinleri resmi

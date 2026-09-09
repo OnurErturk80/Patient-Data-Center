@@ -1,20 +1,25 @@
 {# İşlemi yapan — her aşama ekranının en altında, elle girilen ad.
    Kaydı giren kullanıcıdan ayrıdır. Aşama başına tek değer.
    Kullanım:  {% import "_islem_yapan.html" as iy %}  ...  {{ iy.kutu(c.id, "denudasyon") }}
+
+   Etiket normalde "İşlemi yapan". OPU gibi iki ayrı kişinin kaydedildiği bir
+   aşamada hangisi olduğu belirsiz kalıyor; oralarda etiket ve ipucu dışarıdan
+   verilebilir (README v6.9). Diğer ekranlar hiç değişmez.
 #}
-{% macro kutu(cycle_id, asama) %}
+{% macro kutu(cycle_id, asama, etiket="İşlemi yapan",
+              ipucu="Bu aşamayı fiilen yapan kişi. Kaydı giren kişiden farklı olabilir.") %}
 <div class="kart" style="margin-top:16px">
   <form method="post" action="/cycle/{{ cycle_id }}/islem-yapan">
     <input type="hidden" name="asama" value="{{ asama }}">
     <div class="alan" style="border:0">
-      <label for="iy_{{ asama }}">İşlemi yapan</label>
+      <label for="iy_{{ asama }}">{{ etiket }}</label>
       <div style="display:flex;gap:8px">
         <input id="iy_{{ asama }}" name="yapan_ad" type="text" autocomplete="off"
                placeholder="Ad soyad" style="flex:1"
                value="{{ islem_yapan_ad(cycle_id, asama) }}">
         <button class="minidugme" type="submit" style="min-width:88px">Kaydet</button>
       </div>
-      <div class="ipucu">Bu aşamayı fiilen yapan kişi. Kaydı giren kişiden farklı olabilir.</div>
+      <div class="ipucu">{{ ipucu }}</div>
     </div>
   </form>
 </div>

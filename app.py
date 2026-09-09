@@ -3007,9 +3007,74 @@ async def denudasyon_zaman(request: Request, cycle_id: int):
     return RedirectResponse(f"/cycle/{cycle_id}/denudasyon", status_code=303)
 
 
+# ----------------------------------------------------------------------- OPU
+
+_OPU_HEKIM_KOLONU = None
+
+
+def opu_hekim_var() -> bool:
+    """`goc_025` çalıştırıldı mı — `cycle.opu_hekim` kolonu var mı.
+
+    Göç çalıştırılmadan ekran 500 vermesin diye (tuzak #3). Bir kez bakılır;
+    kolon sonradan eklenirse uygulama yeniden başlatılır.
+    """
+    global _OPU_HEKIM_KOLONU
+    if _OPU_HEKIM_KOLONU is None:
+        _OPU_HEKIM_KOLONU = any(
+            r["name"] == "opu_hekim" for r in db.sorgu("PRAGMA table_info(cycle)"))
+    return _OPU_HEKIM_KOLONU
+
+
+@uygulama.get("/cycle/{cycle_id}/opu")
+def opu_ekran(request: Request, cycle_id: int, hata: str = ""):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id=c.hasta_id WHERE c.id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    from datetime import datetime as _d
+    return sablon.TemplateResponse(
+        request, "opu.html",
+        {"c": c, "hata": hata,
+         "goc_gerekli": not opu_hekim_var(),
+         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+         "gezinme": asama_gezinme(cycle_id, "opu")})
+
+
+@uygulama.post("/cycle/{cycle_id}/opu")
+async def opu_kaydet(request: Request, cycle_id: int):
+    from urllib.parse import quote
+    f = dict(await request.form())
+    c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    try:
+        yeni = {
+            "opu_zamani": zaman(f.get("opu_zamani")),
+            "opu_sag_oosit": tam(f.get("opu_sag_oosit"), "Sağ over oosit sayısı"),
+            "opu_sol_oosit": tam(f.get("opu_sol_oosit"), "Sol over oosit sayısı"),
+        }
+    except FormHatasi as e:
+        return RedirectResponse(f"/cycle/{cycle_id}/opu?hata={quote(str(e))}",
+                                status_code=303)
+
+    # Hekim adı yalnızca göç çalıştıysa yazılır; yoksa ekranda uyarı görünür.
+    if opu_hekim_var():
+        yeni["opu_hekim"] = bos_ise_none(f.get("opu_hekim"))
+
+    guvenlik.degisiklikleri_yaz("cycle", cycle_id, c, yeni,
+                                request.state.kullanici["id"])
+    kolonlar = ", ".join(f"{k}=?" for k in yeni)
+    db.yaz(f"UPDATE cycle SET {kolonlar} WHERE id=?",
+           (*yeni.values(), cycle_id))
+    return RedirectResponse(f"/cycle/{cycle_id}/opu", status_code=303)
+
+
 # ----------------------------------------------------------------- aşama gezinme
 
 ASAMA_SIRASI = [
+    ("opu", "OPU", "/cycle/{id}/opu"),
     ("androloji", "Androloji", "/cycle/{id}/androloji"),
     ("denudasyon", "Denüdasyon", "/cycle/{id}/denudasyon"),
     ("icsi", "ICSI", "/cycle/{id}/icsi"),
@@ -3024,10 +3089,11 @@ ASAMA_SIRASI = [
 
 
 TIP_ASAMALARI = {
-    "ivf_icsi": ["androloji", "denudasyon", "icsi", "fert", "cleavage", "blast",
-                 "vitrifikasyon", "thaw", "transfer", "gebelik"],
+    "ivf_icsi": ["opu", "androloji", "denudasyon", "icsi", "fert", "cleavage",
+                 "blast", "vitrifikasyon", "thaw", "transfer", "gebelik"],
+    # FET'te oosit toplanmaz — embriyo baska bir cycle'dan gelir
     "fet": ["thaw", "transfer", "gebelik"],
-    "oosit_cryo": ["denudasyon", "vitrifikasyon", "thaw"],
+    "oosit_cryo": ["opu", "denudasyon", "vitrifikasyon", "thaw"],
 }
 
 

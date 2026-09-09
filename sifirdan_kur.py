@@ -1,10 +1,11 @@
 """Sıfırdan güncel bir veritabanı kurar.
 
 Yeni bir makinede (veya temiz bir test veritabanı için) tek komutla:
-  - güncel şemayı oluşturur (tüm göçler uygulanmış hali)
-  - seçim listelerini ve varsayılan ayarları doldurur
+  - şemayı oluşturur ve seçim listeleri ile varsayılan ayarları doldurur
   - bir kullanıcı oluşturur ve şifresini sorar
   - bu makineye uygun klasör ayarlarını yazar
+  - **göçleri çalıştırır** — `sema_guncel.sql` göçlerin gerisinde kalabiliyor,
+    kuran kişinin `goc_hepsi.py`'yi hatırlamasına güvenilmiyor (README v6.9)
 
 Mevcut lab.db varsa DOKUNMAZ — önce yeniden adlandırman gerekir.
 
@@ -15,6 +16,7 @@ import getpass
 import json
 import platform
 import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 
@@ -190,6 +192,25 @@ if not hedef.exists():
         print(f"  {k:24s} = {v}")
     print("Yollar yanlissa dosyayi metin editoruyle duzelt.")
 
-print("\nKurulum tamam. Baslatmak icin:")
+# ------------------------------------------------------------------- gocler
+# `sema_guncel.sql` gocler kadar hizli guncellenmiyor: yeni bir kolonu ya da
+# secim listesini yalnizca goc dosyasi getiriyor olabilir. Kuran kisinin
+# `goc_hepsi.py`'yi ayrica calistirmayi hatirlamasina guvenmek bir kez
+# tutmadi -- androloji ekraninda renk ve aglutinasyon secenekleri bos geldi,
+# sebebi ekrandan anlasilmiyordu (README v6.9, tuzak #3). Gocler idempotent,
+# tekrar calismalarinin zarari yok; bu yuzden kurulumun parcasi.
+print("\nGocler calistiriliyor...")
 komut = "python" if sistem == "Windows" else "python3"
+sonuc = subprocess.run([sys.executable, str(KOK / "goc_hepsi.py")],
+                       capture_output=True, text=True)
+son_satirlar = [x for x in sonuc.stdout.strip().splitlines() if x.strip()]
+for satir in son_satirlar[-6:]:
+    print("  " + satir)
+if sonuc.returncode != 0:
+    print("\n  UYARI: gocler tamamlanamadi. Elle calistir:")
+    print(f"    {komut} goc_hepsi.py")
+    if sonuc.stderr.strip():
+        print("  " + sonuc.stderr.strip().splitlines()[-1])
+
+print("\nKurulum tamam. Baslatmak icin:")
 print(f"  {komut} -m uvicorn app:uygulama --host 0.0.0.0 --port 8000")
