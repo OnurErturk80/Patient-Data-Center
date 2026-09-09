@@ -2267,3 +2267,64 @@ bir istek olarak gelmiyor. Tek işlemde (`db.yazma_islemi`).
   `islem_yapan(transfer)` satırı oluşmadı
 - Yeni kullanıcı hem ekrandan hem terminalden 15/15 izinle açıldı
 - `yetki` tablosu yokken kimse ekran kaybetmedi
+
+---
+
+# v6.15 — tanımsız rol tek tıkla yönetici yapıyordu
+
+## Hata
+
+Kullanıcının makinesinde `androlog` diye bir rol çıktı. `kullanici.rol` serbest
+metin bir kolon (CHECK yok) ve `kullanici.py yeni` ne yazılırsa kabul ediyordu.
+
+v6.13'te eklediğim rol seçicisi yalnızca iki seçenek gösteriyor:
+
+```html
+{% for kod, ad in roller %}   <!-- yonetici, embriyolog -->
+<option value="{{ kod }}" {% if k.rol == kod %}selected{% endif %}>
+```
+
+`androlog` hiçbiriyle eşleşmediği için **hiçbir seçenek `selected` olmuyor** —
+tarayıcı da bu durumda ilk seçeneği gösteriyor: *Yönetici*. Ekranda o kullanıcı
+yöneticiymiş gibi duruyor ve "Rolü değiştir"e bir tık, onu gerçekten yönetici
+yapıyordu. Üstelik yönetici rolü tüm modül izinlerini de baypas ediyor.
+
+Doğrulandı:
+
+```
+veritabanindaki rol : androlog
+secicide gorunen    : yonetici     <<< tek tikla gercek olurdu
+```
+
+## Düzeltme
+
+**1. Tanımsız rol kendi adıyla ve seçili gösteriliyor:**
+
+```
+secenekler : ['androlog — tanımsız', 'Yönetici', 'Embriyolog']
+```
+
+**2. Değişmemiş rol artık no-op.** Doğrulama sonraya alındı; seçiciye
+dokunmadan kaydedilirse hiçbir şey olmuyor (önceki sırada "Geçersiz rol"
+hatası verirdi).
+
+**3. Yeni tanımsız rol üretilemiyor.** `kullanici.py yeni` artık serbest metin
+kabul etmiyor, listeyi gösterip reddediyor ve doğru mekanizmayı söylüyor:
+kim hangi ekrana girer sorusunu **rol değil, modül izinleri** belirler.
+
+Mevcut tanımsız roller olduğu gibi çalışmaya devam ediyor — yönetici olmayan
+kullanıcı sayılıyorlar, ki zaten davranışları buydu.
+
+## Ders
+
+Bir `<select>`'i veritabanındaki bir değerle beslerken, o değerin listede
+olmama ihtimalini hep düşün. Sessiz sonuç en kötüsü: hiçbir hata çıkmıyor,
+sadece ekran yanlış şeyi gösteriyor ve bir tık yetkiyi yükseltiyor.
+CLAUDE.md tuzak #6.
+
+## Test edildi
+
+- `androlog` rollü kullanıcı seçicide kendi adıyla ve seçili görünüyor
+- Seçiciye dokunmadan kaydedince rol değişmiyor
+- Bilerek "Embriyolog" seçilince normal çalışıyor
+- `kullanici.py yeni` tanımsız rolü reddediyor

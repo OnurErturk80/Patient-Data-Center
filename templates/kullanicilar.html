@@ -53,6 +53,12 @@
     <form method="post" action="/kullanici/{{ k.id }}/rol"
           style="display:flex;gap:8px;margin-top:10px;align-items:center">
       <select name="rol" style="flex:1">
+        {# Tanımsız rol (eski kayıtlarda `androlog` gibi) kendi adıyla ve seçili
+           görünmeli. Yoksa tarayıcı ilk seçeneği gösterir ve tek tıkla kullanıcı
+           farkında olmadan yönetici olur — v6.15'te bu hata düzeltildi. #}
+        {% if k.rol not in roller|map(attribute=0)|list %}
+        <option value="{{ k.rol }}" selected>{{ k.rol }} — tanımsız</option>
+        {% endif %}
         {% for kod, ad in roller %}
         <option value="{{ kod }}" {% if k.rol == kod %}selected{% endif %}>{{ ad }}</option>
         {% endfor %}

@@ -174,6 +174,13 @@ yoksa kimse o ekrana giremez. Yeni kullanıcı **tüm** modülleri alır
 (`tum_yetkileri_ver`); kısıtlama yöneticinin bilinçli olarak kaldırdığı
 kutulardan doğar, boş bırakılmışlıktan değil (README v6.14).
 
+**`rol` serbest metin bir kolon, CHECK yok.** Kodda anlamlı olan tek değer
+`yonetici`; başka her şey (eski kayıtlardaki `androlog` gibi) yönetici olmayan
+kullanıcı demek. Rol seçicide **tanımsız rol kendi adıyla ve seçili
+gösterilmeli** — yoksa tarayıcı ilk seçeneği gösterir ve tek tıkla kullanıcı
+farkında olmadan yönetici olur (v6.15'te gerçekten böyleydi, düzeltildi).
+Kim hangi ekrana girer sorusunu rol değil, modül izinleri belirler.
+
 **Yetki: `rol='yonetici'` kullanıcı yönetimine girer.** v6.11'e kadar `rol`
 hiçbir yerde kontrol edilmiyordu. Yeni bir yönetici rotası yazarsan başına
 `yonetici_kontrol(request)` koy — ekranda düğmeyi gizlemek yetmez, sunucu da
@@ -258,12 +265,19 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 5. **Şablon değişikliği sessizce tutmayabilir.** Değiştirdiğin ekranı tarayıcıda
    gerçekten aç.
 
-6. **Es zamanli kullanici var.** Klinikte birkac telefon ayni anda kayit
+6. **Serbest metin bir kolonu sabit bir listeyle eşleştirirken dikkat.**
+   `kullanici.rol` serbest metin; `androlog` diye elle yazılmış bir rol vardı.
+   Rol seçicisi yalnızca `yonetici`/`embriyolog` gösterdiği için tarayıcı ilk
+   seçeneği seçili sanıyor ve "Rolü değiştir" tek tıkla o kişiyi **yönetici**
+   yapıyordu. Bir `<select>`'i veritabanındaki değerle beslerken, değerin
+   listede olmama ihtimalini hep düşün (v6.15).
+
+7. **Es zamanli kullanici var.** Klinikte birkac telefon ayni anda kayit
    giriyor. Yeni bir "siradaki numara" mantigi yazarsan `db.yazma_islemi()`
    kullan, yoksa UNIQUE hatasi alan personelin girdigi kayit kaybolur
    (v6.6'da denudasyonda oosit numarasi tam olarak boyle patliyordu).
 
-7. **Ayarı iki yerden okuma — `yedek.py` tam bunu yapıyordu (v6.8'de
+8. **Ayarı iki yerden okuma — `yedek.py` tam bunu yapıyordu (v6.8'de
    düzeltildi).** Kendi `ayar()` fonksiyonu `yerel_ayar.json`'ı düz sözlük
    sanıyordu; `db.py` dosyayı `{"makine-adi": {...}}` biçimine çevirince
    sessizce DB'deki Windows yoluna (`E:\yedek`) düşüyor, Mac'te cwd altında

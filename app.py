@@ -762,10 +762,13 @@ async def kullanici_rol(request: Request, kid: int):
         return RedirectResponse(f"/kullanicilar?hata={quote(m)}", status_code=303)
 
     yeni_rol = (f.get("rol") or "").strip()
-    if yeni_rol not in ROLLER:
-        return hata("Geçersiz rol.")
+    # Değişmemiş rolü önce eleyelim: `rol` serbest metin bir kolon, eski
+    # kayıtlarda `androlog` gibi tanımsız değerler olabiliyor. Kullanıcı
+    # seçiciye dokunmadan kaydederse bu bir hata değil, hiçbir şey yapmamalı.
     if yeni_rol == k["rol"]:
         return RedirectResponse("/kullanicilar", status_code=303)
+    if yeni_rol not in ROLLER:
+        return hata("Geçersiz rol.")
     if (k["rol"] == "yonetici" and k["aktif_mi"]
             and aktif_yonetici_sayisi() <= 1):
         return hata("Tek aktif yönetici bu. Rolü düşürülürse yönetim "

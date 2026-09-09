@@ -108,7 +108,14 @@ def yeni_kullanici():
     if bul(kadi):
         sys.exit(f"'{kadi}' zaten var. Sifresini degistirmek icin: "
                  f"python3 kullanici.py sifre {kadi}")
-    rol = input("  Rol (embriyolog) : ").strip() or "embriyolog"
+    # Serbest metin kabul etmek `androlog` gibi tanimsiz roller uretiyordu;
+    # bunlar kodda hicbir anlama gelmiyor ama ekranda karisiklik yaratiyor.
+    rol = (input(f"  Rol ({'/'.join(ROLLER)}) [embriyolog] : ").strip().lower()
+           or "embriyolog")
+    if rol not in ROLLER:
+        sys.exit(f"Rol '{rol}' gecersiz. Secenekler: {', '.join(ROLLER)}\n"
+                 "Kimin hangi ekrana girecegini rol degil, arayuzdeki "
+                 "'Erisebilecegi ekranlar' kutulari belirler.")
     sifre = _sifre_sor()
     yeni_id = db.yaz("INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
                      "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
