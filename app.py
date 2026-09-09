@@ -16,7 +16,7 @@ uygulama = FastAPI(title="Lab Kayit")
 uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
-ACIK_YOLLAR = {"/giris"}
+ACIK_YOLLAR = {"/giris", "/sifremi-unuttum"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
 TIP_KISA = {"ivf_icsi": "IVF/ICSI", "fet": "FET", "oosit_cryo": "Oosit cryo",
@@ -190,8 +190,9 @@ async def oturum_kontrolu(request: Request, sonraki):
 
 
 @uygulama.get("/giris")
-def giris_ekrani(request: Request, hata: str = ""):
-    return sablon.TemplateResponse(request, "giris.html", {"hata": hata})
+def giris_ekrani(request: Request, hata: str = "", sifre: int = 0):
+    return sablon.TemplateResponse(request, "giris.html",
+                                   {"hata": hata, "sifre_degisti": sifre})
 
 
 @uygulama.post("/giris")
@@ -215,6 +216,313 @@ def cikis(request: Request):
     yanit = RedirectResponse("/giris", status_code=303)
     yanit.delete_cookie(guvenlik.CEREZ_ADI)
     return yanit
+
+
+# ------------------------------------------------------- kullanıcı yönetimi
+
+MIN_SIFRE = 8
+
+# Kullanıcı silmeyi engelleyen tablolar: (tablo, kolon, ekranda görünen ad).
+# `oturum` burada yok — o veri değil, açık tarayıcı; silmekle geçmiş bozulmaz.
+KULLANICI_KAYITLARI = [
+    ("goruntu", "kullanici_id", "fotoğraf"),
+    ("olay", "kullanici_id", "olay"),
+    ("olay", "iptal_kullanici_id", "iptal ettiği olay"),
+    ("specimen_bulgu", "kullanici_id", "bulgu"),
+    ("sperm_ornek", "kullanici_id", "sperm örneği"),
+    ("sperm_analiz", "kullanici_id", "sperm analizi"),
+    ("tasiyici", "kullanici_id", "taşıyıcı"),
+    ("islem_yapan", "kullanici_id", "işlemi yapan kaydı"),
+    ("pgt_sonuc", "kaydeden_kullanici_id", "PGT sonucu"),
+    ("degisiklik_log", "kullanici_id", "değişiklik kaydı"),
+]
+
+
+def kullanici_kayitlari(kid: int):
+    """Bu kullanıcının girdiği kayıtlar — kalıcı silmeyi engelleyenler.
+
+    11 tablo `kullanici.id`'ye bağlı. Kayıt girmiş bir kullanıcıyı fiziksel
+    silmek "bu blastokisti kim değerlendirdi" sorusunu cevapsız bırakır ve
+    FOREIGN KEY hatası verir. Projenin kuralı: silme = pasif yapma.
+    """
+    bulunan = []
+    for tablo, kolon, ad in KULLANICI_KAYITLARI:
+        try:
+            n = db.tek(f"SELECT COUNT(*) n FROM {tablo} WHERE {kolon} = ?",
+                       (kid,))["n"]
+        except sqlite3.Error:
+            continue                      # tablo yoksa (göç çalışmamış) atla
+        if n:
+            bulunan.append({"ad": ad, "sayi": n})
+    return bulunan
+
+
+def aktif_yonetici_sayisi() -> int:
+    return db.tek("SELECT COUNT(*) n FROM kullanici WHERE lab_id = ? "
+                  "AND rol = 'yonetici' AND aktif_mi = 1", (db.LAB_ID,))["n"]
+
+
+def yonetici_mi(k) -> bool:
+    return bool(k) and k["rol"] == "yonetici"
+
+
+def sifre_gecerli(yeni: str, tekrar: str):
+    """Hata metni döndürür, sorun yoksa None."""
+    if yeni != tekrar:
+        return "Yeni şifreler birbirini tutmuyor."
+    if len(yeni) < MIN_SIFRE:
+        return f"Şifre en az {MIN_SIFRE} karakter olmalı."
+    return None
+
+
+def sifre_yaz(kid: int, yeni: str, oturum_dusur: bool = True):
+    """Şifreyi değiştirir ve o kullanıcının açık oturumlarını kapatır.
+
+    Oturumlar düşmezse "şifreyi değiştirdim" yanıltıcı olur: eski şifreyle
+    açılmış bir tarayıcı 12 saat daha çalışmaya devam eder (README v6.11).
+    """
+    db.yaz("UPDATE kullanici SET sifre_hash = ? WHERE id = ?",
+           (guvenlik.sifrele(yeni), kid))
+    if oturum_dusur:
+        db.yaz("DELETE FROM oturum WHERE kullanici_id = ?", (kid,))
+
+
+@uygulama.get("/sifremi-unuttum")
+def sifremi_unuttum(request: Request):
+    """Giriş gerektirmez. Hiçbir şey sıfırlamaz — kime başvurulacağını söyler.
+
+    Sistemde e-posta/SMS yok, yani kimliği doğrulayacak ikinci bir kanal yok.
+    Doğrulamasız sıfırlama iç ağdaki herkese yönetici şifresini değiştirme
+    hakkı verirdi (HTTPS de yok). Bu yüzden sıfırlamayı yönetici yapar.
+    Kullanıcı adı listelenmez — giriş yapmamış birine kim olduğunu söylemez.
+    """
+    return sablon.TemplateResponse(request, "sifremi_unuttum.html", {})
+
+
+@uygulama.get("/sifre")
+def sifre_ekran(request: Request, hata: str = "", tamam: int = 0):
+    return sablon.TemplateResponse(
+        request, "sifre.html",
+        {"kullanici": request.state.kullanici, "hata": hata, "tamam": tamam})
+
+
+@uygulama.post("/sifre")
+async def sifre_kaydet(request: Request):
+    from urllib.parse import quote
+    f = dict(await request.form())
+    k = request.state.kullanici
+
+    def hata(m):
+        return RedirectResponse(f"/sifre?hata={quote(m)}", status_code=303)
+
+    # Mevcut şifre şart: açık kalmış bir tarayıcıyı bulan biri şifreyi
+    # değiştirip hesabı ele geçiremesin.
+    tam = db.tek("SELECT * FROM kullanici WHERE id = ?", (k["id"],))
+    if not guvenlik.dogrula(f.get("mevcut") or "", tam["sifre_hash"]):
+        return hata("Mevcut şifre yanlış.")
+
+    yeni = f.get("yeni") or ""
+    m = sifre_gecerli(yeni, f.get("yeni2") or "")
+    if m:
+        return hata(m)
+    if guvenlik.dogrula(yeni, tam["sifre_hash"]):
+        return hata("Yeni şifre eskisiyle aynı.")
+
+    sifre_yaz(k["id"], yeni)
+    # Kendi oturumu da düştü — yeniden giriş yapmalı.
+    yanit = RedirectResponse("/giris?sifre=1", status_code=303)
+    yanit.delete_cookie(guvenlik.CEREZ_ADI)
+    return yanit
+
+
+# --------------------------------------------- yönetici: kullanıcı listesi
+
+def yonetici_kontrol(request: Request):
+    """Yönetici değilse yönlendirme döndürür, yöneticiyse None.
+
+    `rol` kolonu v6.11'e kadar hiçbir yerde kontrol edilmiyordu — giriş yapan
+    herkes her şeyi yapabiliyordu. Kullanıcı silme ekranı bunu zorunlu kıldı:
+    yetki kontrolü olmadan herhangi bir personel yöneticiyi silebilirdi.
+    """
+    if not yonetici_mi(request.state.kullanici):
+        return RedirectResponse("/hastalar", status_code=303)
+    return None
+
+
+@uygulama.get("/kullanicilar")
+def kullanicilar_ekran(request: Request, hata: str = "", bilgi: str = ""):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(
+        request, "kullanicilar.html",
+        {"kullanici": request.state.kullanici,
+         "liste": db.sorgu(
+             "SELECT id, kullanici_adi, ad_soyad, kisa_kod, rol, aktif_mi "
+             "FROM kullanici WHERE lab_id = ? ORDER BY aktif_mi DESC, "
+             "kullanici_adi", (db.LAB_ID,)),
+         "yonetici_sayisi": aktif_yonetici_sayisi(),
+         "min_sifre": MIN_SIFRE, "hata": hata, "bilgi": bilgi})
+
+
+@uygulama.post("/kullanicilar/yeni")
+async def kullanici_yeni(request: Request):
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = dict(await request.form())
+
+    def hata(m):
+        return RedirectResponse(f"/kullanicilar?hata={quote(m)}", status_code=303)
+
+    ad = (f.get("ad_soyad") or "").strip()
+    kadi = (f.get("kullanici_adi") or "").strip().lower()
+    if not ad:
+        return hata("Ad soyad boş olamaz.")
+    if not kadi:
+        return hata("Kullanıcı adı boş olamaz.")
+    if not kadi.isascii() or not kadi.replace(".", "").replace("_", "").isalnum():
+        return hata("Kullanıcı adı sadece harf, rakam, nokta ve alt çizgi "
+                    "içerebilir (Türkçe karakter kullanma).")
+    if db.tek("SELECT 1 FROM kullanici WHERE lab_id = ? AND kullanici_adi = ?",
+              (db.LAB_ID, kadi)):
+        return hata(f"'{kadi}' zaten kullanılıyor.")
+
+    m = sifre_gecerli(f.get("sifre") or "", f.get("sifre2") or "")
+    if m:
+        return hata(m)
+
+    rol = "yonetici" if (f.get("rol") or "") == "yonetici" else "embriyolog"
+    kod = ((f.get("kisa_kod") or "").strip() or ad[:2]).upper()
+    db.yaz("INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
+           "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
+           (db.LAB_ID, ad, kod, rol, kadi, guvenlik.sifrele(f.get("sifre"))))
+    return RedirectResponse(
+        f"/kullanicilar?bilgi={quote(kadi + ' eklendi.')}", status_code=303)
+
+
+@uygulama.post("/kullanici/{kid}/sifre")
+async def kullanici_sifre_sifirla(request: Request, kid: int):
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = dict(await request.form())
+    k = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND id = ?",
+               (db.LAB_ID, kid))
+    if not k:
+        return RedirectResponse("/kullanicilar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(f"/kullanicilar?hata={quote(m)}", status_code=303)
+
+    m = sifre_gecerli(f.get("sifre") or "", f.get("sifre2") or "")
+    if m:
+        return hata(f"{k['kullanici_adi']}: {m}")
+
+    sifre_yaz(kid, f.get("sifre"))
+    mesaj = (f"{k['kullanici_adi']} kullanıcısının şifresi değiştirildi, "
+             "açık oturumları kapatıldı.")
+    if not k["aktif_mi"]:
+        mesaj += " Kullanıcı PASİF olduğu için yine de giriş yapamaz."
+    if kid == request.state.kullanici["id"]:
+        yanit = RedirectResponse("/giris?sifre=1", status_code=303)
+        yanit.delete_cookie(guvenlik.CEREZ_ADI)
+        return yanit
+    return RedirectResponse(f"/kullanicilar?bilgi={quote(mesaj)}", status_code=303)
+
+
+@uygulama.post("/kullanici/{kid}/durum")
+async def kullanici_durum(request: Request, kid: int):
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = dict(await request.form())
+    k = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND id = ?",
+               (db.LAB_ID, kid))
+    if not k:
+        return RedirectResponse("/kullanicilar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(f"/kullanicilar?hata={quote(m)}", status_code=303)
+
+    ac = (f.get("eylem") or "") == "aktif"
+    if not ac:
+        # Kilitlenme koruması: son yöneticiyi kapatan kimse kalmaz.
+        if kid == request.state.kullanici["id"]:
+            return hata("Kendi hesabını pasif yapamazsın.")
+        if k["rol"] == "yonetici" and aktif_yonetici_sayisi() <= 1:
+            return hata("Tek yönetici bu — pasif yapılırsa kullanıcı yönetimi "
+                        "ekranına kimse giremez. Önce başka bir yönetici ekle.")
+
+    db.yaz("UPDATE kullanici SET aktif_mi = ? WHERE id = ?",
+           (1 if ac else 0, kid))
+    if not ac:
+        db.yaz("DELETE FROM oturum WHERE kullanici_id = ?", (kid,))
+        mesaj = (f"{k['kullanici_adi']} pasif yapıldı, açık oturumları "
+                 "kapatıldı. Girdiği kayıtlar duruyor.")
+    else:
+        mesaj = f"{k['kullanici_adi']} tekrar giriş yapabilir."
+    return RedirectResponse(f"/kullanicilar?bilgi={quote(mesaj)}", status_code=303)
+
+
+@uygulama.get("/kullanici/{kid}/sil")
+def kullanici_sil_ekran(request: Request, kid: int, hata: str = ""):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    k = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND id = ?",
+               (db.LAB_ID, kid))
+    if not k:
+        return RedirectResponse("/kullanicilar", status_code=303)
+    kayitlar = kullanici_kayitlari(kid)
+    return sablon.TemplateResponse(
+        request, "kullanici_sil.html",
+        {"kullanici": request.state.kullanici, "k": k, "kayitlar": kayitlar,
+         "kendisi": kid == request.state.kullanici["id"],
+         "son_yonetici": k["rol"] == "yonetici" and aktif_yonetici_sayisi() <= 1,
+         "hata": hata})
+
+
+@uygulama.post("/kullanici/{kid}/sil")
+async def kullanici_sil(request: Request, kid: int):
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = dict(await request.form())
+    k = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND id = ?",
+               (db.LAB_ID, kid))
+    if not k:
+        return RedirectResponse("/kullanicilar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(f"/kullanici/{kid}/sil?hata={quote(m)}",
+                                status_code=303)
+
+    if kid == request.state.kullanici["id"]:
+        return hata("Kendi hesabını silemezsin.")
+    if k["rol"] == "yonetici" and aktif_yonetici_sayisi() <= 1:
+        return hata("Tek yönetici bu — silinirse kullanıcı yönetimine kimse "
+                    "giremez. Önce başka bir yönetici ekle.")
+    if (f.get("onay") or "").strip().lower() != k["kullanici_adi"]:
+        return hata("Kullanıcı adı doğru yazılmadı.")
+    if (f.get("onay2") or "").strip().upper() != "SIL":
+        return hata("Kalıcı silme için ikinci kutuya SIL yazılmalı.")
+
+    kayitlar = kullanici_kayitlari(kid)
+    if kayitlar:
+        toplam = sum(x["sayi"] for x in kayitlar)
+        return hata(f"Bu kullanıcının {toplam} kaydı var; kalıcı silinemez. "
+                    "Pasif yap — kayıtlar kime ait olduğunu kaybetmesin.")
+
+    db.yaz("DELETE FROM oturum WHERE kullanici_id = ?", (kid,))
+    db.yaz("DELETE FROM kullanici WHERE id = ?", (kid,))
+    return RedirectResponse(
+        f"/kullanicilar?bilgi={quote(k['kullanici_adi'] + ' kalıcı olarak silindi.')}",
+        status_code=303)
 
 
 def yedek_durumu():

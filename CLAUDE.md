@@ -161,6 +161,29 @@ aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna `{{ iy.kutu(c.id, "<asama>") 
 ekle — gerisi otomatik (README v6.3). Makro isteğe bağlı `etiket`/`ipucu` alır;
 varsayılanı değiştirme, sadece belirsizlik olan ekranda ver (v6.9).
 
+**Yetki: `rol='yonetici'` kullanıcı yönetimine girer.** v6.11'e kadar `rol`
+hiçbir yerde kontrol edilmiyordu. Yeni bir yönetici rotası yazarsan başına
+`yonetici_kontrol(request)` koy — ekranda düğmeyi gizlemek yetmez, sunucu da
+reddetmeli (hasta silmedeki kuralın aynısı).
+
+**Kullanıcı silme = pasif yapma.** 11 tablo `kullanici.id`'ye bağlı; kayıt
+girmiş kullanıcı kalıcı silinemez — ekranda seçenek görünmez, sunucu da
+reddeder. Kalıcı silme yalnızca hiç kaydı olmayan hesaplar için, kullanıcı
+adı + `SIL` + tarayıcı onayı ile. **Son aktif yönetici pasif yapılamaz ve
+silinemez** (kilitlenme koruması). Yeni bir tabloya `kullanici_id` eklersen
+`KULLANICI_KAYITLARI` listesine de ekle, yoksa silme FOREIGN KEY hatası verir
+(README v6.11).
+
+**Şifre değişince o kullanıcının açık oturumları düşer.** `sifre_yaz()` bunu
+kendisi yapar; ayrı bir yol yazma. Yoksa eski şifreyle açılmış tarayıcı 12 saat
+daha çalışır.
+
+**"Şifremi unuttum" hiçbir şey sıfırlamaz.** Sistemde e-posta/SMS yok, kimliği
+doğrulayacak ikinci kanal yok; doğrulamasız sıfırlama iç ağdaki herkese yönetici
+şifresini değiştirme hakkı verirdi (HTTPS de yok). Sayfa kullanıcı adı da
+listelemez. Sıfırlamayı yönetici yapar; yönetici de kilitlenirse `kullanici.py`.
+Bu kararı gevşetme (README v6.11).
+
 **Laboratuvar personeli olmayan kişi `islem_yapan`'a yazılmaz.** **OPU Hekimi**
 `cycle.opu_hekim` kolonunda, **OPU Embriyoloğu** `islem_yapan`'da
 (`asama='opu'`). `UNIQUE(cycle_id, asama)` aşama başına tek kişi demek; ikinci
@@ -247,9 +270,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
      `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.
 3. **HTTPS yok** — iç ağ dışına açılmamalı.
-4. **Kullanıcı yönetimi ekranı yok** — `kullanici.py` ile yapılıyor (v6.10).
-   Listeleme, şifre sıfırlama, yeni kullanıcı, aktif/pasif. Arayüz ekranı
-   hâlâ yok; şifre sıfırlamak için terminale erişim gerekiyor.
+4. **Kullanıcı yönetimi — v6.11'de arayüze taşındı.** Yönetici `/kullanicilar`
+   ekranından ekler, şifre sıfırlar, pasif yapar, siler; herkes `/sifre`'den
+   kendi şifresini değiştirir. `kullanici.py` terminal aracı duruyor — yönetici
+   de kilitlenirse tek çıkış yolu o.
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
    değişecek — ona sor.

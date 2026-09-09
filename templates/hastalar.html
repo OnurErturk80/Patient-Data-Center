@@ -10,7 +10,11 @@
 
 {% if arsiv %}<a class="dugme ikincil" href="/hastalar">Aktif hastalara dön</a>
 {% else %}<a class="dugme" href="/hasta/yeni">Yeni hasta</a>
-<a class="dugme ikincil" href="/cryo">Cryo haritası</a>{% endif %}
+<a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+{% if kullanici.rol == "yonetici" %}
+<a class="dugme ikincil" href="/kullanicilar">Kullanıcılar</a>
+{% endif %}
+<a class="dugme ikincil" href="/sifre">Şifre değiştir</a>{% endif %}
 
 <div class="kart">
   <h2>{% if arsiv %}Arşiv{% elif ara %}Arama sonucu{% else %}Son kayıtlar{% endif %}</h2>

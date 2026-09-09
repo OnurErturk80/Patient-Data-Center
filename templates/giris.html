@@ -5,6 +5,9 @@
 {% if hata %}
 <div class="uyari">Kullanıcı adı veya şifre hatalı.</div>
 {% endif %}
+{% if sifre_degisti %}
+<div class="uyari">Şifre değiştirildi. Yeni şifrenle giriş yap.</div>
+{% endif %}
 <form method="post" action="/giris">
   <div class="kart">
     <div class="alan">
@@ -20,4 +23,5 @@
   </div>
   <button class="dugme" type="submit">Giriş yap</button>
 </form>
+<a class="dugme ikincil" href="/sifremi-unuttum" style="margin-top:12px">Şifremi unuttum</a>
 {% endblock %}

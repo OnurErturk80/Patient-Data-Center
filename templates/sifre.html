@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Şifre değiştir{% endblock %}
+{% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+
+<form method="post" action="/sifre">
+  <div class="kart" style="margin-top:12px">
+    <div class="alan">
+      <label>Kullanıcı</label>
+      <div style="padding:4px 0"><b>{{ kullanici.kullanici_adi }}</b>
+        — {{ kullanici.ad_soyad }}</div>
+    </div>
+    <div class="alan">
+      <label for="mevcut">Mevcut şifre</label>
+      <input id="mevcut" name="mevcut" type="password" required autofocus
+             autocomplete="current-password">
+    </div>
+    <div class="alan">
+      <label for="yeni">Yeni şifre</label>
+      <input id="yeni" name="yeni" type="password" required minlength="8"
+             autocomplete="new-password">
+      <div class="ipucu">En az 8 karakter.</div>
+    </div>
+    <div class="alan" style="border:0">
+      <label for="yeni2">Yeni şifre (tekrar)</label>
+      <input id="yeni2" name="yeni2" type="password" required minlength="8"
+             autocomplete="new-password">
+    </div>
+  </div>
+  <button class="dugme" type="submit">Şifreyi değiştir</button>
+</form>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      Şifre değişince bu hesabın <b>açık oturumları kapatılır</b> — telefonunda
+      veya başka bir bilgisayarda açık kalan sayfalar dahil. Yeniden giriş
+      yapman gerekecek.
+    </div>
+  </div>
+</div>
+{% endblock %}

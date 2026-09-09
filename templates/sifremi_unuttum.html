@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Şifremi unuttum{% endblock %}
+{% block geri %}<a class="geri" href="/giris">&#8249;</a>{% endblock %}
+{% block icerik %}
+{# Bu sayfa bilerek hiçbir şey sıfırlamaz ve hiçbir kullanıcı adı listelemez.
+   Gerekçe README v6.11'de: e-posta/SMS yok, yani kimliği doğrulayacak ikinci
+   bir kanal yok. Doğrulamasız sıfırlama iç ağdaki herkese yönetici şifresini
+   değiştirme hakkı verirdi. #}
+<div style="height:24px"></div>
+
+<div class="kart">
+  <div class="alan" style="border:0">
+    <label>Şifre nasıl sıfırlanır</label>
+    <div style="padding:6px 0;line-height:1.6">
+      Şifreler geri okunamayacak şekilde saklanıyor — kimse mevcut şifreni
+      göremez, ancak <b>yenisiyle değiştirilebilir</b>.
+      <br><br>
+      <b>Laboratuvarın yöneticisine başvur.</b> Yönetici, kullanıcı yönetimi
+      ekranından sana yeni bir şifre verebilir.
+    </div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      Bu ekran şifre sıfırlamaz. Sistemde e-posta veya SMS doğrulaması
+      olmadığı için, kim olduğunu doğrulamadan şifre değiştirmek programı
+      ağdaki herkese açık hale getirirdi.
+      <br><br>
+      Yönetici de giriş yapamıyorsa, programın kurulu olduğu bilgisayarda
+      terminalden <code>python3 kullanici.py sifre &lt;kullanıcı adı&gt;</code>
+      komutu çalıştırılmalı.
+    </div>
+  </div>
+</div>
+
+<a class="dugme ikincil" href="/giris" style="margin-top:12px">Giriş ekranına dön</a>
+{% endblock %}

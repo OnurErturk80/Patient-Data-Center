@@ -363,6 +363,14 @@ body.kilitli { overflow: hidden; }
 }
 .dugme.tehlikeli { background: #a11f1f; }
 .dugme.ikincil.tehlike-bag { color: #a11f1f; }
+/* Kucuk dugmenin ikincil hali: "Sil" ile "Pasif yap" ayni agirlikta gorunmesin,
+   pasif yapmak normal yol (v6.11). */
+.minidugme.ikincil {
+  background: var(--yuzey);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.minidugme.ikincil.tehlike-bag { color: #a11f1f; }
 .rozet.arsiv { background: var(--ink-2); font-size: 11px; }
 
 .satirfoto .sfalt { text-align: center; padding: 0 8px 10px; }

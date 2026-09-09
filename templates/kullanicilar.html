@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Kullanıcılar{% endblock %}
+{% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+{% if bilgi %}<div class="uyari">{{ bilgi }}</div>{% endif %}
+
+{% if yonetici_sayisi <= 1 %}
+<div class="uyari">
+  Tek yönetici var. O hesap kilitlenirse kullanıcı yönetimine kimse giremez —
+  ikinci bir yönetici eklemek iyi olur.
+</div>
+{% endif %}
+
+<div class="kart">
+  <h2>{{ liste|length }} kullanıcı</h2>
+  {% for k in liste %}
+  <div class="satir" style="cursor:default">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <div>
+        <b>{{ k.kullanici_adi }}</b>
+        {% if k.id == kullanici.id %}<span class="rozet">sen</span>{% endif %}
+        {% if k.rol == "yonetici" %}<span class="rozet">yönetici</span>{% endif %}
+        <div style="font-size:13px">{{ k.ad_soyad }} · {{ k.kisa_kod }}</div>
+      </div>
+      <div style="font-size:13px;white-space:nowrap"
+           {% if not k.aktif_mi %}class="yok"{% endif %}>
+        {{ "aktif" if k.aktif_mi else "PASİF" }}
+      </div>
+    </div>
+
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:14px">Şifresini değiştir</summary>
+      <form method="post" action="/kullanici/{{ k.id }}/sifre" style="margin-top:8px">
+        <input name="sifre" type="password" required minlength="{{ min_sifre }}"
+               placeholder="Yeni şifre (en az {{ min_sifre }})"
+               autocomplete="new-password" style="margin-bottom:6px">
+        <input name="sifre2" type="password" required minlength="{{ min_sifre }}"
+               placeholder="Tekrar" autocomplete="new-password"
+               style="margin-bottom:6px">
+        <button class="minidugme" type="submit">Şifreyi değiştir</button>
+      </form>
+    </details>
+
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <form method="post" action="/kullanici/{{ k.id }}/durum">
+        <input type="hidden" name="eylem" value="{{ 'pasif' if k.aktif_mi else 'aktif' }}">
+        <button class="minidugme" type="submit">
+          {{ "Pasif yap" if k.aktif_mi else "Aktif yap" }}</button>
+      </form>
+      {% if k.id != kullanici.id %}
+      <a class="minidugme ikincil tehlike-bag" href="/kullanici/{{ k.id }}/sil">Sil</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <h2>Yeni kullanıcı</h2>
+  <form method="post" action="/kullanicilar/yeni">
+    <div class="alan">
+      <label for="ad_soyad">Ad soyad</label>
+      <input id="ad_soyad" name="ad_soyad" type="text" required autocomplete="off">
+    </div>
+    <div class="alan">
+      <label for="kisa_kod">Kısa kod</label>
+      <input id="kisa_kod" name="kisa_kod" type="text" maxlength="4"
+             autocomplete="off" placeholder="ON">
+      <div class="ipucu">Boş bırakılırsa addan üretilir. Üst çubukta görünür.</div>
+    </div>
+    <div class="alan">
+      <label for="kullanici_adi">Kullanıcı adı</label>
+      <input id="kullanici_adi" name="kullanici_adi" type="text" required
+             autocomplete="off" autocapitalize="none" spellcheck="false">
+      <div class="ipucu">Küçük harfe çevrilir. Türkçe karakter kullanma.</div>
+    </div>
+    <div class="alan">
+      <label for="rol">Rol</label>
+      <select id="rol" name="rol">
+        <option value="embriyolog">Embriyolog</option>
+        <option value="yonetici">Yönetici (kullanıcıları yönetebilir)</option>
+      </select>
+    </div>
+    <div class="alan">
+      <label for="ysifre">Şifre</label>
+      <input id="ysifre" name="sifre" type="password" required
+             minlength="{{ min_sifre }}" autocomplete="new-password">
+      <div class="ipucu">En az {{ min_sifre }} karakter.</div>
+    </div>
+    <div class="alan" style="border:0">
+      <label for="ysifre2">Şifre (tekrar)</label>
+      <input id="ysifre2" name="sifre2" type="password" required
+             minlength="{{ min_sifre }}" autocomplete="new-password">
+    </div>
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">Kullanıcıyı ekle</button>
+    </div>
+  </form>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      <b>Pasif yapmak silmek değildir.</b> Kullanıcı giriş yapamaz ama girdiği
+      kayıtlar kime ait olduğunu korur. Normal yol budur — kalıcı silme yalnızca
+      hiç kayıt girmemiş, yanlışlıkla açılmış hesaplar içindir.
+    </div>
+  </div>
+</div>
+{% endblock %}

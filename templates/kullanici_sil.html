@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block ustbaslik %}Kullanıcı sil{% endblock %}
+{% block geri %}<a class="geri" href="/kullanicilar">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+
+<div class="kart" style="margin-top:12px">
+  <h2>{{ k.kullanici_adi }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>Ad soyad</dt><dd>{{ k.ad_soyad }}</dd></div>
+    <div class="veri"><dt>Rol</dt><dd>{{ k.rol }}</dd></div>
+    <div class="veri"><dt>Durum</dt>
+      <dd {% if not k.aktif_mi %}class="yok"{% endif %}>{{ "aktif" if k.aktif_mi else "PASİF" }}</dd></div>
+  </dl>
+</div>
+
+{% if kendisi %}
+<div class="uyari">Kendi hesabını silemezsin.</div>
+<a class="dugme ikincil" href="/kullanicilar">Listeye dön</a>
+
+{% elif son_yonetici %}
+<div class="uyari">
+  Tek yönetici bu. Silinirse kullanıcı yönetimi ekranına kimse giremez.
+  Önce başka bir yönetici ekle.
+</div>
+<a class="dugme ikincil" href="/kullanicilar">Listeye dön</a>
+
+{% elif kayitlar %}
+<div class="uyari">
+  Bu kullanıcı <b>kayıt girmiş</b>, kalıcı olarak silinemez. Silinirse
+  "bu işlemi kim yaptı" sorusu cevapsız kalır.
+</div>
+<div class="kart">
+  <h2>Girdiği kayıtlar</h2>
+  <dl style="margin:0">
+    {% for x in kayitlar %}
+    <div class="veri"><dt>{{ x.ad }}</dt><dd>{{ x.sayi }}</dd></div>
+    {% endfor %}
+  </dl>
+</div>
+<form method="post" action="/kullanici/{{ k.id }}/durum">
+  <input type="hidden" name="eylem" value="pasif">
+  <button class="dugme" type="submit"
+          {% if not k.aktif_mi %}disabled{% endif %}>
+    {% if k.aktif_mi %}Bunun yerine pasif yap{% else %}Zaten pasif{% endif %}
+  </button>
+</form>
+<a class="dugme ikincil" href="/kullanicilar">Listeye dön</a>
+
+{% else %}
+<div class="uyari">
+  Bu kullanıcı hiç kayıt girmemiş, kalıcı olarak silinebilir.
+  <b>Bu işlem geri alınamaz.</b>
+</div>
+
+<form method="post" action="/kullanici/{{ k.id }}/sil"
+      onsubmit="return confirm('{{ k.kullanici_adi }} kalıcı olarak silinecek. Emin misin?')">
+  <div class="kart">
+    <div class="alan">
+      <label for="onay">Onay için kullanıcı adını yaz</label>
+      <input id="onay" name="onay" type="text" required autocomplete="off"
+             autocapitalize="none" spellcheck="false"
+             placeholder="{{ k.kullanici_adi }}">
+    </div>
+    <div class="alan" style="border:0">
+      <label for="onay2">İkinci onay: <b>SIL</b> yaz</label>
+      <input id="onay2" name="onay2" type="text" required autocomplete="off"
+             autocapitalize="characters" placeholder="SIL">
+    </div>
+  </div>
+  <button class="dugme tehlikeli" type="submit">Kalıcı olarak sil</button>
+</form>
+
+<form method="post" action="/kullanici/{{ k.id }}/durum" style="margin-top:12px">
+  <input type="hidden" name="eylem" value="pasif">
+  <button class="dugme ikincil" type="submit"
+          {% if not k.aktif_mi %}disabled{% endif %}>
+    {% if k.aktif_mi %}Silmek yerine pasif yap{% else %}Zaten pasif{% endif %}
+  </button>
+</form>
+{% endif %}
+{% endblock %}

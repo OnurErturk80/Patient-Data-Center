@@ -2024,3 +2024,93 @@ ile `onur` aynı kullanıcı. Test edildi.
 - Pasif kullanıcının şifresi değiştirilince uyarı çıktı
 - Yeni kullanıcı eklendi; aynı kullanıcı adı ikinci kez reddedildi
 - Tarayıcıdan gerçek giriş: `ayse`, `onur` ve `ONUR` girdi, yanlış şifre giremedi
+
+---
+
+# v6.11 — şifre değiştirme, "şifremi unuttum", kullanıcı yönetimi ekranları
+
+## En önemlisi: yetki kontrolü ilk kez var
+
+`kullanici.rol` kolonu baştan beri vardı ama **kodda hiçbir yerde
+kontrol edilmiyordu** — giriş yapan herkes her şeyi yapabiliyordu. Kullanıcı
+silme ekranı bunu zorunlu kıldı: yetki olmadan herhangi bir personel yöneticiyi
+silebilirdi.
+
+`yonetici_kontrol(request)` eklendi, tüm yönetim rotalarının başında.
+Ekranda düğmeyi gizlemek yetmiyor — sunucu da reddediyor. Test edildi:
+embriyolog hesabıyla `/kullanicilar/yeni`, `/kullanici/1/durum` ve
+`/kullanici/1/sifre` adreslerine doğrudan POST atıldı, üçü de `/hastalar`'a
+döndü ve hiçbir şey değişmedi.
+
+## "Şifremi unuttum" neden şifre sıfırlamıyor
+
+Sistemde e-posta ve SMS yok, yani kimliği doğrulayacak **ikinci bir kanal yok**.
+Doğrulamasız bir sıfırlama ekranı, iç ağdaki herkese yönetici şifresini
+değiştirme ve tüm hasta verisine erişme hakkı verirdi — HTTPS de yok.
+
+Kullanıcıya üç seçenek sunuldu (yönetici sıfırlasın / kurtarma kodu /
+doğrulamasız sıfırlama); **yönetici sıfırlasın** seçildi.
+
+Sayfa dolayısıyla:
+- Hiçbir şey sıfırlamaz, kime başvurulacağını söyler
+- **Kullanıcı adı listelemez** — giriş yapmamış birine kimlerin olduğunu söylemez
+- Yönetici de kilitlenirse `python3 kullanici.py sifre <ad>` yolunu gösterir
+
+## Kullanıcı silme: projenin silme kuralıyla aynı
+
+11 tablo `kullanici.id`'ye bağlı (`goruntu`, `olay`, `degisiklik_log`,
+`islem_yapan`, `sperm_analiz`...). Kayıt girmiş bir kullanıcıyı fiziksel silmek
+"bu blastokisti kim değerlendirdi" sorusunu cevapsız bırakır.
+
+Hasta silmedeki kalıbın aynısı:
+
+| Durum | Ne olur |
+|---|---|
+| Kayıt girmiş | Kalıcı silinemez. Ekran hangi kayıtlardan kaç tane olduğunu sayar, "bunun yerine pasif yap" der |
+| Hiç kaydı yok | Kullanıcı adı + `SIL` + tarayıcı onayı ile kalıcı silinir |
+| Kendisi | Silinemez, pasif yapılamaz |
+| Son aktif yönetici | Silinemez, pasif yapılamaz — yoksa yönetime kimse giremez |
+
+Kayıt koruması hem ekranda hem sunucuda: form gösterilmiyor **ve** POST
+reddediliyor (test edildi — ikinci bir yöneticiyle giriş yapılıp doğrudan POST
+atıldı, "5 kaydı var" diye reddedildi).
+
+## Şifre değişince oturumlar düşer
+
+`sifre_yaz()` şifreyi değiştirir ve o kullanıcının `oturum` satırlarını siler.
+Yoksa "şifreyi değiştirdim" yanıltıcı olurdu: eski şifreyle açılmış bir tarayıcı
+12 saat daha çalışmaya devam ederdi. Kendi şifresini değiştiren kullanıcı da
+çıkışa düşer ve yeniden giriş yapar.
+
+**Kendi şifresini değiştirmek için mevcut şifre şart.** Açık kalmış bir
+tarayıcıyı bulan biri hesabı ele geçiremesin diye.
+
+## Ekranlar
+
+| Yol | Kim | Ne yapar |
+|---|---|---|
+| `/sifre` | herkes | Kendi şifresini değiştirir (mevcut şifre ister) |
+| `/sifremi-unuttum` | **giriş gerektirmez** | Bilgilendirir, sıfırlamaz |
+| `/kullanicilar` | yönetici | Liste, ekleme, şifre sıfırlama, aktif/pasif |
+| `/kullanici/<id>/sil` | yönetici | Bilinçli silme ekranı |
+
+Bağlantılar: giriş ekranında "Şifremi unuttum", ana ekranda "Şifre değiştir"
+ve (yalnızca yöneticiye) "Kullanıcılar".
+
+`.minidugme.ikincil` stili eklendi — "Sil" ile "Pasif yap" aynı ağırlıkta
+görünmemeli, pasif yapmak normal yol.
+
+## Test edildi
+
+- Giriş yapmadan `/sifremi-unuttum` açılıyor, kullanıcı adı sızdırmıyor;
+  `/kullanicilar` giriş ekranına atıyor
+- Embriyolog hesabında "Kullanıcılar" düğmesi görünmüyor; adresi elle yazınca
+  ve doğrudan POST atınca reddediliyor
+- Tek yöneticiyi pasif yapma / silme engellendi; kendi hesabını pasif yapma
+  engellendi
+- Kullanıcı ekleme: aynı kullanıcı adı, tutmayan şifreler reddedildi
+- Silme: yanlış kullanıcı adı ve eksik `SIL` reddedildi, doğru onayla silindi
+- Kayıt girmiş kullanıcı: ekranda form yok, POST reddedildi, kullanıcı duruyor
+- Kendi şifresi: yanlış mevcut şifre, tutmayan tekrar, eskisiyle aynı reddedildi;
+  tarayıcıyı atlayarak 3 karakterlik şifre POST edildi, sunucu reddetti
+- Başarılı değişiklikte oturum düştü, eski şifre çalışmadı, yenisi çalıştı
