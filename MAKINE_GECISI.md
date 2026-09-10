@@ -3,6 +3,9 @@
 Mac (evde, test verisi) ↔ Windows mini PC (klinikte, gerçek veri).
 Bu dosyayı takıldığında aç. Emin olmadığın adımda dur, Claude Code'a sor.
 
+> **Sadece komutu arıyorsan `KOMUTLAR.md`'ye bak** — tek sayfa, anlatı yok.
+> Bu dosya "neden ve hangi sırayla" sorusunu yanıtlar.
+
 ---
 
 ## Önce bunu oku — 5 temel kural
