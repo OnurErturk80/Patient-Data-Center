@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% import "_izgara.html" as izgara %}
-{% block ustbaslik %}Cycle{% endblock %}
-{% block ustsag %}<a href="/cycle/{{ c.id }}/duzenle">Düzenle</a> · <a href="/cycle/{{ c.id }}/sil">Sil</a>{% endblock %}
+{% block ustbaslik %}{{ t("cycle") }}{% endblock %}
+{% block ustsag %}<a href="/cycle/{{ c.id }}/duzenle">{{ t("duzenle") }}</a> · <a href="/cycle/{{ c.id }}/sil">{{ t("sil") }}</a>{% endblock %}
 {% block geri %}<a class="geri" href="/hasta/{{ c.hasta_id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
-  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span>{% if c.durum == "iptal" %}<span class="rozet arsiv">iptal</span>{% endif %}</div>
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span>{% if c.durum == "iptal" %}<span class="rozet arsiv">{{ t("iptal_rozet") }}</span>{% endif %}</div>
   <div class="isim">{{ c.ad_soyad }}</div>
   <div class="alt">
-    {% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle · {% endif %}{{ tip_kisa(c.cycle_tipi) }}{% if c.endikasyon %} · {{ etiketler.get(c.endikasyon, c.endikasyon) }}{% endif %}
+    {% if c.hasta_cycle_no %}{{ t("n_cycle_sirali").format(n=c.hasta_cycle_no) }} · {% endif %}{{ tip_kisa(c.cycle_tipi) }}{% if c.endikasyon %} · {{ etiketler.get(c.endikasyon, c.endikasyon) }}{% endif %}
   </div>
 </div>
 {% endblock %}
@@ -17,84 +17,84 @@
   <div class="ozet">
     <div>
       <div class="sayi">{{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }}</div>
-      <div class="etiket">Toplanan oosit</div>
+      <div class="etiket">{{ t("toplanan_oosit") }}</div>
       {% if c.opu_sag_oosit is not none or c.opu_sol_oosit is not none %}
-      <div class="kirilim">sağ {{ c.opu_sag_oosit or 0 }} · sol {{ c.opu_sol_oosit or 0 }}</div>
+      <div class="kirilim">{{ t("sag") }} {{ c.opu_sag_oosit or 0 }} · {{ t("sol") }} {{ c.opu_sol_oosit or 0 }}</div>
       {% endif %}
     </div>
     <div>
       <div class="sayi">{{ specimenler|length }}</div>
-      <div class="etiket">Kayıtlı</div>
+      <div class="etiket">{{ t("kayitli") }}</div>
       {% if taraf and (taraf.sag or taraf.sol) %}
       <div class="kirilim">
-        sağ {{ taraf.sag or 0 }} · sol {{ taraf.sol or 0 }}{% if taraf.belirsiz %} · ? {{ taraf.belirsiz }}{% endif %}
+        {{ t("sag") }} {{ taraf.sag or 0 }} · {{ t("sol") }} {{ taraf.sol or 0 }}{% if taraf.belirsiz %} · ? {{ taraf.belirsiz }}{% endif %}
       </div>
       {% endif %}
     </div>
     <div>
       <div class="sayi">{{ c.folikul_sayisi if c.folikul_sayisi is not none else '—' }}</div>
-      <div class="etiket">Folikül</div>
+      <div class="etiket">{{ t("folikul") }}</div>
     </div>
   </div>
 </div>
 
 <div class="kart">
-  <h2>Zamanlar</h2>
+  <h2>{{ t("zamanlar") }}</h2>
   <dl style="margin:0">
     <div class="veri"><dt>hCG</dt><dd {% if not c.hcg_zamani %}class="yok"{% endif %}>{{ c.hcg_zamani or 'girilmedi' }}</dd></div>
     <div class="veri"><dt>OPU</dt><dd {% if not c.opu_zamani %}class="yok"{% endif %}>{{ c.opu_zamani or 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>Denüdasyon</dt><dd {% if not c.denudasyon_zamani %}class="yok"{% endif %}>{{ c.denudasyon_zamani or 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>{{ t("asama_denudasyon") }}</dt><dd {% if not c.denudasyon_zamani %}class="yok"{% endif %}>{{ c.denudasyon_zamani or 'girilmedi' }}</dd></div>
   </dl>
 </div>
 
 <div class="kart">
-  <h2>Protokol</h2>
+  <h2>{{ t("protokol") }}</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Tip</dt><dd {% if not c.protokol_tipi %}class="yok"{% endif %}>{{ etiketler.get(c.protokol_tipi, c.protokol_tipi) or 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>{{ t("tip") }}</dt><dd {% if not c.protokol_tipi %}class="yok"{% endif %}>{{ etiketler.get(c.protokol_tipi, c.protokol_tipi) or 'girilmedi' }}</dd></div>
     <div class="veri"><dt>Gonadotropin</dt><dd {% if not c.gonadotropin_tipi %}class="yok"{% endif %}>{{ c.gonadotropin_tipi or 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>Toplam doz</dt><dd {% if c.toplam_doz is none %}class="yok"{% endif %}>{{ c.toplam_doz if c.toplam_doz is not none else 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>Stim. gün</dt><dd {% if c.stim_gun_sayisi is none %}class="yok"{% endif %}>{{ c.stim_gun_sayisi if c.stim_gun_sayisi is not none else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>{{ t("toplam_doz") }}</dt><dd {% if c.toplam_doz is none %}class="yok"{% endif %}>{{ c.toplam_doz if c.toplam_doz is not none else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>{{ t("stim_gun") }}</dt><dd {% if c.stim_gun_sayisi is none %}class="yok"{% endif %}>{{ c.stim_gun_sayisi if c.stim_gun_sayisi is not none else 'girilmedi' }}</dd></div>
     <div class="veri"><dt>Trigger</dt><dd {% if not c.trigger_tipi %}class="yok"{% endif %}>{{ etiketler.get(c.trigger_tipi, c.trigger_tipi) or 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>E2 (hCG günü)</dt><dd {% if c.hcg_gunu_e2 is none %}class="yok"{% endif %}>{{ c.hcg_gunu_e2 if c.hcg_gunu_e2 is not none else 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>Endometrium</dt><dd {% if c.endometrium_mm is none %}class="yok"{% endif %}>{{ (c.endometrium_mm ~ ' mm') if c.endometrium_mm is not none else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>{{ t("e2_hcg_gunu") }}</dt><dd {% if c.hcg_gunu_e2 is none %}class="yok"{% endif %}>{{ c.hcg_gunu_e2 if c.hcg_gunu_e2 is not none else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>{{ t("endometrium") }}</dt><dd {% if c.endometrium_mm is none %}class="yok"{% endif %}>{{ (c.endometrium_mm ~ ' mm') if c.endometrium_mm is not none else 'girilmedi' }}</dd></div>
     <div class="veri"><dt>AMH</dt><dd {% if c.amh is none %}class="yok"{% endif %}>{{ c.amh if c.amh is not none else 'girilmedi' }}</dd></div>
   </dl>
 </div>
 
 {% if c.protokol_notu %}
 <div class="kart">
-  <h2>Protokol notu</h2>
+  <h2>{{ t("protokol_notu") }}</h2>
   <div class="alan">{{ c.protokol_notu }}</div>
 </div>
 {% endif %}
 
 <div class="kart">
-  <h2>Oositler ({{ specimenler|length }})</h2>
+  <h2>{{ t("oositler") }} ({{ specimenler|length }})</h2>
   {% if specimenler %}
   {{ izgara.oosit_izgara(specimenler) }}
   {% else %}
-  <div class="bos">Henüz oosit kaydı yok.<br>Denüdasyon ekranından ekleyebilirsin.</div>
+  <div class="bos">{{ t("henuz_oosit_yok") }}<br>{{ t("denudasyondan_ekle") }}</div>
   {% endif %}
 </div>
 
 {% if arsiv %}
 <div class="kart">
-  <h2>Cycle arşivi ({{ arsiv|length }})</h2>
+  <h2>{{ t("cycle_arsivi") }} ({{ arsiv|length }})</h2>
   <div class="ipucu" style="padding:0 14px 8px">
-    Oosite bağlanmamış fotoğraflar.
-    <a href="/cycle/{{ c.id }}/arsiv-sil" style="color:#a11f1f">arşivi temizle</a>
+    {{ t("oosite_baglanmamis") }}
+    <a href="/cycle/{{ c.id }}/arsiv-sil" style="color:#a11f1f">{{ t("arsivi_temizle") }}</a>
   </div>
   <div class="fkareler" style="padding:0 14px 14px;justify-content:flex-start">
     {% for g in arsiv %}
     <div class="fkare">
       <button type="button" class="kfoto arsivfoto"
               data-idler="{{ arsiv|map(attribute='id')|join(',') }}"
-              data-baslangic="{{ loop.index0 }}" data-no="arşiv"
+              data-baslangic="{{ loop.index0 }}" data-no="{{ t('arsiv')|lower }}"
               aria-label="{{ etiketler.get(g.asama, g.asama) }}">
         <img src="/dosya/{{ g.id }}" alt="{{ etiketler.get(g.asama, g.asama) }}">
       </button>
       <a class="fsil" href="/goruntu/{{ g.id }}/sil?geri=/cycle/{{ c.id }}"
-         aria-label="Sil" title="Sil">&times;</a>
+         aria-label="{{ t('sil') }}" title="{{ t('sil') }}">&times;</a>
     </div>
     {% endfor %}
   </div>
@@ -102,21 +102,21 @@
 {% endif %}
 
 {% for a in asamalar %}
-<a class="dugme" href="{{ a[2]|replace('{id}', c.id) }}">{{ a[1] }}</a>
+<a class="dugme" href="{{ a[2]|replace('{id}', c.id) }}">{{ asama_adi(a[0]) }}</a>
 {% endfor %}
 {% if yetkim("foto") %}
-<a class="dugme ikincil" href="/cycle/{{ c.id }}/foto-ekle">Fotoğraf ekle</a>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/foto-ekle">{{ t("fotograf_ekle") }}</a>
 {% endif %}
-<a class="dugme ikincil" href="/gecmis/cycle/{{ c.id }}">Değişiklik geçmişi</a>
+<a class="dugme ikincil" href="/gecmis/cycle/{{ c.id }}">{{ t("degisiklik_gecmisi") }}</a>
 
 {% if c.durum == "iptal" and yetkim("silme") %}
 <form method="post" action="/cycle/{{ c.id }}/geri-al">
-  <button class="dugme" type="submit">İptali geri al</button>
+  <button class="dugme" type="submit">{{ t("iptali_geri_al") }}</button>
 </form>
 {% endif %}
 {% if yetkim("silme") %}
 <a class="dugme ikincil tehlike-bag" href="/cycle/{{ c.id }}/sil">
-  {{ 'Kalıcı olarak sil' if c.durum == 'iptal' else 'İptal et veya sil' }}</a>
+  {{ t("kalici_olarak_sil") if c.durum == "iptal" else t("iptal_et_veya_sil") }}</a>
 {% endif %}
 
 {% include "_buyutec.html" %}

@@ -21,9 +21,25 @@ sablon = Jinja2Templates(directory=KOK / "templates")
 ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
-TIP_KISA = {"ivf_icsi": "IVF/ICSI", "fet": "FET", "oosit_cryo": "Oosit cryo",
-            "taze": "IVF/ICSI"}   # eski kod, gecis icin
-sablon.env.globals["tip_kisa"] = lambda kod: TIP_KISA.get(kod, kod or "")
+TIP_KODLARI = ("ivf_icsi", "fet", "oosit_cryo", "taze")   # taze: eski kod
+
+
+def tip_kisa(kod):
+    """Tedavi tipinin ekranda görünen kısa adı, geçerli dilde."""
+    return metinler.t("tip_" + kod) if kod in TIP_KODLARI else (kod or "")
+
+
+def asama_adi(kod):
+    """Aşamanın ekranda görünen adı, geçerli dilde.
+
+    `ASAMA_SIRASI`'ndaki Türkçe ad kimlik olarak duruyor; ekrana giden ad
+    buradan geçiyor, böylece 11 aşama tek noktadan çevriliyor.
+    """
+    return metinler.t("asama_" + kod)
+
+
+sablon.env.globals["tip_kisa"] = tip_kisa
+sablon.env.globals["asama_adi"] = asama_adi
 
 
 def _islem_yapan_ad(cycle_id, asama):
@@ -3791,7 +3807,7 @@ def asama_gezinme(cycle_id: int, anahtar: str):
     def yap(j):
         if 0 <= j < len(liste):
             k, ad, yol = liste[j]
-            return {"ad": ad, "yol": yol.format(id=cycle_id)}
+            return {"ad": asama_adi(k), "yol": yol.format(id=cycle_id)}
         return None
     return {"onceki": yap(i - 1), "sonraki": yap(i + 1),
             "sira": i + 1, "toplam": len(liste)}

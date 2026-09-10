@@ -128,6 +128,68 @@ METINLER = {
               "terminal on the computer where the program is installed."},
     "giris_ekranina_don": {"tr": "Giriş ekranına dön", "en": "Back to sign in"},
 
+    # ---- hasta formu ----
+    "dosya_no": {"tr": "Dosya no", "en": "File no"},
+    "dosya_no_tek": {"tr": "Aynı dosya no ikinci kez kaydedilemez.",
+                     "en": "The same file no cannot be recorded twice."},
+    "dogum_tarihi": {"tr": "Doğum tarihi", "en": "Date of birth"},
+    "yas_hesaplanir": {"tr": "Yaş bundan hesaplanır, ayrıca girilmez.",
+                       "en": "Age is calculated from this; do not enter it "
+                             "separately."},
+    "es_adi": {"tr": "Eş adı", "en": "Partner name"},
+    "es_dogum_tarihi": {"tr": "Eş doğum tarihi", "en": "Partner date of birth"},
+    "hastayi_kaydet": {"tr": "Hastayı kaydet", "en": "Save patient"},
+    "mukerrer_dosya_no": {"tr": "Bu dosya no zaten kayıtlı:",
+                          "en": "This file no is already registered:"},
+    "kaydi_ac": {"tr": "kaydı aç", "en": "open the record"},
+
+    # ---- cycle detay ----
+    "toplanan_oosit": {"tr": "Toplanan oosit", "en": "Oocytes collected"},
+    "sag": {"tr": "sağ", "en": "right"},
+    "sol": {"tr": "sol", "en": "left"},
+    "kayitli": {"tr": "Kayıtlı", "en": "Recorded"},
+    "folikul": {"tr": "Folikül", "en": "Follicles"},
+    "zamanlar": {"tr": "Zamanlar", "en": "Times"},
+    "protokol": {"tr": "Protokol", "en": "Protocol"},
+    "protokol_notu": {"tr": "Protokol notu", "en": "Protocol note"},
+    "tip": {"tr": "Tip", "en": "Type"},
+    "toplam_doz": {"tr": "Toplam doz", "en": "Total dose"},
+    "stim_gun": {"tr": "Stim. gün", "en": "Stim. days"},
+    "e2_hcg_gunu": {"tr": "E2 (hCG günü)", "en": "E2 (hCG day)"},
+    "endometrium": {"tr": "Endometrium", "en": "Endometrium"},
+    "oositler": {"tr": "Oositler", "en": "Oocytes"},
+    "henuz_oosit_yok": {"tr": "Henüz oosit kaydı yok.",
+                        "en": "No oocytes recorded yet."},
+    "denudasyondan_ekle": {"tr": "Denüdasyon ekranından ekleyebilirsin.",
+                           "en": "You can add them from the denudation screen."},
+    "cycle_arsivi": {"tr": "Cycle arşivi", "en": "Cycle archive"},
+    "oosite_baglanmamis": {"tr": "Oosite bağlanmamış fotoğraflar.",
+                           "en": "Photos not linked to an oocyte."},
+    "arsivi_temizle": {"tr": "arşivi temizle", "en": "clear archive"},
+    "fotograf_ekle": {"tr": "Fotoğraf ekle", "en": "Add photo"},
+    "iptali_geri_al": {"tr": "İptali geri al", "en": "Undo cancellation"},
+    "iptal_et_veya_sil": {"tr": "İptal et veya sil", "en": "Cancel or delete"},
+
+    # ---- aşama adları (app.py ASAMA_SIRASI) ----
+    # Klinik terimler iki dilde de aynı: OPU, ICSI, Transfer.
+    "asama_opu": {"tr": "OPU", "en": "OPU"},
+    "asama_androloji": {"tr": "Androloji", "en": "Andrology"},
+    "asama_denudasyon": {"tr": "Denüdasyon", "en": "Denudation"},
+    "asama_icsi": {"tr": "ICSI", "en": "ICSI"},
+    "asama_fert": {"tr": "Fertilizasyon", "en": "Fertilization"},
+    "asama_cleavage": {"tr": "Gün 2 / 3", "en": "Day 2 / 3"},
+    "asama_blast": {"tr": "Blastokist", "en": "Blastocyst"},
+    "asama_vitrifikasyon": {"tr": "Vitrifikasyon", "en": "Vitrification"},
+    "asama_thaw": {"tr": "Çözme", "en": "Thaw"},
+    "asama_transfer": {"tr": "Transfer", "en": "Transfer"},
+    "asama_gebelik": {"tr": "Gebelik sonucu", "en": "Pregnancy outcome"},
+
+    # ---- tedavi tipi (app.py TIP_KISA) ----
+    "tip_ivf_icsi": {"tr": "IVF/ICSI", "en": "IVF/ICSI"},
+    "tip_fet": {"tr": "FET", "en": "FET"},
+    "tip_oosit_cryo": {"tr": "Oosit cryo", "en": "Oocyte cryo"},
+    "tip_taze": {"tr": "IVF/ICSI", "en": "IVF/ICSI"},
+
     # ---- işlemi yapan (paylaşılan parça) ----
     "islem_yapan": {"tr": "İşlemi yapan", "en": "Performed by"},
     "islem_yapan_ipucu": {

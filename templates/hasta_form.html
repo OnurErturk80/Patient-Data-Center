@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Yeni hasta{% endblock %}
+{% block ustbaslik %}{{ t("yeni_hasta") }}{% endblock %}
 {% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
 {% block icerik %}
 <div class="uyari" id="mukerrer" hidden></div>
@@ -7,34 +7,34 @@
 <form method="post" action="/hasta/yeni">
   <div class="kart">
     <div class="alan">
-      <label for="dosya_no">Dosya no</label>
+      <label for="dosya_no">{{ t("dosya_no") }}</label>
       <input id="dosya_no" name="dosya_no" type="number" inputmode="numeric"
              required autofocus value="{{ dosya_no }}">
-      <div class="ipucu">Aynı dosya no ikinci kez kaydedilemez.</div>
+      <div class="ipucu">{{ t("dosya_no_tek") }}</div>
     </div>
     <div class="alan">
-      <label for="ad_soyad">Ad soyad</label>
+      <label for="ad_soyad">{{ t("ad_soyad") }}</label>
       <input id="ad_soyad" name="ad_soyad" type="text" required autocomplete="off">
     </div>
     <div class="alan">
-      <label for="dogum_tarihi">Doğum tarihi</label>
+      <label for="dogum_tarihi">{{ t("dogum_tarihi") }}</label>
       <input id="dogum_tarihi" name="dogum_tarihi" type="date">
-      <div class="ipucu">Yaş bundan hesaplanır, ayrıca girilmez.</div>
+      <div class="ipucu">{{ t("yas_hesaplanir") }}</div>
     </div>
     <div class="alan">
-      <label for="es_adi">Eş adı</label>
+      <label for="es_adi">{{ t("es_adi") }}</label>
       <input id="es_adi" name="es_adi" type="text" autocomplete="off">
     </div>
     <div class="alan">
-      <label for="es_dogum_tarihi">Eş doğum tarihi</label>
+      <label for="es_dogum_tarihi">{{ t("es_dogum_tarihi") }}</label>
       <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date">
     </div>
     <div class="alan">
-      <label for="notlar">Not</label>
+      <label for="notlar">{{ t("not") }}</label>
       <textarea id="notlar" name="notlar"></textarea>
     </div>
   </div>
-  <button class="dugme" type="submit">Hastayı kaydet</button>
+  <button class="dugme" type="submit">{{ t("hastayi_kaydet") }}</button>
 </form>
 
 <script>
@@ -48,8 +48,9 @@ alan.addEventListener('input', () => {
     const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(alan.value));
     const s = await y.json();
     if (s.var) {
-      kutu.innerHTML = 'Bu dosya no zaten kayıtlı: <strong>' + s.ad_soyad +
-        '</strong> &mdash; <a href="/hasta/' + s.id + '">kaydı aç</a>';
+      kutu.innerHTML = {{ t("mukerrer_dosya_no")|tojson }} + ' <strong>' +
+        s.ad_soyad + '</strong> &mdash; <a href="/hasta/' + s.id + '">' +
+        {{ t("kaydi_ac")|tojson }} + '</a>';
       kutu.hidden = false;
     } else { kutu.hidden = true; }
   }, 350);
