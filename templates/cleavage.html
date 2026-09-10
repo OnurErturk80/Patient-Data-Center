@@ -3,7 +3,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
-{% block ustbaslik %}Gün {{ gun }} değerlendirme{% endblock %}
+{% block ustbaslik %}{{ metin("gun_n_degerlendirme").format(n=gun) }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
@@ -14,13 +14,13 @@
 {% block icerik %}
 
 <div class="gunsec">
-  <a href="/cycle/{{ c.id }}/cleavage?gun=2" class="{% if gun == 2 %}aktif{% endif %}">Gün 2</a>
-  <a href="/cycle/{{ c.id }}/cleavage?gun=3" class="{% if gun == 3 %}aktif{% endif %}">Gün 3</a>
+  <a href="/cycle/{{ c.id }}/cleavage?gun=2" class="{% if gun == 2 %}aktif{% endif %}">{{ metin("gun_n_buyuk").format(n=2) }}</a>
+  <a href="/cycle/{{ c.id }}/cleavage?gun=3" class="{% if gun == 3 %}aktif{% endif %}">{{ metin("gun_n_buyuk").format(n=3) }}</a>
 </div>
 
 {% if not oositler %}
 <div class="kart"><div class="bos">
-  Bu cycle'da henüz oosit yok.<br>Önce denüdasyon ekranından oositleri oluştur.
+  {{ metin("henuz_oosit_yok_icsi") }}<br>{{ metin("once_denudasyon") }}
 </div></div>
 {% else %}
 
@@ -34,28 +34,28 @@
 </div>
 
 <div class="say">
-  <span class="bek">{{ oositler|selectattr('kayit_id')|list|length }} / {{ oositler|length }} kaydedildi</span>
-  <span class="hed">{{ ornek_adi('cleavage', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ "sağ" if sp.taraf == "sag" else "sol" }}</em>{% endif %}</span>
+  <span class="bek">{{ metin("n_m_kaydedildi").format(n=oositler|selectattr('kayit_id')|list|length, m=oositler|length) }}</span>
+  <span class="hed">{{ ornek_adi('cleavage', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
 {% if sp.pn and sp.pn != '2' %}
-<div class="uyari">Bu oosit fertilizasyon kontrolünde {{ sp.pn }}PN idi.</div>
+<div class="uyari">{{ metin("fert_kontrolunde_npn").format(n=sp.pn) }}</div>
 {% endif %}
 
 {{ snap.blok(sp, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no, bekleyen) }}
 
 {% if sp.goruntu %}
 <div class="foto">
-  <img src="/dosya/{{ sp.goruntu }}" alt="Oosit {{ sp.cycle_sira_no }}">
+  <img src="/dosya/{{ sp.goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
 </div>
 {{ kr.serit(kareler, sp, c, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">Bu fotoğrafı sil</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
 <div class="fotoalt">
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% endif %}
 
@@ -66,13 +66,13 @@
   <div class="kart">
     <div class="alan ikili">
       <div>
-        <label for="cl_hucre_sayisi">Hücre sayısı</label>
+        <label for="cl_hucre_sayisi">{{ metin("hucre_sayisi") }}</label>
         <input id="cl_hucre_sayisi" name="cl_hucre_sayisi" type="number"
                inputmode="numeric" min="1" max="64"
                value="{{ kayit.cl_hucre_sayisi if kayit and kayit.cl_hucre_sayisi is not none else '' }}">
       </div>
       <div>
-        <label for="cl_fragmentasyon">Fragmentasyon (%)</label>
+        <label for="cl_fragmentasyon">{{ metin("fragmentasyon") }}</label>
         <input id="cl_fragmentasyon" name="cl_fragmentasyon" type="text"
                inputmode="decimal"
                value="{{ kayit.cl_fragmentasyon if kayit and kayit.cl_fragmentasyon is not none else '' }}">
@@ -81,7 +81,7 @@
   </div>
 
   <div class="kart">
-    <h2>Simetri</h2>
+    <h2>{{ metin("simetri") }}</h2>
     <div class="secenek">
       {% for s in simetriler %}
       <label class="sec {% if kayit and kayit.cl_simetri == s.kod %}secili{% endif %}">
@@ -95,9 +95,9 @@
 
   <div class="kart">
     <div class="alan">
-      <label for="bulguAc">Bulgular</label>
+      <label for="bulguAc">{{ metin("bulgular") }}</label>
       <button type="button" class="acici" id="bulguAc">
-        <span id="bulguOzet">Bulgu yok</span>
+        <span id="bulguOzet">{{ metin("bulgu_yok") }}</span>
       </button>
     </div>
   </div>
@@ -106,8 +106,8 @@
     <div class="tperde" data-kapat></div>
     <div class="tsayfa" role="dialog" aria-modal="true" aria-labelledby="tbaslik">
       <div class="tust">
-        <span id="tbaslik">Gün {{ gun }} bulguları</span>
-        <button type="button" class="tkapat" data-kapat aria-label="Kapat">&times;</button>
+        <span id="tbaslik">{{ metin("gun_n_bulgulari").format(n=gun) }}</span>
+        <button type="button" class="tkapat" data-kapat aria-label="{{ metin('kapat') }}">&times;</button>
       </div>
       <div class="tgovde">
         <div class="cipler">
@@ -121,23 +121,23 @@
         </div>
       </div>
       <div class="talt">
-        <button type="button" class="dugme ikincil" id="bulguTemizle">Temizle</button>
-        <button type="button" class="dugme" data-kapat>Tamam</button>
+        <button type="button" class="dugme ikincil" id="bulguTemizle">{{ metin("temizle") }}</button>
+        <button type="button" class="dugme" data-kapat>{{ metin("tamam") }}</button>
       </div>
     </div>
   </div>
 
   <div class="kart">
     <div class="alan">
-      <label for="cl_skor">Skor</label>
+      <label for="cl_skor">{{ metin("skor") }}</label>
       <input id="cl_skor" name="cl_skor" type="text" maxlength="3"
-             autocomplete="off" placeholder="otomatik hesaplanır"
+             autocomplete="off" placeholder="{{ metin('otomatik_hesaplanir') }}"
              value="{{ kayit.cl_skor if kayit and kayit.cl_skor_kaynagi == 'elle' else '' }}">
       <div class="ipucu">
-        Boş bırakırsan hücre sayısı, simetri ve fragmentasyondan hesaplanır.
+        {{ metin("skor_ipucu") }}
         {% if kayit and kayit.cl_skor %}
-        Şu anki kayıt: <strong>{{ kayit.cl_skor }}</strong>
-        ({{ 'elle girildi' if kayit.cl_skor_kaynagi == 'elle' else 'otomatik' }}).
+        {{ metin("su_anki_kayit") }} <strong>{{ kayit.cl_skor }}</strong>
+        ({{ metin("elle_girildi") if kayit.cl_skor_kaynagi == "elle" else metin("otomatik") }}).
         {% endif %}
       </div>
     </div>
@@ -145,21 +145,21 @@
 
   <div class="kart">
     <div class="alan">
-      <label for="islem_zamani">İşlem saati</label>
+      <label for="islem_zamani">{{ metin("islem_saati") }}</label>
       {% set kz = kayit.zaman if kayit else None %}
       <input id="islem_zamani" name="islem_zamani" type="datetime-local"
              value="{{ kz[:16]|replace(' ','T') if kz else simdi }}">
-      <div class="ipucu">Şu an dolu geliyor. Geriye dönük kayıt giriyorsan değiştir.</div>
+      <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
     </div>
   </div>
 
-  <button class="dugme" type="submit">Kaydet ve sonraki oosit</button>
+  <button class="dugme" type="submit">{{ metin("kaydet_sonraki_oosit") }}</button>
 </form>
 
 <a class="dugme ikincil" style="margin-top:12px"
-   href="/cycle/{{ c.id }}/cleavage?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">Seçimleri geri al</a>
+   href="/cycle/{{ c.id }}/cleavage?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">{{ metin("secimleri_geri_al") }}</a>
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/cleavage-sil?gun={{ gun }}">Bu oositin gün {{ gun }} kaydını sil</a>
+   href="/specimen/{{ sp.id }}/cleavage-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
 
 {% endif %}
 
@@ -177,7 +177,7 @@
   function ozetGuncelle() {
     var s = Array.prototype.slice.call(document.querySelectorAll('.cip input:checked'))
       .map(function (i) { return i.parentNode.querySelector('span').textContent; });
-    ozet.textContent = s.length ? s.join(', ') : 'Bulgu yok';
+    ozet.textContent = s.length ? s.join(', ') : {{ metin("bulgu_yok")|tojson }};
     ozet.classList.toggle('dolu', s.length > 0);
   }
   document.querySelectorAll('.cip input').forEach(function (i) {

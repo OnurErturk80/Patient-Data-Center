@@ -3,7 +3,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
-{% block ustbaslik %}Fertilizasyon kontrolü{% endblock %}
+{% block ustbaslik %}{{ metin("fertilizasyon_kontrolu") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
@@ -15,9 +15,9 @@
 
 {% if not oositler %}
 <div class="kart"><div class="bos">
-  Bu cycle'da henüz oosit yok.<br>Önce denüdasyon ekranından oositleri oluştur.
+  {{ metin("henuz_oosit_yok_icsi") }}<br>{{ metin("once_denudasyon") }}
 </div></div>
-<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">Denüdasyon ekranı</a>
+<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("denudasyon_ekrani") }}</a>
 {% else %}
 
 <div class="serit">
@@ -32,21 +32,21 @@
 </div>
 
 <div class="say">
-  <span class="bek">{{ oositler|selectattr('fert')|list|length }} / {{ oositler|length }} kaydedildi</span>
-  <span class="hed">{{ ornek_adi('fert', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ "sağ" if sp.taraf == "sag" else "sol" }}</em>{% endif %}</span>
+  <span class="bek">{{ metin("n_m_kaydedildi").format(n=oositler|selectattr('fert')|list|length, m=oositler|length) }}</span>
+  <span class="hed">{{ ornek_adi('fert', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
 {% if gecen is not none %}
 <div class="zaman {% if gecen|abs and (gecen - hedef_saat|float)|abs > 2 %}sapma{% endif %}">
-  ICSI'den bu yana <strong>{{ gecen }} saat</strong> · hedef {{ hedef_saat }} saat
+  {{ (metin("icsiden_bu_yana_tekil") if gecen == 1 else metin("icsiden_bu_yana")).format(n=gecen, h=hedef_saat)|safe }}
 </div>
 {% endif %}
 
 {% if sp.icsi != 'basarili' %}
 <div class="uyari">
-  Bu oosite ICSI kaydı yok
-  {%- if sp.mat %} (maturasyon: {{ sp.mat|upper }}){% endif %}.
-  Yine de fertilizasyon kaydı girebilirsin.
+  {{ metin("icsi_kaydi_yok") }}
+  {%- if sp.mat %} ({{ metin("maturasyon_kucuk") }}: {{ sp.mat|upper }}){% endif %}.
+  {{ metin("yine_de_fert_girilebilir") }}
 </div>
 {% endif %}
 
@@ -54,22 +54,22 @@
 
 {% if sp.son_goruntu %}
 <div class="foto">
-  <img src="/dosya/{{ sp.son_goruntu }}" alt="Oosit {{ sp.cycle_sira_no }}">
+  <img src="/dosya/{{ sp.son_goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
 </div>
 {{ kr.serit(kareler, sp, c, 'fertilizasyon_kontrolu', '/cycle/' ~ c.id ~ '/fert?oosit=' ~ sp.cycle_sira_no) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ sp.son_goruntu }}/sil?geri=/cycle/{{ c.id }}/fert%3Foosit%3D{{ sp.cycle_sira_no }}">Bu fotoğrafı sil</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=fertilizasyon_kontrolu&geri=/cycle/{{ c.id }}/fert%3Foosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+  <a href="/goruntu/{{ sp.son_goruntu }}/sil?geri=/cycle/{{ c.id }}/fert%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=fertilizasyon_kontrolu&geri=/cycle/{{ c.id }}/fert%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
-<div class="kart"><div class="bos">Bu aşamaya ait fotoğraf yok.</div></div>
+<div class="kart"><div class="bos">{{ metin("bu_asamada_fotograf_yok") }}</div></div>
 {% endif %}
 
 <form method="post" action="/cycle/{{ c.id }}/fert" id="fertform">
   <input type="hidden" name="specimen_id" value="{{ sp.id }}">
 
   <div class="kart">
-    <h2>Sonuç</h2>
+    <h2>{{ metin("sonuc") }}</h2>
     <div class="secenek">
       {% for s in sonuclar %}
       <label class="sec {% if kayit and kayit.fert_sonuc == s.kod %}secili{% endif %}">
@@ -83,7 +83,7 @@
 
   <div id="pnblok" {% if kayit and kayit.fert_sonuc != 'normal' %}hidden{% endif %}>
     <div class="kart">
-      <h2>Pronükleus sayısı</h2>
+      <h2>{{ metin("pronukleus_sayisi") }}</h2>
       <div class="secenek">
         {% for p in pn_sayilari %}
         <label class="sec {% if kayit and kayit.fert_pn_sayisi == p.kod %}secili{% endif %}">
@@ -97,7 +97,7 @@
 
     <div class="kart" id="skorblok"
          {% if not (kayit and kayit.fert_pn_sayisi == '2') %}hidden{% endif %}>
-      <h2>PN skoru (Z)</h2>
+      <h2>{{ metin("pn_skoru_z") }}</h2>
       <div class="secenek">
         {% for z in pn_skorlari %}
         <label class="sec {% if kayit and kayit.fert_pn_skoru == z.kod %}secili{% endif %}">
@@ -108,16 +108,16 @@
         {% endfor %}
       </div>
       <div class="alan" style="border:0;padding-top:0">
-        <div class="ipucu">Z sınıflaması yalnız 2PN için tanımlıdır.</div>
+        <div class="ipucu">{{ metin("z_sadece_2pn") }}</div>
       </div>
     </div>
   </div>
 
   <div class="kart">
     <div class="alan">
-      <label for="bulguAc">Zigot bulguları</label>
+      <label for="bulguAc">{{ metin("zigot_bulgulari") }}</label>
       <button type="button" class="acici" id="bulguAc">
-        <span id="bulguOzet">Bulgu yok</span>
+        <span id="bulguOzet">{{ metin("bulgu_yok") }}</span>
       </button>
     </div>
   </div>
@@ -126,8 +126,8 @@
     <div class="tperde" data-kapat></div>
     <div class="tsayfa" role="dialog" aria-modal="true" aria-labelledby="tbaslik">
       <div class="tust">
-        <span id="tbaslik">Zigot bulguları</span>
-        <button type="button" class="tkapat" data-kapat aria-label="Kapat">&times;</button>
+        <span id="tbaslik">{{ metin("zigot_bulgulari") }}</span>
+        <button type="button" class="tkapat" data-kapat aria-label="{{ metin('kapat') }}">&times;</button>
       </div>
       <div class="tgovde">
         <div class="cipler">
@@ -141,35 +141,35 @@
         </div>
       </div>
       <div class="talt">
-        <button type="button" class="dugme ikincil" id="bulguTemizle">Temizle</button>
-        <button type="button" class="dugme" data-kapat>Tamam</button>
+        <button type="button" class="dugme ikincil" id="bulguTemizle">{{ metin("temizle") }}</button>
+        <button type="button" class="dugme" data-kapat>{{ metin("tamam") }}</button>
       </div>
     </div>
   </div>
 
   <div class="kart">
     <div class="alan">
-      <label for="islem_zamani">İşlem saati</label>
+      <label for="islem_zamani">{{ metin("islem_saati") }}</label>
       <input id="islem_zamani" name="islem_zamani" type="datetime-local"
              value="{% set kz = (kayit.zaman if kayit else None) %}{{ kz[:16]|replace(' ','T') if kz else simdi }}">
-      <div class="ipucu">Şu an dolu geliyor. Geriye dönük kayıt giriyorsan değiştir.</div>
+      <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
     </div>
   </div>
 
-  <button class="dugme" type="submit">Kaydet ve sonraki oosit</button>
+  <button class="dugme" type="submit">{{ metin("kaydet_sonraki_oosit") }}</button>
 </form>
 
 <div class="ipucu" style="text-align:center;margin-top:10px">
-  Zaman ve operatör otomatik kaydedilir.
+  {{ metin("zaman_operator_otomatik") }}
 </div>
 
 <a class="dugme ikincil" style="margin-top:12px"
    href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=fertilizasyon_kontrolu&geri=/cycle/{{ c.id }}/fert%3Foosit%3D{{ sp.cycle_sira_no }}">
-  Oosit {{ sp.cycle_sira_no }} için fotoğraf ekle</a>
+  {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
 <a class="dugme ikincil"
-   href="/cycle/{{ c.id }}/fert?oosit={{ sp.cycle_sira_no }}">Seçimleri geri al</a>
+   href="/cycle/{{ c.id }}/fert?oosit={{ sp.cycle_sira_no }}">{{ metin("secimleri_geri_al") }}</a>
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/fert-sil">Bu oositin kaydını sil</a>
+   href="/specimen/{{ sp.id }}/fert-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
 
 {% endif %}
 
@@ -189,7 +189,7 @@
     var s = Array.prototype.slice
       .call(document.querySelectorAll('.cip input:checked'))
       .map(function (i) { return i.parentNode.querySelector('span').textContent; });
-    ozet.textContent = s.length ? s.join(', ') : 'Bulgu yok';
+    ozet.textContent = s.length ? s.join(', ') : {{ metin("bulgu_yok")|tojson }};
     ozet.classList.toggle('dolu', s.length > 0);
   }
   document.querySelectorAll('.cip input').forEach(function (i) {

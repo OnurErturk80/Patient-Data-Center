@@ -451,6 +451,8 @@ METINLER = {
     "enjeksiyon": {"tr": "Enjeksiyon", "en": "Injection"},
     "yapildi": {"tr": "Yapıldı", "en": "Performed"},
     "yapilmadi": {"tr": "Yapılmadı", "en": "Not performed"},
+    # Karşılığı kullanıcıya (embriyolog) soruldu ve 2026-09-10'da onaylandı:
+    # "Penetration difficulty". Oolemma breakage / zona penetration değil.
     "gecis_zorlugu": {"tr": "Geçiş zorluğu", "en": "Penetration difficulty"},
     "enjeksiyon_sonucu": {"tr": "Enjeksiyon sonucu", "en": "Injection outcome"},
     "basarili": {"tr": "Başarılı", "en": "Successful"},
@@ -485,6 +487,53 @@ METINLER = {
     "oositlere_dagit_tekil": {"tr": "oositlere tek tek dağıt ({n} kare)",
                               "en": "distribute to oocytes one by one ({n} frame)"},
     "goruntu_eslestirme": {"tr": "Görüntü eşleştirme", "en": "Match images"},
+
+    # ---- fertilizasyon ----
+    "fertilizasyon_kontrolu": {"tr": "Fertilizasyon kontrolü",
+                               "en": "Fertilization check"},
+    "icsiden_bu_yana": {
+        "tr": "ICSI'den bu yana <strong>{n} saat</strong> · hedef {h} saat",
+        "en": "<strong>{n} hours</strong> since ICSI · target {h} hours"},
+    "icsiden_bu_yana_tekil": {
+        "tr": "ICSI'den bu yana <strong>{n} saat</strong> · hedef {h} saat",
+        "en": "<strong>{n} hour</strong> since ICSI · target {h} hours"},
+    "icsi_kaydi_yok": {"tr": "Bu oosite ICSI kaydı yok",
+                       "en": "There is no ICSI record for this oocyte"},
+    "maturasyon_kucuk": {"tr": "maturasyon", "en": "maturation"},
+    "yine_de_fert_girilebilir": {
+        "tr": "Yine de fertilizasyon kaydı girebilirsin.",
+        "en": "You can still enter a fertilization record."},
+    "sonuc": {"tr": "Sonuç", "en": "Outcome"},
+    "pronukleus_sayisi": {"tr": "Pronükleus sayısı", "en": "Number of pronuclei"},
+    "pn_skoru_z": {"tr": "PN skoru (Z)", "en": "PN score (Z)"},
+    "z_sadece_2pn": {"tr": "Z sınıflaması yalnız 2PN için tanımlıdır.",
+                     "en": "The Z classification is defined for 2PN only."},
+    "zigot_bulgulari": {"tr": "Zigot bulguları", "en": "Zygote findings"},
+
+    # ---- gün 2/3 (cleavage) ----
+    "gun_n_degerlendirme": {"tr": "Gün {n} değerlendirme", "en": "Day {n} assessment"},
+    "gun_n_buyuk": {"tr": "Gün {n}", "en": "Day {n}"},
+    "fert_kontrolunde_npn": {
+        "tr": "Bu oosit fertilizasyon kontrolünde {n}PN idi.",
+        "en": "This oocyte was {n}PN at the fertilization check."},
+    "hucre_sayisi": {"tr": "Hücre sayısı", "en": "Cell count"},
+    "fragmentasyon": {"tr": "Fragmentasyon (%)", "en": "Fragmentation (%)"},
+    "simetri": {"tr": "Simetri", "en": "Symmetry"},
+    "bulgular": {"tr": "Bulgular", "en": "Findings"},
+    "gun_n_bulgulari": {"tr": "Gün {n} bulguları", "en": "Day {n} findings"},
+    "skor": {"tr": "Skor", "en": "Score"},
+    "otomatik_hesaplanir": {"tr": "otomatik hesaplanır",
+                            "en": "calculated automatically"},
+    "skor_ipucu": {
+        "tr": "Boş bırakırsan hücre sayısı, simetri ve fragmentasyondan "
+              "hesaplanır.",
+        "en": "If you leave it empty it is calculated from the cell count, "
+              "symmetry and fragmentation."},
+    "su_anki_kayit": {"tr": "Şu anki kayıt:", "en": "Current record:"},
+    "elle_girildi": {"tr": "elle girildi", "en": "entered manually"},
+    "otomatik": {"tr": "otomatik", "en": "automatic"},
+    "gun_n_kaydini_sil": {"tr": "Bu oositin gün {n} kaydını sil",
+                          "en": "Delete this oocyte's day {n} record"},
 
     # ---- denüdasyon ----
     "kamera_klasoru_yok": {"tr": "Kamera klasörü bulunamadı:",
