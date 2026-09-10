@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Şifre değiştir{% endblock %}
+{% block ustbaslik %}{{ t("sifre_degistir") }}{% endblock %}
 {% block geri %}
 <a class="geri" href="{{ '/hastalar' if kullanici else '/giris' }}">&#8249;</a>
 {% endblock %}
@@ -11,49 +11,47 @@
   <div class="kart" style="margin-top:12px">
     {% if kullanici %}
     <div class="alan">
-      <label>Kullanıcı</label>
+      <label>{{ t("kullanici") }}</label>
       <div style="padding:4px 0"><b>{{ kullanici.kullanici_adi }}</b>
         — {{ kullanici.ad_soyad }}</div>
     </div>
     {% else %}
     {# Giriş yapılmadan da değiştirilebilir; mevcut şifre kimliği kanıtlıyor. #}
     <div class="alan">
-      <label for="kullanici_adi">Kullanıcı adı</label>
+      <label for="kullanici_adi">{{ t("kullanici_adi") }}</label>
       <input id="kullanici_adi" name="kullanici_adi" type="text" required autofocus
              autocomplete="username" autocapitalize="none" spellcheck="false">
     </div>
     {% endif %}
 
     <div class="alan">
-      <label for="mevcut">Mevcut şifre</label>
+      <label for="mevcut">{{ t("mevcut_sifre") }}</label>
       <input id="mevcut" name="mevcut" type="password" required
              {% if kullanici %}autofocus{% endif %}
              autocomplete="current-password">
     </div>
     <div class="alan">
-      <label for="yeni">Yeni şifre</label>
+      <label for="yeni">{{ t("yeni_sifre") }}</label>
       <input id="yeni" name="yeni" type="password" required minlength="8"
              autocomplete="new-password">
-      <div class="ipucu">En az 8 karakter.</div>
+      <div class="ipucu">{{ t("en_az_n_karakter").format(n=8) }}</div>
     </div>
     <div class="alan" style="border:0">
-      <label for="yeni2">Yeni şifre (tekrar)</label>
+      <label for="yeni2">{{ t("yeni_sifre_tekrar") }}</label>
       <input id="yeni2" name="yeni2" type="password" required minlength="8"
              autocomplete="new-password">
     </div>
   </div>
-  <button class="dugme" type="submit">Şifreyi değiştir</button>
+  <button class="dugme" type="submit">{{ t("sifreyi_degistir") }}</button>
 </form>
 
 <div class="kart" style="margin-top:12px">
   <div class="alan" style="border:0">
     <div class="ipucu">
-      Şifre değişince bu hesabın <b>açık oturumları kapatılır</b> — telefonunda
-      veya başka bir bilgisayarda açık kalan sayfalar dahil. Yeniden giriş
-      yapman gerekecek.
+      {{ t("sifre_oturum_uyari")|safe }}
       <br><br>
-      Mevcut şifreni bilmiyorsan bu ekran işe yaramaz —
-      <a href="/sifremi-unuttum">şifremi unuttum</a>.
+      {{ t("sifre_bilmiyorsan") }}
+      <a href="/sifremi-unuttum">{{ t("sifremi_unuttum")|lower }}</a>.
     </div>
   </div>
 </div>

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ t("dil_secimi") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{% if kaydedildi %}<div class="uyari">{{ t("dil_degisti") }}</div>{% endif %}
+
+<form method="post" action="/dil">
+  <div class="kart" style="margin-top:12px">
+    {% for kod, ad in diller %}
+    <label class="alan"
+           style="display:flex;align-items:center;gap:10px;min-height:44px;
+                  cursor:pointer{% if loop.last %};border:0{% endif %}">
+      <input type="radio" name="dil_kodu" value="{{ kod }}"
+             style="width:20px;height:20px;flex:0 0 auto"
+             {% if kod == secili %}checked{% endif %}>
+      <span style="font-size:16px">{{ ad }}</span>
+    </label>
+    {% endfor %}
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">{{ t("dili_degistir") }}</button>
+    </div>
+  </div>
+</form>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ t("dil_lab_geneli")|safe }}</div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ t("dil_klinik_terim")|safe }}</div>
+  </div>
+</div>
+{% endblock %}

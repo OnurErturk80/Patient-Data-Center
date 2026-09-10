@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 import db
 import guvenlik
+import metinler
 
 KOK = Path(__file__).parent
 uygulama = FastAPI(title="Patient Data Center")
@@ -280,32 +281,44 @@ def yetkim(modul: str) -> bool:
 
 
 sablon.env.globals["yetkim"] = yetkim
+sablon.env.globals["t"] = metinler.t
+sablon.env.globals["dil"] = metinler.dil
 
 
 @uygulama.middleware("http")
 async def oturum_kontrolu(request: Request, sonraki):
     yol = request.url.path
-    if yol.startswith("/static") or yol in ACIK_YOLLAR:
+    if yol.startswith("/static"):
         return await sonraki(request)
 
-    kullanici = guvenlik.oturumdaki_kullanici(request.cookies.get(guvenlik.CEREZ_ADI))
-    if not kullanici:
-        return RedirectResponse("/giris", status_code=303)
-
-    request.state.kullanici = kullanici
-    yetkiler = kullanici_yetkileri(kullanici)
-    request.state.yetkiler = yetkiler
-    jeton = _YETKILER.set(yetkiler)
+    # Dil lab geneli bir ayardır ve giriş ekranı da çevrilidir — bu yüzden
+    # oturum kontrolünden ÖNCE ayarlanır, ACIK_YOLLAR'da da geçerlidir.
+    dil_jetonu = metinler.dil_ayarla(db.ayar("dil", metinler.VARSAYILAN))
     try:
-        modul = yol_modulu(yol)
-        if modul and modul not in yetkiler:
-            from urllib.parse import quote
-            return RedirectResponse(
-                "/hastalar?yetkisiz=" + quote(dict(MODULLER).get(modul, modul)),
-                status_code=303)
-        return await sonraki(request)
+        if yol in ACIK_YOLLAR:
+            return await sonraki(request)
+
+        kullanici = guvenlik.oturumdaki_kullanici(
+            request.cookies.get(guvenlik.CEREZ_ADI))
+        if not kullanici:
+            return RedirectResponse("/giris", status_code=303)
+
+        request.state.kullanici = kullanici
+        yetkiler = kullanici_yetkileri(kullanici)
+        request.state.yetkiler = yetkiler
+        jeton = _YETKILER.set(yetkiler)
+        try:
+            modul = yol_modulu(yol)
+            if modul and modul not in yetkiler:
+                from urllib.parse import quote
+                return RedirectResponse(
+                    "/hastalar?yetkisiz=" + quote(dict(MODULLER).get(modul, modul)),
+                    status_code=303)
+            return await sonraki(request)
+        finally:
+            _YETKILER.reset(jeton)
     finally:
-        _YETKILER.reset(jeton)
+        metinler.dil_sifirla(dil_jetonu)
 
 
 @uygulama.get("/giris")
@@ -518,6 +531,40 @@ def yonetici_kontrol(request: Request):
     if not yonetici_mi(request.state.kullanici):
         return RedirectResponse("/hastalar", status_code=303)
     return None
+
+
+@uygulama.get("/dil")
+def dil_ekran(request: Request, kaydedildi: int = 0):
+    """Lab genelinde dil seçimi — yalnızca yönetici.
+
+    Dil kullanıcı başına değil **lab başına** tektir: yönetici bir kez seçer,
+    giriş ekranı dahil bütün program o dile geçer (CLAUDE.md bekleyen iş 8).
+
+    Seçici bilerek giriş ekranında değil: `/dil` açık bir yol olsaydı giriş
+    yapmamış herkes labın dilini değiştirebilirdi. Düğmeyi gizlemek yetmez,
+    sunucu da reddetmeli — hasta silmedeki kuralın aynısı.
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(request, "dil.html", {
+        "diller": metinler.DILLER,
+        "secili": metinler.dil(),
+        "kaydedildi": kaydedildi,
+    })
+
+
+@uygulama.post("/dil")
+def dil_kaydet(request: Request, dil_kodu: str = Form(...)):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    if dil_kodu not in dict(metinler.DILLER):
+        return RedirectResponse("/dil", status_code=303)
+    db.yaz("INSERT INTO ayarlar (lab_id, anahtar, deger) VALUES (?, 'dil', ?) "
+           "ON CONFLICT (lab_id, anahtar) DO UPDATE SET deger = excluded.deger",
+           (db.LAB_ID, dil_kodu))
+    return RedirectResponse("/dil?kaydedildi=1", status_code=303)
 
 
 @uygulama.get("/yonetim")

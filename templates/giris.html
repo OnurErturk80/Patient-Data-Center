@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Giriş{% endblock %}
+{% block ustbaslik %}{{ t("giris") }}{% endblock %}
 {% block icerik %}
 <div style="height:24px"></div>
 {% if hata %}
-<div class="uyari">Kullanıcı adı veya şifre hatalı.</div>
+<div class="uyari">{{ t("giris_hatali") }}</div>
 {% endif %}
 {% if sifre_degisti %}
-<div class="uyari">Şifre değiştirildi. Yeni şifrenle giriş yap.</div>
+<div class="uyari">{{ t("sifre_degisti_gir") }}</div>
 {% endif %}
 <form method="post" action="/giris">
   <div class="kart">
     <div class="alan">
-      <label for="kullanici_adi">Kullanıcı adı</label>
+      <label for="kullanici_adi">{{ t("kullanici_adi") }}</label>
       <input id="kullanici_adi" name="kullanici_adi" type="text" required autofocus
              autocomplete="username" autocapitalize="none" spellcheck="false">
     </div>
     <div class="alan">
-      <label for="sifre">Şifre</label>
+      <label for="sifre">{{ t("sifre") }}</label>
       <input id="sifre" name="sifre" type="password" required
              autocomplete="current-password">
     </div>
   </div>
-  <button class="dugme" type="submit">Giriş yap</button>
+  <button class="dugme" type="submit">{{ t("giris_yap") }}</button>
 </form>
-<a class="dugme ikincil" href="/sifre" style="margin-top:12px">Şifre değiştir</a>
-<a class="dugme ikincil" href="/sifremi-unuttum">Şifremi unuttum</a>
+<a class="dugme ikincil" href="/sifre" style="margin-top:12px">{{ t("sifre_degistir") }}</a>
+<a class="dugme ikincil" href="/sifremi-unuttum">{{ t("sifremi_unuttum") }}</a>
 {% endblock %}
