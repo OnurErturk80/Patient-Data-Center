@@ -341,6 +341,25 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    kendisi çalıştırdığı için kurulum artık eksiksiz çıkıyor, ama dosyanın adı
    yalan söylüyor. Mevcut şemadan yeniden üretilmeli.
 
+8. **Dil seçimi — karar verildi, henüz yazılmadı.** Amaç evrensel bir
+   program: önce Türkçe (Türkiye'de rahat kullanılsın), sonra İngilizce + dil
+   seçimi. Kullanıcının kararı (2026-09-10):
+   - **Dil lab başına tektir, kullanıcı başına değil.** Yönetici bir kez seçer,
+     bütün program o dile geçer. Aynı labda iki personel farklı dil görmez.
+   - Değer `ayarlar` tablosunda, `db.ayar("dil", "tr")` ile okunur — lab_id'ye
+     bağlı, yeni tablo gerekmez.
+   - **Giriş yapılmadan da okunabilmeli:** giriş ekranının kendisi de çevrilecek,
+     yani dil `ACIK_YOLLAR` üzerinde de geçerli olmalı.
+   - **Değiştirmek yönetici işi** — `yonetici_kontrol(request)` ile korunmalı.
+     Giriş ekranına açık bir dil seçici koyma: giriş yapmamış herkes labın
+     dilini değiştirebilirdi. `/yonetim` salt okunur olduğu için değiştirme
+     kendi ekranında olur, panelden yalnızca bağlantı verilir.
+   - Klinik terimler iki dilde de İngilizce kalır (blastocyst, ICSI, PN, ICM,
+     TE, FET) — çevrilen sadece arayüz metinleri.
+   - Asıl iş çeviri değil, ~42 şablondaki Türkçe metinleri şablonlardan çıkarıp
+     tek bir sözlüğe taşımak. Yeni ekranları Türkçe yazmaya devam et; hepsi
+     aynı anda taşınacak.
+
 `goc_018.py` (endikasyon kopyalarını birleştirir) 2026-09-08'de bu makinede
 çalıştırıldı: `erkek faktoru` ve `tubal faktor` serbest metinleri resmi
 kodlara birleştirildi, endikasyon listesi 19 → 17 satır. Hiçbir cycle etkilenmedi.
