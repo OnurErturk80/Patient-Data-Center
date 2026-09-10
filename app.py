@@ -100,6 +100,23 @@ def _ornek_kodu(specimen_id):
     return f"{r['dosya_no']}-{specimen_id}" if r else str(specimen_id)
 
 
+def _liste_etiket(liste_adi: str, kod):
+    """Bir seçim listesi kodunun ekranda görünen etiketi.
+
+    Bilgi kartları kaydedilmiş **kodu** gösterecek olsa "mii", "2pn" gibi
+    ham değerler çıkardı. Listeler laba özgü ve düzenlenebilir (`liste_degeri`),
+    o yüzden kod → etiket çevirisi sabit bir sözlükte değil, veritabanında.
+    Bulunamayan kod kendi adıyla döner — sessizce boş kalmaz.
+    """
+    if not kod:
+        return ""
+    r = db.tek(
+        "SELECT etiket FROM liste_degeri WHERE lab_id=? AND liste_adi=? AND kod=?",
+        (db.LAB_ID, liste_adi, str(kod)))
+    return r["etiket"] if r else str(kod)
+
+
+sablon.env.globals["liste_etiket"] = _liste_etiket
 sablon.env.globals["ornek_adi"] = _ornek_adi
 sablon.env.globals["ornek_kodu"] = _ornek_kodu
 
@@ -2023,7 +2040,8 @@ def olay_kaydet_veya_guncelle(specimen_id, cycle_id, tip, alanlar, kullanici_id,
 
 
 @uygulama.get("/cycle/{cycle_id}/icsi")
-def icsi_ekran(request: Request, cycle_id: int, oosit: str = ""):
+def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
+               duzenle: int = 0):
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -2042,7 +2060,7 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = ""):
              "bekleyen": bekleyen_ozet(),
              "bulgular": [], "secili_bulgular": set(), "kareler": [],
              "maturasyonlar": db.liste("maturasyon"),
-             "zorluklar": db.liste("gecis_zorlugu")},
+             "zorluklar": db.liste("gecis_zorlugu"), "duzenle": duzenle},
         )
 
     # Hangi oosit gösterilecek: istenen, yoksa ilk kaydedilmemiş, yoksa sonuncu
@@ -2077,7 +2095,7 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = ""):
             "mat": mat, "ic": ic, "secili_bulgular": secili,
             "bulgular": db.liste("bulgu_icsi"),
             "maturasyonlar": db.liste("maturasyon"),
-            "zorluklar": db.liste("gecis_zorlugu"),
+            "zorluklar": db.liste("gecis_zorlugu"), "duzenle": duzenle,
         },
     )
 
@@ -2255,7 +2273,8 @@ def fert_durum(cycle_id: int):
 
 
 @uygulama.get("/cycle/{cycle_id}/fert")
-def fert_ekran(request: Request, cycle_id: int, oosit: str = ""):
+def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
+               duzenle: int = 0):
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -2270,6 +2289,7 @@ def fert_ekran(request: Request, cycle_id: int, oosit: str = ""):
         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
         "gezinme": asama_gezinme(cycle_id, "fert"),
         "bekleyen": bekleyen_ozet(),
+        "duzenle": duzenle,
         "sonuclar": db.liste("fert_sonuc"),
         "pn_sayilari": db.liste("pn_sayisi"),
         "pn_skorlari": db.liste("pn_skoru"),
@@ -2505,7 +2525,8 @@ def cleavage_skor(hucre, simetri, frag, gun):
 
 
 @uygulama.get("/cycle/{cycle_id}/cleavage")
-def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = ""):
+def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "",
+                   duzenle: int = 0):
     if gun not in (2, 3):
         gun = 3
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -2519,6 +2540,7 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
         "c": c, "gun": gun, "oositler": oositler,
         "gezinme": asama_gezinme(cycle_id, "cleavage"),
         "bekleyen": bekleyen_ozet(),
+        "duzenle": duzenle,
         "simetriler": db.liste("simetri"),
         "bulgular": db.liste("bulgu_cleavage"),
         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
@@ -2708,7 +2730,8 @@ def blast_skor(genisleme, icm, te, derece=None):
 
 
 @uygulama.get("/cycle/{cycle_id}/blast")
-def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = ""):
+def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = "",
+                duzenle: int = 0):
     if gun not in BLAST_GUNLERI:
         gun = 5
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -2735,6 +2758,7 @@ def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = ""):
         "gezinme": asama_gezinme(cycle_id, "blast"),
         "bekleyen": bekleyen_ozet(),
         "genislemeler": genislemeler,
+        "duzenle": duzenle,
         "icmler": db.liste("bl_icm"),
         "teler": db.liste("bl_te"),
         "dereceler": dereceler,

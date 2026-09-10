@@ -3,6 +3,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
+{% import "_bilgikart.html" as bk %}
 {% block ustbaslik %}{{ metin("asama_icsi") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -54,6 +55,33 @@
 </div></div>
 {% endif %}
 
+{% set geri_yol = '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no %}
+{% if mat and not duzenle %}
+{# --- kaydedilmis: bilgi karti --- #}
+{{ bk.kart(
+     ornek_adi('icsi', c.cycle_tipi) ~ ' ' ~ sp.cycle_sira_no,
+     [
+       (metin("maturasyon"), liste_etiket('maturasyon', mat.mat_deger)),
+       (metin("oosit_bulgulari"), bk.bulgu_metni(bulgular, secili_bulgular)),
+       (metin("enjeksiyon"), metin("yapildi") if ic else metin("yapilmadi")),
+     ] + ([
+       (metin("gecis_zorlugu"), liste_etiket('gecis_zorlugu', ic.icsi_gecis_zorlugu)),
+       (metin("enjeksiyon_sonucu"),
+        metin("dejenere") if ic.icsi_sonuc == 'degenere' else metin("basarili")),
+     ] if ic else []) + [
+       (metin("islem_saati"), (ic.zaman if ic else mat.zaman)),
+     ],
+     geri_yol ~ '&duzenle=1',
+     metin("kaydedildi_rozet")) }}
+
+<a class="dugme ikincil" style="margin-top:12px"
+   href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">
+  {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
+<a class="dugme ikincil tehlike-bag"
+   href="/specimen/{{ sp.id }}/icsi-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
+
+{% else %}
+{# --- kayit yok ya da duzenleniyor: form --- #}
 <form method="post" action="/cycle/{{ c.id }}/icsi" id="icsiform">
   <input type="hidden" name="specimen_id" value="{{ sp.id }}">
 
@@ -169,14 +197,21 @@
    href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">
   {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
 <a class="dugme ikincil"
-   href="/cycle/{{ c.id }}/icsi?oosit={{ sp.cycle_sira_no }}">{{ metin("secimleri_geri_al") }}</a>
+   href="{{ geri_yol }}">{{ metin("vazgec_duzenleme") if duzenle else metin("secimleri_geri_al") }}</a>
+{% if mat %}
 <a class="dugme ikincil tehlike-bag"
    href="/specimen/{{ sp.id }}/icsi-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
+{% endif %}
+{% endif %}
 
 {% endif %}
 
 <script>
 (function () {
+  // Bilgi karti modunda form basilmiyor; asagidaki alanlarin hicbiri
+  // yok. Erken cik -- yoksa null uzerinde addEventListener patlardi
+  // ve sayfanin geri kalan betikleri de calismazdi.
+  if (!document.getElementById('icsiform')) return;
   // Seçili görünümünü güncelle
   document.querySelectorAll('.secenek').forEach(function (grup) {
     grup.addEventListener('change', function () {

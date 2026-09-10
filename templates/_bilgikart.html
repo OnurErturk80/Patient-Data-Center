@@ -1,0 +1,35 @@
+{# Kaydedilmiş bir aşama kaydının salt okunur bilgi kartı.
+
+   Düzen bütün aşamalarda aynı (kullanıcının isteği): üstte örnek şeridi,
+   birine basınca altta bu kart. Kayıt yoksa kart yerine form açılır; kayıt
+   varsa kart görünür ve değiştirmek için "Düzenle" ile forma dönülür.
+
+   `satirlar` — (etiket, değer) ikilileri. Değer boşsa "girilmedi" yazar,
+   böylece "sıfır/yok" ile "girilmedi" ayrımı ekranda da korunur.
+   `duzenle_yolu` — aynı ekranın ?duzenle=1 hali. #}
+{% macro kart(baslik, satirlar, duzenle_yolu, rozet=None) %}
+<div class="kart bilgikart">
+  <h2>
+    <span>{{ baslik }}{% if rozet %} <span class="rozet">{{ rozet }}</span>{% endif %}</span>
+  </h2>
+  <dl style="margin:0">
+    {% for etiket, deger in satirlar %}
+    <div class="veri">
+      <dt>{{ etiket }}</dt>
+      <dd {% if deger is none or deger == "" %}class="yok"{% endif %}>
+        {{ deger if (deger is not none and deger != "") else metin("girilmedi") }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  <div class="alan" style="border:0">
+    <a class="dugme" href="{{ duzenle_yolu }}" style="margin-top:0">
+      {{ metin("duzenle_kaydi") }}</a>
+  </div>
+</div>
+{% endmacro %}
+
+{# Seçili bulguların etiketleri, virgülle. Kayıt varken boşsa "—". #}
+{% macro bulgu_metni(bulgular, secili) %}
+{%- set adlar = bulgular|selectattr('kod', 'in', secili)|map(attribute='etiket')|list -%}
+{{ adlar|join(', ') if adlar else "—" }}
+{%- endmacro %}

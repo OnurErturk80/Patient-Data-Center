@@ -69,9 +69,15 @@ def say(anahtar: str, n) -> str:
 
 
 def yuzde(deger) -> str:
-    """Yüzde işareti dile göre yer değiştirir: Türkçe %90, İngilizce 90%."""
+    """Yüzde işareti dile göre yer değiştirir: Türkçe %90, İngilizce 90%.
+
+    Kolon REAL olduğu için 10 değeri 10.0 diye okunuyor; tam sayıysa ondalık
+    kısım yazılmaz — ekranda "%10.0" değil "%10" görünsün.
+    """
     if deger is None:
         return ""
+    if isinstance(deger, float) and deger.is_integer():
+        deger = int(deger)
     return f"%{deger}" if dil() == "tr" else f"{deger}%"
 
 
@@ -518,6 +524,9 @@ METINLER = {
         "en": "This oocyte was {n}PN at the fertilization check."},
     "hucre_sayisi": {"tr": "Hücre sayısı", "en": "Cell count"},
     "fragmentasyon": {"tr": "Fragmentasyon (%)", "en": "Fragmentation (%)"},
+    # Bilgi kartında değer zaten "%10" diye yazılıyor; başlıkta ikinci bir
+    # yüzde işareti olmasın.
+    "fragmentasyon_kisa": {"tr": "Fragmentasyon", "en": "Fragmentation"},
     "simetri": {"tr": "Simetri", "en": "Symmetry"},
     "bulgular": {"tr": "Bulgular", "en": "Findings"},
     "gun_n_bulgulari": {"tr": "Gün {n} bulguları", "en": "Day {n} findings"},

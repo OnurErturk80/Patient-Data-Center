@@ -3,6 +3,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
+{% import "_bilgikart.html" as bk %}
 {% block ustbaslik %}{{ metin("fertilizasyon_kontrolu") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -65,6 +66,27 @@
 <div class="kart"><div class="bos">{{ metin("bu_asamada_fotograf_yok") }}</div></div>
 {% endif %}
 
+{% set geri_yol = '/cycle/' ~ c.id ~ '/fert?oosit=' ~ sp.cycle_sira_no %}
+{% if kayit and not duzenle %}
+{{ bk.kart(
+     ornek_adi('fert', c.cycle_tipi) ~ ' ' ~ sp.cycle_sira_no,
+     [
+       (metin("sonuc"), liste_etiket('fert_sonuc', kayit.fert_sonuc)),
+       (metin("pronukleus_sayisi"), liste_etiket('pn_sayisi', kayit.fert_pn_sayisi)),
+       (metin("pn_skoru_z"), liste_etiket('pn_skoru', kayit.fert_pn_skoru)),
+       (metin("zigot_bulgulari"), bk.bulgu_metni(bulgular, secili_bulgular)),
+       (metin("islem_saati"), kayit.zaman),
+     ],
+     geri_yol ~ '&duzenle=1',
+     metin("kaydedildi_rozet")) }}
+
+<a class="dugme ikincil" style="margin-top:12px"
+   href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=fertilizasyon_kontrolu&geri=/cycle/{{ c.id }}/fert%3Foosit%3D{{ sp.cycle_sira_no }}">
+  {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
+<a class="dugme ikincil tehlike-bag"
+   href="/specimen/{{ sp.id }}/fert-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
+
+{% else %}
 <form method="post" action="/cycle/{{ c.id }}/fert" id="fertform">
   <input type="hidden" name="specimen_id" value="{{ sp.id }}">
 
@@ -167,14 +189,21 @@
    href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=fertilizasyon_kontrolu&geri=/cycle/{{ c.id }}/fert%3Foosit%3D{{ sp.cycle_sira_no }}">
   {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
 <a class="dugme ikincil"
-   href="/cycle/{{ c.id }}/fert?oosit={{ sp.cycle_sira_no }}">{{ metin("secimleri_geri_al") }}</a>
+   href="{{ geri_yol }}">{{ metin("vazgec_duzenleme") if duzenle else metin("secimleri_geri_al") }}</a>
+{% if kayit %}
 <a class="dugme ikincil tehlike-bag"
    href="/specimen/{{ sp.id }}/fert-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
+{% endif %}
+{% endif %}
 
 {% endif %}
 
 <script>
 (function () {
+  // Bilgi karti modunda form basilmiyor; asagidaki alanlarin hicbiri
+  // yok. Erken cik -- yoksa null uzerinde addEventListener patlardi
+  // ve sayfanin geri kalan betikleri de calismazdi.
+  if (!document.getElementById('fertform')) return;
   document.querySelectorAll('.secenek').forEach(function (grup) {
     grup.addEventListener('change', function () {
       grup.querySelectorAll('.sec').forEach(function (l) {
