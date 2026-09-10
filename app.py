@@ -1339,13 +1339,20 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
         "SELECT id, specimen_id FROM goruntu WHERE cycle_id = ? AND asama = 'denudasyon' "
         "ORDER BY id DESC LIMIT 1", (cycle_id,)
     )
-    # Üstteki numara şeridinden seçilen oosit; istenmemişse sonuncusu. Öteki
-    # aşama ekranlarıyla aynı düzen (v6.22).
+    # Üstteki numara şeridinden seçilen oosit; istenmemişse sonuncusu.
     sp = None
     if kayitli:
         if oosit:
             sp = next((o for o in kayitli if str(o["cycle_sira_no"]) == oosit), None)
         sp = sp or kayitli[-1]
+    # Ekran açılışta salt okunur özet gösteriyor; sayılar oradan (v6.24).
+    ozet = {
+        "toplam": len(kayitli),
+        "sag": sum(1 for o in kayitli if o["taraf"] == "sag"),
+        "sol": sum(1 for o in kayitli if o["taraf"] == "sol"),
+        "belirsiz": sum(1 for o in kayitli if not o["taraf"]),
+        "fotografli": sum(1 for o in kayitli if o["kare"]),
+    }
     return sablon.TemplateResponse(
         request, "denudasyon.html",
         {
@@ -1353,7 +1360,7 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
             "bekleyen": bekleyen,
             "simdiki": bekleyen[0] if bekleyen else None,
             "kayitli": kayitli,
-            "sp": sp,
+            "sp": sp, "ozet": ozet,
             "kareler": asama_goruntuleri(sp["id"], "denudasyon") if sp else [],
             "sonraki_sira": goruntuler.sonraki_sira(cycle_id),
             "son_goruntu": son,
@@ -1413,10 +1420,14 @@ async def denudasyon_islem(request: Request, cycle_id: int):
     elif eylem == "geri":
         goruntuler.geri_al(int(f.get("goruntu_id")))
 
-    yol = f"/cycle/{cycle_id}/denudasyon"
-    parcalar = ([f"taraf={taraf}"] if taraf else []) + ([f"hata={hata}"] if hata else [])
-    if parcalar:
-        yol += "?" + "&".join(parcalar)
+    # Kare eklemek çalışma kipinde yapılıyor; kayıttan sonra orada kal
+    # (v6.24). Yoksa her kayıtta özet ekranına düşüp tekrar Düzenle demek
+    # gerekirdi -- 20 oositlik bir cycle'da 20 fazladan dokunuş.
+    yol = f"/cycle/{cycle_id}/denudasyon?duzenle=oosit"
+    if taraf:
+        yol += f"&taraf={taraf}"
+    if hata:
+        yol += f"&hata={hata}"
     return RedirectResponse(yol, status_code=303)
 
 

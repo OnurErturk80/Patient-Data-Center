@@ -974,6 +974,13 @@ METINLER = {
     "cozulen_embriyolar": {"tr": "Çözülen embriyolar", "en": "Thawed embryos"},
     "ornek_kodu_baslik": {"tr": "Örnek kodu", "en": "Specimen code"},
     "saat": {"tr": "Saat", "en": "Time"},
+    # Denüdasyon özet kartı: ekran açılışta ne kaydedildiğini gösterir,
+    # çalışma alanı (kare ekleme, şerit, fotoğraf) Düzenle'nin arkasında.
+    "toplam_oosit": {"tr": "Toplam", "en": "Total"},
+    "belirtilmemis": {"tr": "Belirtilmemiş", "en": "Not specified"},
+    "fotografli": {"tr": "Fotoğraflı", "en": "With photo"},
+    "oositleri_duzenle": {"tr": "Oositleri düzenle", "en": "Edit oocytes"},
+    "bitir": {"tr": "Bitir", "en": "Done"},
     "kare_sayisi": {"tr": "Kare", "en": "Frames"},
     "bu_ornege_ait_fotograf_yok": {
         "tr": "Bu kayda ait fotoğraf yok.",
