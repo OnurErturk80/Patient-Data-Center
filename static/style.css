@@ -56,15 +56,41 @@ body {
   background: var(--ink);
   color: #fff;
   padding: 18px 16px 20px;
+  /* Sira SABLONDA degil burada: ad -> dosya no -> alt bilgi. 31 sablonun
+     hepsinde ayni sirayla basiliyor, sirayi tek yerden cevirmek 31 dosyayi
+     tek tek duzenlemekten guvenli (tuzak #1). */
+  display: flex;
+  flex-direction: column;
 }
-.kimlik .dosya {
-  font-size: 34px;
+/* Hastanin adi en ustte ve en buyuk (v6.23, kullanicinin istegi). */
+.kimlik .isim {
+  order: 1;
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: -.02em;
-  line-height: 1;
+  line-height: 1.1;
 }
-.kimlik .isim { font-size: 17px; margin-top: 6px; }
+.kimlik .dosya {
+  order: 2;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
+  margin-top: 5px;
+  color: #cfd8de;
+}
+/* Adi olmayan ekranlarda (tasiyici, cozme) dosya alani basligin kendisi --
+   orada kucuk kalmasin. */
+.kimlik.tekli .dosya {
+  order: 1;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin-top: 0;
+  color: #fff;
+}
 .kimlik .alt {
+  order: 3;
   font-size: 13px; color: #9fb0bc; margin-top: 4px;
 }
 .kimlik .rozet {
@@ -105,9 +131,15 @@ body {
 }
 .satir:last-child { border-bottom: 0; }
 .satir:active { background: var(--zemin); }
+/* Hasta listesinde de ad ustte ve buyuk, dosya no altta (v6.23) --
+   kimlik bandiyla ayni siralama. Sira yine CSS'te, sablonda degil. */
 .satir .no { font-weight: 700; font-size: 17px; }
 .satir .ad { font-size: 15px; }
 .satir .meta { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.satir.hasta { display: flex; flex-direction: column; }
+.satir.hasta .ad { order: 1; font-weight: 700; font-size: 17px; }
+.satir.hasta .no { order: 2; font-size: 14px; font-weight: 400; color: var(--ink-2); }
+.satir.hasta .meta { order: 3; }
 
 /* --- veri satırları --- */
 .veri { display: flex; padding: 9px 14px; border-bottom: 1px solid var(--line); }

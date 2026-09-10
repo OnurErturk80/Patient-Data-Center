@@ -113,21 +113,6 @@
   </div>
   {% endif %}
 
-  {# Bundan sonra eklenecek oositlere yazılacak over. Tek bir oositinkini
-     değiştirmek için aşağıdaki bilgi kartında "Düzenle" var. #}
-  <div class="alan" style="border-top:1px solid var(--line)">
-    <label>{{ metin("bundan_sonraki_over") }}</label>
-    <div class="tarafsec">
-      <a href="/cycle/{{ c.id }}/denudasyon"
-         class="{% if not taraf %}aktif{% endif %}">{{ metin("belirtme") }}</a>
-      {% for t in taraflar %}
-      <a href="/cycle/{{ c.id }}/denudasyon?taraf={{ t.kod }}"
-         class="{% if taraf == t.kod %}aktif{% endif %}">{{ t.etiket }}</a>
-      {% endfor %}
-    </div>
-    <div class="ipucu">{{ metin("taraf_ipucu") }}</div>
-  </div>
-
   <div class="alan" style="border-top:1px solid var(--line)">
     <a class="dugme ikincil" style="margin-top:0"
        href="/cycle/{{ c.id }}/foto-ekle?specimen_id=__yeni__&asama=denudasyon&geri=/cycle/{{ c.id }}/denudasyon">
@@ -169,11 +154,12 @@
 
 {% if kareler %}
 <div class="foto">
-  <img src="/dosya/{{ kareler[-1].id }}" alt="{{ oosit_ad }} {{ sp.cycle_sira_no }}">
+  <img src="/dosya/{{ kareler[0].id }}" alt="{{ oosit_ad }} {{ sp.cycle_sira_no }}">
+  <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
 </div>
 {{ kr.serit(kareler, sp, c, 'denudasyon', geri_yol) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ kareler[-1].id }}/sil?geri={{ geri_yol|urlencode }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/goruntu/{{ kareler[0].id }}/sil?geri={{ geri_yol|urlencode }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
   <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ geri_yol|urlencode }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}

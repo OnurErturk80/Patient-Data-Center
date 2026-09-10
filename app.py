@@ -1358,7 +1358,7 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
             "sonraki_sira": goruntuler.sonraki_sira(cycle_id),
             "son_goruntu": son,
             "gezinme": asama_gezinme(cycle_id, "denudasyon"),
-         "taraf": taraf, "taraflar": db.liste("taraf"), "hata": hata,
+         "taraf": taraf, "hata": hata,
          "duzenle": duzenle,
          "klasor": str(goruntuler.kaynak_klasor()),
             "klasor_var": goruntuler.kaynak_klasor().is_dir(),
@@ -2006,7 +2006,7 @@ def icsi_durum(cycle_id: int):
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
-        "   AND g.asama='icsi' ORDER BY g.id DESC LIMIT 1) AS ilk_goruntu, "
+        "   AND g.asama='icsi' ORDER BY g.id LIMIT 1) AS ilk_goruntu, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
         "   AND g.asama='icsi') AS asama_kare, "
         "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id = s.id) "
@@ -2264,7 +2264,7 @@ def fert_durum(cycle_id: int):
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
-        "   AND g.asama='fertilizasyon_kontrolu' ORDER BY g.id DESC LIMIT 1) "
+        "   AND g.asama='fertilizasyon_kontrolu' ORDER BY g.id LIMIT 1) "
         "  AS son_goruntu, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
         "   AND g.asama='fertilizasyon_kontrolu') AS asama_kare, "
@@ -2478,7 +2478,7 @@ def cleavage_durum(cycle_id: int, gun: int):
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
-        "   AND g.asama = ? ORDER BY g.id DESC LIMIT 1) AS goruntu, "
+        "   AND g.asama = ? ORDER BY g.id LIMIT 1) AS goruntu, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
         "   AND g.asama = ?) AS kare, "
         "  (SELECT o.fert_pn_sayisi FROM olay o WHERE o.specimen_id = s.id "
@@ -2710,9 +2710,9 @@ def blast_durum(cycle_id: int, gun: int):
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  COALESCE( "
         "    (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
-        "     AND g.asama = ? ORDER BY g.id DESC LIMIT 1), "
+        "     AND g.asama = ? ORDER BY g.id LIMIT 1), "
         "    (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
-        "     AND g.asama = 'blastokist' ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
+        "     AND g.asama = 'blastokist' ORDER BY g.id LIMIT 1)) AS goruntu, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id "
         "   AND g.asama IN (?, 'blastokist')) AS kare, "
         "  (SELECT o.fert_pn_sayisi FROM olay o WHERE o.specimen_id = s.id "

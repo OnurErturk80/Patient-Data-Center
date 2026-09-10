@@ -48,6 +48,7 @@
 {% if sp.goruntu %}
 <div class="foto">
   <img src="/dosya/{{ sp.goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
+  <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
 </div>
 {{ kr.serit(kareler, sp, c, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no) }}
 <div class="fotoalt">
