@@ -55,6 +55,26 @@ def t(anahtar: str) -> str:
     return kayit.get(dil()) or kayit.get(VARSAYILAN) or anahtar
 
 
+def say(anahtar: str, n) -> str:
+    """Sayılı metin: "3 embriyo" / "3 embryos", "1 embriyo" / "1 embryo".
+
+    İngilizce 1 için tekil biçim ister; Türkçede sayıdan sonra çoğul eki
+    kullanılmaz, tek biçim yeter. n == 1 iken `<anahtar>_tekil` varsa o
+    kullanılır, yoksa normal biçime düşülür — tekil biçim tanımlamak
+    isteğe bağlı.
+    """
+    if n == 1 and (anahtar + "_tekil") in METINLER:
+        return t(anahtar + "_tekil").format(n=n)
+    return t(anahtar).format(n=n)
+
+
+def yuzde(deger) -> str:
+    """Yüzde işareti dile göre yer değiştirir: Türkçe %90, İngilizce 90%."""
+    if deger is None:
+        return ""
+    return f"%{deger}" if dil() == "tr" else f"{deger}%"
+
+
 METINLER = {
     # ---- program ve genel ----
     "program_adi": {"tr": "Patient Data Center", "en": "Patient Data Center"},
@@ -167,7 +187,9 @@ METINLER = {
                        "en": "Label, location, file no or patient name"},
     "tanklar": {"tr": "Tanklar", "en": "Tanks"},
     "n_tasiyici": {"tr": "{n} taşıyıcı", "en": "{n} carriers"},
+    "n_tasiyici_tekil": {"tr": "{n} taşıyıcı", "en": "{n} carrier"},
     "n_embriyo": {"tr": "{n} embriyo", "en": "{n} embryos"},
+    "n_embriyo_tekil": {"tr": "{n} embriyo", "en": "{n} embryo"},
     "dolu_tasiyicilar": {"tr": "Dolu taşıyıcılar", "en": "Occupied carriers"},
     "konum_girilmemis": {"tr": "konum girilmemiş", "en": "location not entered"},
     "aramaya_uyan_tasiyici_yok": {"tr": "Bu aramaya uyan taşıyıcı yok.",
@@ -333,6 +355,83 @@ METINLER = {
     "bu_tasiyiciyi_coz": {"tr": "Bu taşıyıcıyı çöz", "en": "Thaw this carrier"},
     "tasiyici_bosaltildi": {"tr": "boşaltıldı", "en": "emptied"},
 
+    # ---- çözme (thaw) ----
+    "konum_girilmemis_uzun": {"tr": "konum girilmemiş",
+                              "en": "location not entered"},
+    "tasiyici_cozme_uyari": {
+        "tr": "Bu taşıyıcıda <strong>{n} embriyo</strong> var. Taşıyıcı "
+              "çözüldüğünde hepsi etkilenir; her biri için sağkalım girilmeli.",
+        "en": "This carrier holds <strong>{n} embryos</strong>. Thawing the "
+              "carrier affects all of them; survival must be entered for each."},
+    "cozme_hangi_tedavi": {"tr": "Bu çözme hangi tedavi için?",
+                           "en": "Which treatment is this thaw for?"},
+    "thaw_cycle_ipucu": {
+        "tr": "Çözme bu cycle'ın kaydına yazılır. Embriyo canlı çıkmasa da o "
+              "tedavide çözüldüğü görünür.",
+        "en": "The thaw is recorded against this cycle. Even if the embryo "
+              "does not survive, it still shows as thawed for that treatment."},
+    "cozme_saati": {"tr": "Çözme saati", "en": "Thaw time"},
+    "ikinci_kontrol_saati": {"tr": "İkinci kontrol saati",
+                             "en": "Second check time"},
+    "ikinci_kontrol_ipucu": {
+        "tr": "Re-expansion değerlendirmesinin yapıldığı saat. Henüz "
+              "yapılmadıysa boş bırak, sonra doldur.",
+        "en": "The time the re-expansion assessment was made. Leave it empty "
+              "if it has not been done yet and fill it in later."},
+    "cozme_sonrasi": {"tr": "Çözme sonrası", "en": "After thaw"},
+    "ikinci_kontrol": {"tr": "İkinci kontrol", "en": "Second check"},
+    "fotograf_n": {"tr": "fotoğraf {n}", "en": "photo {n}"},
+    "bu_fotografi_sil": {"tr": "Bu fotoğrafı sil", "en": "Delete this photo"},
+    "fotograf_ekle_kucuk": {"tr": "fotoğraf ekle", "en": "add photo"},
+    "arti_ekle": {"tr": "+ ekle", "en": "+ add"},
+    "canlilik_orani": {"tr": "Canlılık oranı (%)", "en": "Viability (%)"},
+    "re_expansion": {"tr": "Re-expansion (%)", "en": "Re-expansion (%)"},
+    "canlilik_reexp_ipucu": {
+        "tr": "Canlılık: çözme anında canlı kalan hücre oranı. Re-expansion: "
+              "ikinci kontroldeki yeniden genişleme.",
+        "en": "Viability: the proportion of cells still alive at the moment of "
+              "thaw. Re-expansion: the re-expansion seen at the second check."},
+    "tasiyici_bos": {"tr": "Bu taşıyıcı boş.", "en": "This carrier is empty."},
+    "cozme_bosaltma_uyari": {
+        "tr": "Kaydedince taşıyıcı <strong>boşaltıldı</strong> işaretlenir ve "
+              "konumu haritada boşa düşer.",
+        "en": "On save the carrier is marked <strong>emptied</strong> and its "
+              "location is freed on the map."},
+    "cozmeyi_kaydet": {"tr": "Çözmeyi kaydet", "en": "Save thaw"},
+
+    # ---- cycle çözme ekranı ----
+    "cozme_thaw": {"tr": "Çözme (thaw)", "en": "Thaw"},
+    "thaw_goc_gerekli": {
+        "tr": "Çözmelerin hangi tedavi için yapıldığı henüz kaydedilmiyor. "
+              "Terminalde <code>python goc_024.py</code> çalıştır.",
+        "en": "Which treatment each thaw was done for is not recorded yet. "
+              "Run <code>python goc_024.py</code> in a terminal."},
+    "tankta_duran_tasiyicilar": {"tr": "Tankta duran taşıyıcılar",
+                                 "en": "Carriers still in the tank"},
+    "fet_tum_tasiyicilar": {
+        "tr": "Hastanın tüm tedavilerindeki taşıyıcılar listelenir.",
+        "en": "Carriers from all of this patient's treatments are listed."},
+    "donduruldugu_cycle": {"tr": "dondurulduğu cycle", "en": "frozen in cycle"},
+    "icerigi_gor": {"tr": "içeriği gör", "en": "view contents"},
+    "coz_dugme": {"tr": "Çöz", "en": "Thaw"},
+    "fet_tasiyici_yok": {"tr": "Bu hastanın tankta duran taşıyıcısı yok.",
+                         "en": "This patient has no carriers in the tank."},
+    "cycle_tasiyici_yok": {"tr": "Bu cycle'a ait tankta duran taşıyıcı yok.",
+                           "en": "No carriers from this cycle are in the tank."},
+    "bu_tedavide_cozulenler": {"tr": "Bu tedavide çözülenler",
+                               "en": "Thawed in this treatment"},
+    "transfer_edilen": {"tr": "transfer edilen", "en": "transferred"},
+    "canlilik_kucuk": {"tr": "canlılık", "en": "viability"},
+    "kaynak": {"tr": "kaynak", "en": "source"},
+    "transfer_edildi": {"tr": "transfer edildi", "en": "transferred"},
+    "transfer_edilmedi": {"tr": "transfer edilmedi", "en": "not transferred"},
+    "cozulmus_tasiyicilar": {"tr": "Çözülmüş taşıyıcılar",
+                             "en": "Thawed carriers"},
+    "n_cozme_kaydi": {"tr": "{n} çözme kaydı", "en": "{n} thaw records"},
+    "n_cozme_kaydi_tekil": {"tr": "{n} çözme kaydı", "en": "{n} thaw record"},
+    "vitrifikasyon_ekrani": {"tr": "Vitrifikasyon ekranı",
+                             "en": "Vitrification screen"},
+
     # ---- denüdasyon ----
     "kamera_klasoru_yok": {"tr": "Kamera klasörü bulunamadı:",
                            "en": "Camera folder not found:"},
@@ -356,6 +455,7 @@ METINLER = {
         "tr": "Kopyalama yarım kalmış olabilir. Kaynağından yeniden kopyala.",
         "en": "The copy may be incomplete. Copy them again from the source."},
     "n_goruntu_bekliyor": {"tr": "{n} görüntü bekliyor", "en": "{n} images waiting"},
+    "n_goruntu_bekliyor_tekil": {"tr": "{n} görüntü bekliyor", "en": "{n} image waiting"},
     "oosit_n": {"tr": "Oosit {n}", "en": "Oocyte {n}"},
     "siradaki_goruntu": {"tr": "Sıradaki görüntü", "en": "Next image"},
     "kaydet_oosit_n": {"tr": "Kaydet → oosit {n}", "en": "Save → oocyte {n}"},
@@ -368,6 +468,7 @@ METINLER = {
                          "en": "No images left waiting."},
     "n_oosit_kaydedildi": {"tr": "{n} oosit kaydedildi.",
                            "en": "{n} oocytes recorded."},
+    "n_oosit_kaydedildi_tekil": {"tr": "{n} oosit kaydedildi.", "en": "{n} oocyte recorded."},
     "klasorde_yeni_yok": {"tr": "Klasörde yeni görüntü yok.",
                           "en": "No new images in the folder."},
     "kameradan_kare_al": {"tr": "Kameradan kare alıp sayfayı yenile.",
@@ -457,6 +558,7 @@ METINLER = {
     "son_kayitlar": {"tr": "Son kayıtlar", "en": "Recent records"},
     "es": {"tr": "Eş", "en": "Partner"},
     "n_cycle": {"tr": "{n} cycle", "en": "{n} cycles"},
+    "n_cycle_tekil": {"tr": "{n} cycle", "en": "{n} cycle"},
     "n_cycle_sirali": {"tr": "{n}. cycle", "en": "Cycle {n}"},
     "aramaya_uyan_yok": {"tr": "Bu aramaya uyan kayıt yok.",
                          "en": "No records match this search."},

@@ -9,7 +9,7 @@
   <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
   <div class="isim">{{ c.ad_soyad }}</div>
   <div class="alt">
-    {% if c.hasta_cycle_no %}{{ metin("n_cycle_sirali").format(n=c.hasta_cycle_no) }} · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
+    {% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }} · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
   </div>
 </div>
 {% endblock %}
@@ -27,7 +27,7 @@
       <div class="ad"><strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
         {% if e.skor %} · {{ e.skor }}{% endif %}</div>
       <div class="meta">
-        {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ metin("n_cycle_sirali").format(n=e.hasta_cycle_no) }}){% endif %}
+        {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ say("n_cycle_sirali", e.hasta_cycle_no) }}){% endif %}
         · {{ metin("donmus") if e.tr_tipi == "donmus" else metin("taze") }}
       </div>
       <div class="meta">{{ e.zaman }}</div>
@@ -58,7 +58,7 @@
       <span class="bilgi">
         <strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
         <em>
-          {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ metin("n_cycle_sirali").format(n=e.hasta_cycle_no) }}){% endif %}
+          {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ say("n_cycle_sirali", e.hasta_cycle_no) }}){% endif %}
           {% if e.skor %} · {{ e.skor }}{% endif %}
           {% if e.thaw == "canli" %} · {{ metin("cozulmus") }}{% elif e.thaw %} · {{ metin("cozulmus") }} ({{ e.thaw|replace('_',' ') }}){% endif %}
         </em>

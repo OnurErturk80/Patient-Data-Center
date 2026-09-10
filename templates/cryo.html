@@ -14,7 +14,7 @@
   {% for t in tanklar %}
   <a class="satir" href="/cryo?ara={{ t.tank }}">
     <div class="no">{{ t.tank }}</div>
-    <div class="meta">{{ metin("n_tasiyici").format(n=t.tasiyici) }} · {{ metin("n_embriyo").format(n=t.embriyo) }}</div>
+    <div class="meta">{{ say("n_tasiyici", t.tasiyici) }} · {{ say("n_embriyo", t.embriyo) }}</div>
   </a>
   {% endfor %}
 </div>
@@ -28,7 +28,7 @@
     <div class="no">{{ t.etiket }}</div>
     <div class="meta">
       {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
-      · {{ metin("n_embriyo").format(n=t.adet) }}
+      · {{ say("n_embriyo", t.adet) }}
     </div>
     <div class="meta">
       {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}

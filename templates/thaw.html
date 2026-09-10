@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Çözme{% endblock %}
+{% block ustbaslik %}{{ metin("asama_thaw") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cryo/tasiyici/{{ t.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ t.etiket }}</div>
-  <div class="alt">{{ t.tam_yol or 'konum girilmemiş' }}</div>
+  <div class="alt">{{ t.tam_yol or metin("konum_girilmemis_uzun") }}</div>
 </div>
 {% endblock %}
 {% block icerik %}
@@ -13,8 +13,7 @@
 
 {% if icerik|length > 1 %}
 <div class="uyari">
-  Bu taşıyıcıda <strong>{{ icerik|length }} embriyo</strong> var.
-  Taşıyıcı çözüldüğünde hepsi etkilenir; her biri için sağkalım girilmeli.
+  {{ metin("tasiyici_cozme_uyari").format(n=icerik|length)|safe }}
 </div>
 {% endif %}
 
@@ -24,45 +23,43 @@
 
   {% if icerik %}
   <div class="kart">
-    <h2>Zamanlar</h2>
+    <h2>{{ metin("zamanlar") }}</h2>
     {% if cycle_secenekleri %}
     <div class="alan">
-      <label for="thaw_cycle">Bu çözme hangi tedavi için?</label>
+      <label for="thaw_cycle">{{ metin("cozme_hangi_tedavi") }}</label>
       <select id="thaw_cycle" name="thaw_cycle">
         {% for s in cycle_secenekleri %}
         <option value="{{ s.id }}" {% if s.id == secili_cycle %}selected{% endif %}>
-          {{ s.cycle_no }}{% if s.hasta_cycle_no %} ({{ s.hasta_cycle_no }}. cycle){% endif %}
+          {{ s.cycle_no }}{% if s.hasta_cycle_no %} ({{ say("n_cycle_sirali", s.hasta_cycle_no) }}){% endif %}
           · {{ tip_kisa(s.cycle_tipi) }}</option>
         {% endfor %}
       </select>
-      <div class="ipucu">Çözme bu cycle'ın kaydına yazılır. Embriyo canlı
-      çıkmasa da o tedavide çözüldüğü görünür.</div>
+      <div class="ipucu">{{ metin("thaw_cycle_ipucu") }}</div>
     </div>
     {% endif %}
     <div class="alan">
-      <label for="islem_zamani">Çözme saati</label>
+      <label for="islem_zamani">{{ metin("cozme_saati") }}</label>
       {% set ilk = mevcut.get(icerik[0].id) %}
       <input id="islem_zamani" name="islem_zamani" type="datetime-local"
              value="{{ ilk.zaman[:16]|replace(' ','T') if ilk else simdi }}">
     </div>
     <div class="alan">
-      <label for="kontrol_zamani">İkinci kontrol saati</label>
+      <label for="kontrol_zamani">{{ metin("ikinci_kontrol_saati") }}</label>
       <input id="kontrol_zamani" name="kontrol_zamani" type="datetime-local"
              value="{{ ilk.thaw_kontrol_zamani[:16]|replace(' ','T') if ilk and ilk.thaw_kontrol_zamani else '' }}">
-      <div class="ipucu">Re-expansion değerlendirmesinin yapıldığı saat.
-      Henüz yapılmadıysa boş bırak, sonra doldur.</div>
+      <div class="ipucu">{{ metin("ikinci_kontrol_ipucu") }}</div>
     </div>
   </div>
   {% endif %}
 
   {% for e in icerik %}
   <div class="kart">
-    <h2>{{ e.dosya_no }} · {{ e.ad_soyad }} · Embriyo {{ e.cycle_sira_no }}
+    <h2>{{ e.dosya_no }} · {{ e.ad_soyad }} · {{ metin("embriyo_ad") }} {{ e.cycle_sira_no }}
         {% if e.skor %}· {{ e.skor }}{% endif %}</h2>
 
     <div class="fotoikili">
-      {% for asama, baslik in [('thaw_sonrasi','Çözme sonrası'),
-                               ('transfer_oncesi','İkinci kontrol')] %}
+      {% for asama, baslik in [('thaw_sonrasi', metin('cozme_sonrasi')),
+                               ('transfer_oncesi', metin('ikinci_kontrol'))] %}
       <div class="fslot">
         <div class="fbaslik">{{ baslik }}</div>
         {% set gs = fotolar[e.id][asama] %}
@@ -74,12 +71,12 @@
                     data-idler="{{ gs|map(attribute='id')|join(',') }}"
                     data-baslangic="{{ loop.index0 }}"
                     data-no="{{ e.cycle_sira_no }}"
-                    aria-label="{{ baslik }} fotoğraf {{ loop.index }}">
+                    aria-label="{{ baslik }} {{ metin('fotograf_n').format(n=loop.index) }}">
               <img src="/dosya/{{ g.id }}" alt="{{ baslik }} {{ loop.index }}">
             </button>
             <a class="fsil"
                href="/goruntu/{{ g.id }}/sil?geri=/cryo/tasiyici/{{ t.id }}/thaw{% if geri_cycle %}%3Fcycle={{ geri_cycle }}{% endif %}"
-               aria-label="Bu fotoğrafı sil" title="Bu fotoğrafı sil">&times;</a>
+               aria-label="{{ metin('bu_fotografi_sil') }}" title="{{ metin('bu_fotografi_sil') }}">&times;</a>
           </div>
           {% endfor %}
         </div>
@@ -88,7 +85,7 @@
         {% endif %}
         <a class="fekle"
            href="/cycle/{{ e.cycle_id }}/foto-ekle?specimen_id={{ e.id }}&asama={{ asama }}&geri=/cryo/tasiyici/{{ t.id }}/thaw{% if geri_cycle %}%3Fcycle={{ geri_cycle }}{% endif %}">
-          {{ 'fotoğraf ekle' if not gs else '+ ekle' }}</a>
+          {{ metin("fotograf_ekle_kucuk") if not gs else metin("arti_ekle") }}</a>
       </div>
       {% endfor %}
     </div>
@@ -105,36 +102,35 @@
 
     <div class="alan ikili">
       <div>
-        <label for="canlilik_{{ e.id }}">Canlılık oranı (%)</label>
+        <label for="canlilik_{{ e.id }}">{{ metin("canlilik_orani") }}</label>
         <input id="canlilik_{{ e.id }}" name="canlilik_{{ e.id }}" type="text"
                inputmode="decimal"
                value="{{ mevcut[e.id].thaw_canlilik if mevcut.get(e.id) and mevcut[e.id].thaw_canlilik is not none else '' }}">
       </div>
       <div>
-        <label for="reexp_{{ e.id }}">Re-expansion (%)</label>
+        <label for="reexp_{{ e.id }}">{{ metin("re_expansion") }}</label>
         <input id="reexp_{{ e.id }}" name="reexp_{{ e.id }}" type="text"
                inputmode="decimal"
                value="{{ mevcut[e.id].thaw_re_expansion if mevcut.get(e.id) and mevcut[e.id].thaw_re_expansion is not none else '' }}">
       </div>
     </div>
     <div class="alan" style="border:0;padding-top:0">
-      <div class="ipucu">Canlılık: çözme anında canlı kalan hücre oranı.
-      Re-expansion: ikinci kontroldeki yeniden genişleme.</div>
+      <div class="ipucu">{{ metin("canlilik_reexp_ipucu") }}</div>
     </div>
   </div>
   {% else %}
-  <div class="kart"><div class="bos">Bu taşıyıcı boş.</div></div>
+  <div class="kart"><div class="bos">{{ metin("tasiyici_bos") }}</div></div>
   {% endfor %}
 
   {% if icerik %}
   <div class="uyari">
-    Kaydedince taşıyıcı <strong>boşaltıldı</strong> işaretlenir ve konumu haritada boşa düşer.
+    {{ metin("cozme_bosaltma_uyari")|safe }}
   </div>
-  <button class="dugme" type="submit">Çözmeyi kaydet</button>
+  <button class="dugme" type="submit">{{ metin("cozmeyi_kaydet") }}</button>
   {% endif %}
 </form>
 
-<a class="dugme ikincil" href="/cryo/tasiyici/{{ t.id }}">Vazgeç</a>
+<a class="dugme ikincil" href="/cryo/tasiyici/{{ t.id }}">{{ metin("vazgec") }}</a>
 
 {% include "_buyutec.html" %}
 <script>

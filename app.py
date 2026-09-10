@@ -300,6 +300,8 @@ def yetkim(modul: str) -> bool:
 
 sablon.env.globals["yetkim"] = yetkim
 sablon.env.globals["metin"] = metinler.t
+sablon.env.globals["say"] = metinler.say
+sablon.env.globals["yuzde"] = metinler.yuzde
 sablon.env.globals["dil"] = metinler.dil
 
 

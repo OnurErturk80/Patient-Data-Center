@@ -27,7 +27,7 @@
       <dd>{{ etiketler.get(kayit.thaw_sagkalim, kayit.thaw_sagkalim) }}</dd></div>
     <div class="veri"><dt>Canlılık oranı</dt>
       <dd {% if kayit.thaw_canlilik is none %}class="yok"{% endif %}>
-        {{ ('%' ~ kayit.thaw_canlilik) if kayit.thaw_canlilik is not none else 'girilmedi' }}</dd></div>
+        {{ yuzde(kayit.thaw_canlilik) if kayit.thaw_canlilik is not none else metin('girilmedi') }}</dd></div>
     <div class="veri"><dt>Re-expansion</dt>
       <dd {% if kayit.thaw_re_expansion is none %}class="yok"{% endif %}>
         {{ (kayit.thaw_re_expansion ~ '%') if kayit.thaw_re_expansion is not none else 'girilmedi' }}</dd></div>

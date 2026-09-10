@@ -59,7 +59,7 @@
 
 {% if simdiki %}
 <div class="say">
-  <span class="bek">{{ metin("n_goruntu_bekliyor").format(n=bekleyen|length) }}</span>
+  <span class="bek">{{ say("n_goruntu_bekliyor", bekleyen|length) }}</span>
   <span class="hed">{{ metin("oosit_n").format(n=sonraki_sira) }}</span>
 </div>
 
@@ -89,7 +89,7 @@
 <div class="kart">
   <div class="bos">
     {% if kayitli %}
-      {{ metin("bekleyen_kalmadi") }}<br>{{ metin("n_oosit_kaydedildi").format(n=kayitli|length) }}
+      {{ metin("bekleyen_kalmadi") }}<br>{{ say("n_oosit_kaydedildi", kayitli|length) }}
     {% else %}
       {{ metin("klasorde_yeni_yok") }}<br>{{ metin("kameradan_kare_al") }}
     {% endif %}

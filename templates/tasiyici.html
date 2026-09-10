@@ -18,7 +18,7 @@
     <div class="veri"><dt>{{ metin("konum") }}</dt>
       <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or metin("girilmemis") }}</dd></div>
     <div class="veri"><dt>{{ metin("asama_vitrifikasyon") }}</dt><dd>{{ t.vitrifikasyon_zamani or '—' }}</dd></div>
-    <div class="veri"><dt>{{ metin("icerik") }}</dt><dd>{{ metin("n_embriyo").format(n=icerik|length) }}</dd></div>
+    <div class="veri"><dt>{{ metin("icerik") }}</dt><dd>{{ say("n_embriyo", icerik|length) }}</dd></div>
   </dl>
 </div>
 
@@ -27,9 +27,9 @@
   <div class="ozet">
     <div><div class="sayi">{{ ozet.canli }}/{{ ozet.toplam }}</div>
          <div class="etiket">{{ metin("canli") }}</div></div>
-    <div><div class="sayi">%{{ ozet.oran }}</div>
+    <div><div class="sayi">{{ yuzde(ozet.oran) }}</div>
          <div class="etiket">{{ metin("sagkalim") }}</div></div>
-    <div><div class="sayi">{{ ('%' ~ ozet.ortalama_canlilik) if ozet.ortalama_canlilik is not none else '—' }}</div>
+    <div><div class="sayi">{{ yuzde(ozet.ortalama_canlilik) if ozet.ortalama_canlilik is not none else '—' }}</div>
          <div class="etiket">{{ metin("ort_canlilik") }}</div></div>
   </div>
 </div>
