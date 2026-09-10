@@ -13,7 +13,7 @@ import db
 import guvenlik
 
 KOK = Path(__file__).parent
-uygulama = FastAPI(title="Lab Kayit")
+uygulama = FastAPI(title="Patient Data Center")
 uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
