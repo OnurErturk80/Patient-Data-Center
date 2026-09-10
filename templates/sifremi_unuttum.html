@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ t("sifremi_unuttum") }}{% endblock %}
+{% block ustbaslik %}{{ metin("sifremi_unuttum") }}{% endblock %}
 {% block geri %}<a class="geri" href="/giris">&#8249;</a>{% endblock %}
 {% block icerik %}
 {# Bu sayfa bilerek hiçbir şey sıfırlamaz ve hiçbir kullanıcı adı listelemez.
@@ -10,9 +10,9 @@
 
 <div class="kart">
   <div class="alan" style="border:0">
-    <label>{{ t("sifre_nasil_sifirlanir") }}</label>
+    <label>{{ metin("sifre_nasil_sifirlanir") }}</label>
     <div style="padding:6px 0;line-height:1.6">
-      {{ t("sifre_sifirlama_metin")|safe }}
+      {{ metin("sifre_sifirlama_metin")|safe }}
     </div>
   </div>
 </div>
@@ -20,10 +20,10 @@
 <div class="kart" style="margin-top:12px">
   <div class="alan" style="border:0">
     <div class="ipucu">
-      {{ t("sifre_sifirlama_ipucu")|safe }}
+      {{ metin("sifre_sifirlama_ipucu")|safe }}
     </div>
   </div>
 </div>
 
-<a class="dugme ikincil" href="/giris" style="margin-top:12px">{{ t("giris_ekranina_don") }}</a>
+<a class="dugme ikincil" href="/giris" style="margin-top:12px">{{ metin("giris_ekranina_don") }}</a>
 {% endblock %}

@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ t("giris") }}{% endblock %}
+{% block ustbaslik %}{{ metin("giris") }}{% endblock %}
 {% block icerik %}
 <div style="height:24px"></div>
 {% if hata %}
-<div class="uyari">{{ t("giris_hatali") }}</div>
+<div class="uyari">{{ metin("giris_hatali") }}</div>
 {% endif %}
 {% if sifre_degisti %}
-<div class="uyari">{{ t("sifre_degisti_gir") }}</div>
+<div class="uyari">{{ metin("sifre_degisti_gir") }}</div>
 {% endif %}
 <form method="post" action="/giris">
   <div class="kart">
     <div class="alan">
-      <label for="kullanici_adi">{{ t("kullanici_adi") }}</label>
+      <label for="kullanici_adi">{{ metin("kullanici_adi") }}</label>
       <input id="kullanici_adi" name="kullanici_adi" type="text" required autofocus
              autocomplete="username" autocapitalize="none" spellcheck="false">
     </div>
     <div class="alan">
-      <label for="sifre">{{ t("sifre") }}</label>
+      <label for="sifre">{{ metin("sifre") }}</label>
       <input id="sifre" name="sifre" type="password" required
              autocomplete="current-password">
     </div>
   </div>
-  <button class="dugme" type="submit">{{ t("giris_yap") }}</button>
+  <button class="dugme" type="submit">{{ metin("giris_yap") }}</button>
 </form>
-<a class="dugme ikincil" href="/sifre" style="margin-top:12px">{{ t("sifre_degistir") }}</a>
-<a class="dugme ikincil" href="/sifremi-unuttum">{{ t("sifremi_unuttum") }}</a>
+<a class="dugme ikincil" href="/sifre" style="margin-top:12px">{{ metin("sifre_degistir") }}</a>
+<a class="dugme ikincil" href="/sifremi-unuttum">{{ metin("sifremi_unuttum") }}</a>
 {% endblock %}

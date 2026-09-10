@@ -1,42 +1,42 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Cryo haritası{% endblock %}
+{% block ustbaslik %}{{ metin("cryo_haritasi") }}{% endblock %}
 {% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
 {% block icerik %}
 
 <form class="arama" method="get" action="/cryo">
   <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
-         placeholder="Etiket, konum, dosya no veya hasta adı">
+         placeholder="{{ metin('cryo_ara_ipucu') }}">
 </form>
 
 {% if tanklar and not ara %}
 <div class="kart">
-  <h2>Tanklar</h2>
+  <h2>{{ metin("tanklar") }}</h2>
   {% for t in tanklar %}
   <a class="satir" href="/cryo?ara={{ t.tank }}">
     <div class="no">{{ t.tank }}</div>
-    <div class="meta">{{ t.tasiyici }} taşıyıcı · {{ t.embriyo }} embriyo</div>
+    <div class="meta">{{ metin("n_tasiyici").format(n=t.tasiyici) }} · {{ metin("n_embriyo").format(n=t.embriyo) }}</div>
   </a>
   {% endfor %}
 </div>
 {% endif %}
 
 <div class="kart">
-  <h2>{% if ara %}Arama sonucu{% else %}Dolu taşıyıcılar{% endif %}
+  <h2>{% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("dolu_tasiyicilar") }}{% endif %}
       ({{ tasiyicilar|length }})</h2>
   {% for t in tasiyicilar %}
   <a class="satir" href="/cryo/tasiyici/{{ t.id }}">
     <div class="no">{{ t.etiket }}</div>
     <div class="meta">
       {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
-      · {{ t.adet }} embriyo
+      · {{ metin("n_embriyo").format(n=t.adet) }}
     </div>
     <div class="meta">
-      {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">konum girilmemiş</span>{% endif %}
+      {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
     </div>
   </a>
   {% else %}
   <div class="bos">
-    {% if ara %}Bu aramaya uyan taşıyıcı yok.{% else %}Henüz dondurulmuş embriyo yok.{% endif %}
+    {% if ara %}{{ metin("aramaya_uyan_tasiyici_yok") }}{% else %}{{ metin("henuz_dondurulmus_yok") }}{% endif %}
   </div>
   {% endfor %}
 </div>

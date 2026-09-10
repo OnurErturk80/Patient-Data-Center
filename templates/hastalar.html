@@ -1,44 +1,44 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ t("hastalar") }}{% endblock %}
-{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ t("cikis") }}</a>{% endblock %}
+{% block ustbaslik %}{{ metin("hastalar") }}{% endblock %}
+{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
 {% if yetkisiz %}
 <div class="uyari">
-  <b>{{ yetkisiz }}</b> {{ t("yetkisiz_ekran") }}
+  <b>{{ yetkisiz }}</b> {{ metin("yetkisiz_ekran") }}
 </div>
 {% endif %}
 <form class="arama" method="get" action="/hastalar">
-  <input type="search" name="ara" value="{{ ara }}" placeholder="{{ t('ara_ipucu') }}"
+  <input type="search" name="ara" value="{{ ara }}" placeholder="{{ metin('ara_ipucu') }}"
          inputmode="search" autocomplete="off">
 </form>
 
-{% if arsiv %}<a class="dugme ikincil" href="/hastalar">{{ t("aktif_hastalara_don") }}</a>
+{% if arsiv %}<a class="dugme ikincil" href="/hastalar">{{ metin("aktif_hastalara_don") }}</a>
 {% else %}
-{% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">{{ t("yeni_hasta") }}</a>{% endif %}
-{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ t("cryo_haritasi") }}</a>{% endif %}
+{% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>{% endif %}
+{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}
 {% if kullanici.rol == "yonetici" %}
-<a class="dugme ikincil" href="/yonetim">{{ t("yonetim") }}</a>
+<a class="dugme ikincil" href="/yonetim">{{ metin("yonetim") }}</a>
 {% endif %}
-<a class="dugme ikincil" href="/sifre">{{ t("sifre_degistir") }}</a>{% endif %}
+<a class="dugme ikincil" href="/sifre">{{ metin("sifre_degistir") }}</a>{% endif %}
 
 <div class="kart">
-  <h2>{% if arsiv %}{{ t("arsiv") }}{% elif ara %}{{ t("arama_sonucu") }}{% else %}{{ t("son_kayitlar") }}{% endif %}</h2>
+  <h2>{% if arsiv %}{{ metin("arsiv") }}{% elif ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("son_kayitlar") }}{% endif %}</h2>
   {% for h in hastalar %}
   <a class="satir" href="/hasta/{{ h.id }}">
     <div class="no">{{ h.dosya_no }}</div>
     <div class="ad">{{ h.ad_soyad }}</div>
     <div class="meta">
-      {% if h.es_adi %}{{ t("es") }}: {{ h.es_adi }} · {% endif %}{{ t("n_cycle").format(n=h.cycle_sayisi) }}
+      {% if h.es_adi %}{{ metin("es") }}: {{ h.es_adi }} · {% endif %}{{ metin("n_cycle").format(n=h.cycle_sayisi) }}
     </div>
   </a>
   {% else %}
   <div class="bos">
-    {% if ara %}{{ t("aramaya_uyan_yok") }}{% else %}{{ t("henuz_hasta_yok") }}{% endif %}
+    {% if ara %}{{ metin("aramaya_uyan_yok") }}{% else %}{{ metin("henuz_hasta_yok") }}{% endif %}
   </div>
   {% endfor %}
 </div>
 {% if not arsiv and arsiv_sayisi %}
-<a class="dugme ikincil" href="/hastalar?arsiv=1">{{ t("arsiv") }} ({{ arsiv_sayisi }})</a>
+<a class="dugme ikincil" href="/hastalar?arsiv=1">{{ metin("arsiv") }} ({{ arsiv_sayisi }})</a>
 {% endif %}
 {% endblock %}

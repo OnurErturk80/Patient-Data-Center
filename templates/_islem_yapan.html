@@ -7,8 +7,8 @@
    verilebilir (README v6.9). Diğer ekranlar hiç değişmez.
 #}
 {% macro kutu(cycle_id, asama, etiket=None, ipucu=None) %}
-{% set etiket = etiket or t("islem_yapan") %}
-{% set ipucu = ipucu or t("islem_yapan_ipucu") %}
+{% set etiket = etiket or metin("islem_yapan") %}
+{% set ipucu = ipucu or metin("islem_yapan_ipucu") %}
 <div class="kart" style="margin-top:16px">
   <form method="post" action="/cycle/{{ cycle_id }}/islem-yapan">
     <input type="hidden" name="asama" value="{{ asama }}">
@@ -16,9 +16,9 @@
       <label for="iy_{{ asama }}">{{ etiket }}</label>
       <div style="display:flex;gap:8px">
         <input id="iy_{{ asama }}" name="yapan_ad" type="text" autocomplete="off"
-               placeholder="{{ t('ad_soyad') }}" style="flex:1"
+               placeholder="{{ metin('ad_soyad') }}" style="flex:1"
                value="{{ islem_yapan_ad(cycle_id, asama) }}">
-        <button class="minidugme" type="submit" style="min-width:88px">{{ t("kaydet") }}</button>
+        <button class="minidugme" type="submit" style="min-width:88px">{{ metin("kaydet") }}</button>
       </div>
       <div class="ipucu">{{ ipucu }}</div>
     </div>

@@ -1,53 +1,53 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ t("hasta") }}{% endblock %}
-{% block ustsag %}<a href="/hasta/{{ hasta.id }}/duzenle">{{ t("duzenle") }}</a> · <a href="/hasta/{{ hasta.id }}/sil">{{ t("sil") }}</a>{% endblock %}
+{% block ustbaslik %}{{ metin("hasta") }}{% endblock %}
+{% block ustsag %}<a href="/hasta/{{ hasta.id }}/duzenle">{{ metin("duzenle") }}</a> · <a href="/hasta/{{ hasta.id }}/sil">{{ metin("sil") }}</a>{% endblock %}
 {% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ hasta.dosya_no }}</div>
-  <div class="isim">{{ hasta.ad_soyad }}{% if hasta.durum == "arsiv" %}<span class="rozet arsiv">{{ t("arsivde") }}</span>{% endif %}</div>
+  <div class="isim">{{ hasta.ad_soyad }}{% if hasta.durum == "arsiv" %}<span class="rozet arsiv">{{ metin("arsivde") }}</span>{% endif %}</div>
   <div class="alt">
-    {% if hasta.dogum_tarihi %}{{ t("dogum_tarihi_kisa") }} {{ hasta.dogum_tarihi }}{% endif %}
-    {% if hasta.es_adi %} · {{ t("es") }}: {{ hasta.es_adi }}{% endif %}
+    {% if hasta.dogum_tarihi %}{{ metin("dogum_tarihi_kisa") }} {{ hasta.dogum_tarihi }}{% endif %}
+    {% if hasta.es_adi %} · {{ metin("es") }}: {{ hasta.es_adi }}{% endif %}
   </div>
 </div>
 {% endblock %}
 {% block icerik %}
-{% if yetkim("hasta") %}<a class="dugme" href="/hasta/{{ hasta.id }}/cycle/yeni">{{ t("yeni_cycle_ac") }}</a>{% endif %}
+{% if yetkim("hasta") %}<a class="dugme" href="/hasta/{{ hasta.id }}/cycle/yeni">{{ metin("yeni_cycle_ac") }}</a>{% endif %}
 
 <div class="kart">
-  <h2>{{ t("cycleler") }}</h2>
+  <h2>{{ metin("cycleler") }}</h2>
   {% for c in cycles %}
   <a class="satir" href="/cycle/{{ c.id }}">
-    <div class="no">{% if c.hasta_cycle_no %}{{ t("n_cycle_sirali").format(n=c.hasta_cycle_no) }}{% else %}{{ c.cycle_no }}{% endif %}{% if c.durum == "iptal" %} <span class="rozet arsiv">{{ t("iptal_rozet") }}</span>{% endif %}</div>
+    <div class="no">{% if c.hasta_cycle_no %}{{ metin("n_cycle_sirali").format(n=c.hasta_cycle_no) }}{% else %}{{ c.cycle_no }}{% endif %}{% if c.durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% endif %}</div>
     <div class="meta">
       {{ c.cycle_no }} · {{ tip_kisa(c.cycle_tipi) }}{% if c.opu_zamani %} · OPU {{ c.opu_zamani[:10] }}{% endif %}
       {% if c.opu_sag_oosit is not none %}
-        · {{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }} {{ t("oosit_kucuk") }}
+        · {{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }} {{ metin("oosit_kucuk") }}
       {% endif %}
     </div>
   </a>
   {% else %}
-  <div class="bos">{{ t("bu_hastada_cycle_yok") }}</div>
+  <div class="bos">{{ metin("bu_hastada_cycle_yok") }}</div>
   {% endfor %}
 </div>
 
 {% if hasta.notlar %}
 <div class="kart">
-  <h2>{{ t("not") }}</h2>
+  <h2>{{ metin("not") }}</h2>
   <div class="alan">{{ hasta.notlar }}</div>
 </div>
 {% endif %}
-<a class="dugme ikincil" href="/gecmis/hasta/{{ hasta.id }}">{{ t("degisiklik_gecmisi") }}</a>
+<a class="dugme ikincil" href="/gecmis/hasta/{{ hasta.id }}">{{ metin("degisiklik_gecmisi") }}</a>
 {% if hasta.durum == "arsiv" %}
 {% if yetkim("silme") %}
 <form method="post" action="/hasta/{{ hasta.id }}/geri-al">
-  <button class="dugme" type="submit">{{ t("arsivden_cikar") }}</button>
+  <button class="dugme" type="submit">{{ metin("arsivden_cikar") }}</button>
 </form>
 {% endif %}
 {% endif %}
 {% if yetkim("silme") %}
 <a class="dugme ikincil tehlike-bag" href="/hasta/{{ hasta.id }}/sil">
-  {{ t("kalici_olarak_sil") if hasta.durum == "arsiv" else t("arsivle_veya_sil") }}</a>
+  {{ metin("kalici_olarak_sil") if hasta.durum == "arsiv" else metin("arsivle_veya_sil") }}</a>
 {% endif %}
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ t("yeni_hasta") }}{% endblock %}
+{% block ustbaslik %}{{ metin("yeni_hasta") }}{% endblock %}
 {% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
 {% block icerik %}
 <div class="uyari" id="mukerrer" hidden></div>
@@ -7,34 +7,34 @@
 <form method="post" action="/hasta/yeni">
   <div class="kart">
     <div class="alan">
-      <label for="dosya_no">{{ t("dosya_no") }}</label>
+      <label for="dosya_no">{{ metin("dosya_no") }}</label>
       <input id="dosya_no" name="dosya_no" type="number" inputmode="numeric"
              required autofocus value="{{ dosya_no }}">
-      <div class="ipucu">{{ t("dosya_no_tek") }}</div>
+      <div class="ipucu">{{ metin("dosya_no_tek") }}</div>
     </div>
     <div class="alan">
-      <label for="ad_soyad">{{ t("ad_soyad") }}</label>
+      <label for="ad_soyad">{{ metin("ad_soyad") }}</label>
       <input id="ad_soyad" name="ad_soyad" type="text" required autocomplete="off">
     </div>
     <div class="alan">
-      <label for="dogum_tarihi">{{ t("dogum_tarihi") }}</label>
+      <label for="dogum_tarihi">{{ metin("dogum_tarihi") }}</label>
       <input id="dogum_tarihi" name="dogum_tarihi" type="date">
-      <div class="ipucu">{{ t("yas_hesaplanir") }}</div>
+      <div class="ipucu">{{ metin("yas_hesaplanir") }}</div>
     </div>
     <div class="alan">
-      <label for="es_adi">{{ t("es_adi") }}</label>
+      <label for="es_adi">{{ metin("es_adi") }}</label>
       <input id="es_adi" name="es_adi" type="text" autocomplete="off">
     </div>
     <div class="alan">
-      <label for="es_dogum_tarihi">{{ t("es_dogum_tarihi") }}</label>
+      <label for="es_dogum_tarihi">{{ metin("es_dogum_tarihi") }}</label>
       <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date">
     </div>
     <div class="alan">
-      <label for="notlar">{{ t("not") }}</label>
+      <label for="notlar">{{ metin("not") }}</label>
       <textarea id="notlar" name="notlar"></textarea>
     </div>
   </div>
-  <button class="dugme" type="submit">{{ t("hastayi_kaydet") }}</button>
+  <button class="dugme" type="submit">{{ metin("hastayi_kaydet") }}</button>
 </form>
 
 <script>
@@ -48,9 +48,9 @@ alan.addEventListener('input', () => {
     const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(alan.value));
     const s = await y.json();
     if (s.var) {
-      kutu.innerHTML = {{ t("mukerrer_dosya_no")|tojson }} + ' <strong>' +
+      kutu.innerHTML = {{ metin("mukerrer_dosya_no")|tojson }} + ' <strong>' +
         s.ad_soyad + '</strong> &mdash; <a href="/hasta/' + s.id + '">' +
-        {{ t("kaydi_ac")|tojson }} + '</a>';
+        {{ metin("kaydi_ac")|tojson }} + '</a>';
       kutu.hidden = false;
     } else { kutu.hidden = true; }
   }, 350);

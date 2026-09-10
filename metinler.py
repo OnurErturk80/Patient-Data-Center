@@ -8,8 +8,12 @@ hem yeterli hem de kullanıcının kendi düzeltebileceği bir şey.
 bütün program o dile geçer (karar: CLAUDE.md bekleyen iş 8).
 
 Kullanım:
-    şablonda   {{ t("kaydet") }}
+    şablonda   {{ metin("kaydet") }}
     app.py'de  metinler.t("kaydet")
+
+Şablondaki adı bilerek `t` değil: on iki şablon `{% for t in ... %}` diye
+döngü değişkeni olarak `t` kullanıyor ve döngünün içinde `t(...)` çağrısı
+sessizce patlardı. `metin` çakışmıyor ve projenin Türkçe adlandırmasına uyuyor.
 
 Anahtar bulunamazsa anahtarın kendisi döner — ekranda `kaydet` diye çıplak
 görünür, yani eksik çeviri gözden kaçmaz.
@@ -142,6 +146,34 @@ METINLER = {
     "mukerrer_dosya_no": {"tr": "Bu dosya no zaten kayıtlı:",
                           "en": "This file no is already registered:"},
     "kaydi_ac": {"tr": "kaydı aç", "en": "open the record"},
+
+    # ---- hasta düzenleme ----
+    "hastayi_duzenle": {"tr": "Hastayı düzenle", "en": "Edit patient"},
+    "dosya_no_degismez": {
+        "tr": "Dosya no değiştirilemez. Yanlışsa kayıt silinip yeniden açılmalı.",
+        "en": "The file no cannot be changed. If it is wrong, the record must "
+              "be deleted and created again."},
+    "degisiklikleri_kaydet": {"tr": "Değişiklikleri kaydet", "en": "Save changes"},
+    "vazgec": {"tr": "Vazgeç", "en": "Discard"},
+
+    # ---- değişiklik geçmişi ----
+    "kayitli_degisiklikler": {"tr": "Kayıtlı değişiklikler",
+                              "en": "Recorded changes"},
+    "henuz_degisiklik_yok": {"tr": "Bu kayıtta henüz değişiklik yapılmamış.",
+                             "en": "No changes have been made to this record yet."},
+
+    # ---- cryo haritası ----
+    "cryo_ara_ipucu": {"tr": "Etiket, konum, dosya no veya hasta adı",
+                       "en": "Label, location, file no or patient name"},
+    "tanklar": {"tr": "Tanklar", "en": "Tanks"},
+    "n_tasiyici": {"tr": "{n} taşıyıcı", "en": "{n} carriers"},
+    "n_embriyo": {"tr": "{n} embriyo", "en": "{n} embryos"},
+    "dolu_tasiyicilar": {"tr": "Dolu taşıyıcılar", "en": "Occupied carriers"},
+    "konum_girilmemis": {"tr": "konum girilmemiş", "en": "location not entered"},
+    "aramaya_uyan_tasiyici_yok": {"tr": "Bu aramaya uyan taşıyıcı yok.",
+                                  "en": "No carriers match this search."},
+    "henuz_dondurulmus_yok": {"tr": "Henüz dondurulmuş embriyo yok.",
+                              "en": "No frozen embryos yet."},
 
     # ---- cycle detay ----
     "toplanan_oosit": {"tr": "Toplanan oosit", "en": "Oocytes collected"},

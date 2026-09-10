@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ t("sifre_degistir") }}{% endblock %}
+{% block ustbaslik %}{{ metin("sifre_degistir") }}{% endblock %}
 {% block geri %}
 <a class="geri" href="{{ '/hastalar' if kullanici else '/giris' }}">&#8249;</a>
 {% endblock %}
@@ -11,47 +11,47 @@
   <div class="kart" style="margin-top:12px">
     {% if kullanici %}
     <div class="alan">
-      <label>{{ t("kullanici") }}</label>
+      <label>{{ metin("kullanici") }}</label>
       <div style="padding:4px 0"><b>{{ kullanici.kullanici_adi }}</b>
         — {{ kullanici.ad_soyad }}</div>
     </div>
     {% else %}
     {# Giriş yapılmadan da değiştirilebilir; mevcut şifre kimliği kanıtlıyor. #}
     <div class="alan">
-      <label for="kullanici_adi">{{ t("kullanici_adi") }}</label>
+      <label for="kullanici_adi">{{ metin("kullanici_adi") }}</label>
       <input id="kullanici_adi" name="kullanici_adi" type="text" required autofocus
              autocomplete="username" autocapitalize="none" spellcheck="false">
     </div>
     {% endif %}
 
     <div class="alan">
-      <label for="mevcut">{{ t("mevcut_sifre") }}</label>
+      <label for="mevcut">{{ metin("mevcut_sifre") }}</label>
       <input id="mevcut" name="mevcut" type="password" required
              {% if kullanici %}autofocus{% endif %}
              autocomplete="current-password">
     </div>
     <div class="alan">
-      <label for="yeni">{{ t("yeni_sifre") }}</label>
+      <label for="yeni">{{ metin("yeni_sifre") }}</label>
       <input id="yeni" name="yeni" type="password" required minlength="8"
              autocomplete="new-password">
-      <div class="ipucu">{{ t("en_az_n_karakter").format(n=8) }}</div>
+      <div class="ipucu">{{ metin("en_az_n_karakter").format(n=8) }}</div>
     </div>
     <div class="alan" style="border:0">
-      <label for="yeni2">{{ t("yeni_sifre_tekrar") }}</label>
+      <label for="yeni2">{{ metin("yeni_sifre_tekrar") }}</label>
       <input id="yeni2" name="yeni2" type="password" required minlength="8"
              autocomplete="new-password">
     </div>
   </div>
-  <button class="dugme" type="submit">{{ t("sifreyi_degistir") }}</button>
+  <button class="dugme" type="submit">{{ metin("sifreyi_degistir") }}</button>
 </form>
 
 <div class="kart" style="margin-top:12px">
   <div class="alan" style="border:0">
     <div class="ipucu">
-      {{ t("sifre_oturum_uyari")|safe }}
+      {{ metin("sifre_oturum_uyari")|safe }}
       <br><br>
-      {{ t("sifre_bilmiyorsan") }}
-      <a href="/sifremi-unuttum">{{ t("sifremi_unuttum")|lower }}</a>.
+      {{ metin("sifre_bilmiyorsan") }}
+      <a href="/sifremi-unuttum">{{ metin("sifremi_unuttum")|lower }}</a>.
     </div>
   </div>
 </div>

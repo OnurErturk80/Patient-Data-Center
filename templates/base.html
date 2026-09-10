@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{% block baslik %}{{ t("program_adi") }}{% endblock %}</title>
+<title>{% block baslik %}{{ metin("program_adi") }}{% endblock %}</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <div class="ust">
   {% block geri %}{% endblock %}
-  <h1>{% block ustbaslik %}{{ t("program_adi") }}{% endblock %}</h1>
+  <h1>{% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}</h1>
   <span class="sag">{% block ustsag %}{% endblock %}</span>
 </div>
 {% block kimlik %}{% endblock %}

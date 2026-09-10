@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Değişiklik geçmişi{% endblock %}
+{% block ustbaslik %}{{ metin("degisiklik_gecmisi") }}{% endblock %}
 {% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
 {% block icerik %}
 <div class="kart">
-  <h2>Kayıtlı değişiklikler</h2>
+  <h2>{{ metin("kayitli_degisiklikler") }}</h2>
   {% for d in kayitlar %}
   <div class="satir" style="cursor:default">
     <div class="ad"><strong>{{ d.alan }}</strong></div>
@@ -14,7 +14,7 @@
     <div class="meta">{{ d.ad_soyad }} · {{ d.zaman }}</div>
   </div>
   {% else %}
-  <div class="bos">Bu kayıtta henüz değişiklik yapılmamış.</div>
+  <div class="bos">{{ metin("henuz_degisiklik_yok") }}</div>
   {% endfor %}
 </div>
 {% endblock %}
