@@ -102,8 +102,20 @@ Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, tran
 örneğe basınca altında salt okunur bilgi kartı açılır; değiştirmek "Düzenle"
 ile (`?duzenle=1`). Kaydı olmayan örnekte form doğrudan açılır — "kaydet →
 sonraki oosit" toplu giriş akışı bozulmasın diye (v6.20). Yeni bir aşama
-ekranı yazarsan formu hep açık bırakma, bu düzene uy: `_bilgikart.html`
-`kart()` makrosu ve denüdasyondaki `_izgara.html`.
+ekranı yazarsan formu hep açık bırakma, bu düzene uy. Üç parça var
+(v6.20–v6.21):
+- `_bilgikart.html` `kart(baslik, satirlar, duzenle_yolu, rozet)` — form
+  yerine gösterilen salt okunur kart. OPU, denüdasyon saati, ICSI, fert,
+  gün 2/3, blastokist.
+- `_izgara.html` — **denüdasyona özgü** oosit ızgarası: over rozeti, over'ı
+  yerinde düzenleme, tek panel (JS dolduruyor, 40 oositte ucuz).
+- `_ornekkart.html` `izgara(...)` + `baglama()` — genel kayıt listesi
+  ızgarası, kartları **sunucu** basar (`{% call(e) %}` ile satırları çağıran
+  verir). Vitrifikasyon, çözme, transfer.
+
+**Form doğrulama hatası formu kapatmamalı.** Kart modu geldikten sonra
+`?hata=...` ile geri dönmek "mesajı göster, formu gizle" demek — kullanıcı
+yazdığını göremez. Hata dönüşü `?duzenle=1&hata=...` olmalı (v6.21, OPU).
 
 **Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
 ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim

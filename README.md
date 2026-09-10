@@ -86,6 +86,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.18 — ana ekran, aramadan çıkış yolu, yan aşama menüsü](#v618--ana-ekran-aramadan-çıkış-yolu-yan-aşama-menüsü)
 - [v6.19 — denüdasyonda hayalet oosit](#v619--denüdasyonda-hayalet-oosit)
 - [v6.20 — bilgi kartı düzeni: her aşamada aynı](#v620--bilgi-kartı-düzeni-her-aşamada-aynı)
+- [v6.21 — bilgi kartı düzeni: kalan beş ekran](#v621--bilgi-kartı-düzeni-kalan-beş-ekran)
 
 ---
 
@@ -2745,3 +2746,74 @@ kod kendi adıyla dönüyor — sessizce boşalmıyor.
 - Kartlar iki dilde: etiketler çevriliyor, liste değerleri labın kendi
   yazdığı gibi kalıyor (v6.17'deki karar)
 - 31 ekran 200, tarayıcı konsolunda JS hatası yok
+
+---
+
+# v6.21 — bilgi kartı düzeni: kalan beş ekran
+
+v6.20'de ICSI, fertilizasyon, gün 2/3 ve blastokist bu düzene geçmişti.
+Kullanıcı kalanları da istedi: **OPU, denüdasyon, vitrifikasyon, çözme,
+transfer.** Bunlar iki farklı şekilde:
+
+## Form olanlar: OPU ve denüdasyon saati
+
+Kayıt varsa salt okunur bilgi kartı ("Kaydedildi" rozetiyle), değiştirmek için
+**Düzenle** (`?duzenle=1`). v6.20'deki `_bilgikart.html` `kart()` makrosu
+aynen kullanıldı.
+
+OPU'da "kaydedilmiş" ölçüsü **`opu_zamani`**. Oosit sayıları bilerek boş
+bırakılabiliyor (`NULL` = girilmedi, projenin kuralı), o yüzden onlara bakmak
+yanlış olurdu — ama OPU yapıldıysa saati vardır.
+
+Yan düzeltme: **hatalı giriş artık formu kapatmıyor.** Sayı alanına harf
+yazılınca rota `?hata=...` ile geri dönüyordu; kart modu geldikten sonra bu
+"mesajı göster, formu gizle" anlamına gelirdi. Rota artık
+`?duzenle=1&hata=...` diyor, yani mesaj **formun üstünde** çıkıyor ve
+kullanıcı yazdığını düzeltebiliyor.
+
+Denüdasyon saati ilk oosit kaydedilince kendiliğinden doluyor, yani o kart
+neredeyse hep görünür halde — form ancak Düzenle'yle açılıyor.
+
+## Kayıt listesi olanlar: vitrifikasyon, çözme, transfer
+
+Bu üç ekranda "yapılmış olanlar" listesi vardı: `.fsatir` biçiminde alt alta
+metin satırları (küçük fotoğraf + ad + meta satırları + bağlantılar). Görünüş
+programın geri kalanından farklıydı.
+
+Artık **kare ızgarası + basınca altında bilgi kartı** — denüdasyondaki düzenin
+aynısı. Kartların satırları:
+
+- **Vitrifikasyon:** numara, skor (+ gün), taşıyıcı (bağlantılı), konum;
+  altında "çöz" ve "kaydı geri al"
+- **Çözme:** örnek kodu, sağkalım, canlılık, re-expansion, çözme saati,
+  taşıyıcı, kaynak cycle (farklıysa), transfer durumu
+- **Transfer:** numara, skor, geldiği cycle, tip (taze/donmuş), transfer saati;
+  altında "kaydı geri al"
+
+Çözme ekranındaki özet satırı ("Canlı 1/1 · transfer edilen 1") ayrı bir
+karttaydı, ızgara kartının içine taşındı — iki kart yerine bir kart.
+
+## Neden ikinci bir makro
+
+`_izgara.html` denüdasyona özgü: over rozeti, over'ı yerinde düzenleme ve
+**tek panel** (içeriğini JS dolduruyor, çünkü 40 oositlik bir cycle'da her
+oosit için ayrı panel basmak sayfayı şişirir).
+
+Yeni `_ornekkart.html` genel hali ve kartları **sunucu basıyor**. Sebebi:
+her ekranın satırları farklı ve içlerinde bağlantı var (taşıyıcı sayfası,
+"çöz", "kaydı geri al") — bunları JS ile kurmak `_izgara`'daki gibi ayrı bir
+doldurma mantığı isterdi. Bu listeler zaten kısa (bir cycle'ın embriyoları),
+sunucuda basmanın maliyeti yok.
+
+Çağıran satırlarını `{% call(e) %}` bloğuyla veriyor, yani makro düzeni
+biliyor, ekran içeriği biliyor. Olaylar tek yerden dinleniyor
+(`ok.baglama()`), makro kaç kez kullanılırsa kullanılsın tek betik yetiyor.
+
+## Test edildi
+
+- Beş ekranda da gerçek kayıtla: kart görünüyor, kareye basınca doğru kart
+  açılıyor, ikinci basış kapatıyor
+- OPU: kart → Düzenle → kaydet → kart; hatalı girişte form açık kalıyor ve
+  mesaj görünüyor
+- İki dilde: etiketler çevriliyor, liste değerleri labın yazdığı gibi kalıyor
+- 32 ekran 200, tarayıcı konsolunda JS hatası yok
