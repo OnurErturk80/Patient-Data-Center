@@ -87,6 +87,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.19 — denüdasyonda hayalet oosit](#v619--denüdasyonda-hayalet-oosit)
 - [v6.20 — bilgi kartı düzeni: her aşamada aynı](#v620--bilgi-kartı-düzeni-her-aşamada-aynı)
 - [v6.21 — bilgi kartı düzeni: kalan beş ekran](#v621--bilgi-kartı-düzeni-kalan-beş-ekran)
+- [v6.22 — düzen artık gerçekten her ekranda aynı](#v622--düzen-artık-gerçekten-her-ekranda-aynı)
 
 ---
 
@@ -2817,3 +2818,67 @@ biliyor, ekran içeriği biliyor. Olaylar tek yerden dinleniyor
   mesaj görünüyor
 - İki dilde: etiketler çevriliyor, liste değerleri labın yazdığı gibi kalıyor
 - 32 ekran 200, tarayıcı konsolunda JS hatası yok
+
+---
+
+# v6.22 — düzen artık gerçekten her ekranda aynı
+
+v6.20 ve v6.21'den sonra iki ekran hâlâ farklıydı; kullanıcı ekran görüntüsüyle
+gösterdi: **"aynı bu düzende olsun hepsi, yani üst kısımda numaralar yazsın."**
+
+## Denüdasyon
+
+v6.21'de denüdasyonda fotoğraf kareleri ızgarası vardı: kareye basınca içeriği
+JS ile doldurulan tek bir panel açılıyordu. Çalışıyordu ama öteki aşama
+ekranlarından farklıydı — orada "Kaydedildi" rozeti ve **Düzenle** düğmesi
+yoktu, seçim de adresten değil tıklamayla oluyordu.
+
+Artık aynı iskelet:
+
+```
+numara şeridi (1-Sağ  2-Sol  3)
+   ↓ seçilen
+büyük fotoğraf + kare şeridi
+   ↓
+bilgi kartı: Kaydedildi · Numara / Toplandığı over / Kare / Örnek kodu
+             [Düzenle]
+```
+
+Seçim adresten (`?oosit=N`) — ICSI, fertilizasyon, gün 2/3 ve blastokist de
+böyle. Kamera kuyruğundan oosit ekleme bölümü olduğu gibi duruyor; asıl iş o.
+
+Bu ekranda **düzenlenebilecek iki ayrı şey** var, hangisi olduğu adreste
+yazıyor:
+- `?duzenle=saat` → cycle'ın denüdasyon saati
+- `?duzenle=oosit` → seçili oositin toplandığı over
+
+Over düzenlemede her düğme kendi başına gönderiyor; ayrı bir "Kaydet" adımı
+yok, çünkü tek alan var.
+
+`_izgara.html` silindi — başka kullananı yoktu.
+
+## Androloji
+
+Form her zaman açıktı. Artık kayıt varsa **dört bölüm salt okunur bilgi kartı**
+olarak basılıyor (örnek bilgisi, makroskopik, bazal analiz, hazırlık sonrası),
+en altta tek **Düzenle** düğmesi. Sperm örneği seçici (1 · tarih, + Yeni) zaten
+üstteydi, olduğu gibi kaldı.
+
+Hatalı girişte form açık kalıyor (`?duzenle=1&hata=...`) — v6.21'de OPU'ya
+konan kuralın aynısı.
+
+## `_bilgikart.kart()` iki küçük değişiklik
+
+- `duzenle_yolu` artık **isteğe bağlı**. Androloji gibi kaydı bölümlere
+  yayılan ekranlarda bölümler arka arkaya kart olarak basılıp tek Düzenle
+  düğmesi en alta konabiliyor.
+- **Vurgulu kenarlık yalnızca rozetli kartta.** Androlojide dört kartın da
+  kenarlığı kırmızı olunca ekran bağırıyordu; rozet zaten "kaydın başlık
+  kartı" demek.
+
+## Test edildi
+
+- Denüdasyon: şerit seçimi, saat düzenleme, over düzenleme (üçü de kaydedip
+  karta dönüyor), hiç oositi olmayan cycle
+- Androloji: kart → Düzenle → kaydet → kart; hatalı girişte form açık kalıyor
+- İki dilde; 31 ekran 200, JS hatası yok

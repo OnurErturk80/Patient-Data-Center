@@ -102,16 +102,22 @@ Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, tran
 örneğe basınca altında salt okunur bilgi kartı açılır; değiştirmek "Düzenle"
 ile (`?duzenle=1`). Kaydı olmayan örnekte form doğrudan açılır — "kaydet →
 sonraki oosit" toplu giriş akışı bozulmasın diye (v6.20). Yeni bir aşama
-ekranı yazarsan formu hep açık bırakma, bu düzene uy. Üç parça var
-(v6.20–v6.21):
-- `_bilgikart.html` `kart(baslik, satirlar, duzenle_yolu, rozet)` — form
-  yerine gösterilen salt okunur kart. OPU, denüdasyon saati, ICSI, fert,
-  gün 2/3, blastokist.
-- `_izgara.html` — **denüdasyona özgü** oosit ızgarası: over rozeti, over'ı
-  yerinde düzenleme, tek panel (JS dolduruyor, 40 oositte ucuz).
-- `_ornekkart.html` `izgara(...)` + `baglama()` — genel kayıt listesi
-  ızgarası, kartları **sunucu** basar (`{% call(e) %}` ile satırları çağıran
-  verir). Vitrifikasyon, çözme, transfer.
+ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
+(v6.20–v6.22):
+- `_bilgikart.html` `kart(baslik, satirlar, duzenle_yolu=None, rozet=None)` —
+  form yerine gösterilen salt okunur kart. **Aşama ekranlarının hepsi**:
+  OPU, androloji, denüdasyon, ICSI, fert, gün 2/3, blastokist. Bu ekranlarda
+  üstte numara şeridi var ve seçim **adresten** yapılır (`?oosit=N`), tıklanan
+  kareden değil. `duzenle_yolu` verilmezse düğme basılmaz (androlojideki gibi
+  bölüm kartları için); vurgulu kenarlık yalnızca `rozet` verilen kartta.
+- `_ornekkart.html` `izgara(...)` + `baglama()` — kayıt listesi ızgarası,
+  kartları **sunucu** basar (`{% call(e) %}` ile satırları çağıran verir).
+  Vitrifikasyon, çözme, transfer: orada bir örneğin tek kaydı var, kareye
+  basınca altında kartı açılır.
+
+**Bir ekranda birden çok düzenlenebilir şey varsa adreste adıyla söyle.**
+Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati) ve `?duzenle=oosit`
+(seçili oositin over'ı) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
 
 **Form doğrulama hatası formu kapatmamalı.** Kart modu geldikten sonra
 `?hata=...` ile geri dönmek "mesajı göster, formu gizle" demek — kullanıcı
