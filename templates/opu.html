@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
+{% import "_bilgikart.html" as bk %}
 {% block ustbaslik %}{{ metin("asama_opu") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -21,6 +22,24 @@
 <div class="uyari">{{ hata }}</div>
 {% endif %}
 
+{# OPU kaydedilmisse bilgi karti, degistirmek icin Duzenle (v6.21).
+   "Kaydedilmis" olcusu opu_zamani: sayilar bos birakilabilir (NULL =
+   girilmedi), ama OPU yapildiysa saati vardir. #}
+{% set opu_var = c.opu_zamani %}
+{% if opu_var and not duzenle %}
+{{ bk.kart(
+     metin("asama_opu"),
+     [
+       (metin("opu_zamani"), c.opu_zamani),
+       (metin("sag_overden_oosit"), c.opu_sag_oosit),
+       (metin("sol_overden_oosit"), c.opu_sol_oosit),
+       (metin("toplanan_oosit"), (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0)),
+       (metin("folikul"), c.folikul_sayisi),
+     ] + ([(metin("opu_hekimi"), c.opu_hekim)] if not goc_gerekli else []),
+     '/cycle/' ~ c.id ~ '/opu?duzenle=1',
+     metin("kaydedildi_rozet")) }}
+
+{% else %}
 <form method="post" action="/cycle/{{ c.id }}/opu">
   <div class="kart" style="margin-top:12px">
     <div class="alan">
@@ -56,17 +75,9 @@
     </div>
   </div>
 </form>
-
-{% if c.opu_sag_oosit is not none or c.opu_sol_oosit is not none %}
-<div class="kart" style="margin-top:12px">
-  <h2>{{ metin("ozet") }}</h2>
-  <dl style="margin:0">
-    <div class="veri"><dt>{{ metin("toplanan_oosit") }}</dt>
-      <dd>{{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }}</dd></div>
-    <div class="veri"><dt>{{ metin("folikul") }}</dt>
-      <dd {% if c.folikul_sayisi is none %}class="yok"{% endif %}>{{ c.folikul_sayisi if c.folikul_sayisi is not none else metin("girilmedi") }}</dd></div>
-  </dl>
-</div>
+{% if opu_var %}
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/opu">{{ metin("vazgec_duzenleme") }}</a>
+{% endif %}
 {% endif %}
 
 {# OPU'da iki kişi var, bu yüzden etiket "İşlemi yapan" değil.

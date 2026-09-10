@@ -1,0 +1,96 @@
+{# Kaydedilmiş örneklerin kare ızgarası + altında bilgi kartı.
+
+   `_izgara.html` denüdasyona özgü (over rozeti, over düzenleme, tek panel
+   JS ile dolduruluyor — 40 oositlik cycle'da tek panel daha ucuz).
+   Burası genel hali: vitrifikasyon, çözme ve transfer gibi **kaydı olan**
+   listelerde kullanılıyor. Kartlar sunucuda basılıyor, çünkü her ekranın
+   satırları farklı ve içlerinde bağlantı/form olabiliyor — bunları JS ile
+   kurmak `_izgara`'daki gibi ayrı bir doldurma mantığı isterdi.
+
+   Kullanımı `{% call(e) %}` ile, satırları çağıran veriyor:
+
+       {% call(e) ok.izgara(liste, ad, "Başlık", "vit") %}
+         <dl style="margin:0"> ... e'nin satırları ... </dl>
+       {% endcall %}
+       {{ ok.baglama() }}
+
+   `onek` sayfadaki id çakışmasını önler (bir ekranda iki liste olabilir). #}
+{% macro izgara(items, ad, baslik, onek, ipucu=None) %}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ baslik }}</h2>
+  {% if ipucu %}<div class="ipucu" style="padding:10px 14px 0">{{ ipucu }}</div>{% endif %}
+  <div class="izgara">
+    {% for e in items %}
+    <div class="hucre">
+      <button type="button" class="kk okkare{% if not e.goruntu %} bos{% endif %}"
+              data-hedef="{{ onek }}{{ loop.index0 }}"
+              aria-expanded="false" aria-controls="{{ onek }}{{ loop.index0 }}"
+              aria-label="{{ ad }} {{ e.cycle_sira_no }}">
+        {% if e.goruntu %}
+        <img src="/dosya/{{ e.goruntu }}" alt="{{ ad }} {{ e.cycle_sira_no }}">
+        {% if e.kare and e.kare > 1 %}<span class="kare">{{ e.kare }}</span>{% endif %}
+        {% else %}
+        <span class="foto-yok">{{ metin("fotografsiz") }}</span>
+        {% endif %}
+      </button>
+      <div class="alt">{{ e.cycle_sira_no }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% for e in items %}
+<div class="kart bilgikart okkart" id="{{ onek }}{{ loop.index0 }}" hidden>
+  <h2>
+    <span>{{ ad }} {{ e.cycle_sira_no }}</span>
+    <button type="button" class="okkapat" aria-label="{{ metin('kapat') }}">&times;</button>
+  </h2>
+  {% if e.goruntu %}
+  <button type="button" class="sffoto okbuyut"
+          data-idler="{{ e.goruntu_idler or e.goruntu }}"
+          data-ad="{{ ad }} {{ e.cycle_sira_no }}"
+          aria-label="{{ metin('buyuk_goster') }}">
+    <img src="/dosya/{{ e.goruntu }}" alt="{{ ad }} {{ e.cycle_sira_no }}">
+  </button>
+  {% endif %}
+  {{ caller(e) }}
+</div>
+{% endfor %}
+{% endmacro %}
+
+
+{# Sayfada bir kez çağrılır. Olaylar document üzerinden dinleniyor, böylece
+   makro kaç kez kullanılırsa kullanılsın tek betik yetiyor. #}
+{% macro baglama() %}
+<script>
+(function () {
+  function kapat(kart) {
+    kart.hidden = true;
+    var d = document.querySelector('.okkare[data-hedef="' + kart.id + '"]');
+    if (d) { d.setAttribute('aria-expanded', 'false'); d.classList.remove('secili'); }
+  }
+  document.querySelectorAll('.okkare').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var kart = document.getElementById(b.dataset.hedef);
+      if (!kart) return;
+      var acikti = !kart.hidden;
+      document.querySelectorAll('.okkart').forEach(kapat);
+      if (acikti) return;                 // aynı kareye ikinci basış kapatır
+      kart.hidden = false;
+      b.setAttribute('aria-expanded', 'true');
+      b.classList.add('secili');
+      kart.scrollIntoView({block: 'nearest'});
+    });
+  });
+  document.querySelectorAll('.okkapat').forEach(function (b) {
+    b.addEventListener('click', function () { kapat(b.closest('.okkart')); });
+  });
+  document.querySelectorAll('.okbuyut').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+      if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.ad, 0);
+    });
+  });
+})();
+</script>
+{% endmacro %}

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
+{% import "_ornekkart.html" as ok %}
 {% block ustbaslik %}{{ metin("cozme_thaw") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -51,35 +52,46 @@
   {% endfor %}
 </div>
 
+{% set thaw_ad = ornek_adi('thaw', c.cycle_tipi) %}
 {% if cozulenler %}
-<div class="kart">
-  <h2>{{ metin("bu_tedavide_cozulenler") }} ({{ ozet.toplam }})</h2>
-  <div class="ipucu" style="padding:0 14px 8px">
-    {{ metin("canli") }} {{ ozet.canli }}/{{ ozet.toplam }} ({{ yuzde(ozet.oran) }})
-    · {{ metin("transfer_edilen") }} {{ ozet.transfer }}
-  </div>
-  {% for e in cozulenler %}
-  <div class="fsatir">
-    <div class="bilgi">
-      <div class="no">{{ ornek_kodu(e.id) }}</div>
-      <div class="meta">
-        {{ etiketler.get(e.thaw_sagkalim, e.thaw_sagkalim or '—') }}
-        {% if e.thaw_canlilik is not none %} · {{ metin("canlilik_kucuk") }} {{ yuzde(e.thaw_canlilik|round|int) }}{% endif %}
-        {% if e.thaw_re_expansion is not none %} · re-exp {{ yuzde(e.thaw_re_expansion|round|int) }}{% endif %}
-      </div>
-      <div class="meta">
-        {{ e.zaman[:16] }}
-        {% if e.tasiyici_etiket %} · {{ e.tasiyici_etiket }}{% endif %}
-        {% if e.cycle_id != c.id %} · {{ metin("kaynak") }}: {{ e.kaynak_cycle_no }}{% endif %}
-      </div>
-      <div class="meta">
-        {% if e.transfer_id %}{{ metin("transfer_edildi") }}
-        {% else %}<span style="color:var(--uyari)">{{ metin("transfer_edilmedi") }}</span>{% endif %}
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
+{# Kaydı olanlar: kareye basınca altında bilgi kartı (v6.21). Çözme
+   kayıtlarında fotoğraf yok, kareler numara gösteriyor. #}
+{% set thaw_ozet = metin("canli") ~ " " ~ ozet.canli ~ "/" ~ ozet.toplam
+                   ~ " (" ~ yuzde(ozet.oran) ~ ") · "
+                   ~ metin("transfer_edilen") ~ " " ~ ozet.transfer %}
+{% call(e) ok.izgara(cozulenler, thaw_ad,
+                     metin("bu_tedavide_cozulenler") ~ " (" ~ ozet.toplam ~ ")",
+                     "thw", thaw_ozet) %}
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("ornek_kodu_baslik") }}</dt>
+      <dd style="font-size:13px">{{ ornek_kodu(e.id) }}</dd></div>
+    <div class="veri"><dt>{{ metin("sagkalim") }}</dt>
+      <dd {% if not e.thaw_sagkalim %}class="yok"{% endif %}>
+        {{ etiketler.get(e.thaw_sagkalim, e.thaw_sagkalim) if e.thaw_sagkalim
+           else metin("girilmedi") }}</dd></div>
+    <div class="veri"><dt>{{ metin("canlilik") }}</dt>
+      <dd {% if e.thaw_canlilik is none %}class="yok"{% endif %}>
+        {{ yuzde(e.thaw_canlilik|round|int) if e.thaw_canlilik is not none
+           else metin("girilmedi") }}</dd></div>
+    <div class="veri"><dt>Re-expansion</dt>
+      <dd {% if e.thaw_re_expansion is none %}class="yok"{% endif %}>
+        {{ yuzde(e.thaw_re_expansion|round|int) if e.thaw_re_expansion is not none
+           else metin("girilmedi") }}</dd></div>
+    <div class="veri"><dt>{{ metin("cozme_saati_kisa") }}</dt>
+      <dd>{{ e.zaman[:16] }}</dd></div>
+    <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
+      <dd {% if not e.tasiyici_etiket %}class="yok"{% endif %}>
+        {{ e.tasiyici_etiket if e.tasiyici_etiket else metin("girilmedi") }}</dd></div>
+    {% if e.cycle_id != c.id %}
+    <div class="veri"><dt>{{ metin("kaynak_cycle") }}</dt>
+      <dd>{{ e.kaynak_cycle_no }}</dd></div>
+    {% endif %}
+    <div class="veri"><dt>{{ metin("transfer_durumu") }}</dt>
+      <dd>{% if e.transfer_id %}{{ metin("transfer_edildi") }}
+          {%- else %}<span style="color:var(--uyari)">{{ metin("transfer_edilmedi") }}</span>
+          {%- endif %}</dd></div>
+  </dl>
+{% endcall %}
 {% endif %}
 
 {% if bos %}
@@ -97,6 +109,7 @@
 
 {% if c.cycle_tipi != "fet" %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("vitrifikasyon_ekrani") }}</a>{% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
+{{ ok.baglama() }}
 {{ iy.kutu(c.id, "thaw") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

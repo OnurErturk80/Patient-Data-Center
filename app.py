@@ -1316,7 +1316,7 @@ DENUDASYON_HATALARI = {"kare_zaten_kaydedilmis", "kare_bulunamadi"}
 
 @uygulama.get("/cycle/{cycle_id}/denudasyon")
 def denudasyon(request: Request, cycle_id: int, taraf: str = "",
-               hata: str = ""):
+               hata: str = "", duzenle: int = 0):
     hata = hata if hata in DENUDASYON_HATALARI else ""
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -1347,6 +1347,7 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
             "son_goruntu": son,
             "gezinme": asama_gezinme(cycle_id, "denudasyon"),
          "taraf": taraf, "taraflar": db.liste("taraf"), "hata": hata,
+         "duzenle": duzenle,
          "klasor": str(goruntuler.kaynak_klasor()),
             "klasor_var": goruntuler.kaynak_klasor().is_dir(),
             "bos_dosyalar": goruntuler.bos_dosyalar(),
@@ -3790,7 +3791,8 @@ def opu_hekim_var() -> bool:
 
 
 @uygulama.get("/cycle/{cycle_id}/opu")
-def opu_ekran(request: Request, cycle_id: int, hata: str = ""):
+def opu_ekran(request: Request, cycle_id: int, hata: str = "",
+              duzenle: int = 0):
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
                "JOIN hasta h ON h.id=c.hasta_id WHERE c.id=?", (cycle_id,))
     if not c:
@@ -3799,7 +3801,7 @@ def opu_ekran(request: Request, cycle_id: int, hata: str = ""):
     from datetime import datetime as _d
     return sablon.TemplateResponse(
         request, "opu.html",
-        {"c": c, "hata": hata,
+        {"c": c, "hata": hata, "duzenle": duzenle,
          "goc_gerekli": not opu_hekim_var(),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
          "gezinme": asama_gezinme(cycle_id, "opu")})
@@ -3820,8 +3822,9 @@ async def opu_kaydet(request: Request, cycle_id: int):
             "opu_sol_oosit": tam(f.get("opu_sol_oosit"), "Sol over oosit sayısı"),
         }
     except FormHatasi as e:
-        return RedirectResponse(f"/cycle/{cycle_id}/opu?hata={quote(str(e))}",
-                                status_code=303)
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/opu?duzenle=1&hata={quote(str(e))}",
+            status_code=303)
 
     # Hekim adı yalnızca göç çalıştıysa yazılır; yoksa ekranda uyarı görünür.
     if opu_hekim_var():

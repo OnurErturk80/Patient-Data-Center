@@ -2,6 +2,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_kucukfoto.html" as kf %}
+{% import "_ornekkart.html" as ok %}
 {% block ustbaslik %}{{ metin("asama_transfer") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -17,27 +18,27 @@
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
+{% set tr_ad = ornek_adi('transfer', c.cycle_tipi) %}
 {% if edilen %}
-<div class="kart">
-  <h2>{{ metin("bu_cyclede_transfer") }} ({{ edilen|length }})</h2>
-  {% for e in edilen %}
-  <div class="fsatir">
-    {{ kf.kucuk(e) }}
-    <div class="bilgi">
-      <div class="ad"><strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
-        {% if e.skor %} · {{ e.skor }}{% endif %}</div>
-      <div class="meta">
-        {{ e.cycle_no }}{% if e.hasta_cycle_no %} ({{ say("n_cycle_sirali", e.hasta_cycle_no) }}){% endif %}
-        · {{ metin("donmus") if e.tr_tipi == "donmus" else metin("taze") }}
-      </div>
-      <div class="meta">{{ e.zaman }}</div>
-      <div class="meta" style="margin-top:6px">
-        <a href="/specimen/{{ e.id }}/transfer-sil" style="color:#a11f1f">{{ metin("kaydi_geri_al") }}</a>
-      </div>
-    </div>
+{# Kaydı olanlar: kareye basınca altında bilgi kartı (v6.21). #}
+{% call(e) ok.izgara(edilen, tr_ad,
+                     metin("bu_cyclede_transfer") ~ " (" ~ edilen|length ~ ")", "tr") %}
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("numara") }}</dt><dd>{{ e.cycle_sira_no }}</dd></div>
+    <div class="veri"><dt>{{ metin("skor") }}</dt>
+      <dd {% if not e.skor %}class="yok"{% endif %}>
+        {{ e.skor if e.skor else metin("girilmedi") }}</dd></div>
+    <div class="veri"><dt>{{ metin("geldigi_cycle") }}</dt>
+      <dd>{{ e.cycle_no }}{% if e.hasta_cycle_no %}
+          ({{ say("n_cycle_sirali", e.hasta_cycle_no) }}){% endif %}</dd></div>
+    <div class="veri"><dt>{{ metin("tip") }}</dt>
+      <dd>{{ metin("donmus") if e.tr_tipi == "donmus" else metin("taze") }}</dd></div>
+    <div class="veri"><dt>{{ metin("transfer_saati") }}</dt><dd>{{ e.zaman }}</dd></div>
+  </dl>
+  <div class="sfalt">
+    <a href="/specimen/{{ e.id }}/transfer-sil">{{ metin("kaydi_geri_al") }}</a>
   </div>
-  {% endfor %}
-</div>
+{% endcall %}
 {% endif %}
 
 {% if not adaylar %}
@@ -85,8 +86,10 @@
 
 <a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("cycle_kartina_don") }}</a>
 
+{% set buyutec_ad = tr_ad %}
 {% include "_buyutec.html" %}
 {{ kf.baglama() }}
+{{ ok.baglama() }}
 <script>
 document.querySelectorAll('.secsatir input').forEach(function (i) {
   i.addEventListener('change', function () {

@@ -963,6 +963,17 @@ METINLER = {
     "buyuk_goster": {"tr": "Büyük göster", "en": "Show larger"},
     "tam_ekran": {"tr": "Tam ekran", "en": "Full screen"},
     "numara": {"tr": "Numara", "en": "Number"},
+    # Embriyo cycle değiştirmez; transferde "hangi cycle'dan geldi" sorusunun
+    # cevabı specimen.cycle_id (bkz. CLAUDE.md "üç alan üç soruyu yanıtlar").
+    "geldigi_cycle": {"tr": "Geldiği cycle", "en": "Origin cycle"},
+    "cozme_saati_kisa": {"tr": "Çözme saati", "en": "Thaw time"},
+    "sagkalim": {"tr": "Sağkalım", "en": "Survival"},
+    "canlilik": {"tr": "Canlılık oranı", "en": "Viability"},
+    "transfer_durumu": {"tr": "Transfer", "en": "Transfer"},
+    "kaynak_cycle": {"tr": "Kaynak cycle", "en": "Source cycle"},
+    "cozulen_embriyolar": {"tr": "Çözülen embriyolar", "en": "Thawed embryos"},
+    "ornek_kodu_baslik": {"tr": "Örnek kodu", "en": "Specimen code"},
+    "saat": {"tr": "Saat", "en": "Time"},
     "kare_sayisi": {"tr": "Kare", "en": "Frames"},
     "bu_ornege_ait_fotograf_yok": {
         "tr": "Bu kayda ait fotoğraf yok.",

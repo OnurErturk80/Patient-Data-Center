@@ -2,6 +2,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_izgara.html" as izgara %}
+{% import "_bilgikart.html" as bk %}
 {% block ustbaslik %}{{ metin("asama_denudasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -29,7 +30,16 @@
 </div>
 {% endif %}
 
-{# 1. Denüdasyon saati — ekranın en üstünde. #}
+{# 1. Denüdasyon saati — ekranın en üstünde.
+   Kaydedilmişse bilgi kartı, değiştirmek için Düzenle (v6.21). İlk oosit
+   kaydedilince kendiliğinden doluyor, yani çoğu zaman kart görünür. #}
+{% if c.denudasyon_zamani and not duzenle %}
+{{ bk.kart(metin("denudasyon_zamani"),
+           [(metin("saat"), c.denudasyon_zamani)],
+           '/cycle/' ~ c.id ~ '/denudasyon?duzenle=1'
+             ~ ('&taraf=' ~ taraf if taraf else ''),
+           metin("kaydedildi_rozet")) }}
+{% else %}
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("denudasyon_zamani") }}</h2>
   <form method="post" action="/cycle/{{ c.id }}/denudasyon-zaman">
@@ -44,6 +54,7 @@
     </div>
   </form>
 </div>
+{% endif %}
 
 {# 2. Oosit ekleme alanı. #}
 <div class="kart" style="margin-top:12px">
