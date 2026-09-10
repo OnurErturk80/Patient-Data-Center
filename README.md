@@ -1,4 +1,92 @@
-# Lab Kayıt — v0.1
+# Patient Data Center
+
+IVF laboratuvarı için hasta / cycle / oosit kayıt sistemi.
+Bu dosya projenin **sürüm günlüğü**: her sürümde ne değişti ve neden.
+
+- Komutlar → `KOMUTLAR.md`
+- Çalışma kuralları → `CLAUDE.md`
+
+---
+
+## İçindekiler
+
+Her bölüm bir sürüm: **ne değişti ve neden**. En yeni en altta.
+Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" görünen karar bilinçli.
+
+**v0 — ilk ekranlar**
+
+- [v0.1 — ilk ekranlar](#v01--ilk-ekranlar)
+- [v0.2 — giriş ve düzenleme](#v02--giriş-ve-düzenleme)
+- [v0.3 — denüdasyon ekranı](#v03--denüdasyon-ekranı)
+- [v0.6 — silme/arşivleme ve endikasyon listesi](#v06--silmearşivleme-ve-endikasyon-listesi)
+- [v0.7 — form doğrulama düzeltmeleri](#v07--form-doğrulama-düzeltmeleri)
+- [v0.8 — kaçıncı cycle](#v08--kaçıncı-cycle)
+- [v0.9 — otomatik lab kayıt no ve cycle silme](#v09--otomatik-lab-kayıt-no-ve-cycle-silme)
+
+**v1 — yedekleme ve iki makine**
+
+- [v1.0 — fotoğraf silme ve elle yükleme](#v10--fotoğraf-silme-ve-elle-yükleme)
+- [v1.1 — oosit silme ve dosya başına oosit](#v11--oosit-silme-ve-dosya-başına-oosit)
+- [v1.2 — otomatik yedekleme](#v12--otomatik-yedekleme)
+- [v1.3 — iki makinede çalışma (Windows + macOS)](#v13--iki-makinede-çalışma-windows--macos)
+- [v1.4 — ICSI ekranı](#v14--icsi-ekranı)
+- [v1.9 — taşınabilir görüntü yolları](#v19--taşınabilir-görüntü-yolları)
+
+**v2 — fertilizasyon ve gün 2/3**
+
+- [v2.0 — fertilizasyon kontrolü](#v20--fertilizasyon-kontrolü)
+- [v2.5 — gün 2 / gün 3 değerlendirme](#v25--gün-2--gün-3-değerlendirme)
+- [v2.6 — blastokist değerlendirme](#v26--blastokist-değerlendirme)
+
+**v3 — vitrifikasyon, çözme, transfer**
+
+- [v3.0 — vitrifikasyon ve cryo haritası](#v30--vitrifikasyon-ve-cryo-haritası)
+- [v3.2 — çözme (thaw)](#v32--çözme-thaw)
+- [v3.5 — gezinme düzeltmeleri](#v35--gezinme-düzeltmeleri)
+- [v3.6 — transfer](#v36--transfer)
+- [v3.7 — fotoğraf düzeltmeleri (göç 014)](#v37--fotoğraf-düzeltmeleri-göç-014)
+- [v3.8 — aşamaya bağlı fotoğraf ve snapshot alma](#v38--aşamaya-bağlı-fotoğraf-ve-snapshot-alma)
+
+**v4 — arşivleme ve gezinme**
+
+- [v4.0 — arşivleme ve kalıcı silme kullanıcı kararına bırakıldı](#v40--arşivleme-ve-kalıcı-silme-kullanıcı-kararına-bırakıldı)
+- [v4.5 — arayüz düzenlemeleri](#v45--arayüz-düzenlemeleri)
+- [v4.4 — silme hatası düzeltildi](#v44--silme-hatası-düzeltildi)
+- [v4.6 — aşamalar arası gezinme](#v46--aşamalar-arası-gezinme)
+- [v4.7 — snapshot toplu eşleştirme](#v47--snapshot-toplu-eşleştirme)
+- [v4.8 — adlandırma ve yerleşim](#v48--adlandırma-ve-yerleşim)
+
+**v5 — tedavi tipi ve FET**
+
+- [v5.0 — oosit bazında over tarafı (göç 015)](#v50--oosit-bazında-over-tarafı-göç-015)
+- [v5.1 — aşama kare şeridi](#v51--aşama-kare-şeridi)
+- [v5.3 — gebelik sonucu](#v53--gebelik-sonucu)
+- [v5.4 — tedavi tipi ve FET akışı (göç 016)](#v54--tedavi-tipi-ve-fet-akışı-göç-016)
+- [v5.6 — tedavi tipi kodu netleştirildi (göç 017)](#v56--tedavi-tipi-kodu-netleştirildi-göç-017)
+- [v5.8 — iki makine arasında sorunsuz taşıma](#v58--iki-makine-arasında-sorunsuz-taşıma)
+
+**v6 — Claude Code dönemi**
+
+- [v6.1 — Claude Code'a geçiş + düz klasör yapısı](#v61--claude-codea-geçiş--düz-klasör-yapısı)
+- [v6.2 — androloji (sperm) modülü](#v62--androloji-sperm-modülü)
+- [v6.3 — "İşlemi yapan" alanı (tüm aşamalar)](#v63--i̇şlemi-yapan-alanı-tüm-aşamalar)
+- [v6.4 — arşiv hasta dosya numarasına göre + iki sistemde güvenli yollar](#v64--arşiv-hasta-dosya-numarasına-göre--iki-sistemde-güvenli-yollar)
+- [v6.5 — örnek kodu ve aşamaya göre isimlendirme](#v65--örnek-kodu-ve-aşamaya-göre-isimlendirme)
+- [v6.6 — eş zamanlı kullanım (birden fazla personel)](#v66--eş-zamanlı-kullanım-birden-fazla-personel)
+- [v6.7 — çözme hangi tedavi için yapıldı (göç 024)](#v67--çözme-hangi-tedavi-için-yapıldı-göç-024)
+- [v6.8 — `yedek.py` ayarları uygulamayla aynı yerden okur](#v68--yedekpy-ayarları-uygulamayla-aynı-yerden-okur)
+- [v6.9 — OPU kendi ekranı + kurulum göçleri kendisi çalıştırıyor](#v69--opu-kendi-ekranı--kurulum-göçleri-kendisi-çalıştırıyor)
+- [v6.10 — `kullanici.py`: giriş sorunlarını çözen araç](#v610--kullanicipy-giriş-sorunlarını-çözen-araç)
+- [v6.11 — şifre değiştirme, "şifremi unuttum", kullanıcı yönetimi ekranları](#v611--şifre-değiştirme-şifremi-unuttum-kullanıcı-yönetimi-ekranları)
+- [v6.12 — şifre değiştirme giriş ekranında, yönetici paneli](#v612--şifre-değiştirme-giriş-ekranında-yönetici-paneli)
+- [v6.14 — modül bazlı erişim izni](#v614--modül-bazlı-erişim-izni)
+- [v6.15 — tanımsız rol tek tıkla yönetici yapıyordu](#v615--tanımsız-rol-tek-tıkla-yönetici-yapıyordu)
+- [v6.16 — `tasi.py`: iki makine arasında güvenli veri taşıma](#v616--tasipy-iki-makine-arasında-güvenli-veri-taşıma)
+- [v6.17 — `tasi.py` yeni kurulmuş makineye de veri alabiliyor](#v617--tasipy-yeni-kurulmuş-makineye-de-veri-alabiliyor)
+
+---
+
+# v0.1 — ilk ekranlar
 
 Hasta ve cycle kayıt ekranları. Telefon ve tablet için tasarlandı, yerel ağda çalışır.
 

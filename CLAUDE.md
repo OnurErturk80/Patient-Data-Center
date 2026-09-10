@@ -1,4 +1,4 @@
-# Lab Kayıt — proje belleği
+# Patient Data Center — proje belleği
 
 Bu dosyayı her oturumda oku. Tasarım kararlarının **gerekçeleri** `README.md`
 içinde, sürüm sürüm yazılmış. Bir davranışı değiştirmeden önce oradaki ilgili
