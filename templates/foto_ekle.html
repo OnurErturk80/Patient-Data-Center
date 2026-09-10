@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Fotoğraf ekle{% endblock %}
+{% block ustbaslik %}{{ metin("fotograf_ekle") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
@@ -14,17 +14,17 @@
   <input type="hidden" name="geri" value="{{ geri }}">
   <div class="kart">
     <div class="alan">
-      <label for="specimen_id">Hangi oosite</label>
+      <label for="specimen_id">{{ metin("hangi_oosite") }}</label>
       <select id="specimen_id" name="specimen_id">
-        <option value="__yeni__" {% if secili_specimen == '__yeni__' %}selected{% endif %}>Her dosya ayrı oosit olsun (yeni numaralar)</option>
-        <option value="" {% if not secili_specimen %}selected{% endif %}>Oosite bağlama — cycle arşivine koy</option>
+        <option value="__yeni__" {% if secili_specimen == '__yeni__' %}selected{% endif %}>{{ metin("her_dosya_ayri_oosit") }}</option>
+        <option value="" {% if not secili_specimen %}selected{% endif %}>{{ metin("oosite_baglama") }}</option>
         {% for s in specimenler %}
-        <option value="{{ s.id }}" {% if secili_specimen == s.id %}selected{% endif %}>Oosit {{ s.cycle_sira_no }}</option>
+        <option value="{{ s.id }}" {% if secili_specimen == s.id %}selected{% endif %}>{{ metin("oosit_n").format(n=s.cycle_sira_no) }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="alan">
-      <label for="asama">Aşama</label>
+      <label for="asama">{{ metin("asama") }}</label>
       <select id="asama" name="asama">
         {% for a in asamalar %}
         <option value="{{ a.kod }}" {% if a.kod == secili_asama %}selected{% endif %}>{{ a.etiket }}</option>
@@ -32,15 +32,13 @@
       </select>
     </div>
     <div class="alan">
-      <label for="dosyalar">Dosyalar</label>
+      <label for="dosyalar">{{ metin("dosyalar") }}</label>
       <input id="dosyalar" name="dosyalar" type="file" multiple
              accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp">
-      <div class="ipucu">Birden fazla seçebilirsin. "Her dosya ayrı oosit" seçiliyse
-      her dosya kendi oosit numarasını alır; belirli bir oosit seçiliyse hepsi ona
-      eklenir. En fazla 25 MB, jpg/png/tif/bmp/webp.</div>
+      <div class="ipucu">{{ metin("foto_ekle_ipucu") }}</div>
     </div>
   </div>
-  <button class="dugme" type="submit">Yükle</button>
-  <a class="dugme ikincil" href="{{ geri }}">Vazgeç</a>
+  <button class="dugme" type="submit">{{ metin("yukle") }}</button>
+  <a class="dugme ikincil" href="{{ geri }}">{{ metin("vazgec") }}</a>
 </form>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Görüntüyü sil{% endblock %}
+{% block ustbaslik %}{{ metin("goruntuyu_sil") }}{% endblock %}
 {% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
@@ -9,29 +9,28 @@
 {% endblock %}
 {% block icerik %}
 <div class="tehlike">
-  <strong>Bu görüntü kalıcı olarak silinecek.</strong><br>
-  Oosit kaydı silinmez, yalnızca bu fotoğraf.
+  {{ metin("goruntu_kalici_silinecek")|safe }}
   {% if g.kaynak == 'kamera' %}
-  Kamera klasöründeki orijinal dosyaya dokunulmaz; dosya tekrar eşleştirilebilir hale gelir.
+  {{ metin("kamera_orijinali_kalir") }}
   {% endif %}
 </div>
 
 <div class="kart">
-  <img src="/dosya/{{ g.id }}" alt="Silinecek görüntü"
+  <img src="/dosya/{{ g.id }}" alt="{{ metin('silinecek_goruntu') }}"
        style="display:block;width:100%;background:#0d1419">
   <dl style="margin:0">
-    <div class="veri"><dt>Örnek kodu</dt>
-      <dd style="font-size:13px">{% if g.specimen_id %}{{ ornek_kodu(g.specimen_id) }}{% else %}örneğe bağlı değil (cycle arşivi){% endif %}</dd></div>
-    <div class="veri"><dt>Aşama</dt><dd>{{ asama_adi }}</dd></div>
-    <div class="veri"><dt>Kaynak</dt>
-      <dd>{{ 'Mikroskop kamerası' if g.kaynak == 'kamera' else 'Elle yüklendi' }}</dd></div>
-    <div class="veri"><dt>Zaman</dt><dd>{{ g.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("ornek_kodu_alan") }}</dt>
+      <dd style="font-size:13px">{% if g.specimen_id %}{{ ornek_kodu(g.specimen_id) }}{% else %}{{ metin("ornege_bagli_degil") }}{% endif %}</dd></div>
+    <div class="veri"><dt>{{ metin("asama") }}</dt><dd>{{ asama_etiketi }}</dd></div>
+    <div class="veri"><dt>{{ metin("kaynak_alan") }}</dt>
+      <dd>{{ metin("mikroskop_kamerasi") if g.kaynak == "kamera" else metin("elle_yuklendi") }}</dd></div>
+    <div class="veri"><dt>{{ metin("zaman") }}</dt><dd>{{ g.zaman }}</dd></div>
   </dl>
 </div>
 
 <form method="post" action="/goruntu/{{ g.id }}/sil">
   <input type="hidden" name="geri" value="{{ geri }}">
-  <button class="dugme tehlikeli" type="submit">Görüntüyü sil</button>
+  <button class="dugme tehlikeli" type="submit">{{ metin("goruntuyu_sil") }}</button>
 </form>
-<a class="dugme ikincil" href="{{ geri }}">Vazgeç</a>
+<a class="dugme ikincil" href="{{ geri }}">{{ metin("vazgec") }}</a>
 {% endblock %}

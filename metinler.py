@@ -650,7 +650,11 @@ METINLER = {
     "pozitif": {"tr": "Pozitif", "en": "Positive"},
     "negatif": {"tr": "Negatif", "en": "Negative"},
     "kontrol_zamani": {"tr": "Kontrol zamanı", "en": "Check time"},
-    "sonlanma": {"tr": "Sonlanma", "en": "Final outcome"},
+    # Kullanıcının seçimi (2026-09-10): "Termination".
+    # Not: İngilizcede "termination" klinik dilde gebelik sonlandırma
+    # demektir; bu listede "Canlı doğum" ve "Devam ediyor" da var.
+    # Değiştirmek istenirse "Final outcome" veya "Pregnancy outcome".
+    "sonlanma": {"tr": "Sonlanma", "en": "Termination"},
     "henuz_belli_degil": {"tr": "— henüz belli değil", "en": "— not yet known"},
     "sonlanma_ipucu": {
         "tr": "Zamanla değişir: önce \"devam ediyor\", doğumdan sonra \"canlı "
@@ -664,6 +668,43 @@ METINLER = {
     "bebek_sayisi": {"tr": "Bebek sayısı", "en": "Number of babies"},
     "sonucu_kaydet": {"tr": "Sonucu kaydet", "en": "Save outcome"},
     "son_guncelleme": {"tr": "Son güncelleme:", "en": "Last updated:"},
+
+    # ---- fotoğraf ekleme / görüntü silme ----
+    "hangi_oosite": {"tr": "Hangi oosite", "en": "To which oocyte"},
+    "her_dosya_ayri_oosit": {"tr": "Her dosya ayrı oosit olsun (yeni numaralar)",
+                             "en": "Each file its own oocyte (new numbers)"},
+    "oosite_baglama": {"tr": "Oosite bağlama — cycle arşivine koy",
+                       "en": "Do not link to an oocyte — put in the cycle archive"},
+    "asama": {"tr": "Aşama", "en": "Stage"},
+    "dosyalar": {"tr": "Dosyalar", "en": "Files"},
+    "foto_ekle_ipucu": {
+        "tr": "Birden fazla seçebilirsin. \"Her dosya ayrı oosit\" seçiliyse her "
+              "dosya kendi oosit numarasını alır; belirli bir oosit seçiliyse "
+              "hepsi ona eklenir. En fazla 25 MB, jpg/png/tif/bmp/webp.",
+        "en": "You can select more than one. With \"each file its own oocyte\" "
+              "every file gets its own oocyte number; if a specific oocyte is "
+              "selected they are all added to it. Max 25 MB, "
+              "jpg/png/tif/bmp/webp."},
+    "yukle": {"tr": "Yükle", "en": "Upload"},
+    "goruntuyu_sil": {"tr": "Görüntüyü sil", "en": "Delete image"},
+    "goruntu_kalici_silinecek": {
+        "tr": "<strong>Bu görüntü kalıcı olarak silinecek.</strong><br>Oosit "
+              "kaydı silinmez, yalnızca bu fotoğraf.",
+        "en": "<strong>This image will be permanently deleted.</strong><br>The "
+              "oocyte record is not deleted, only this photo."},
+    "kamera_orijinali_kalir": {
+        "tr": "Kamera klasöründeki orijinal dosyaya dokunulmaz; dosya tekrar "
+              "eşleştirilebilir hale gelir.",
+        "en": "The original file in the camera folder is untouched; it becomes "
+              "available for matching again."},
+    "silinecek_goruntu": {"tr": "Silinecek görüntü", "en": "Image to be deleted"},
+    "ornek_kodu_alan": {"tr": "Örnek kodu", "en": "Sample code"},
+    "ornege_bagli_degil": {"tr": "örneğe bağlı değil (cycle arşivi)",
+                           "en": "not linked to a sample (cycle archive)"},
+    "kaynak_alan": {"tr": "Kaynak", "en": "Source"},
+    "mikroskop_kamerasi": {"tr": "Mikroskop kamerası", "en": "Microscope camera"},
+    "elle_yuklendi": {"tr": "Elle yüklendi", "en": "Uploaded manually"},
+    "zaman": {"tr": "Zaman", "en": "Time"},
 
     # ---- denüdasyon ----
     "kamera_klasoru_yok": {"tr": "Kamera klasörü bulunamadı:",

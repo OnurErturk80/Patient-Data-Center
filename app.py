@@ -1758,7 +1758,7 @@ def goruntu_sil_ekran(request: Request, goruntu_id: int, geri: str = ""):
     etiketler = {r["kod"]: r["etiket"] for r in db.liste("goruntu_asama")}
     return sablon.TemplateResponse(
         request, "goruntu_sil.html",
-        {"g": g, "asama_adi": etiketler.get(g["asama"], g["asama"]),
+        {"g": g, "asama_etiketi": etiketler.get(g["asama"], g["asama"]),
          "geri": geri or f"/cycle/{g['cycle_id']}"},
     )
 
