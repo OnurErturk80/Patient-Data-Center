@@ -85,6 +85,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.17 — `tasi.py` yeni kurulmuş makineye de veri alabiliyor](#v617--tasipy-yeni-kurulmuş-makineye-de-veri-alabiliyor)
 - [v6.18 — ana ekran, aramadan çıkış yolu, yan aşama menüsü](#v618--ana-ekran-aramadan-çıkış-yolu-yan-aşama-menüsü)
 - [v6.19 — denüdasyonda hayalet oosit](#v619--denüdasyonda-hayalet-oosit)
+- [v6.20 — bilgi kartı düzeni: her aşamada aynı](#v620--bilgi-kartı-düzeni-her-aşamada-aynı)
 
 ---
 
@@ -2672,3 +2673,75 @@ alıyordu); kameradan gelen yolda atlanmış.
 - Olmayan kare → oosit açılmıyor, "kare bulunamadı"
 - Bilerek "fotoğrafsız oosit" → hâlâ oluşuyor, silinmiyor
 - `?hata=UYDURMA` → ekrana yazılmıyor
+
+---
+
+# v6.20 — bilgi kartı düzeni: her aşamada aynı
+
+Kullanıcının dört ayrı isteği; hepsi tek bir soruya bakıyor: **kaydettiğim şeyi
+nasıl görürüm?**
+
+## Cycle ekranı klinik özete döndü
+
+Cycle ekranında oosit fotoğrafları ve arşiv küçük resimleri vardı. Ekran artık
+yalnızca klinik bilgi: sayılar, zamanlar, protokol ve oosit numaraları (yanında
+toplandığı over). Fotoğraflar kendi aşama ekranlarında — tek tek ve büyük
+bakılacak yerde.
+
+## Denüdasyon yeniden sıralandı
+
+Kullanıcının istediği sıra:
+
+1. denüdasyon saati
+2. oosit ekleme alanı (kare önizleme + kaydet; kare yoksa **fotoğrafsız
+   ekleme aynı kartın içinde**)
+3. toplandığı over
+4. kaydedilen oositler — **karenin üstünde over rozeti, altında numara**
+5. bir kareye basınca **altında** bilgi kartı
+6. en altta işlemi yapan
+
+Over seçicisi ekleme alanının **altında**, çünkü seçim bundan sonra eklenecek
+oositlere yazılıyor — sıra, işin sırası. Tek bir oositin over'ını değiştirmek
+için karesine bas: bilgi kartında over satırı yerinde düzenlenebiliyor.
+
+## Bilgi kartı: dört aşama ekranında da
+
+ICSI, fertilizasyon, gün 2/3 ve blastokist ekranlarında form **her zaman
+açıktı**. Kaydedilmiş bir oosite dönünce yine doldurulmuş radyo düğmeleri
+karşılıyordu; "ne kaydetmiştim" sorusunun cevabı form alanlarından okunuyordu.
+
+Artık kayıt varsa salt okunur bir **bilgi kartı** görünüyor ("Kaydedildi"
+rozetiyle), değiştirmek için **Düzenle** ile forma dönülüyor (`?duzenle=1`).
+Kaydı olmayan örneklerde form doğrudan açılıyor — yani **"kaydet → sonraki
+oosit" toplu giriş akışı bozulmadı.** Bu önemliydi: 20 oositlik bir cycle'da
+her oosit için fazladan bir tıklama, 20 fazladan tıklamadır.
+
+Düzen böylece her yerde aynı: **üstte örnekler, birine basınca altta bilgi
+kartı.** Denüdasyonda üstteki şerit fotoğraf kareleri, aşama ekranlarında numara
+şeridi — davranış aynı.
+
+## Kartlar kodu değil etiketi gösterir
+
+Kayıtta duran `mii`, `2`, `z1` gibi kodların ekranda görünen karşılığı
+`liste_degeri` tablosunda ve **laba özgü** (yönetici düzenleyebiliyor). Yeni
+Jinja global `liste_etiket(liste_adi, kod)` çeviriyi oradan okuyor. Bulunamayan
+kod kendi adıyla dönüyor — sessizce boşalmıyor.
+
+## Yan düzeltmeler
+
+- **Form betikleri artık form yoksa erken çıkıyor.** Bu zaten gizli bir hataydı:
+  cycle'da hiç oosit yokken `bulguAc` null oluyor, `addEventListener` patlıyor
+  ve sayfanın öteki betikleri de çalışmıyordu. Bilgi kartı modu bunu görünür
+  hale getirdi.
+- **`_buyutec.html` içinde "Oosit" sabit yazılıydı** — blastokist ekranında da,
+  İngilizce kurulumda da yanlıştı. Çağıran tam etiket verebiliyor.
+- **`yuzde()` tam sayıda ondalık yazmıyor**: "%10.0" değil "%10". Kolon `REAL`.
+
+## Test edildi
+
+- Dört ekranda da: kayıt varken kart, `?duzenle=1`'de form (kayıtlı değerler
+  seçili), kaydı olmayan örnekte doğrudan form
+- Kaydet → sonraki oosite geçiyor, dönünce kart güncel
+- Kartlar iki dilde: etiketler çevriliyor, liste değerleri labın kendi
+  yazdığı gibi kalıyor (v6.17'deki karar)
+- 31 ekran 200, tarayıcı konsolunda JS hatası yok

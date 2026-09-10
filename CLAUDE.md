@@ -98,6 +98,21 @@ Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, tran
 **Hasta kimliği her ekranda görünür.** Yanlış hasta bu işin en pahalı hatası.
 Üst çubuk sticky, dosya no koyu bantta.
 
+**Ekran düzeni her aşamada aynı: üstte örnekler, altta bilgi kartı.** Bir
+örneğe basınca altında salt okunur bilgi kartı açılır; değiştirmek "Düzenle"
+ile (`?duzenle=1`). Kaydı olmayan örnekte form doğrudan açılır — "kaydet →
+sonraki oosit" toplu giriş akışı bozulmasın diye (v6.20). Yeni bir aşama
+ekranı yazarsan formu hep açık bırakma, bu düzene uy: `_bilgikart.html`
+`kart()` makrosu ve denüdasyondaki `_izgara.html`.
+
+**Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
+ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim
+ekleme.
+
+**Kodu değil etiketi göster.** `mii`, `2pn`, `z1` gibi değerler
+`liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda
+`liste_etiket(liste_adi, kod)` (Jinja global) kullan, sabit sözlük yazma.
+
 **Ana ekranda hasta adı yok.** `/` sayıları gösterir (aktif hasta, aktif
 cycle, dondurulmuş embriyo, bekleyen kare); adlar ancak `/hastalar`'a girilince
 görünür. Program klinikte gün boyu açık duruyor, ekrana bakan herkes listeyi
@@ -320,6 +335,14 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    değeri doğrudan `metin()`'e verirsen `?hata=...` ile ekrana istenen yazı
    yazdırılabilir. Dışarıdan gelen anahtarı **beyaz listeden geçir**
    (`DENUDASYON_HATALARI` gibi).
+
+10. **Şablonun altındaki betik, o şablonun formu basılmadığında da
+    çalışır.** Form `{% if %}` içindeyse betiğin aradığı alanlar yok;
+    `getElementById(...)` null döner, `addEventListener` patlar ve **aynı
+    sayfadaki öteki betikler de çalışmaz**. Betiğin başına
+    `if (!document.getElementById('<form id>')) return;` koy. Bu gerçekten
+    oldu: cycle'da hiç oosit yokken ICSI ekranının bütün JS'i sessizce
+    ölüydü (v6.20'de görüldü).
 
 ---
 
