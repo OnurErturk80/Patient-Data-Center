@@ -3,7 +3,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
-{% block ustbaslik %}ICSI{% endblock %}
+{% block ustbaslik %}{{ metin("asama_icsi") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
@@ -15,9 +15,9 @@
 
 {% if not oositler %}
 <div class="kart"><div class="bos">
-  Bu cycle'da henüz oosit yok.<br>Önce denüdasyon ekranından oositleri oluştur.
+  {{ metin("henuz_oosit_yok_icsi") }}<br>{{ metin("once_denudasyon") }}
 </div></div>
-<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">Denüdasyon ekranı</a>
+<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("denudasyon_ekrani") }}</a>
 {% else %}
 
 <div class="serit">
@@ -32,25 +32,25 @@
 </div>
 
 <div class="say">
-  <span class="bek">{{ oositler|selectattr('mat')|list|length }} / {{ oositler|length }} kaydedildi</span>
-  <span class="hed">{{ ornek_adi('icsi', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ "sağ" if sp.taraf == "sag" else "sol" }}</em>{% endif %}</span>
+  <span class="bek">{{ metin("n_m_kaydedildi").format(n=oositler|selectattr('mat')|list|length, m=oositler|length) }}</span>
+  <span class="hed">{{ ornek_adi('icsi', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
 {{ snap.blok(sp, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no, bekleyen) }}
 
 {% if sp.ilk_goruntu %}
 <div class="foto">
-  <img src="/dosya/{{ sp.ilk_goruntu }}" alt="Oosit {{ sp.cycle_sira_no }}">
+  <img src="/dosya/{{ sp.ilk_goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
 </div>
 {{ kr.serit(kareler, sp, c, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ sp.ilk_goruntu }}/sil?geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">Bu fotoğrafı sil</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+  <a href="/goruntu/{{ sp.ilk_goruntu }}/sil?geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
 <div class="kart"><div class="bos">
-  Bu aşamaya ait fotoğraf yok.<br>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+  {{ metin("bu_asamada_fotograf_yok") }}<br>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div></div>
 {% endif %}
 
@@ -58,7 +58,7 @@
   <input type="hidden" name="specimen_id" value="{{ sp.id }}">
 
   <div class="kart">
-    <h2>Maturasyon</h2>
+    <h2>{{ metin("maturasyon") }}</h2>
     <div class="secenek" role="group">
       {% for m in maturasyonlar %}
       <label class="sec {% if mat and mat.mat_deger == m.kod %}secili{% endif %}">
@@ -72,9 +72,9 @@
 
   <div class="kart">
     <div class="alan">
-      <label for="bulguAc">Oosit bulguları</label>
+      <label for="bulguAc">{{ metin("oosit_bulgulari") }}</label>
       <button type="button" class="acici" id="bulguAc">
-        <span id="bulguOzet">Bulgu yok</span>
+        <span id="bulguOzet">{{ metin("bulgu_yok") }}</span>
       </button>
     </div>
   </div>
@@ -83,8 +83,8 @@
     <div class="tperde" data-kapat></div>
     <div class="tsayfa" role="dialog" aria-modal="true" aria-labelledby="tbaslik">
       <div class="tust">
-        <span id="tbaslik">Oosit bulguları</span>
-        <button type="button" class="tkapat" data-kapat aria-label="Kapat">&times;</button>
+        <span id="tbaslik">{{ metin("oosit_bulgulari") }}</span>
+        <button type="button" class="tkapat" data-kapat aria-label="{{ metin('kapat') }}">&times;</button>
       </div>
       <div class="tgovde">
         <div class="cipler">
@@ -98,29 +98,29 @@
         </div>
       </div>
       <div class="talt">
-        <button type="button" class="dugme ikincil" id="bulguTemizle">Temizle</button>
-        <button type="button" class="dugme" data-kapat>Tamam</button>
+        <button type="button" class="dugme ikincil" id="bulguTemizle">{{ metin("temizle") }}</button>
+        <button type="button" class="dugme" data-kapat>{{ metin("tamam") }}</button>
       </div>
     </div>
   </div>
 
   <div class="kart">
-    <h2>Enjeksiyon</h2>
+    <h2>{{ metin("enjeksiyon") }}</h2>
     <div class="secenek">
       <label class="sec {% if ic %}secili{% endif %}">
         <input type="radio" name="enjekte" value="evet" {% if ic %}checked{% endif %}>
-        <span>Yapıldı</span>
+        <span>{{ metin("yapildi") }}</span>
       </label>
       <label class="sec {% if not ic %}secili{% endif %}">
         <input type="radio" name="enjekte" value="hayir" {% if not ic %}checked{% endif %}>
-        <span>Yapılmadı</span>
+        <span>{{ metin("yapilmadi") }}</span>
       </label>
     </div>
   </div>
 
   <div id="icsiblok" {% if not ic %}hidden{% endif %}>
     <div class="kart">
-      <h2>Geçiş zorluğu</h2>
+      <h2>{{ metin("gecis_zorlugu") }}</h2>
       <div class="secenek">
         {% for z in zorluklar %}
         <label class="sec {% if ic and ic.icsi_gecis_zorlugu == z.kod %}secili{% endif %}">
@@ -133,17 +133,17 @@
     </div>
 
     <div class="kart">
-      <h2>Enjeksiyon sonucu</h2>
+      <h2>{{ metin("enjeksiyon_sonucu") }}</h2>
       <div class="secenek">
         <label class="sec {% if not ic or ic.icsi_sonuc != 'degenere' %}secili{% endif %}">
           <input type="radio" name="icsi_sonuc" value="basarili"
                  {% if not ic or ic.icsi_sonuc != 'degenere' %}checked{% endif %}>
-          <span>Başarılı</span>
+          <span>{{ metin("basarili") }}</span>
         </label>
         <label class="sec {% if ic and ic.icsi_sonuc == 'degenere' %}secili{% endif %}">
           <input type="radio" name="icsi_sonuc" value="degenere"
                  {% if ic and ic.icsi_sonuc == 'degenere' %}checked{% endif %}>
-          <span>Dejenere</span>
+          <span>{{ metin("dejenere") }}</span>
         </label>
       </div>
     </div>
@@ -151,27 +151,27 @@
 
   <div class="kart">
     <div class="alan">
-      <label for="islem_zamani">İşlem saati</label>
+      <label for="islem_zamani">{{ metin("islem_saati") }}</label>
       <input id="islem_zamani" name="islem_zamani" type="datetime-local"
              value="{% set kz = (ic.zaman if ic else (mat.zaman if mat else None)) %}{{ kz[:16]|replace(' ','T') if kz else simdi }}">
-      <div class="ipucu">Şu an dolu geliyor. Geriye dönük kayıt giriyorsan değiştir.</div>
+      <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
     </div>
   </div>
 
-  <button class="dugme" type="submit">Kaydet ve sonraki oosit</button>
+  <button class="dugme" type="submit">{{ metin("kaydet_sonraki_oosit") }}</button>
 </form>
 
 <div class="ipucu" style="text-align:center;margin-top:10px">
-  Zaman ve operatör otomatik kaydedilir.
+  {{ metin("zaman_operator_otomatik") }}
 </div>
 
 <a class="dugme ikincil" style="margin-top:12px"
    href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">
-  Oosit {{ sp.cycle_sira_no }} için fotoğraf ekle</a>
+  {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
 <a class="dugme ikincil"
-   href="/cycle/{{ c.id }}/icsi?oosit={{ sp.cycle_sira_no }}">Seçimleri geri al</a>
+   href="/cycle/{{ c.id }}/icsi?oosit={{ sp.cycle_sira_no }}">{{ metin("secimleri_geri_al") }}</a>
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/icsi-sil">Bu oositin kaydını sil</a>
+   href="/specimen/{{ sp.id }}/icsi-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
 
 {% endif %}
 
@@ -193,7 +193,7 @@
       .call(document.querySelectorAll('.cip input:checked'))
       .map(function (i) { return i.parentNode.querySelector('span').textContent; });
     if (!secili.length) {
-      ozet.textContent = 'Bulgu yok';
+      ozet.textContent = {{ metin("bulgu_yok")|tojson }};
       ozet.classList.remove('dolu');
     } else {
       ozet.textContent = secili.join(', ');
