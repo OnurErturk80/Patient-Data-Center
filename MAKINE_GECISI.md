@@ -51,6 +51,14 @@ olarak bırakır; her şey yolundaysa o dosyayı silebilirsin.
 `iceri` çalıştırmadan önce uygulamayı durdur (Ctrl+C) — açık dosyanın üzerine
 yazılamaz.
 
+**Yeni kurulmuş bir makineye ilk veri alma:** o klasörde henüz `lab.db`
+olmadığı için `iceri` karşılaştırma yapmaz, doğrudan alır (v6.17).
+`sifirdan_kur.py` çalıştırmaya gerek yok — veritabanı USB'den geliyor.
+
+**ZIP ile kurduysan `git pull` çalışmaz** (`.git` klasörü yok). Kodu güncel
+tutmak için `git clone` ile kurulmuş bir klasör gerekir; veri dosyalarını
+(`lab.db`, `arsiv/`, `yerel_ayar.json`) eski klasörden yenisine taşı.
+
 Emin değilsen önce `durum` çalıştır: hiçbir şeyi değiştirmeden iki tarafı
 gösterir.
 

@@ -123,17 +123,23 @@ def usb_klasoru(usb: str) -> Path:
 
 
 def karsilastir(usb: str, sessiz: bool = False):
-    """İki tarafın özetini döndürür: (bu makine, USB) — USB yoksa (ozet, None)."""
-    if not db.DB_YOLU.exists():
-        sys.exit(f"Bu makinede lab.db yok: {db.DB_YOLU}")
-    burasi = ozet(db.DB_YOLU)
+    """İki tarafın özetini döndürür. Yoksa o taraf None olur.
+
+    Bu makinede `lab.db` olmayabilir: yeni kurulmuş bir bilgisayara ilk kez
+    veri alınıyordur. O durumda karşılaştıracak bir şey yok, kaybedilecek bir
+    şey de yok (v6.17).
+    """
+    burasi = ozet(db.DB_YOLU) if db.DB_YOLU.exists() else None
     usb_db = usb_klasoru(usb) / DB_ADI
     oradaki = ozet(usb_db) if usb_db.is_file() else None
 
     if not sessiz:
         print(f"\nMakine: {db.MAKINE}   ({platform.system()})")
         print("=" * 58)
-        yaz_ozet("BU MAKINEDE", burasi)
+        if burasi:
+            yaz_ozet("BU MAKINEDE", burasi)
+        else:
+            print(f"  BU MAKINEDE\n    lab.db yok — bu makine henuz bos.")
         print()
         if oradaki:
             yaz_ozet(f"USB'DE ({usb_klasoru(usb)})", oradaki)
@@ -163,6 +169,10 @@ def onay_iste(soru: str) -> bool:
 
 def disari(usb: str):
     burasi, oradaki = karsilastir(usb)
+    if not burasi:
+        sys.exit(f"\nBu makinede lab.db yok: {db.DB_YOLU}\n"
+                 "Gonderecek veri yok. Once 'iceri' ile veri al ya da "
+                 "'sifirdan_kur.py' ile yeni bir veritabani olustur.")
     hedef = usb_klasoru(usb)
 
     if oradaki:
@@ -217,9 +227,16 @@ def iceri(usb: str):
     if bilgi.is_file():
         print("\n  " + bilgi.read_text(encoding="utf-8").replace("\n", "\n  ").strip())
 
-    yon = hangisi_yeni(burasi, oradaki)
     print("\n" + "=" * 58)
-    if yon == "usb":
+    if not burasi:
+        # Yeni kurulmus makine: karsilastiracak bir sey yok, kaybedilecek de.
+        print("Bu makinede lab.db yok — ilk kurulum. Guvenle alinabilir.")
+        yon = "usb"
+    else:
+        yon = hangisi_yeni(burasi, oradaki)
+    if not burasi:
+        pass
+    elif yon == "usb":
         print("USB'deki kopya daha yeni. Guvenle alabilirsin.")
     elif yon == "ayni":
         print("Ikisi de ayni gorunuyor. Almanin zarari yok.")
@@ -235,10 +252,12 @@ def iceri(usb: str):
             sys.exit("Iptal edildi. Hicbir sey degismedi.")
 
     # Uzerine yazmadan once mevcut veritabaninin yedegi — yanlislikla
-    # yapildiysa geri donulebilsin.
-    gz = KOK / f"lab_ONCEKI_{datetime.now():%Y%m%d_%H%M%S}.db"
-    tutarli_kopya(db.DB_YOLU, gz)
-    print(f"\n  bu makinenin onceki hali yedeklendi: {gz.name}")
+    # yapildiysa geri donulebilsin. Bos makinede yedeklenecek bir sey yok.
+    gz = None
+    if burasi:
+        gz = KOK / f"lab_ONCEKI_{datetime.now():%Y%m%d_%H%M%S}.db"
+        tutarli_kopya(db.DB_YOLU, gz)
+        print(f"\n  bu makinenin onceki hali yedeklendi: {gz.name}")
 
     gecici = KOK / (DB_ADI + ".yeni")
     tutarli_kopya(usb_klasoru(usb) / DB_ADI, gecici)
@@ -253,8 +272,8 @@ def iceri(usb: str):
         gecici.unlink(missing_ok=True)
         sys.exit(f"\nHATA: lab.db degistirilemedi ({e}).\n"
                  "Uygulama calisiyor olabilir — terminalde Ctrl+C ile durdur, "
-                 "sonra bu komutu tekrar calistir.\n"
-                 f"Onceki hali duruyor: {gz.name}")
+                 "sonra bu komutu tekrar calistir."
+                 + (f"\nOnceki hali duruyor: {gz.name}" if gz else ""))
     print("  veritabani alindi ve dogrulandi")
 
     arsiv = Path(db.ayar("goruntu_arsiv_klasor", str(KOK / "arsiv")))
@@ -265,7 +284,8 @@ def iceri(usb: str):
     komut = "python" if platform.system() == "Windows" else "python3"
     print(f"  {komut} goc_hepsi.py")
     print(f"  {komut} -m uvicorn app:uygulama --host 0.0.0.0 --port 8000")
-    print(f"\nHer sey yolundaysa {gz.name} dosyasini silebilirsin.")
+    if gz:
+        print(f"\nHer sey yolundaysa {gz.name} dosyasini silebilirsin.")
 
 
 def main():

@@ -2427,3 +2427,41 @@ tutarsız olurlardı.
 - Fotoğraflar taşındı; ikinci çalıştırmada "2 zaten guncel" dedi
 - USB takılı değil / taşıma klasörü yok / yanlış komut → anlaşılır hatalar
 - **Taşınan veritabanı uygulamada açıldı**, iki makinenin hastaları da ekranda
+
+---
+
+# v6.17 — `tasi.py` yeni kurulmuş makineye de veri alabiliyor
+
+## Sorun
+
+Kullanıcı Windows'ta ZIP indirerek kurmuştu (git clone değil), yeni bir klasöre
+temiz kurulum yapması gerekti. O klasörde henüz `lab.db` yok — ve `tasi.py`
+oraya veri alamıyordu:
+
+```
+Bu makinede lab.db yok: C:\...\lab.db
+```
+
+`karsilastir()` her iki tarafın da var olduğunu varsayıyordu. Oysa "yeni
+bilgisayara ilk kez veri alma" en doğal senaryolardan biri.
+
+## Düzeltme
+
+Bu makinede `lab.db` yoksa:
+
+- **`iceri`** karşılaştırmayı ve yedeklemeyi atlar, doğrudan alır —
+  karşılaştıracak bir şey yok, kaybedilecek bir şey de yok:
+  ```
+  Bu makinede lab.db yok — ilk kurulum. Guvenle alinabilir.
+  ```
+- **`disari`** durur ve ne yapılacağını söyler: gönderecek veri yok, önce
+  `iceri` ya da `sifirdan_kur.py`.
+- **`durum`** "bu makine henuz bos" der, hata vermez.
+
+Dolu makinedeki korumalar aynen duruyor — regresyon testiyle doğrulandı.
+
+## Test edildi
+
+- Boş klasöre `iceri` → 4 hasta ve 6 kullanıcı geldi, fotoğraflar kopyalandı
+- Boş klasörde `disari` → anlaşılır hata, ne yapılacağı yazıyor
+- Dolu makinede daha yeni veri varken `iceri` → hâlâ uyarıyor ve duruyor
