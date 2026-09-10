@@ -1,44 +1,44 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Hastalar{% endblock %}
-{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · Çıkış</a>{% endblock %}
+{% block ustbaslik %}{{ t("hastalar") }}{% endblock %}
+{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ t("cikis") }}</a>{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
 {% if yetkisiz %}
 <div class="uyari">
-  <b>{{ yetkisiz }}</b> ekranına erişim iznin yok. Gerekiyorsa yöneticiye söyle.
+  <b>{{ yetkisiz }}</b> {{ t("yetkisiz_ekran") }}
 </div>
 {% endif %}
 <form class="arama" method="get" action="/hastalar">
-  <input type="search" name="ara" value="{{ ara }}" placeholder="Dosya no veya ad ara"
+  <input type="search" name="ara" value="{{ ara }}" placeholder="{{ t('ara_ipucu') }}"
          inputmode="search" autocomplete="off">
 </form>
 
-{% if arsiv %}<a class="dugme ikincil" href="/hastalar">Aktif hastalara dön</a>
+{% if arsiv %}<a class="dugme ikincil" href="/hastalar">{{ t("aktif_hastalara_don") }}</a>
 {% else %}
-{% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">Yeni hasta</a>{% endif %}
-{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">Cryo haritası</a>{% endif %}
+{% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">{{ t("yeni_hasta") }}</a>{% endif %}
+{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ t("cryo_haritasi") }}</a>{% endif %}
 {% if kullanici.rol == "yonetici" %}
-<a class="dugme ikincil" href="/yonetim">Yönetim</a>
+<a class="dugme ikincil" href="/yonetim">{{ t("yonetim") }}</a>
 {% endif %}
-<a class="dugme ikincil" href="/sifre">Şifre değiştir</a>{% endif %}
+<a class="dugme ikincil" href="/sifre">{{ t("sifre_degistir") }}</a>{% endif %}
 
 <div class="kart">
-  <h2>{% if arsiv %}Arşiv{% elif ara %}Arama sonucu{% else %}Son kayıtlar{% endif %}</h2>
+  <h2>{% if arsiv %}{{ t("arsiv") }}{% elif ara %}{{ t("arama_sonucu") }}{% else %}{{ t("son_kayitlar") }}{% endif %}</h2>
   {% for h in hastalar %}
   <a class="satir" href="/hasta/{{ h.id }}">
     <div class="no">{{ h.dosya_no }}</div>
     <div class="ad">{{ h.ad_soyad }}</div>
     <div class="meta">
-      {% if h.es_adi %}Eş: {{ h.es_adi }} · {% endif %}{{ h.cycle_sayisi }} cycle
+      {% if h.es_adi %}{{ t("es") }}: {{ h.es_adi }} · {% endif %}{{ t("n_cycle").format(n=h.cycle_sayisi) }}
     </div>
   </a>
   {% else %}
   <div class="bos">
-    {% if ara %}Bu aramaya uyan kayıt yok.{% else %}Henüz hasta kaydı yok.{% endif %}
+    {% if ara %}{{ t("aramaya_uyan_yok") }}{% else %}{{ t("henuz_hasta_yok") }}{% endif %}
   </div>
   {% endfor %}
 </div>
 {% if not arsiv and arsiv_sayisi %}
-<a class="dugme ikincil" href="/hastalar?arsiv=1">Arşiv ({{ arsiv_sayisi }})</a>
+<a class="dugme ikincil" href="/hastalar?arsiv=1">{{ t("arsiv") }} ({{ arsiv_sayisi }})</a>
 {% endif %}
 {% endblock %}

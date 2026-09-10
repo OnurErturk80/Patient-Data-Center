@@ -56,6 +56,9 @@ METINLER = {
     "program_adi": {"tr": "Patient Data Center", "en": "Patient Data Center"},
     "kaydet": {"tr": "Kaydet", "en": "Save"},
     "iptal": {"tr": "İptal", "en": "Cancel"},
+    # Durum rozeti — düğme değil. Ayrıca Türkçe "İptal"i küçültmek
+    # "i" + ayrı nokta üretiyor (i̇ptal), o yüzden hazır küçük yazılı.
+    "iptal_rozet": {"tr": "iptal", "en": "cancelled"},
     "geri": {"tr": "Geri", "en": "Back"},
     "sil": {"tr": "Sil", "en": "Delete"},
     "evet": {"tr": "Evet", "en": "Yes"},
@@ -124,6 +127,56 @@ METINLER = {
               "<code>python3 kullanici.py sifre &lt;username&gt;</code> in a "
               "terminal on the computer where the program is installed."},
     "giris_ekranina_don": {"tr": "Giriş ekranına dön", "en": "Back to sign in"},
+
+    # ---- işlemi yapan (paylaşılan parça) ----
+    "islem_yapan": {"tr": "İşlemi yapan", "en": "Performed by"},
+    "islem_yapan_ipucu": {
+        "tr": "Bu aşamayı fiilen yapan kişi. Kaydı giren kişiden farklı olabilir.",
+        "en": "The person who actually did this step. May differ from the "
+              "person entering the record."},
+    "ad_soyad": {"tr": "Ad soyad", "en": "Full name"},
+    "opu_embriyologu": {"tr": "OPU Embriyoloğu", "en": "OPU Embryologist"},
+    "opu_hekimi": {"tr": "OPU Hekimi", "en": "OPU Physician"},
+
+    # ---- hasta listesi ----
+    "hastalar": {"tr": "Hastalar", "en": "Patients"},
+    "hasta": {"tr": "Hasta", "en": "Patient"},
+    "cycle": {"tr": "Cycle", "en": "Cycle"},
+    "cycleler": {"tr": "Cycle'lar", "en": "Cycles"},
+    "yetkisiz_ekran": {
+        "tr": "ekranına erişim iznin yok. Gerekiyorsa yöneticiye söyle.",
+        "en": "— you do not have access to this screen. Ask an administrator "
+              "if you need it."},
+    "ara_ipucu": {"tr": "Dosya no veya ad ara", "en": "Search file no or name"},
+    "aktif_hastalara_don": {"tr": "Aktif hastalara dön",
+                            "en": "Back to active patients"},
+    "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},
+    "cryo_haritasi": {"tr": "Cryo haritası", "en": "Cryo map"},
+    "yonetim": {"tr": "Yönetim", "en": "Administration"},
+    "arsiv": {"tr": "Arşiv", "en": "Archive"},
+    "arsivde": {"tr": "arşivde", "en": "archived"},
+    "arama_sonucu": {"tr": "Arama sonucu", "en": "Search results"},
+    "son_kayitlar": {"tr": "Son kayıtlar", "en": "Recent records"},
+    "es": {"tr": "Eş", "en": "Partner"},
+    "n_cycle": {"tr": "{n} cycle", "en": "{n} cycles"},
+    "n_cycle_sirali": {"tr": "{n}. cycle", "en": "Cycle {n}"},
+    "aramaya_uyan_yok": {"tr": "Bu aramaya uyan kayıt yok.",
+                         "en": "No records match this search."},
+    "henuz_hasta_yok": {"tr": "Henüz hasta kaydı yok.",
+                        "en": "No patients recorded yet."},
+
+    # ---- hasta detay ----
+    "duzenle": {"tr": "Düzenle", "en": "Edit"},
+    "dogum_tarihi_kisa": {"tr": "D.T.", "en": "DOB"},
+    "yeni_cycle_ac": {"tr": "Yeni cycle aç", "en": "Open new cycle"},
+    "oosit_kucuk": {"tr": "oosit", "en": "oocytes"},
+    "bu_hastada_cycle_yok": {"tr": "Bu hastada henüz cycle yok.",
+                             "en": "No cycles for this patient yet."},
+    "not": {"tr": "Not", "en": "Note"},
+    "degisiklik_gecmisi": {"tr": "Değişiklik geçmişi", "en": "Change history"},
+    "arsivden_cikar": {"tr": "Arşivden çıkar", "en": "Remove from archive"},
+    "kalici_olarak_sil": {"tr": "Kalıcı olarak sil", "en": "Delete permanently"},
+    "arsivle_veya_sil": {"tr": "Arşivle veya sil", "en": "Archive or delete"},
 
     # ---- dil ----
     "dil": {"tr": "Dil", "en": "Language"},
