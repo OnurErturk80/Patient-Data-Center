@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}
+{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
+{% block icerik %}
+
+{% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
+{% if yetkisiz %}
+<div class="uyari">
+  <b>{{ yetkisiz }}</b> {{ metin("yetkisiz_ekran") }}
+</div>
+{% endif %}
+
+<div class="kart" style="margin-top:16px">
+  <h2>{{ metin("durum_ozeti") }}</h2>
+  <div class="ozet">
+    <div>
+      <div class="sayi">{{ aktif_hasta }}</div>
+      <div class="etiket">{{ metin("aktif_hasta") }}</div>
+    </div>
+    <div>
+      <div class="sayi">{{ aktif_cycle }}</div>
+      <div class="etiket">{{ metin("aktif_cycle") }}</div>
+    </div>
+    <div>
+      <div class="sayi">{{ dondurulmus }}</div>
+      <div class="etiket">{{ metin("dondurulmus") }}</div>
+    </div>
+  </div>
+  {% if bekleyen %}
+  <dl style="margin:0">
+    <div class="veri">
+      <dt>{{ metin("bekleyen_kare") }}</dt>
+      <dd>{{ bekleyen }}</dd>
+    </div>
+  </dl>
+  {% endif %}
+</div>
+
+<a class="dugme" href="/hastalar">{{ metin("hasta_ara_listele") }}</a>
+{% if yetkim("hasta") %}<a class="dugme ikincil" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>{% endif %}
+{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}
+{% if kullanici.rol == "yonetici" %}
+<a class="dugme ikincil" href="/yonetim">{{ metin("yonetim") }}</a>
+{% endif %}
+<a class="dugme ikincil" href="/sifre">{{ metin("sifre_degistir") }}</a>
+
+<div class="ipucu" style="margin-top:14px;text-align:center">
+  {{ metin("ana_ekran_ipucu") }}
+</div>
+{% endblock %}

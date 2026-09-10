@@ -1,19 +1,16 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("hastalar") }}{% endblock %}
+{% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
-{% if yetkisiz %}
-<div class="uyari">
-  <b>{{ yetkisiz }}</b> {{ metin("yetkisiz_ekran") }}
-</div>
-{% endif %}
 <form class="arama" method="get" action="/hastalar">
   <input type="search" name="ara" value="{{ ara }}" placeholder="{{ metin('ara_ipucu') }}"
          inputmode="search" autocomplete="off">
 </form>
 
 {% if arsiv %}<a class="dugme ikincil" href="/hastalar">{{ metin("aktif_hastalara_don") }}</a>
+{% elif ara %}<a class="dugme ikincil" href="/hastalar">{{ metin("aramayi_temizle") }}</a>
 {% else %}
 {% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>{% endif %}
 {% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}

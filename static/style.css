@@ -622,6 +622,65 @@ body.kilitli { overflow: hidden; }
 .gezinme .gez:active { background: var(--zemin); }
 .gezinme .gez.orta:active { filter: brightness(1.4); }
 
+/* --- yan aşama menüsü (yalnızca geniş ekran) ---
+   Telefon bu programın birinci ekranı; menü orada YOK, 640px'lik sütunun
+   yanında yer olmadığı için. Klinikteki mini PC ve masaüstünde ise aşamalar
+   arasında cycle ekranına dönmeden geçilebilsin diye solda duruyor.
+   Eşik 1100px: içerik sütunu 640px, ortalanınca solda (1100-640)/2 = 230px
+   kalıyor, menü 200px. Dar ekranda `display:none` -- DOM'da durması zararsız,
+   böylece her aşama şablonuna ayrı ayrı eklemek gerekmiyor. */
+.yanmenu { display: none; }
+
+@media (min-width: 1100px) {
+  .yanmenu {
+    display: block;
+    position: fixed;
+    top: 60px;                       /* üst çubuğun altı */
+    left: 16px;
+    width: 200px;
+    max-height: calc(100vh - 76px);
+    overflow-y: auto;
+    background: var(--yuzey);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    z-index: 20;
+  }
+  .yanmenu .baslik {
+    display: block;
+    padding: 10px 12px;
+    background: var(--ink);
+    color: #fff;
+    text-decoration: none;
+  }
+  .yanmenu .baslik .no { display: block; font-size: 17px; font-weight: 700; }
+  .yanmenu .baslik .ad { display: block; font-size: 12px; color: #9fb0bc; }
+  .yanmenu .oge {
+    display: block;
+    padding: 11px 12px;
+    border-top: 1px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .yanmenu .oge:hover { background: var(--zemin); }
+  .yanmenu .oge.aktif {
+    background: var(--vurgu-ac);
+    color: var(--vurgu);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--vurgu);
+  }
+  /* Aynı bağlantılar solda duruyor; cycle ekranındaki yığın gereksiz kalıyor */
+  .asama-dugmeler { display: none; }
+
+  /* Hasta kimlik bandı tam genişlikte; menü onun üstüne binmesin diye
+     yazısı içerik sütunuyla hizalanıyor. "Hasta kimliği her ekranda
+     görünür" kuralı menüden önce gelir. */
+  .kimlik {
+    padding-left: calc((100% - 640px) / 2);
+    padding-right: calc((100% - 640px) / 2);
+  }
+}
+
 /* --- eşleştirme: oosit numaraları --- */
 .oositler { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; }
 .onum {

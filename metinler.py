@@ -944,6 +944,25 @@ METINLER = {
     "opu_embriyologu": {"tr": "OPU Embriyoloğu", "en": "OPU Embryologist"},
     "opu_hekimi": {"tr": "OPU Hekimi", "en": "OPU Physician"},
 
+    # ---- ana ekran ----
+    # Hasta adlari bu ekranda YOK: program acikken ekrana bakan herkes
+    # (hasta, hasta yakini, teknik servis) hasta listesini gormesin diye.
+    # Adlar ancak /hastalar'a girilince gorunur.
+    "ana_ekran": {"tr": "Ana ekran", "en": "Home"},
+    "hasta_ara_listele": {"tr": "Hasta ara ve listele",
+                          "en": "Search and list patients"},
+    "aktif_hasta": {"tr": "Aktif hasta", "en": "Active patients"},
+    "aktif_cycle": {"tr": "Aktif cycle", "en": "Active cycles"},
+    "bekleyen_kare": {"tr": "Bekleyen kare", "en": "Pending frames"},
+    "dondurulmus": {"tr": "Dondurulmuş", "en": "Frozen"},
+    "durum_ozeti": {"tr": "Durum", "en": "Status"},
+    "ana_ekran_ipucu": {
+        "tr": "Hasta adları bu ekranda görünmez; listeye girince görünür.",
+        "en": "Patient names are not shown here; they appear once you open "
+              "the list."},
+    "aramayi_temizle": {"tr": "Aramayı temizle", "en": "Clear search"},
+    "asamalar": {"tr": "Aşamalar", "en": "Stages"},
+
     # ---- hasta listesi ----
     "hastalar": {"tr": "Hastalar", "en": "Patients"},
     "hasta": {"tr": "Hasta", "en": "Patient"},

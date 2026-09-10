@@ -1,4 +1,24 @@
+{# Genis ekranda solda duran asama menusu. Dar ekranda (telefon) CSS ile
+   gizlenir; orada gezinme alttaki `cubuk` ve cycle ekranindaki dugmelerdir.
+   Konumu `position: fixed` -- boylece sayfa yapisini degistirmeden her asama
+   ekranina eklenebiliyor. #}
+{% macro yan(c, g) %}
+{% if g and g.liste %}
+<nav class="yanmenu" aria-label="{{ metin('asamalar') }}">
+  <a class="baslik" href="/cycle/{{ c.id }}">
+    <span class="no">{{ c.dosya_no }}</span>
+    <span class="ad">{{ metin("cycle") }} {{ c.cycle_no }}</span>
+  </a>
+  {% for a in g.liste %}
+  <a class="oge{% if a.aktif %} aktif{% endif %}" href="{{ a.yol }}"
+     {% if a.aktif %}aria-current="page"{% endif %}>{{ a.ad }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+{% endmacro %}
+
 {% macro cubuk(c, g) %}
+{{ yan(c, g) }}
 {% if g %}
 <div class="gezinme">
   {% if g.onceki %}

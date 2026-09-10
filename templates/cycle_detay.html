@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_izgara.html" as izgara %}
+{% import "_gezinme.html" as gez %}
 {% block ustbaslik %}{{ metin("cycle") }}{% endblock %}
 {% block ustsag %}<a href="/cycle/{{ c.id }}/duzenle">{{ metin("duzenle") }}</a> · <a href="/cycle/{{ c.id }}/sil">{{ metin("sil") }}</a>{% endblock %}
 {% block geri %}<a class="geri" href="/hasta/{{ c.hasta_id }}">&#8249;</a>{% endblock %}
@@ -101,9 +102,11 @@
 </div>
 {% endif %}
 
+<div class="asama-dugmeler">
 {% for a in asamalar %}
 <a class="dugme" href="{{ a[2]|replace('{id}', c.id) }}">{{ asama_adi(a[0]) }}</a>
 {% endfor %}
+</div>
 {% if yetkim("foto") %}
 <a class="dugme ikincil" href="/cycle/{{ c.id }}/foto-ekle">{{ metin("fotograf_ekle") }}</a>
 {% endif %}
@@ -119,6 +122,7 @@
   {{ metin("kalici_olarak_sil") if c.durum == "iptal" else metin("iptal_et_veya_sil") }}</a>
 {% endif %}
 
+{{ gez.yan(c, gezinme) }}
 {% include "_buyutec.html" %}
 <script>
 document.querySelectorAll('.arsivfoto').forEach(function (b) {

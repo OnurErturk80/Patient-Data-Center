@@ -332,7 +332,7 @@ async def oturum_kontrolu(request: Request, sonraki):
             if modul and modul not in yetkiler:
                 from urllib.parse import quote
                 return RedirectResponse(
-                    "/hastalar?yetkisiz=" + quote(dict(MODULLER).get(modul, modul)),
+                    "/?yetkisiz=" + quote(dict(MODULLER).get(modul, modul)),
                     status_code=303)
             return await sonraki(request)
         finally:
@@ -352,7 +352,7 @@ def giris(kullanici_adi: str = Form(...), sifre: str = Form(...)):
     jeton = guvenlik.giris_yap(kullanici_adi, sifre)
     if not jeton:
         return RedirectResponse("/giris?hata=1", status_code=303)
-    yanit = RedirectResponse("/hastalar", status_code=303)
+    yanit = RedirectResponse("/", status_code=303)
     yanit.set_cookie(
         guvenlik.CEREZ_ADI, jeton,
         httponly=True,          # JavaScript okuyamaz
@@ -925,13 +925,36 @@ def yedek_durumu():
 # ----------------------------------------------------------------- hasta
 
 @uygulama.get("/")
-def anasayfa():
-    return RedirectResponse("/hastalar")
+def anasayfa(request: Request, yetkisiz: str = ""):
+    """Ana ekran: sayılar ve yollar, **hasta adı yok**.
+
+    Program klinikte açık duruyor; ekrana bakan herkes (bekleyen hasta, hasta
+    yakını, teknik servis) daha önce kayıtlı hastaların adını görüyordu.
+    Adlar artık ancak `/hastalar`'a girilince görünür.
+    """
+    aktif_hasta = db.tek(
+        "SELECT COUNT(*) k FROM hasta WHERE lab_id=? AND durum='aktif'",
+        (db.LAB_ID,))["k"]
+    aktif_cycle = db.tek(
+        "SELECT COUNT(*) k FROM cycle WHERE lab_id=? AND durum='aktif'",
+        (db.LAB_ID,))["k"]
+    # Dondurulmuş embriyo sayısı türetilir — /cryo ile aynı ölçü (bkz. CLAUDE.md)
+    dondurulmus = db.tek(
+        "SELECT COUNT(*) k FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+        "WHERE t.lab_id=? AND t.durum='dolu' AND o.tip='vitrifikasyon' "
+        "AND o.iptal_mi=0", (db.LAB_ID,))["k"]
+    return sablon.TemplateResponse(
+        request, "ana.html",
+        {"kullanici": request.state.kullanici,
+         "aktif_hasta": aktif_hasta, "aktif_cycle": aktif_cycle,
+         "bekleyen": len(goruntuler.bekleyen_dosyalar()),
+         "dondurulmus": dondurulmus,
+         "yedek": yedek_durumu(), "yetkisiz": yetkisiz},
+    )
 
 
 @uygulama.get("/hastalar")
-def hastalar(request: Request, ara: str = "", arsiv: int = 0,
-             yetkisiz: str = ""):
+def hastalar(request: Request, ara: str = "", arsiv: int = 0):
     durum = "arsiv" if arsiv else "aktif"
     ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
              "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
@@ -952,7 +975,7 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
         request, "hastalar.html",
         {"hastalar": kayitlar, "ara": ara, "arsiv": arsiv,
          "arsiv_sayisi": arsiv_sayisi, "kullanici": request.state.kullanici,
-         "yedek": yedek_durumu(), "yetkisiz": yetkisiz},
+         "yedek": yedek_durumu()},
     )
 
 
@@ -1189,7 +1212,9 @@ def cycle_detay(request: Request, cycle_id: int):
         request, "cycle_detay.html",
         {"c": cycle, "specimenler": specimenler, "etiketler": etiketler,
          "arsiv": arsiv, "taraf": taraf_sayilari,
-         "asamalar": cycle_asamalari(cycle["cycle_tipi"])},
+         "asamalar": cycle_asamalari(cycle["cycle_tipi"]),
+         # yan menü aşama ekranlarındakiyle aynı listeden beslensin
+         "gezinme": asama_gezinme(cycle_id, "")},
     )
 
 
@@ -3801,12 +3826,21 @@ def cycle_asamalari(cycle_tipi: str):
 
 
 def asama_gezinme(cycle_id: int, anahtar: str):
-    """Bir aşama ekranının önceki/sonraki bağlantıları."""
+    """Bir aşama ekranının gezinme verisi: önceki/sonraki **ve tüm liste**.
+
+    `liste` yan menüyü besliyor (geniş ekranda solda duran aşama menüsü).
+    Aynı yerden geldiği için menü de, alttaki çubuk da tedavi tipine ve
+    kullanıcının modül izinlerine göre süzülmüş oluyor.
+    """
     c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
     liste = cycle_asamalari(c["cycle_tipi"] if c else "ivf_icsi")
     kodlar = [a[0] for a in liste]
+    tumu = [{"kod": k, "ad": asama_adi(k), "yol": yol.format(id=cycle_id),
+             "aktif": k == anahtar}
+            for k, _ad, yol in liste]
     if anahtar not in kodlar:
-        return {"onceki": None, "sonraki": None, "sira": None, "toplam": len(kodlar)}
+        return {"onceki": None, "sonraki": None, "sira": None,
+                "toplam": len(kodlar), "liste": tumu}
     i = kodlar.index(anahtar)
     def yap(j):
         if 0 <= j < len(liste):
@@ -3814,7 +3848,7 @@ def asama_gezinme(cycle_id: int, anahtar: str):
             return {"ad": asama_adi(k), "yol": yol.format(id=cycle_id)}
         return None
     return {"onceki": yap(i - 1), "sonraki": yap(i + 1),
-            "sira": i + 1, "toplam": len(liste)}
+            "sira": i + 1, "toplam": len(liste), "liste": tumu}
 
 
 # ----------------------------------------------------------------- toplu eşleştirme
