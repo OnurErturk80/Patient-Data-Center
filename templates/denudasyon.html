@@ -21,14 +21,23 @@
 </div>
 {% endif %}
 
+{% if bos_dosyalar %}
+<div class="uyari">
+  <strong>{{ metin("bos_dosya_uyari").format(n=bos_dosyalar|length) }}</strong><br>
+  <span style="font-size:13px">{{ bos_dosyalar|join(', ') }}</span><br>
+  {{ metin("kopyalama_yarim") }}
+</div>
+{% endif %}
+
+{# 1. Denüdasyon saati — ekranın en üstünde. #}
 <div class="kart" style="margin-top:12px">
+  <h2>{{ metin("denudasyon_zamani") }}</h2>
   <form method="post" action="/cycle/{{ c.id }}/denudasyon-zaman">
     <div class="alan">
-      <label for="denudasyon_zamani">{{ metin("denudasyon_zamani") }}</label>
       <div style="display:flex;gap:8px">
         <input id="denudasyon_zamani" name="denudasyon_zamani" type="datetime-local"
                value="{{ c.denudasyon_zamani[:16]|replace(' ','T') if c.denudasyon_zamani else '' }}"
-               style="flex:1">
+               style="flex:1" aria-label="{{ metin('denudasyon_zamani') }}">
         <button class="minidugme" type="submit" style="min-width:88px">{{ metin("kaydet") }}</button>
       </div>
       <div class="ipucu">{{ metin("denudasyon_zamani_ipucu") }}</div>
@@ -36,9 +45,83 @@
   </form>
 </div>
 
+{# 2. Oosit ekleme alanı. #}
 <div class="kart" style="margin-top:12px">
+  <h2>{{ metin("oosit_ekle") }}</h2>
+
+  {% if simdiki %}
+  <div class="say" style="padding:10px 14px 6px">
+    <span class="bek">{{ say("n_goruntu_bekliyor", bekleyen|length) }}</span>
+    <span class="hed">{{ metin("oosit_n").format(n=sonraki_sira) }}</span>
+  </div>
+
+  <div class="foto" style="border-radius:0;border-left:0;border-right:0">
+    <img src="/onizleme?imza={{ simdiki.imza|urlencode }}" alt="{{ metin('siradaki_goruntu') }}">
+    <div class="dosyaadi">{{ simdiki.ad }}</div>
+  </div>
+
+  <div class="alan" style="border:0">
+    <form method="post" action="/cycle/{{ c.id }}/denudasyon">
+      <input type="hidden" name="imza" value="{{ simdiki.imza }}">
+      <input type="hidden" name="taraf" value="{{ taraf }}">
+      <button class="dugme" type="submit" name="eylem" value="yeni" style="margin-top:0">
+        {{ metin("kaydet_oosit_n").format(n=sonraki_sira) }}
+      </button>
+      {% if kayitli %}
+      <button class="dugme ikincil" type="submit" name="eylem" value="ayni">
+        {{ metin("ayni_oosite_ekle") }} ({{ kayitli[-1].cycle_sira_no }})
+      </button>
+      {% endif %}
+      <div class="ikili" style="gap:10px;display:flex">
+        <button class="dugme ikincil" type="submit" name="eylem" value="atla">{{ metin("atla") }}</button>
+        <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz">{{ metin("fotografsiz_oosit") }}</button>
+      </div>
+    </form>
+  </div>
+
+  {% else %}
+  <div class="bos">
+    {% if kayitli %}
+      {{ metin("bekleyen_kalmadi") }}<br>{{ say("n_oosit_kaydedildi", kayitli|length) }}
+    {% else %}
+      {{ metin("klasorde_yeni_yok") }}<br>{{ metin("kameradan_kare_al") }}
+    {% endif %}
+  </div>
+  <div class="alan" style="border:0">
+    {# 3. Fotoğraf yoksa fotoğrafsız ekleme buradan. #}
+    <form method="post" action="/cycle/{{ c.id }}/denudasyon">
+      <input type="hidden" name="taraf" value="{{ taraf }}">
+      <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz"
+              style="margin-top:0">
+        {{ metin("fotografsiz_oosit_ekle") }}
+      </button>
+    </form>
+    <a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("yenile") }}</a>
+  </div>
+  {% endif %}
+
+  <div class="alan" style="border-top:1px solid var(--line)">
+    <a class="dugme ikincil" style="margin-top:0"
+       href="/cycle/{{ c.id }}/foto-ekle?specimen_id=__yeni__&asama=denudasyon&geri=/cycle/{{ c.id }}/denudasyon">
+      {{ metin("elle_fotograf_ekle") }}</a>
+    {% if son_goruntu %}
+    <form method="post" action="/cycle/{{ c.id }}/denudasyon">
+      <input type="hidden" name="goruntu_id" value="{{ son_goruntu.id }}">
+      <button class="gerial" type="submit" name="eylem" value="geri">
+        {{ metin("son_kaydi_geri_al") }} ({{ son_goruntu.specimen_id }})
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{# 4. Eklendikten sonra: hangi taraftan alındığı.
+   Buradaki seçim **bundan sonra** eklenecek oositlere yazılır; tek tek
+   değiştirmek için aşağıdaki karelerden birine bas, bilgi kartında over
+   satırı var. #}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("toplandigi_over") }}</h2>
   <div class="alan">
-    <label>{{ metin("toplandigi_over") }}</label>
     <div class="tarafsec">
       <a href="/cycle/{{ c.id }}/denudasyon"
          class="{% if not taraf %}aktif{% endif %}">{{ metin("belirtme") }}</a>
@@ -51,84 +134,23 @@
   </div>
 </div>
 
-{% if bos_dosyalar %}
-<div class="uyari">
-  <strong>{{ metin("bos_dosya_uyari").format(n=bos_dosyalar|length) }}</strong><br>
-  <span style="font-size:13px">{{ bos_dosyalar|join(', ') }}</span><br>
-  {{ metin("kopyalama_yarim") }}
-</div>
-{% endif %}
-
-{% if simdiki %}
-<div class="say">
-  <span class="bek">{{ say("n_goruntu_bekliyor", bekleyen|length) }}</span>
-  <span class="hed">{{ metin("oosit_n").format(n=sonraki_sira) }}</span>
-</div>
-
-<div class="foto">
-  <img src="/onizleme?imza={{ simdiki.imza|urlencode }}" alt="{{ metin('siradaki_goruntu') }}">
-  <div class="dosyaadi">{{ simdiki.ad }}</div>
-</div>
-
-<form method="post" action="/cycle/{{ c.id }}/denudasyon">
-  <input type="hidden" name="imza" value="{{ simdiki.imza }}">
-  <input type="hidden" name="taraf" value="{{ taraf }}">
-  <button class="dugme" type="submit" name="eylem" value="yeni">
-    {{ metin("kaydet_oosit_n").format(n=sonraki_sira) }}
-  </button>
-  {% if kayitli %}
-  <button class="dugme ikincil" type="submit" name="eylem" value="ayni">
-    {{ metin("ayni_oosite_ekle") }} ({{ kayitli[-1].cycle_sira_no }})
-  </button>
-  {% endif %}
-  <div class="ikili" style="gap:10px;display:flex">
-    <button class="dugme ikincil" type="submit" name="eylem" value="atla">{{ metin("atla") }}</button>
-    <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz">{{ metin("fotografsiz_oosit") }}</button>
-  </div>
-</form>
-
+{# 5. Kaydedilen oositler: karenin üstünde over, altında numara.
+   Bir kareye basınca altında bilgi kartı açılır; kartın büyük fotoğrafına
+   basınca büyüteç. #}
+{% set oosit_basligi = metin("kaydedilen_oositler") ~ " (" ~ kayitli|length ~ ")" %}
+{% if kayitli %}
+{{ izgara.oosit_izgara(kayitli, ornek_adi('denudasyon', c.cycle_tipi), oosit_basligi) }}
 {% else %}
-<div class="kart">
-  <div class="bos">
-    {% if kayitli %}
-      {{ metin("bekleyen_kalmadi") }}<br>{{ say("n_oosit_kaydedildi", kayitli|length) }}
-    {% else %}
-      {{ metin("klasorde_yeni_yok") }}<br>{{ metin("kameradan_kare_al") }}
-    {% endif %}
-  </div>
-</div>
-<form method="post" action="/cycle/{{ c.id }}/denudasyon">
-  <input type="hidden" name="taraf" value="{{ taraf }}">
-  <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz">
-    {{ metin("fotografsiz_oosit_ekle") }}
-  </button>
-</form>
-<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("yenile") }}</a>
-{% endif %}
-
-{% if son_goruntu %}
-<form method="post" action="/cycle/{{ c.id }}/denudasyon" style="margin-top:10px">
-  <input type="hidden" name="goruntu_id" value="{{ son_goruntu.id }}">
-  <button class="gerial" type="submit" name="eylem" value="geri">
-    {{ metin("son_kaydi_geri_al") }} ({{ son_goruntu.specimen_id }})
-  </button>
-</form>
-{% endif %}
-
-<a class="dugme ikincil" style="margin-top:12px"
-   href="/cycle/{{ c.id }}/foto-ekle?specimen_id=__yeni__&asama=denudasyon&geri=/cycle/{{ c.id }}/denudasyon">
-  {{ metin("elle_fotograf_ekle") }}</a>
-
 <div class="kart" style="margin-top:16px">
-  <h2>{{ metin("kaydedilen_oositler") }} ({{ kayitli|length }})</h2>
-  {% if kayitli %}
-  {{ izgara.oosit_izgara(kayitli) }}
-  {% else %}
+  <h2>{{ oosit_basligi }}</h2>
   <div class="bos">{{ metin("henuz_oosit_kaydedilmedi") }}</div>
-  {% endif %}
 </div>
+{% endif %}
 
+{% set buyutec_ad = ornek_adi('denudasyon', c.cycle_tipi) %}
 {% include "_buyutec.html" %}
+
+{# 6. En altta işlemi yapan. #}
 {{ iy.kutu(c.id, "denudasyon") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

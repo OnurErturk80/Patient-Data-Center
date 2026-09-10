@@ -23,6 +23,11 @@
   var sonra = document.getElementById('bsonra');
   var yakinDugme = document.getElementById('byakin');
   var idler = [], sira = 0, no = '', yakin = false;
+  // Cagiran ya tam etiket veriyor ("Blastokist 3") ya da sadece numara ("3").
+  // Numaraysa sayfanin ornek adiyla tamamlanir -- eskiden burada "Oosit" sabit
+  // yaziyordu, blastokist ekraninda da Ingilizcede de yanlisti.
+  var AD = {{ (buyutec_ad if buyutec_ad is defined else metin("ornek_ad"))|tojson }};
+  function etiket() { return /^\d+$/.test(no) ? AD + ' ' + no : no; }
 
   function yakinAyarla(durum) {
     yakin = durum;
@@ -33,10 +38,10 @@
   }
   function ciz() {
     img.src = '/dosya/' + idler[sira];
-    img.alt = 'Oosit ' + no + ', kare ' + (sira + 1);
+    img.alt = etiket();
     bilgi.textContent = idler.length > 1
-      ? 'Oosit ' + no + ' — ' + (sira + 1) + '/' + idler.length
-      : 'Oosit ' + no;
+      ? etiket() + ' — ' + (sira + 1) + '/' + idler.length
+      : etiket();
     once.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
     sonra.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
     yakinAyarla(false);

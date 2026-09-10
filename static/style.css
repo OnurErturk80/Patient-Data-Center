@@ -259,6 +259,14 @@ form { margin: 0; }
   cursor: zoom-in; position: relative; border-radius: 4px; overflow: hidden;
 }
 .hucre .kk:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 2px; }
+/* Toplandigi over: karenin USTUNDE, numara altinda (kullanicinin istegi). */
+.hucre .kk .tarafr {
+  position: absolute; left: 4px; top: 4px;
+  background: rgba(13,20,25,.82); color: #fff;
+  font-size: 11px; line-height: 1; padding: 3px 6px; border-radius: 3px;
+  font-weight: 600;
+}
+.hucre .kk.bos .tarafr { background: var(--ink-2); }
 .hucre .kk .kare {
   position: absolute; right: 4px; bottom: 4px;
   background: rgba(13,20,25,.82); color: #fff;
@@ -321,37 +329,59 @@ body.kilitli { overflow: hidden; }
   font-size: 15px; font-weight: 600; padding: 0 20px; border-radius: 26px;
 }
 
-/* --- satir ici buyuk resim --- */
-.satirfoto {
-  border-top: 1px solid var(--line);
-  background: #0d1419;
-}
-.satirfoto[hidden] { display: none; }
-.satirfoto .sfust {
+/* --- bilgi karti ------------------------------------------------------
+   Butun asamalarda ayni: ustte ornekler, birine basinca altta bu kart.
+   Denudasyonda JS dolduruyor (tek panel, secilen kareden), asama
+   ekranlarinda sunucu basiyor -- gorunum ayni olsun diye ayni siniflar. */
+.bilgikart { border-color: var(--vurgu); }
+.bilgikart[hidden] { display: none; }
+.bilgikart h2 {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 6px 6px 12px;
-  color: #cfd8de; font-size: 13px;
+  gap: 8px; padding-right: 4px;
+  color: var(--ink); font-size: 14px;
 }
-.satirfoto .sfust button {
+.bilgikart h2 button {
   width: 40px; height: 40px; font-size: 26px; line-height: 1;
-  background: none; border: 0; color: #cfd8de; cursor: pointer;
+  background: none; border: 0; color: var(--ink-2); cursor: pointer;
 }
-.satirfoto img {
+.bilgikart .rozet {
+  background: #e4eae7; color: #2c5545; border-radius: 3px;
+  padding: 2px 7px; font-size: 11px; font-weight: 600;
+}
+
+/* Kartin buyuk fotografi: uzerine basinca buyutec acilir. */
+.sffoto {
+  display: block; width: 100%; padding: 0; border: 0;
+  background: #0d1419; cursor: zoom-in;
+}
+.sffoto[hidden] { display: none; }
+.sffoto img {
   display: block; width: 100%; height: auto;
-  max-height: 62vh; object-fit: contain;
+  max-height: 52vh; object-fit: contain;
 }
-.satirfoto .sfbar {
+.bilgikart .sfbar {
   display: flex; align-items: center; justify-content: center; gap: 12px;
-  padding: 8px;
+  padding: 8px; border-bottom: 1px solid var(--line);
 }
-.satirfoto .sfbar button {
-  min-width: 46px; height: 46px; font-size: 26px; line-height: 1;
-  background: rgba(255,255,255,.10); border: 0; border-radius: 23px;
-  color: #fff; cursor: pointer; font-family: inherit;
+.bilgikart .sfbar[hidden] { display: none; }
+.bilgikart .sfbar button {
+  min-width: 46px; height: 44px; font-size: 24px; line-height: 1;
+  background: var(--zemin); border: 1px solid var(--line); border-radius: 22px;
+  color: var(--ink); cursor: pointer; font-family: inherit;
 }
-.satirfoto .sfbar button:active { background: rgba(255,255,255,.20); }
-.satirfoto .sfbar .sftam {
-  font-size: 14px; font-weight: 600; padding: 0 18px; border-radius: 23px;
+.bilgikart .sfbar .sftam {
+  font-size: 14px; font-weight: 600; padding: 0 18px;
+}
+
+/* Over duzenleme: bilgi satirinin icinde, ayri ekrana gitmeden. */
+.tarafduzenle { display: flex; gap: 6px; }
+.tarafduzenle button {
+  min-width: 52px; min-height: 36px; font-size: 13px; font-family: inherit;
+  background: var(--yuzey); border: 1px solid var(--line); border-radius: var(--r);
+  color: var(--ink); cursor: pointer;
+}
+.tarafduzenle button.secili {
+  background: var(--vurgu); border-color: var(--vurgu); color: #fff; font-weight: 600;
 }
 
 .hucre .kk.secili { outline: 3px solid var(--vurgu); outline-offset: -1px; }
@@ -373,17 +403,19 @@ body.kilitli { overflow: hidden; }
 .minidugme.ikincil.tehlike-bag { color: #a11f1f; }
 .rozet.arsiv { background: var(--ink-2); font-size: 11px; }
 
-.satirfoto .sfalt { text-align: center; padding: 0 8px 10px; }
-.satirfoto .sfalt a { color: #d98a8a; font-size: 13px; text-decoration: underline; }
 
 .hucre .kk.bos {
   aspect-ratio: 1; background: var(--zemin); border: 1px dashed var(--line);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .hucre .kk .foto-yok { font-size: 10px; color: var(--ink-3); }
-.satirfoto .sfbossuz { color: #8fa0ac; font-size: 14px; text-align: center; padding: 28px 12px; }
-.satirfoto .sfalt { display: flex; justify-content: center; gap: 20px; }
-.satirfoto .sfalt a#sfoositsil { color: #d98a8a; }
+.bilgikart .sfalt {
+  display: flex; justify-content: center; gap: 20px; padding: 12px 8px;
+}
+.bilgikart .sfalt a {
+  color: #a11f1f; font-size: 13px; text-decoration: underline;
+}
+.bilgikart .sfalt a[hidden] { display: none; }
 
 /* --- ICSI ekranı --- */
 .serit { display: flex; gap: 5px; overflow-x: auto; padding: 12px 0 4px; }
@@ -396,6 +428,11 @@ body.kilitli { overflow: hidden; }
   background: var(--yuzey); color: var(--ink-2);
   font-size: 15px; text-decoration: none;
 }
+/* Cycle ekranindaki salt-okunur numara seridi: tiklanmaz, tasar, sarar. */
+.serit.sade { flex-wrap: wrap; overflow: visible; padding: 12px 14px; }
+.serit.sade .sn { cursor: default; }
+.serit.sade .sn i { margin-left: 5px; }
+
 .serit .sn.dolu { background: #e4eae7; color: var(--ink); border-color: #b9c9c2; }
 .serit .sn.deg  { background: #f3e0e0; color: #7a2020; border-color: #ddb9b9; }
 .serit .sn.aktif { outline: 3px solid var(--vurgu); outline-offset: -1px;
@@ -717,18 +754,6 @@ body.kilitli { overflow: hidden; }
 .say .hed .tarafet {
   font-style: normal; font-size: 13px; font-weight: 400; color: var(--ink-2);
 }
-.satirfoto .sftaraf {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 8px; color: #8fa0ac; font-size: 13px;
-}
-.satirfoto .sftaraf form { display: flex; gap: 6px; }
-.satirfoto .sftaraf button {
-  min-width: 46px; min-height: 34px; font-size: 13px; font-family: inherit;
-  background: rgba(255,255,255,.10); border: 0; border-radius: 17px;
-  color: #fff; cursor: pointer;
-}
-.satirfoto .sftaraf button:active { background: rgba(255,255,255,.22); }
-
 /* --- aşama kare şeridi --- */
 .karestrip {
   display: flex; gap: 8px; overflow-x: auto; padding: 10px 2px 4px;

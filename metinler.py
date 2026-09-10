@@ -890,6 +890,10 @@ METINLER = {
     # ---- cycle detay ----
     "toplanan_oosit": {"tr": "Toplanan oosit", "en": "Oocytes collected"},
     "sag": {"tr": "sağ", "en": "right"},
+    # Rozet/etiket biçimi: cümle başı gibi büyük harfle. `sag`/`sol` küçük
+    # harfli, cümle içinde geçtiği için ("sağ 5 · sol 4").
+    "sag_rozet": {"tr": "Sağ", "en": "Right"},
+    "sol_rozet": {"tr": "Sol", "en": "Left"},
     "sol": {"tr": "sol", "en": "left"},
     "kayitli": {"tr": "Kayıtlı", "en": "Recorded"},
     "folikul": {"tr": "Folikül", "en": "Follicles"},
@@ -943,6 +947,21 @@ METINLER = {
     "ad_soyad": {"tr": "Ad soyad", "en": "Full name"},
     "opu_embriyologu": {"tr": "OPU Embriyoloğu", "en": "OPU Embryologist"},
     "opu_hekimi": {"tr": "OPU Hekimi", "en": "OPU Physician"},
+
+    # ---- örnek ızgarası ve bilgi kartı (her aşamada aynı düzen) ----
+    "oosit_ekle": {"tr": "Oosit ekle", "en": "Add oocyte"},
+    "fotografsiz": {"tr": "fotoğrafsız", "en": "no photo"},
+    "buyuk_goster": {"tr": "Büyük göster", "en": "Show larger"},
+    "tam_ekran": {"tr": "Tam ekran", "en": "Full screen"},
+    "numara": {"tr": "Numara", "en": "Number"},
+    "kare_sayisi": {"tr": "Kare", "en": "Frames"},
+    "bu_ornege_ait_fotograf_yok": {
+        "tr": "Bu kayda ait fotoğraf yok.",
+        "en": "No photo for this record."},
+    "duzenle_kaydi": {"tr": "Düzenle", "en": "Edit"},
+    "henuz_kaydedilmedi": {"tr": "Henüz kaydedilmedi.", "en": "Not recorded yet."},
+    "kaydedildi_rozet": {"tr": "Kaydedildi", "en": "Recorded"},
+    "vazgec_duzenleme": {"tr": "Vazgeç", "en": "Cancel"},
 
     # ---- denüdasyon: kare bağlanamadı ----
     "kare_zaten_kaydedilmis": {

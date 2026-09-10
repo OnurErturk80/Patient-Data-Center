@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% import "_izgara.html" as izgara %}
 {% import "_gezinme.html" as gez %}
 {% block ustbaslik %}{{ metin("cycle") }}{% endblock %}
 {% block ustsag %}<a href="/cycle/{{ c.id }}/duzenle">{{ metin("duzenle") }}</a> · <a href="/cycle/{{ c.id }}/sil">{{ metin("sil") }}</a>{% endblock %}
@@ -69,10 +68,19 @@
 </div>
 {% endif %}
 
+{# Cycle ekrani klinik ozet: fotograf yok. Oosit resimleri kendi asama
+   ekranlarinda, buyuk ve tek tek bakilacak yerde duruyor. #}
 <div class="kart">
   <h2>{{ metin("oositler") }} ({{ specimenler|length }})</h2>
   {% if specimenler %}
-  {{ izgara.oosit_izgara(specimenler) }}
+  <div class="serit sade">
+    {% for s in specimenler %}
+    <span class="sn">
+      <b>{{ s.cycle_sira_no }}</b>
+      {% if s.taraf %}<i>{{ metin("sag_rozet") if s.taraf == "sag" else metin("sol_rozet") }}</i>{% endif %}
+    </span>
+    {% endfor %}
+  </div>
   {% else %}
   <div class="bos">{{ metin("henuz_oosit_yok") }}<br>{{ metin("denudasyondan_ekle") }}</div>
   {% endif %}
@@ -84,20 +92,6 @@
   <div class="ipucu" style="padding:0 14px 8px">
     {{ metin("oosite_baglanmamis") }}
     <a href="/cycle/{{ c.id }}/arsiv-sil" style="color:#a11f1f">{{ metin("arsivi_temizle") }}</a>
-  </div>
-  <div class="fkareler" style="padding:0 14px 14px;justify-content:flex-start">
-    {% for g in arsiv %}
-    <div class="fkare">
-      <button type="button" class="kfoto arsivfoto"
-              data-idler="{{ arsiv|map(attribute='id')|join(',') }}"
-              data-baslangic="{{ loop.index0 }}" data-no="{{ metin('arsiv')|lower }}"
-              aria-label="{{ etiketler.get(g.asama, g.asama) }}">
-        <img src="/dosya/{{ g.id }}" alt="{{ etiketler.get(g.asama, g.asama) }}">
-      </button>
-      <a class="fsil" href="/goruntu/{{ g.id }}/sil?geri=/cycle/{{ c.id }}"
-         aria-label="{{ metin('sil') }}" title="{{ metin('sil') }}">&times;</a>
-    </div>
-    {% endfor %}
   </div>
 </div>
 {% endif %}
@@ -123,14 +117,4 @@
 {% endif %}
 
 {{ gez.yan(c, gezinme) }}
-{% include "_buyutec.html" %}
-<script>
-document.querySelectorAll('.arsivfoto').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
-    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
-    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
-  });
-});
-</script>
 {% endblock %}
