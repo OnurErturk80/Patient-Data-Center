@@ -129,7 +129,13 @@ ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
 
 **Bir ekranda birden çok düzenlenebilir şey varsa adreste adıyla söyle.**
 Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati) ve `?duzenle=oosit`
-(seçili oositin over'ı) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
+(oositlerin çalışma kipi) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
+
+**Denüdasyon açılışta salt okunurdur** (v6.24). Açılışta yalnızca iki bilgi
+kartı ve işlemi yapan var; oosit ekleme, numara şeridi ve fotoğraf
+`?duzenle=oosit` çalışma kipinde. Kamera uyarıları da orada. Kare
+kaydettikten sonra çalışma kipinde **kalınır** — özete düşerse her kayıtta
+tekrar Düzenle demek gerekir.
 
 **Form doğrulama hatası formu kapatmamalı.** Kart modu geldikten sonra
 `?hata=...` ile geri dönmek "mesajı göster, formu gizle" demek — kullanıcı

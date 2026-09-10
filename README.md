@@ -89,6 +89,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.21 — bilgi kartı düzeni: kalan beş ekran](#v621--bilgi-kartı-düzeni-kalan-beş-ekran)
 - [v6.22 — düzen artık gerçekten her ekranda aynı](#v622--düzen-artık-gerçekten-her-ekranda-aynı)
 - [v6.23 — örnek kodu, ilk kare, hasta adı önde](#v623--örnek-kodu-ilk-kare-hasta-adı-önde)
+- [v6.24 — denüdasyon açılışta salt okunur](#v624--denüdasyon-açılışta-salt-okunur)
 
 ---
 
@@ -2941,3 +2942,50 @@ görevinde — hepsini çevirmek onları bozardı.
 - Kimlik bandı ve hasta listesi: ad üstte; taşıyıcı/çözme başlıkları küçülmedi;
   cycle ve kullanıcı listeleri değişmedi
 - 31 ekran 200, JS hatası yok
+
+---
+
+# v6.24 — denüdasyon açılışta salt okunur
+
+Ekran açılınca oosit ekleme kartı, numara şeridi ve seçilen oositin fotoğrafı
+görünüyordu. Kullanıcının isteği net: **bunların hiçbiri bilgi kartlarının
+üstünde olmasın, Düzenle deyince çıksın.**
+
+## İki kip
+
+**Açılış — salt okunur:**
+
+- Denüdasyon zamanı kartı (+ Düzenle)
+- **Kaydedilen oositler** özet kartı: toplam, sağ, sol, belirtilmemiş,
+  fotoğraflı ve varsa bekleyen kamera karesi (+ Düzenle)
+- İşlemi yapan
+
+**Çalışma kipi (`?duzenle=oosit`):** oosit ekleme kartı, numara şeridi,
+seçilen oositin fotoğrafı ve kare şeridi, oositin bilgi kartı (over düğmeleri
+yerinde), "Oositi sil", en altta **Bitir**.
+
+Kamera klasörü ve boş dosya uyarıları da çalışma kipine taşındı — ekrana
+bakmaya gelen kişiyi ilgilendirmiyorlar, kayıt girene ilgilendiriyorlar.
+
+## Neden özet kartı, tek bir oositin kartı değil
+
+Numara şeridi çalışma kipine taşınınca açılışta hangi oositin gösterileceğini
+seçmenin yolu kalmıyor. Denüdasyon aşamasının **kaydı** zaten tek bir oosit
+değil, oositlerin tamamı — kart onu özetliyor. Tek tek bakmak ve düzeltmek
+çalışma kipinde.
+
+## Kare kaydettikten sonra çalışma kipinde kalınıyor
+
+`denudasyon_islem` artık `?duzenle=oosit` adresine dönüyor. Özete düşseydi her
+kayıttan sonra tekrar Düzenle demek gerekirdi — 20 oositlik bir cycle'da 20
+fazladan dokunuş.
+
+## Test edildi
+
+- Açılışta çalışma alanından tek parça yok (`Oosit ekle`, `serit`, `foto`,
+  `Elle fotoğraf ekle`, `Son kaydı geri al` → hepsi 0 eşleşme)
+- Çalışma kipinde hepsi var
+- Kare kaydet → çalışma kipinde kalıyor; over değiştir → çalışma kipi;
+  saat düzenle → özet
+- Özet sayıları kayıttan sonra güncel
+- İki dilde; 24 ekran 200, JS hatası yok
