@@ -1291,8 +1291,16 @@ import goruntuler
 from fastapi.responses import FileResponse, Response
 
 
+# Adresten gelen hata anahtarı doğrudan sözlüğe verilmez: `metin()` bulamadığı
+# anahtarı olduğu gibi döndürüyor, yani ?hata=... ile ekrana istenen yazı
+# yazdırılabilirdi. Yalnızca bu iki anahtar geçerli.
+DENUDASYON_HATALARI = {"kare_zaten_kaydedilmis", "kare_bulunamadi"}
+
+
 @uygulama.get("/cycle/{cycle_id}/denudasyon")
-def denudasyon(request: Request, cycle_id: int, taraf: str = ""):
+def denudasyon(request: Request, cycle_id: int, taraf: str = "",
+               hata: str = ""):
+    hata = hata if hata in DENUDASYON_HATALARI else ""
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -1321,7 +1329,7 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = ""):
             "sonraki_sira": goruntuler.sonraki_sira(cycle_id),
             "son_goruntu": son,
             "gezinme": asama_gezinme(cycle_id, "denudasyon"),
-         "taraf": taraf, "taraflar": db.liste("taraf"),
+         "taraf": taraf, "taraflar": db.liste("taraf"), "hata": hata,
          "klasor": str(goruntuler.kaynak_klasor()),
             "klasor_var": goruntuler.kaynak_klasor().is_dir(),
             "bos_dosyalar": goruntuler.bos_dosyalar(),
@@ -1339,9 +1347,20 @@ async def denudasyon_islem(request: Request, cycle_id: int):
 
     taraf = f.get("taraf") or None
 
+    hata = ""
+
     if eylem == "yeni":
         sid = goruntuler.specimen_olustur(cycle_id, c["cycle_no"], taraf)
-        goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], sid, "denudasyon", kid)
+        gid = goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], sid,
+                                       "denudasyon", kid)
+        if gid is None:
+            # Kare bağlanamadı. Eskiden oosit yine de açık kalıyordu: telefonda
+            # çift dokunmak "fotoğrafsız" bir hayalet oosit bırakıyor ve oosit
+            # sayısını şişiriyordu — hiçbir uyarı da çıkmıyordu. Oosit sayısı
+            # klinik bir sayı, yanlış olamaz. Kaydı geri al ve sebebini söyle.
+            goruntuler.bos_specimen_sil(sid)
+            hata = ("kare_zaten_kaydedilmis" if goruntuler.kare_islenmis(im)
+                    else "kare_bulunamadi")
 
     elif eylem == "ayni":
         son = db.tek(
@@ -1349,8 +1368,11 @@ async def denudasyon_islem(request: Request, cycle_id: int):
             (cycle_id,),
         )
         if son:
-            goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], son["id"],
-                                     "denudasyon", kid)
+            gid = goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], son["id"],
+                                           "denudasyon", kid)
+            if gid is None:
+                hata = ("kare_zaten_kaydedilmis" if goruntuler.kare_islenmis(im)
+                        else "kare_bulunamadi")
 
     elif eylem == "fotografsiz":
         goruntuler.specimen_olustur(cycle_id, c["cycle_no"], taraf)
@@ -1362,8 +1384,9 @@ async def denudasyon_islem(request: Request, cycle_id: int):
         goruntuler.geri_al(int(f.get("goruntu_id")))
 
     yol = f"/cycle/{cycle_id}/denudasyon"
-    if taraf:
-        yol += f"?taraf={taraf}"
+    parcalar = ([f"taraf={taraf}"] if taraf else []) + ([f"hata={hata}"] if hata else [])
+    if parcalar:
+        yol += "?" + "&".join(parcalar)
     return RedirectResponse(yol, status_code=303)
 
 

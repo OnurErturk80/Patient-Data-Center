@@ -12,6 +12,8 @@
 {% endblock %}
 {% block icerik %}
 
+{% if hata %}<div class="uyari">{{ metin(hata) }}</div>{% endif %}
+
 {% if not klasor_var %}
 <div class="uyari">
   {{ metin("kamera_klasoru_yok") }}<br><code style="font-size:12px">{{ klasor }}</code><br>

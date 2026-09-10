@@ -944,6 +944,16 @@ METINLER = {
     "opu_embriyologu": {"tr": "OPU Embriyoloğu", "en": "OPU Embryologist"},
     "opu_hekimi": {"tr": "OPU Hekimi", "en": "OPU Physician"},
 
+    # ---- denüdasyon: kare bağlanamadı ----
+    "kare_zaten_kaydedilmis": {
+        "tr": "Bu kare zaten kaydedilmiş. Yeni kayıt oluşturulmadı.",
+        "en": "This frame was already saved. No new record was created."},
+    "kare_bulunamadi": {
+        "tr": "Kare kaynak klasörde bulunamadı — taşınmış veya silinmiş "
+              "olabilir. Yeni kayıt oluşturulmadı.",
+        "en": "The frame was not found in the source folder — it may have "
+              "been moved or deleted. No new record was created."},
+
     # ---- ana ekran ----
     # Hasta adlari bu ekranda YOK: program acikken ekrana bakan herkes
     # (hasta, hasta yakini, teknik servis) hasta listesini gormesin diye.

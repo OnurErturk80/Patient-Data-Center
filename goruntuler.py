@@ -275,6 +275,33 @@ def goruntu_bagla(im: str, cycle_id: int, cycle_no: str, specimen_id: str,
     return gid
 
 
+def kare_islenmis(im: str) -> bool:
+    """Bu kare daha önce kaydedilmiş (ya da atlanmış) mı?
+
+    `goruntu_bagla` başarısız döndüğünde sebebini ayırt etmek için:
+    kare zaten alınmışsa mesaj başka, dosya kaybolmuşsa başka.
+    """
+    return bool(db.tek("SELECT 1 FROM kaynak_dosya WHERE imza = ?", (im,)))
+
+
+def bos_specimen_sil(specimen_id: str) -> bool:
+    """Hiç görüntüsü ve olayı olmayan oositi siler. Doluysa dokunmaz.
+
+    Kare bağlanamadığında az önce açılmış oositi geri almak için. Guard
+    `geri_al`'dakiyle aynı: veri girilmiş bir oosit asla silinmez.
+    """
+    if not specimen_id:
+        return False
+    kalan = db.tek("SELECT COUNT(*) k FROM goruntu WHERE specimen_id=?",
+                   (specimen_id,))["k"]
+    olay = db.tek("SELECT COUNT(*) k FROM olay WHERE specimen_id=?",
+                  (specimen_id,))["k"]
+    if kalan or olay:
+        return False
+    db.yaz("DELETE FROM specimen WHERE id=?", (specimen_id,))
+    return True
+
+
 def atla(im: str, cycle_id: int):
     """Görüntüyü kuyruktan çıkarır, hiçbir oosite bağlamaz."""
     kaynak = dosya_bul(im)
