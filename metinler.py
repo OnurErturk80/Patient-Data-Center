@@ -650,11 +650,11 @@ METINLER = {
     "pozitif": {"tr": "Pozitif", "en": "Positive"},
     "negatif": {"tr": "Negatif", "en": "Negative"},
     "kontrol_zamani": {"tr": "Kontrol zamanı", "en": "Check time"},
-    # Kullanıcının seçimi (2026-09-10): "Termination".
-    # Not: İngilizcede "termination" klinik dilde gebelik sonlandırma
-    # demektir; bu listede "Canlı doğum" ve "Devam ediyor" da var.
-    # Değiştirmek istenirse "Final outcome" veya "Pregnancy outcome".
-    "sonlanma": {"tr": "Sonlanma", "en": "Termination"},
+    # Kullanıcının kararı (2026-09-10): "Pregnancy status".
+    # Önce "Termination" denendi, geri alındı — İngilizcede klinik
+    # dilde gebelik sonlandırma demek, oysa liste "Devam ediyor" ve
+    # "Canlı doğum" da içeriyor.
+    "sonlanma": {"tr": "Sonlanma", "en": "Pregnancy status"},
     "henuz_belli_degil": {"tr": "— henüz belli değil", "en": "— not yet known"},
     "sonlanma_ipucu": {
         "tr": "Zamanla değişir: önce \"devam ediyor\", doğumdan sonra \"canlı "
@@ -705,6 +705,139 @@ METINLER = {
     "mikroskop_kamerasi": {"tr": "Mikroskop kamerası", "en": "Microscope camera"},
     "elle_yuklendi": {"tr": "Elle yüklendi", "en": "Uploaded manually"},
     "zaman": {"tr": "Zaman", "en": "Time"},
+
+    # ---- silme ekranları (ortak) ----
+    "geri_don": {"tr": "Geri dön", "en": "Go back"},
+    "yok_kucuk": {"tr": "yok", "en": "none"},
+    "bagli_kayitlar": {"tr": "Bağlı kayıtlar", "en": "Linked records"},
+    "silinecek_kayit": {"tr": "Silinecek kayıt", "en": "Record to be deleted"},
+    "fotograf": {"tr": "Fotoğraf", "en": "Photo"},
+    "islem_kaydi": {"tr": "İşlem kaydı", "en": "Procedure record"},
+    "bulgu": {"tr": "Bulgu", "en": "Finding"},
+    "kaydedilme": {"tr": "Kaydedilme", "en": "Recorded at"},
+    "iptal_isaretlenir": {
+        "tr": "İşlem kayıtları veritabanından silinmez, \"iptal\" işaretlenir. "
+              "Değişiklik geçmişinde kim ne zaman temizlemiş görünür.",
+        "en": "Procedure records are not removed from the database, they are "
+              "marked \"cancelled\". The change history shows who cleared them "
+              "and when."},
+
+    # ---- oosit silme ----
+    "oositi_sil": {"tr": "Oositi sil", "en": "Delete oocyte"},
+    "ornek_n": {"tr": "Örnek {n}", "en": "Sample {n}"},
+    "oosit_silinemez": {"tr": "<strong>Bu oosit silinemez.</strong>",
+                        "en": "<strong>This oocyte cannot be deleted.</strong>"},
+    "oosit_silinemez_sebep": {
+        "tr": "{n} işlem kaydı bağlı (maturasyon, ICSI, fertilizasyon gibi). "
+              "Klinik işlem kaydı olan bir oosit silinmez. Önce ilgili işlem "
+              "kayıtları iptal edilmeli.",
+        "en": "{n} procedure records are linked (maturation, ICSI, "
+              "fertilization and the like). An oocyte with clinical procedure "
+              "records is not deleted. Cancel those records first."},
+    "oosit_kalici_silinecek": {
+        "tr": "<strong>Bu oosit kalıcı olarak silinecek.</strong>",
+        "en": "<strong>This oocyte will be permanently deleted.</strong>"},
+    "bagli_n_fotograf_silinir": {
+        "tr": "Bağlı {n} fotoğraf da silinir. Kameradan gelenler denüdasyon "
+              "kuyruğuna geri döner, kamera klasöründeki orijinallere "
+              "dokunulmaz.",
+        "en": "The {n} linked photos are deleted too. Those that came from the "
+              "camera return to the denudation queue; the originals in the "
+              "camera folder are untouched."},
+    "bagli_fotograf_yok": {"tr": "Bağlı fotoğraf yok.", "en": "No linked photos."},
+    "numara_boslugu": {
+        "tr": "Numara boşluğu oluşabilir: 1, 2, 4 gibi. Verilen oosit "
+              "kimlikleri kalıcıdır, geriye dönük numaralandırma yapılmaz.",
+        "en": "A gap in the numbering may appear: 1, 2, 4 and so on. Oocyte "
+              "identifiers once assigned are permanent; they are never "
+              "renumbered."},
+
+    # ---- ICSI kaydı silme ----
+    "icsi_kaydini_sil": {"tr": "ICSI kaydını sil", "en": "Delete ICSI record"},
+    "icsi_kaydi_bulunamadi": {
+        "tr": "Bu oosite ait kaydedilmiş bir ICSI kaydı yok.",
+        "en": "There is no saved ICSI record for this oocyte."},
+    "kaydete_basilmamis": {
+        "tr": "Ekranda seçim yaptıysan Kaydet'e basılmamış demektir;",
+        "en": "If you made selections on the screen, Save was not pressed;"},
+    "secimleri_geri_al_ipucu": {
+        "tr": "geri dönüp \"Seçimleri geri al\" ile temizleyebilirsin.",
+        "en": "go back and clear them with \"Reset selections\"."},
+    "icsi_kaydi_temizlenecek": {
+        "tr": "<strong>Bu oositin ICSI kaydı temizlenecek.</strong>",
+        "en": "<strong>The ICSI record for this oocyte will be cleared.</strong>"},
+    "oosit_fotograf_durur": {
+        "tr": "Oosit ve fotoğrafları durur, yalnızca aşağıdaki değerlendirme "
+              "silinir. Oositi yeniden değerlendirebilirsin.",
+        "en": "The oocyte and its photos remain; only the assessment below is "
+              "deleted. You can assess the oocyte again."},
+
+    # ---- aşama kaydı silme ekranları ----
+    "fert_kaydini_sil": {"tr": "Fertilizasyon kaydını sil",
+                         "en": "Delete fertilization record"},
+    "fert_kaydi_bulunamadi": {
+        "tr": "Bu oosite ait kaydedilmiş fertilizasyon kaydı yok.",
+        "en": "There is no saved fertilization record for this oocyte."},
+    "kaydete_basilmamis_kisa": {
+        "tr": "Ekranda seçim yaptıysan Kaydet'e basılmamış demektir.",
+        "en": "If you made selections on the screen, Save was not pressed."},
+    "fert_kaydi_temizlenecek": {
+        "tr": "<strong>Bu oositin fertilizasyon kaydı temizlenecek.</strong>",
+        "en": "<strong>The fertilization record for this oocyte will be "
+              "cleared.</strong>"},
+    "fert_sil_aciklama": {
+        "tr": "Oosit, fotoğrafları ve ICSI kaydı durur. Yalnızca aşağıdaki "
+              "değerlendirme silinir.",
+        "en": "The oocyte, its photos and the ICSI record remain. Only the "
+              "assessment below is deleted."},
+    "pn_sayisi": {"tr": "PN sayısı", "en": "PN count"},
+    "pn_skoru": {"tr": "PN skoru", "en": "PN score"},
+    "gun_n_kaydini_sil_baslik": {"tr": "Gün {n} kaydını sil",
+                                 "en": "Delete day {n} record"},
+    "gun_n_kaydi_bulunamadi": {"tr": "Bu oosite ait kaydedilmiş gün {n} kaydı yok.",
+                               "en": "There is no saved day {n} record for this "
+                                     "oocyte."},
+    "gun_n_degerlendirme_temizlenecek": {
+        "tr": "<strong>Gün {n} değerlendirmesi temizlenecek.</strong>",
+        "en": "<strong>The day {n} assessment will be cleared.</strong>"},
+    "diger_asamalar_durur": {
+        "tr": "Oosit, fotoğrafları ve diğer aşamaların kayıtları durur.",
+        "en": "The oocyte, its photos and the records of the other stages "
+              "remain."},
+    "blast_kaydini_sil": {"tr": "Blastokist kaydını sil",
+                          "en": "Delete blastocyst record"},
+    "blast_kaydi_bulunamadi": {
+        "tr": "Bu oosite ait gün {n} blastokist kaydı yok.",
+        "en": "There is no day {n} blastocyst record for this oocyte."},
+    "blast_degerlendirme_temizlenecek": {
+        "tr": "<strong>Gün {n} blastokist değerlendirmesi temizlenecek.</strong>",
+        "en": "<strong>The day {n} blastocyst assessment will be cleared."
+              "</strong>"},
+    "vit_kaydini_sil": {"tr": "Vitrifikasyon kaydını sil",
+                        "en": "Delete vitrification record"},
+    "vit_kaydi_yok": {"tr": "Bu embriyonun vitrifikasyon kaydı yok.",
+                      "en": "This embryo has no vitrification record."},
+    "vit_geri_alinacak": {"tr": "<strong>Vitrifikasyon kaydı geri alınacak.</strong>",
+                          "en": "<strong>The vitrification record will be "
+                                "undone.</strong>"},
+    "vit_geri_alma_uyari": {
+        "tr": "Embriyo \"dondurulmuş\" durumundan çıkar. Bu yalnızca "
+              "<em>yanlış girilmiş bir kayıt</em> için kullanılmalı — gerçekten "
+              "çözülen embriyo için thaw kaydı girilir.",
+        "en": "The embryo leaves the \"frozen\" state. Use this only for a "
+              "<em>record entered by mistake</em> — for an embryo that was "
+              "really thawed, enter a thaw record instead."},
+    "vit_kardes_var": {
+        "tr": "Bu taşıyıcıda {n} embriyo var. Yalnızca bu embriyonun kaydı geri "
+              "alınır, taşıyıcı ve diğerleri yerinde kalır.",
+        "en": "This carrier holds {n} embryos. Only this embryo's record is "
+              "undone; the carrier and the others stay where they are."},
+    "vit_tek_embriyo": {
+        "tr": "Bu taşıyıcıdaki tek embriyo. Kayıt geri alınınca taşıyıcı "
+              "boşaltılmış işaretlenir ve konumu boşa düşer.",
+        "en": "This is the only embryo on the carrier. When the record is "
+              "undone the carrier is marked emptied and its location is freed."},
+    "kaydi_geri_al_dugme": {"tr": "Kaydı geri al", "en": "Undo record"},
 
     # ---- denüdasyon ----
     "kamera_klasoru_yok": {"tr": "Kamera klasörü bulunamadı:",

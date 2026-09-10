@@ -1,45 +1,45 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Blastokist kaydını sil{% endblock %}
+{% block ustbaslik %}{{ metin("blast_kaydini_sil") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
   <div class="isim">{{ sp.ad_soyad }}</div>
-  <div class="alt">Blastokist {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }} · Gün {{ gun }}</div>
+  <div class="alt">{{ metin("blastokist_ad") }} {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }} · {{ metin("gun_n_buyuk").format(n=gun) }}</div>
 </div>
 {% endblock %}
 {% block icerik %}
 
 {% if not kayit %}
-<div class="kart"><div class="bos">Bu oosite ait gün {{ gun }} blastokist kaydı yok.</div></div>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">Geri dön</a>
+<div class="kart"><div class="bos">{{ metin("blast_kaydi_bulunamadi").format(n=gun) }}</div></div>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">{{ metin("geri_don") }}</a>
 {% else %}
 
 <div class="tehlike">
-  <strong>Gün {{ gun }} blastokist değerlendirmesi temizlenecek.</strong><br>
-  Oosit, fotoğrafları ve diğer aşamaların kayıtları durur.
+  {{ metin("blast_degerlendirme_temizlenecek").format(n=gun)|safe }}<br>
+  {{ metin("diger_asamalar_durur") }}
 </div>
 
 <div class="kart">
-  <h2>Silinecek kayıt</h2>
+  <h2>{{ metin("silinecek_kayit") }}</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Genişleme</dt>
+    <div class="veri"><dt>{{ metin("genisleme") }}</dt>
       <dd>{{ etiketler.get(kayit.bl_genisleme, kayit.bl_genisleme) }}</dd></div>
-    <div class="veri"><dt>Derece</dt>
-      <dd {% if not kayit.bl_derece %}class="yok"{% endif %}>{{ kayit.bl_derece or 'yok' }}</dd></div>
-    <div class="veri"><dt>ICM</dt>
-      <dd {% if not kayit.bl_icm %}class="yok"{% endif %}>{{ kayit.bl_icm|upper if kayit.bl_icm else 'yok' }}</dd></div>
-    <div class="veri"><dt>Trofektoderm</dt>
-      <dd {% if not kayit.bl_te %}class="yok"{% endif %}>{{ kayit.bl_te|upper if kayit.bl_te else 'yok' }}</dd></div>
-    <div class="veri"><dt>Skor</dt><dd>{{ kayit.bl_skor or '—' }}</dd></div>
-    <div class="veri"><dt>Kaydedilme</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("derece") }}</dt>
+      <dd {% if not kayit.bl_derece %}class="yok"{% endif %}>{{ kayit.bl_derece or metin("yok_kucuk") }}</dd></div>
+    <div class="veri"><dt>{{ metin("icm") }}</dt>
+      <dd {% if not kayit.bl_icm %}class="yok"{% endif %}>{{ kayit.bl_icm|upper if kayit.bl_icm else metin("yok_kucuk") }}</dd></div>
+    <div class="veri"><dt>{{ metin("trofektoderm") }}</dt>
+      <dd {% if not kayit.bl_te %}class="yok"{% endif %}>{{ kayit.bl_te|upper if kayit.bl_te else metin("yok_kucuk") }}</dd></div>
+    <div class="veri"><dt>{{ metin("skor") }}</dt><dd>{{ kayit.bl_skor or '—' }}</dd></div>
+    <div class="veri"><dt>{{ metin("kaydedilme") }}</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
   </dl>
 </div>
 
 <form method="post" action="/specimen/{{ sp.id }}/blast-sil">
   <input type="hidden" name="gun" value="{{ gun }}">
-  <button class="dugme tehlikeli" type="submit">Gün {{ gun }} kaydını sil</button>
+  <button class="dugme tehlikeli" type="submit">{{ metin("gun_n_kaydini_sil_baslik").format(n=gun) }}</button>
 </form>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">Vazgeç</a>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">{{ metin("vazgec") }}</a>
 {% endif %}
 {% endblock %}

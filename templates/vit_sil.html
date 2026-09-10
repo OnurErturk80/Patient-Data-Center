@@ -1,51 +1,48 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Vitrifikasyon kaydını sil{% endblock %}
+{% block ustbaslik %}{{ metin("vit_kaydini_sil") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
   <div class="isim">{{ sp.ad_soyad }}</div>
-  <div class="alt">Embriyo {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }}</div>
+  <div class="alt">{{ metin("embriyo_ad") }} {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }}</div>
 </div>
 {% endblock %}
 {% block icerik %}
 
 {% if not kayit %}
-<div class="kart"><div class="bos">Bu embriyonun vitrifikasyon kaydı yok.</div></div>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">Geri dön</a>
+<div class="kart"><div class="bos">{{ metin("vit_kaydi_yok") }}</div></div>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">{{ metin("geri_don") }}</a>
 {% else %}
 
 <div class="tehlike">
-  <strong>Vitrifikasyon kaydı geri alınacak.</strong><br>
-  Embriyo "dondurulmuş" durumundan çıkar. Bu yalnızca <em>yanlış girilmiş bir kayıt</em>
-  için kullanılmalı — gerçekten çözülen embriyo için thaw kaydı girilir.
+  {{ metin("vit_geri_alinacak")|safe }}<br>
+  {{ metin("vit_geri_alma_uyari")|safe }}
 </div>
 
 <div class="kart">
-  <h2>Silinecek kayıt</h2>
+  <h2>{{ metin("silinecek_kayit") }}</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Taşıyıcı</dt><dd>{{ kayit.etiket or '—' }}</dd></div>
-    <div class="veri"><dt>Konum</dt>
-      <dd {% if not kayit.tam_yol %}class="yok"{% endif %}>{{ kayit.tam_yol or 'girilmemiş' }}</dd></div>
-    <div class="veri"><dt>Zaman</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("tasiyici") }}</dt><dd>{{ kayit.etiket or '—' }}</dd></div>
+    <div class="veri"><dt>{{ metin("konum") }}</dt>
+      <dd {% if not kayit.tam_yol %}class="yok"{% endif %}>{{ kayit.tam_yol or metin("girilmemis") }}</dd></div>
+    <div class="veri"><dt>{{ metin("zaman") }}</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
   </dl>
 </div>
 
 {% if kardes > 1 %}
 <div class="uyari">
-  Bu taşıyıcıda {{ kardes }} embriyo var. Yalnızca bu embriyonun kaydı geri alınır,
-  taşıyıcı ve diğerleri yerinde kalır.
+  {{ metin("vit_kardes_var").format(n=kardes) }}
 </div>
 {% else %}
 <div class="uyari">
-  Bu taşıyıcıdaki tek embriyo. Kayıt geri alınınca taşıyıcı boşaltılmış işaretlenir
-  ve konumu boşa düşer.
+  {{ metin("vit_tek_embriyo") }}
 </div>
 {% endif %}
 
 <form method="post" action="/specimen/{{ sp.id }}/vit-sil">
-  <button class="dugme tehlikeli" type="submit">Kaydı geri al</button>
+  <button class="dugme tehlikeli" type="submit">{{ metin("kaydi_geri_al_dugme") }}</button>
 </form>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">Vazgeç</a>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">{{ metin("vazgec") }}</a>
 {% endif %}
 {% endblock %}

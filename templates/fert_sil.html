@@ -1,57 +1,56 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Fertilizasyon kaydını sil{% endblock %}
+{% block ustbaslik %}{{ metin("fert_kaydini_sil") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
   <div class="isim">{{ sp.ad_soyad }}</div>
-  <div class="alt">Zigot {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }}</div>
+  <div class="alt">{{ metin("zigot_ad") }} {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }}</div>
 </div>
 {% endblock %}
 {% block icerik %}
 
 {% if not kayit and not bulgular %}
 <div class="kart"><div class="bos">
-  Bu oosite ait kaydedilmiş fertilizasyon kaydı yok.<br>
-  Ekranda seçim yaptıysan Kaydet'e basılmamış demektir.
+  {{ metin("fert_kaydi_bulunamadi") }}<br>
+  {{ metin("kaydete_basilmamis_kisa") }}
 </div></div>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">Geri dön</a>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">{{ metin("geri_don") }}</a>
 {% else %}
 
 <div class="tehlike">
-  <strong>Bu oositin fertilizasyon kaydı temizlenecek.</strong><br>
-  Oosit, fotoğrafları ve ICSI kaydı durur. Yalnızca aşağıdaki değerlendirme silinir.
+  {{ metin("fert_kaydi_temizlenecek")|safe }}<br>
+  {{ metin("fert_sil_aciklama") }}
 </div>
 
 <div class="kart">
-  <h2>Silinecek kayıt</h2>
+  <h2>{{ metin("silinecek_kayit") }}</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Sonuç</dt>
+    <div class="veri"><dt>{{ metin("sonuc") }}</dt>
       <dd {% if not kayit %}class="yok"{% endif %}>
-        {{ etiketler.get(kayit.fert_sonuc, kayit.fert_sonuc) if kayit else 'yok' }}</dd></div>
-    <div class="veri"><dt>PN sayısı</dt>
+        {{ etiketler.get(kayit.fert_sonuc, kayit.fert_sonuc) if kayit else metin("yok_kucuk") }}</dd></div>
+    <div class="veri"><dt>{{ metin("pn_sayisi") }}</dt>
       <dd {% if not (kayit and kayit.fert_pn_sayisi) %}class="yok"{% endif %}>
-        {{ etiketler.get(kayit.fert_pn_sayisi, kayit.fert_pn_sayisi) if kayit and kayit.fert_pn_sayisi else 'yok' }}</dd></div>
-    <div class="veri"><dt>PN skoru</dt>
+        {{ etiketler.get(kayit.fert_pn_sayisi, kayit.fert_pn_sayisi) if kayit and kayit.fert_pn_sayisi else metin("yok_kucuk") }}</dd></div>
+    <div class="veri"><dt>{{ metin("pn_skoru") }}</dt>
       <dd {% if not (kayit and kayit.fert_pn_skoru) %}class="yok"{% endif %}>
-        {{ etiketler.get(kayit.fert_pn_skoru, kayit.fert_pn_skoru) if kayit and kayit.fert_pn_skoru else 'yok' }}</dd></div>
-    <div class="veri"><dt>Bulgular</dt>
+        {{ etiketler.get(kayit.fert_pn_skoru, kayit.fert_pn_skoru) if kayit and kayit.fert_pn_skoru else metin("yok_kucuk") }}</dd></div>
+    <div class="veri"><dt>{{ metin("bulgular") }}</dt>
       <dd {% if not bulgular %}class="yok"{% endif %}>
-        {{ bulgular|join(', ') if bulgular else 'yok' }}</dd></div>
+        {{ bulgular|join(", ") if bulgular else metin("yok_kucuk") }}</dd></div>
     {% if kayit %}
-    <div class="veri"><dt>Kaydedilme</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("kaydedilme") }}</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
     {% endif %}
   </dl>
 </div>
 
 <div class="uyari">
-  İşlem kayıtları veritabanından silinmez, "iptal" işaretlenir.
-  Değişiklik geçmişinde kim ne zaman temizlemiş görünür.
+  {{ metin("iptal_isaretlenir") }}
 </div>
 
 <form method="post" action="/specimen/{{ sp.id }}/fert-sil">
-  <button class="dugme tehlikeli" type="submit">Fertilizasyon kaydını sil</button>
+  <button class="dugme tehlikeli" type="submit">{{ metin("fert_kaydini_sil") }}</button>
 </form>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">Vazgeç</a>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">{{ metin("vazgec") }}</a>
 {% endif %}
 {% endblock %}
