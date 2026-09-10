@@ -83,6 +83,8 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.15 — tanımsız rol tek tıkla yönetici yapıyordu](#v615--tanımsız-rol-tek-tıkla-yönetici-yapıyordu)
 - [v6.16 — `tasi.py`: iki makine arasında güvenli veri taşıma](#v616--tasipy-iki-makine-arasında-güvenli-veri-taşıma)
 - [v6.17 — `tasi.py` yeni kurulmuş makineye de veri alabiliyor](#v617--tasipy-yeni-kurulmuş-makineye-de-veri-alabiliyor)
+- [v6.18 — ana ekran, aramadan çıkış yolu, yan aşama menüsü](#v618--ana-ekran-aramadan-çıkış-yolu-yan-aşama-menüsü)
+- [v6.19 — denüdasyonda hayalet oosit](#v619--denüdasyonda-hayalet-oosit)
 
 ---
 
@@ -2553,3 +2555,120 @@ Dolu makinedeki korumalar aynen duruyor — regresyon testiyle doğrulandı.
 - Boş klasöre `iceri` → 4 hasta ve 6 kullanıcı geldi, fotoğraflar kopyalandı
 - Boş klasörde `disari` → anlaşılır hata, ne yapılacağı yazıyor
 - Dolu makinede daha yeni veri varken `iceri` → hâlâ uyarıyor ve duruyor
+
+---
+
+# v6.18 — ana ekran, aramadan çıkış yolu, yan aşama menüsü
+
+Kullanıcının üç ayrı gözlemi; üçü de aynı şeye bakıyor: **programda nerede
+olduğunu ve oradan nereye gidebileceğini görmek.**
+
+## Ana ekran: hasta adları artık ilk ekranda değil
+
+`/` doğrudan `/hastalar`'a gidiyordu. Yani program açılır açılmaz son
+kaydedilen hastaların **adı soyadı** ekrandaydı. Program klinikte gün boyu
+açık duruyor; ekrana bakan herkes — bekleyen hasta, hasta yakını, teknik
+servis — o listeyi görüyordu.
+
+`/` artık bir ana ekran: **aktif hasta**, **aktif cycle**, **dondurulmuş
+embriyo** sayıları ve varsa **bekleyen kamera karesi**. Sayılar kimseyi
+tanımlamaz. Adlar ancak `/hastalar`'a girilince görünüyor — bir tık, ama
+bilinçli bir tık.
+
+Giriş sonrası ve "bu ekrana yetkin yok" yönlendirmesi de artık buraya.
+Dondurulmuş embriyo sayısı `/cryo` ile **aynı ölçüden** türetiliyor (dolu
+taşıyıcıdaki iptal edilmemiş vitrifikasyon kayıtları) — ayrı bir sayaç
+tutulmuyor, cryo haritası kuralı bozulmasın diye.
+
+## Aramadan çıkış yolu yoktu
+
+`/hastalar?ara=demir` ekranından listeye dönmenin yolu yoktu: arama kutusunu
+elle silip tekrar göndermek gerekiyordu. Arşiv görünümünün "Aktif hastalara
+dön" düğmesi vardı, aramanın karşılığı yoktu.
+
+İki ekleme: üst çubukta **geri oku** (ana ekrana) ve arama varken
+**"Aramayı temizle"** düğmesi.
+
+## Yan aşama menüsü (geniş ekranda)
+
+OPU / Denüdasyon / ICSI / ... bağlantıları cycle ekranının **en altında** bir
+yığındı. Aşamalar arası geçmek için her seferinde cycle ekranına dönüp
+kartların altına kadar kaydırmak gerekiyordu.
+
+Geniş ekranda (≥1100px) bu bağlantılar artık **solda sabit bir menü**, içinde
+bulunulan aşama işaretli. Telefonda menü yok: içerik sütunu 640px, yanında yer
+kalmıyor — ve telefon bu programın birinci ekranı. Orada gezinme eskisi gibi
+(alt çubuk + cycle ekranındaki düğmeler). Menü DOM'da duruyor, CSS gizliyor;
+böylece 11 aşama şablonunun hiçbirine dokunmak gerekmedi.
+
+Menü `asama_gezinme()`'nin döndürdüğü listeden besleniyor — yani **tedavi
+tipine ve modül izinlerine göre süzülmüş** hali. FET'te menüde yalnızca çözme,
+transfer ve gebelik var. Alt çubuk da aynı listeden besleniyordu; süzme tek
+yerde kaldı.
+
+Kimlik bandı (koyu banttaki dosya no ve ad) geniş ekranda içerik sütunuyla
+hizalandı — menü onun üstüne biniyordu. "Hasta kimliği her ekranda görünür"
+kuralı menüden önce gelir.
+
+## Test edildi
+
+- Ana ekran, hasta listesi, cycle, denüdasyon, ICSI, OPU, çözme, cryo → hepsi 200
+- FET cycle'ında menüde yalnızca üç aşama
+- 1280px ve 390px ekran görüntüleri: telefon görünümü değişmedi
+- Şablonlar iki dilde de render oluyor, eksik çeviri anahtarı yok
+
+---
+
+# v6.19 — denüdasyonda hayalet oosit
+
+## Sorun
+
+Kullanıcı: *"Denüdasyon bölümünde foto kayıtları ve oositler hakkında
+bilgilerin kaydedilmesinde sorun var — kaydediyor ama listede görünmüyor."*
+
+Tek kamera karesini iki kez kaydedince (telefonda çift dokunma, ya da geri
+gelip formu tekrar göndermek) **fotoğrafsız bir oosit** kalıyordu:
+
+```python
+sid = goruntuler.specimen_olustur(...)      # önce oosit açılır
+goruntuler.goruntu_bagla(im, ..., sid, ...) # sonra kare bağlanır
+```
+
+İkinci gönderimde `goruntu_bagla` "bu kare zaten alınmış" deyip `None`
+dönüyor, arşive aldığı kopyayı da geri siliyor — ama **az önce açılan oosit
+olduğu yerde kalıyordu**. Ekranda "fotoğrafsız" görünen, hiçbir şeye karşılık
+gelmeyen bir oosit. Hiçbir uyarı da çıkmıyordu.
+
+Aynısı kare kaynak klasörden kaybolunca da oluyordu (dosya taşındı, silindi,
+kamera yazılımı aldı).
+
+**Oosit sayısı klinik bir sayıdır.** Şişmesi kabul edilemez.
+
+## Düzeltme
+
+Kare bağlanamazsa az önce açılan oosit geri alınıyor ve **sebep ekranda
+yazıyor**:
+
+- "Bu kare zaten kaydedilmiş. Yeni kayıt oluşturulmadı."
+- "Kare kaynak klasörde bulunamadı — taşınmış veya silinmiş olabilir."
+
+"Aynı oosite ekle" yolunda oosit açılmıyor ama kare **sessizce** kayboluyordu;
+orada da artık mesaj çıkıyor.
+
+Geri alma `goruntuler.bos_specimen_sil()` ile, guard `geri_al`'dakiyle aynı:
+**yalnızca hiç görüntüsü ve olayı olmayan oosit silinir.** Yani bilerek
+oluşturulan "fotoğrafsız oosit" etkilenmiyor.
+
+Adresten gelen hata anahtarı beyaz listede tutuluyor: `metin()` bulamadığı
+anahtarı olduğu gibi döndürdüğü için, `?hata=...` ile ekrana istenen yazı
+yazdırılabilirdi.
+
+Bu yol **elle fotoğraf ekleme** rotasında zaten doğruydu (boş specimen'i geri
+alıyordu); kameradan gelen yolda atlanmış.
+
+## Test edildi
+
+- Aynı imzayla iki POST → tek oosit, tek kare, ikincide uyarı
+- Olmayan kare → oosit açılmıyor, "kare bulunamadı"
+- Bilerek "fotoğrafsız oosit" → hâlâ oluşuyor, silinmiyor
+- `?hata=UYDURMA` → ekrana yazılmıyor

@@ -98,6 +98,18 @@ Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, tran
 **Hasta kimliği her ekranda görünür.** Yanlış hasta bu işin en pahalı hatası.
 Üst çubuk sticky, dosya no koyu bantta.
 
+**Ana ekranda hasta adı yok.** `/` sayıları gösterir (aktif hasta, aktif
+cycle, dondurulmuş embriyo, bekleyen kare); adlar ancak `/hastalar`'a girilince
+görünür. Program klinikte gün boyu açık duruyor, ekrana bakan herkes listeyi
+görüyordu (v6.18). Ana ekrana hasta adı/dosya no koyma.
+
+**Kayıt açıp sonra doldurma varsa, dolduramazsan açtığını geri al.**
+Denüdasyonda `specimen_olustur()` önce, `goruntu_bagla()` sonra çalışıyor;
+ikincisi başarısızsa **oosit geri alınmalı**, yoksa oosit sayısı şişer — o
+klinik bir sayı (v6.19). Geri alma `goruntuler.bos_specimen_sil()` ile:
+yalnızca hiç görüntüsü ve olayı olmayan oosit silinir. Başarısızlık **sessiz
+olmasın**, sebebini ekrana yaz.
+
 **İşlem saatleri elle girilebilir.** Her aşamada varsayılan "şu an", ama
 değiştirilebilir — personel işlemi yaparken değil sonra kaydediyor olabilir.
 Bu özelliği asla kaldırma.
@@ -303,6 +315,12 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    `import db; db.ayar(...)` kullan. Yol ayarları makineye özgüdür, tek kaynak
    `db.py` (README v6.8).
 
+9. **`metin()` bulamadığı anahtarı olduğu gibi döndürür.** Bu bilinçli
+   (eksik çeviri ekranda çıplak görünsün diye), ama adresten gelen bir
+   değeri doğrudan `metin()`'e verirsen `?hata=...` ile ekrana istenen yazı
+   yazdırılabilir. Dışarıdan gelen anahtarı **beyaz listeden geçir**
+   (`DENUDASYON_HATALARI` gibi).
+
 ---
 
 ## Bekleyen işler
@@ -356,9 +374,14 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      kendi ekranında olur, panelden yalnızca bağlantı verilir.
    - Klinik terimler iki dilde de İngilizce kalır (blastocyst, ICSI, PN, ICM,
      TE, FET) — çevrilen sadece arayüz metinleri.
-   - Asıl iş çeviri değil, ~42 şablondaki Türkçe metinleri şablonlardan çıkarıp
-     tek bir sözlüğe taşımak. Yeni ekranları Türkçe yazmaya devam et; hepsi
-     aynı anda taşınacak.
+   - **Durum (2026-09-10): yarım.** `metinler.py` ve `/dil` ekranı çalışıyor,
+     42 şablon çevrildi. Kalan: `arsiv_sil`, `cycle_sil`, `esle`, `hasta_sil`,
+     `kullanici_sil`, `kullanicilar`, `thaw_sil`, `transfer_sil` şablonları ve
+     `app.py`'deki ~132 Türkçe metin (sunucu hata mesajları, `MODULLER`
+     etiketleri). Kullanıcı çeviriyi **askıya aldı**, sonra dönülecek.
+   - **Yeni ekran yazarken metni doğrudan şablona yazma**, `metinler.py`'ye
+     anahtar ekle ve `metin("...")` kullan — yoksa İngilizce kurulumda o ekran
+     Türkçe kalır.
 
 `goc_018.py` (endikasyon kopyalarını birleştirir) 2026-09-08'de bu makinede
 çalıştırıldı: `erkek faktoru` ve `tubal faktor` serbest metinleri resmi
