@@ -1316,8 +1316,11 @@ DENUDASYON_HATALARI = {"kare_zaten_kaydedilmis", "kare_bulunamadi"}
 
 @uygulama.get("/cycle/{cycle_id}/denudasyon")
 def denudasyon(request: Request, cycle_id: int, taraf: str = "",
-               hata: str = "", duzenle: int = 0):
+               hata: str = "", duzenle: str = "", oosit: str = ""):
     hata = hata if hata in DENUDASYON_HATALARI else ""
+    # Bu ekranda düzenlenebilecek iki ayrı şey var: cycle'ın denüdasyon saati
+    # ve seçili oositin over'ı. Hangisi olduğu adreste yazıyor.
+    duzenle = duzenle if duzenle in ("saat", "oosit") else ""
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -1336,6 +1339,13 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
         "SELECT id, specimen_id FROM goruntu WHERE cycle_id = ? AND asama = 'denudasyon' "
         "ORDER BY id DESC LIMIT 1", (cycle_id,)
     )
+    # Üstteki numara şeridinden seçilen oosit; istenmemişse sonuncusu. Öteki
+    # aşama ekranlarıyla aynı düzen (v6.22).
+    sp = None
+    if kayitli:
+        if oosit:
+            sp = next((o for o in kayitli if str(o["cycle_sira_no"]) == oosit), None)
+        sp = sp or kayitli[-1]
     return sablon.TemplateResponse(
         request, "denudasyon.html",
         {
@@ -1343,6 +1353,8 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
             "bekleyen": bekleyen,
             "simdiki": bekleyen[0] if bekleyen else None,
             "kayitli": kayitli,
+            "sp": sp,
+            "kareler": asama_goruntuleri(sp["id"], "denudasyon") if sp else [],
             "sonraki_sira": goruntuler.sonraki_sira(cycle_id),
             "son_goruntu": son,
             "gezinme": asama_gezinme(cycle_id, "denudasyon"),
@@ -1463,7 +1475,8 @@ def _sperm_analiz_form(f, on):
 
 
 @uygulama.get("/cycle/{cycle_id}/androloji")
-def androloji(request: Request, cycle_id: int, ornek: str = "", hata: str = ""):
+def androloji(request: Request, cycle_id: int, ornek: str = "",
+              hata: str = "", duzenle: int = 0):
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
@@ -1501,7 +1514,7 @@ def androloji(request: Request, cycle_id: int, ornek: str = "", hata: str = ""):
             "aglutinasyonlar": db.liste("sperm_aglutinasyon"),
             "gorunumler": db.liste("sperm_gorunum"),
             "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
-            "hata": hata,
+            "hata": hata, "duzenle": duzenle,
             "gezinme": asama_gezinme(cycle_id, "androloji"),
         },
     )
@@ -1526,7 +1539,8 @@ async def androloji_kaydet(request: Request, cycle_id: int):
             "hazirlik_sonrasi": _sperm_analiz_form(f, "sonrasi_"),
         }
     except FormHatasi as e:
-        geri = f"/cycle/{cycle_id}/androloji?hata={quote(str(e))}"
+        # duzenle=1: hata mesaji formun ustunde cikmali, kart modunda degil
+        geri = f"/cycle/{cycle_id}/androloji?duzenle=1&hata={quote(str(e))}"
         if ornek_id:
             geri += f"&ornek={ornek_id}"
         return RedirectResponse(geri, status_code=303)

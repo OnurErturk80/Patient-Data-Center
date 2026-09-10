@@ -1,11 +1,14 @@
 {# Kaydedilmiş örneklerin kare ızgarası + altında bilgi kartı.
 
-   `_izgara.html` denüdasyona özgü (over rozeti, over düzenleme, tek panel
-   JS ile dolduruluyor — 40 oositlik cycle'da tek panel daha ucuz).
-   Burası genel hali: vitrifikasyon, çözme ve transfer gibi **kaydı olan**
-   listelerde kullanılıyor. Kartlar sunucuda basılıyor, çünkü her ekranın
-   satırları farklı ve içlerinde bağlantı/form olabiliyor — bunları JS ile
-   kurmak `_izgara`'daki gibi ayrı bir doldurma mantığı isterdi.
+   Vitrifikasyon, çözme ve transfer gibi **kaydı olan** listelerde
+   kullanılıyor: bu ekranlarda bir örneğin birden çok kaydı yok, kareye
+   basınca tek bir bilgi kartı açılıyor. (Aşama ekranlarında — ICSI, fert,
+   gün 2/3, blastokist, denüdasyon — üstteki şerit numara şeridi ve seçim
+   adresten yapılıyor; oralarda bu makro değil `_bilgikart.html` var.)
+
+   Kartlar sunucuda basılıyor, çünkü her ekranın satırları farklı ve
+   içlerinde bağlantı olabiliyor; JS ile kurmak ayrı bir doldurma mantığı
+   isterdi. Listeler kısa (bir cycle'ın embriyoları), maliyeti yok.
 
    Kullanımı `{% call(e) %}` ile, satırları çağıran veriyor:
 

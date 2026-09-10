@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
-{% import "_izgara.html" as izgara %}
 {% import "_bilgikart.html" as bk %}
+{% import "_kareler.html" as kr %}
 {% block ustbaslik %}{{ metin("asama_denudasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -12,6 +12,11 @@
 </div>
 {% endblock %}
 {% block icerik %}
+
+{% set oosit_ad = ornek_adi('denudasyon', c.cycle_tipi) %}
+{% set geri_yol = '/cycle/' ~ c.id ~ '/denudasyon'
+                  ~ ('?oosit=' ~ sp.cycle_sira_no if sp else '') %}
+{% set ayrac = '&' if sp else '?' %}
 
 {% if hata %}<div class="uyari">{{ metin(hata) }}</div>{% endif %}
 
@@ -30,14 +35,11 @@
 </div>
 {% endif %}
 
-{# 1. Denüdasyon saati — ekranın en üstünde.
-   Kaydedilmişse bilgi kartı, değiştirmek için Düzenle (v6.21). İlk oosit
-   kaydedilince kendiliğinden doluyor, yani çoğu zaman kart görünür. #}
-{% if c.denudasyon_zamani and not duzenle %}
+{# 1. Denüdasyon saati — kaydedilmişse bilgi kartı, değiştirmek için Düzenle. #}
+{% if c.denudasyon_zamani and duzenle != "saat" %}
 {{ bk.kart(metin("denudasyon_zamani"),
            [(metin("saat"), c.denudasyon_zamani)],
-           '/cycle/' ~ c.id ~ '/denudasyon?duzenle=1'
-             ~ ('&taraf=' ~ taraf if taraf else ''),
+           geri_yol ~ ayrac ~ 'duzenle=saat',
            metin("kaydedildi_rozet")) }}
 {% else %}
 <div class="kart" style="margin-top:12px">
@@ -56,7 +58,7 @@
 </div>
 {% endif %}
 
-{# 2. Oosit ekleme alanı. #}
+{# 2. Oosit ekleme alanı: kamera kuyruğu, kaydetme ve bundan sonraki over. #}
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("oosit_ekle") }}</h2>
 
@@ -99,7 +101,7 @@
     {% endif %}
   </div>
   <div class="alan" style="border:0">
-    {# 3. Fotoğraf yoksa fotoğrafsız ekleme buradan. #}
+    {# Kamera karesi yoksa oosit yine de eklenebilir. #}
     <form method="post" action="/cycle/{{ c.id }}/denudasyon">
       <input type="hidden" name="taraf" value="{{ taraf }}">
       <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz"
@@ -110,6 +112,21 @@
     <a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("yenile") }}</a>
   </div>
   {% endif %}
+
+  {# Bundan sonra eklenecek oositlere yazılacak over. Tek bir oositinkini
+     değiştirmek için aşağıdaki bilgi kartında "Düzenle" var. #}
+  <div class="alan" style="border-top:1px solid var(--line)">
+    <label>{{ metin("bundan_sonraki_over") }}</label>
+    <div class="tarafsec">
+      <a href="/cycle/{{ c.id }}/denudasyon"
+         class="{% if not taraf %}aktif{% endif %}">{{ metin("belirtme") }}</a>
+      {% for t in taraflar %}
+      <a href="/cycle/{{ c.id }}/denudasyon?taraf={{ t.kod }}"
+         class="{% if taraf == t.kod %}aktif{% endif %}">{{ t.etiket }}</a>
+      {% endfor %}
+    </div>
+    <div class="ipucu">{{ metin("taraf_ipucu") }}</div>
+  </div>
 
   <div class="alan" style="border-top:1px solid var(--line)">
     <a class="dugme ikincil" style="margin-top:0"
@@ -126,42 +143,98 @@
   </div>
 </div>
 
-{# 4. Eklendikten sonra: hangi taraftan alındığı.
-   Buradaki seçim **bundan sonra** eklenecek oositlere yazılır; tek tek
-   değiştirmek için aşağıdaki karelerden birine bas, bilgi kartında over
-   satırı var. #}
-<div class="kart" style="margin-top:12px">
-  <h2>{{ metin("toplandigi_over") }}</h2>
-  <div class="alan">
-    <div class="tarafsec">
-      <a href="/cycle/{{ c.id }}/denudasyon"
-         class="{% if not taraf %}aktif{% endif %}">{{ metin("belirtme") }}</a>
-      {% for t in taraflar %}
-      <a href="/cycle/{{ c.id }}/denudasyon?taraf={{ t.kod }}"
-         class="{% if taraf == t.kod %}aktif{% endif %}">{{ t.etiket }}</a>
-      {% endfor %}
-    </div>
-    <div class="ipucu">{{ metin("taraf_ipucu") }}</div>
-  </div>
-</div>
-
-{# 5. Kaydedilen oositler: karenin üstünde over, altında numara.
-   Bir kareye basınca altında bilgi kartı açılır; kartın büyük fotoğrafına
-   basınca büyüteç. #}
-{% set oosit_basligi = metin("kaydedilen_oositler") ~ " (" ~ kayitli|length ~ ")" %}
-{% if kayitli %}
-{{ izgara.oosit_izgara(kayitli, ornek_adi('denudasyon', c.cycle_tipi), oosit_basligi) }}
-{% else %}
+{# 3. Kaydedilen oositler: numara şeridi üstte, seçilenin fotoğrafı ve
+   bilgi kartı altta — öteki aşama ekranlarıyla aynı düzen. #}
+{% if not kayitli %}
 <div class="kart" style="margin-top:16px">
-  <h2>{{ oosit_basligi }}</h2>
+  <h2>{{ metin("kaydedilen_oositler") }} (0)</h2>
   <div class="bos">{{ metin("henuz_oosit_kaydedilmedi") }}</div>
 </div>
+{% else %}
+
+<div class="serit">
+  {% for o in kayitli %}
+  <a href="/cycle/{{ c.id }}/denudasyon?oosit={{ o.cycle_sira_no }}"
+     class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kare %}dolu{% endif %}">
+    <b>{{ o.cycle_sira_no }}</b>{% if o.taraf %}<i>-{{ metin("sag_rozet") if o.taraf == "sag" else metin("sol_rozet") }}</i>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="say">
+  <span class="bek">{{ say("n_oosit_kaydedildi", kayitli|length) }}</span>
+  <span class="hed">{{ oosit_ad }} {{ sp.cycle_sira_no }}{% if sp.taraf %}
+    <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
+</div>
+
+{% if kareler %}
+<div class="foto">
+  <img src="/dosya/{{ kareler[-1].id }}" alt="{{ oosit_ad }} {{ sp.cycle_sira_no }}">
+</div>
+{{ kr.serit(kareler, sp, c, 'denudasyon', geri_yol) }}
+<div class="fotoalt">
+  <a href="/goruntu/{{ kareler[-1].id }}/sil?geri={{ geri_yol|urlencode }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ geri_yol|urlencode }}">{{ metin("fotograf_ekle") }}</a>
+</div>
+{% else %}
+<div class="kart"><div class="bos">
+  {{ metin("bu_asamada_fotograf_yok") }}<br>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ geri_yol|urlencode }}">{{ metin("fotograf_ekle") }}</a>
+</div></div>
 {% endif %}
 
-{% set buyutec_ad = ornek_adi('denudasyon', c.cycle_tipi) %}
-{% include "_buyutec.html" %}
+{% if duzenle == "oosit" %}
+{# Seçili oositin over'ı düzenleniyor. Her düğme kendi başına gönderir —
+   ayrı bir "Kaydet" adımı gereksiz, tek alan var. #}
+<div class="kart bilgikart">
+  <h2>{{ oosit_ad }} {{ sp.cycle_sira_no }}</h2>
+  <form method="post" action="/specimen/{{ sp.id }}/taraf">
+    <input type="hidden" name="geri" value="{{ geri_yol }}">
+    <div class="alan" style="border:0">
+      <label>{{ metin("toplandigi_over") }}</label>
+      <div class="secenek">
+        <button class="sec{% if sp.taraf == 'sag' %} secili{% endif %}"
+                type="submit" name="taraf" value="sag"><span>{{ metin("sag_rozet") }}</span></button>
+        <button class="sec{% if sp.taraf == 'sol' %} secili{% endif %}"
+                type="submit" name="taraf" value="sol"><span>{{ metin("sol_rozet") }}</span></button>
+        <button class="sec{% if not sp.taraf %} secili{% endif %}"
+                type="submit" name="taraf" value=""><span>{{ metin("belirtme") }}</span></button>
+      </div>
+    </div>
+  </form>
+</div>
+<a class="dugme ikincil" href="{{ geri_yol }}">{{ metin("vazgec_duzenleme") }}</a>
+<a class="dugme ikincil tehlike-bag" href="/specimen/{{ sp.id }}/sil">{{ metin("oositi_sil") }}</a>
 
-{# 6. En altta işlemi yapan. #}
+{% else %}
+{{ bk.kart(
+     oosit_ad ~ ' ' ~ sp.cycle_sira_no,
+     [
+       (metin("numara"), sp.cycle_sira_no),
+       (metin("toplandigi_over"),
+        (metin("sag_rozet") if sp.taraf == "sag" else metin("sol_rozet"))
+        if sp.taraf else None),
+       (metin("kare_sayisi"), sp.kare),
+       (metin("ornek_kodu_baslik"), ornek_kodu(sp.id)),
+     ],
+     geri_yol ~ ayrac ~ 'duzenle=oosit',
+     metin("kaydedildi_rozet")) }}
+{% endif %}
+{% endif %}
+
+{% set buyutec_ad = oosit_ad %}
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.stripkare').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
+  });
+});
+</script>
+
+{# 4. En altta işlemi yapan. #}
 {{ iy.kutu(c.id, "denudasyon") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

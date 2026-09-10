@@ -6,9 +6,14 @@
 
    `satirlar` — (etiket, değer) ikilileri. Değer boşsa "girilmedi" yazar,
    böylece "sıfır/yok" ile "girilmedi" ayrımı ekranda da korunur.
-   `duzenle_yolu` — aynı ekranın ?duzenle=1 hali. #}
-{% macro kart(baslik, satirlar, duzenle_yolu, rozet=None) %}
-<div class="kart bilgikart">
+   `duzenle_yolu` — aynı ekranın ?duzenle=1 hali. None verilirse düğme
+   basılmaz: androloji gibi kaydı birkaç bölüme yayılan ekranlarda bölümler
+   arka arkaya kart olarak basılıp tek "Düzenle" düğmesi en alta konuyor. #}
+{% macro kart(baslik, satirlar, duzenle_yolu=None, rozet=None) %}
+{# Vurgulu kenarlık yalnızca rozetli karta: androloji gibi kaydı bölümlere
+   ayrılan ekranlarda dört kartın da kenarlığı kırmızı olunca ekran
+   bağırıyordu. Rozet zaten "kaydın başlık kartı" demek. #}
+<div class="kart{% if rozet %} bilgikart{% endif %}">
   <h2>
     <span>{{ baslik }}{% if rozet %} <span class="rozet">{{ rozet }}</span>{% endif %}</span>
   </h2>
@@ -21,10 +26,12 @@
     </div>
     {% endfor %}
   </dl>
+  {% if duzenle_yolu %}
   <div class="alan" style="border:0">
     <a class="dugme" href="{{ duzenle_yolu }}" style="margin-top:0">
       {{ metin("duzenle_kaydi") }}</a>
   </div>
+  {% endif %}
 </div>
 {% endmacro %}
 

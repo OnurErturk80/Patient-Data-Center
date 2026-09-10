@@ -974,6 +974,11 @@ METINLER = {
     "cozulen_embriyolar": {"tr": "Çözülen embriyolar", "en": "Thawed embryos"},
     "ornek_kodu_baslik": {"tr": "Örnek kodu", "en": "Specimen code"},
     "saat": {"tr": "Saat", "en": "Time"},
+    # Denüdasyonda iki ayrı "over" var: bundan sonra eklenecek oositlere
+    # yazılacak varsayılan (ekleme kartında) ve tek bir oositinki (bilgi
+    # kartında, Düzenle ile). Etiketler karışmasın.
+    "bundan_sonraki_over": {"tr": "Bundan sonraki oositler için over",
+                            "en": "Ovary for the next oocytes"},
     "kare_sayisi": {"tr": "Kare", "en": "Frames"},
     "bu_ornege_ait_fotograf_yok": {
         "tr": "Bu kayda ait fotoğraf yok.",

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
+{% import "_bilgikart.html" as bk %}
 {% block ustbaslik %}{{ metin("asama_androloji") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -63,6 +64,63 @@
 </div>
 {% endif %}
 
+{% set kayit_var = secili and not yeni_mi %}
+{% set duz_yol = '/cycle/' ~ c.id ~ '/androloji?duzenle=1'
+                 ~ ('&ornek=' ~ secili.id if secili else '') %}
+{% if kayit_var and not duzenle %}
+{# --- kaydedilmis: bolum bolum bilgi kartlari, en altta tek Duzenle --- #}
+{{ bk.kart(metin("ornek_bilgisi"),
+     [
+       (metin("alinma_zamani"), secili.alinma_zamani),
+       (metin("abstinans_gun"), secili.abstinans_gun),
+       (metin("alinma_yontemi"), liste_etiket('sperm_alinma', secili.alinma_yontemi)),
+       (metin("likefaksiyon_zamani"), secili.likefaksiyon_zamani),
+       (metin("hazirlama_yontemi"), liste_etiket('sperm_hazirlama', secili.hazirlama_yontemi)),
+       (metin("hazirlama_zamani"), secili.hazirlama_zamani),
+       (metin("ornek_notu"), secili.notlar),
+     ], None, metin("kaydedildi_rozet")) }}
+
+{{ bk.kart(metin("makroskopik"),
+     [
+       (metin("hacim_ml"), secili.hacim_ml),
+       (metin("ph"), secili.ph),
+       (metin("gorunum_renk"), liste_etiket('sperm_gorunum', secili.renk)),
+       (metin("viskozite"), liste_etiket('viskozite', secili.viskozite)),
+     ]) }}
+
+{{ bk.kart(metin("bazal_analiz"),
+     [
+       (metin("analiz_zamani"), bazal.zaman if bazal else None),
+       (metin("konsantrasyon"), bazal.konsantrasyon_milyon_ml if bazal else None),
+       (metin("total_motilite"), bazal.total_motil_yuzde if bazal else None),
+       (metin("ilerleyen_pr"), bazal.pr_yuzde if bazal else None),
+       (metin("ilerlemeyen_np"), bazal.np_yuzde if bazal else None),
+       (metin("hareketsiz_im"), bazal.im_yuzde if bazal else None),
+       (metin("normal_morfoloji"), bazal.morfoloji_normal_yuzde if bazal else None),
+       (metin("vitalite"), bazal.vitalite_yuzde if bazal else None),
+       (metin("tmsc"), bazal.toplam_motil_sayi if bazal else None),
+       (metin("yuvarlak_hucre"), bazal.yuvarlak_hucre_milyon_ml if bazal else None),
+       (metin("lokosit"), bazal.lokosit_milyon_ml if bazal else None),
+       (metin("aglutinasyon"),
+        liste_etiket('sperm_aglutinasyon', bazal.aglutinasyon) if bazal else None),
+       (metin("bazal_analiz_notu"), bazal.notlar if bazal else None),
+     ]) }}
+
+{{ bk.kart(metin("hazirlik_sonrasi_analiz"),
+     [
+       (metin("analiz_zamani"), sonrasi.zaman if sonrasi else None),
+       (metin("hazirlik_hacmi"), sonrasi.hacim_ml if sonrasi else None),
+       (metin("konsantrasyon"), sonrasi.konsantrasyon_milyon_ml if sonrasi else None),
+       (metin("ilerleyen_pr"), sonrasi.pr_yuzde if sonrasi else None),
+       (metin("total_motilite"), sonrasi.total_motil_yuzde if sonrasi else None),
+       (metin("normal_morfoloji"), sonrasi.morfoloji_normal_yuzde if sonrasi else None),
+       (metin("tmsc"), sonrasi.toplam_motil_sayi if sonrasi else None),
+       (metin("hazirlik_sonrasi_not"), sonrasi.notlar if sonrasi else None),
+     ]) }}
+
+<a class="dugme" href="{{ duz_yol }}">{{ metin("duzenle_kaydi") }}</a>
+
+{% else %}
 <form method="post" action="/cycle/{{ c.id }}/androloji">
   <input type="hidden" name="ornek_id" value="{{ secili.id if secili else '' }}">
 
@@ -161,6 +219,12 @@
 
   <button class="dugme" type="submit">{{ metin("kaydet") }}</button>
 </form>
+{% if kayit_var %}
+<a class="dugme ikincil"
+   href="/cycle/{{ c.id }}/androloji{% if secili %}?ornek={{ secili.id }}{% endif %}">
+  {{ metin("vazgec_duzenleme") }}</a>
+{% endif %}
+{% endif %}
 
 <a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("cycle_kartina_don") }}</a>
 
