@@ -5,9 +5,9 @@
     <button type="button" class="kk{% if not s.ilk_goruntu %} bos{% endif %}"
             data-idler="{{ s.goruntu_idler or '' }}" data-no="{{ s.cycle_sira_no }}"
             data-sid="{{ s.id }}" aria-expanded="false" aria-controls="satirfoto"
-            aria-label="Oosit {{ s.cycle_sira_no }}">
+            aria-label="{{ metin('oosit_n').format(n=s.cycle_sira_no) }}">
       {% if s.ilk_goruntu %}
-      <img src="/dosya/{{ s.ilk_goruntu }}" alt="Oosit {{ s.cycle_sira_no }}">
+      <img src="/dosya/{{ s.ilk_goruntu }}" alt="{{ metin('oosit_n').format(n=s.cycle_sira_no) }}">
       {% if s.kare > 1 %}<span class="kare">{{ s.kare }}</span>{% endif %}
       {% else %}
       <span class="foto-yok">fotoğrafsız</span>
@@ -21,14 +21,14 @@
 <div class="satirfoto" id="satirfoto" hidden>
   <div class="sfust">
     <span id="sfbilgi"></span>
-    <button type="button" id="sfkapat" aria-label="Kapat">&times;</button>
+    <button type="button" id="sfkapat" aria-label="{{ metin('kapat') }}">&times;</button>
   </div>
   <img id="sfimg" alt="">
   <div class="sfbossuz" id="sfbossuz" hidden>Bu oosite ait fotoğraf yok.</div>
   <div class="sfbar" id="sfbar">
-    <button type="button" id="sfonce" aria-label="Önceki kare">&#8249;</button>
+    <button type="button" id="sfonce" aria-label="{{ metin('onceki_kare') }}">&#8249;</button>
     <button type="button" id="sftam" class="sftam">Tam ekran</button>
-    <button type="button" id="sfsonra" aria-label="Sonraki kare">&#8250;</button>
+    <button type="button" id="sfsonra" aria-label="{{ metin('sonraki_kare') }}">&#8250;</button>
   </div>
   <div class="sftaraf">
     <span>Over:</span>

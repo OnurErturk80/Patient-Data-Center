@@ -61,13 +61,15 @@ sablon.env.globals["islem_yapan_ad"] = _islem_yapan_ad
 # Aşamaya göre örneğin o anki adı. Oosit → zigot → embriyo aynı örnektir
 # (specimen.id değişmez); değişen sadece ekranda yazan isim.
 # None olanlar cycle tipine göre belirlenir: oosit cryo'da donan bir oosittir.
+# Aşama -> örnek adının sözlük anahtarı. Ad doğrudan yazılmıyor ki dil
+# değişince ekrandaki isim de değişsin. None: cycle tipine göre belirlenir.
 ASAMA_ORNEK_ADI = {
-    "androloji": "Örnek",
-    "denudasyon": "Oosit",
-    "icsi": "Oosit",
-    "fert": "Zigot",
-    "cleavage": "Cleavage",
-    "blast": "Blastokist",
+    "androloji": "ornek_ad",
+    "denudasyon": "oosit_ad",
+    "icsi": "oosit_ad",
+    "fert": "zigot_ad",
+    "cleavage": "cleavage_ad",
+    "blast": "blastokist_ad",
     "vitrifikasyon": None,
     "thaw": None,
     "transfer": None,
@@ -77,10 +79,10 @@ ASAMA_ORNEK_ADI = {
 
 def _ornek_adi(asama, cycle_tipi=None):
     """Bu aşamada örneğe ne deniyor: Oosit / Zigot / Cleavage / Blastokist / Embriyo."""
-    ad = ASAMA_ORNEK_ADI.get(asama, "Örnek")
-    if ad is None:
-        ad = "Oosit" if cycle_tipi == "oosit_cryo" else "Embriyo"
-    return ad
+    anahtar = ASAMA_ORNEK_ADI.get(asama, "ornek_ad")
+    if anahtar is None:
+        anahtar = "oosit_ad" if cycle_tipi == "oosit_cryo" else "embriyo_ad"
+    return metinler.t(anahtar)
 
 
 def _ornek_kodu(specimen_id):

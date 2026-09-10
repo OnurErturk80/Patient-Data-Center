@@ -175,6 +175,135 @@ METINLER = {
     "henuz_dondurulmus_yok": {"tr": "Henüz dondurulmuş embriyo yok.",
                               "en": "No frozen embryos yet."},
 
+    # ---- cycle formu ----
+    "cycle_duzenle": {"tr": "Cycle düzenle", "en": "Edit cycle"},
+    "yeni_cycle": {"tr": "Yeni cycle", "en": "New cycle"},
+    "cycle_i_kaydet": {"tr": "Cycle'ı kaydet", "en": "Save cycle"},
+    "lab_kayit_no": {"tr": "Lab kayıt no", "en": "Lab record no"},
+    "kacinci_cycle": {"tr": "Kaçıncı cycle", "en": "Patient's cycle no"},
+    "cycle_no_ipucu": {
+        "tr": "Lab kayıt no otomatik atandı; gerekirse değiştirebilirsin. "
+              "Kaçıncı cycle hastanın denemesidir — başka merkezdeki "
+              "tedavileri de sayıyorsan elle değiştir.",
+        "en": "The lab record no was assigned automatically; change it if you "
+              "need to. The patient's cycle no counts this patient's attempts "
+              "— edit it by hand if you also count treatments at another "
+              "centre."},
+    "tedavi_tipi": {"tr": "Tedavi tipi", "en": "Treatment type"},
+    "fet_ipucu": {
+        "tr": "FET seçilirse laboratuvar aşamaları gösterilmez; doğrudan "
+              "çözme ve transferle başlanır.",
+        "en": "If FET is selected the laboratory stages are hidden; the cycle "
+              "starts directly with thaw and transfer."},
+    "endikasyon": {"tr": "Endikasyon", "en": "Indication"},
+    "klinik_protokol": {"tr": "Klinik protokol", "en": "Clinical protocol"},
+    "gonadotropin": {"tr": "Gonadotropin", "en": "Gonadotropin"},
+    "baslangic_doz": {"tr": "Başlangıç doz", "en": "Starting dose"},
+    "trigger": {"tr": "Trigger", "en": "Trigger"},
+    "hcg_gunu_e2_alan": {"tr": "hCG günü E2", "en": "E2 on hCG day"},
+    "endometrium_mm": {"tr": "Endometrium (mm)", "en": "Endometrium (mm)"},
+    "folikul_sayisi": {"tr": "Folikül sayısı", "en": "Follicle count"},
+    "amh": {"tr": "AMH", "en": "AMH"},
+    "protokol_notu_ipucu": {"tr": "Arşiv amaçlı. İstatistikte kullanılmaz.",
+                            "en": "For the record only. Not used in statistics."},
+    "zamanlar_ve_opu": {"tr": "Zamanlar ve OPU", "en": "Times and OPU"},
+    "hcg_zamani": {"tr": "hCG zamanı", "en": "hCG time"},
+    "hcg_zamani_ipucu": {
+        "tr": "Saat dahil girilmeli — OPU ve ICSI aralıkları buna göre "
+              "hesaplanır.",
+        "en": "Enter the time of day as well — the OPU and ICSI intervals are "
+              "calculated from it."},
+    "opu_zamani": {"tr": "OPU zamanı", "en": "OPU time"},
+    "opu_oosit_sayilari": {"tr": "OPU'da toplanan oosit sayıları",
+                           "en": "Oocytes collected at OPU"},
+    "sag_overden": {"tr": "Sağ overden toplanan",
+                    "en": "Collected from right ovary"},
+    "sol_overden": {"tr": "Sol overden toplanan",
+                    "en": "Collected from left ovary"},
+    "sag_overden_oosit": {"tr": "Sağ overden toplanan oosit",
+                          "en": "Oocytes collected from right ovary"},
+    "sol_overden_oosit": {"tr": "Sol overden toplanan oosit",
+                          "en": "Oocytes collected from left ovary"},
+    "bos_birakilirsa_null": {
+        "tr": "Boş bırakılırsa \"girilmedi\" olarak kalır, sıfır yazılmaz.",
+        "en": "If left empty it stays \"not entered\"; zero is not recorded."},
+    "varsayilan_su_an": {
+        "tr": "Varsayılan şu an. İşlem sonradan kaydediliyorsa değiştir.",
+        "en": "Defaults to now. Change it if the step is being recorded later."},
+    "ozet": {"tr": "Özet", "en": "Summary"},
+    "opu_goc_gerekli": {
+        "tr": "OPU'yu yapan hekim henüz kaydedilmiyor. Terminalde "
+              "<code>python goc_025.py</code> çalıştır.",
+        "en": "The physician who performed the OPU is not recorded yet. Run "
+              "<code>python goc_025.py</code> in a terminal."},
+
+    # ---- örnek adları (app.py ASAMA_ORNEK_ADI) ----
+    # Oosit → zigot → embriyo aynı örnektir, kod değişmez; değişen sadece
+    # ekrandaki isim (CLAUDE.md). O isim buradan geliyor.
+    "ornek_ad": {"tr": "Örnek", "en": "Sample"},
+    "oosit_ad": {"tr": "Oosit", "en": "Oocyte"},
+    "zigot_ad": {"tr": "Zigot", "en": "Zygote"},
+    "cleavage_ad": {"tr": "Cleavage", "en": "Cleavage"},
+    "blastokist_ad": {"tr": "Blastokist", "en": "Blastocyst"},
+    "embriyo_ad": {"tr": "Embriyo", "en": "Embryo"},
+
+    # ---- büyüteç / kare şeridi (paylaşılan parçalar) ----
+    "kapat": {"tr": "Kapat", "en": "Close"},
+    "onceki_kare": {"tr": "Önceki kare", "en": "Previous frame"},
+    "sonraki_kare": {"tr": "Sonraki kare", "en": "Next frame"},
+    "yakinlastir": {"tr": "Yakınlaştır", "en": "Zoom in"},
+    "sigdir": {"tr": "Sığdır", "en": "Fit"},
+    "kare_n": {"tr": "Kare {n}", "en": "Frame {n}"},
+    "bu_kareyi_sil": {"tr": "Bu kareyi sil", "en": "Delete this frame"},
+    "bekleyen_kare": {"tr": "Bekleyen kare", "en": "Waiting frame"},
+    "buyut": {"tr": "büyüt", "en": "enlarge"},
+
+    # ---- denüdasyon ----
+    "kamera_klasoru_yok": {"tr": "Kamera klasörü bulunamadı:",
+                           "en": "Camera folder not found:"},
+    "ayarlardan_duzelt": {"tr": "Ayarlardan düzeltilmeli.",
+                          "en": "It must be corrected in the settings."},
+    "denudasyon_zamani": {"tr": "Denüdasyon zamanı", "en": "Denudation time"},
+    "denudasyon_zamani_ipucu": {
+        "tr": "İlk oosit kaydedildiğinde otomatik dolar. Gerekirse düzelt.",
+        "en": "Filled in automatically when the first oocyte is recorded. "
+              "Correct it if needed."},
+    "toplandigi_over": {"tr": "Toplandığı over", "en": "Ovary collected from"},
+    "belirtme": {"tr": "Belirtme", "en": "Unspecified"},
+    "taraf_ipucu": {
+        "tr": "Bundan sonra oluşturulan oositlere bu taraf yazılır. Sağ overi "
+              "bitirip sola geçerken değiştir.",
+        "en": "Oocytes created from now on are recorded with this side. "
+              "Change it when you finish the right ovary and move to the left."},
+    "bos_dosya_uyari": {"tr": "{n} dosya boş (0 bayt), atlandı:",
+                        "en": "{n} file(s) empty (0 bytes), skipped:"},
+    "kopyalama_yarim": {
+        "tr": "Kopyalama yarım kalmış olabilir. Kaynağından yeniden kopyala.",
+        "en": "The copy may be incomplete. Copy them again from the source."},
+    "n_goruntu_bekliyor": {"tr": "{n} görüntü bekliyor", "en": "{n} images waiting"},
+    "oosit_n": {"tr": "Oosit {n}", "en": "Oocyte {n}"},
+    "siradaki_goruntu": {"tr": "Sıradaki görüntü", "en": "Next image"},
+    "kaydet_oosit_n": {"tr": "Kaydet → oosit {n}", "en": "Save → oocyte {n}"},
+    "ayni_oosite_ekle": {"tr": "Aynı oosite ekle", "en": "Add to the same oocyte"},
+    "atla": {"tr": "Atla", "en": "Skip"},
+    "fotografsiz_oosit": {"tr": "Fotoğrafsız oosit", "en": "Oocyte without photo"},
+    "fotografsiz_oosit_ekle": {"tr": "Fotoğrafsız oosit ekle",
+                               "en": "Add oocyte without photo"},
+    "bekleyen_kalmadi": {"tr": "Bekleyen görüntü kalmadı.",
+                         "en": "No images left waiting."},
+    "n_oosit_kaydedildi": {"tr": "{n} oosit kaydedildi.",
+                           "en": "{n} oocytes recorded."},
+    "klasorde_yeni_yok": {"tr": "Klasörde yeni görüntü yok.",
+                          "en": "No new images in the folder."},
+    "kameradan_kare_al": {"tr": "Kameradan kare alıp sayfayı yenile.",
+                          "en": "Take a frame from the camera and refresh the page."},
+    "yenile": {"tr": "Yenile", "en": "Refresh"},
+    "son_kaydi_geri_al": {"tr": "Son kaydı geri al", "en": "Undo last record"},
+    "elle_fotograf_ekle": {"tr": "Elle fotoğraf ekle", "en": "Add photo manually"},
+    "kaydedilen_oositler": {"tr": "Kaydedilen oositler", "en": "Recorded oocytes"},
+    "henuz_oosit_kaydedilmedi": {"tr": "Henüz oosit kaydedilmedi.",
+                                 "en": "No oocytes recorded yet."},
+
     # ---- cycle detay ----
     "toplanan_oosit": {"tr": "Toplanan oosit", "en": "Oocytes collected"},
     "sag": {"tr": "sağ", "en": "right"},

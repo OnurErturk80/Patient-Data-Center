@@ -6,11 +6,11 @@
     <button type="button" class="kfoto stripkare"
             data-idler="{{ kareler|map(attribute='id')|join(',') }}"
             data-baslangic="{{ loop.index0 }}" data-no="{{ sp.cycle_sira_no }}"
-            aria-label="Kare {{ loop.index }}">
-      <img src="/dosya/{{ g.id }}" alt="Kare {{ loop.index }}">
+            aria-label="{{ metin('kare_n').format(n=loop.index) }}">
+      <img src="/dosya/{{ g.id }}" alt="{{ metin('kare_n').format(n=loop.index) }}">
     </button>
     <a class="fsil" href="/goruntu/{{ g.id }}/sil?geri={{ geri|urlencode }}"
-       aria-label="Bu kareyi sil" title="Bu kareyi sil">&times;</a>
+       aria-label="{{ metin('bu_kareyi_sil') }}" title="{{ metin('bu_kareyi_sil') }}">&times;</a>
   </div>
   {% endfor %}
 </div>

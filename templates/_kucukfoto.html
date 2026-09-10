@@ -1,8 +1,8 @@
 {% macro kucuk(e) %}
 {% if e.goruntu %}
 <button type="button" class="kfoto" data-idler="{{ e.goruntu_idler }}"
-        data-no="{{ e.cycle_sira_no }}" aria-label="Oosit {{ e.cycle_sira_no }} büyüt">
-  <img src="/dosya/{{ e.goruntu }}" alt="Oosit {{ e.cycle_sira_no }}">
+        data-no="{{ e.cycle_sira_no }}" aria-label="{{ metin('oosit_n').format(n=e.cycle_sira_no) }} {{ metin('buyut') }}">
+  <img src="/dosya/{{ e.goruntu }}" alt="{{ metin('oosit_n').format(n=e.cycle_sira_no) }}">
   {% if e.kare > 1 %}<span class="kare">{{ e.kare }}</span>{% endif %}
 </button>
 {% else %}

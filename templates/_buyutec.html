@@ -1,15 +1,15 @@
 <div id="buyut" class="buyut" hidden>
   <div class="bust">
     <span id="bbilgi"></span>
-    <button type="button" class="bkapat" aria-label="Kapat">&times;</button>
+    <button type="button" class="bkapat" aria-label="{{ metin('kapat') }}">&times;</button>
   </div>
   <div class="bgovde" id="bgovde">
     <img id="bimg" alt="">
   </div>
   <div class="bbar">
-    <button type="button" id="bonce" aria-label="Önceki kare">&#8249;</button>
-    <button type="button" id="byakin" class="byakin">Yakınlaştır</button>
-    <button type="button" id="bsonra" aria-label="Sonraki kare">&#8250;</button>
+    <button type="button" id="bonce" aria-label="{{ metin('onceki_kare') }}">&#8249;</button>
+    <button type="button" id="byakin" class="byakin">{{ metin("yakinlastir") }}</button>
+    <button type="button" id="bsonra" aria-label="{{ metin('sonraki_kare') }}">&#8250;</button>
   </div>
 </div>
 
@@ -27,7 +27,8 @@
   function yakinAyarla(durum) {
     yakin = durum;
     img.classList.toggle('yakin', yakin);
-    yakinDugme.textContent = yakin ? 'Sığdır' : 'Yakınlaştır';
+    yakinDugme.textContent = yakin ? {{ metin("sigdir")|tojson }}
+      : {{ metin("yakinlastir")|tojson }};
     if (!yakin) { govde.scrollTop = 0; govde.scrollLeft = 0; }
   }
   function ciz() {

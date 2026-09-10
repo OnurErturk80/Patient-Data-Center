@@ -3,7 +3,7 @@
 <div class="kart snapkart">
   <h2>Kamera klasöründe {{ bekleyen.adet }} kare bekliyor</h2>
   <div class="snapgovde">
-    <img src="/onizleme?imza={{ bekleyen.son.imza|urlencode }}" alt="Bekleyen kare">
+    <img src="/onizleme?imza={{ bekleyen.son.imza|urlencode }}" alt="{{ metin('bekleyen_kare') }}">
     <div class="snapbilgi">
       <div class="snapad">{{ bekleyen.son.ad }}</div>
       <form method="post" action="/specimen/{{ sp.id }}/snapshot-al">
