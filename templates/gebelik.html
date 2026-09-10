@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
-{% block ustbaslik %}Gebelik sonucu{% endblock %}
+{% block ustbaslik %}{{ metin("asama_gebelik") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
   <div class="isim">{{ c.ad_soyad }}</div>
   <div class="alt">
-    {% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
+    {% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }} · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
   </div>
 </div>
 {% endblock %}
@@ -18,26 +18,25 @@
 
 {% if transferler %}
 <div class="kart">
-  <h2>Bu cycle'da transfer edilen ({{ transferler|length }})</h2>
+  <h2>{{ metin("bu_cyclede_transfer_edilen") }} ({{ transferler|length }})</h2>
   {% for t in transferler %}
   <div class="satir" style="cursor:default">
     <div class="ad"><strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ t.cycle_sira_no }}</strong>
       {% if t.skor %} · {{ t.skor }}{% endif %}</div>
     <div class="meta">
-      {{ t.kaynak }} · {{ 'donmuş' if t.tr_tipi == 'donmus' else 'taze' }} · {{ t.zaman }}
+      {{ t.kaynak }} · {{ metin("donmus") if t.tr_tipi == "donmus" else metin("taze") }} · {{ t.zaman }}
     </div>
   </div>
   {% endfor %}
 </div>
 {% else %}
 <div class="uyari">
-  Bu cycle'da transfer kaydı yok. Sonuç yine de girilebilir, ama transferi
-  önce kaydetmek kayıtları birbirine bağlar.
+  {{ metin("transfer_kaydi_yok_uyari") }}
 </div>
 {% endif %}
 
 <div class="kart">
-  <h2>Beta hCG ({{ betalar|length }})</h2>
+  <h2>{{ metin("beta_hcg") }} ({{ betalar|length }})</h2>
   {% for b in betalar %}
   <div class="fsatir">
     <div class="bilgi">
@@ -46,36 +45,35 @@
         {% for a in artis %}{% if a.i == loop.index0 + 1 %}{% endif %}{% endfor %}
       </div>
       {% for a in artis %}{% if a.i == loop.index %}
-      <div class="meta">{{ a.saat }} saatte {{ a.kat }} kat</div>
+      <div class="meta">{{ metin("artis_kat").format(h=a.saat, k=a.kat) }}</div>
       {% endif %}{% endfor %}
     </div>
     <form method="post" action="/cycle/{{ c.id }}/gebelik">
       <input type="hidden" name="eylem" value="beta_sil">
       <input type="hidden" name="beta_id" value="{{ b.id }}">
-      <button class="minidugme ikincil" type="submit">Sil</button>
+      <button class="minidugme ikincil" type="submit">{{ metin("sil") }}</button>
     </form>
   </div>
   {% else %}
-  <div class="bos">Henüz beta hCG değeri girilmedi.</div>
+  <div class="bos">{{ metin("beta_girilmedi") }}</div>
   {% endfor %}
 
   <form method="post" action="/cycle/{{ c.id }}/gebelik">
     <input type="hidden" name="eylem" value="beta_ekle">
     <div class="alan ikili">
       <div>
-        <label for="beta_deger">Beta hCG</label>
+        <label for="beta_deger">{{ metin("beta_hcg") }}</label>
         <input id="beta_deger" name="beta_deger" type="text" inputmode="decimal"
                autocomplete="off" placeholder="mIU/mL">
       </div>
       <div>
-        <label for="beta_zaman">Ölçüm zamanı</label>
+        <label for="beta_zaman">{{ metin("olcum_zamani") }}</label>
         <input id="beta_zaman" name="beta_zaman" type="datetime-local" value="{{ simdi }}">
       </div>
     </div>
     <div class="alan" style="border:0;padding-top:0">
-      <button class="dugme ikincil" type="submit" style="margin-top:0">Beta ekle</button>
-      <div class="ipucu">Değer sayı olarak saklanır; pozitif/negatif eşiği sonradan
-      istediğin gibi uygulanır. Birden fazla ölçüm girersen artış hızı hesaplanır.</div>
+      <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("beta_ekle") }}</button>
+      <div class="ipucu">{{ metin("beta_ipucu") }}</div>
     </div>
   </form>
 </div>
@@ -83,9 +81,10 @@
 <form method="post" action="/cycle/{{ c.id }}/gebelik" id="gform">
 
   <div class="kart">
-    <h2>Klinik gebelik</h2>
+    <h2>{{ metin("klinik_gebelik") }}</h2>
     <div class="secenek">
-      {% for kod, et in [('evet','Var'), ('hayir','Yok'), ('bilinmiyor','Bilinmiyor')] %}
+      {% for kod, et in [('evet', metin('var')), ('hayir', metin('yok')),
+                         ('bilinmiyor', metin('bilinmiyor'))] %}
       <label class="sec {% if k and k.klinik_gebelik == kod %}secili{% endif %}">
         <input type="radio" name="klinik_gebelik" value="{{ kod }}"
                {% if k and k.klinik_gebelik == kod %}checked{% endif %}>
@@ -94,7 +93,7 @@
       {% endfor %}
     </div>
     <div class="alan">
-      <label for="gebelik_kesesi_sayisi">Gebelik kesesi sayısı</label>
+      <label for="gebelik_kesesi_sayisi">{{ metin("gebelik_kesesi_sayisi") }}</label>
       <input id="gebelik_kesesi_sayisi" name="gebelik_kesesi_sayisi" type="number"
              inputmode="numeric" min="0"
              value="{{ k.gebelik_kesesi_sayisi if k and k.gebelik_kesesi_sayisi is not none else '' }}">
@@ -102,9 +101,10 @@
   </div>
 
   <div class="kart">
-    <h2>Fetal kalp atımı</h2>
+    <h2>{{ metin("fetal_kalp_atimi") }}</h2>
     <div class="secenek">
-      {% for kod, et in [('evet','Pozitif'), ('hayir','Negatif'), ('bilinmiyor','Bilinmiyor')] %}
+      {% for kod, et in [('evet', metin('pozitif')), ('hayir', metin('negatif')),
+                         ('bilinmiyor', metin('bilinmiyor'))] %}
       <label class="sec {% if k and k.fk_pozitif == kod %}secili{% endif %}">
         <input type="radio" name="fk_pozitif" value="{{ kod }}"
                {% if k and k.fk_pozitif == kod %}checked{% endif %}>
@@ -113,7 +113,7 @@
       {% endfor %}
     </div>
     <div class="alan">
-      <label for="fk_kontrol_zamani">Kontrol zamanı</label>
+      <label for="fk_kontrol_zamani">{{ metin("kontrol_zamani") }}</label>
       <input id="fk_kontrol_zamani" name="fk_kontrol_zamani" type="datetime-local"
              value="{{ k.fk_kontrol_zamani[:16]|replace(' ','T') if k and k.fk_kontrol_zamani else '' }}">
     </div>
@@ -121,41 +121,39 @@
 
   <div class="kart">
     <div class="alan">
-      <label for="sonlanma">Sonlanma</label>
+      <label for="sonlanma">{{ metin("sonlanma") }}</label>
       <select id="sonlanma" name="sonlanma">
-        <option value="">— henüz belli değil</option>
+        <option value="">{{ metin("henuz_belli_degil") }}</option>
         {% for s in sonlanmalar %}
         <option value="{{ s.kod }}" {% if k and k.sonlanma == s.kod %}selected{% endif %}>{{ s.etiket }}</option>
         {% endfor %}
       </select>
-      <div class="ipucu">Zamanla değişir: önce "devam ediyor", doğumdan sonra
-      "canlı doğum". Ulaşılamayan hasta için "takip kaybı" — bu, sonuç oranlarının
-      doğru çıkması için önemli.</div>
+      <div class="ipucu">{{ metin("sonlanma_ipucu") }}</div>
     </div>
     <div class="alan ikili">
       <div>
-        <label for="dogum_zamani">Doğum zamanı</label>
+        <label for="dogum_zamani">{{ metin("dogum_zamani") }}</label>
         <input id="dogum_zamani" name="dogum_zamani" type="datetime-local"
                value="{{ k.dogum_zamani[:16]|replace(' ','T') if k and k.dogum_zamani else '' }}">
       </div>
       <div>
-        <label for="bebek_sayisi">Bebek sayısı</label>
+        <label for="bebek_sayisi">{{ metin("bebek_sayisi") }}</label>
         <input id="bebek_sayisi" name="bebek_sayisi" type="number" inputmode="numeric" min="0"
                value="{{ k.bebek_sayisi if k and k.bebek_sayisi is not none else '' }}">
       </div>
     </div>
   </div>
 
-  <button class="dugme" type="submit">Sonucu kaydet</button>
+  <button class="dugme" type="submit">{{ metin("sonucu_kaydet") }}</button>
 </form>
 
 {% if k and k.guncelleme_zamani %}
 <div class="ipucu" style="text-align:center;margin-top:10px">
-  Son güncelleme: {{ k.guncelleme_zamani }}
+  {{ metin("son_guncelleme") }} {{ k.guncelleme_zamani }}
 </div>
 {% endif %}
 
-<a class="dugme ikincil" href="/cycle/{{ c.id }}">Cycle kartına dön</a>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("cycle_kartina_don") }}</a>
 
 <script>
 document.querySelectorAll('.secenek').forEach(function (g) {

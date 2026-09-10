@@ -3,7 +3,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
-{% block ustbaslik %}Blastokist · Gün {{ gun }}{% endblock %}
+{% block ustbaslik %}{{ metin("blastokist_gun_n").format(n=gun) }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
@@ -15,20 +15,18 @@
 
 {% if eksik_goc %}
 <div class="uyari">
-  <strong>Veritabanı güncellenmemiş.</strong><br>
-  Kavitasyon seçeneği veya derece alanı eksik. Uygulamayı durdurup
-  <code>python goc_010.py</code> ve <code>python goc_011.py</code> çalıştır.
+  {{ metin("blast_goc_gerekli")|safe }}
 </div>
 {% endif %}
 
 <div class="gunsec">
   {% for g in gunler %}
-  <a href="/cycle/{{ c.id }}/blast?gun={{ g }}" class="{% if gun == g %}aktif{% endif %}">Gün {{ g }}</a>
+  <a href="/cycle/{{ c.id }}/blast?gun={{ g }}" class="{% if gun == g %}aktif{% endif %}">{{ metin("gun_n_buyuk").format(n=g) }}</a>
   {% endfor %}
 </div>
 
 {% if not oositler %}
-<div class="kart"><div class="bos">Bu cycle'da henüz oosit yok.</div></div>
+<div class="kart"><div class="bos">{{ metin("henuz_oosit_yok_kisa") }}</div></div>
 {% else %}
 
 <div class="serit">
@@ -42,28 +40,28 @@
 </div>
 
 <div class="say">
-  <span class="bek">{{ oositler|selectattr('kayit_id')|list|length }} / {{ oositler|length }} kaydedildi</span>
-  <span class="hed">{{ ornek_adi('blast', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ "sağ" if sp.taraf == "sag" else "sol" }}</em>{% endif %}</span>
+  <span class="bek">{{ metin("n_m_kaydedildi").format(n=oositler|selectattr('kayit_id')|list|length, m=oositler|length) }}</span>
+  <span class="hed">{{ ornek_adi('blast', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
 {% if sp.pn and sp.pn != '2' %}
-<div class="uyari">Bu oosit fertilizasyon kontrolünde {{ sp.pn }}PN idi.</div>
+<div class="uyari">{{ metin("fert_kontrolunde_npn").format(n=sp.pn) }}</div>
 {% endif %}
 
 {{ snap.blok(sp, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no, bekleyen) }}
 
 {% if sp.goruntu %}
 <div class="foto">
-  <img src="/dosya/{{ sp.goruntu }}" alt="Oosit {{ sp.cycle_sira_no }}">
+  <img src="/dosya/{{ sp.goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
 </div>
 {{ kr.serit(kareler, sp, c, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">Bu fotoğrafı sil</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
 <div class="fotoalt">
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">Fotoğraf ekle</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% endif %}
 
@@ -72,7 +70,7 @@
   <input type="hidden" name="gun" value="{{ gun }}">
 
   <div class="kart">
-    <h2>Genişleme</h2>
+    <h2>{{ metin("genisleme") }}</h2>
     <div class="secenek dar">
       {% for g in genislemeler %}
       <label class="sec {% if kayit and kayit.bl_genisleme == g.kod %}secili{% endif %}
@@ -85,14 +83,14 @@
       {% endfor %}
     </div>
     <div class="alan" style="border:0;padding-top:0">
-      <div class="ipucu">1 erken blastosöl · 2 yarım · 3 tam · 4 genişlemiş · 5 hatching · 6 hatched</div>
+      <div class="ipucu">{{ metin("genisleme_ipucu") }}</div>
     </div>
   </div>
 
   <div id="dereceblok"
        {% if not (kayit and kayit.bl_genisleme in blast_dereceli) %}hidden{% endif %}>
     <div class="kart">
-      <h2>Derece</h2>
+      <h2>{{ metin("derece") }}</h2>
       <div class="secenek">
         {% for d in dereceler %}
         <label class="sec {% if kayit and kayit.bl_derece == d.kod %}secili{% endif %}">
@@ -103,14 +101,14 @@
         {% endfor %}
       </div>
       <div class="alan" style="border:0;padding-top:0">
-        <div class="ipucu">Morula, erken morula ve kavitasyon için. Arrest derecelendirilmez.</div>
+        <div class="ipucu">{{ metin("derece_ipucu") }}</div>
       </div>
     </div>
   </div>
 
   <div id="icmte" {% if kayit and kayit.bl_genisleme in blast_disi %}hidden{% endif %}>
     <div class="kart">
-      <h2>ICM</h2>
+      <h2>{{ metin("icm") }}</h2>
       <div class="secenek">
         {% for i in icmler %}
         <label class="sec {% if kayit and kayit.bl_icm == i.kod %}secili{% endif %}">
@@ -122,7 +120,7 @@
       </div>
     </div>
     <div class="kart">
-      <h2>Trofektoderm</h2>
+      <h2>{{ metin("trofektoderm") }}</h2>
       <div class="secenek">
         {% for t in teler %}
         <label class="sec {% if kayit and kayit.bl_te == t.kod %}secili{% endif %}">
@@ -137,15 +135,15 @@
 
   <div class="kart">
     <div class="alan">
-      <label for="bl_skor">Skor</label>
+      <label for="bl_skor">{{ metin("skor") }}</label>
       <input id="bl_skor" name="bl_skor" type="text" maxlength="6" autocomplete="off"
-             placeholder="otomatik birleştirilir"
+             placeholder="{{ metin('otomatik_birlestirilir') }}"
              value="{{ kayit.bl_skor if kayit and kayit.bl_skor_kaynagi == 'elle' else '' }}">
       <div class="ipucu">
-        Boş bırakırsan genişleme + ICM + TE birleştirilir (4AA gibi).
+        {{ metin("blast_skor_ipucu") }}
         {% if kayit and kayit.bl_skor %}
-        Şu anki kayıt: <strong>{{ kayit.bl_skor }}</strong>
-        ({{ 'elle girildi' if kayit.bl_skor_kaynagi == 'elle' else 'otomatik' }}).
+        {{ metin("su_anki_kayit") }} <strong>{{ kayit.bl_skor }}</strong>
+        ({{ metin("elle_girildi") if kayit.bl_skor_kaynagi == "elle" else metin("otomatik") }}).
         {% endif %}
       </div>
     </div>
@@ -153,21 +151,21 @@
 
   <div class="kart">
     <div class="alan">
-      <label for="islem_zamani">İşlem saati</label>
+      <label for="islem_zamani">{{ metin("islem_saati") }}</label>
       {% set kz = kayit.zaman if kayit else None %}
       <input id="islem_zamani" name="islem_zamani" type="datetime-local"
              value="{{ kz[:16]|replace(' ','T') if kz else simdi }}">
-      <div class="ipucu">Şu an dolu geliyor. Geriye dönük kayıt giriyorsan değiştir.</div>
+      <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
     </div>
   </div>
 
-  <button class="dugme" type="submit">Kaydet ve sonraki oosit</button>
+  <button class="dugme" type="submit">{{ metin("kaydet_sonraki_oosit") }}</button>
 </form>
 
 <a class="dugme ikincil" style="margin-top:12px"
-   href="/cycle/{{ c.id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">Seçimleri geri al</a>
+   href="/cycle/{{ c.id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">{{ metin("secimleri_geri_al") }}</a>
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}">Bu oositin gün {{ gun }} kaydını sil</a>
+   href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
 
 {% endif %}
 

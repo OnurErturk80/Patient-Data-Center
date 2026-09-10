@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
-{% block ustbaslik %}Androloji{% endblock %}
+{% block ustbaslik %}{{ metin("asama_androloji") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
   <div class="isim">{{ c.ad_soyad }}</div>
   <div class="alt">
-    {% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
+    {% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }} · {% endif %}{{ tip_kisa(c.cycle_tipi) }}
   </div>
 </div>
 {% endblock %}
@@ -48,7 +48,7 @@
 
 {% if ornekler %}
 <div class="alan" style="border:0;padding-bottom:0">
-  <label>Sperm örneği</label>
+  <label>{{ metin("sperm_ornegi") }}</label>
   <div class="tarafsec">
     {% for o in ornekler %}
     <a href="/cycle/{{ c.id }}/androloji?ornek={{ o.id }}"
@@ -57,9 +57,9 @@
     </a>
     {% endfor %}
     <a href="/cycle/{{ c.id }}/androloji?ornek=yeni"
-       class="{% if yeni_mi %}aktif{% endif %}">+ Yeni</a>
+       class="{% if yeni_mi %}aktif{% endif %}">{{ metin("yeni_artı") }}</a>
   </div>
-  <div class="ipucu">Genelde tek örnek. Yedek / ikinci örnek gerekiyorsa "+ Yeni".</div>
+  <div class="ipucu">{{ metin("sperm_ornek_ipucu") }}</div>
 </div>
 {% endif %}
 
@@ -67,103 +67,102 @@
   <input type="hidden" name="ornek_id" value="{{ secili.id if secili else '' }}">
 
   <div class="kart">
-    <h2>Örnek bilgisi</h2>
+    <h2>{{ metin("ornek_bilgisi") }}</h2>
     <div class="alan ikili">
-      {{ dt('alinma_zamani', 'Alınma zamanı', secili, 'alinma_zamani', simdi if yeni_mi else '') }}
-      {{ num('abstinans_gun', 'Abstinans (gün)', secili, 'abstinans_gun') }}
+      {{ dt('alinma_zamani', metin('alinma_zamani'), secili, 'alinma_zamani', simdi if yeni_mi else '') }}
+      {{ num('abstinans_gun', metin('abstinans_gun'), secili, 'abstinans_gun') }}
     </div>
     <div class="alan">
-      {{ sec('alinma_yontemi', 'Alınma yöntemi', alinma, secili, 'alinma_yontemi') }}
+      {{ sec('alinma_yontemi', metin('alinma_yontemi'), alinma, secili, 'alinma_yontemi') }}
     </div>
     <div class="alan">
-      {{ dt('likefaksiyon_zamani', 'Likefaksiyon zamanı', secili, 'likefaksiyon_zamani') }}
-      <div class="ipucu">Likefaksiyonun tamamlandığı saat.</div>
+      {{ dt('likefaksiyon_zamani', metin('likefaksiyon_zamani'), secili, 'likefaksiyon_zamani') }}
+      <div class="ipucu">{{ metin("likefaksiyon_ipucu") }}</div>
     </div>
     <div class="alan ikili">
-      {{ sec('hazirlama_yontemi', 'Hazırlama yöntemi', hazirlama, secili, 'hazirlama_yontemi') }}
-      {{ dt('hazirlama_zamani', 'Hazırlama zamanı', secili, 'hazirlama_zamani') }}
+      {{ sec('hazirlama_yontemi', metin('hazirlama_yontemi'), hazirlama, secili, 'hazirlama_yontemi') }}
+      {{ dt('hazirlama_zamani', metin('hazirlama_zamani'), secili, 'hazirlama_zamani') }}
     </div>
     <div class="alan">
-      <label for="ornek_notlar">Örnek notu</label>
+      <label for="ornek_notlar">{{ metin("ornek_notu") }}</label>
       <textarea id="ornek_notlar" name="ornek_notlar" rows="2">{{ secili.notlar if secili and secili.notlar else '' }}</textarea>
     </div>
   </div>
 
   <div class="kart">
-    <h2>Makroskopik</h2>
+    <h2>{{ metin("makroskopik") }}</h2>
     <div class="alan ikili">
-      {{ num('hacim_ml', 'Hacim (mL)', secili, 'hacim_ml') }}
-      {{ num('ph', 'pH', secili, 'ph') }}
+      {{ num('hacim_ml', metin('hacim_ml'), secili, 'hacim_ml') }}
+      {{ num('ph', metin('ph'), secili, 'ph') }}
     </div>
     <div class="alan ikili">
-      {{ sec('renk', 'Görünüm / renk', gorunumler, secili, 'renk') }}
-      {{ sec('viskozite', 'Viskozite', viskoziteler, secili, 'viskozite') }}
+      {{ sec('renk', metin('gorunum_renk'), gorunumler, secili, 'renk') }}
+      {{ sec('viskozite', metin('viskozite'), viskoziteler, secili, 'viskozite') }}
     </div>
   </div>
 
   <div class="kart">
-    <h2>Bazal analiz — hazırlık öncesi</h2>
+    <h2>{{ metin("bazal_analiz") }}</h2>
     <div class="alan">
-      {{ dt('bazal_zaman', 'Analiz zamanı', bazal, 'zaman', simdi if not bazal else '') }}
+      {{ dt('bazal_zaman', metin('analiz_zamani'), bazal, 'zaman', simdi if not bazal else '') }}
     </div>
     <div class="alan ikili">
-      {{ num('bazal_konsantrasyon_milyon_ml', 'Konsantrasyon (milyon/mL)', bazal, 'konsantrasyon_milyon_ml') }}
-      {{ num('bazal_total_motil_yuzde', 'Total motilite (%)', bazal, 'total_motil_yuzde') }}
+      {{ num('bazal_konsantrasyon_milyon_ml', metin('konsantrasyon'), bazal, 'konsantrasyon_milyon_ml') }}
+      {{ num('bazal_total_motil_yuzde', metin('total_motilite'), bazal, 'total_motil_yuzde') }}
     </div>
     <div class="alan ikili">
-      {{ num('bazal_pr_yuzde', 'İlerleyen — PR (%)', bazal, 'pr_yuzde') }}
-      {{ num('bazal_np_yuzde', 'İlerlemeyen — NP (%)', bazal, 'np_yuzde') }}
+      {{ num('bazal_pr_yuzde', metin('ilerleyen_pr'), bazal, 'pr_yuzde') }}
+      {{ num('bazal_np_yuzde', metin('ilerlemeyen_np'), bazal, 'np_yuzde') }}
     </div>
     <div class="alan ikili">
-      {{ num('bazal_im_yuzde', 'Hareketsiz — IM (%)', bazal, 'im_yuzde') }}
-      {{ num('bazal_morfoloji_normal_yuzde', 'Normal morfoloji (%)', bazal, 'morfoloji_normal_yuzde') }}
+      {{ num('bazal_im_yuzde', metin('hareketsiz_im'), bazal, 'im_yuzde') }}
+      {{ num('bazal_morfoloji_normal_yuzde', metin('normal_morfoloji'), bazal, 'morfoloji_normal_yuzde') }}
     </div>
     <div class="alan ikili">
-      {{ num('bazal_vitalite_yuzde', 'Vitalite (%)', bazal, 'vitalite_yuzde') }}
-      {{ num('bazal_toplam_motil_sayi', 'TMSC (milyon)', bazal, 'toplam_motil_sayi') }}
+      {{ num('bazal_vitalite_yuzde', metin('vitalite'), bazal, 'vitalite_yuzde') }}
+      {{ num('bazal_toplam_motil_sayi', metin('tmsc'), bazal, 'toplam_motil_sayi') }}
     </div>
     <div class="alan ikili">
-      {{ num('bazal_yuvarlak_hucre_milyon_ml', 'Yuvarlak hücre (milyon/mL)', bazal, 'yuvarlak_hucre_milyon_ml') }}
-      {{ num('bazal_lokosit_milyon_ml', 'Lökosit (milyon/mL)', bazal, 'lokosit_milyon_ml') }}
-    </div>
-    <div class="alan">
-      {{ sec('bazal_aglutinasyon', 'Aglütinasyon', aglutinasyonlar, bazal, 'aglutinasyon') }}
+      {{ num('bazal_yuvarlak_hucre_milyon_ml', metin('yuvarlak_hucre'), bazal, 'yuvarlak_hucre_milyon_ml') }}
+      {{ num('bazal_lokosit_milyon_ml', metin('lokosit'), bazal, 'lokosit_milyon_ml') }}
     </div>
     <div class="alan">
-      <label for="bazal_notlar">Bazal analiz notu</label>
+      {{ sec('bazal_aglutinasyon', metin('aglutinasyon'), aglutinasyonlar, bazal, 'aglutinasyon') }}
+    </div>
+    <div class="alan">
+      <label for="bazal_notlar">{{ metin("bazal_analiz_notu") }}</label>
       <textarea id="bazal_notlar" name="bazal_notlar" rows="2">{{ bazal.notlar if bazal and bazal.notlar else '' }}</textarea>
     </div>
-    <div class="ipucu">TMSC ≈ hacim × konsantrasyon × motilite/100. Boş bırakılan alan
-    "girilmedi" olarak saklanır.</div>
+    <div class="ipucu">{{ metin("tmsc_ipucu") }}</div>
   </div>
 
   <div class="kart">
-    <h2>Hazırlık sonrası analiz</h2>
+    <h2>{{ metin("hazirlik_sonrasi_analiz") }}</h2>
     <div class="alan">
-      {{ dt('sonrasi_zaman', 'Analiz zamanı', sonrasi, 'zaman', simdi if not sonrasi else '') }}
+      {{ dt('sonrasi_zaman', metin('analiz_zamani'), sonrasi, 'zaman', simdi if not sonrasi else '') }}
     </div>
     <div class="alan ikili">
-      {{ num('sonrasi_hacim_ml', 'Hazırlık hacmi (mL)', sonrasi, 'hacim_ml') }}
-      {{ num('sonrasi_konsantrasyon_milyon_ml', 'Konsantrasyon (milyon/mL)', sonrasi, 'konsantrasyon_milyon_ml') }}
+      {{ num('sonrasi_hacim_ml', metin('hazirlik_hacmi'), sonrasi, 'hacim_ml') }}
+      {{ num('sonrasi_konsantrasyon_milyon_ml', metin('konsantrasyon'), sonrasi, 'konsantrasyon_milyon_ml') }}
     </div>
     <div class="alan ikili">
-      {{ num('sonrasi_pr_yuzde', 'İlerleyen — PR (%)', sonrasi, 'pr_yuzde') }}
-      {{ num('sonrasi_total_motil_yuzde', 'Total motilite (%)', sonrasi, 'total_motil_yuzde') }}
+      {{ num('sonrasi_pr_yuzde', metin('ilerleyen_pr'), sonrasi, 'pr_yuzde') }}
+      {{ num('sonrasi_total_motil_yuzde', metin('total_motilite'), sonrasi, 'total_motil_yuzde') }}
     </div>
     <div class="alan ikili">
-      {{ num('sonrasi_morfoloji_normal_yuzde', 'Normal morfoloji (%)', sonrasi, 'morfoloji_normal_yuzde') }}
-      {{ num('sonrasi_toplam_motil_sayi', 'TMSC (milyon)', sonrasi, 'toplam_motil_sayi') }}
+      {{ num('sonrasi_morfoloji_normal_yuzde', metin('normal_morfoloji'), sonrasi, 'morfoloji_normal_yuzde') }}
+      {{ num('sonrasi_toplam_motil_sayi', metin('tmsc'), sonrasi, 'toplam_motil_sayi') }}
     </div>
     <div class="alan">
-      <label for="sonrasi_notlar">Hazırlık sonrası not</label>
+      <label for="sonrasi_notlar">{{ metin("hazirlik_sonrasi_not") }}</label>
       <textarea id="sonrasi_notlar" name="sonrasi_notlar" rows="2">{{ sonrasi.notlar if sonrasi and sonrasi.notlar else '' }}</textarea>
     </div>
   </div>
 
-  <button class="dugme" type="submit">Kaydet</button>
+  <button class="dugme" type="submit">{{ metin("kaydet") }}</button>
 </form>
 
-<a class="dugme ikincil" href="/cycle/{{ c.id }}">Cycle kartına dön</a>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("cycle_kartina_don") }}</a>
 
 {{ iy.kutu(c.id, "androloji") }}
 {{ gez.cubuk(c, gezinme) }}

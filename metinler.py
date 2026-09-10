@@ -535,6 +535,136 @@ METINLER = {
     "gun_n_kaydini_sil": {"tr": "Bu oositin gün {n} kaydını sil",
                           "en": "Delete this oocyte's day {n} record"},
 
+    # ---- blastokist ----
+    "blastokist_gun_n": {"tr": "Blastokist · Gün {n}", "en": "Blastocyst · Day {n}"},
+    "blast_goc_gerekli": {
+        "tr": "<strong>Veritabanı güncellenmemiş.</strong><br>Kavitasyon "
+              "seçeneği veya derece alanı eksik. Uygulamayı durdurup "
+              "<code>python goc_010.py</code> ve <code>python goc_011.py</code> "
+              "çalıştır.",
+        "en": "<strong>The database has not been updated.</strong><br>The "
+              "cavitation option or the grade field is missing. Stop the "
+              "application and run <code>python goc_010.py</code> and "
+              "<code>python goc_011.py</code>."},
+    "henuz_oosit_yok_kisa": {"tr": "Bu cycle'da henüz oosit yok.",
+                             "en": "There are no oocytes in this cycle yet."},
+    "genisleme": {"tr": "Genişleme", "en": "Expansion"},
+    "genisleme_ipucu": {
+        "tr": "1 erken blastosöl · 2 yarım · 3 tam · 4 genişlemiş · "
+              "5 hatching · 6 hatched",
+        "en": "1 early blastocoel · 2 half · 3 full · 4 expanded · "
+              "5 hatching · 6 hatched"},
+    "derece": {"tr": "Derece", "en": "Grade"},
+    "derece_ipucu": {
+        "tr": "Morula, erken morula ve kavitasyon için. Arrest derecelendirilmez.",
+        "en": "For morula, early morula and cavitation. Arrest is not graded."},
+    "icm": {"tr": "ICM", "en": "ICM"},
+    "trofektoderm": {"tr": "Trofektoderm", "en": "Trophectoderm"},
+    "otomatik_birlestirilir": {"tr": "otomatik birleştirilir",
+                               "en": "combined automatically"},
+    "blast_skor_ipucu": {
+        "tr": "Boş bırakırsan genişleme + ICM + TE birleştirilir (4AA gibi).",
+        "en": "If you leave it empty, expansion + ICM + TE are combined "
+              "(like 4AA)."},
+
+    # ---- androloji (WHO semen analizi terimleri) ----
+    "sperm_ornegi": {"tr": "Sperm örneği", "en": "Semen sample"},
+    "yeni_artı": {"tr": "+ Yeni", "en": "+ New"},
+    "sperm_ornek_ipucu": {
+        "tr": "Genelde tek örnek. Yedek / ikinci örnek gerekiyorsa \"+ Yeni\".",
+        "en": "Usually a single sample. Use \"+ New\" if a back-up or second "
+              "sample is needed."},
+    "ornek_bilgisi": {"tr": "Örnek bilgisi", "en": "Sample details"},
+    "alinma_zamani": {"tr": "Alınma zamanı", "en": "Collection time"},
+    "abstinans_gun": {"tr": "Abstinans (gün)", "en": "Abstinence (days)"},
+    "alinma_yontemi": {"tr": "Alınma yöntemi", "en": "Collection method"},
+    "likefaksiyon_zamani": {"tr": "Likefaksiyon zamanı", "en": "Liquefaction time"},
+    "likefaksiyon_ipucu": {"tr": "Likefaksiyonun tamamlandığı saat.",
+                           "en": "The time liquefaction was complete."},
+    "hazirlama_yontemi": {"tr": "Hazırlama yöntemi", "en": "Preparation method"},
+    "hazirlama_zamani": {"tr": "Hazırlama zamanı", "en": "Preparation time"},
+    "ornek_notu": {"tr": "Örnek notu", "en": "Sample note"},
+    "makroskopik": {"tr": "Makroskopik", "en": "Macroscopic"},
+    "hacim_ml": {"tr": "Hacim (mL)", "en": "Volume (mL)"},
+    "ph": {"tr": "pH", "en": "pH"},
+    "gorunum_renk": {"tr": "Görünüm / renk", "en": "Appearance / colour"},
+    "viskozite": {"tr": "Viskozite", "en": "Viscosity"},
+    "bazal_analiz": {"tr": "Bazal analiz — hazırlık öncesi",
+                     "en": "Baseline analysis — before preparation"},
+    "analiz_zamani": {"tr": "Analiz zamanı", "en": "Analysis time"},
+    "konsantrasyon": {"tr": "Konsantrasyon (milyon/mL)",
+                      "en": "Concentration (million/mL)"},
+    "total_motilite": {"tr": "Total motilite (%)", "en": "Total motility (%)"},
+    "ilerleyen_pr": {"tr": "İlerleyen — PR (%)", "en": "Progressive — PR (%)"},
+    "ilerlemeyen_np": {"tr": "İlerlemeyen — NP (%)",
+                       "en": "Non-progressive — NP (%)"},
+    "hareketsiz_im": {"tr": "Hareketsiz — IM (%)", "en": "Immotile — IM (%)"},
+    "normal_morfoloji": {"tr": "Normal morfoloji (%)", "en": "Normal morphology (%)"},
+    "vitalite": {"tr": "Vitalite (%)", "en": "Vitality (%)"},
+    "tmsc": {"tr": "TMSC (milyon)", "en": "TMSC (million)"},
+    "yuvarlak_hucre": {"tr": "Yuvarlak hücre (milyon/mL)",
+                       "en": "Round cells (million/mL)"},
+    "lokosit": {"tr": "Lökosit (milyon/mL)", "en": "Leukocytes (million/mL)"},
+    "aglutinasyon": {"tr": "Aglütinasyon", "en": "Agglutination"},
+    "bazal_analiz_notu": {"tr": "Bazal analiz notu", "en": "Baseline analysis note"},
+    "tmsc_ipucu": {
+        "tr": "TMSC ≈ hacim × konsantrasyon × motilite/100. Boş bırakılan alan "
+              "\"girilmedi\" olarak saklanır.",
+        "en": "TMSC ≈ volume × concentration × motility/100. A field left empty "
+              "is stored as \"not entered\"."},
+    "hazirlik_sonrasi_analiz": {"tr": "Hazırlık sonrası analiz",
+                                "en": "Post-preparation analysis"},
+    "hazirlik_hacmi": {"tr": "Hazırlık hacmi (mL)", "en": "Preparation volume (mL)"},
+    "hazirlik_sonrasi_not": {"tr": "Hazırlık sonrası not",
+                             "en": "Post-preparation note"},
+
+    # ---- gebelik sonucu ----
+    "bu_cyclede_transfer_edilen": {"tr": "Bu cycle'da transfer edilen",
+                                   "en": "Transferred in this cycle"},
+    "transfer_kaydi_yok_uyari": {
+        "tr": "Bu cycle'da transfer kaydı yok. Sonuç yine de girilebilir, ama "
+              "transferi önce kaydetmek kayıtları birbirine bağlar.",
+        "en": "There is no transfer record in this cycle. The outcome can "
+              "still be entered, but recording the transfer first links the "
+              "records together."},
+    "beta_hcg": {"tr": "Beta hCG", "en": "Beta hCG"},
+    "artis_kat": {"tr": "{h} saatte {k} kat", "en": "{k}-fold in {h} hours"},
+    "beta_girilmedi": {"tr": "Henüz beta hCG değeri girilmedi.",
+                       "en": "No beta hCG value entered yet."},
+    "olcum_zamani": {"tr": "Ölçüm zamanı", "en": "Measurement time"},
+    "beta_ekle": {"tr": "Beta ekle", "en": "Add beta"},
+    "beta_ipucu": {
+        "tr": "Değer sayı olarak saklanır; pozitif/negatif eşiği sonradan "
+              "istediğin gibi uygulanır. Birden fazla ölçüm girersen artış "
+              "hızı hesaplanır.",
+        "en": "The value is stored as a number; you can apply the "
+              "positive/negative threshold however you like later. If you "
+              "enter more than one measurement the rate of rise is calculated."},
+    "klinik_gebelik": {"tr": "Klinik gebelik", "en": "Clinical pregnancy"},
+    "var": {"tr": "Var", "en": "Present"},
+    "yok": {"tr": "Yok", "en": "Absent"},
+    "bilinmiyor": {"tr": "Bilinmiyor", "en": "Unknown"},
+    "gebelik_kesesi_sayisi": {"tr": "Gebelik kesesi sayısı",
+                              "en": "Number of gestational sacs"},
+    "fetal_kalp_atimi": {"tr": "Fetal kalp atımı", "en": "Fetal heartbeat"},
+    "pozitif": {"tr": "Pozitif", "en": "Positive"},
+    "negatif": {"tr": "Negatif", "en": "Negative"},
+    "kontrol_zamani": {"tr": "Kontrol zamanı", "en": "Check time"},
+    "sonlanma": {"tr": "Sonlanma", "en": "Final outcome"},
+    "henuz_belli_degil": {"tr": "— henüz belli değil", "en": "— not yet known"},
+    "sonlanma_ipucu": {
+        "tr": "Zamanla değişir: önce \"devam ediyor\", doğumdan sonra \"canlı "
+              "doğum\". Ulaşılamayan hasta için \"takip kaybı\" — bu, sonuç "
+              "oranlarının doğru çıkması için önemli.",
+        "en": "This changes over time: first \"ongoing\", then \"live birth\" "
+              "after delivery. Use \"lost to follow-up\" for a patient who "
+              "cannot be reached — that matters for the outcome rates to come "
+              "out right."},
+    "dogum_zamani": {"tr": "Doğum zamanı", "en": "Delivery time"},
+    "bebek_sayisi": {"tr": "Bebek sayısı", "en": "Number of babies"},
+    "sonucu_kaydet": {"tr": "Sonucu kaydet", "en": "Save outcome"},
+    "son_guncelleme": {"tr": "Son güncelleme:", "en": "Last updated:"},
+
     # ---- denüdasyon ----
     "kamera_klasoru_yok": {"tr": "Kamera klasörü bulunamadı:",
                            "en": "Camera folder not found:"},
