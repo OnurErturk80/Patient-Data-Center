@@ -2,7 +2,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_kucukfoto.html" as kf %}
-{% block ustbaslik %}Vitrifikasyon{% endblock %}
+{% block ustbaslik %}{{ metin("asama_vitrifikasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
@@ -17,7 +17,7 @@
 {% set dondurulmus = embriyolar|selectattr('tasiyici_id')|list %}
 {% if dondurulmus %}
 <div class="kart">
-  <h2>Dondurulmuş ({{ dondurulmus|length }})</h2>
+  <h2>{{ metin("dondurulmus") }} ({{ dondurulmus|length }})</h2>
   {% for e in dondurulmus %}
   <div class="fsatir">
     {{ kf.kucuk(e) }}
@@ -29,8 +29,8 @@
         {% if e.konum %} · {{ e.konum }}{% endif %}
       </div>
       <div class="meta" style="margin-top:6px">
-        <a href="/cryo/tasiyici/{{ e.tasiyici_id }}/thaw">çöz</a> ·
-        <a href="/specimen/{{ e.id }}/vit-sil" style="color:#a11f1f">kaydı geri al</a>
+        <a href="/cryo/tasiyici/{{ e.tasiyici_id }}/thaw">{{ metin("coz") }}</a> ·
+        <a href="/specimen/{{ e.id }}/vit-sil" style="color:#a11f1f">{{ metin("kaydi_geri_al") }}</a>
       </div>
     </div>
   </div>
@@ -40,13 +40,13 @@
 
 {% set adaylar = embriyolar|rejectattr('tasiyici_id')|list %}
 {% if not adaylar %}
-<div class="kart"><div class="bos">Dondurulacak embriyo kalmadı.</div></div>
+<div class="kart"><div class="bos">{{ metin("dondurulacak_kalmadi") }}</div></div>
 {% else %}
 
 <form method="post" action="/cycle/{{ c.id }}/vitrifikasyon" id="vitform">
 
   <div class="kart">
-    <h2>Dondurulacak embriyolar</h2>
+    <h2>{{ metin("dondurulacak_embriyolar") }}</h2>
     {% for e in adaylar %}
     <label class="secsatir">
       <input type="checkbox" name="embriyo" value="{{ e.id }}">
@@ -54,34 +54,33 @@
       {{ kf.kucuk(e) }}
       <span class="bilgi">
         <strong>{{ ornek_adi('vitrifikasyon', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
-        {% if e.skor %}<em>{{ e.skor }}{% if e.gun %} · gün {{ e.gun }}{% endif %}</em>
-        {% else %}<em>değerlendirilmemiş</em>{% endif %}
+        {% if e.skor %}<em>{{ e.skor }}{% if e.gun %} · {{ metin("gun_n").format(n=e.gun) }}{% endif %}</em>
+        {% else %}<em>{{ metin("degerlendirilmemis") }}</em>{% endif %}
       </span>
     </label>
     {% endfor %}
     <div class="alan" style="border:0">
-      <div class="ipucu">Aynı taşıyıcıya konacakları birlikte seç.
-      Farklı taşıyıcılara koyacaksan ayrı ayrı kaydet.</div>
+      <div class="ipucu">{{ metin("ayni_tasiyici_ipucu") }}</div>
     </div>
   </div>
 
   <div class="kart">
-    <h2>Taşıyıcı</h2>
+    <h2>{{ metin("tasiyici") }}</h2>
     <div class="alan">
-      <label for="etiket">Etiket</label>
+      <label for="etiket">{{ metin("etiket") }}</label>
       <input id="etiket" name="etiket" type="text" required autocomplete="off"
              value="{{ onerilen }}">
-      <div class="ipucu">Laboratuvar geneli benzersiz olmalı.</div>
+      <div class="ipucu">{{ metin("etiket_benzersiz") }}</div>
     </div>
     <div class="alan ikili">
       <div>
-        <label for="tip">Tip</label>
+        <label for="tip">{{ metin("tip") }}</label>
         <select id="tip" name="tip">
           {% for t in tipler %}<option value="{{ t.kod }}">{{ t.etiket }}</option>{% endfor %}
         </select>
       </div>
       <div>
-        <label for="renk">Renk</label>
+        <label for="renk">{{ metin("renk") }}</label>
         <select id="renk" name="renk">
           <option value="">—</option>
           {% for r in renkler %}<option value="{{ r.kod }}">{{ r.etiket }}</option>{% endfor %}
@@ -91,7 +90,7 @@
   </div>
 
   <div class="kart">
-    <h2>Konum</h2>
+    <h2>{{ metin("konum") }}</h2>
     {% for s in sema %}
     <div class="alan">
       <label for="seviye{{ s.seviye_sirasi }}">{{ s.seviye_adi }}</label>
@@ -100,24 +99,23 @@
     </div>
     {% endfor %}
     <div class="alan" style="border:0;padding-top:0">
-      <div class="ipucu">Tank haritasındaki yeri. Boş bırakılırsa konum kaydedilmez —
-      taşıyıcı sistemde görünür ama nerede olduğu bilinmez.</div>
+      <div class="ipucu">{{ metin("konum_ipucu") }}</div>
     </div>
   </div>
 
   <div class="kart">
     <div class="alan">
-      <label for="islem_zamani">Vitrifikasyon saati</label>
+      <label for="islem_zamani">{{ metin("vitrifikasyon_saati") }}</label>
       <input id="islem_zamani" name="islem_zamani" type="datetime-local" value="{{ simdi }}">
     </div>
   </div>
 
-  <button class="dugme" type="submit">Vitrifikasyonu kaydet</button>
+  <button class="dugme" type="submit">{{ metin("vitrifikasyonu_kaydet") }}</button>
 </form>
 {% endif %}
 
-<a class="dugme ikincil" href="/cycle/{{ c.id }}/thaw">Çözme ekranı</a>
-<a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/thaw">{{ metin("cozme_ekrani") }}</a>
+<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 
 <script>
 document.querySelectorAll('.secsatir input').forEach(function (i) {

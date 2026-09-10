@@ -258,6 +258,81 @@ METINLER = {
     "bekleyen_kare": {"tr": "Bekleyen kare", "en": "Waiting frame"},
     "buyut": {"tr": "büyüt", "en": "enlarge"},
 
+    # ---- vitrifikasyon ----
+    "dondurulmus": {"tr": "Dondurulmuş", "en": "Frozen"},
+    "coz": {"tr": "çöz", "en": "thaw"},
+    "kaydi_geri_al": {"tr": "kaydı geri al", "en": "undo record"},
+    "dondurulacak_kalmadi": {"tr": "Dondurulacak embriyo kalmadı.",
+                             "en": "No embryos left to freeze."},
+    "dondurulacak_embriyolar": {"tr": "Dondurulacak embriyolar",
+                                "en": "Embryos to freeze"},
+    "degerlendirilmemis": {"tr": "değerlendirilmemiş", "en": "not assessed"},
+    "gun_n": {"tr": "gün {n}", "en": "day {n}"},
+    "ayni_tasiyici_ipucu": {
+        "tr": "Aynı taşıyıcıya konacakları birlikte seç. Farklı taşıyıcılara "
+              "koyacaksan ayrı ayrı kaydet.",
+        "en": "Select together the ones going onto the same carrier. Record "
+              "them separately if they go onto different carriers."},
+    "tasiyici": {"tr": "Taşıyıcı", "en": "Carrier"},
+    "etiket": {"tr": "Etiket", "en": "Label"},
+    "etiket_benzersiz": {"tr": "Laboratuvar geneli benzersiz olmalı.",
+                         "en": "Must be unique across the laboratory."},
+    "renk": {"tr": "Renk", "en": "Colour"},
+    "konum": {"tr": "Konum", "en": "Location"},
+    "konum_ipucu": {
+        "tr": "Tank haritasındaki yeri. Boş bırakılırsa konum kaydedilmez — "
+              "taşıyıcı sistemde görünür ama nerede olduğu bilinmez.",
+        "en": "Its place on the tank map. If left empty no location is "
+              "recorded — the carrier appears in the system but where it sits "
+              "is unknown."},
+    "vitrifikasyon_saati": {"tr": "Vitrifikasyon saati", "en": "Vitrification time"},
+    "vitrifikasyonu_kaydet": {"tr": "Vitrifikasyonu kaydet",
+                              "en": "Save vitrification"},
+    "cozme_ekrani": {"tr": "Çözme ekranı", "en": "Thaw screen"},
+
+    # ---- transfer ----
+    "bu_cyclede_transfer": {"tr": "Bu cycle'da transfer edilenler",
+                            "en": "Transferred in this cycle"},
+    "donmus": {"tr": "donmuş", "en": "frozen"},
+    "taze": {"tr": "taze", "en": "fresh"},
+    "cozulmus": {"tr": "çözülmüş", "en": "thawed"},
+    "transfer_edilebilir_yok": {"tr": "Transfer edilebilir embriyo yok.",
+                                "en": "No embryos available for transfer."},
+    "transfer_aday_ipucu": {
+        "tr": "Taze embriyolar blastokist/gün 3 aşamasında, dondurulmuşlar "
+              "çözüldükten sonra listelenir.",
+        "en": "Fresh embryos are listed at the blastocyst / day 3 stage; "
+              "frozen ones after they have been thawed."},
+    "transfer_edilecek_embriyolar": {"tr": "Transfer edilecek embriyolar",
+                                     "en": "Embryos to transfer"},
+    "transfer_ipucu": {
+        "tr": "Hastanın tüm cycle'larından uygun embriyolar listelenir. "
+              "Çözülmüş embriyolar \"donmuş transfer\", diğerleri \"taze\" "
+              "olarak kaydedilir.",
+        "en": "Eligible embryos from all of this patient's cycles are listed. "
+              "Thawed embryos are recorded as \"frozen transfer\", the rest "
+              "as \"fresh\"."},
+    "transfer_saati": {"tr": "Transfer saati", "en": "Transfer time"},
+    "transferi_kaydet": {"tr": "Transferi kaydet", "en": "Save transfer"},
+    "cycle_kartina_don": {"tr": "Cycle kartına dön", "en": "Back to cycle card"},
+
+    # ---- taşıyıcı ----
+    "girilmemis": {"tr": "girilmemiş", "en": "not entered"},
+    "icerik": {"tr": "İçerik", "en": "Contents"},
+    "canli": {"tr": "Canlı", "en": "Surviving"},
+    "sagkalim": {"tr": "Sağkalım", "en": "Survival"},
+    "ort_canlilik": {"tr": "Ort. canlılık", "en": "Avg. viability"},
+    "tasiyicida_n_embriyo": {
+        "tr": "Bu taşıyıcıda {n} embriyo var. Çözüldüğünde hepsi etkilenir.",
+        "en": "This carrier holds {n} embryos. Thawing affects all of them."},
+    "icindeki_embriyolar": {"tr": "İçindeki embriyolar",
+                            "en": "Embryos on this carrier"},
+    "cyclei_ac": {"tr": "cycle'ı aç", "en": "open cycle"},
+    "tasiyici_bosaltilmis": {"tr": "Bu taşıyıcı boşaltılmış.",
+                             "en": "This carrier has been emptied."},
+    "bu_tasiyiciyi_coz": {"tr": "Bu taşıyıcıyı çöz", "en": "Thaw this carrier"},
+    "tasiyici_bosaltildi": {"tr": "boşaltıldı", "en": "emptied"},
+
     # ---- denüdasyon ----
     "kamera_klasoru_yok": {"tr": "Kamera klasörü bulunamadı:",
                            "en": "Camera folder not found:"},

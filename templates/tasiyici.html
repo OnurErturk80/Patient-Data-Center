@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% import "_kucukfoto.html" as kf %}
-{% block ustbaslik %}Taşıyıcı{% endblock %}
+{% block ustbaslik %}{{ metin("tasiyici") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ t.etiket }}</div>
   <div class="alt">
     {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
-    {% if t.durum != 'dolu' %}<span class="rozet arsiv">{{ t.durum }}</span>{% endif %}
+    {% if t.durum != "dolu" %}<span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>{% endif %}
   </div>
 </div>
 {% endblock %}
@@ -15,10 +15,10 @@
 
 <div class="kart">
   <dl style="margin:0">
-    <div class="veri"><dt>Konum</dt>
-      <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or 'girilmemiş' }}</dd></div>
-    <div class="veri"><dt>Vitrifikasyon</dt><dd>{{ t.vitrifikasyon_zamani or '—' }}</dd></div>
-    <div class="veri"><dt>İçerik</dt><dd>{{ icerik|length }} embriyo</dd></div>
+    <div class="veri"><dt>{{ metin("konum") }}</dt>
+      <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or metin("girilmemis") }}</dd></div>
+    <div class="veri"><dt>{{ metin("asama_vitrifikasyon") }}</dt><dd>{{ t.vitrifikasyon_zamani or '—' }}</dd></div>
+    <div class="veri"><dt>{{ metin("icerik") }}</dt><dd>{{ metin("n_embriyo").format(n=icerik|length) }}</dd></div>
   </dl>
 </div>
 
@@ -26,23 +26,23 @@
 <div class="kart">
   <div class="ozet">
     <div><div class="sayi">{{ ozet.canli }}/{{ ozet.toplam }}</div>
-         <div class="etiket">Canlı</div></div>
+         <div class="etiket">{{ metin("canli") }}</div></div>
     <div><div class="sayi">%{{ ozet.oran }}</div>
-         <div class="etiket">Sağkalım</div></div>
+         <div class="etiket">{{ metin("sagkalim") }}</div></div>
     <div><div class="sayi">{{ ('%' ~ ozet.ortalama_canlilik) if ozet.ortalama_canlilik is not none else '—' }}</div>
-         <div class="etiket">Ort. canlılık</div></div>
+         <div class="etiket">{{ metin("ort_canlilik") }}</div></div>
   </div>
 </div>
 {% endif %}
 
 {% if icerik|length > 1 %}
 <div class="uyari">
-  Bu taşıyıcıda {{ icerik|length }} embriyo var. Çözüldüğünde hepsi etkilenir.
+  {{ metin("tasiyicida_n_embriyo").format(n=icerik|length) }}
 </div>
 {% endif %}
 
 <div class="kart">
-  <h2>İçindeki embriyolar</h2>
+  <h2>{{ metin("icindeki_embriyolar") }}</h2>
   {% for e in icerik %}
   <div class="fsatir">
     {{ kf.kucuk(e) }}
@@ -50,19 +50,19 @@
       <div class="no">{{ e.dosya_no }}</div>
       <div class="ad">{{ e.ad_soyad }}</div>
       <div class="meta">
-        {{ e.cycle_no }} · oosit {{ e.cycle_sira_no }}{% if e.skor %} · {{ e.skor }}{% endif %}
+        {{ e.cycle_no }} · {{ metin("oosit_n").format(n=e.cycle_sira_no)|lower }}{% if e.skor %} · {{ e.skor }}{% endif %}
       </div>
-      <div class="meta"><a href="/cycle/{{ e.cycle_id }}">cycle'ı aç</a></div>
+      <div class="meta"><a href="/cycle/{{ e.cycle_id }}">{{ metin("cyclei_ac") }}</a></div>
     </div>
   </div>
   {% else %}
-  <div class="bos">Bu taşıyıcı boşaltılmış.</div>
+  <div class="bos">{{ metin("tasiyici_bosaltilmis") }}</div>
   {% endfor %}
 </div>
 {% if t.durum == 'dolu' and icerik %}
-{% if yetkim("thaw") %}<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw">Bu taşıyıcıyı çöz</a>{% endif %}
+{% if yetkim("thaw") %}<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw">{{ metin("bu_tasiyiciyi_coz") }}</a>{% endif %}
 {% endif %}
-<a class="dugme ikincil" href="/cryo">Cryo haritası</a>
+<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 
 {% include "_buyutec.html" %}
 {{ kf.baglama() }}
