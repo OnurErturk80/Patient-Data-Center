@@ -88,6 +88,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.20 — bilgi kartı düzeni: her aşamada aynı](#v620--bilgi-kartı-düzeni-her-aşamada-aynı)
 - [v6.21 — bilgi kartı düzeni: kalan beş ekran](#v621--bilgi-kartı-düzeni-kalan-beş-ekran)
 - [v6.22 — düzen artık gerçekten her ekranda aynı](#v622--düzen-artık-gerçekten-her-ekranda-aynı)
+- [v6.23 — örnek kodu, ilk kare, hasta adı önde](#v623--örnek-kodu-ilk-kare-hasta-adı-önde)
 
 ---
 
@@ -2882,3 +2883,61 @@ konan kuralın aynısı.
   karta dönüyor), hiç oositi olmayan cycle
 - Androloji: kart → Düzenle → kaydet → kart; hatalı girişte form açık kalıyor
 - İki dilde; 31 ekran 200, JS hatası yok
+
+---
+
+# v6.23 — örnek kodu, ilk kare, hasta adı önde
+
+Dört ayrı düzeltme.
+
+## Denüdasyondaki ikinci over seçicisi kalktı
+
+"Bundan sonraki oositler için over" seçicisi ekleme kartındaydı; aynı seçim
+bilgi kartındaki **Düzenle**'de de var. Kullanıcı ikincisinin yettiğini söyledi.
+
+**Karşılığı var:** eski seçici bir kez "Sağ" deyip o overden gelen bütün
+oositleri sağ olarak kaydetmeye yarıyordu. Artık yeni oositler over'sız
+açılıyor ve her birinin over'ı tek tek giriliyor. 20 oositlik bir cycle'da bu
+20 ayrı düzenleme demek — geri istenirse seçici geri gelir.
+
+## Örnek kodu fotoğrafın altında
+
+`527078-2026-0001-03` kodu artık ana fotoğrafın altında yazıyor.
+
+Kod **oosit → zigot → embriyo boyunca değişmiyor** (`specimen.id` sabit,
+CLAUDE.md'deki "soyağacı böyle korunur" kuralı), o yüzden aynı kod
+denüdasyon, ICSI, fertilizasyon, gün 2/3 ve blastokist ekranlarında aynı
+yerde çıkıyor. "Bu blastokist hangi oositten çıktı" sorusu ekrandan
+okunabiliyor.
+
+## Aşama ekranları ilk kareyi gösteriyor
+
+Bir aşama ekranı açılınca **son** kare geliyordu. Dört sorgu
+`ORDER BY g.id DESC LIMIT 1` diyordu (ICSI, fertilizasyon, gün 2/3,
+blastokist), denüdasyon şablonunda da `kareler[-1]` vardı. Hepsi ilk kareye
+çevrildi. Kare şeridi ve büyüteç zaten sıralı geziyor.
+
+## Hasta adı üstte ve büyük
+
+Kimlik bandında dosya no 34px ile en üstteydi, ad altında 17px. Kullanıcının
+isteği: **ad üstte ve büyük, dosya no altında.** Aynı sıralama hasta
+listesinde de.
+
+Sıra **şablonda değil CSS'te** çevrildi: kimlik bandı 31 şablonda aynı sırayla
+basılıyor ve hepsini tek tek düzenlemek tuzak #1'in tarifi. `display: flex` +
+`order` ile tek yerden dönüyor, hiçbir şablonun HTML'ine dokunulmadı.
+
+İki ekranda hasta adı yok (taşıyıcı detayı, çözme) — orada `.dosya` başlığın
+kendisi. Onlar `kimlik tekli` diye işaretlendi, küçülmüyorlar.
+
+Hasta listesindeki sıralama `.satir.hasta`ya daraltıldı: `.satir` taşıyıcı,
+cycle, kullanıcı ve geçmiş listelerinde de kullanılıyor ve orada `.no` başlık
+görevinde — hepsini çevirmek onları bozardı.
+
+## Test edildi
+
+- Çok kareli bir oositle: aşama ekranları ilk kareyi gösteriyor
+- Örnek kodu beş ekranda da fotoğrafın altında, iki dilde
+- Kimlik bandı ve hasta listesi: ad üstte; taşıyıcı/çözme başlıkları küçülmedi;
+  cycle ve kullanıcı listeleri değişmedi
+- 31 ekran 200, JS hatası yok

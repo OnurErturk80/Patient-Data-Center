@@ -96,7 +96,19 @@ Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, tran
 ## Değişmeyen kurallar
 
 **Hasta kimliği her ekranda görünür.** Yanlış hasta bu işin en pahalı hatası.
-Üst çubuk sticky, dosya no koyu bantta.
+Üst çubuk sticky, kimlik koyu bantta: **ad üstte ve büyük, dosya no altında**
+(v6.23; öncesinde tersiydi). Bandın sırası 31 şablonda aynı HTML'le basılıyor
+ve **CSS'te** çevriliyor (`.kimlik` flex + `order`) — sırayı değiştireceksen
+şablonlara dokunma, tuzak #1. Hasta adı olmayan ekranlar (taşıyıcı, çözme)
+`kimlik tekli` sınıfını alır.
+
+**Örnek kodu ana fotoğrafın altında yazar.** `527078-2026-0001-03` kodu
+oosit → zigot → embriyo boyunca değişmediği için aynı kod her aşama ekranında
+aynı yerde çıkar; soyağacı ekrandan okunur. Yeni bir aşama ekranı yazarsan
+fotoğrafın altına `<div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>` koy.
+
+**Aşama ekranı ilk kareyi gösterir, sonuncuyu değil** (v6.23). Ana fotoğrafı
+seçen sorgu `ORDER BY g.id LIMIT 1` olmalı; `DESC` yazma.
 
 **Ekran düzeni her aşamada aynı: üstte örnekler, altta bilgi kartı.** Bir
 örneğe basınca altında salt okunur bilgi kartı açılır; değiştirmek "Düzenle"
