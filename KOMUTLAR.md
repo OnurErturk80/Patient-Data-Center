@@ -1,7 +1,7 @@
 # Komut kartı
 
-Ara sıra lazım olan komutlar, tek sayfada. Anlatı yok — nedenleri
-`MAKINE_GECISI.md` ve `README.md` içinde.
+Ara sıra lazım olan komutlar, tek sayfada. Bir kararın **nedenini**
+arıyorsan `CLAUDE.md` (kurallar) ve `README.md` (sürüm sürüm gerekçeler).
 
 Hepsi **proje klasörünün kökünde** çalışır:
 
@@ -131,6 +131,43 @@ git push origin main                 # gönder
 `git pull` **kodu** getirir, **hasta verisini getirmez** — veri `.gitignore`'da.
 
 Çakışma (`conflict`) çıkarsa **dur**, Claude Code'a sor.
+
+---
+
+## Sık sorunlar
+
+**`git pull` → "conflict" (çakışma)**
+İki makinede aynı dosyayı değiştirip ikisini de commit etmişsin. **Dur.**
+Claude Code'a "pull çakışması var" de, birlikte çözün.
+`git checkout --theirs/--ours` gibi komutları tek başına deneme.
+
+**`git push` → "rejected" / "non-fast-forward"**
+Diğer makineden push edilmiş, sen pull etmemişsin.
+Önce `git pull origin main`, çakışma yoksa tekrar push.
+
+**`git pull` → "refusing to merge unrelated histories"**
+Klasör `git init` ile kurulmuş; doğrusu boş bir yere `git clone`.
+Klasörü `..._eski` diye yeniden adlandır, sonra:
+```
+git clone https://github.com/OnurErturk80/Patient-Data-Center.git "Patient Data Center"
+```
+`_eski`'den yeni klasöre taşı: `lab.db`, `arsiv/`, `snapshot/`,
+`yerel_ayar.json`. Sonra `python3 goc_hepsi.py`.
+
+**`git pull` çalışmıyor, `.git` yok**
+Klasör ZIP ile kurulmuş. Yukarıdaki `git clone` adımını uygula.
+
+**`git status` → "ahead of 'origin/main' by N commits"**
+Commit etmişsin, push etmemişsin. `git push origin main`.
+
+**Bir ekran veya gün eksik görünüyor**
+Göç çalıştırmayı unutmuşsun: `python3 goc_hepsi.py`.
+
+**Hasta verisi yanlışlıkla git'e girmiş mi?**
+```
+git ls-files | grep -E "lab.db|arsiv/|snapshot/|yerel_ayar"
+```
+Boş dönmeli. Bir şey dönerse Claude Code'a haber ver.
 
 ---
 

@@ -24,8 +24,8 @@ re-expansion, FET). Kullanıcı klinik doğruluk konusunda uzman, kod konusunda
 
 ## Çalıştırma
 
-Ara sıra lazım olan bütün komutlar tek sayfada: **`KOMUTLAR.md`**.
-Nedenler ve akış anlatısı `MAKINE_GECISI.md`'de.
+Ara sıra lazım olan bütün komutlar tek sayfada: **`KOMUTLAR.md`**
+(veri taşıma, yedek, göçler, kullanıcı, git, sık sorunlar).
 
 Komutlar proje klasörünün kökünde çalışır (v6.1'de `app/` alt klasörü
 kaldırıldı — README v6.1 bölümü):
