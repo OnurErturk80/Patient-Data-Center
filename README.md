@@ -94,6 +94,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.26 — ana ekranda sol menü](#v626--ana-ekranda-sol-menü)
 - [v6.27 — her ekranın üstünde ana menüye dönüş](#v627--her-ekranın-üstünde-ana-menüye-dönüş)
 - [v6.28 — ana ekran yapılacaklar listesi, cycle'ın bitişi](#v628--ana-ekran-yapılacaklar-listesi-cyclein-bitişi)
+- [v6.29 — bugün bitenler, ay ay hasta kayıtları](#v629--bugün-bitenler-ay-ay-hasta-kayıtları)
 
 ---
 
@@ -3263,3 +3264,99 @@ diyor ve embriyo dondurmanın yanında klinik "discard" ile karışırdı.
 - Sebepsiz ve uydurma sebeple POST reddediliyor; `?hata=` beyaz listeden
   geçiyor (tuzak #9), liste dışı anahtar ekrana basılmıyor
 - 29 ekran 200, 390px ve 1280px'te yatay taşma yok, JS hatası yok, iki dilde
+
+---
+
+# v6.29 — bugün bitenler, ay ay hasta kayıtları
+
+v6.28'in üç devamı, hepsi kullanıcının isteği.
+
+## 1. "İşlemi bitir" vitrifikasyon ve transferde de
+
+v6.28'de düğme yalnızca cycle ekranındaydı. Oysa işin gerçekten bittiği yer
+çoğu zaman vitrifikasyon ya da transfer ekranı; oradan cycle ekranına dönmek
+gereksiz bir adım.
+
+Düğme `_bitir.html` `dugme(c)` makrosunda, üç şablon da onu çağırıyor. Tek
+yerde durmasının sebebi koşulun ve yazının üçünde aynı kalması: yalnızca
+`durum='aktif'` cycle'da basılıyor, bitmiş olanda yerini cycle ekranındaki
+"Listeye geri al" kartı alıyor. İki aşama ekranında düğme **"işlemi yapan"
+kutusunun altında** — önce kim yaptı yazılır, sonra iş kapatılır.
+
+## 2. Ana ekranda "Bugün bitenler"
+
+v6.28'de ana ekranda bitenlere yalnızca bir bağlantı vardı. Kullanıcı gün
+sonunda "bugün neyi kapattım" diye bakabilmek istedi, **ve her gün
+yenilenmesini**.
+
+Kart `date(c.bitis_zamani) = date('now','localtime')` ile besleniyor: gece
+yarısı kendiliğinden boşalıyor, saklanan bir "bugünün listesi" yok. Ölçü
+`localtime`, çünkü sunucu klinikte duruyor ve doğru gün yerel gün.
+Tamamı "Tümü" bağlantısıyla `/bitenler`'de.
+
+## 3. Hasta kayıtları ay ay
+
+`/hastalar` iki işi olan tek ekran oldu:
+
+**Arama boşken** o ayın cycle'ları — "bu ay hangi vakaları yaptık". Üstte
+`‹ Eylül 2026 ›` gezgini, bulunduğumuz ayda değilsek altında **"Bu ay"**
+düğmesi. Ay geçişi `_ay_kaydir()` ile, yıl sınırını kendisi çeviriyor
+(Ocak'tan geri → önceki yılın Aralık'ı). `?ay=13` gibi bir değer sessizce
+bulunduğumuz aya düşüyor.
+
+**Ayın ölçüsü OPU tarihi**, yoksa cycle'ın açıldığı tarih — kullanıcının
+seçimi. Üç seçenek sunulmuştu (OPU tarihi / cycle'ın açıldığı tarih / hasta
+kaydının açıldığı tarih); "bu ay kaç vaka yaptık" sorusunun cevabı OPU.
+FET'te OPU olmadığı için orada cycle'ın açıldığı tarihe düşülüyor.
+
+Satır **cycle başına**, hasta başına değil: aynı hastanın Mart ve
+Temmuz'daki iki cycle'ı iki ayrı satır, çünkü soru "kim kayıtlı" değil "ne
+zaman ne yapıldı".
+
+**Arama doluyken** ay süzgeci yok sayılıyor ve **hasta** satırları dönüyor.
+Dosya no ya da ad aranıyorsa amaç kişiyi bulmaktır; hangi ayda olduğu
+bilinseydi zaten aranmazdı. Arama kutusu ekranın en üstünde, her iki kipte
+de görünür.
+
+### Arşivlenmiş hastanın cycle'ı ay listesinde görünür
+
+Ana ekranın yapılacaklarında görünmüyor (hasta arşivi "bu dosya kapandı"
+demek), ama ay listesi bir **iş kaydı**: o cycle o ay yapıldı, dosyanın
+sonradan kapanmış olması onu yapılmamış saymaz. Karışmasın diye satırda
+"Arşiv" rozeti var. `?arsiv=1` eskisi gibi duruyor: arşivlenmiş hastaların
+listesi, ay yok.
+
+### Ekrandan kalkanlar
+
+Hasta kayıtlarının altındaki **"Yönetim"** ve **"Şifre değiştir"** düğmeleri
+kaldırıldı. İkisi de v6.26'dan beri ana menüde ve ana ekran her sayfadan tek
+dokunuş uzakta (v6.27 ev simgesi); ekran zaten ay gezgini + liste + düğmeler
+ile uzamıştı. Geri istenirse tek satır.
+
+## Ay adları `metinler.py`'de
+
+`strftime("%B")` kullanılmadı: o işletim sisteminin yerel ayarına bağlı ve
+Windows mini PC'de İngilizce çıkabilirdi. `ay_1`…`ay_12` anahtarları var,
+ekrana `ay_adi(yil, ay)` Jinja global'i basıyor.
+
+## `cycle_listesi()` tek fonksiyon, dört görünüm
+
+Ana ekranın yapılacaklarını, bugün bitenleri, `/bitenler` arşivini ve ay
+listesini aynı sorgu üretiyor (`bitmis`, `bugun`, `ay` parametreleri). Satır
+da tek: `_cyclesatir.html` `satir(s, kip)` — `yapilacak` OPU günü ve son
+işlemi, `bitmis` bitiş sebebi ve tarihini, `ay` işlem tarihini gösteriyor.
+Dört liste aynı görünsün diye.
+
+## Test edildi
+
+- Bitir düğmesi: aktif cycle'ın cycle / vitrifikasyon / transfer ekranında
+  var; bitmiş cycle'da üçünde de yok
+- Bugün bitenler: bugün bitirilen görünüyor; `bitis_zamani` bir gün geriye
+  çekilince karttan düşüyor ama `/bitenler`'de duruyor
+- Ay gezgini: Ocak'tan geri → Aralık 2025, Aralık'tan ileri → Ocak 2026;
+  `?ay=13` bulunduğumuz aya düşüyor; "Bu ay" yalnızca başka aydayken
+  görünüyor ve `/hastalar`'a dönüyor (tarayıcıda tıklanarak da denendi)
+- Arama: dosya no ve ad ile çalışıyor, ay süzgecini yok sayıyor, hasta
+  satırı döndürüyor; boş sonuç mesajı çıkıyor
+- Arşivlenmiş hasta: ay listesinde "Arşiv" rozetiyle var, yapılacaklarda yok
+- 31 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok

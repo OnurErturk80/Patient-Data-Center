@@ -19,13 +19,24 @@
    ekranda hasta adi yoktu; v6.28'de kullanici kurali kendi istegiyle gevsetti
    -- adsiz bir liste her sabah bakilan klasorun isini gormuyor. #}
 <div class="kart" style="margin-top:16px">
-  <h2 class="ikili">
-    <span>{{ metin("yapilacaklar") }}{% if liste %} <span class="rozet">{{ liste|length }}</span>{% endif %}</span>
-    <a href="/bitenler" style="font-size:13px;font-weight:400">{{ metin("biten_islemler") }}</a>
-  </h2>
+  <h2>{{ metin("yapilacaklar") }}{% if liste %} <span class="rozet">{{ liste|length }}</span>{% endif %}</h2>
   {% for s in liste %}{{ cs.satir(s) }}
   {% else %}
   <div class="bos">{{ metin("yapilacak_yok") }}</div>
+  {% endfor %}
+</div>
+
+{# Bugun bitenler. Olcu `date('now','localtime')` oldugu icin kart her gece
+   kendiliginden bosaliyor -- gun sonunda "bugun neyi kapattim" sorusunun
+   cevabi, kalici bir liste degil. Tamami "Tumu" ile /bitenler'de (v6.29). #}
+<div class="kart" style="margin-top:16px">
+  <h2 class="ikili">
+    <span>{{ metin("bugun_bitenler") }}{% if bugun_bitenler %} <span class="rozet">{{ bugun_bitenler|length }}</span>{% endif %}</span>
+    <a href="/bitenler" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>
+  </h2>
+  {% for s in bugun_bitenler %}{{ cs.satir(s, "bitmis") }}
+  {% else %}
+  <div class="bos" style="padding:20px 16px">{{ metin("bugun_biten_yok") }}</div>
   {% endfor %}
 </div>
 

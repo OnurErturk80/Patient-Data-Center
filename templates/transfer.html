@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
+{% import "_bitir.html" as bt %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_kucukfoto.html" as kf %}
 {% import "_ornekkart.html" as ok %}
@@ -98,5 +99,6 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
 });
 </script>
 {{ iy.kutu(c.id, "transfer") }}
+{{ bt.dugme(c) }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

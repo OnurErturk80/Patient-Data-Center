@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gez %}
+{% import "_bitir.html" as bt %}
 {% block ustbaslik %}{{ metin("cycle") }}{% endblock %}
 {% block ustsag %}<a href="/cycle/{{ c.id }}/duzenle">{{ metin("duzenle") }}</a> · <a href="/cycle/{{ c.id }}/sil">{{ metin("sil") }}</a>{% endblock %}
 {% block geri %}<a class="geri" href="/hasta/{{ c.hasta_id }}">&#8249;</a>{% endblock %}
@@ -115,9 +116,8 @@
    cikmasin diye o dugme `not c.bitis_sebebi` ile susturuluyor.
    Onemli fark: burasi `yetkim("silme")` istemiyor -- bitirmek gunluk bir
    is, silmek degil. #}
-{% if c.durum == "aktif" %}
-<a class="dugme ikincil" href="/cycle/{{ c.id }}/bitir">{{ metin("islemi_bitir") }}</a>
-{% elif c.durum == "tamamlandi" or c.bitis_sebebi %}
+{{ bt.dugme(c) }}
+{% if c.durum == "tamamlandi" or c.bitis_sebebi %}
 <div class="kart bilgikart" style="margin-top:16px">
   <h2><span>{{ metin("bitis_" ~ c.bitis_sebebi) if c.bitis_sebebi else metin("tamamlandi_rozet") }}
     <span class="rozet">{{ metin("iptal_rozet") if c.durum == "iptal" else metin("tamamlandi_rozet") }}</span></span></h2>

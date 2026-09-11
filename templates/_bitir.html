@@ -1,0 +1,12 @@
+{# "İşlemi bitir" düğmesi. Üç ekranda duruyor: cycle ekranı, vitrifikasyon ve
+   transfer (v6.29) — işin gerçekten bittiği yer çoğu zaman o iki aşama, oraya
+   koymak cycle ekranına dönmeyi gereksiz kılıyor.
+
+   Tek yerde durmasının sebebi yazının ve koşulun üçünde de aynı kalması:
+   yalnızca `durum='aktif'` cycle'da basılıyor, bitmiş olanda yerini cycle
+   ekranındaki "Listeye geri al" kartı alıyor. #}
+{% macro dugme(c) %}
+{% if c.durum == "aktif" %}
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/bitir">{{ metin("islemi_bitir") }}</a>
+{% endif %}
+{% endmacro %}

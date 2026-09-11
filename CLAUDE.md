@@ -157,7 +157,10 @@ ekleme.
 laboratuvarda işi bitmemiş hastaların formları bir klasörde durur, her sabah
 ona bakılır, iş bitince form arşive kaldırılır. `/` tam bunun karşılığı —
 `durum='aktif'` cycle'lar, hasta adı, dosya no, cycle no, OPU günü ve son
-işlem. Altında sayı özeti, en altta menü.
+işlem. Altında **"Bugün bitenler"** (v6.29) — ölçü
+`date(bitis_zamani) = date('now','localtime')`, yani kart her gece
+kendiliğinden boşalıyor; saklanan bir "bugünün listesi" yok, olmasın da.
+Sonra sayı özeti, en altta menü.
 
 > v6.18'de bu ekranda **hasta adı yoktu** (ekrana bakan herkes listeyi
 > görüyordu). Kuralı v6.28'de **kullanıcı kendi isteğiyle gevşetti**: adsız
@@ -168,7 +171,10 @@ işlem. Altında sayı özeti, en altta menü.
 olağan: `bitis_sebebi` ∈ `dondurma` | `transfer` | `iptal`. İlk ikisi
 `durum='tamamlandi'`, üçüncüsü silme ekranından beri var olan
 `durum='iptal'` yapar. Eşleme `BITIS_DURUMU`'nda, listeyi `cycle_listesi()`
-kuruyor. Ekran: cycle ekranındaki "İşlemi bitir" → `/cycle/{id}/bitir`.
+kuruyor. Düğme **üç ekranda**: cycle, vitrifikasyon, transfer — işin gerçekten
+bittiği yer çoğu zaman son iki aşama (v6.29). Üçü de `_bitir.html`
+`dugme(c)` makrosunu çağırıyor; koşul ve yazı tek yerde dursun diye
+şablona elle yazma. → `/cycle/{id}/bitir`.
 - **Geri al ekranda hep tek.** "Bitir" ekranından kapatılan cycle
   `/cycle/{id}/bitisi-geri-al` ile döner; silme ekranından iptal edilmiş eski
   kayıtlar `/cycle/{id}/geri-al` ile. İkincisi `not c.bitis_sebebi` ile
@@ -178,6 +184,26 @@ kuruyor. Ekran: cycle ekranındaki "İşlemi bitir" → `/cycle/{id}/bitir`.
   `geri-al` diye adlandırma — o ad "silme" modülüne düşer.
 - Biten cycle'lar `/bitenler`'de; kayıt silinmiyor, hasta ekranında da
   rozetiyle duruyor.
+
+**Hasta kayıtları ay ay, arama ayı yok sayar** (v6.29). `/hastalar` iki iş
+yapıyor: arama boşken **o ayın cycle'ları** (satır cycle başına), arama
+doluyken **hasta satırları** ve ay süzgeci devre dışı — dosya no ya da ad
+aranıyorsa hangi ayda olduğu zaten bilinmiyordur.
+- **Ayın ölçüsü OPU tarihi**, yoksa cycle'ın açıldığı tarih (FET'te OPU
+  olmuyor). Kullanıcının kararı: soru "kim kayıtlı" değil, "bu ay kaç vaka
+  yaptık". Bunu hasta kaydının tarihine çevirme.
+- Arşivlenmiş hastanın cycle'ı **ay listesinde görünür** (o iş o ay yapıldı),
+  yapılacaklarda görünmez. Satırda "Arşiv" rozeti var.
+- Ay adları `metinler.py`'de (`ay_1`…`ay_12`), ekrana `ay_adi(yil, ay)`
+  basıyor. `strftime("%B")` **kullanma** — işletim sisteminin yerel ayarına
+  bağlı, Windows mini PC'de İngilizce çıkar.
+
+**Dört cycle listesi tek fonksiyon, tek satır makrosu** (v6.29). Yapılacaklar,
+bugün bitenler, `/bitenler` arşivi ve ay listesi: sorgu `cycle_listesi()`
+(`bitmis` / `bugun` / `ay` parametreleri), satır `_cyclesatir.html`
+`satir(s, kip)` (`yapilacak` / `bitmis` / `ay`). Yeni bir liste ekranı
+yazarsan beşinci bir sorgu yazma, buraya bir kip ekle — dördü aynı görünsün
+diye böyle.
 
 **Üst çubukta iki dönüş var, ikisi farklı şey.** Geri oku (`‹`) **bir
 önceki** ekrana gider ve şablon başına ayrı yazılır; ev simgesi (`.anaya`)

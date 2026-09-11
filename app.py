@@ -42,6 +42,18 @@ sablon.env.globals["tip_kisa"] = tip_kisa
 sablon.env.globals["asama_adi"] = asama_adi
 
 
+def ay_adi(yil, ay) -> str:
+    """"Eylül 2026" -- ay adı geçerli dilde (v6.29).
+
+    `strftime("%B")` kullanılmıyor: o işletim sisteminin yerel ayarına bağlı,
+    Windows mini PC'de İngilizce çıkabilir. Ay adları `metinler.py`'de.
+    """
+    return f"{metinler.t('ay_' + str(int(ay)))} {int(yil)}"
+
+
+sablon.env.globals["ay_adi"] = ay_adi
+
+
 def _islem_yapan_ad(cycle_id, asama):
     """Bir cycle aşamasını fiilen yapan kişinin adı (yoksa boş).
 
@@ -971,34 +983,63 @@ def _opu_gunu(opu_zamani):
     return fark if 0 <= fark <= 400 else None
 
 
-def cycle_listesi(bitmis: bool = False):
-    """Yapılacaklar listesi — kullanıcının kâğıt klasörünün karşılığı (v6.28).
+def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = ""):
+    """Cycle listesi — üç ekran da bunu kullanıyor.
 
-    `bitmis=False` laboratuvarda işi süren cycle'lar (klasör),
-    `bitmis=True` bitmiş olanlar (arşiv). Arşivlenmiş hastanın cycle'ı
-    ikisinde de görünmez; hasta arşivi zaten "bu dosya kapandı" demek.
+    - `bitmis=False` laboratuvarda işi süren cycle'lar: ana ekranın
+      "Yapılacaklar"ı, kullanıcının kâğıt klasörünün karşılığı (v6.28).
+    - `bitmis=True` bitmiş olanlar: `/bitenler` arşivi.
+    - `bugun=True` yalnızca **bugün** bitirilenler — ana ekrandaki "Bugün
+      bitenler" kartı her gün kendiliğinden boşalsın diye (v6.29). Ölçü
+      `date('now','localtime')`; sunucu klinikte, yerel gün doğru olan.
+    - `ay="2026-09"` o ayda **işlem yapılan** cycle'lar: hasta kayıtları
+      ekranı (v6.29). Ölçü OPU tarihi, yoksa cycle'ın açıldığı tarih —
+      FET'te OPU olmuyor.
 
-    Sıra: en eski OPU üstte. Unutulan bir cycle listenin dibine düşüp
-    gözden kaybolmasın diye — kâğıt klasörde de en alttaki form değil,
-    en eskisi göze batar.
+    Arşivlenmiş hastanın cycle'ı ilk üçünde görünmez (hasta arşivi "bu dosya
+    kapandı" demek), ama **ay listesinde görünür**: o iş o ay yapıldı, sonra
+    dosyanın kapanmış olması onu yapılmamış saymaz.
+
+    Sıra: yapılacaklarda en eski OPU üstte — unutulan bir cycle listenin
+    dibine düşüp gözden kaybolmasın diye. Ötekilerde en yeni üstte.
     """
-    durumlar = ("tamamlandi", "iptal") if bitmis else ("aktif",)
-    isaret = ",".join("?" * len(durumlar))
-    bitis = ("c.bitis_sebebi, c.bitis_zamani" if _bitis_kolonu_var()
+    kolon_var = _bitis_kolonu_var()
+    if bugun and not kolon_var:
+        return []                  # goc_027 yok: "bugün" süzgeci kurulamıyor
+    durumlar = ("tamamlandi", "iptal") if (bitmis or bugun) else ("aktif",)
+    kosullar = ["c.lab_id = ?"]
+    parametre = [db.LAB_ID]
+    if not ay:
+        kosullar.append("h.durum = 'aktif'")
+        kosullar.append("c.durum IN (%s)" % ",".join("?" * len(durumlar)))
+        parametre += list(durumlar)
+    else:
+        kosullar.append(
+            "strftime('%Y-%m', COALESCE(c.opu_zamani, c.olusturma_zamani)) = ?")
+        parametre.append(ay)
+    if bugun:
+        kosullar.append("date(c.bitis_zamani) = date('now','localtime')")
+
+    bitis = ("c.bitis_sebebi, c.bitis_zamani" if kolon_var
              else "NULL AS bitis_sebebi, NULL AS bitis_zamani")
-    sira = ("COALESCE(c.bitis_zamani, c.olusturma_zamani) DESC" if bitmis
-            else "COALESCE(c.opu_zamani, c.olusturma_zamani)")
+    if ay:
+        sira = "COALESCE(c.opu_zamani, c.olusturma_zamani) DESC"
+    elif bitmis or bugun:
+        sira = "COALESCE(c.bitis_zamani, c.olusturma_zamani) DESC"
+    else:
+        sira = "COALESCE(c.opu_zamani, c.olusturma_zamani)"
     satirlar = db.sorgu(
         f"""SELECT c.id, c.cycle_no, c.cycle_tipi, c.durum, c.opu_zamani,
                    c.olusturma_zamani, {bitis},
                    h.id AS hasta_id, h.ad_soyad, h.dosya_no,
+                   h.durum AS hasta_durum,
                    (SELECT o.tip FROM olay o
                      WHERE o.cycle_id = c.id AND o.iptal_mi = 0
                      ORDER BY o.zaman DESC, o.id DESC LIMIT 1) AS son_olay
               FROM cycle c JOIN hasta h ON h.id = c.hasta_id
-             WHERE c.lab_id = ? AND h.durum = 'aktif' AND c.durum IN ({isaret})
+             WHERE {" AND ".join(kosullar)}
              ORDER BY {sira}""",
-        (db.LAB_ID, *durumlar))
+        parametre)
     # sqlite3.Row'a alan eklenemiyor; gün hesabı için sözlüğe çevriliyor
     liste = []
     for r in satirlar:
@@ -1035,32 +1076,71 @@ def anasayfa(request: Request, yetkisiz: str = ""):
          "bekleyen": len(goruntuler.bekleyen_dosyalar()),
          "dondurulmus": dondurulmus,
          "liste": cycle_listesi(),
+         "bugun_bitenler": cycle_listesi(bugun=True),
          "goc_gerekli": not _bitis_kolonu_var(),
          "yedek": yedek_durumu(), "yetkisiz": yetkisiz},
     )
 
 
+def _ay_kaydir(yil: int, ay: int, adim: int) -> tuple:
+    """Bir ay ileri / geri. Yıl sınırını kendisi çevirir."""
+    n = (yil * 12 + (ay - 1)) + adim
+    return n // 12, n % 12 + 1
+
+
 @uygulama.get("/hastalar")
-def hastalar(request: Request, ara: str = "", arsiv: int = 0):
-    durum = "arsiv" if arsiv else "aktif"
-    ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
-             "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
-    if ara.strip():
-        kayitlar = db.sorgu(
-            ortak + " AND (CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?)"
-                    " ORDER BY h.dosya_no",
-            (db.LAB_ID, durum, f"%{ara.strip()}%", f"%{ara.strip()}%"),
-        )
+def hastalar(request: Request, ara: str = "", arsiv: int = 0,
+             yil: int = 0, ay: int = 0):
+    """Hasta kayıtları: ay ay işlem listesi + her yeri tarayan arama (v6.29).
+
+    İki ayrı iş, tek ekran:
+
+    - **Arama boşken** o ayın cycle'ları, yani "bu ay hangi vakaları yaptık".
+      Ölçü OPU tarihi (yoksa cycle'ın açıldığı tarih — FET'te OPU olmuyor);
+      kullanıcının seçimi. Satır cycle başına: aynı hastanın Mart ve
+      Temmuz'daki iki cycle'ı iki ayrı satır, çünkü soru "kim kayıtlı" değil
+      "ne zaman ne yapıldı".
+    - **Arama doluyken** ay süzgeci yok sayılır ve **hasta** satırları döner.
+      Dosya no ya da ad aranıyorsa amaç hastayı bulmaktır; hangi ayda olduğu
+      bilinseydi zaten aranmazdı.
+
+    `?arsiv=1` eskisi gibi: arşivlenmiş hastaların listesi, ay yok.
+    """
+    bugun = _dt.now()
+    yil = yil or bugun.year
+    ay = ay or bugun.month
+    if not 1 <= ay <= 12:
+        ay = bugun.month
+    bu_ay = (yil == bugun.year and ay == bugun.month)
+
+    kayitlar, liste = [], []
+    if ara.strip() or arsiv:
+        durum = "arsiv" if arsiv else "aktif"
+        ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
+                 "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
+        if ara.strip():
+            kayitlar = db.sorgu(
+                ortak + " AND (CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?)"
+                        " ORDER BY h.dosya_no",
+                (db.LAB_ID, durum, f"%{ara.strip()}%", f"%{ara.strip()}%"),
+            )
+        else:
+            kayitlar = db.sorgu(
+                ortak + " ORDER BY h.olusturma_zamani DESC LIMIT 50",
+                (db.LAB_ID, durum))
     else:
-        kayitlar = db.sorgu(
-            ortak + " ORDER BY h.olusturma_zamani DESC LIMIT 50", (db.LAB_ID, durum)
-        )
+        liste = cycle_listesi(ay=f"{yil:04d}-{ay:02d}")
+
+    onceki = _ay_kaydir(yil, ay, -1)
+    sonraki = _ay_kaydir(yil, ay, 1)
     arsiv_sayisi = db.tek(
         "SELECT COUNT(*) k FROM hasta WHERE lab_id=? AND durum='arsiv'", (db.LAB_ID,)
     )["k"]
     return sablon.TemplateResponse(
         request, "hastalar.html",
-        {"hastalar": kayitlar, "ara": ara, "arsiv": arsiv,
+        {"hastalar": kayitlar, "liste": liste, "ara": ara, "arsiv": arsiv,
+         "yil": yil, "ay": ay, "bu_ay": bu_ay,
+         "onceki": onceki, "sonraki": sonraki,
          "arsiv_sayisi": arsiv_sayisi, "kullanici": request.state.kullanici,
          "yedek": yedek_durumu()},
     )

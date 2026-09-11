@@ -8,7 +8,7 @@
    yalnizca yapilacaklar listesinden dusuyor -- buradan hepsine ulasilir. #}
 <div class="kart" style="margin-top:16px">
   <h2>{{ say("n_biten", liste|length) }}</h2>
-  {% for s in liste %}{{ cs.satir(s, True) }}
+  {% for s in liste %}{{ cs.satir(s, "bitmis") }}
   {% else %}
   <div class="bos">{{ metin("biten_yok") }}</div>
   {% endfor %}

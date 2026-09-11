@@ -1,9 +1,13 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ metin("hastalar") }}{% endblock %}
+{% import "_cyclesatir.html" as cs %}
+{% block ustbaslik %}{{ metin("hasta_kayitlari") }}{% endblock %}
 {% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
+
+{# Arama her zaman en üstte ve ay süzgecinden bağımsız: dosya no ya da ad
+   aranıyorsa hangi ayda olduğu zaten bilinmiyordur (v6.29). #}
 <form class="arama" method="get" action="/hastalar">
   <input type="search" name="ara" value="{{ ara }}" placeholder="{{ metin('ara_ipucu') }}"
          inputmode="search" autocomplete="off">
@@ -11,16 +15,12 @@
 
 {% if arsiv %}<a class="dugme ikincil" href="/hastalar">{{ metin("aktif_hastalara_don") }}</a>
 {% elif ara %}<a class="dugme ikincil" href="/hastalar">{{ metin("aramayi_temizle") }}</a>
-{% else %}
-{% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>{% endif %}
-{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}
-{% if kullanici.rol == "yonetici" %}
-<a class="dugme ikincil" href="/yonetim">{{ metin("yonetim") }}</a>
 {% endif %}
-<a class="dugme ikincil" href="/sifre">{{ metin("sifre_degistir") }}</a>{% endif %}
 
+{% if ara or arsiv %}
+{# Arama ve arşiv: HASTA satırları, ay yok. Amaç kişiyi bulmak. #}
 <div class="kart">
-  <h2>{% if arsiv %}{{ metin("arsiv") }}{% elif ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("son_kayitlar") }}{% endif %}</h2>
+  <h2>{% if arsiv %}{{ metin("arsiv") }}{% else %}{{ metin("arama_sonucu") }}{% endif %}</h2>
   {% for h in hastalar %}
   <a class="satir hasta" href="/hasta/{{ h.id }}">
     <div class="no">{{ h.dosya_no }}</div>
@@ -35,6 +35,33 @@
   </div>
   {% endfor %}
 </div>
+
+{% else %}
+{# Ay görünümü: o ay işlem yapılan CYCLE satırları. Ölçü OPU tarihi,
+   yoksa cycle'ın açıldığı tarih (FET'te OPU olmuyor). #}
+<div class="aygezgin">
+  <a class="ok" href="/hastalar?yil={{ onceki[0] }}&ay={{ onceki[1] }}"
+     aria-label="{{ metin('onceki_ay') }}" title="{{ metin('onceki_ay') }}">&#8249;</a>
+  <span class="adi">{{ ay_adi(yil, ay) }}</span>
+  <a class="ok" href="/hastalar?yil={{ sonraki[0] }}&ay={{ sonraki[1] }}"
+     aria-label="{{ metin('sonraki_ay') }}" title="{{ metin('sonraki_ay') }}">&#8250;</a>
+</div>
+{% if not bu_ay %}
+<a class="dugme ikincil buay" href="/hastalar">{{ metin("bu_ay") }}</a>
+{% endif %}
+
+<div class="kart" style="margin-top:14px">
+  <h2>{{ say("n_cycle_ayda", liste|length) }}</h2>
+  {% for s in liste %}{{ cs.satir(s, "ay") }}
+  {% else %}
+  <div class="bos">{{ metin("ayda_islem_yok") }}</div>
+  {% endfor %}
+</div>
+
+{% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>{% endif %}
+{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}
+{% endif %}
+
 {% if not arsiv and arsiv_sayisi %}
 <a class="dugme ikincil" href="/hastalar?arsiv=1">{{ metin("arsiv") }} ({{ arsiv_sayisi }})</a>
 {% endif %}

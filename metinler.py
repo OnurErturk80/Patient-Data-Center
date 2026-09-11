@@ -1003,6 +1003,30 @@ METINLER = {
 
     # ---- yapilacaklar listesi (v6.28): kagit klasorun karsiligi ----
     "yapilacaklar": {"tr": "Yapılacaklar", "en": "To do"},
+    "bugun_bitenler": {"tr": "Bugün bitenler", "en": "Finished today"},
+    "bugun_biten_yok": {"tr": "Bugün biten işlem yok.",
+                        "en": "Nothing finished today."},
+    "tumu": {"tr": "Tümü", "en": "All"},
+    "bu_ay": {"tr": "Bu ay", "en": "This month"},
+    "onceki_ay": {"tr": "Önceki ay", "en": "Previous month"},
+    "sonraki_ay": {"tr": "Sonraki ay", "en": "Next month"},
+    "n_cycle_ayda": {"tr": "{n} cycle", "en": "{n} cycles"},
+    "n_cycle_ayda_tekil": {"tr": "{n} cycle", "en": "{n} cycle"},
+    "ayda_islem_yok": {"tr": "Bu ayda işlem yapılmış cycle yok.",
+                       "en": "No cycles worked on in this month."},
+    # Ay adlari -- `ay_adi(yil, ay)` Jinja global'i bunlari okuyor
+    "ay_1": {"tr": "Ocak", "en": "January"},
+    "ay_2": {"tr": "Şubat", "en": "February"},
+    "ay_3": {"tr": "Mart", "en": "March"},
+    "ay_4": {"tr": "Nisan", "en": "April"},
+    "ay_5": {"tr": "Mayıs", "en": "May"},
+    "ay_6": {"tr": "Haziran", "en": "June"},
+    "ay_7": {"tr": "Temmuz", "en": "July"},
+    "ay_8": {"tr": "Ağustos", "en": "August"},
+    "ay_9": {"tr": "Eylül", "en": "September"},
+    "ay_10": {"tr": "Ekim", "en": "October"},
+    "ay_11": {"tr": "Kasım", "en": "November"},
+    "ay_12": {"tr": "Aralık", "en": "December"},
     # "vazgec" anahtari İngilizcede "Discard" diyor; bu ekranda embriyo
     # dondurmanin yaninda durdugu icin klinik "discard" ile karisirdi.
     "geri_don": {"tr": "Geri dön", "en": "Go back"},

@@ -1,24 +1,34 @@
-{# Yapılacaklar (ana ekran) ve biten işler (/bitenler) listelerinin ortak
-   satırı. İkisi aynı sorgudan besleniyor (`cycle_listesi`), tek fark hangi
-   durumların süzüldüğü — satır da tek yerde dursun.
+{# Cycle listelerinin ortak satırı. Üç ekran kullanıyor (v6.28–v6.29):
+
+     kip="yapilacak"  ana ekran — OPU günü ve son işlem
+     kip="bitmis"     ana ekranın "Bugün bitenler"i ve /bitenler arşivi
+     kip="ay"         hasta kayıtları, o ayın vakaları — işlem tarihi
 
    `.satir hasta` sınıfı hasta listesiyle aynı: ad üstte ve büyük, dosya no
    altında (v6.23). Sıralama CSS'te, burada değil.
 
    Bağlantı **cycle'a** gider, hastaya değil: listeye bakan kişi o tedavinin
    nerede kaldığını görmek istiyor, hastanın geçmişini değil. #}
-{% macro satir(s, bitmis=False) %}
+{% macro satir(s, kip="yapilacak") %}
 <a class="satir hasta" href="/cycle/{{ s.id }}">
   <div class="ad">{{ s.ad_soyad }}
     {%- if s.durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>
     {%- elif s.durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>
+    {%- endif %}
+    {#- Ay listesinde arşivlenmiş hastanın cycle'ı da var: iş o ay yapıldı,
+        dosyanın sonradan kapanmış olması onu yapılmamış saymaz. Rozet
+        karışmasın diye söylüyor. #}
+    {%- if kip == "ay" and s.hasta_durum == "arsiv" %} <span class="rozet arsiv">{{ metin("arsiv") }}</span>
     {%- endif %}</div>
   <div class="no">{{ s.dosya_no }} · {{ s.cycle_no }}</div>
   <div class="meta">
     {{ tip_kisa(s.cycle_tipi) }}
-    {%- if bitmis %}
+    {%- if kip == "bitmis" %}
       {%- if s.bitis_sebebi %} · {{ metin("bitis_" ~ s.bitis_sebebi) }}{% endif %}
       {%- if s.bitis_zamani %} · {{ s.bitis_zamani[:10] }}{% endif %}
+    {%- elif kip == "ay" %}
+      {%- if s.opu_zamani %} · OPU {{ s.opu_zamani[:10] }}
+      {%- else %} · {{ s.olusturma_zamani[:10] }}{% endif %}
     {%- else %}
       {#- OPU günü embriyoloğun "bugün ne yapılacak" sorusuna verdiği cevap;
           bu yüzden satırda vurgulu duruyor. OPU'su olmayan cycle'da (FET)
