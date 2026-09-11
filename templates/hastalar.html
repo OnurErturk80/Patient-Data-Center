@@ -21,6 +21,30 @@
 {% endif %}
 
 {% if ara or arsiv %}
+{# Örnek kodu araması (v6.35). Kod tüpün üstünde yazıyor; aranan kod ise
+   soru "bu kim" değil "bu hangi tedavi" -- satır o örneğin cycle'ına gidiyor.
+   Hasta satırlarının üstünde duruyor: kod arandıysa aranan şey odur. #}
+{% if ornekler %}
+<div class="kart">
+  <h2>{{ metin("ornek_kodu_sonucu") }}</h2>
+  {% for o in ornekler %}
+  <a class="satir hasta" href="/cycle/{{ o.cycle_id }}">
+    <div class="ad">{{ o.ad_soyad }}
+      {%- if o.cycle_durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>
+      {%- elif o.cycle_durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>
+      {%- endif %}
+      {%- if o.hasta_durum == "arsiv" %} <span class="rozet arsiv">{{ metin("arsiv") }}</span>
+      {%- endif %}</div>
+    <div class="no">{{ o.dosya_no }}-{{ o.id }}</div>
+    <div class="meta">{{ tip_kisa(o.cycle_tipi) }} · {{ metin("ornek_ad") }} {{ o.cycle_sira_no }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# Hasta satırları. Yalnız örnek kodu bulunduysa basılmıyor -- altına boş bir
+   "uyan kayıt yok" kartı koymak bulunanı gölgeliyor. #}
+{% if hastalar or not ornekler %}
 {# Arama ve arşiv: HASTA satırları, ay yok. Amaç kişiyi bulmak. #}
 <div class="kart">
   <h2>{% if arsiv %}{{ metin("arsiv") }}{% else %}{{ metin("arama_sonucu") }}{% endif %}</h2>
@@ -38,6 +62,7 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
 
 {% else %}
 {# Ay görünümü: o ay işlem yapılan CYCLE satırları. Ölçü OPU tarihi,

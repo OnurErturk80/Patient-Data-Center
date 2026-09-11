@@ -83,6 +83,7 @@
   <div class="alan" style="border:0">
     <form method="post" action="/cycle/{{ c.id }}/denudasyon">
       <input type="hidden" name="imza" value="{{ simdiki.imza }}">
+      <input type="hidden" name="secili" value="{{ sp.cycle_sira_no if sp else '' }}">
       <button class="dugme" type="submit" name="eylem" value="yeni" style="margin-top:0">
         {{ metin("kaydet_oosit_n").format(n=sonraki_sira) }}
       </button>
@@ -108,6 +109,7 @@
   </div>
   <div class="alan" style="border:0">
     <form method="post" action="/cycle/{{ c.id }}/denudasyon">
+      <input type="hidden" name="secili" value="{{ sp.cycle_sira_no if sp else '' }}">
       <button class="dugme ikincil" type="submit" name="eylem" value="fotografsiz"
               style="margin-top:0">
         {{ metin("fotografsiz_oosit_ekle") }}
@@ -124,6 +126,7 @@
     {% if son_goruntu %}
     <form method="post" action="/cycle/{{ c.id }}/denudasyon">
       <input type="hidden" name="goruntu_id" value="{{ son_goruntu.id }}">
+      <input type="hidden" name="secili" value="{{ sp.cycle_sira_no if sp else '' }}">
       <button class="gerial" type="submit" name="eylem" value="geri">
         {{ metin("son_kaydi_geri_al") }} ({{ son_goruntu.specimen_id }})
       </button>
@@ -171,10 +174,8 @@
   <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ bu_yol|urlencode }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
-<div class="kart"><div class="bos">
-  {{ metin("bu_asamada_fotograf_yok") }}<br>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ bu_yol|urlencode }}">{{ metin("fotograf_ekle") }}</a>
-</div></div>
+{{ kr.yer(oosit_ad, sp, '/cycle/' ~ c.id ~ '/foto-ekle?specimen_id=' ~ sp.id
+                        ~ '&asama=denudasyon&geri=' ~ bu_yol|urlencode) }}
 {% endif %}
 
 {% if calisma %}

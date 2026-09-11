@@ -56,9 +56,11 @@
   <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
-<div class="fotoalt">
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
-</div>
+{# Gün 2/3 ve blastokistte örneğe artık embriyo deniyor (v6.35). #}
+{{ kr.yer(metin('embriyo_ad'), sp,
+          '/cycle/' ~ c.id ~ '/foto-ekle?specimen_id=' ~ sp.id
+          ~ '&asama=gun' ~ gun ~ '&geri=/cycle/' ~ c.id ~ '/cleavage%3Fgun%3D' ~ gun
+          ~ '%26oosit%3D' ~ sp.cycle_sira_no) }}
 {% endif %}
 
 {% set geri_yol = '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no %}

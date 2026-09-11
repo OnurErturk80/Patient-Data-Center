@@ -17,3 +17,24 @@
 <div class="karebilgi">{{ kareler|length }} kare · bu aşamada</div>
 {% endif %}
 {% endmacro %}
+
+{# Fotoğrafsız örneğin yerini tutan kutu (v6.35).
+
+   Fotoğrafsız oosit eklemek olağan bir şey (kamera boş, kare bulanık), ama
+   o örneğe geçince ekranın ortası bomboş kalıyordu: hangi kayıtta olduğun
+   ancak yukarıdaki şeride bakınca anlaşılıyordu. Kutu fotoğrafın tuttuğu
+   yeri tutuyor ve **örneğin o aşamadaki adını** yazıyor -- denüdasyon ve
+   ICSI'de Oosit, fertilizasyonda Zigot, gün 2/3 ve blastokistte Embriyo.
+   Altında, fotoğraflı halinde olduğu gibi, örnek kodu duruyor.
+
+   `ad` çağıran ekrandan geliyor; buraya sabit yazma, dil değişince
+   ekrandaki isim de değişmeli. #}
+{% macro yer(ad, sp, ekle_yolu=None) %}
+<div class="foto yok">
+  <div class="yeradi">{{ ad }} {{ sp.cycle_sira_no }}</div>
+  <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
+</div>
+{% if ekle_yolu %}
+<div class="fotoalt"><a href="{{ ekle_yolu }}">{{ metin("fotograf_ekle") }}</a></div>
+{% endif %}
+{% endmacro %}

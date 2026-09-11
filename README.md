@@ -3663,3 +3663,105 @@ Tarayıcıda denendi: `/hastalar?ara=Test` → geri → `/hastalar` → geri →
 - 720px altında kartlar alt alta ve sıra bozulmuyor
 - Geri oku: ay görünümünde `/`, aramada ve arşivde `/hastalar`
 - 33 ekran 200, iki dilde, JS hatası yok
+
+---
+
+# v6.35 — örnek kodu araması, ekranlar ilk örnekten açılıyor, fotoğrafsız örneğin kutusu
+
+Kullanıcının üç isteği: "oosit kodunu arama da olsun", "denüdasyondan
+ICSI'ye fertilizasyona embriyolara geçişte alanlar açıldığında hep ilk
+fotodan başlasın en son kaydedilen fotodan değil", "fotoğrafsız eklemede
+denüdasyonda, ICSI'de içinde oosit yazsın, fertilizasyonda zigot,
+embriyolarda embriyo".
+
+## Örnek kodu araması
+
+Örnek kodu (`527078-2026-0001-03`) tüpün, pipetin ve formun üstünde yazan
+şeydir. Şimdiye kadar program o kodu **gösteriyordu ama aramıyordu**:
+elinde kod olan personel "bu kim" sorusunu ancak dosya no'yu ayırıp
+aratarak çözebiliyordu.
+
+Kodun yapısı: `<hasta dosya no>-<cycle no>-<sıra>`. Son iki parça
+`specimen.id`, ilk parça hastadan geliyor; arama ikisini birleştirip
+tarıyor, böylece hem tam kod hem kodun kuyruğu (`0001-03`) buluyor:
+
+```sql
+WHERE (CAST(h.dosya_no AS TEXT) || '-' || s.id) LIKE ?
+```
+
+İki yerde:
+
+- **Hasta kayıtları** (`/hastalar`) — sonuçlar "Örnek kodu" kartında, hasta
+  satırlarının **üstünde**. Satır o örneğin **cycle'ına** gidiyor: kod
+  arandıysa soru "bu kim" değil, "bu hangi tedavi". Yalnız örnek bulunduysa
+  altına boş bir "uyan kayıt yok" kartı basılmıyor.
+- **Cryo haritası** (`/cryo?ara=`) — tanktaki tüpün üstünde yazan kod
+  çoğu zaman aranan şeyin kendisi.
+
+İki karar:
+
+- **Arama yalnızca tire içeren metinde örnek arıyor.** Kod biçimi gereği
+  tireli; tiresiz bir metin kod değildir. Yoksa "3" yazan biri bütün
+  örnekleri listelerdi. (`527078` yazınca yalnızca hasta çıkıyor, kod
+  `527078-2026-0001-01` yazınca örnek.)
+- **Örnek araması hastanın arşivlenmiş olmasına bakmaz.** Dolapta duran bir
+  örneğin dosyası kapanmış olabilir; kodu okunuyorsa bulunabilmeli. (Hasta
+  araması eskisi gibi `durum='aktif'` süzüyor.)
+
+## Ekranlar ilk örnekten açılıyor
+
+Denüdasyon, ICSI, fertilizasyon, gün 2/3 ve blastokist ekranları adreste
+`?oosit=N` yoksa **sonuncuyu** seçiyordu (ICSI ve sonrasında önce "ilk
+kaydedilmemiş", o da yoksa sonuncu). Aşamalar arasında geçerken ekran her
+seferinde listenin sonunda açılıyordu; kullanıcı baştan başlamak istiyor.
+
+Beş ekranda da varsayılan artık `oositler[0]`. Toplu giriş akışı bozulmadı:
+"kaydet → sıradaki oosit" zaten **adrese yazarak** geçiyor
+(`?oosit=<sıradaki kaydedilmemiş>`), varsayılan yalnızca ekran ilk kez
+açıldığında devreye giriyor. Hepsi kaydedilmişse adres bir şey söylemiyor
+ve ekran başa dönüyor — doğru davranış.
+
+Denüdasyon bunun istisnasıydı: POST adrese oosit yazmıyor,
+`?duzenle=oosit`'e dönüp "sonuncu" varsayılanına güveniyordu. Yani yeni
+eklenen oosit ekranda kalıyordu. Varsayılan ilke çekilince bu kırılırdı, o
+yüzden **seçim POST'a taşındı**: yeni/aynı/fotoğrafsız kaydından sonra
+sunucu o örneğin sırasını adrese yazıyor, atla ve geri al ise formdaki
+gizli `secili` alanını taşıyor. Alan adrese yazıldığı için yalnızca rakam
+kabul ediliyor.
+
+## Fotoğrafsız örneğin kutusu
+
+Fotoğrafsız örnek olağan (kamera boş, kare bulanık, sonradan eklenecek),
+ama o örneğe geçince ekranın ortası boşalıyordu — hangi kayıtta olduğun
+ancak yukarıdaki şeride bakınca anlaşılıyordu. Beş ekranda beş ayrı boşluk
+vardı: ikisi "Bu aşamaya ait fotoğraf yok" kartı, biri o kart ama
+"Fotoğraf ekle" bağı olmadan (fertilizasyon — gözden kaçmış), ikisi hiçbir
+şey.
+
+Tek makro: `_kareler.html` `yer(ad, sp, ekle_yolu)`. Fotoğrafın tuttuğu
+yeri tutuyor (kesikli kenarlık, `.foto.yok`), içinde örneğin **o aşamadaki
+adı** ve sırası, altında fotoğraflı halindeki gibi örnek kodu:
+
+| Ekran | Yazan |
+|---|---|
+| Denüdasyon, ICSI | Oosit *n* |
+| Fertilizasyon | Zigot *n* |
+| Gün 2/3, Blastokist | Embriyo *n* |
+
+Ad çağıran ekrandan geliyor (`ornek_adi(...)` / `metin('embriyo_ad')`),
+makroya sabit yazılmadı — dil değişince ekrandaki isim de değişmeli.
+Gün 2/3 ve blastokistte `ornek_adi` "Cleavage" ve "Blastokist" derdi;
+kullanıcının isteği üzerine kutuda **Embriyo** yazıyor.
+
+## Test edildi
+
+- Arama: tam kod, kuyruk (`0001-01`), yalnız tire (`-01`), ad, dosya no ve
+  eşleşmeyen tireli metin — kart doğru çıkıyor/çıkmıyor
+- Beş aşama ekranı adressiz açıldığında ilk örneği seçiyor (şerit, başlık
+  ve örnek kodu ile doğrulandı)
+- Denüdasyon POST'u: fotoğrafsız ×3 → `&oosit=2/3/4`; atla `secili=3` →
+  `&oosit=3`; `secili=javascript:alert(1)` → adrese yazılmıyor
+- ICSI toplu giriş: 1 → 2 → 3 → 4 → (sıradaki yok) başa
+- Fotoğrafsız kutu beş ekranda: Oosit / Oosit / Zigot / Embriyo / Embriyo
+- 39 ekran 200, iki dilde, JS hatası yok, 390px'te yatay taşma yok
+- Test verisi geri alındı (1 hasta, 2 cycle, 1 örnek, 0 olay)

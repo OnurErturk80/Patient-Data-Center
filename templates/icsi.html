@@ -50,10 +50,9 @@
   <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
-<div class="kart"><div class="bos">
-  {{ metin("bu_asamada_fotograf_yok") }}<br>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
-</div></div>
+{{ kr.yer(ornek_adi('icsi', c.cycle_tipi), sp,
+          '/cycle/' ~ c.id ~ '/foto-ekle?specimen_id=' ~ sp.id
+          ~ '&asama=icsi&geri=/cycle/' ~ c.id ~ '/icsi%3Foosit%3D' ~ sp.cycle_sira_no) }}
 {% endif %}
 
 {% set geri_yol = '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no %}

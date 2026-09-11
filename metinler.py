@@ -189,8 +189,8 @@ METINLER = {
                              "en": "No changes have been made to this record yet."},
 
     # ---- cryo haritası ----
-    "cryo_ara_ipucu": {"tr": "Etiket, konum, dosya no veya hasta adı",
-                       "en": "Label, location, file no or patient name"},
+    "cryo_ara_ipucu": {"tr": "Etiket, konum, dosya no, hasta adı veya örnek kodu",
+                       "en": "Label, location, file no, patient name or sample code"},
     "tanklar": {"tr": "Tanklar", "en": "Tanks"},
     "n_tasiyici": {"tr": "{n} taşıyıcı", "en": "{n} carriers"},
     "n_tasiyici_tekil": {"tr": "{n} taşıyıcı", "en": "{n} carrier"},
@@ -447,6 +447,9 @@ METINLER = {
     "denudasyon_ekrani": {"tr": "Denüdasyon ekranı", "en": "Denudation screen"},
     "n_m_kaydedildi": {"tr": "{n} / {m} kaydedildi", "en": "{n} / {m} recorded"},
     "bu_fotografi_sil_uzun": {"tr": "Bu fotoğrafı sil", "en": "Delete this photo"},
+    # v6.35'ten beri hiçbir şablon çağırmıyor: fotoğrafsız örneğin yerini
+    # artık _kareler.html `yer()` kutusu tutuyor. Anahtar duruyor, çeviri
+    # dosyasından silmenin faydası yok.
     "bu_asamada_fotograf_yok": {"tr": "Bu aşamaya ait fotoğraf yok.",
                                 "en": "No photo for this stage."},
     "maturasyon": {"tr": "Maturasyon", "en": "Maturation"},
@@ -1153,7 +1156,9 @@ METINLER = {
         "tr": "ekranına erişim iznin yok. Gerekiyorsa yöneticiye söyle.",
         "en": "— you do not have access to this screen. Ask an administrator "
               "if you need it."},
-    "ara_ipucu": {"tr": "Dosya no veya ad ara", "en": "Search file no or name"},
+    "ara_ipucu": {"tr": "Dosya no, ad veya örnek kodu",
+                  "en": "File no, name or sample code"},
+    "ornek_kodu_sonucu": {"tr": "Örnek kodu", "en": "Sample code"},
     "aktif_hastalara_don": {"tr": "Aktif hastalara dön",
                             "en": "Back to active patients"},
     "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},

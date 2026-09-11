@@ -1158,6 +1158,33 @@ def _yil_araligi(secili: int) -> list:
     return list(range(int(en_eski), max(bu, secili) + 1))
 
 
+def ornek_kodu_ara(ara: str) -> list:
+    """Örnek kodundan arama: `527078-2026-0001-03` ya da kodun bir parçası.
+
+    Kod tüpün, pipetin ve dosyanın üstünde yazan şey; personelin elinde kod
+    var, "bu kim" diye soruyor. `specimen.id` kodun son iki parçası
+    (`<cycle no>-<sıra>`), başındaki dosya no hastadan geliyor — o yüzden
+    arama ikisini birleştirip arıyor, böylece hem tam kod hem de kodun
+    kuyruğu bulunuyor.
+
+    **Hastanın arşivlenmiş olmasına bakmaz.** Dolapta duran bir örneğin
+    dosyası kapanmış olabilir; kodu okunabiliyorsa bulunabilmeli.
+    """
+    k = f"%{ara}%"
+    return db.sorgu(
+        "SELECT s.id, s.cycle_sira_no, c.id AS cycle_id, c.cycle_no, "
+        "  c.cycle_tipi, c.durum AS cycle_durum, "
+        "  h.id AS hasta_id, h.dosya_no, h.ad_soyad, h.durum AS hasta_durum "
+        "FROM specimen s "
+        "JOIN cycle c ON c.id = s.cycle_id "
+        "JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE s.lab_id = ? "
+        "  AND (CAST(h.dosya_no AS TEXT) || '-' || s.id) LIKE ? "
+        "ORDER BY h.dosya_no, c.cycle_no, s.cycle_sira_no LIMIT 50",
+        (db.LAB_ID, k),
+    )
+
+
 @uygulama.get("/hastalar")
 def hastalar(request: Request, ara: str = "", arsiv: int = 0,
              yil: int = 0, ay: int = 0):
@@ -1183,7 +1210,7 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
         ay = bugun.month
     bu_ay = (yil == bugun.year and ay == bugun.month)
 
-    kayitlar, liste = [], []
+    kayitlar, liste, ornekler = [], [], []
     if ara.strip() or arsiv:
         durum = "arsiv" if arsiv else "aktif"
         ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
@@ -1194,6 +1221,11 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
                         " ORDER BY h.dosya_no",
                 (db.LAB_ID, durum, f"%{ara.strip()}%", f"%{ara.strip()}%"),
             )
+            # Örnek kodu araması yalnızca tire içeren metinde çalışır: kod
+            # `<dosya no>-<yıl>-<cycle>-<sıra>` biçiminde, tiresiz bir şey
+            # kod değildir. Yoksa "3" yazan biri bütün örnekleri listelerdi.
+            if "-" in ara:
+                ornekler = ornek_kodu_ara(ara.strip())
         else:
             kayitlar = db.sorgu(
                 ortak + " ORDER BY h.olusturma_zamani DESC LIMIT 50",
@@ -1208,7 +1240,8 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     )["k"]
     return sablon.TemplateResponse(
         request, "hastalar.html",
-        {"hastalar": kayitlar, "liste": liste, "ara": ara, "arsiv": arsiv,
+        {"hastalar": kayitlar, "liste": liste, "ornekler": ornekler,
+         "ara": ara, "arsiv": arsiv,
          "yil": yil, "ay": ay, "bu_ay": bu_ay,
          "yillar": _yil_araligi(yil),
          "onceki": onceki, "sonraki": sonraki,
@@ -1581,12 +1614,14 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
         "SELECT id, specimen_id FROM goruntu WHERE cycle_id = ? AND asama = 'denudasyon' "
         "ORDER BY id DESC LIMIT 1", (cycle_id,)
     )
-    # Üstteki numara şeridinden seçilen oosit; istenmemişse sonuncusu.
+    # Üstteki numara şeridinden seçilen oosit; istenmemişse **ilki** (v6.35).
+    # Kayıttan sonra hangi oositte kalınacağını POST adreste söylüyor; adres
+    # bir şey demiyorsa ekran ilk kez açılıyor demektir ve baştan başlanır.
     sp = None
     if kayitli:
         if oosit:
             sp = next((o for o in kayitli if str(o["cycle_sira_no"]) == oosit), None)
-        sp = sp or kayitli[-1]
+        sp = sp or kayitli[0]
     return sablon.TemplateResponse(
         request, "denudasyon.html",
         {
@@ -1608,6 +1643,12 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
     )
 
 
+def _specimen_sirasi(specimen_id) -> str:
+    """Örneğin cycle içindeki sıra numarası (adrese yazmak için metin)."""
+    r = db.tek("SELECT cycle_sira_no FROM specimen WHERE id = ?", (specimen_id,))
+    return str(r["cycle_sira_no"]) if r else ""
+
+
 @uygulama.post("/cycle/{cycle_id}/denudasyon")
 async def denudasyon_islem(request: Request, cycle_id: int):
     f = dict(await request.form())
@@ -1618,13 +1659,21 @@ async def denudasyon_islem(request: Request, cycle_id: int):
 
     taraf = f.get("taraf") or None
 
+    # Kayıttan sonra hangi oosit açık kalacak (v6.35). Ekran artık kendiliğinden
+    # sonuncuyu seçmiyor -- seçimi adres söylüyor, o yüzden buradan taşınıyor.
+    # Formdan gelen değer adrese yazılacağı için yalnızca rakam kabul ediliyor.
+    secili = (f.get("secili") or "").strip()
+    secili = secili if secili.isdigit() else ""
+
     hata = ""
 
     if eylem == "yeni":
         sid = goruntuler.specimen_olustur(cycle_id, c["cycle_no"], taraf)
         gid = goruntuler.goruntu_bagla(im, cycle_id, c["cycle_no"], sid,
                                        "denudasyon", kid)
-        if gid is None:
+        if gid is not None:
+            secili = _specimen_sirasi(sid)
+        else:
             # Kare bağlanamadı. Eskiden oosit yine de açık kalıyordu: telefonda
             # çift dokunmak "fotoğrafsız" bir hayalet oosit bırakıyor ve oosit
             # sayısını şişiriyordu — hiçbir uyarı da çıkmıyordu. Oosit sayısı
@@ -1644,9 +1693,12 @@ async def denudasyon_islem(request: Request, cycle_id: int):
             if gid is None:
                 hata = ("kare_zaten_kaydedilmis" if goruntuler.kare_islenmis(im)
                         else "kare_bulunamadi")
+            else:
+                secili = _specimen_sirasi(son["id"])
 
     elif eylem == "fotografsiz":
-        goruntuler.specimen_olustur(cycle_id, c["cycle_no"], taraf)
+        secili = _specimen_sirasi(
+            goruntuler.specimen_olustur(cycle_id, c["cycle_no"], taraf))
 
     elif eylem == "atla":
         goruntuler.atla(im, cycle_id)
@@ -1658,6 +1710,8 @@ async def denudasyon_islem(request: Request, cycle_id: int):
     # (v6.24). Yoksa her kayıtta özet ekranına düşüp tekrar Düzenle demek
     # gerekirdi -- 20 oositlik bir cycle'da 20 fazladan dokunuş.
     yol = f"/cycle/{cycle_id}/denudasyon?duzenle=oosit"
+    if secili:
+        yol += f"&oosit={secili}"
     if taraf:
         yol += f"&taraf={taraf}"
     if hata:
@@ -2457,12 +2511,12 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
              "zorluklar": db.liste("gecis_zorlugu"), "duzenle": duzenle},
         )
 
-    # Hangi oosit gösterilecek: istenen, yoksa ilk kaydedilmemiş, yoksa sonuncu
+    # Hangi oosit gösterilecek: adreste yazan, yoksa **ilki** (v6.35).
     sp = None
     if oosit:
         sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
     if sp is None:
-        sp = next((o for o in oositler if o["mat"] is None), oositler[-1])
+        sp = oositler[0]
 
     mat = db.tek(
         "SELECT * FROM olay WHERE specimen_id=? AND tip='maturasyon_kontrolu' "
@@ -2701,7 +2755,7 @@ def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
     if oosit:
         sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
     if sp is None:
-        sp = next((o for o in oositler if o["fert"] is None), oositler[-1])
+        sp = oositler[0]                    # v6.35 -- bkz. ICSI ekranı
 
     kayit = db.tek(
         "SELECT * FROM olay WHERE specimen_id=? AND tip='fertilizasyon_kontrolu' "
@@ -2949,7 +3003,7 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
     if oosit:
         sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
     if sp is None:
-        sp = next((o for o in oositler if o["kayit_id"] is None), oositler[-1])
+        sp = oositler[0]                    # v6.35 -- bkz. ICSI ekranı
 
     kayit = _gun_olay(sp["id"], "cleavage_degerlendirme", gun)
     secili = {r["bulgu_kodu"] for r in db.sorgu(
@@ -3169,7 +3223,7 @@ def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = "",
     if oosit:
         sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
     if sp is None:
-        sp = next((o for o in oositler if o["kayit_id"] is None), oositler[-1])
+        sp = oositler[0]                    # v6.35 -- bkz. ICSI ekranı
 
     kayit = _gun_olay(sp["id"], "blastokist_degerlendirme", gun)
     return sablon.TemplateResponse(
@@ -3448,9 +3502,13 @@ def cryo_harita(request: Request, ara: str = ""):
             "LEFT JOIN hasta h ON h.id=c.hasta_id "
             "WHERE t.lab_id=? AND t.durum='dolu' AND ("
             "  t.etiket LIKE ? OR k.tam_yol LIKE ? "
-            "  OR CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?) "
+            "  OR CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ? "
+            # Tüpün üstünde yazan örnek kodu (v6.35). Cryo haritasında aranan
+            # şey çoğu zaman elde tutulan kodun kendisidir.
+            "  OR (CAST(h.dosya_no AS TEXT) || '-' || s.id) LIKE ?) "
             "ORDER BY k.tam_yol, t.etiket",
-            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{ara}%"))
+            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{ara}%",
+             f"%{ara}%"))
     else:
         tasiyicilar = db.sorgu(
             "SELECT t.id, t.etiket, t.tip, t.renk, t.durum, k.tam_yol, "

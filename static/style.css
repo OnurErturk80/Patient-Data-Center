@@ -377,6 +377,17 @@ form { margin: 0; }
 .foto .dosyaadi { font-size: 11px; color: #7e8f9b; padding: 6px 10px;
                   text-align: center; }
 
+/* Fotografsiz ornek: kutu fotografin yerini tutuyor ve ornegin o asamadaki
+   adini yaziyor -- Oosit / Zigot / Embriyo (v6.35). Bos birakilinca ekranin
+   ortasi "kayit yok" gibi okunuyordu. */
+.foto.yok {
+  background: var(--zemin); border-style: dashed;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 140px; gap: 4px;
+}
+.foto.yok .yeradi { color: var(--ink-3); font-size: 17px; }
+.foto.yok .dosyaadi { padding: 0; }
+
 .gerial {
   width: 100%; min-height: 44px; background: transparent; border: 0;
   color: var(--ink-2); font-size: 14px; font-family: inherit;

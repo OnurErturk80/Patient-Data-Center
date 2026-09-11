@@ -110,6 +110,26 @@ fotoğrafın altına `<div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>` koy.
 **Aşama ekranı ilk kareyi gösterir, sonuncuyu değil** (v6.23). Ana fotoğrafı
 seçen sorgu `ORDER BY g.id LIMIT 1` olmalı; `DESC` yazma.
 
+**Aşama ekranı adressiz açıldığında ilk örneği seçer** (v6.35). Denüdasyon,
+ICSI, fertilizasyon, gün 2/3 ve blastokistte varsayılan `oositler[0]` —
+"sonuncu" ya da "ilk kaydedilmemiş" değil. Kullanıcının isteği: aşamalar
+arasında geçerken ekran baştan başlasın. Toplu giriş bundan etkilenmiyor,
+çünkü **seçim adreste yazıyor**: "kaydet → sıradaki oosit" akışı
+`?oosit=<sıradaki>` ile geçiyor, varsayılan yalnızca adres bir şey
+söylemediğinde devreye giriyor. Yeni bir aşama ekranı yazarsan aynısını
+yap ve POST'unda seçimi **adrese yaz** — varsayılana güvenme.
+Denüdasyonun POST'u bunu `secili` gizli alanıyla taşıyor (atla / geri al);
+alan adrese yazıldığı için yalnızca rakam kabul ediliyor.
+
+**Fotoğrafsız örnek boş bir alan bırakmaz** (v6.35). `_kareler.html`
+`yer(ad, sp, ekle_yolu)` makrosu fotoğrafın yerini tutar ve içine örneğin
+**o aşamadaki adını** yazar: denüdasyon ve ICSI'de Oosit, fertilizasyonda
+Zigot, gün 2/3 ve blastokistte **Embriyo** (`ornek_adi` oralarda
+"Cleavage"/"Blastokist" der; kutuda kullanıcının isteğiyle Embriyo yazıyor).
+Adı makroya sabit yazma, çağıran ekrandan geçir — dil değişince isim de
+değişmeli. Yeni bir aşama ekranında "fotoğraf yok" diye boş kart basma,
+bu makroyu çağır.
+
 **Ekran düzeni her aşamada aynı: üstte örnekler, altta bilgi kartı.** Bir
 örneğe basınca altında salt okunur bilgi kartı açılır; değiştirmek "Düzenle"
 ile (`?duzenle=1`). Kaydı olmayan örnekte form doğrudan açılır — "kaydet →
@@ -214,6 +234,16 @@ giriliyor. Kullanıcının kararı — ayrı kayıt aynı hastayı iki kez girdi
   INSERT/UPDATE'ten çıkarıyor. `CYCLE_ALANLARI`'na yeni bir kolon eklersen
   aynısını yap — yoksa göçü çalıştırmamış makinede **cycle açmak tümden
   bozulur** (tuzak #3'ün en pahalı hali).
+
+**Örnek kodu aranabilir** (v6.35). Kod (`527078-2026-0001-03`) tüpün ve
+formun üstünde yazan şey; `<hasta dosya no>-<specimen.id>` olarak
+birleştirilip aranıyor, yani tam kod da kuyruğu da (`0001-03`) buluyor.
+İki yerde: `/hastalar` (sonuç kartı hasta satırlarının üstünde, satır
+**cycle'a** gider) ve `/cryo?ara=`. İki kural:
+- Arama **yalnızca tire içeren** metinde örnek arar — tiresiz metin kod
+  değildir, yoksa "3" yazan bütün örnekleri listeler.
+- Örnek araması **hastanın arşivlenmiş olmasına bakmaz**; dolaptaki bir
+  örneğin dosyası kapanmış olabilir. (Hasta araması eskisi gibi süzer.)
 
 **Hasta kayıtları ay ay, arama ayı yok sayar** (v6.29). `/hastalar` iki iş
 yapıyor: arama boşken **o ayın cycle'ları** (satır cycle başına), arama
