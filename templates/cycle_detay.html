@@ -6,7 +6,7 @@
 {% block geri %}<a class="geri" href="/hasta/{{ c.hasta_id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
-  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span>{% if c.durum == "iptal" %}<span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% elif c.durum == "tamamlandi" %}<span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>{% endif %}</div>
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span>{% if c.durum == "iptal" %}<span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% elif c.durum == "tamamlandi" %}<span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>{% endif %}{% if c.planlanan_tarih and c.planlanan_tarih[:10] > bugun %}<span class="rozet arsiv">{{ metin("planlandi_rozet") }}</span>{% endif %}</div>
   <div class="isim">{{ c.ad_soyad }}</div>
   <div class="alt">
     {% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }} · {% endif %}{{ tip_kisa(c.cycle_tipi) }}{% if c.endikasyon %} · {{ etiketler.get(c.endikasyon, c.endikasyon) }}{% endif %}
@@ -42,6 +42,10 @@
 <div class="kart">
   <h2>{{ metin("zamanlar") }}</h2>
   <dl style="margin:0">
+    {% if c.planlanan_tarih %}
+    <div class="veri"><dt>{{ metin("planlanan_tarih") }}</dt>
+      <dd>{{ takvim_basligi(c.planlanan_tarih) }}</dd></div>
+    {% endif %}
     <div class="veri"><dt>hCG</dt><dd {% if not c.hcg_zamani %}class="yok"{% endif %}>{{ c.hcg_zamani or 'girilmedi' }}</dd></div>
     <div class="veri"><dt>OPU</dt><dd {% if not c.opu_zamani %}class="yok"{% endif %}>{{ c.opu_zamani or 'girilmedi' }}</dd></div>
     <div class="veri"><dt>{{ metin("asama_denudasyon") }}</dt><dd {% if not c.denudasyon_zamani %}class="yok"{% endif %}>{{ c.denudasyon_zamani or 'girilmedi' }}</dd></div>

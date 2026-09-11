@@ -26,6 +26,20 @@
   {% endfor %}
 </div>
 
+{# Yaklasanlar: planlanan tarihi onumuzdeki iki hafta icinde olan cycle'lar
+   (v6.33). Bugun planlananlar burada degil, Yapilacaklar'da -- tarihi gelen
+   is artik "yaklasan" degil. Tamami "Takvim" baglantisinda. #}
+<div class="kart" style="margin-top:16px">
+  <h2 class="ikili">
+    <span>{{ metin("yaklasanlar") }}{% if yaklasanlar %} <span class="rozet">{{ yaklasanlar|length }}</span>{% endif %}</span>
+    <a href="/takvim" style="font-size:13px;font-weight:400">{{ metin("takvim") }}</a>
+  </h2>
+  {% for s in yaklasanlar %}{{ cs.satir(s, "plan") }}
+  {% else %}
+  <div class="bos" style="padding:20px 16px">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
+  {% endfor %}
+</div>
+
 {# Bugun bitenler. Olcu `date('now','localtime')` oldugu icin kart her gece
    kendiliginden bosaliyor -- gun sonunda "bugun neyi kapattim" sorusunun
    cevabi, kalici bir liste degil. Tamami "Tumu" ile /bitenler'de (v6.29). #}
@@ -70,6 +84,7 @@
    orada CSS bu yigini gizliyor. Sira ve yazilar sol menuyle birebir ayni. #}
 <div class="anadugmeler">
   <a class="dugme" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
+  <a class="dugme ikincil" href="/takvim">{{ metin("takvim") }}</a>
   {% if yetkim("cryo") %}
   <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
   {% endif %}

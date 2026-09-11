@@ -172,6 +172,10 @@ body {
 .kart h2.ikili .rozet { background: #e4eae7; color: #2c5545; border-radius: 3px;
   padding: 2px 7px; font-size: 11px; font-weight: 600; }
 
+/* Takvimde gun basligi. Kart basliklarindan daha koyu ve buyuk: listeye
+   bakarken once tarihi okuyorsun (v6.33). */
+.kart h2.gun { font-size: 15px; color: var(--ink); }
+
 /* "Islemi bitir" ekraninda her secenegin altindaki tek satirlik aciklama.
    Dugmeye yapisik dursun ki hangi aciklamanin hangi dugmeye ait oldugu
    belli olsun; bir sonraki dugmeden once bosluk birakiyor. */

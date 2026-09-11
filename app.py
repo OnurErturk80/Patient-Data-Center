@@ -54,6 +54,23 @@ def ay_adi(yil, ay) -> str:
 sablon.env.globals["ay_adi"] = ay_adi
 
 
+def takvim_basligi(tarih: str) -> str:
+    """'2026-09-14' -> '14 Eylül 2026 Pazartesi' (v6.33).
+
+    Gün adı da ay adı gibi `metinler.py`'de: `strftime("%A")` işletim
+    sisteminin yerel ayarına bağlı, Windows mini PC'de İngilizce çıkar.
+    """
+    try:
+        g = _dt.fromisoformat(str(tarih)[:10]).date()
+    except (ValueError, TypeError):
+        return str(tarih or "")
+    return (f"{g.day} {metinler.t('ay_' + str(g.month))} {g.year} "
+            f"{metinler.t('gun_' + str(g.isoweekday()))}")
+
+
+sablon.env.globals["takvim_basligi"] = takvim_basligi
+
+
 def _islem_yapan_ad(cycle_id, asama):
     """Bir cycle aşamasını fiilen yapan kişinin adı (yoksa boş).
 
@@ -960,6 +977,10 @@ def yedek_durumu():
 BITIS_DURUMU = {"dondurma": "tamamlandi", "transfer": "tamamlandi",
                 "iptal": "iptal"}
 
+# Ana ekrandaki "Yaklaşanlar" kaç gün ileriye baksın (v6.33). İki hafta:
+# "haftaya" diye plan yapılıyor, bir hafta dar kalırdı. Tamamı /takvim'de.
+YAKLASAN_GUN = 14
+
 
 def _bitis_kolonu_var() -> bool:
     """goc_027 çalıştırıldı mı? (tuzak #3: çalıştırıldığını varsayma)"""
@@ -983,8 +1004,9 @@ def _opu_gunu(opu_zamani):
     return fark if 0 <= fark <= 400 else None
 
 
-def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = ""):
-    """Cycle listesi — üç ekran da bunu kullanıyor.
+def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
+                  yaklasan: int = 0, plan_ay: str = ""):
+    """Cycle listesi — bütün liste ekranları bunu kullanıyor.
 
     - `bitmis=False` laboratuvarda işi süren cycle'lar: ana ekranın
       "Yapılacaklar"ı, kullanıcının kâğıt klasörünün karşılığı (v6.28).
@@ -995,6 +1017,10 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = ""):
     - `ay="2026-09"` o ayda **işlem yapılan** cycle'lar: hasta kayıtları
       ekranı (v6.29). Ölçü OPU tarihi, yoksa cycle'ın açıldığı tarih —
       FET'te OPU olmuyor.
+    - `yaklasan=14` planlanan tarihi **bugünden sonraki** 14 gün içinde olan
+      cycle'lar: ana ekranın "Yaklaşanlar" kartı (v6.33).
+    - `plan_ay="2026-09"` o ayda **planlanmış** cycle'lar: takvim ekranı.
+      Geçmiş de dahil — takvim yapılan planın kaydı.
 
     Arşivlenmiş hastanın cycle'ı ilk üçünde görünmez (hasta arşivi "bu dosya
     kapandı" demek), ama **ay listesinde görünür**: o iş o ay yapıldı, sonra
@@ -1004,25 +1030,47 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = ""):
     dibine düşüp gözden kaybolmasın diye. Ötekilerde en yeni üstte.
     """
     kolon_var = _bitis_kolonu_var()
+    plan_var = _planlanan_kolonu_var()
     if bugun and not kolon_var:
         return []                  # goc_027 yok: "bugün" süzgeci kurulamıyor
+    if (yaklasan or plan_ay) and not plan_var:
+        return []                  # goc_028 yok: takvim kurulamıyor
+    planli = bool(yaklasan or plan_ay)
     durumlar = ("tamamlandi", "iptal") if (bitmis or bugun) else ("aktif",)
     kosullar = ["c.lab_id = ?"]
     parametre = [db.LAB_ID]
-    if not ay:
-        kosullar.append("h.durum = 'aktif'")
-        kosullar.append("c.durum IN (%s)" % ",".join("?" * len(durumlar)))
-        parametre += list(durumlar)
-    else:
+    if ay:
         kosullar.append(
             "strftime('%Y-%m', COALESCE(c.opu_zamani, c.olusturma_zamani)) = ?")
         parametre.append(ay)
+    elif plan_ay:
+        kosullar.append("strftime('%Y-%m', c.planlanan_tarih) = ?")
+        parametre.append(plan_ay)
+    else:
+        kosullar.append("h.durum = 'aktif'")
+        kosullar.append("c.durum IN (%s)" % ",".join("?" * len(durumlar)))
+        parametre += list(durumlar)
+    if yaklasan:
+        # Bugün **dahil değil**: tarihi gelen cycle zaten Yapılacaklar'da.
+        kosullar.append(
+            "date(c.planlanan_tarih) > date('now','localtime') AND "
+            "date(c.planlanan_tarih) <= date('now','localtime',?)")
+        parametre.append(f"+{int(yaklasan)} days")
     if bugun:
         kosullar.append("date(c.bitis_zamani) = date('now','localtime')")
+    # Planlanan tarihi gelecekte olan cycle Yapılacaklar'da görünmez: haftaya
+    # olacak bir iş bu hafta boyunca her sabah listeyi şişirirdi (v6.33).
+    # Tarih gelince kendiliğinden düşüyor.
+    if plan_var and not (ay or plan_ay or bitmis or bugun or yaklasan):
+        kosullar.append("(c.planlanan_tarih IS NULL OR "
+                        "date(c.planlanan_tarih) <= date('now','localtime'))")
 
     bitis = ("c.bitis_sebebi, c.bitis_zamani" if kolon_var
              else "NULL AS bitis_sebebi, NULL AS bitis_zamani")
-    if ay:
+    plan = "c.planlanan_tarih" if plan_var else "NULL AS planlanan_tarih"
+    if planli:
+        sira = "c.planlanan_tarih, h.ad_soyad"   # takvim ileri doğru okunur
+    elif ay:
         sira = "COALESCE(c.opu_zamani, c.olusturma_zamani) DESC"
     elif bitmis or bugun:
         sira = "COALESCE(c.bitis_zamani, c.olusturma_zamani) DESC"
@@ -1030,7 +1078,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = ""):
         sira = "COALESCE(c.opu_zamani, c.olusturma_zamani)"
     satirlar = db.sorgu(
         f"""SELECT c.id, c.cycle_no, c.cycle_tipi, c.durum, c.opu_zamani,
-                   c.olusturma_zamani, {bitis},
+                   c.olusturma_zamani, {bitis}, {plan},
                    h.id AS hasta_id, h.ad_soyad, h.dosya_no,
                    h.durum AS hasta_durum,
                    (SELECT o.tip FROM olay o
@@ -1077,7 +1125,9 @@ def anasayfa(request: Request, yetkisiz: str = ""):
          "dondurulmus": dondurulmus,
          "liste": cycle_listesi(),
          "bugun_bitenler": cycle_listesi(bugun=True),
-         "goc_gerekli": not _bitis_kolonu_var(),
+         "yaklasanlar": cycle_listesi(yaklasan=YAKLASAN_GUN),
+         "yaklasan_gun": YAKLASAN_GUN,
+         "goc_gerekli": not _bitis_kolonu_var() or not _planlanan_kolonu_var(),
          "yedek": yedek_durumu(), "yetkisiz": yetkisiz},
     )
 
@@ -1262,7 +1312,24 @@ CYCLE_ALANLARI = [
     "baslangic_doz", "toplam_doz", "stim_gun_sayisi", "trigger_tipi", "hcg_gunu_e2",
     "endometrium_mm", "folikul_sayisi", "amh", "hcg_zamani", "opu_zamani",
     "denudasyon_zamani", "opu_sag_oosit", "opu_sol_oosit", "protokol_notu",
+    "planlanan_tarih",
 ]
+
+
+def _planlanan_kolonu_var() -> bool:
+    """goc_028 çalıştırıldı mı? (tuzak #3)
+
+    Çalıştırılmadıysa `planlanan_tarih` INSERT/UPDATE'ten **çıkarılıyor** —
+    yoksa cycle açmak tümden bozulurdu, ki o çekirdek bir akış.
+    """
+    return any(r["name"] == "planlanan_tarih"
+               for r in db.sorgu("PRAGMA table_info(cycle)"))
+
+
+def cycle_alanlari() -> list:
+    if _planlanan_kolonu_var():
+        return CYCLE_ALANLARI
+    return [a for a in CYCLE_ALANLARI if a != "planlanan_tarih"]
 
 
 def cycle_formu_oku(f: dict) -> dict:
@@ -1287,6 +1354,8 @@ def cycle_formu_oku(f: dict) -> dict:
         "opu_sag_oosit": tam(f.get("opu_sag_oosit")),
         "opu_sol_oosit": tam(f.get("opu_sol_oosit")),
         "protokol_notu": bos_ise_none(f.get("protokol_notu")),
+        # Planlanan tarih gün bazında: "14/09/2026 FET" -- saat yok.
+        "planlanan_tarih": bos_ise_none(f.get("planlanan_tarih")),
     }
 
 
@@ -1351,11 +1420,12 @@ async def cycle_kaydet(request: Request, hasta_id: int):
             f"(dosya {ayni['dosya_no']}, {ayni['ad_soyad']}). Farklı bir numara gir."
         )
 
+    alanlar = cycle_alanlari()
     try:
         yeni_id = db.yaz(
-            f"INSERT INTO cycle (lab_id, hasta_id, {', '.join(CYCLE_ALANLARI)}) "
-            f"VALUES (?, ?, {', '.join('?' * len(CYCLE_ALANLARI))})",
-            (db.LAB_ID, hasta_id, *[d[a] for a in CYCLE_ALANLARI]),
+            f"INSERT INTO cycle (lab_id, hasta_id, {', '.join(alanlar)}) "
+            f"VALUES (?, ?, {', '.join('?' * len(alanlar))})",
+            (db.LAB_ID, hasta_id, *[d[a] for a in alanlar]),
         )
     except sqlite3.IntegrityError:
         # Yukarıdaki kontrolle bu INSERT arasında başkası aynı numarayı almış
@@ -1400,6 +1470,7 @@ def cycle_detay(request: Request, cycle_id: int):
         request, "cycle_detay.html",
         {"c": cycle, "specimenler": specimenler, "etiketler": etiketler,
          "arsiv": arsiv, "taraf": taraf_sayilari,
+         "bugun": _dt.now().strftime("%Y-%m-%d"),
          "asamalar": cycle_asamalari(cycle["cycle_tipi"]),
          # yan menü aşama ekranlarındakiyle aynı listeden beslensin
          "gezinme": asama_gezinme(cycle_id, "")},
@@ -1448,8 +1519,8 @@ async def cycle_guncelle(request: Request, cycle_id: int):
         return formu_goster(f"'{d['cycle_no']}' numaralı başka bir cycle var.")
 
     db.yaz(
-        f"UPDATE cycle SET {', '.join(a + '=?' for a in CYCLE_ALANLARI)} WHERE id=?",
-        (*[d[a] for a in CYCLE_ALANLARI], cycle_id),
+        f"UPDATE cycle SET {', '.join(a + '=?' for a in cycle_alanlari())} WHERE id=?",
+        (*[d[a] for a in cycle_alanlari()], cycle_id),
     )
     guvenlik.degisiklikleri_yaz("cycle", cycle_id, eski, d, request.state.kullanici["id"])
     return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
@@ -2079,6 +2150,46 @@ def cycle_bitisi_geri_al(request: Request, cycle_id: int):
         else:
             db.yaz("UPDATE cycle SET durum = 'aktif' WHERE id = ?", (cycle_id,))
     return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+@uygulama.get("/takvim")
+def takvim(request: Request, yil: int = 0, ay: int = 0):
+    """Planlanan işler, gün gün (v6.33).
+
+    Kullanıcının isteği: "haftaya 14/09/2026 Pazartesi FET olacak" diye kayıt
+    açıp ileri tarihte neler olduğuna bakabilmek. Plan ayrı bir randevu kaydı
+    değil, **cycle'ın kendisi** — cycle bugün açılıyor, planlanan tarihi
+    giriliyor (kullanıcının kararı, 2026-09-11).
+
+    Ay ızgarası değil **gün gün liste**: telefonda okunaklı ve işi olmayan
+    günler hiç yer kaplamıyor. Ay seçici hasta kayıtlarındakiyle aynı.
+    """
+    simdi = _dt.now()
+    yil = yil or simdi.year
+    ay = ay or simdi.month
+    if not 1 <= ay <= 12:
+        ay = simdi.month
+    liste = cycle_listesi(plan_ay=f"{yil:04d}-{ay:02d}")
+
+    # Gün gün grupla. Sorgu zaten planlanan_tarih'e göre sıralı geliyor,
+    # bu yüzden ardışık aynı tarihler tek gruba düşüyor.
+    gunler = []
+    for r in liste:
+        g = str(r["planlanan_tarih"])[:10]
+        if not gunler or gunler[-1]["tarih"] != g:
+            gunler.append({"tarih": g, "satirlar": []})
+        gunler[-1]["satirlar"].append(r)
+
+    return sablon.TemplateResponse(
+        request, "takvim.html",
+        {"kullanici": request.state.kullanici, "gunler": gunler,
+         "toplam": len(liste), "yil": yil, "ay": ay,
+         "bu_ay": (yil == simdi.year and ay == simdi.month),
+         "bugun": simdi.strftime("%Y-%m-%d"),
+         "yillar": _yil_araligi(yil),
+         "onceki": _ay_kaydir(yil, ay, -1), "sonraki": _ay_kaydir(yil, ay, 1),
+         "goc_gerekli": not _planlanan_kolonu_var()},
+    )
 
 
 @uygulama.get("/bitenler")

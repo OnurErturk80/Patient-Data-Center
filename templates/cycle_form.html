@@ -51,6 +51,14 @@
         {% endfor %}
       </select>
     </div>
+    {# İleri tarihli iş: cycle bugün açılıyor, işi planlanan güne yazılıyor
+       (v6.33). Saat yok -- plan gün bazında yapılıyor. #}
+    <div class="alan">
+      <label for="planlanan_tarih">{{ metin("planlanan_tarih") }}</label>
+      <input id="planlanan_tarih" name="planlanan_tarih" type="date"
+             value="{{ d('planlanan_tarih')[:10] }}">
+      <div class="ipucu">{{ metin("planlanan_tarih_ipucu") }}</div>
+    </div>
   </div>
 
   <div class="kart">

@@ -60,7 +60,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..027.py   veritabanı göçleri (sırayla)
+  goc_002..028.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -191,6 +191,23 @@ bittiği yer çoğu zaman son iki aşama (v6.29). Üçü de `_bitir.html`
 - Biten cycle'lar `/bitenler`'de; kayıt silinmiyor, hasta ekranında da
   rozetiyle duruyor.
 
+**İleri tarihli iş cycle'ın kendisidir** (v6.33, `goc_028`). Ayrı bir randevu
+tablosu yok: cycle bugün açılıyor, `planlanan_tarih` (gün, saat yok)
+giriliyor. Kullanıcının kararı — ayrı kayıt aynı hastayı iki kez girdirirdi.
+- **Tarihi gelecekte olan cycle Yapılacaklar'da görünmez.** Takvimde ve ana
+  ekranın "Yaklaşanlar" kartında durur, tarih gelince kendiliğinden listeye
+  düşer. Bu kuralı gevşetme: haftaya olacak bir iş bu hafta boyunca her sabah
+  listeyi şişirirdi.
+- "Yaklaşanlar" **bugünü içermez** (`> bugün`), penceresi `YAKLASAN_GUN` = 14.
+- `/takvim` **gün gün liste**, ay ızgarası değil — telefonda okunaklı, işi
+  olmayan gün yer kaplamıyor. Ay seçici hasta kayıtlarınınkiyle aynı.
+- Gün adları `metinler.py`'de (`gun_1`…`gun_7`, ISO sırası), ekrana
+  `takvim_basligi(tarih)` basıyor. `strftime("%A")` **kullanma**.
+- **`cycle_alanlari()`** göç çalıştırılmamışsa `planlanan_tarih`'i
+  INSERT/UPDATE'ten çıkarıyor. `CYCLE_ALANLARI`'na yeni bir kolon eklersen
+  aynısını yap — yoksa göçü çalıştırmamış makinede **cycle açmak tümden
+  bozulur** (tuzak #3'ün en pahalı hali).
+
 **Hasta kayıtları ay ay, arama ayı yok sayar** (v6.29). `/hastalar` iki iş
 yapıyor: arama boşken **o ayın cycle'ları** (satır cycle başına), arama
 doluyken **hasta satırları** ve ay süzgeci devre dışı — dosya no ya da ad
@@ -211,12 +228,12 @@ aranıyorsa hangi ayda olduğu zaten bilinmiyordur.
   veriden geliyor (`_yil_araligi`) ve `>= 2000` süzgeci **şart**: bozuk
   `0026-09-04` tarihi seçiciye iki bin satır koyardı.
 
-**Dört cycle listesi tek fonksiyon, tek satır makrosu** (v6.29). Yapılacaklar,
-bugün bitenler, `/bitenler` arşivi ve ay listesi: sorgu `cycle_listesi()`
-(`bitmis` / `bugun` / `ay` parametreleri), satır `_cyclesatir.html`
-`satir(s, kip)` (`yapilacak` / `bitmis` / `ay`). Yeni bir liste ekranı
-yazarsan beşinci bir sorgu yazma, buraya bir kip ekle — dördü aynı görünsün
-diye böyle.
+**Bütün cycle listeleri tek fonksiyon, tek satır makrosu** (v6.29–v6.33).
+Yapılacaklar, bugün bitenler, `/bitenler` arşivi, ay listesi, "Yaklaşanlar"
+ve takvim: sorgu `cycle_listesi()` (`bitmis` / `bugun` / `ay` / `yaklasan` /
+`plan_ay`), satır `_cyclesatir.html` `satir(s, kip)` (`yapilacak` / `bitmis` /
+`ay` / `plan` / `plangun`). Yeni bir liste ekranı yazarsan ayrı bir sorgu
+yazma, buraya bir kip ekle — hepsi aynı görünsün diye böyle.
 
 **Üst çubukta iki dönüş var, ikisi farklı şey.** Geri oku (`‹`) **bir
 önceki** ekrana gider ve şablon başına ayrı yazılır; ev simgesi (`.anaya`)
@@ -231,8 +248,9 @@ request.state.kullanici)` çünkü middleware `request.state`'i açık yollarda
 `_gezinme.html` `yan_ana()` (aşama menüsüyle aynı `.yanmenu`), telefonda
 `.anadugmeler` düğme yığını; CSS 1100px'te birini gizleyip ötekini gösteriyor.
 Menüye madde eklersen **ikisine birden ekle ve aynı yazıyı kullan** — aynı
-düğmeyi iki isimle öğretmek personeli yanıltır. Sıra: Hasta kayıtları → Cryo
-haritası → Yönetici, altında ayrı grupta işlemler (Yeni hasta, Şifre değiştir).
+düğmeyi iki isimle öğretmek personeli yanıltır. Sıra: Hasta kayıtları →
+Takvim (v6.33) → Cryo haritası → Yönetici, altında ayrı grupta işlemler
+(Yeni hasta, Şifre değiştir).
 Menüdeki izin kontrolü yalnızca bağlantıyı gizler; asıl engel middleware ve
 `yonetici_kontrol()`.
 

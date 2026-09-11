@@ -1011,6 +1011,37 @@ METINLER = {
     "ay": {"tr": "Ay", "en": "Month"},
     "yil": {"tr": "Yıl", "en": "Year"},
     "goster": {"tr": "Göster", "en": "Show"},
+
+    # ---- takvim (v6.33) ----
+    "takvim": {"tr": "Takvim", "en": "Calendar"},
+    "yaklasanlar": {"tr": "Yaklaşanlar", "en": "Coming up"},
+    "yaklasan_yok": {"tr": "Önümüzdeki {n} günde planlanmış iş yok.",
+                     "en": "Nothing planned in the next {n} days."},
+    "planlanan_tarih": {"tr": "Planlanan tarih", "en": "Planned date"},
+    "planlanan_tarih_ipucu": {
+        "tr": "İleri tarihli iş için doldur. O tarihe kadar cycle ana "
+              "ekrandaki Yapılacaklar listesinde görünmez, takvimde durur.",
+        "en": "Fill in for work planned ahead. Until that date the cycle "
+              "stays off the home to-do list and sits in the calendar."},
+    "planlandi_rozet": {"tr": "Planlandı", "en": "Planned"},
+    "ayda_plan_yok": {"tr": "Bu ayda planlanmış iş yok.",
+                      "en": "Nothing planned this month."},
+    "n_planli_is": {"tr": "{n} planlanmış iş", "en": "{n} planned"},
+    "n_planli_is_tekil": {"tr": "{n} planlanmış iş", "en": "{n} planned"},
+    "bugun_rozet": {"tr": "Bugün", "en": "Today"},
+    "takvim_goc_gerekli": {
+        "tr": "Takvim için veritabanı güncel değil. Terminalde "
+              "goc_hepsi.py çalıştır, sonra programı yeniden başlat.",
+        "en": "The database is not up to date for the calendar. Run "
+              "goc_hepsi.py in the terminal, then restart."},
+    # Gun adlari -- ISO sirasi: 1 Pazartesi ... 7 Pazar
+    "gun_1": {"tr": "Pazartesi", "en": "Monday"},
+    "gun_2": {"tr": "Salı", "en": "Tuesday"},
+    "gun_3": {"tr": "Çarşamba", "en": "Wednesday"},
+    "gun_4": {"tr": "Perşembe", "en": "Thursday"},
+    "gun_5": {"tr": "Cuma", "en": "Friday"},
+    "gun_6": {"tr": "Cumartesi", "en": "Saturday"},
+    "gun_7": {"tr": "Pazar", "en": "Sunday"},
     "onceki_ay": {"tr": "Önceki ay", "en": "Previous month"},
     "sonraki_ay": {"tr": "Sonraki ay", "en": "Next month"},
     "n_cycle_ayda": {"tr": "{n} cycle", "en": "{n} cycles"},

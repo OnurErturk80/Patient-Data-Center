@@ -98,6 +98,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.30 — yıl ve ay açılır seçici](#v630--yıl-ve-ay-açılır-seçici)
 - [v6.31 — bitiş saati elle, bitişi düzenle, hasta kaydına kestirme](#v631--bitiş-saati-elle-bitişi-düzenle-hasta-kaydına-kestirme)
 - [v6.32 — çözmede geri oku geldiğin yere döner](#v632--çözmede-geri-oku-geldiğin-yere-döner)
+- [v6.33 — takvim: ileri tarihli işler](#v633--takvim-ileri-tarihli-işler)
 
 ---
 
@@ -3524,3 +3525,78 @@ yolu baştan sona geri geliyor.
 - `?cycle=999` (olmayan cycle) → `/cryo`; `?cycle=abc` → 422
 - Çözme formu: cycle'lı ve cycle'sız geri adresleri doğru
 - 13 ekran 200, JS hatası yok
+
+---
+
+# v6.33 — takvim: ileri tarihli işler
+
+Kullanıcı: "Ana sayfada ileri günler için hasta ekleme olsun. Mesela haftaya
+14/09/2026 Pazartesi tarihine FET olacak diye kayıt açabileyim. Ana sayfada
+ileri tarihte neler varmış diye bakabileyim. Takvim bölümü olsun."
+
+## Plan ayrı bir randevu kaydı değil, cycle'ın kendisi
+
+Üç seçenek soruldu (2026-09-11) ve kullanıcı **cycle'a planlanan tarih**
+seçeneğini seçti: FET cycle'ı bugün açılıyor, `planlanan_tarih` giriliyor.
+Ayrı bir randevu tablosu aynı hastayı iki kez girdirirdi; bu yolda gün
+geldiğinde cycle zaten hazır.
+
+`goc_028` tek kolon ekliyor: `planlanan_tarih` (`YYYY-MM-DD`, saat yok —
+plan gün bazında yapılıyor).
+
+### Planlanan iş Yapılacaklar'ı kirletmiyor
+
+Bu, kâğıt klasör mantığıyla doğrudan çakışan noktaydı: cycle açıldığı anda
+ana ekrandaki Yapılacaklar'a giriyordu. Haftaya olacak bir FET bu hafta
+boyunca her sabah listede duracaktı — oysa o form henüz klasöre girmemiş
+olurdu.
+
+Kural: **tarihi gelecekte olan cycle Yapılacaklar'da görünmez.** Takvimde ve
+"Yaklaşanlar"da durur; tarih gelince (`<= bugün`) kendiliğinden listeye
+düşer. `planlanan_tarih` boş olan cycle eskisi gibi davranır, eski kayıtların
+hiçbiri etkilenmedi.
+
+## Üç yüzey
+
+| nerede | ne gösterir |
+|---|---|
+| Ana ekran → **Yaklaşanlar** | önümüzdeki **14 gün** (`YAKLASAN_GUN`) |
+| **`/takvim`** | seçili ayın tamamı, gün gün |
+| Cycle ekranı | "Planlandı" rozeti + Zamanlar kartında tarih |
+
+"Yaklaşanlar" bugünü **içermez** — tarihi gelen iş artık "yaklaşan" değil,
+Yapılacaklar'da. İki hafta seçildi çünkü plan "haftaya" diye yapılıyor, bir
+hafta dar kalırdı.
+
+Takvim **ay ızgarası değil, gün gün liste**: telefonda okunaklı ve işi
+olmayan günler hiç yer kaplamıyor. Ay seçici hasta kayıtlarındakiyle birebir
+aynı (v6.30) — aynı düzeni iki ekranda iki türlü öğretmek personeli yorar.
+Gün başlığı `takvim_basligi()` ile: "14 Eylül 2026 Pazartesi", bugünse
+yanında "Bugün" rozeti.
+
+Gün adları da ay adları gibi `metinler.py`'de (`gun_1`…`gun_7`, ISO sırası).
+`strftime("%A")` işletim sisteminin yerel ayarına bağlı; Windows mini PC'de
+İngilizce çıkardı.
+
+## Göç çalıştırılmazsa cycle açmak bozulmamalı
+
+Burada tuzak #3'ün bedeli ağırdı: `planlanan_tarih` doğrudan
+`CYCLE_ALANLARI`'na eklenince, göç çalıştırılmamış bir veritabanında
+**cycle açmak tümden patlardı** — çekirdek bir akış.
+
+`cycle_alanlari()` kolon yoksa alanı INSERT/UPDATE'ten çıkarıyor. Gerçekten
+denendi: kolon geçici olarak düşürüldü, 8 ekran 200 verdi, takvimde göç
+uyarısı çıktı ve cycle açma çalıştı.
+
+## Test edildi
+
+- Planlanan tarih 14 Eylül (bugün 11'i): Yapılacaklar'da yok, Yaklaşanlar'da
+  var, takvimde Eylül'de var
+- Bugün: Yapılacaklar'da var, Yaklaşanlar'da yok
+- Geçmiş (1 Eylül): Yapılacaklar'da var
+- 20 Ekim (14 günden uzak): ikisinde de yok, takvimde Ekim'de var
+- Boş: eskisi gibi
+- Form: tarih kaydediliyor, boş gönderilince `NULL` oluyor
+- Takvim ay seçici ve "Bu ay" tarayıcıda tıklanarak denendi
+- Göçsüz veritabanında ekranlar ayakta, cycle açılıyor
+- 36 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok

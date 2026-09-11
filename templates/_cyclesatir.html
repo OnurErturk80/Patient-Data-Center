@@ -3,6 +3,8 @@
      kip="yapilacak"  ana ekran — OPU günü ve son işlem
      kip="bitmis"     ana ekranın "Bugün bitenler"i ve /bitenler arşivi
      kip="ay"         hasta kayıtları, o ayın vakaları — işlem tarihi
+     kip="plan"       "Yaklaşanlar" kartı — planlanan tarih satırda
+     kip="plangun"    takvimde bir günün altında — tarih başlıkta, satırda yok
 
    `.satir hasta` sınıfı hasta listesiyle aynı: ad üstte ve büyük, dosya no
    altında (v6.23). Sıralama CSS'te, burada değil.
@@ -34,6 +36,11 @@
     {%- elif kip == "ay" %}
       {%- if s.opu_zamani %} · OPU {{ s.opu_zamani[:10] }}
       {%- else %} · {{ s.olusturma_zamani[:10] }}{% endif %}
+    {%- elif kip == "plan" %}
+      {#- "Yaklaşanlar"da gün başlığı yok, tarih satırda yazıyor. Takvimde
+          (`plangun`) başlık zaten tarihi söylüyor, tekrar basılmıyor. #}
+      {%- if s.planlanan_tarih %} · {{ takvim_basligi(s.planlanan_tarih) }}{% endif %}
+    {%- elif kip == "plangun" %}
     {%- else %}
       {#- OPU günü embriyoloğun "bugün ne yapılacak" sorusuna verdiği cevap;
           bu yüzden satırda vurgulu duruyor. OPU'su olmayan cycle'da (FET)
