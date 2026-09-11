@@ -34,6 +34,7 @@ bir değeri tarihe çevirmek dosyayı bozardı.
 """
 
 import datetime as _dt
+import os
 import re
 import zipfile
 from io import BytesIO
@@ -222,6 +223,7 @@ def _yerlesim_xml(y: dict, taban: int = 0) -> str:
       genislikler  {sütun no: karakter genişliği}
       yukseklikler {satır no: punto}
       stiller      [{"pt":..,"kalin":..,"kenar":(..)}, ...] -- kalıp stilleri
+      gorseller    [{"dosya":.., "bas":(sütun,emu,satır,emu), "bit":(...)}]
       yazdirma     {"yon": "dikey"|"yatay", "sigdir": True, "kenar": 0.3}
 
     Hücrenin stili ya bir ad (`STILLER` sözlüğü) ya da `stiller` listesindeki
@@ -239,7 +241,8 @@ def _yerlesim_xml(y: dict, taban: int = 0) -> str:
 
     p = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
          '<worksheet xmlns="http://schemas.openxmlformats.org/'
-         'spreadsheetml/2006/main">']
+         'spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/'
+         'officeDocument/2006/relationships">']
     if yaz.get("sigdir", True):
         # Tek sayfaya sığdır: form bir sayfa, ikinciye taşarsa dosyaya konmaz.
         p.append('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>')
@@ -277,6 +280,10 @@ def _yerlesim_xml(y: dict, taban: int = 0) -> str:
             p.append(f'<mergeCell ref="{aralik.upper()}"/>')
         p.append("</mergeCells>")
 
+    if y.get("gorseller"):
+        # Çizim parçası sayfanın ilişkilerinde rId1; parçaları kitap() yazıyor.
+        p.append('<drawing r:id="rId1"/>')
+
     kenar = yaz.get("kenar", 0.3)
     p.append(f'<pageMargins left="{kenar}" right="{kenar}" top="{kenar}" '
              f'bottom="{kenar}" header="0" footer="0"/>')
@@ -285,6 +292,40 @@ def _yerlesim_xml(y: dict, taban: int = 0) -> str:
     # paperSize 9 = A4.
     p.append(f'<pageSetup paperSize="9" orientation="{yon}"{sig}/>')
     p.append("</worksheet>")
+    return "".join(p)
+
+
+def _cizim_xml(gorseller) -> str:
+    """drawing1.xml: resimleri iki hücre arasına oturtur (twoCellAnchor).
+
+    Kâğıt aslında amblem böyle sabitlenmiş: şu hücrenin şurasından şu
+    hücrenin şurasına. Sabit bir boy vermek yerine aynı kutuyu kurmak,
+    "sayfaya sığdır" ile basıldığında amblemin de birlikte küçülmesini
+    sağlıyor.
+    """
+    p = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+         '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/'
+         'drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.'
+         'openxmlformats.org/drawingml/2006/main">']
+    for i, g in enumerate(gorseller, start=1):
+        bs, bx, br, by = g["bas"]
+        ts, tx, tr, ty = g["bit"]
+        p.append('<xdr:twoCellAnchor editAs="oneCell">')
+        p.append(f"<xdr:from><xdr:col>{bs}</xdr:col><xdr:colOff>{bx}</xdr:colOff>"
+                 f"<xdr:row>{br}</xdr:row><xdr:rowOff>{by}</xdr:rowOff></xdr:from>")
+        p.append(f"<xdr:to><xdr:col>{ts}</xdr:col><xdr:colOff>{tx}</xdr:colOff>"
+                 f"<xdr:row>{tr}</xdr:row><xdr:rowOff>{ty}</xdr:rowOff></xdr:to>")
+        p.append('<xdr:pic><xdr:nvPicPr>'
+                 f'<xdr:cNvPr id="{i + 1}" name="Resim {i}"/>'
+                 '<xdr:cNvPicPr><a:picLocks noChangeAspect="0"/></xdr:cNvPicPr>'
+                 "</xdr:nvPicPr>"
+                 f'<xdr:blipFill><a:blip r:embed="rId{i}" xmlns:r="http://'
+                 'schemas.openxmlformats.org/officeDocument/2006/relationships"/>'
+                 "<a:stretch><a:fillRect/></a:stretch></xdr:blipFill>"
+                 "<xdr:spPr><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom>"
+                 "</xdr:spPr></xdr:pic>")
+        p.append("<xdr:clientData/></xdr:twoCellAnchor>")
+    p.append("</xdr:wsDr>")
     return "".join(p)
 
 
@@ -529,6 +570,17 @@ def kitap(sayfalar) -> bytes:
             'officeDocument/2006/relationships/worksheet" '
             f'Target="worksheets/sheet{i}.xml"/>')
 
+    # Görselli sayfa varsa çizim parçaları ve PNG'nin türü de bildiriliyor.
+    gorselli = [(i, sayfa) for i, sayfa in enumerate(sayfalar, start=1)
+                if isinstance(sayfa, dict) and sayfa.get("gorseller")]
+    if gorselli:
+        tipler.append('<Default Extension="png" ContentType="image/png"/>')
+        for i, _ in gorselli:
+            tipler.append(
+                f'<Override PartName="/xl/drawings/drawing{i}.xml" '
+                'ContentType="application/vnd.openxmlformats-officedocument.'
+                'drawing+xml"/>')
+
     tipler.append("</Types>")
     kitap_xml.append("</sheets></workbook>")
     relq.append(
@@ -548,7 +600,48 @@ def kitap(sayfalar) -> bytes:
                       if isinstance(sayfa, dict)
                       else _sayfa_xml(sayfa[1], sayfa[2]))
             z.writestr(f"xl/worksheets/sheet{i}.xml", icerik)
+
+        # Görseller: her sayfanın kendi çizim parçası, çizimin kendi
+        # ilişkileri, resimler ortak klasörde (aynı amblem iki kez yazılmasın).
+        yazilan = set()
+        for i, sayfa in gorselli:
+            g = sayfa["gorseller"]
+            z.writestr(f"xl/worksheets/_rels/sheet{i}.xml.rels",
+                       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                       '<Relationships xmlns="http://schemas.openxmlformats.org/'
+                       'package/2006/relationships"><Relationship Id="rId1" '
+                       'Type="http://schemas.openxmlformats.org/officeDocument/'
+                       '2006/relationships/drawing" '
+                       f'Target="../drawings/drawing{i}.xml"/></Relationships>')
+            z.writestr(f"xl/drawings/drawing{i}.xml", _cizim_xml(g))
+            rels = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+                    '<Relationships xmlns="http://schemas.openxmlformats.org/'
+                    'package/2006/relationships">']
+            for n, resim in enumerate(g, start=1):
+                ad = resim["dosya"]
+                rels.append(
+                    f'<Relationship Id="rId{n}" Type="http://schemas.'
+                    'openxmlformats.org/officeDocument/2006/relationships/image" '
+                    f'Target="../media/{ad}"/>')
+                if ad not in yazilan:
+                    z.writestr(f"xl/media/{ad}", _resim_oku(ad))
+                    yazilan.add(ad)
+            rels.append("</Relationships>")
+            z.writestr(f"xl/drawings/_rels/drawing{i}.xml.rels", "".join(rels))
     return kova.getvalue()
+
+
+def _resim_oku(ad: str) -> bytes:
+    """Kalıbın görselini `static/` altından okur.
+
+    Ad kalıptan geliyor, adresten değil; yine de klasör dışına çıkan bir ad
+    kabul edilmiyor -- dosya adı buraya bir gün başka yerden gelirse diye.
+    """
+    temiz = os.path.basename(str(ad))
+    yol = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "static", temiz)
+    with open(yol, "rb") as f:
+        return f.read()
 
 
 def dosya_adi(kok: str) -> str:

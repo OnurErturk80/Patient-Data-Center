@@ -4164,10 +4164,37 @@ içeriğinin zaten o günün değerlendirmesi olması; yine de gerçek saatler
 çizelgede duruyor, kullanıcı bakıp doğrulayabiliyor. İstemezse iki satır
 boşaltılır.
 
+## Amblem
+
+Kullanıcı ilk baskılara bakınca eksiği gördü: **"Formlarda üniversitenin
+amblemi var."** Vardı — ve iki `.xls`'in **içine gömülüydü**, sayfanın
+hücrelerinde değil.
+
+Amblem Excel'de Escher (`MSODRAWINGGROUP`) kaydında duruyor ve CONTINUE
+kayıtlarına bölünmüş olabiliyor; dosyada PNG imzasını arayıp kesmek bozuk bir
+dosya veriyor (ilk denemede tam bunu yaptım, resim açılmadı). Kayıtları
+birleştirip çıkarınca temiz PNG geldi: 236×236, iki formda da aynı görsel,
+`static/form_amblem.png`.
+
+**Yeri de kâğıttan geliyor.** Excel'in "sabitleyici"si (client anchor) sekiz
+sayı: şu sütunun %4.6'sından şu satırın %6.6'sına, şu sütunun %4.8'ine şu
+satırın %53'üne. Amblemin yeri ve boyu bundan hesaplanıyor —
+ekranda mutlak konumlu bir `<img>` (yüzde ve punto), Excel'de `twoCellAnchor`
+çizim parçası (EMU). Sabit bir boy vermek yerine kâğıttaki kutuyu kurmak
+önemli: iki hücre arasına oturduğu için "sayfaya sığdır" ile basılınca amblem
+de tabloyla birlikte küçülüyor.
+
+`excel.py` artık `.xlsx` içine resim gömebiliyor — yine kütüphanesiz:
+`xl/media/`, `xl/drawings/drawing1.xml`, çizimin ve sayfanın ilişki dosyaları,
+`[Content_Types].xml`'e PNG türü. Aynı amblem iki sayfada kullanılsa da
+dosyaya bir kez yazılıyor.
+
 ## Test edildi
 
 - İki form da tek A4'e oturuyor (dikey 780pt / yatay 535pt), Chromium'un
   yazdırma önizlemesiyle ölçüldü
+- Amblem iki formda da kâğıttaki yerinde; `.xlsx` openpyxl+Pillow ile okundu,
+  236×236 PNG doğru hücrelere sabitlenmiş
 - `.xlsx` openpyxl ile okundu: Arial, kesik çizgili kutular, kalın bölüm
   çizgisi, kâğıttaki sütun genişlikleri ve satır yükseklikleri, A4
   dikey/yatay, sayfaya sığdır

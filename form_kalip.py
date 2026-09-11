@@ -25,6 +25,12 @@ Doldurma iki türlü:
     (kutunun içinde boşluk var; kalemle oraya yazılıyor)
 
 Satır ve sütun numaraları **sıfırdan** başlıyor — Excel'in A1'i (0, 0).
+
+**Amblem** de kalıbın parçası: üniversitenin logosu iki formda da .xls'in
+içine gömülüydü, `kalip_uret.py` onu `static/form_amblem.png`'ye çıkardı.
+Yeri Excel'in "sabitleyici"sinden (client anchor) geliyor — hangi hücreden
+hangi hücreye, hücrenin yüzde kaçından başlayarak. Buradaki hesap onu hem
+ekran için yüzde/puntoya hem Excel için EMU'ya çeviriyor.
 """
 
 import json
@@ -47,8 +53,40 @@ _HIZA = {1: "hsol", 2: "hort", 3: "hsag"}
 _DIKEY = {0: "dust", 1: "dort", 2: "dalt"}
 
 
+# Excel'in sabitleyicisi hücrenin kesrini kullanıyor: sütunda 1024'te kaç,
+# satırda 256'da kaç. Excel'in uzunluk birimi EMU: puntoda 12700, pikselde
+# 9525. Sütun genişliği kâğıtta 1/256 karakter; karakter ~7 piksel.
+_SUTUN_KESIR, _SATIR_KESIR = 1024.0, 256.0
+_EMU_PUNTO, _EMU_PIKSEL = 12700, 9525
+_SUTUN_PIKSEL = 7.0 / 256.0
+
+
 def yon(ad: str) -> str:
     return _SAYFA.get(ad, ("dikey", 780.0))[0]
+
+
+def _x(k, sutun, kesir):
+    """Sabitleyicinin yatay yerini kâğıdın sütun birimiyle verir."""
+    gen = k["sutun"]
+    once = sum(gen[:sutun])
+    bu = gen[sutun] if sutun < len(gen) else 0
+    return once + bu * kesir / _SUTUN_KESIR
+
+
+def _y(k, satir, kesir):
+    """Sabitleyicinin dikey yerini punto olarak verir."""
+    yuk = k["satir_yuksekligi"]
+    once = sum(h or 15.0 for h in yuk[:satir])
+    bu = (yuk[satir] if satir < len(yuk) else None) or 15.0
+    return once + bu * kesir / _SATIR_KESIR
+
+
+def _gorsel_kutusu(k, g):
+    """(sol, üst, genişlik, yükseklik) -- yatayda sütun birimi, dikeyde punto."""
+    s1, dx1, r1, dy1, s2, dx2, r2, dy2 = g["sabit"]
+    sol, sag = _x(k, s1, dx1), _x(k, s2, dx2)
+    ust, alt = _y(k, r1, dy1), _y(k, r2, dy2)
+    return sol, ust, max(0.0, sag - sol), max(0.0, alt - ust)
 
 
 def _sinif(stil: dict) -> str:
@@ -109,7 +147,20 @@ def satirlar(ad: str, deger=None, ek=None) -> dict:
         yukseklik = (k["satir_yuksekligi"][r] or 15.0) * olcek
         cikti.append({"yukseklik": round(yukseklik, 2), "hucreler": hucreler})
 
-    return {"sutunlar": sutunlar, "satirlar": cikti,
+    # Amblem tablonun üstüne konuyor: yatayda kâğıdın yüzdesi, dikeyde
+    # satırlarla aynı ölçekte punto -- tabloyla birlikte küçülüyor.
+    gorseller = []
+    for g in k.get("gorseller", []):
+        sol, ust, gen, yuk = _gorsel_kutusu(k, g)
+        gorseller.append({
+            "dosya": g["dosya"],
+            "sol": round(100.0 * sol / gen_toplam, 4),
+            "genislik": round(100.0 * gen / gen_toplam, 4),
+            "ust": round(ust * olcek, 2),
+            "yukseklik": round(yuk * olcek, 2),
+        })
+
+    return {"sutunlar": sutunlar, "satirlar": cikti, "gorseller": gorseller,
             "olcek": round(olcek, 4), "yon": yon(ad)}
 
 
@@ -129,10 +180,20 @@ def yerlesim(ad: str, sayfa_adi: str, deger=None, ek=None) -> dict:
             if rs > 1 or cs > 1:
                 birlesik.append(f"{adres}:{_adres(r + rs - 1, c + cs - 1)}")
 
+    gorseller = []
+    for g in k.get("gorseller", []):
+        s1, dx1, r1, dy1, s2, dx2, r2, dy2 = g["sabit"]
+        gorseller.append({
+            "dosya": g["dosya"],
+            "bas": (s1, _emu_x(k, s1, dx1), r1, _emu_y(k, r1, dy1)),
+            "bit": (s2, _emu_x(k, s2, dx2), r2, _emu_y(k, r2, dy2)),
+        })
+
     return {
         "ad": sayfa_adi,
         "hucreler": hucreler,
         "birlesik": birlesik,
+        "gorseller": gorseller,
         "stiller": k["stiller"],
         # Excel sütun genişliği karakter cinsinden; kâğıttaki 1/256 karakter.
         "genislikler": {c + 1: round(g / 256.0, 2)
@@ -150,3 +211,16 @@ def _adres(r: int, c: int) -> str:
         n, kalan = divmod(n - 1, 26)
         harf = chr(65 + kalan) + harf
     return f"{harf}{r + 1}"
+
+
+def _emu_x(k, sutun, kesir):
+    """Sütun içindeki kayma, EMU. Excel hücrenin kendi içinde ölçüyor."""
+    gen = k["sutun"][sutun] if sutun < len(k["sutun"]) else 0
+    return int(round(gen * _SUTUN_PIKSEL * kesir / _SUTUN_KESIR * _EMU_PIKSEL))
+
+
+def _emu_y(k, satir, kesir):
+    """Satır içindeki kayma, EMU."""
+    yuk = k["satir_yuksekligi"]
+    h = (yuk[satir] if satir < len(yuk) else None) or 15.0
+    return int(round(h * kesir / _SATIR_KESIR * _EMU_PUNTO))

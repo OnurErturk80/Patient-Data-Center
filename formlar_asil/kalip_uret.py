@@ -15,7 +15,66 @@ Cikardigi seyler: satir yukseklikleri, sutun genislikleri, birlesik hucreler,
 her hucrenin punto/kalinlik/hiza bilgisi, dort kenarinin cizgi tipi ve kagitta
 basili olan yazilar. Kagittaki yazim hatalari **duzeltilmez** -- belge o.
 """
-import json, sys, xlrd
+import json, os, struct, sys, xlrd
+from xlrd.compdoc import CompDoc
+
+# --------------------------------------------------------------- amblem
+# Formlarin ustunde universitenin ambleminin PNG'si var; .xls icinde
+# Escher (MSODRAWINGGROUP) kaydinda duruyor ve CONTINUE kayitlarina
+# bolunmus olabiliyor -- dosyada PNG imzasini arayip kesmek bozuk dosya
+# veriyor, kayitlari birlestirmek gerekiyor.
+
+def _workbook_akimi(yol):
+    c = CompDoc(open(yol, "rb").read(), print, 0)
+    for ad in ("Workbook", "Book"):
+        s = c.get_named_stream(ad)
+        if s:
+            return s
+    raise SystemExit("Workbook akimi yok: " + yol)
+
+
+def _kayitlar(s):
+    i, out, n = 0, [], len(s)
+    while i + 4 <= n:
+        rec, boy = struct.unpack("<HH", s[i:i + 4])
+        out.append((rec, s[i + 4:i + 4 + boy]))
+        i += 4 + boy
+    return out
+
+
+def amblem(yol, hedef):
+    """PNG'yi `hedef`e yazar, sayfadaki sabitleyicisini dondurur.
+
+    Sabitleyici (client anchor) sekiz sayi: baslangic sutunu ve sutun
+    genisliginin 1024'te kaci, baslangic satiri ve satir yuksekliginin
+    256'da kaci, ayni sey bitis icin. Gorselin yeri bundan cikiyor.
+    """
+    ks = _kayitlar(_workbook_akimi(yol))
+    blob, topluyor = bytearray(), False
+    for rec, veri in ks:
+        if rec == 0x00EB:                      # MSODRAWINGGROUP
+            blob += veri
+            topluyor = True
+        elif rec == 0x003C and topluyor:       # CONTINUE
+            blob += veri
+        else:
+            topluyor = False
+    if not blob or b"\x89PNG\r\n\x1a\n" not in bytes(blob):
+        return None
+    b = bytes(blob)
+    bas = b.index(b"\x89PNG\r\n\x1a\n")
+    son = b.index(b"IEND", bas) + 8
+    with open(hedef, "wb") as f:
+        f.write(b[bas:son])
+
+    for rec, veri in ks:
+        if rec == 0x00EC:                      # MSODRAWING (sayfadaki sekil)
+            j = veri.find(b"\x00\x00\x10\xf0")   # OfficeArtClientAnchor
+            if j >= 0 and len(veri) >= j + 26:
+                a = struct.unpack("<9H", veri[j + 8:j + 26])
+                return {"dosya": os.path.basename(hedef), "sabit": list(a[1:])}
+    return None
+
 
 def kalip(yol):
     b = xlrd.open_workbook(yol, formatting_info=True)
@@ -129,12 +188,16 @@ def kalip(yol):
         "satirlar": satirlar,
     }
 
+AMBLEM = "form_amblem.png"     # static/ altina yaziliyor
+
 out = {}
 for ad, yol in (("ozet", sys.argv[1]), ("artlab", sys.argv[2])):
     out[ad] = kalip(yol)
     k = out[ad]
-    print(ad, "satir=%d sutun=%d stil=%d hucre=%d" % (
+    g = amblem(yol, os.path.join("static", AMBLEM))
+    k["gorseller"] = [g] if g else []
+    print(ad, "satir=%d sutun=%d stil=%d hucre=%d gorsel=%d" % (
         len(k["satirlar"]), len(k["sutun"]), len(k["stiller"]),
-        sum(len(s) for s in k["satirlar"])))
+        sum(len(s) for s in k["satirlar"]), len(k["gorseller"])))
 json.dump(out, open("form_kalip.json", "w", encoding="utf-8"),
           ensure_ascii=False, separators=(",", ":"))

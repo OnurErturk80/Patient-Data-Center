@@ -64,6 +64,7 @@ Patient Data Center/
   form_kalip.py     resmî formların ızgarası (form_kalip.json'ı okur)
   form_kalip.json   kâğıt aslından çıkarılmış ızgara — ELLE DÜZENLEME
   formlar_asil/     orijinal .xls formlar + kalip_uret.py (kalıbı üreten araç)
+  static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
   goc_002..028.py   veritabanı göçleri (sırayla)
@@ -292,6 +293,12 @@ kalıptan**: `form_kalip.json`.
   kötü. Kullanıcı hangilerinin programa gireceğine sonra karar verecek.
 - **Oosit 13'ü geçerse kalıp ikinci kez basılır** (kâğıtta ikinci form).
   Sütun ekleme, kırpma da yapma; özet bloğu yalnızca ilk sayfada.
+- **Amblem de kalıptan** (v6.39): üniversitenin logosu iki `.xls`'in içine
+  gömülüydü, `kalip_uret.py` `static/form_amblem.png`'ye çıkardı. Yeri
+  kâğıttaki **sabitleyiciden** (Excel client anchor) hesaplanıyor — ekranda
+  mutlak konumlu `<img>`, Excel'de `twoCellAnchor` çizim parçası. Amblemi
+  başka bir yere taşıma, boyunu elle verme: iki hücre arasına oturduğu için
+  "sayfaya sığdır" ile birlikte küçülüyor.
 - Ekranda ve Excel'de aynı ızgara: `form_kalip.satirlar()` ve
   `form_kalip.yerlesim()`. Şablon tek: `form.html`.
 - Form adı adresten geliyor; `FORMLAR` **beyaz listesinden** geçiyor. Şablon

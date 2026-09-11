@@ -975,15 +975,18 @@ body.kilitli { overflow: hidden; }
 }
 .kagit + .kagit { margin-top: 14px; }
 
+/* Amblem tablonun ustune biniyor; yeri ve boyu kagittaki sabitleyiciden
+   hesaplanip satir ici stil olarak geliyor. Yuzdeler bu kapsayiciya gore
+   olculdugu icin en az genislik burada duruyor -- tabloda dursaydi dar
+   ekranda tablo genis, kapsayici dar olur ve amblem kayardi. */
+.kalipkap { position: relative; min-width: 660px; }
+.kagit.yatay .kalipkap { min-width: 980px; }
+.kalipgorsel { position: absolute; object-fit: fill; }
+
 .kalip {
   width: 100%; border-collapse: collapse; table-layout: fixed;
   font-family: Arial, Helvetica, sans-serif; color: #000;
-  /* Form A4 icin kurulmus. Telefonda sikistirilirsa yazilar kirpilip
-     okunmaz hale geliyor; onun yerine .kagit icinde yana kaydiriliyor.
-     Yazdirirken bu sinir kalkiyor, kagidin genisligi ne ise o. */
-  min-width: 660px;
 }
-.kagit.yatay .kalip { min-width: 980px; }
 /* Hucre kagittakinden buyumesin: tasan yazi kirpilir, satir kaymaz.
    white-space:pre cunku kagittaki bazi yazilar bosluklarla hizalanmis
    ("            grade", "Raporu dolduran      Tarih      ..."); HTML o
@@ -1038,7 +1041,7 @@ body.kilitli { overflow: hidden; }
   body { background: #fff; }
   .kap, .kap.genis { max-width: none; padding: 0; margin: 0; }
   .kagit { border: 0; border-radius: 0; padding: 0; overflow: visible; }
-  .kalip, .kagit.yatay .kalip { min-width: 0; }
+  .kalipkap, .kagit.yatay .kalipkap { min-width: 0; }
   .kagit + .kagit { margin-top: 0; page-break-before: always; }
   .kalip td {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;

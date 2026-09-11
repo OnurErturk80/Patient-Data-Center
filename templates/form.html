@@ -20,6 +20,13 @@
 
 {% for s in sayfalar %}
 <div class="kagit{% if yon == 'yatay' %} yatay{% endif %}">
+  <div class="kalipkap">
+  {#- Amblem tablonun üstüne biniyor: yeri kâğıttaki sabitleyiciden
+      (Excel'in client anchor'ı) hesaplandı, satırlarla aynı ölçekte. -#}
+  {%- for g in s.gorseller %}
+  <img class="kalipgorsel" src="/static/{{ g.dosya }}" alt=""
+       style="left:{{ g.sol }}%;top:{{ g.ust }}pt;width:{{ g.genislik }}%;height:{{ g.yukseklik }}pt">
+  {%- endfor %}
   <table class="kalip" style="font-size:{{ (10 * s.olcek)|round(2) }}pt">
     <colgroup>
       {%- for g in s.sutunlar %}<col style="width:{{ g }}%">{% endfor -%}
@@ -36,6 +43,7 @@
       {%- endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endfor %}
 {% endblock %}
