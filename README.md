@@ -4157,12 +4157,16 @@ sordururdu. Kırpmak klinik bir sayıyı gizlerdi, sütun eklemek kalıbı bozar
 ## Gün 2 / gün 3 hangi satıra yazılıyor
 
 Kâğıttaki satır başlıkları "40-45 saat" ve "72 saat". Program gün 2 kaydını
-birinciye, gün 3 kaydını ikinciye yazıyor. Bu bir eşleme ve kullanıcının
-onayını bekliyor: v6.37'de saat başlıklarını aşamalara eşleme önerisi
-**reddedilmişti** ("gerçek geçen saati hesapla"). Buradaki fark, satırın
-içeriğinin zaten o günün değerlendirmesi olması; yine de gerçek saatler
-çizelgede duruyor, kullanıcı bakıp doğrulayabiliyor. İstemezse iki satır
-boşaltılır.
+birinciye, gün 3 kaydını ikinciye yazıyor.
+
+Bu bir eşleme olduğu için kullanıcıya soruldu — v6.37'de saat başlıklarını
+aşamalara eşleme önerisi **reddedilmişti** ("gerçek geçen saati hesapla").
+Buradaki fark, satırın içeriğinin zaten o günün değerlendirmesi olması; gerçek
+saatler de çizelgede duruyor, bakıp doğrulanabiliyor. Kullanıcı **"kalsın"
+dedi** (2026-09-11), eşleme onaylandı. Kendiliğinden boşaltma.
+
+"24 saat : hücre" satırı ayrı: programda 24. saat kaydı **yok**, o yüzden boş
+kalıyor. Bir gün böyle bir kayıt eklenirse oraya yazılır.
 
 ## Amblem
 

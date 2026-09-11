@@ -291,6 +291,9 @@ kalıptan**: `form_kalip.json`.
   intakt, tüp no, medium/lot, seleksiyon, transfer klinisyeni, 24. saat
   hücre sayısı). Uydurma — resmî forma yanlış veri yazmak boş bırakmaktan
   kötü. Kullanıcı hangilerinin programa gireceğine sonra karar verecek.
+- **ART raporunda gün 2 "40-45 saat", gün 3 "72 saat" satırına yazılır.**
+  Eşleme olduğu için kullanıcıya soruldu, **"kalsın" dedi** (2026-09-11).
+  Boşaltma. "24 saat : hücre" satırı boş — programda o kayıt yok.
 - **Oosit 13'ü geçerse kalıp ikinci kez basılır** (kâğıtta ikinci form).
   Sütun ekleme, kırpma da yapma; özet bloğu yalnızca ilk sayfada.
 - **Amblem de kalıptan** (v6.39): üniversitenin logosu iki `.xls`'in içine
