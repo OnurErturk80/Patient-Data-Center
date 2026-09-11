@@ -131,11 +131,15 @@ ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
 Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati) ve `?duzenle=oosit`
 (oositlerin çalışma kipi) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
 
-**Denüdasyon açılışta salt okunurdur** (v6.24). Açılışta yalnızca iki bilgi
-kartı ve işlemi yapan var; oosit ekleme, numara şeridi ve fotoğraf
-`?duzenle=oosit` çalışma kipinde. Kamera uyarıları da orada. Kare
-kaydettikten sonra çalışma kipinde **kalınır** — özete düşerse her kayıtta
-tekrar Düzenle demek gerekir.
+**Denüdasyonun bilgi ekranı fert/blastokistin aynısıdır** (v6.25): numara
+şeridi → seçilenin fotoğrafı → altında örnek kodu → kare şeridi → bilgi
+kartı. `?duzenle=oosit` çalışma kipinde **yalnızca** oosit ekleme (kamera
+kuyruğu, fotoğrafsız ekleme, elle fotoğraf, son kaydı geri al), over
+değiştirme ve kamera uyarıları var. **Şeridi ve fotoğrafı çalışma kipine
+saklama** — v6.24'te bu yapıldı, kullanıcı geri istedi: tasarım bütünlüğü
+aşama ekranlarının hepsinde aynı görünmekten geliyor. Kare kaydettikten
+sonra çalışma kipinde **kalınır**, yoksa her kayıtta tekrar Düzenle demek
+gerekir.
 
 **Form doğrulama hatası formu kapatmamalı.** Kart modu geldikten sonra
 `?hata=...` ile geri dönmek "mesajı göster, formu gizle" demek — kullanıcı

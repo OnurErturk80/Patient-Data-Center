@@ -90,6 +90,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.22 — düzen artık gerçekten her ekranda aynı](#v622--düzen-artık-gerçekten-her-ekranda-aynı)
 - [v6.23 — örnek kodu, ilk kare, hasta adı önde](#v623--örnek-kodu-ilk-kare-hasta-adı-önde)
 - [v6.24 — denüdasyon açılışta salt okunur](#v624--denüdasyon-açılışta-salt-okunur)
+- [v6.25 — denüdasyon bilgi ekranı fert/blastokistin aynısı](#v625--denüdasyon-bilgi-ekranı-fertblastokistin-aynısı)
 
 ---
 
@@ -2989,3 +2990,58 @@ fazladan dokunuş.
   saat düzenle → özet
 - Özet sayıları kayıttan sonra güncel
 - İki dilde; 24 ekran 200, JS hatası yok
+
+---
+
+# v6.25 — denüdasyon bilgi ekranı fert/blastokistin aynısı
+
+v6.24'te fazla sakladım. Kullanıcı "oosit ekleme bloğu Düzenle'nin arkasına
+geçsin" demişti; ben numara şeridini ve fotoğrafı da oraya attım, ekranda
+yalnızca bir sayı özeti kaldı. İstenen bu değildi:
+
+> "Ben bilgi kartında sıra numaraları ile altlarında kodu olan oosit fotoları
+> olsun. Aynı fertilizasyon, blastokist ekranları gibi bilgi ekranı olsun,
+> tasarım ve görüntü benzerliği ve bütünlüğü olsun istedim."
+
+## Doğrusu
+
+**Bilgi ekranı (açılış)** artık fertilizasyon/blastokist ekranlarının birebir
+aynısı:
+
+```
+numara şeridi (1-Sağ  2-Sol  3)
+sayaç: "3 oosit kaydedildi"        "Oosit 1 sağ"
+seçilenin büyük fotoğrafı
+   altında örnek kodu (527078-2026-0001-01)
+kare şeridi · Bu fotoğrafı sil · Fotoğraf ekle
+bilgi kartı: Oosit 1 [Kaydedildi]
+             Numara / Toplandığı over / Kare / Örnek kodu
+             [Düzenle]
+```
+
+**Düzenle'nin arkasında kalan tek şey oosit eklemek:** kamera kuyruğu,
+fotoğrafsız ekleme, elle fotoğraf, son kaydı geri al — bir de seçili oositin
+over'ını değiştirme. Kamera klasörü ve boş dosya uyarıları da orada; kayıt
+girmeyeni ilgilendirmiyorlar.
+
+Şerit ve fotoğraf **iki kipte de** duruyor; değişen yalnızca seçim adresi
+(`?oosit=N` / `?duzenle=oosit&oosit=N`).
+
+## v6.24'ten geri alınanlar
+
+Özet kartı ve onun sözlük anahtarları (`toplam_oosit`, `belirtilmemis`,
+`fotografli`, `oositleri_duzenle`) kaldırıldı, rotadaki `ozet` hesabı da.
+Bilgi kartı yine **tek oositin** kartı — öteki aşama ekranlarındaki gibi.
+
+Hiç oositi olmayan cycle'da boş kartın altında "Oosit ekle" düğmesi çalışma
+kipine götürüyor; yoksa ilk oositi eklemenin yolu kalmıyordu.
+
+## Test edildi
+
+- Bilgi ekranı: şerit, fotoğraf, kod, bilgi kartı var; "Oosit ekle",
+  "Elle fotoğraf ekle", "Son kaydı geri al" yok
+- Çalışma kipi: hepsi var + over düğmeleri + Bitir
+- Şerit bağlantıları kipe göre doğru adresi veriyor
+- Kare kaydet → çalışma kipinde kalıyor; over değiştir → çalışma kipi;
+  Bitir → bilgi ekranı
+- Hiç oositi olmayan cycle; iki dilde; 25 ekran 200, JS hatası yok
