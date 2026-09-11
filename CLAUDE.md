@@ -60,6 +60,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   excel.py          .xlsx üretir — kütüphanesiz, yalnızca zipfile + XML
   disari.py         Excel çıktılarının sorguları (rotalar app.py'de)
+  formlar.py        resmî formların verisi + zaman çizelgesi
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
   goc_002..028.py   veritabanı göçleri (sırayla)
@@ -261,6 +262,39 @@ Yılı 1900'den küçük tarih **metin** yazılır: bozuk `0026-09-04` kaydı
 - `specimen.durum` **kodla** yazılır; on dörde yakın değerinin çoğunun
   karşılığı yok, yarısını çevirmek sütunu tutarsız yapar. Etiket listesini
   kullanıcıya sormadan uydurma.
+
+**Resmî formlar kalıbıyla basılır** (v6.37). İki form, ikisi de kullanıcının
+tutmak **zorunda** olduğu kurum formları: Embriyoloji Özet (DH.FR.91, dikey)
+ve ART Lab. Raporu (DH.FR.107, yatay). Her biri iki çıktı veriyor —
+yazdırılabilir sayfa (`/form/{ad}/{id}`, Ctrl+P) ve Excel
+(`/disari/form/{ad}/{id}`) — ama **içerik tek yerden**: `formlar.py`
+`*_verisi()`. İkisi ayrı düşmesin diye böyle.
+- **Kalıba dokunma.** Doküman kodu, yayın/revizyon tarihi, alan adları ve form
+  numarası kalite sisteminden geliyor; kâğıt aslıyla aynı görünmek zorunda.
+  Kutunun **içini** doldur, başlığını değiştirme.
+- **Programda karşılığı olmayan alan boş kalır** (kimlik no, empty zona,
+  intakt, tüp no, medium/lot, seleksiyon, transfer klinisyeni). Uydurma —
+  resmî forma yanlış veri yazmak boş bırakmaktan kötü. Kullanıcı hangilerinin
+  programa gireceğine sonra karar verecek.
+- Form adı adresten geliyor; `FORMLAR` **beyaz listesinden** geçiyor. Şablon
+  adını adresteki metinle kurma.
+- `excel.py`'nin **yerleşim sayfası** bunun için var: hücreler adresle
+  veriliyor, birleşik hücre/kenarlık/yazdırma ayarı destekliyor. Stil
+  numaraları dosyaya yazıldığı için `STILLER`'e **araya değil sona** ekle.
+
+**Zaman çizelgesi türetilmiştir, kayıt değil** (v6.37). `formlar.zaman_cizelgesi()`
+cycle'ın aşama saatlerini toplayıp iki süre veriyor: önceki işlemden ve
+OPU'dan bu yana. Kullanıcının isteği — formdaki "24 saat / 40-45 saat /
+72 saat" satırlarını varsayımla eşlemek yerine program gerçek saati hesaplasın.
+- **Ayrı tablo yok.** Saatler zaten aşama ekranlarında elle giriliyor; ikinci
+  bir yere yazmak veriyi ikiye ayırırdı.
+- **Sıra zamana göre**, klinik akış sırasına göre değil: aynı gün önce
+  transfer edip sonra dondurmak olağan, akış sırası eksi saat gösterirdi.
+- Zamanı girilmemiş aşama çizelgede yok.
+
+**`gun_alt()` / `son_alt()` `formlar.py`'de durur**, `disari.py` oradan alır.
+Örnek başına alt sorgu kuran iki küçük parça; iki kopya birbirinden ayrı
+düşerdi.
 
 **Örnek kodu aranabilir** (v6.35). Kod (`527078-2026-0001-03`) tüpün ve
 formun üstünde yazan şey; `<hasta dosya no>-<specimen.id>` olarak

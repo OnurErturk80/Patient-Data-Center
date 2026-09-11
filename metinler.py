@@ -1161,6 +1161,24 @@ METINLER = {
     "ornek_kodu_sonucu": {"tr": "Örnek kodu", "en": "Sample code"},
     "durum_aktif": {"tr": "Aktif", "en": "Active"},
     "excel_cikti": {"tr": "Excel çıktısı", "en": "Excel export"},
+    # ---- resmî formlar ----
+    "formlar": {"tr": "Formlar", "en": "Forms"},
+    "form_ozet": {"tr": "Embriyoloji Özet Formu",
+                  "en": "Embryology Summary Form"},
+    "form_artlab": {"tr": "ART Lab. Raporu", "en": "ART Lab. Report"},
+    "yazdir": {"tr": "Yazdır", "en": "Print"},
+    "excel_indir": {"tr": "Excel olarak indir", "en": "Download as Excel"},
+    "zaman_cizelgesi": {"tr": "Zaman çizelgesi", "en": "Timeline"},
+    "onceki_islemden": {"tr": "Önceki işlemden", "en": "Since previous step"},
+    "opudan_bu_yana": {"tr": "OPU'dan bu yana", "en": "Since OPU"},
+    "n_saat": {"tr": "{n} sa", "en": "{n} h"},
+    "cizelge_bos": {"tr": "Henüz saati girilmiş bir işlem yok.",
+                    "en": "No step with a recorded time yet."},
+    "cizelge_ipucu": {
+        "tr": "Saatler aşama ekranlarında girdiğin değerlerden hesaplanıyor; "
+              "ayrı bir kayıt tutulmuyor.",
+        "en": "Hours are computed from the times you enter on the stage "
+              "screens; nothing is stored separately."},
     "excel_ay": {"tr": "Bu ayı Excel'e aktar", "en": "Export this month to Excel"},
     "excel_cycle": {"tr": "Bu cycle'ı Excel'e aktar",
                     "en": "Export this cycle to Excel"},

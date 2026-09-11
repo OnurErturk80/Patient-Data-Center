@@ -3893,3 +3893,104 @@ uydurmak kullanıcının işi ("klinik bir varsayım yapman gerekiyorsa yapma").
   geçersiz ay numarası
 - 30 ekran 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
 - Test verisi geri alındı (1 hasta, 2 cycle, 1 örnek, 0 olay, 0 taşıyıcı)
+
+---
+
+# v6.37 — resmî formlar ve zaman çizelgesi
+
+Kullanıcı iki form gönderdi ve "bu formlar benim tutma zorunluluğumun olduğu
+formlar, programdaki verileri forma işletip çıktı alıp fiziksel dosyasına
+koymak istiyorum" dedi. Formlar Akdeniz Üniversitesi Tıp Fakültesi ÜYTE
+Merkezi'nin kalite sisteminden:
+
+- **Embriyoloji Özet Formu** — DH.FR.91 Rev.03, dikey, cycle başına bir sayfa
+- **ART Lab. Raporu** — DH.FR.107 Rev.01, yatay, oosit ızgaralı
+
+Gönderilen `.xls` dosyaları okundu (birleşik hücreler, sütun genişlikleri,
+satır yükseklikleri, künye şeridi) ve kalıp birebir yeniden kuruldu.
+
+## İki çıktı, tek içerik
+
+Kullanıcının seçimi "ikisi de" oldu:
+
+- **Yazdırılabilir sayfa** — `/form/ozet/{id}`, `/form/artlab/{id}`. Ekranda
+  açılıyor, Ctrl+P ile kâğıda ya da PDF'e. `@media print` üst çubuğu, menüyü
+  ve düğmeleri gizliyor; kâğıda yalnızca form iniyor. ART raporu yatay
+  basılıyor (`@page yatay`), 13 sütunluk ızgara dikey A4'e sığmıyor.
+- **Excel** — `/disari/form/ozet/{id}`, `/disari/form/artlab/{id}`.
+
+İçerik tek yerden geliyor (`formlar.py` `*_verisi()`), yerleşim ikiye ayrılmış
+durumda. Böylece bir alan değiştiğinde iki çıktı birbirinden ayrı düşmüyor.
+
+`excel.py` bunun için genişletildi: **yerleşim sayfası**. Tablo sayfasından
+farkı, hücrelerin adresle verilmesi (`{"C8": (değer, "deger")}`) — form kâğıdı
+satır-sütun düzeni değil, belirli kutulara yazılan bir kalıp. Birleşik hücre,
+kenarlık, dolgu, sütun genişliği, satır yüksekliği ve yazdırma ayarı (A4,
+dikey/yatay, tek sayfaya sığdır) eklendi. Dokuz stil tanımlı; sıraları
+`styles.xml`'e sayı olarak yazıldığı için **araya stil eklenmez, sona eklenir**.
+
+## Zaman çizelgesi
+
+Formun satır başlıkları saat cinsinden: "PM durumu (18 sa)", "24 saat",
+"40-45 saat", "72 saat". Bunları programın gün bazlı kayıtlarına (fert
+kontrolü, gün 2, gün 3) eşlemeyi önerdim; kullanıcı **kabul etmedi** ve daha
+iyisini istedi: "programda tarih ve saat girip bir önceki işlem üzerinden kaç
+saat geçmiş ise onun yazılacağı bir bölüm ekle."
+
+Doğru olan bu: eşleme bir varsayım olurdu, hesap ise veri. `zaman_cizelgesi()`
+cycle'ın bütün aşama saatlerini toplayıp iki süre veriyor — **önceki işlemden**
+ve **OPU'dan bu yana**. İkisi birden, çünkü "kaç saatte bir baktık" ile
+"kaçıncı saatteki değerlendirme" ayrı sorular; formun satır başlıkları
+ikincisini soruyor.
+
+Üç karar:
+- **Ayrı kayıt tutulmuyor.** Saatler zaten her aşama ekranında elle
+  girilebiliyor ("işlem saatleri elle girilebilir" kuralı); çizelge onlardan
+  türüyor. İkinci bir yere yazmak veriyi ikiye ayırırdı.
+- **Sıra zamana göre, klinik akışa göre değil.** Aynı gün önce transfer edip
+  sonra kalanı dondurmak olağan; akış sırası kullanılsaydı o satır **eksi
+  saat** gösterirdi. Testte tam olarak bu çıktı, düzeltildi.
+- **Zamanı girilmemiş aşama çizelgede yok.** Boş satır "o iş yapılmadı" ile
+  "saati girilmedi"yi karıştırırdı.
+
+Çizelge cycle ekranında bir kart, ART raporunda da formun kendi "İŞLEM /
+Tarih / Sa." bloğunu dolduruyor.
+
+## Programda karşılığı olmayan alanlar
+
+Kullanıcı "daha sonra düşüneyim" dedi; şimdilik **boş kutu** çıkıyorlar,
+kalemle dolduruluyor. Uydurmak, resmî bir forma yanlış veri yazmak olurdu.
+
+| Form | Boş çıkan |
+|---|---|
+| Embriyoloji Özet | Kimlik no, Empty zona, Morfolojik anomalili, İntakt, Transfer klinisyen |
+| ART Lab | Tüp (folikül), Medium/Lot (IVF, sperm prep, PVP, hyalüronidaz, freeze/thaw pack), Seleksiyon, Raporu dolduran |
+
+**Ad ve soyad** formda iki ayrı kutu, programda tek alan (`ad_soyad`). Son
+kelime soyadı sayılıyor — Türkçede olağan yazım ve alan adının söylediği sıra.
+Bileşik soyadlarda yanılabilir; resmî formda boş kimlik kutusu bırakmaktansa
+doldurup kullanıcının görüp düzeltmesi tercih edildi. Hasta kaydında ad ve
+soyad ayrılırsa `_ad_soyad_ayir()` tek satırla düzelir.
+
+`x10⁶` üst simgesi bazı yazıcılarda bozuk çıktığı için kâğıt aslındaki gibi
+`x106` yazılıyor.
+
+## Ortaklaşan iki SQL parçası
+
+`gun_alt()` ve `son_alt()` (örnek başına alt sorgu kuran iki küçük fonksiyon)
+hem `disari.py` hem `formlar.py` tarafından kullanılıyor. `formlar.py`'de
+duruyorlar, `disari.py` oradan alıyor — iki kopya birbirinden ayrı düşerdi.
+
+## Test edildi
+
+- 8 oositlik gerçekçi fikstür (5 MII, 4×2PN, 3 blastokist, 2 transfer,
+  1 dondurma, bazal + hazırlık sonrası sperm analizi, beş aşamada işlemi
+  yapan): iki formun iki çıktısı da elle doğrulandı, sayılar tutuyor
+- Yazdırma görünümü tarayıcıda (`emulate_media("print")`) ve PDF olarak
+  alındı: özet formu A4 dikeyde tek sayfa, ART raporu A4 yatayda tek sayfa
+- Üretilen `.xlsx`'ler `openpyxl` ile geri okundu: birleşik hücreler,
+  kenarlık, dolgu, sayfa yönü, tek sayfaya sığdırma
+- Çizelge: eksi saat hatası bulundu ve düzeltildi (zamana göre sıralama)
+- Bilinmeyen form adı (`/form/yok/1`) cycle'a dönüyor — şablon adı adresten
+  gelen metinle kurulmuyor, beyaz listeden geçiyor
+- 13 ekran 200, JS hatası yok, yatay taşma yok

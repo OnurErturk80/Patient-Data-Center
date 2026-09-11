@@ -48,6 +48,22 @@ _ZAMAN = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$"
 # Biçim numaraları styles.xml'deki cellXfs sırasıyla aynı.
 _DUZ, _BASLIK, _TARIH_BICIM, _ZAMAN_BICIM = 0, 1, 2, 3
 
+# Yerleşim sayfalarının (resmî formlar) stilleri. Adla çağrılıyor; sıra
+# styles.xml'deki cellXfs sırası ve **değiştirilemez** -- araya stil ekleyecek
+# olursan sona ekle, ortadan değil (sayılar dosyaya yazılıyor).
+STILLER = {
+    "duz": 0, "baslik": 1,
+    "kurum": 4,      # kurum adı satırları: kalın, ortalı, kenarlıksız
+    "formadi": 5,    # formun adı: büyük, kalın, ortalı
+    "kunye": 6,      # doküman kodu / revizyon şeridi: küçük, kenarlıklı
+    "etiket": 7,     # form alanının adı: kalın, açık dolgulu, kenarlıklı
+    "deger": 8,      # programdan gelen değer: kenarlıklı, sola yaslı
+    "bolum": 9,      # "OOSİT BİLGİLERİ" gibi bölüm başlığı
+    "ortali": 10,    # ızgara hücresi: ortalı, kenarlıklı
+    "dipnot": 11,    # form numarası / revizyon: küçük, kenarlıksız
+    "ortali_kalin": 12,
+}
+
 # Excel sayfa adında kullanılamayan karakterler ve en fazla uzunluk.
 _YASAK_AD = re.compile(r"[\[\]:*?/\\]")
 _AD_UZUNLUK = 31
@@ -174,10 +190,107 @@ def _sayfa_xml(basliklar, satirlar) -> str:
     return "".join(p)
 
 
+# --------------------------------------------------------------- yerleşim
+
+_ADRES = re.compile(r"^([A-Z]+)(\d+)$")
+
+
+def _adres_coz(adres: str):
+    """"C8" -> (3, 8). Sütun harfi 1'den başlayan sayıya çevrilir."""
+    e = _ADRES.match(adres.strip().upper())
+    if not e:
+        raise ValueError(f"gecersiz hucre adresi: {adres}")
+    harf, satir = e.groups()
+    n = 0
+    for k in harf:
+        n = n * 26 + (ord(k) - 64)
+    return n, int(satir)
+
+
+def _yerlesim_xml(y: dict) -> str:
+    """Serbest yerleşimli sayfa: resmî formların birebir kopyası.
+
+    Tablo sayfasından farkı, hücrelerin **adresle** verilmesi: form kâğıdı
+    satır-sütun düzeni değil, belirli kutulara yazılan bir kalıp. Birleşik
+    hücre, kenarlık, sütun genişliği ve yazdırma ayarı da buradan geliyor —
+    çıktının A4'e formun aslı gibi oturması için hepsi gerekli.
+
+    Beklenen sözlük:
+      ad           sayfa adı
+      hucreler     {"A1": değer} ya da {"A1": (değer, "stil")}
+      birlesik     ["A1:I1", ...]
+      genislikler  {sütun no: karakter genişliği}
+      yukseklikler {satır no: punto}
+      yazdirma     {"yon": "dikey"|"yatay", "sigdir": True, "kenar": 0.3}
+    """
+    hucreler, birlesik = y.get("hucreler", {}), y.get("birlesik", [])
+    yaz = y.get("yazdirma", {})
+
+    # Hücreler satır satır gruplanıyor: sheetData satır sırasına göre yazılır.
+    satirlar = {}
+    for adres, deger in hucreler.items():
+        sutun, satir = _adres_coz(adres)
+        satirlar.setdefault(satir, []).append((sutun, adres.upper(), deger))
+
+    p = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+         '<worksheet xmlns="http://schemas.openxmlformats.org/'
+         'spreadsheetml/2006/main">']
+    if yaz.get("sigdir", True):
+        # Tek sayfaya sığdır: form bir sayfa, ikinciye taşarsa dosyaya konmaz.
+        p.append('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>')
+    p.append('<sheetViews><sheetView workbookViewId="0" '
+             'showGridLines="0"/></sheetViews>')
+    p.append('<sheetFormatPr defaultRowHeight="15"/>')
+
+    g = y.get("genislikler", {})
+    if g:
+        p.append("<cols>")
+        for sutun in sorted(g):
+            p.append(f'<col min="{sutun}" max="{sutun}" width="{g[sutun]}" '
+                     'customWidth="1"/>')
+        p.append("</cols>")
+
+    yuk = y.get("yukseklikler", {})
+    p.append("<sheetData>")
+    for satir in sorted(satirlar):
+        h = (f' ht="{yuk[satir]}" customHeight="1"' if satir in yuk else "")
+        p.append(f'<row r="{satir}"{h}>')
+        for _, adres, deger in sorted(satirlar[satir]):
+            if isinstance(deger, tuple):
+                deger, stil = deger
+            else:
+                stil = "duz"
+            p.append(_hucre(adres, deger, STILLER.get(stil, _DUZ)))
+        p.append("</row>")
+    p.append("</sheetData>")
+
+    if birlesik:
+        p.append(f'<mergeCells count="{len(birlesik)}">')
+        for aralik in birlesik:
+            p.append(f'<mergeCell ref="{aralik.upper()}"/>')
+        p.append("</mergeCells>")
+
+    kenar = yaz.get("kenar", 0.3)
+    p.append(f'<pageMargins left="{kenar}" right="{kenar}" top="{kenar}" '
+             f'bottom="{kenar}" header="0" footer="0"/>')
+    yon = "landscape" if yaz.get("yon") == "yatay" else "portrait"
+    sig = ' fitToWidth="1" fitToHeight="1"' if yaz.get("sigdir", True) else ""
+    # paperSize 9 = A4.
+    p.append(f'<pageSetup paperSize="9" orientation="{yon}"{sig}/>')
+    p.append("</worksheet>")
+    return "".join(p)
+
+
+def _sayfa_adi_of(sayfa):
+    """Sayfa hem demet hem sözlük olabilir; adı ikisinden de okur."""
+    return sayfa.get("ad", "") if isinstance(sayfa, dict) else sayfa[0]
+
+
 def _sayfa_adlari(sayfalar):
     """Excel'in sayfa adı kuralları: 31 karakter, bazı işaretler yasak, tekrar yok."""
     adlar, kullanilan = [], set()
-    for i, (ad, _, _) in enumerate(sayfalar, start=1):
+    for i, sayfa in enumerate(sayfalar, start=1):
+        ad = _sayfa_adi_of(sayfa)
         temiz = _YASAK_AD.sub(" ", str(ad)).strip()[:_AD_UZUNLUK] or f"Sayfa{i}"
         kok, n = temiz, 2
         while temiz.lower() in kullanilan:
@@ -196,9 +309,16 @@ _STILLER = (
     '<numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd"/>'
     '<numFmt numFmtId="165" formatCode="yyyy\\-mm\\-dd\\ hh:mm"/>'
     "</numFmts>"
-    '<fonts count="2">'
+    # 0-1 tablo yazıları, 2-7 form yazıları (punto ve kalınlık).
+    '<fonts count="8">'
     '<font><sz val="11"/><name val="Calibri"/></font>'
     '<font><b/><sz val="11"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="12"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="14"/><name val="Calibri"/></font>'
+    '<font><sz val="8"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="9"/><name val="Calibri"/></font>'
+    '<font><sz val="10"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="10"/><name val="Calibri"/></font>'
     "</fonts>"
     # İlk iki dolgu Excel'in şartı: sırayla "none" ve "gray125" olmak zorunda.
     '<fills count="3">'
@@ -206,12 +326,23 @@ _STILLER = (
     '<fill><patternFill patternType="gray125"/></fill>'
     '<fill><patternFill patternType="solid">'
     '<fgColor rgb="FFE8EDF0"/><bgColor indexed="64"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid">'
+    '<fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid">'
+    '<fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>'
     "</fills>"
-    '<borders count="1"><border><left/><right/><top/><bottom/>'
+    # 0: kenarlıksız, 1: dört yanı ince çizgi (form kutuları).
+    '<borders count="2">'
+    '<border><left/><right/><top/><bottom/><diagonal/></border>'
+    '<border><left style="thin"><color indexed="64"/></left>'
+    '<right style="thin"><color indexed="64"/></right>'
+    '<top style="thin"><color indexed="64"/></top>'
+    '<bottom style="thin"><color indexed="64"/></bottom>'
     "<diagonal/></border></borders>"
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" '
     'borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="4">'
+    '<cellXfs count="13">'
+    # 0-3: tablo sayfaları (düz, başlık, tarih, tarih+saat)
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" '
     'applyFont="1" applyFill="1"/>'
@@ -219,6 +350,34 @@ _STILLER = (
     'applyNumberFormat="1"/>'
     '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" '
     'applyNumberFormat="1"/>'
+    # 4-12: form sayfaları
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" '
+    'applyFont="1" applyAlignment="1">'
+    '<alignment horizontal="center" vertical="center"/></xf>'
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" '
+    'applyFont="1" applyAlignment="1">'
+    '<alignment horizontal="center" vertical="center"/></xf>'
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" '
+    'applyFont="1" applyBorder="1" applyAlignment="1">'
+    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    '<xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" '
+    'applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
+    '<alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+    '<xf numFmtId="0" fontId="6" fillId="0" borderId="1" xfId="0" '
+    'applyFont="1" applyBorder="1" applyAlignment="1">'
+    '<alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+    '<xf numFmtId="0" fontId="7" fillId="4" borderId="1" xfId="0" '
+    'applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
+    '<alignment horizontal="center" vertical="center"/></xf>'
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" '
+    'applyFont="1" applyBorder="1" applyAlignment="1">'
+    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" '
+    'applyFont="1" applyAlignment="1">'
+    '<alignment horizontal="left" vertical="center"/></xf>'
+    '<xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" '
+    'applyFont="1" applyBorder="1" applyAlignment="1">'
+    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
     "</cellXfs>"
     # Adlandirilmis "Normal" stili: Excel onsuz da aciyor ama bazi okuyucular
     # (openpyxl) "varsayilan stil yok" diye uyariyor.
@@ -238,7 +397,13 @@ _KOK_REL = (
 def kitap(sayfalar) -> bytes:
     """Sayfalardan bir .xlsx dosyası üretir ve baytlarını döndürür.
 
-    `sayfalar`: `[(ad, [başlık, ...], [[hücre, ...], ...]), ...]`
+    Sayfa iki biçimde verilebilir:
+
+      - **Tablo**: `(ad, [başlık, ...], [[hücre, ...], ...])` — başlık satırı,
+        donmuş bölme, süzgeç, içeriğe göre sütun genişliği.
+      - **Yerleşim**: `{"ad":..., "hucreler": {...}, "birlesik": [...], ...}`
+        — resmî formların birebir kopyası; bkz. `_yerlesim_xml`.
+
     En az bir sayfa olmalı; boş sayfa (yalnızca başlık satırı) geçerlidir.
     """
     if not sayfalar:
@@ -292,9 +457,10 @@ def kitap(sayfalar) -> bytes:
         z.writestr("xl/workbook.xml", "".join(kitap_xml))
         z.writestr("xl/_rels/workbook.xml.rels", "".join(relq))
         z.writestr("xl/styles.xml", _STILLER)
-        for i, (_, basliklar, satirlar) in enumerate(sayfalar, start=1):
-            z.writestr(f"xl/worksheets/sheet{i}.xml",
-                       _sayfa_xml(basliklar, satirlar))
+        for i, sayfa in enumerate(sayfalar, start=1):
+            icerik = (_yerlesim_xml(sayfa) if isinstance(sayfa, dict)
+                      else _sayfa_xml(sayfa[1], sayfa[2]))
+            z.writestr(f"xl/worksheets/sheet{i}.xml", icerik)
     return kova.getvalue()
 
 

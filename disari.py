@@ -26,6 +26,9 @@ lazım), `sifre_hash` ve `oturum` tablosu hiç çıkmıyor. Dosya klinik dışı
 
 import db
 import metinler
+# Örnek başına alt sorgu kuran iki parça `formlar.py`'de duruyor: resmî
+# formlar da aynı sorguları kuruyor, iki kopya birbirinden ayrı düşerdi.
+from formlar import gun_alt as _gun_alt, son_alt as _son_alt
 
 # --------------------------------------------------------------- ortak yardım
 
@@ -205,18 +208,6 @@ ORNEK_BASLIK = [
     "Çözme", "Sağkalım", "Re-expansion", "Transfer", "Transfer tipi",
     "Örnek durumu", "Notlar",
 ]
-
-
-def _gun_alt(alan, tip, gun):
-    """Bir örneğin belirli gündeki değerlendirmesinden tek alan."""
-    return (f"(SELECT x.{alan} FROM olay x WHERE x.specimen_id = s.id "
-            f"AND x.tip = '{tip}' AND x.gun = {gun} AND x.iptal_mi = 0 "
-            "ORDER BY x.id DESC LIMIT 1)")
-
-
-def _son_alt(alan, tip, sira="x.id DESC"):
-    return (f"(SELECT x.{alan} FROM olay x WHERE x.specimen_id = s.id "
-            f"AND x.tip = '{tip}' AND x.iptal_mi = 0 ORDER BY {sira} LIMIT 1)")
 
 
 def cycle_sayfalari(cycle_id: int):

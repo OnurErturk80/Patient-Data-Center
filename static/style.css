@@ -938,3 +938,83 @@ body.kilitli { overflow: hidden; }
 .karebilgi { font-size: 12px; color: var(--ink-2); text-align: center; padding-bottom: 4px; }
 
 .ozet .kirilim { font-size: 11px; color: var(--ink-3); margin-top: 3px; line-height: 1.3; }
+
+/* Zaman cizelgesi: asama saatleri ve aralarinda gecen sure (v6.37).
+   Telefonda da okunsun diye sayilar saga yasli ve punto kucuk. */
+.cizelge { width: 100%; border-collapse: collapse; }
+.cizelge th, .cizelge td {
+  padding: 7px 14px; font-size: 13px; text-align: right;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.cizelge th { font-size: 11px; color: var(--ink-2); font-weight: 600; }
+.cizelge th:first-child, .cizelge td.ad { text-align: left; }
+.cizelge td.ad { font-weight: 600; }
+.cizelge tr:last-child td { border-bottom: 0; }
+
+/* ----------------------------------------------------- yazdirilabilir form
+
+   Resmi formlar (Embriyoloji Ozet, ART Lab Raporu) ekranda da gorunur,
+   Ctrl+P ile kagida iner. Kalip kurumun kalite sisteminden geliyor; olculer
+   A4'e oturacak sekilde ayarli (v6.37). */
+
+.yazdirmadugmeleri { display: flex; gap: 10px; margin-bottom: 14px; }
+.yazdirmadugmeleri .dugme { margin-top: 0; }
+
+.kagit {
+  background: #fff; color: #000; border: 1px solid var(--line);
+  border-radius: var(--r); padding: 14px; overflow-x: auto;
+}
+.kagit .formbasi { text-align: center; margin-bottom: 10px; }
+.kagit .kurum { font-size: 12px; font-weight: 600; line-height: 1.35; }
+.kagit .formadi { font-size: 15px; font-weight: 700; margin: 8px 0 6px; }
+.kagit .kunye {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px;
+  font-size: 9px; border: 1px solid #000; padding: 3px 5px;
+}
+
+.formtablo { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.formtablo th, .formtablo td {
+  border: 1px solid #000; padding: 3px 5px; font-size: 10px;
+  vertical-align: middle; word-wrap: break-word;
+}
+.formtablo th {
+  background: #f2f2f2; font-weight: 600; text-align: left; width: 27%;
+}
+.formtablo td { width: 23%; }
+.formtablo th.bolum {
+  background: #d9d9d9; text-align: center; font-weight: 700; width: auto;
+}
+.formtablo tr.notlar td { height: 34px; }
+/* Bos etiket hucresi kagitta cizgi birakmasin: form aslinda da bos duruyor. */
+.formtablo th:empty { background: transparent; border-color: transparent; }
+
+.kagit .formdibi {
+  display: flex; justify-content: space-between;
+  font-size: 9px; margin-top: 6px;
+}
+
+/* Izgarali form (ART Lab): cok sutunlu, yatay basilir. */
+.izgaraform { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.izgaraform th, .izgaraform td {
+  border: 1px solid #000; padding: 2px 3px; font-size: 9px;
+  text-align: center; vertical-align: middle; word-wrap: break-word;
+}
+.izgaraform th { background: #f2f2f2; font-weight: 600; }
+.izgaraform th.sol { text-align: left; width: 128px; }
+.izgaraform th.bolum { background: #d9d9d9; text-align: center; }
+.izgaraform td.bos { height: 16px; }
+
+@media print {
+  /* Kagida yalniz form insin: ust cubuk, menu, dugmeler ekranda kalir. */
+  .ust, .yanmenu, .gezinme, .yazdirmadugmeleri,
+  .anadugmeler { display: none !important; }
+  body { background: #fff; }
+  .kap, .kap.genis { max-width: none; padding: 0; margin: 0; }
+  .kagit { border: 0; border-radius: 0; padding: 0; overflow: visible; }
+  .formtablo th, .formtablo td, .izgaraform th, .izgaraform td {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  @page { size: A4 portrait; margin: 8mm; }
+  @page yatay { size: A4 landscape; }
+  .kagit.yatay { page: yatay; }
+}

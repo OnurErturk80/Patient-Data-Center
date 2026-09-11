@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 import db
 import disari
 import excel
+import formlar
 import guvenlik
 import metinler
 
@@ -1511,6 +1512,9 @@ def cycle_detay(request: Request, cycle_id: int):
         request, "cycle_detay.html",
         {"c": cycle, "specimenler": specimenler, "etiketler": etiketler,
          "arsiv": arsiv, "taraf": taraf_sayilari,
+         # Aşamalar arasında geçen süre (v6.37). Ayrı kayıt yok: aşama
+         # ekranlarında elle girilen saatlerden hesaplanıyor.
+         "cizelge": formlar.zaman_cizelgesi(cycle_id),
          "bugun": _dt.now().strftime("%Y-%m-%d"),
          "asamalar": cycle_asamalari(cycle["cycle_tipi"]),
          # yan menü aşama ekranlarındakiyle aynı listeden beslensin
@@ -2329,6 +2333,52 @@ def disari_tumu(request: Request):
     if engel:
         return engel
     return excel_yaniti("tum_veri", disari.tumu_sayfalari())
+
+
+# ------------------------------------------------------------- resmî formlar
+
+# Kullanıcının tutmak zorunda olduğu formlar. İki çıktı: tarayıcıdan
+# yazdırılabilir sayfa (`/form/...`) ve Excel (`/disari/form/...`). İçerik tek
+# yerden geliyor -- `formlar.py` -- ki ikisi birbirinden ayrı düşmesin.
+FORMLAR = {
+    "ozet": (formlar.ozet_verisi, formlar.ozet_yerlesimi,
+             "form_ozet.html", "form_ozet", formlar.OZET_KUNYE),
+    "artlab": (formlar.artlab_verisi, formlar.artlab_yerlesimi,
+               "form_artlab.html", "form_artlab", formlar.ARTLAB_KUNYE),
+}
+
+
+@uygulama.get("/form/{ad}/{cycle_id}")
+def form_ekrani(request: Request, ad: str, cycle_id: int):
+    """Doldurulmuş formun yazdırılabilir hali.
+
+    Adres parçası beyaz listeden geçiyor (`FORMLAR`): şablon adı adresten
+    gelen metinle kurulsaydı başka bir dosya istenebilirdi.
+    """
+    if ad not in FORMLAR:
+        return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+    veri_al, _, sablon_adi, _, kunye = FORMLAR[ad]
+    v = veri_al(cycle_id)
+    if not v:
+        return RedirectResponse("/hastalar", status_code=303)
+    return sablon.TemplateResponse(
+        request, sablon_adi,
+        {"v": v, "kunye": kunye, "govde": formlar.OZET_GOVDE,
+         "kullanici": request.state.kullanici},
+    )
+
+
+@uygulama.get("/disari/form/{ad}/{cycle_id}")
+def form_excel(request: Request, ad: str, cycle_id: int):
+    """Aynı formun .xlsx hali — Excel'den basmak ya da üstünde oynamak için."""
+    if ad not in FORMLAR:
+        return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+    veri_al, yerlesim, _, dosya, _ = FORMLAR[ad]
+    v = veri_al(cycle_id)
+    if not v:
+        return RedirectResponse("/hastalar", status_code=303)
+    return excel_yaniti(f"{dosya}_{v['dosya_no']}-{v['cycle_no']}",
+                        [yerlesim(v)])
 
 
 # ----------------------------------------------------------------- görüntü

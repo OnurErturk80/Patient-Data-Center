@@ -145,6 +145,34 @@
   <button class="dugme" type="submit">{{ metin("iptali_geri_al") }}</button>
 </form>
 {% endif %}
+{# Aşama saatleri ve aralarında geçen süre (v6.37, kullanıcının isteği).
+   Ayrı bir kayıt tutulmuyor -- saatler zaten aşama ekranlarında elle
+   giriliyor, çizelge onlardan türüyor. Boşsa kart hiç basılmıyor. #}
+{% if cizelge %}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ metin("zaman_cizelgesi") }}</h2>
+  <table class="cizelge">
+    <tr>
+      <th>{{ metin("asama") }}</th><th>{{ metin("saat") }}</th>
+      <th>{{ metin("onceki_islemden") }}</th><th>{{ metin("opudan_bu_yana") }}</th>
+    </tr>
+    {% for z in cizelge %}
+    <tr>
+      <td class="ad">{{ z.ad }}</td>
+      <td>{{ z.zaman[:16] }}</td>
+      <td>{{ say("n_saat", z.onceki_saat) if z.onceki_saat is not none else "" }}</td>
+      <td>{{ say("n_saat", z.opu_saat) if z.opu_saat is not none else "" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div class="ipucu" style="padding:8px 14px">{{ metin("cizelge_ipucu") }}</div>
+</div>
+{% endif %}
+
+{# Kurumun zorunlu formu, verisi dolu; yazdırılabilir sayfa olarak açılıyor. #}
+<a class="dugme ikincil" href="/form/ozet/{{ c.id }}">{{ metin("form_ozet") }}</a>
+<a class="dugme ikincil" href="/form/artlab/{{ c.id }}">{{ metin("form_artlab") }}</a>
+
 {# Cycle'ın tamamı: bilgi sayfası + oosit başına bir satır. #}
 <a class="dugme ikincil" href="/disari/cycle/{{ c.id }}">{{ metin("excel_cycle") }}</a>
 
