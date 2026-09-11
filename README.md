@@ -99,6 +99,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.31 — bitiş saati elle, bitişi düzenle, hasta kaydına kestirme](#v631--bitiş-saati-elle-bitişi-düzenle-hasta-kaydına-kestirme)
 - [v6.32 — çözmede geri oku geldiğin yere döner](#v632--çözmede-geri-oku-geldiğin-yere-döner)
 - [v6.33 — takvim: ileri tarihli işler](#v633--takvim-ileri-tarihli-işler)
+- [v6.34 — ana ekran iki sütun, aramadan geri dönüş](#v634--ana-ekran-iki-sütun-aramadan-geri-dönüş)
 
 ---
 
@@ -3600,3 +3601,65 @@ uyarısı çıktı ve cycle açma çalıştı.
 - Takvim ay seçici ve "Bu ay" tarayıcıda tıklanarak denendi
 - Göçsüz veritabanında ekranlar ayakta, cycle açılıyor
 - 36 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok
+
+---
+
+# v6.34 — ana ekran iki sütun, aramadan geri dönüş
+
+## Yapılacaklar ve Bugün bitenler yan yana
+
+Kullanıcı: "böyle yukarıdan aşağı değil de Yapılacaklar ve Bugün bitenler yan
+yana, Yaklaşanlar onların altına."
+
+İkisi `.ikisutun` sarmalayıcısında. **720px'in altında alt alta** — telefonda
+iki sütun okunmuyor ve personel telefonla giriyor. Alt alta düşerken sıra
+HTML sırasıyla aynı kalıyor: Yapılacaklar → Bugün bitenler → Yaklaşanlar,
+yani iki düzen aynı şeyi öğretiyor.
+
+`align-items: flex-start`: boş bir kart ötekinin boyuna uzamıyor. "Bugün
+biten işlem yok" kartı sabah boş oluyor ve Yapılacaklar uzunsa yanında
+kocaman bir boşluk açardı.
+
+### Sütun 640px'e sıkışmıyordu
+
+Yan yana koyunca ortaya çıktı: `.kap` her ekranda 640px ve iki kart 296px'e
+düşüyordu, 1280px'lik ekranda sağda yarım ekran boş kalıyordu. Satırdaki
+"IVF/ICSI · OPU günü 2 · Son işlem: …" iki satıra sarıyordu.
+
+Ana ekran `kap genis` sınıfını alıyor (`base.html`'e `{% block kapsinif %}`
+eklendi) ve sütun genişliyor. Ölçü yan menüye göre sınırlı:
+
+```css
+@media (min-width: 860px)  { .kap.genis { max-width: 940px; } }
+@media (min-width: 1100px) { .kap.genis { max-width: max(640px, min(940px, calc(100vw - 500px))); } }
+```
+
+Yan menü 1100px'ten sonra soldaki 216px'i kaplıyor; ikinci kural sütunu
+`100vw - 500px` ile sınırlayıp çarpışmayı önlüyor, `max(640px, …)` de dar
+ekranda sütunun eski ölçünün altına inmesini engelliyor. Sekiz genişlikte
+ölçüldü (390 → 1920), hiçbirinde menü ile çakışma ve yatay taşma yok;
+kartlar 1280px'te 296 → **366px**, 1600px'te **446px**.
+
+## Aramadan geri dönüş
+
+Kullanıcı: "hasta kayıtlarında arama yaptıktan sonra geri hasta kayıtları
+sayfasına dönmüyor."
+
+Doğru: geri oku `/`'a sabitti, arama sonucundan basınca programın ana
+ekranına çıkıyordu. v6.32'deki taşıyıcı ekranının aynı hatası — bir ekran
+iki durumda görünüyorsa tek geri adresi yetmiyor.
+
+```jinja
+href="{{ '/hastalar' if (ara or arsiv) else '/' }}"
+```
+
+Arama ya da arşiv sonucundayken ay görünümüne, orada zaten isek ana ekrana.
+Tarayıcıda denendi: `/hastalar?ara=Test` → geri → `/hastalar` → geri → `/`.
+
+## Test edildi
+
+- 390 / 720 / 768 / 900 / 1100 / 1280 / 1600 / 1920 px: sütun genişliği,
+  kart genişliği, menü çakışması ve yatay taşma ölçüldü — hepsi temiz
+- 720px altında kartlar alt alta ve sıra bozulmuyor
+- Geri oku: ay görünümünde `/`, aramada ve arşivde `/hastalar`
+- 33 ekran 200, iki dilde, JS hatası yok

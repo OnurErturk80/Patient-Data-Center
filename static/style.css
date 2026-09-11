@@ -176,6 +176,28 @@ body {
    bakarken once tarihi okuyorsun (v6.33). */
 .kart h2.gun { font-size: 15px; color: var(--ink); }
 
+/* Ana ekranda Yapilacaklar ve Bugun bitenler yan yana, Yaklasanlar altlarinda
+   (v6.34, kullanicinin istegi). 720px altinda alt alta -- telefonda iki sutun
+   okunmuyor; alt alta duserken sira HTML sirasiyla ayni kaliyor.
+   `align-items: flex-start`: bos bir kart otekinin boyuna uzamasin. */
+.ikisutun > .kart { min-width: 0; }
+@media (min-width: 720px) {
+  .ikisutun { display: flex; align-items: flex-start; gap: 16px; }
+  .ikisutun > .kart { flex: 1 1 0; }
+}
+
+/* Iki sutunlu ekran (yalniz ana ekran) 640px'lik olcuye sigmiyor: kartlar
+   296px'te kaliyor, sagda yarim ekran bos duruyordu. Sutun genisliyor.
+   Yan menu 1100px'ten sonra soldaki 216px'i kapliyor; ikinci kural sutunu
+   `100vw - 500px` ile sinirlayarak carpismayi onluyor, `max(640px, ...)`
+   de dar ekranda sutunun eski olcunun altina inmesini engelliyor. */
+@media (min-width: 860px) {
+  .kap.genis { max-width: 940px; }
+}
+@media (min-width: 1100px) {
+  .kap.genis { max-width: max(640px, min(940px, calc(100vw - 500px))); }
+}
+
 /* "Islemi bitir" ekraninda her secenegin altindaki tek satirlik aciklama.
    Dugmeye yapisik dursun ki hangi aciklamanin hangi dugmeye ait oldugu
    belli olsun; bir sonraki dugmeden once bosluk birakiyor. */

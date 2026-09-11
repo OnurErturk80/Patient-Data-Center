@@ -2,6 +2,8 @@
 {% import "_gezinme.html" as gz %}
 {% import "_cyclesatir.html" as cs %}
 {% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}
+{# Ana ekran iki sutunlu; sutun 640px'e sikismasin (v6.34). #}
+{% block kapsinif %} genis{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
 {% block icerik %}
 {{ gz.yan_ana(kullanici) }}
@@ -15,6 +17,12 @@
 
 {% if goc_gerekli %}<div class="uyari">{{ metin("goc_gerekli_uzun") }}</div>{% endif %}
 
+{# Yapilacaklar ve Bugun bitenler YAN YANA, Yaklasanlar altlarinda
+   (v6.34, kullanicinin istegi). Yan yana durmalari icin ekranin genis
+   olmasi gerekiyor: `.ikisutun` 720px altinda alt alta diziyor, cunku
+   telefonda iki sutun okunmuyor. Alt alta duserken sira yine ayni:
+   Yapilacaklar -> Bugun bitenler -> Yaklasanlar. #}
+<div class="ikisutun">
 {# Kullanicinin kagit klasoru: laboratuvarda isi suren cycle'lar. v6.18'de bu
    ekranda hasta adi yoktu; v6.28'de kullanici kurali kendi istegiyle gevsetti
    -- adsiz bir liste her sabah bakilan klasorun isini gormuyor. #}
@@ -23,20 +31,6 @@
   {% for s in liste %}{{ cs.satir(s) }}
   {% else %}
   <div class="bos">{{ metin("yapilacak_yok") }}</div>
-  {% endfor %}
-</div>
-
-{# Yaklasanlar: planlanan tarihi onumuzdeki iki hafta icinde olan cycle'lar
-   (v6.33). Bugun planlananlar burada degil, Yapilacaklar'da -- tarihi gelen
-   is artik "yaklasan" degil. Tamami "Takvim" baglantisinda. #}
-<div class="kart" style="margin-top:16px">
-  <h2 class="ikili">
-    <span>{{ metin("yaklasanlar") }}{% if yaklasanlar %} <span class="rozet">{{ yaklasanlar|length }}</span>{% endif %}</span>
-    <a href="/takvim" style="font-size:13px;font-weight:400">{{ metin("takvim") }}</a>
-  </h2>
-  {% for s in yaklasanlar %}{{ cs.satir(s, "plan") }}
-  {% else %}
-  <div class="bos" style="padding:20px 16px">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
   {% endfor %}
 </div>
 
@@ -51,6 +45,21 @@
   {% for s in bugun_bitenler %}{{ cs.satir(s, "bitmis") }}
   {% else %}
   <div class="bos" style="padding:20px 16px">{{ metin("bugun_biten_yok") }}</div>
+  {% endfor %}
+</div>
+</div>
+
+{# Yaklasanlar: planlanan tarihi onumuzdeki iki hafta icinde olan cycle'lar
+   (v6.33). Bugun planlananlar burada degil, Yapilacaklar'da -- tarihi gelen
+   is artik "yaklasan" degil. Tamami "Takvim" baglantisinda. #}
+<div class="kart" style="margin-top:16px">
+  <h2 class="ikili">
+    <span>{{ metin("yaklasanlar") }}{% if yaklasanlar %} <span class="rozet">{{ yaklasanlar|length }}</span>{% endif %}</span>
+    <a href="/takvim" style="font-size:13px;font-weight:400">{{ metin("takvim") }}</a>
+  </h2>
+  {% for s in yaklasanlar %}{{ cs.satir(s, "plan") }}
+  {% else %}
+  <div class="bos" style="padding:20px 16px">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
   {% endfor %}
 </div>
 

@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% import "_cyclesatir.html" as cs %}
 {% block ustbaslik %}{{ metin("hasta_kayitlari") }}{% endblock %}
-{% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
+{# Geri oku duruma göre: arama/arşiv sonucundayken ay görünümüne, orada
+   zaten isek ana ekrana (v6.34). Arama yaptıktan sonra geri basınca hasta
+   kayıtlarından tümden çıkmak istenmiyordu. #}
+{% block geri %}<a class="geri" href="{{ '/hastalar' if (ara or arsiv) else '/' }}">&#8249;</a>{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}

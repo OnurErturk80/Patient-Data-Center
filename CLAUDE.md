@@ -162,6 +162,13 @@ işlem. Altında **"Bugün bitenler"** (v6.29) — ölçü
 kendiliğinden boşalıyor; saklanan bir "bugünün listesi" yok, olmasın da.
 Sonra sayı özeti, en altta menü.
 
+Düzen (v6.34, kullanıcının isteği): **Yapılacaklar ve Bugün bitenler yan
+yana, Yaklaşanlar altlarında.** `.ikisutun` 720px'in altında alt alta
+diziyor — telefonda iki sütun okunmuyor; sıra iki düzende de aynı. Ana ekran
+`kap genis` sınıfını alıyor, sütunu 940px'e kadar genişliyor ama yan menüyle
+çarpışmasın diye `calc(100vw - 500px)` ile sınırlı. Yeni bir kart eklersen
+bu iki sütunu şişirme, altına koy.
+
 > v6.18'de bu ekranda **hasta adı yoktu** (ekrana bakan herkes listeyi
 > görüyordu). Kuralı v6.28'de **kullanıcı kendi isteğiyle gevşetti**: adsız
 > bir liste her sabah bakılan klasörün işini görmüyor. Kendiliğinden geri
@@ -275,7 +282,11 @@ görünmez, sunucu da reddeder. Bu kuralı gevşetme.
 
 **İki yerden gelinen ekranın geri oku sabit olamaz.** Taşıyıcı ekranına hem
 cryo haritasından hem çözme ekranından giriliyor; `?cycle=N` ile hangisinden
-gelindiği söyleniyor ve geri adresi **sunucuda** kuruluyor (v6.32).
+gelindiği söyleniyor ve geri adresi **sunucuda** kuruluyor (v6.32). Aynı
+şey tek ekranın iki durumu için de geçerli: hasta kayıtlarında geri oku
+arama/arşiv sonucundayken `/hastalar`'a, ay görünümündeyken `/`'a gider
+(v6.34). Yeni bir ekranda `{% block geri %}` yazarken "buraya kaç yoldan
+geliniyor" diye sor.
 `?geri=<yol>` kalıbını yeni yerlerde kullanma — adresten gelen metin doğrudan
 `href`'e yazılıyor, `javascript:` girilebilir. Sayı al, doğrula, yolu kendin
 kur.
