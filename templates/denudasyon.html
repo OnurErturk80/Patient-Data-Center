@@ -13,25 +13,27 @@
 {% endblock %}
 {% block icerik %}
 
-{# Ekran açılışta SALT OKUNUR: iki bilgi kartı ve işlemi yapan. Oosit ekleme,
-   numara şeridi ve fotoğraf "Düzenle" ile açılıyor (v6.24, kullanıcının
-   isteği). Kayıt girmek ayrı bir kip; bakmakla karıştırılmasın. #}
+{# Bilgi ekranı fertilizasyon/blastokist ekranlarının aynısı: numara şeridi →
+   seçilenin fotoğrafı → altında örnek kodu → bilgi kartı. Düzenle'nin
+   arkasında olan tek şey **oosit ekleme** (kamera kuyruğu) ve over'ı
+   değiştirme — v6.25. #}
 {% set oosit_ad = ornek_adi('denudasyon', c.cycle_tipi) %}
 {% set calisma = (duzenle == "oosit") %}
-{% set geri_yol = '/cycle/' ~ c.id ~ '/denudasyon' %}
-{% set calisma_yolu = geri_yol ~ '?duzenle=oosit'
-                      ~ ('&oosit=' ~ sp.cycle_sira_no if sp else '') %}
+{% set kok = '/cycle/' ~ c.id ~ '/denudasyon' %}
+{% set secim_oneki = kok ~ ('?duzenle=oosit&oosit=' if calisma else '?oosit=') %}
+{% set bu_yol = kok ~ ('?duzenle=oosit' if calisma else '')
+                ~ (('&' if calisma else '?') ~ 'oosit=' ~ sp.cycle_sira_no if sp else '') %}
 
 {% if hata %}<div class="uyari">{{ metin(hata) }}</div>{% endif %}
 
-{% if not klasor_var and calisma %}
+{% if calisma and not klasor_var %}
 <div class="uyari">
   {{ metin("kamera_klasoru_yok") }}<br><code style="font-size:12px">{{ klasor }}</code><br>
   {{ metin("ayarlardan_duzelt") }}
 </div>
 {% endif %}
 
-{% if bos_dosyalar and calisma %}
+{% if calisma and bos_dosyalar %}
 <div class="uyari">
   <strong>{{ metin("bos_dosya_uyari").format(n=bos_dosyalar|length) }}</strong><br>
   <span style="font-size:13px">{{ bos_dosyalar|join(', ') }}</span><br>
@@ -39,11 +41,11 @@
 </div>
 {% endif %}
 
-{# --- 1. Denüdasyon saati --- #}
+{# --- Denüdasyon saati --- #}
 {% if c.denudasyon_zamani and duzenle != "saat" %}
 {{ bk.kart(metin("denudasyon_zamani"),
            [(metin("saat"), c.denudasyon_zamani)],
-           geri_yol ~ '?duzenle=saat',
+           kok ~ '?duzenle=saat',
            metin("kaydedildi_rozet")) }}
 {% else %}
 <div class="kart" style="margin-top:12px">
@@ -62,23 +64,8 @@
 </div>
 {% endif %}
 
-{% if not calisma %}
-{# --- 2. Oositlerin özeti. Çalışma alanı Düzenle'nin arkasında. --- #}
-{{ bk.kart(
-     metin("kaydedilen_oositler"),
-     [
-       (metin("toplam_oosit"), ozet.toplam),
-       (metin("sag_rozet"), ozet.sag),
-       (metin("sol_rozet"), ozet.sol),
-       (metin("belirtilmemis"), ozet.belirsiz),
-       (metin("fotografli"), ozet.fotografli),
-     ] + ([(metin("bekleyen_kare"), bekleyen|length)] if bekleyen else []),
-     calisma_yolu,
-     metin("kaydedildi_rozet") if ozet.toplam else None) }}
-
-{% else %}
-{# --- Çalışma kipi: kare ekleme, numara şeridi, seçilen oositin fotoğrafı --- #}
-
+{# --- Oosit ekleme: yalnızca çalışma kipinde --- #}
+{% if calisma %}
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("oosit_ekle") }}</h2>
 
@@ -126,13 +113,13 @@
         {{ metin("fotografsiz_oosit_ekle") }}
       </button>
     </form>
-    <a class="dugme" href="{{ calisma_yolu }}">{{ metin("yenile") }}</a>
+    <a class="dugme" href="{{ bu_yol }}">{{ metin("yenile") }}</a>
   </div>
   {% endif %}
 
   <div class="alan" style="border-top:1px solid var(--line)">
     <a class="dugme ikincil" style="margin-top:0"
-       href="/cycle/{{ c.id }}/foto-ekle?specimen_id=__yeni__&asama=denudasyon&geri={{ calisma_yolu|urlencode }}">
+       href="/cycle/{{ c.id }}/foto-ekle?specimen_id=__yeni__&asama=denudasyon&geri={{ bu_yol|urlencode }}">
       {{ metin("elle_fotograf_ekle") }}</a>
     {% if son_goruntu %}
     <form method="post" action="/cycle/{{ c.id }}/denudasyon">
@@ -144,11 +131,23 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
 
-{% if kayitli %}
+{# --- Kaydedilen oositler: iki kipte de görünür --- #}
+{% if not kayitli %}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ metin("kaydedilen_oositler") }} (0)</h2>
+  <div class="bos">{{ metin("henuz_oosit_kaydedilmedi") }}</div>
+</div>
+{% if not calisma %}
+<a class="dugme" href="{{ kok }}?duzenle=oosit">{{ metin("oosit_ekle") }}</a>
+{% endif %}
+
+{% else %}
+
 <div class="serit">
   {% for o in kayitli %}
-  <a href="/cycle/{{ c.id }}/denudasyon?duzenle=oosit&oosit={{ o.cycle_sira_no }}"
+  <a href="{{ secim_oneki }}{{ o.cycle_sira_no }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kare %}dolu{% endif %}">
     <b>{{ o.cycle_sira_no }}</b>{% if o.taraf %}<i>-{{ metin("sag_rozet") if o.taraf == "sag" else metin("sol_rozet") }}</i>{% endif %}
   </a>
@@ -166,20 +165,20 @@
   <img src="/dosya/{{ kareler[0].id }}" alt="{{ oosit_ad }} {{ sp.cycle_sira_no }}">
   <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
 </div>
-{{ kr.serit(kareler, sp, c, 'denudasyon', calisma_yolu) }}
+{{ kr.serit(kareler, sp, c, 'denudasyon', bu_yol) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ kareler[0].id }}/sil?geri={{ calisma_yolu|urlencode }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ calisma_yolu|urlencode }}">{{ metin("fotograf_ekle") }}</a>
+  <a href="/goruntu/{{ kareler[0].id }}/sil?geri={{ bu_yol|urlencode }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ bu_yol|urlencode }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
 <div class="kart"><div class="bos">
   {{ metin("bu_asamada_fotograf_yok") }}<br>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ calisma_yolu|urlencode }}">{{ metin("fotograf_ekle") }}</a>
+  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=denudasyon&geri={{ bu_yol|urlencode }}">{{ metin("fotograf_ekle") }}</a>
 </div></div>
 {% endif %}
 
-{# Seçili oositin bilgisi ve over'ı — over düğmeleri kendi başına gönderir,
-   ayrı bir Kaydet adımı gereksiz, tek alan var. #}
+{% if calisma %}
+{# Over düğmeleri kendi başına gönderir — tek alan, ayrı Kaydet gereksiz. #}
 <div class="kart bilgikart">
   <h2><span>{{ oosit_ad }} {{ sp.cycle_sira_no }}</span></h2>
   <dl style="margin:0">
@@ -189,7 +188,7 @@
       <dd style="font-size:13px">{{ ornek_kodu(sp.id) }}</dd></div>
   </dl>
   <form method="post" action="/specimen/{{ sp.id }}/taraf">
-    <input type="hidden" name="geri" value="{{ calisma_yolu }}">
+    <input type="hidden" name="geri" value="{{ bu_yol }}">
     <div class="alan" style="border-top:1px solid var(--line)">
       <label>{{ metin("toplandigi_over") }}</label>
       <div class="secenek">
@@ -204,9 +203,24 @@
   </form>
 </div>
 <a class="dugme ikincil tehlike-bag" href="/specimen/{{ sp.id }}/sil">{{ metin("oositi_sil") }}</a>
-{% endif %}
+<a class="dugme" href="{{ kok }}?oosit={{ sp.cycle_sira_no }}"
+   style="margin-top:16px">{{ metin("bitir") }}</a>
 
-<a class="dugme" href="{{ geri_yol }}" style="margin-top:16px">{{ metin("bitir") }}</a>
+{% else %}
+{{ bk.kart(
+     oosit_ad ~ ' ' ~ sp.cycle_sira_no,
+     [
+       (metin("numara"), sp.cycle_sira_no),
+       (metin("toplandigi_over"),
+        (metin("sag_rozet") if sp.taraf == "sag" else metin("sol_rozet"))
+        if sp.taraf else None),
+       (metin("kare_sayisi"), sp.kare),
+       (metin("ornek_kodu_baslik"), ornek_kodu(sp.id)),
+     ],
+     kok ~ '?duzenle=oosit&oosit=' ~ sp.cycle_sira_no,
+     metin("kaydedildi_rozet")) }}
+{% endif %}
+{% endif %}
 
 {% set buyutec_ad = oosit_ad %}
 {% include "_buyutec.html" %}
@@ -219,7 +233,6 @@ document.querySelectorAll('.stripkare').forEach(function (b) {
   });
 });
 </script>
-{% endif %}
 
 {{ iy.kutu(c.id, "denudasyon") }}
 {{ gez.cubuk(c, gezinme) }}

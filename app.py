@@ -1345,14 +1345,6 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
         if oosit:
             sp = next((o for o in kayitli if str(o["cycle_sira_no"]) == oosit), None)
         sp = sp or kayitli[-1]
-    # Ekran açılışta salt okunur özet gösteriyor; sayılar oradan (v6.24).
-    ozet = {
-        "toplam": len(kayitli),
-        "sag": sum(1 for o in kayitli if o["taraf"] == "sag"),
-        "sol": sum(1 for o in kayitli if o["taraf"] == "sol"),
-        "belirsiz": sum(1 for o in kayitli if not o["taraf"]),
-        "fotografli": sum(1 for o in kayitli if o["kare"]),
-    }
     return sablon.TemplateResponse(
         request, "denudasyon.html",
         {
@@ -1360,7 +1352,7 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
             "bekleyen": bekleyen,
             "simdiki": bekleyen[0] if bekleyen else None,
             "kayitli": kayitli,
-            "sp": sp, "ozet": ozet,
+            "sp": sp,
             "kareler": asama_goruntuleri(sp["id"], "denudasyon") if sp else [],
             "sonraki_sira": goruntuler.sonraki_sira(cycle_id),
             "son_goruntu": son,
