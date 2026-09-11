@@ -10,6 +10,11 @@
    Bağlantı **cycle'a** gider, hastaya değil: listeye bakan kişi o tedavinin
    nerede kaldığını görmek istiyor, hastanın geçmişini değil. #}
 {% macro satir(s, kip="yapilacak") %}
+{#- Ay listesinde satırın yanında hastanın tüm kaydına giden ayrı bir düğme
+    var (v6.31): satırın kendisi o ayki tedaviye götürüyor, düğme hastanın
+    bütün geçmişine. İç içe bağlantı olamayacağı için ikisi kardeş, sarmalayan
+    `.satirikili` yan yana diziyor. -#}
+{% if kip == "ay" %}<div class="satirikili">{% endif %}
 <a class="satir hasta" href="/cycle/{{ s.id }}">
   <div class="ad">{{ s.ad_soyad }}
     {%- if s.durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>
@@ -39,4 +44,9 @@
     {%- endif %}
   </div>
 </a>
+{% if kip == "ay" %}
+<a class="hastabag" href="/hasta/{{ s.hasta_id }}"
+   title="{{ metin('hasta_kaydi') }}">{{ metin("hasta_kaydi") }}</a>
+</div>
+{% endif %}
 {% endmacro %}

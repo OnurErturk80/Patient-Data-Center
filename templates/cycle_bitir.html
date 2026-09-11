@@ -15,19 +15,36 @@
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
 {% if goc_gerekli %}<div class="uyari">{{ metin("goc_gerekli_uzun") }}</div>{% endif %}
 
-<div class="kart" style="margin-top:16px">
-  <h2>{{ metin("bitis_sebebi") }}</h2>
-  <div class="ipucu" style="padding:10px 14px 0">{{ metin("islemi_bitir_ipucu") }}</div>
-  <form method="post" action="/cycle/{{ c.id }}/bitir">
+<form method="post" action="/cycle/{{ c.id }}/bitir">
+  <input type="hidden" name="duzenle" value="{{ 1 if duzenle else 0 }}">
+
+  {# Bitiş saati elle girilebilir -- her aşamada olduğu gibi (v6.31).
+     Personel işi bitirirken değil, akşam kaydediyor olabilir. Düzenleme
+     kipinde kayıtlı saat doluyor. #}
+  <div class="kart" style="margin-top:16px">
+    <div class="alan">
+      <label for="bitis_zamani">{{ metin("bitis_saati") }}</label>
+      <input id="bitis_zamani" name="bitis_zamani" type="datetime-local"
+             value="{{ c.bitis_zamani[:16]|replace(' ','T') if (duzenle and c.bitis_zamani) else simdi }}">
+      <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
+    </div>
+  </div>
+
+  <div class="kart" style="margin-top:16px">
+    <h2>{{ metin("bitis_sebebi") }}</h2>
+    <div class="ipucu" style="padding:10px 14px 0">{{ metin("islemi_bitir_ipucu") }}</div>
     <div class="alan" style="border:0">
       {% for kod in ("dondurma", "transfer", "iptal") %}
+      {# Düzenleme kipinde kayıtlı sebep rozetle işaretli: yalnızca saati
+         değiştirmek isteyen hangi düğmeye basacağını görsün. #}
       <button class="dugme{% if kod == 'iptal' %} ikincil{% endif %}" type="submit"
-              name="sebep" value="{{ kod }}">{{ metin("bitis_" ~ kod) }}</button>
+              name="sebep" value="{{ kod }}">{{ metin("bitis_" ~ kod) }}
+        {%- if duzenle and c.bitis_sebebi == kod %} <span class="rozet">{{ metin("secili_rozet") }}</span>{% endif %}</button>
       <div class="ipucu secenekaciklama">{{ metin("bitis_" ~ kod ~ "_ipucu") }}</div>
       {% endfor %}
     </div>
-  </form>
-</div>
+  </div>
+</form>
 
 <a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("geri_don") }}</a>
 {% endblock %}

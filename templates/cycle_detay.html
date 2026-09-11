@@ -125,8 +125,12 @@
   <div class="ipucu" style="padding:10px 14px">{{ say("bitirildi_n", c.bitis_zamani[:10]) }}</div>
   {% endif %}
   <div class="alan" style="border:0">
+    {# Düzenle: sebebi ve saati değiştirir, cycle listeye DÖNMEZ.
+       Listeye geri al ayrı düğme -- ikisi farklı iş (v6.31). #}
+    <a class="dugme" href="/cycle/{{ c.id }}/bitir?duzenle=1"
+       style="margin-top:0">{{ metin("duzenle_kaydi") }}</a>
     <form method="post" action="/cycle/{{ c.id }}/bitisi-geri-al">
-      <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("bitisi_geri_al") }}</button>
+      <button class="dugme ikincil" type="submit">{{ metin("bitisi_geri_al") }}</button>
     </form>
   </div>
 </div>

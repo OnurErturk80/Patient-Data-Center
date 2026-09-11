@@ -96,6 +96,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.28 — ana ekran yapılacaklar listesi, cycle'ın bitişi](#v628--ana-ekran-yapılacaklar-listesi-cyclein-bitişi)
 - [v6.29 — bugün bitenler, ay ay hasta kayıtları](#v629--bugün-bitenler-ay-ay-hasta-kayıtları)
 - [v6.30 — yıl ve ay açılır seçici](#v630--yıl-ve-ay-açılır-seçici)
+- [v6.31 — bitiş saati elle, bitişi düzenle, hasta kaydına kestirme](#v631--bitiş-saati-elle-bitişi-düzenle-hasta-kaydına-kestirme)
 
 ---
 
@@ -3419,3 +3420,71 @@ Eski yedi kural duruyor (artık gereksizler ama zararsızlar); bundan sonra
   bir yıla (`?yil=2023`) gidilince o yıl da listeye giriyor
 - Bozuk `0026-09-04` tarihiyle seçici şişmiyor, ekranlar 200
 - 32 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok
+
+---
+
+# v6.31 — bitiş saati elle, bitişi düzenle, hasta kaydına kestirme
+
+## 1. Bitiş saati elle girilebiliyor
+
+v6.28'de `bitis_zamani` otomatik yazılıyordu: düğmeye basıldığı an. Bu
+projenin kendi kuralına aykırıydı —
+
+> **İşlem saatleri elle girilebilir.** Her aşamada varsayılan "şu an", ama
+> değiştirilebilir; personel işlemi yaparken değil sonra kaydediyor olabilir.
+> Bu özelliği asla kaldırma.
+
+— ve kullanıcı ilk kullandığında fark etti. Bitir ekranının başına
+`datetime-local` alanı kondu, öteki aşama ekranlarıyla aynı: varsayılan "şu
+an", boş ya da bozuk girilirse yine "şu an" (`islem_zamani()` yardımcısı).
+
+Yan etkisi bilinçli: **geriye tarihlenen bir bitiş "Bugün bitenler"de
+görünmez.** Kart `date(bitis_zamani) = bugün` diyor; 5 Eylül'de bitmiş bir
+cycle bugünün listesine girmemeli. `/bitenler` arşivinde kendi tarihiyle
+duruyor.
+
+Saat biçimi de düzeldi: `bitis_zamani` artık öteki tablolarla aynı
+`YYYY-MM-DD HH:MM:SS` biçiminde yazılıyor (önce `isoformat()`'ın `T`'li hali
+kullanılıyordu — SQLite ikisini de anlıyor, ama tek biçim daha az sürpriz).
+
+## 2. Bitişi düzenleme
+
+Bitmiş cycle'ın kartına **"Düzenle"** düğmesi eklendi:
+`/cycle/{id}/bitir?duzenle=1`. Sebep ve saat dolu geliyor, kayıtlı sebep
+"Seçili" rozetiyle işaretli — yalnızca saati değiştirmek isteyen hangi
+düğmeye basacağını görüyor.
+
+**Düzenle cycle'ı listeye döndürmez.** "Listeye geri al" ayrı bir düğme;
+ikisi farklı iş ve karışmaları pahalı olurdu. Kartta ikisi de var, Düzenle
+üstte.
+
+Hata dönüşü `?hata=...&duzenle=1` — v6.21'deki kural: hata mesajı formu
+kapatmamalı.
+
+## 3. Ay listesinden hastanın tüm kaydına
+
+Kullanıcı: "ilgili ayda hastayı bulunca o aydaki tedaviyi görüyorum ama bir
+de hastanın bütün kaydını görebileceğim bir buton olsun."
+
+Ay listesinin her satırının sağına **"Hasta kaydı"** düğmesi kondu. Satırın
+kendisi o ayki cycle'a, düğme hastanın tüm geçmişine (`/hasta/{id}`)
+gidiyor.
+
+İç içe `<a>` yazılamayacağı için ikisi kardeş; sarmalayan `.satirikili`
+yan yana diziyor. Tarayıcıda denendi: satır cycle'a, düğme hastaya gidiyor
+ve sayfada iç içe bağlantı yok.
+
+Düğme **yalnızca ay listesinde** (`kip="ay"`); ana ekranın yapılacaklarında
+ve `/bitenler`'de yok — istenmedi, liste de dar.
+
+## Test edildi
+
+- Geçmiş tarihle bitirme: kayıt o tarihi alıyor, "Bugün bitenler"e girmiyor,
+  `/bitenler`'de doğru tarihle duruyor
+- Düzenle: saat tek başına değişiyor; sebep dondurma → transfer → iptal
+  değiştirilebiliyor ve `durum` buna göre `tamamlandi` / `iptal` oluyor
+- Sebepsiz gönderim düzenleme kipinde kalıyor (`&duzenle=1`)
+- "Listeye geri al" alanları `NULL`'a çekiyor
+- "Hasta kaydı" düğmesi `/hasta/1`'e, satır `/cycle/2`'ye gidiyor; iç içe
+  `<a>` derinliği 1
+- 33 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok

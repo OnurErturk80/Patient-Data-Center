@@ -1069,6 +1069,9 @@ METINLER = {
         "en": "When lab work is done the cycle leaves the to-do list. "
               "Nothing is deleted; it stays on the patient's screen."},
     "bitis_sebebi": {"tr": "Nasıl bitti?", "en": "How did it end?"},
+    "bitis_saati": {"tr": "Bitiş saati", "en": "Finish time"},
+    "secili_rozet": {"tr": "Seçili", "en": "Current"},
+    "hasta_kaydi": {"tr": "Hasta kaydı", "en": "Patient file"},
     "bitis_dondurma": {"tr": "Dondurma tamamlandı", "en": "Freezing completed"},
     "bitis_dondurma_ipucu": {
         "tr": "Embriyolar / oositler donduruldu, taze transfer yok.",

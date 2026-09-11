@@ -182,6 +182,12 @@ bittiği yer çoğu zaman son iki aşama (v6.29). Üçü de `_bitir.html`
 - **Bitirmek `yetkim("silme")` istemez**, geri alması da. Günlük bir iş;
   `yol_modulu()` bu yolları bilerek modülsüz bırakıyor. Rotayı
   `geri-al` diye adlandırma — o ad "silme" modülüne düşer.
+- **Bitiş saati elle girilebilir** (v6.31) — "işlem saatleri elle girilebilir"
+  kuralı burada da geçerli, v6.28'de atlanmıştı. Geriye tarihlenen bitiş
+  "Bugün bitenler"de görünmez; bu doğru davranış.
+- **Düzenle ile Listeye geri al ayrı iki düğme.** `?duzenle=1` sebebi ve
+  saati değiştirir, cycle'ı listeye **döndürmez**; geri almak ayrı. İkisini
+  birleştirme.
 - Biten cycle'lar `/bitenler`'de; kayıt silinmiyor, hasta ekranında da
   rozetiyle duruyor.
 
@@ -194,6 +200,10 @@ aranıyorsa hangi ayda olduğu zaten bilinmiyordur.
   yaptık". Bunu hasta kaydının tarihine çevirme.
 - Arşivlenmiş hastanın cycle'ı **ay listesinde görünür** (o iş o ay yapıldı),
   yapılacaklarda görünmez. Satırda "Arşiv" rozeti var.
+- Satırın sağındaki **"Hasta kaydı"** düğmesi hastanın tüm geçmişine gider,
+  satırın kendisi o ayki cycle'a (v6.31). İç içe `<a>` olamayacağı için ikisi
+  kardeş, `.satirikili` yan yana diziyor — satıra bir bağlantı daha eklersen
+  aynı yolu izle.
 - Ay adları `metinler.py`'de (`ay_1`…`ay_12`), ekrana `ay_adi(yil, ay)`
   basıyor. `strftime("%B")` **kullanma** — işletim sisteminin yerel ayarına
   bağlı, Windows mini PC'de İngilizce çıkar.

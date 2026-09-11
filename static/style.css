@@ -209,6 +209,22 @@ body {
 .aygezgin .goster { font-size: 15px; }
 .dugme.buay { margin-top: 10px; }
 
+/* Ay listesi satiri: solda o ayki tedavi, sagda hastanin tum kaydi (v6.31).
+   Ic ice <a> olamadigi icin ikisi kardes; sarmalayan yan yana diziyor. */
+.satirikili { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+.satirikili:last-child { border-bottom: 0; }
+.satirikili .satir { flex: 1; min-width: 0; border-bottom: 0; }
+.satirikili .hastabag {
+  flex: 0 0 auto;
+  width: 104px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 10px;
+  border-left: 1px solid var(--line);
+  font-size: 13px; line-height: 1.2; text-align: center;
+  color: var(--ink-2); text-decoration: none;
+}
+.satirikili .hastabag:active { background: var(--zemin); }
+
 /* --- veri satırları --- */
 .veri { display: flex; padding: 9px 14px; border-bottom: 1px solid var(--line); }
 .veri:last-child { border-bottom: 0; }

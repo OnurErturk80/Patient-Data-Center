@@ -2003,11 +2003,17 @@ BITIS_HATALARI = {"bitis_sebebi_secilmedi", "goc_gerekli_kisa"}
 
 
 @uygulama.get("/cycle/{cycle_id}/bitir")
-def cycle_bitir_ekrani(request: Request, cycle_id: int, hata: str = ""):
+def cycle_bitir_ekrani(request: Request, cycle_id: int, hata: str = "",
+                       duzenle: int = 0):
     """Laboratuvar işi bitti: cycle yapılacaklar listesinden düşsün.
 
-    Ayrı bir ekran, çünkü sebep soruluyor ve yanlışlıkla basılmaması gerek.
-    Silme ekranıyla karıştırılmasın: bu bir iptal değil, işin olağan sonu.
+    Ayrı bir ekran, çünkü sebep ve bitiş saati soruluyor ve yanlışlıkla
+    basılmaması gerek. Silme ekranıyla karıştırılmasın: bu bir iptal değil,
+    işin olağan sonu.
+
+    `?duzenle=1` bitmiş bir cycle'ın kaydını değiştirmek için: sebep ve saat
+    doldurulmuş gelir (v6.31). Cycle listeye geri dönmez — geri almak ayrı
+    bir düğme.
     """
     c = db.tek(
         "SELECT c.*, h.ad_soyad, h.dosya_no FROM cycle c "
@@ -2016,7 +2022,8 @@ def cycle_bitir_ekrani(request: Request, cycle_id: int, hata: str = ""):
         return RedirectResponse("/hastalar", status_code=303)
     return sablon.TemplateResponse(
         request, "cycle_bitir.html",
-        {"kullanici": request.state.kullanici, "c": c,
+        {"kullanici": request.state.kullanici, "c": c, "duzenle": duzenle,
+         "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
          "goc_gerekli": not _bitis_kolonu_var(),
          "hata": metinler.t(hata) if hata in BITIS_HATALARI else ""},
     )
@@ -2024,20 +2031,28 @@ def cycle_bitir_ekrani(request: Request, cycle_id: int, hata: str = ""):
 
 
 @uygulama.post("/cycle/{cycle_id}/bitir")
-def cycle_bitir(request: Request, cycle_id: int, sebep: str = Form("")):
+def cycle_bitir(request: Request, cycle_id: int, sebep: str = Form(""),
+                bitis_zamani: str = Form(""), duzenle: int = Form(0)):
+    # Hata dönüşü formu kapatmamalı: düzenleme kipinden gelindiyse orada
+    # kalınıyor, yoksa normal bitir ekranına (v6.21'deki kural).
+    kip = "&duzenle=1" if duzenle else ""
     if not _bitis_kolonu_var():
         return RedirectResponse(
-            f"/cycle/{cycle_id}/bitir?hata=goc_gerekli_kisa", status_code=303)
+            f"/cycle/{cycle_id}/bitir?hata=goc_gerekli_kisa{kip}",
+            status_code=303)
     if sebep not in BITIS_DURUMU:
         return RedirectResponse(
-            f"/cycle/{cycle_id}/bitir?hata=bitis_sebebi_secilmedi",
+            f"/cycle/{cycle_id}/bitir?hata=bitis_sebebi_secilmedi{kip}",
             status_code=303)
     c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
     if not c:
         return RedirectResponse("/hastalar", status_code=303)
 
+    # Bitiş saati elle girilebilir; boş ya da bozuksa "şu an" (v6.31).
+    # "İşlem saatleri elle girilebilir" kuralı bu ekranda da geçerli:
+    # personel işi bitirirken değil, akşam kaydediyor olabilir.
     yeni = {"durum": BITIS_DURUMU[sebep], "bitis_sebebi": sebep,
-            "bitis_zamani": _dt.now().isoformat(timespec="seconds")}
+            "bitis_zamani": islem_zamani(bitis_zamani)}
     guvenlik.degisiklikleri_yaz(
         "cycle", cycle_id, c, yeni, request.state.kullanici["id"])
     db.yaz("UPDATE cycle SET durum = ?, bitis_sebebi = ?, bitis_zamani = ? "
