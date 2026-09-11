@@ -941,13 +941,81 @@ def yedek_durumu():
 
 # ----------------------------------------------------------------- hasta
 
+# Bir cycle'ın nasıl bittiği. Kullanıcının kâğıt klasöründeki üç son:
+# embriyolar donduruldu, transfer yapıldı, tedavi iptal oldu (v6.28).
+# Dondurma ve transfer `durum='tamamlandi'` yapar; iptal, silme ekranından
+# beri var olan `durum='iptal'` değerini kullanır — "Geri al" akışı aynı kalsın.
+BITIS_DURUMU = {"dondurma": "tamamlandi", "transfer": "tamamlandi",
+                "iptal": "iptal"}
+
+
+def _bitis_kolonu_var() -> bool:
+    """goc_027 çalıştırıldı mı? (tuzak #3: çalıştırıldığını varsayma)"""
+    return any(r["name"] == "bitis_sebebi"
+               for r in db.sorgu("PRAGMA table_info(cycle)"))
+
+
+def _opu_gunu(opu_zamani):
+    """OPU'dan bu yana geçen gün (OPU günü = 0). Tarih bozuksa None.
+
+    Bir cycle'da OPU tarihi `0026-09-04` yazıyor (bekleyen iş 6); böyle bir
+    değer yüzünden bütün liste patlamasın diye hesap korumalı.
+    """
+    if not opu_zamani:
+        return None
+    try:
+        gun = _dt.fromisoformat(str(opu_zamani)).date()
+        fark = (_dt.now().date() - gun).days
+    except (ValueError, TypeError, OverflowError):
+        return None
+    return fark if 0 <= fark <= 400 else None
+
+
+def cycle_listesi(bitmis: bool = False):
+    """Yapılacaklar listesi — kullanıcının kâğıt klasörünün karşılığı (v6.28).
+
+    `bitmis=False` laboratuvarda işi süren cycle'lar (klasör),
+    `bitmis=True` bitmiş olanlar (arşiv). Arşivlenmiş hastanın cycle'ı
+    ikisinde de görünmez; hasta arşivi zaten "bu dosya kapandı" demek.
+
+    Sıra: en eski OPU üstte. Unutulan bir cycle listenin dibine düşüp
+    gözden kaybolmasın diye — kâğıt klasörde de en alttaki form değil,
+    en eskisi göze batar.
+    """
+    durumlar = ("tamamlandi", "iptal") if bitmis else ("aktif",)
+    isaret = ",".join("?" * len(durumlar))
+    bitis = ("c.bitis_sebebi, c.bitis_zamani" if _bitis_kolonu_var()
+             else "NULL AS bitis_sebebi, NULL AS bitis_zamani")
+    sira = ("COALESCE(c.bitis_zamani, c.olusturma_zamani) DESC" if bitmis
+            else "COALESCE(c.opu_zamani, c.olusturma_zamani)")
+    satirlar = db.sorgu(
+        f"""SELECT c.id, c.cycle_no, c.cycle_tipi, c.durum, c.opu_zamani,
+                   c.olusturma_zamani, {bitis},
+                   h.id AS hasta_id, h.ad_soyad, h.dosya_no,
+                   (SELECT o.tip FROM olay o
+                     WHERE o.cycle_id = c.id AND o.iptal_mi = 0
+                     ORDER BY o.zaman DESC, o.id DESC LIMIT 1) AS son_olay
+              FROM cycle c JOIN hasta h ON h.id = c.hasta_id
+             WHERE c.lab_id = ? AND h.durum = 'aktif' AND c.durum IN ({isaret})
+             ORDER BY {sira}""",
+        (db.LAB_ID, *durumlar))
+    # sqlite3.Row'a alan eklenemiyor; gün hesabı için sözlüğe çevriliyor
+    liste = []
+    for r in satirlar:
+        d = dict(r)
+        d["gun"] = _opu_gunu(d["opu_zamani"])
+        liste.append(d)
+    return liste
+
+
 @uygulama.get("/")
 def anasayfa(request: Request, yetkisiz: str = ""):
-    """Ana ekran: sayılar ve yollar, **hasta adı yok**.
+    """Ana ekran: laboratuvarda işi süren cycle'ların listesi.
 
-    Program klinikte açık duruyor; ekrana bakan herkes (bekleyen hasta, hasta
-    yakını, teknik servis) daha önce kayıtlı hastaların adını görüyordu.
-    Adlar artık ancak `/hastalar`'a girilince görünür.
+    v6.18'de bu ekranda hasta adı yoktu (ekrana bakan herkes listeyi
+    görüyordu). v6.28'de kullanıcı bu kuralı kendi isteğiyle gevşetti:
+    ana ekran artık her sabah bakılan kâğıt klasörün karşılığı, adsız bir
+    liste o işi görmüyor.
     """
     aktif_hasta = db.tek(
         "SELECT COUNT(*) k FROM hasta WHERE lab_id=? AND durum='aktif'",
@@ -966,6 +1034,8 @@ def anasayfa(request: Request, yetkisiz: str = ""):
          "aktif_hasta": aktif_hasta, "aktif_cycle": aktif_cycle,
          "bekleyen": len(goruntuler.bekleyen_dosyalar()),
          "dondurulmus": dondurulmus,
+         "liste": cycle_listesi(),
+         "goc_gerekli": not _bitis_kolonu_var(),
          "yedek": yedek_durumu(), "yetkisiz": yetkisiz},
     )
 
@@ -1823,6 +1893,85 @@ def cycle_geri_al(request: Request, cycle_id: int):
         )
         db.yaz("UPDATE cycle SET durum = 'aktif' WHERE id = ?", (cycle_id,))
     return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+# ------------------------------------------------------------ cycle bitişi
+
+# Adresten gelen anahtar doğrudan `metin()`'e verilmez — beyaz liste (tuzak #9)
+BITIS_HATALARI = {"bitis_sebebi_secilmedi", "goc_gerekli_kisa"}
+
+
+@uygulama.get("/cycle/{cycle_id}/bitir")
+def cycle_bitir_ekrani(request: Request, cycle_id: int, hata: str = ""):
+    """Laboratuvar işi bitti: cycle yapılacaklar listesinden düşsün.
+
+    Ayrı bir ekran, çünkü sebep soruluyor ve yanlışlıkla basılmaması gerek.
+    Silme ekranıyla karıştırılmasın: bu bir iptal değil, işin olağan sonu.
+    """
+    c = db.tek(
+        "SELECT c.*, h.ad_soyad, h.dosya_no FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    return sablon.TemplateResponse(
+        request, "cycle_bitir.html",
+        {"kullanici": request.state.kullanici, "c": c,
+         "goc_gerekli": not _bitis_kolonu_var(),
+         "hata": metinler.t(hata) if hata in BITIS_HATALARI else ""},
+    )
+
+
+
+@uygulama.post("/cycle/{cycle_id}/bitir")
+def cycle_bitir(request: Request, cycle_id: int, sebep: str = Form("")):
+    if not _bitis_kolonu_var():
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/bitir?hata=goc_gerekli_kisa", status_code=303)
+    if sebep not in BITIS_DURUMU:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/bitir?hata=bitis_sebebi_secilmedi",
+            status_code=303)
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    yeni = {"durum": BITIS_DURUMU[sebep], "bitis_sebebi": sebep,
+            "bitis_zamani": _dt.now().isoformat(timespec="seconds")}
+    guvenlik.degisiklikleri_yaz(
+        "cycle", cycle_id, c, yeni, request.state.kullanici["id"])
+    db.yaz("UPDATE cycle SET durum = ?, bitis_sebebi = ?, bitis_zamani = ? "
+           "WHERE id = ?",
+           (yeni["durum"], yeni["bitis_sebebi"], yeni["bitis_zamani"], cycle_id))
+    return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+@uygulama.post("/cycle/{cycle_id}/bitisi-geri-al")
+def cycle_bitisi_geri_al(request: Request, cycle_id: int):
+    """Yanlışlıkla bitirilen cycle listeye geri döner.
+
+    Silmenin "Geri al"ından ayrı: orası `yetkim("silme")` istiyor, burası
+    istemiyor. Bitirmek günlük bir iş, silmek değil.
+    """
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if c:
+        yeni = {"durum": "aktif", "bitis_sebebi": None, "bitis_zamani": None}
+        guvenlik.degisiklikleri_yaz(
+            "cycle", cycle_id, c, yeni, request.state.kullanici["id"])
+        if _bitis_kolonu_var():
+            db.yaz("UPDATE cycle SET durum = 'aktif', bitis_sebebi = NULL, "
+                   "bitis_zamani = NULL WHERE id = ?", (cycle_id,))
+        else:
+            db.yaz("UPDATE cycle SET durum = 'aktif' WHERE id = ?", (cycle_id,))
+    return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+
+
+@uygulama.get("/bitenler")
+def bitenler(request: Request):
+    """Biten cycle'lar — kâğıt düzendeki arşiv klasörü."""
+    return sablon.TemplateResponse(
+        request, "bitenler.html",
+        {"kullanici": request.state.kullanici, "liste": cycle_listesi(True)},
+    )
 
 
 # ----------------------------------------------------------------- görüntü

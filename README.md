@@ -93,6 +93,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.25 — denüdasyon bilgi ekranı fert/blastokistin aynısı](#v625--denüdasyon-bilgi-ekranı-fertblastokistin-aynısı)
 - [v6.26 — ana ekranda sol menü](#v626--ana-ekranda-sol-menü)
 - [v6.27 — her ekranın üstünde ana menüye dönüş](#v627--her-ekranın-üstünde-ana-menüye-dönüş)
+- [v6.28 — ana ekran yapılacaklar listesi, cycle'ın bitişi](#v628--ana-ekran-yapılacaklar-listesi-cyclein-bitişi)
 
 ---
 
@@ -3148,3 +3149,117 @@ seçildi çünkü "Fertilizasyon kontrolü" gibi uzun başlıklarla birlikte
 - Tıklayınca `/` açılıyor
 - 390px ve 1280px'te üst çubuk taşmıyor (en uzun başlık "Fertilizasyon
   kontrolü" ile ölçüldü), JS hatası yok
+
+---
+
+# v6.28 — ana ekran yapılacaklar listesi, cycle'ın bitişi
+
+Kullanıcının anlattığı kâğıt düzeni:
+
+> Laboratuvarda tedavileri bitmemiş, daha yapılacak işlemleri olan hastaların
+> formlarını bir klasörde tutuyorum. Her gün geldiğimde "bugün neler
+> yapılacak" diye ona bakıyorum. Hastanın işlemi bitince — embriyolar
+> dondurulmuş, transfer yapılmış veya iptal olmuş olabilir — formu arşive
+> kaldırıyorum.
+
+Program bu ayrımı yapamıyordu. `cycle.durum` yalnızca `aktif` ve `iptal`
+alıyordu ve `iptal`i yazan tek yer **silme ekranıydı**. Yani "işi bitti"
+demenin tek yolu cycle'ı iptal etmekti — oysa dondurma ve transfer bir iptal
+değil, işin olağan sonu. Üç sonu birbirine karıştırmak veriyi de bozardı
+("kaç cycle iptal oldu" sorusunun cevabı yanlış çıkardı).
+
+## Üçüncü bir durum: `tamamlandi`
+
+`goc_027` iki kolon ekliyor:
+
+| kolon | ne | değerler |
+|---|---|---|
+| `bitis_sebebi` | nasıl bitti | `dondurma` \| `transfer` \| `iptal` |
+| `bitis_zamani` | ne zaman kapatıldı | kaydın kapatıldığı an |
+
+`durum` ile eşlemesi `BITIS_DURUMU`'nda: dondurma ve transfer
+`durum='tamamlandi'`, iptal ise **var olan** `durum='iptal'` değerini
+kullanıyor. Böylece silme ekranının "İptali geri al" akışı olduğu gibi
+duruyor. `durum` kolonunda CHECK yok, yeni değer için şema değişikliği
+gerekmedi.
+
+Eski kayıtlar `aktif` kalıyor — kimse geriye dönük bitmiş sayılmıyor,
+klasörü kullanıcı kendisi boşaltacak.
+
+## Ana ekran artık klasörün kendisi
+
+`/` üstte **Yapılacaklar** kartını basıyor: `durum='aktif'` cycle'lar, her
+satırda hasta adı, dosya no · cycle no, tedavi tipi, **OPU günü** ve **son
+işlem**. Altında eski sayı özeti, en altta menü.
+
+OPU günü satırda vurgulu, çünkü "bugün ne yapılacak" sorusuna embriyoloğun
+önce baktığı sayı o. OPU'su olmayan cycle'da (FET) hiç basılmıyor —
+uydurma bir gün numarası yanıltıcı olurdu. Son işlem `olay` tablosundan
+geliyor (iptal edilmemiş en son kayıt); **sıradaki** aşama tahmin
+edilmiyor, o klinik bir karar.
+
+Sıra: **en eski OPU üstte.** Unutulmuş bir cycle listenin dibine düşüp
+gözden kaybolmasın diye.
+
+### v6.18 kuralı gevşetildi
+
+v6.18'de bu ekranda hasta adı yoktu: program klinikte gün boyu açık duruyor,
+ekrana bakan herkes (bekleyen hasta, hasta yakını, teknik servis) listeyi
+görüyordu. Bu sefer kullanıcıya üç seçenek sunuldu — isimsiz liste (cycle no
++ aşama), sadece sayı + bir tık ötede liste, isimli liste — ve **isimli
+listeyi seçti**. Kâğıt klasörün karşılığı olması adsız bir listeyle
+mümkün değil. Karar kullanıcının; kendiliğinden geri alınmayacak.
+
+## "İşlemi bitir"
+
+Cycle ekranının altında, aşama düğmelerinin ardında. `/cycle/{id}/bitir`
+ayrı bir ekran: sebep soruluyor ve yanlışlıkla basılması zorlaşıyor.
+Üç seçenek, her birinin altında ne demek olduğu tek satırla yazıyor.
+
+Ekran **silme ekranı değil** ve öyle görünmüyor: hiçbir şey silinmiyor,
+cycle yalnızca listeden düşüyor, hasta ekranında rozetiyle duruyor.
+
+**Geri al ekranda hep tek.** "Bitir" ekranından kapatılan cycle
+`/cycle/{id}/bitisi-geri-al` ile dönüyor; silme ekranından iptal edilmiş eski
+kayıtlar eski `/cycle/{id}/geri-al` ile. İkincisi `not c.bitis_sebebi` ile
+susturuluyor, yoksa yan yana iki "geri al" çıkıyordu.
+
+Bitirmek `yetkim("silme")` **istemiyor**, geri alması da: bitirmek günlük bir
+iş, silmek değil. `yol_modulu()` bu iki yolu bilerek modülsüz bırakıyor.
+Rotanın adı da bu yüzden `bitisi-geri-al` — `geri-al` deseydi
+`yol_modulu()` onu "silme" modülüne düşürürdü.
+
+`/bitenler` kâğıt düzendeki arşiv klasörü; satırlar `_cyclesatir.html`
+makrosuyla ana ekranla aynı.
+
+## Göç çalıştırılmadıysa
+
+Tuzak #3: kullanıcının göçü çalıştırdığını varsayma. `_bitis_kolonu_var()`
+kolonu yoksa ana ekran yine açılıyor (sorgu `NULL AS bitis_sebebi`'ye
+düşüyor) ve tepede "goc_hepsi.py çalıştır" uyarısı çıkıyor; "İşlemi bitir"
+de kaydetmeden aynı uyarıya dönüyor.
+
+## Yol boyunca düzeltilen iki şey
+
+- **`.rozet`'in taban biçimi yoktu.** Yalnızca `.kimlik` ve `.bilgikart`
+  içinde tanımlıydı; liste satırlarındaki `.rozet.arsiv` koyu zemine koyu
+  yazı basıyordu. İptal rozeti hasta ekranında zaten böyle görünüyormuş.
+- **Tarayıcı dosya numarasını telefon sanıyordu.** `527078` ve `2026-09-11`
+  mavi altı çizili çıkabiliyordu; `base.html`'e `format-detection` eklendi.
+
+Ayrıca ana ekranın alt ipucusu ("hasta adları bu ekranda görünmez") artık
+yalan söylediği için değişti, ve `/cycle/{id}/bitir` ekranında "Vazgeç"
+yerine **"Geri dön"** kullanıldı: `vazgec` anahtarı İngilizcede "Discard"
+diyor ve embriyo dondurmanın yanında klinik "discard" ile karışırdı.
+
+## Test edildi
+
+- Liste: OPU günü doğru (OPU 2 gün önce → "OPU günü 2"), FET'te gün yok,
+  son işlem `olay`dan geliyor, işlemsiz cycle'da "işlem girilmedi"
+- Bitirme: üç sebep de doğru `durum`/`bitis_sebebi`/`bitis_zamani` yazıyor
+  ve `degisiklik_log`'a üç satır düşüyor
+- Bitince listeden ve "Aktif cycle" sayacından düşüyor, `/bitenler`'e geçiyor
+- Geri al: her iki yolda da tek düğme, alanlar `NULL`'a dönüyor
+- Sebepsiz ve uydurma sebeple POST reddediliyor; `?hata=` beyaz listeden
+  geçiyor (tuzak #9), liste dışı anahtar ekrana basılmıyor
+- 29 ekran 200, 390px ve 1280px'te yatay taşma yok, JS hatası yok, iki dilde

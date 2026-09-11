@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("islemi_bitir") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+{# Silme ekrani DEGIL: burada hicbir sey silinmiyor, cycle yalnizca
+   yapilacaklar listesinden dusuyor. Sebep soruluyor cunku "nasil bitti"
+   sonradan sorulan bir soru; ayrica ayri bir ekran olmasi yanlislikla
+   basilmasini zorlastiriyor. #}
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+{% if goc_gerekli %}<div class="uyari">{{ metin("goc_gerekli_uzun") }}</div>{% endif %}
+
+<div class="kart" style="margin-top:16px">
+  <h2>{{ metin("bitis_sebebi") }}</h2>
+  <div class="ipucu" style="padding:10px 14px 0">{{ metin("islemi_bitir_ipucu") }}</div>
+  <form method="post" action="/cycle/{{ c.id }}/bitir">
+    <div class="alan" style="border:0">
+      {% for kod in ("dondurma", "transfer", "iptal") %}
+      <button class="dugme{% if kod == 'iptal' %} ikincil{% endif %}" type="submit"
+              name="sebep" value="{{ kod }}">{{ metin("bitis_" ~ kod) }}</button>
+      <div class="ipucu secenekaciklama">{{ metin("bitis_" ~ kod ~ "_ipucu") }}</div>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+
+<a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("geri_don") }}</a>
+{% endblock %}

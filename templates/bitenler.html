@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% import "_cyclesatir.html" as cs %}
+{% block ustbaslik %}{{ metin("biten_islemler") }}{% endblock %}
+{% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
+{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
+{% block icerik %}
+{# Kagit duzendeki arsiv klasoru: isi bitmis cycle'lar. Kayit silinmiyor,
+   yalnizca yapilacaklar listesinden dusuyor -- buradan hepsine ulasilir. #}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ say("n_biten", liste|length) }}</h2>
+  {% for s in liste %}{{ cs.satir(s, True) }}
+  {% else %}
+  <div class="bos">{{ metin("biten_yok") }}</div>
+  {% endfor %}
+</div>
+{% endblock %}

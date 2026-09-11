@@ -1000,16 +1000,86 @@ METINLER = {
     # Adlar ancak /hastalar'a girilince gorunur.
     "ana_ekran": {"tr": "Ana ekran", "en": "Home"},
     "ana_menu": {"tr": "Ana menü", "en": "Main menu"},
+
+    # ---- yapilacaklar listesi (v6.28): kagit klasorun karsiligi ----
+    "yapilacaklar": {"tr": "Yapılacaklar", "en": "To do"},
+    # "vazgec" anahtari İngilizcede "Discard" diyor; bu ekranda embriyo
+    # dondurmanin yaninda durdugu icin klinik "discard" ile karisirdi.
+    "geri_don": {"tr": "Geri dön", "en": "Go back"},
+    "yapilacak_yok": {
+        "tr": "Laboratuvarda işi süren cycle yok.",
+        "en": "No cycles in progress in the lab."},
+    "biten_islemler": {"tr": "Biten işlemler", "en": "Completed"},
+    "n_biten": {"tr": "{n} biten işlem", "en": "{n} completed"},
+    "n_biten_tekil": {"tr": "{n} biten işlem", "en": "{n} completed"},
+    "biten_yok": {"tr": "Henüz biten işlem yok.", "en": "Nothing completed yet."},
+    "opu_gunu_n": {"tr": "OPU günü {n}", "en": "OPU day {n}"},
+    "son_islem": {"tr": "Son işlem", "en": "Last step"},
+    "henuz_islem_yok": {"tr": "işlem girilmedi", "en": "no steps recorded"},
+
+    # Olay tipleri — `olay.tip` CHECK ile sinirli, kapali bir kume
+    "olay_denudasyon": {"tr": "Denüdasyon", "en": "Denudation"},
+    "olay_maturasyon_kontrolu": {"tr": "Matürasyon kontrolü",
+                                 "en": "Maturity check"},
+    "olay_icsi": {"tr": "ICSI", "en": "ICSI"},
+    "olay_fertilizasyon_kontrolu": {"tr": "Fertilizasyon kontrolü",
+                                    "en": "Fertilisation check"},
+    "olay_cleavage_degerlendirme": {"tr": "Gün 2 / 3 değerlendirme",
+                                    "en": "Day 2 / 3 assessment"},
+    "olay_blastokist_degerlendirme": {"tr": "Blastokist değerlendirme",
+                                      "en": "Blastocyst assessment"},
+    "olay_biyopsi": {"tr": "Biyopsi", "en": "Biopsy"},
+    "olay_vitrifikasyon": {"tr": "Vitrifikasyon", "en": "Vitrification"},
+    "olay_thaw": {"tr": "Çözme", "en": "Thaw"},
+    "olay_transfer": {"tr": "Transfer", "en": "Transfer"},
+    "olay_discard": {"tr": "Discard", "en": "Discard"},
+
+    # ---- cycle bitisi ----
+    "islemi_bitir": {"tr": "İşlemi bitir", "en": "Finish treatment"},
+    "islemi_bitir_ipucu": {
+        "tr": "Laboratuvar işi bitince cycle yapılacaklar listesinden düşer. "
+              "Kayıtlar silinmez, hasta ekranından görünmeye devam eder.",
+        "en": "When lab work is done the cycle leaves the to-do list. "
+              "Nothing is deleted; it stays on the patient's screen."},
+    "bitis_sebebi": {"tr": "Nasıl bitti?", "en": "How did it end?"},
+    "bitis_dondurma": {"tr": "Dondurma tamamlandı", "en": "Freezing completed"},
+    "bitis_dondurma_ipucu": {
+        "tr": "Embriyolar / oositler donduruldu, taze transfer yok.",
+        "en": "Embryos / oocytes frozen, no fresh transfer."},
+    "bitis_transfer": {"tr": "Transfer yapıldı", "en": "Transfer done"},
+    "bitis_transfer_ipucu": {
+        "tr": "Transfer tamamlandı, laboratuvarda yapılacak iş kalmadı.",
+        "en": "Transfer completed, no lab work left."},
+    "bitis_iptal": {"tr": "İptal", "en": "Cancelled"},
+    "bitis_iptal_ipucu": {
+        "tr": "Tedavi yarıda kaldı. Cycle iptal olarak işaretlenir.",
+        "en": "Treatment stopped. The cycle is marked cancelled."},
+    "tamamlandi_rozet": {"tr": "Tamamlandı", "en": "Completed"},
+    "bitisi_geri_al": {"tr": "Listeye geri al", "en": "Reopen"},
+    "bitirildi_n": {"tr": "{n} tarihinde bitirildi", "en": "Finished on {n}"},
+    "bitis_sebebi_secilmedi": {
+        "tr": "Bitiş sebebi seçilmedi.", "en": "No reason selected."},
+    "goc_gerekli_kisa": {
+        "tr": "Veritabanı güncel değil: goc_hepsi.py çalıştırılmalı.",
+        "en": "Database not up to date: run goc_hepsi.py."},
+    "goc_gerekli_uzun": {
+        "tr": "Veritabanında bitiş kolonları yok. Terminalde "
+              "goc_hepsi.py çalıştır, sonra programı yeniden başlat.",
+        "en": "The finish columns are missing. Run goc_hepsi.py in the "
+              "terminal, then restart the program."},
     "hasta_kayitlari": {"tr": "Hasta kayıtları", "en": "Patient records"},
     "aktif_hasta": {"tr": "Aktif hasta", "en": "Active patients"},
     "aktif_cycle": {"tr": "Aktif cycle", "en": "Active cycles"},
     "bekleyen_kare": {"tr": "Bekleyen kare", "en": "Pending frames"},
     "dondurulmus": {"tr": "Dondurulmuş", "en": "Frozen"},
     "durum_ozeti": {"tr": "Durum", "en": "Status"},
+    # v6.28'de degisti: ekranda artik hasta adi var, eski ipucu yalan
+    # soyluyordu. Yerine listenin nasil bosaldigi anlatiliyor.
     "ana_ekran_ipucu": {
-        "tr": "Hasta adları bu ekranda görünmez; listeye girince görünür.",
-        "en": "Patient names are not shown here; they appear once you open "
-              "the list."},
+        "tr": "Listede laboratuvarda işi süren cycle'lar var. İş bitince "
+              "cycle ekranındaki \u201cİşlemi bitir\u201d ile listeden düşer.",
+        "en": "The list holds cycles still being worked on. Close one with "
+              "\u201cFinish treatment\u201d on the cycle screen."},
     "aramayi_temizle": {"tr": "Aramayı temizle", "en": "Clear search"},
     "asamalar": {"tr": "Aşamalar", "en": "Stages"},
 

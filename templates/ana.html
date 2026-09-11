@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_gezinme.html" as gz %}
+{% import "_cyclesatir.html" as cs %}
 {% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
 {% block icerik %}
@@ -11,6 +12,22 @@
   <b>{{ yetkisiz }}</b> {{ metin("yetkisiz_ekran") }}
 </div>
 {% endif %}
+
+{% if goc_gerekli %}<div class="uyari">{{ metin("goc_gerekli_uzun") }}</div>{% endif %}
+
+{# Kullanicinin kagit klasoru: laboratuvarda isi suren cycle'lar. v6.18'de bu
+   ekranda hasta adi yoktu; v6.28'de kullanici kurali kendi istegiyle gevsetti
+   -- adsiz bir liste her sabah bakilan klasorun isini gormuyor. #}
+<div class="kart" style="margin-top:16px">
+  <h2 class="ikili">
+    <span>{{ metin("yapilacaklar") }}{% if liste %} <span class="rozet">{{ liste|length }}</span>{% endif %}</span>
+    <a href="/bitenler" style="font-size:13px;font-weight:400">{{ metin("biten_islemler") }}</a>
+  </h2>
+  {% for s in liste %}{{ cs.satir(s) }}
+  {% else %}
+  <div class="bos">{{ metin("yapilacak_yok") }}</div>
+  {% endfor %}
+</div>
 
 <div class="kart" style="margin-top:16px">
   <h2>{{ metin("durum_ozeti") }}</h2>

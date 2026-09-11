@@ -154,6 +154,22 @@ body {
 .satir.hasta .no { order: 2; font-size: 14px; font-weight: 400; color: var(--ink-2); }
 .satir.hasta .meta { order: 3; }
 
+/* Yapilacaklar listesinde OPU gunu vurgulu: embriyologun "bugun ne
+   yapilacak" sorusuna once o bakiyor (v6.28). */
+.satir .meta b { color: var(--ink); font-weight: 600; }
+
+/* Baslikta sagda bir baglanti olan kart (Yapilacaklar -> Biten isler).
+   Sinif acikca veriliyor; `:has()` eski Safari'de yok, telefonda baslik
+   bozulmasin. */
+.kart h2.ikili { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kart h2.ikili .rozet { background: #e4eae7; color: #2c5545; border-radius: 3px;
+  padding: 2px 7px; font-size: 11px; font-weight: 600; }
+
+/* "Islemi bitir" ekraninda her secenegin altindaki tek satirlik aciklama.
+   Dugmeye yapisik dursun ki hangi aciklamanin hangi dugmeye ait oldugu
+   belli olsun; bir sonraki dugmeden once bosluk birakiyor. */
+.secenekaciklama { margin: 6px 2px 18px; }
+
 /* --- veri satırları --- */
 .veri { display: flex; padding: 9px 14px; border-bottom: 1px solid var(--line); }
 .veri:last-child { border-bottom: 0; }
@@ -446,6 +462,20 @@ body.kilitli { overflow: hidden; }
   border: 1px solid var(--line);
 }
 .minidugme.ikincil.tehlike-bag { color: #a11f1f; }
+/* Rozetin ortak bicimi. Onceden yalnizca `.kimlik` ve `.bilgikart` icinde
+   tanimliydi; liste satirlarindaki `.rozet.arsiv` yalin metin gibi cikiyor,
+   koyu zemine koyu yazi biniyordu (v6.28'de goruldu). Ozel yerlerin kendi
+   kurallari daha ozgul, bu taban onlari bozmuyor. */
+.rozet {
+  display: inline-block;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--ink-2);
+  vertical-align: 2px;
+}
 .rozet.arsiv { background: var(--ink-2); font-size: 11px; }
 
 

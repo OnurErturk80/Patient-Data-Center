@@ -60,7 +60,7 @@ Patient Data Center/
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..026.py   veritabanı göçleri (sırayla)
+  goc_002..027.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -153,10 +153,31 @@ ekleme.
 `liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda
 `liste_etiket(liste_adi, kod)` (Jinja global) kullan, sabit sözlük yazma.
 
-**Ana ekranda hasta adı yok.** `/` sayıları gösterir (aktif hasta, aktif
-cycle, dondurulmuş embriyo, bekleyen kare); adlar ancak `/hastalar`'a girilince
-görünür. Program klinikte gün boyu açık duruyor, ekrana bakan herkes listeyi
-görüyordu (v6.18). Ana ekrana hasta adı/dosya no koyma.
+**Ana ekran yapılacaklar listesidir** (v6.28). Kullanıcının kâğıt düzeni:
+laboratuvarda işi bitmemiş hastaların formları bir klasörde durur, her sabah
+ona bakılır, iş bitince form arşive kaldırılır. `/` tam bunun karşılığı —
+`durum='aktif'` cycle'lar, hasta adı, dosya no, cycle no, OPU günü ve son
+işlem. Altında sayı özeti, en altta menü.
+
+> v6.18'de bu ekranda **hasta adı yoktu** (ekrana bakan herkes listeyi
+> görüyordu). Kuralı v6.28'de **kullanıcı kendi isteğiyle gevşetti**: adsız
+> bir liste her sabah bakılan klasörün işini görmüyor. Kendiliğinden geri
+> alma — bu bilinçli bir denge, ona sormadan değiştirme.
+
+**Cycle'ın bitişi silme değildir** (v6.28, `goc_027`). Üç son var ve ikisi
+olağan: `bitis_sebebi` ∈ `dondurma` | `transfer` | `iptal`. İlk ikisi
+`durum='tamamlandi'`, üçüncüsü silme ekranından beri var olan
+`durum='iptal'` yapar. Eşleme `BITIS_DURUMU`'nda, listeyi `cycle_listesi()`
+kuruyor. Ekran: cycle ekranındaki "İşlemi bitir" → `/cycle/{id}/bitir`.
+- **Geri al ekranda hep tek.** "Bitir" ekranından kapatılan cycle
+  `/cycle/{id}/bitisi-geri-al` ile döner; silme ekranından iptal edilmiş eski
+  kayıtlar `/cycle/{id}/geri-al` ile. İkincisi `not c.bitis_sebebi` ile
+  susturuluyor, yoksa yan yana iki geri al çıkar.
+- **Bitirmek `yetkim("silme")` istemez**, geri alması da. Günlük bir iş;
+  `yol_modulu()` bu yolları bilerek modülsüz bırakıyor. Rotayı
+  `geri-al` diye adlandırma — o ad "silme" modülüne düşer.
+- Biten cycle'lar `/bitenler`'de; kayıt silinmiyor, hasta ekranında da
+  rozetiyle duruyor.
 
 **Üst çubukta iki dönüş var, ikisi farklı şey.** Geri oku (`‹`) **bir
 önceki** ekrana gider ve şablon başına ayrı yazılır; ev simgesi (`.anaya`)
@@ -434,7 +455,9 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
    değişecek — ona sor.
 6. **Bozuk tarih** — bir cycle'da OPU tarihi `0026-09-04` (yıl 4 haneli değil).
-   Düzeltilmeli.
+   Düzeltilmeli. v6.28'de `_opu_gunu()` korumaya alındı (böyle bir değer
+   yüzünden bütün yapılacaklar listesi patlamasın diye), ama kaydın kendisi
+   hâlâ bozuk.
 7. **`sema_guncel.sql` güncel değil.** `goc_019`, `goc_021`, `goc_022` ve
    `goc_025`'in getirdiklerini içermiyor. v6.9'da `sifirdan_kur.py` göçleri
    kendisi çalıştırdığı için kurulum artık eksiksiz çıkıyor, ama dosyanın adı

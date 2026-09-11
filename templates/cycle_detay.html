@@ -5,7 +5,7 @@
 {% block geri %}<a class="geri" href="/hasta/{{ c.hasta_id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
-  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span>{% if c.durum == "iptal" %}<span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% endif %}</div>
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span>{% if c.durum == "iptal" %}<span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% elif c.durum == "tamamlandi" %}<span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>{% endif %}</div>
   <div class="isim">{{ c.ad_soyad }}</div>
   <div class="alt">
     {% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }} · {% endif %}{{ tip_kisa(c.cycle_tipi) }}{% if c.endikasyon %} · {{ etiketler.get(c.endikasyon, c.endikasyon) }}{% endif %}
@@ -106,7 +106,33 @@
 {% endif %}
 <a class="dugme ikincil" href="/gecmis/cycle/{{ c.id }}">{{ metin("degisiklik_gecmisi") }}</a>
 
-{% if c.durum == "iptal" and yetkim("silme") %}
+{# Laboratuvar isi bitti: cycle yapilacaklar listesinden duser (v6.28).
+   Silme degil -- kayitlar duruyor, "Listeye geri al" ile geri donuyor.
+
+   Geri al dugmesi ekranda hep tek: "Bitir" ekranindan kapatilmis bir cycle
+   (bitis_sebebi dolu) buradan geri alinir, silme ekranindan iptal edilmis
+   eski kayitlar ise asagidaki "Iptali geri al" ile. Ikisi yan yana
+   cikmasin diye o dugme `not c.bitis_sebebi` ile susturuluyor.
+   Onemli fark: burasi `yetkim("silme")` istemiyor -- bitirmek gunluk bir
+   is, silmek degil. #}
+{% if c.durum == "aktif" %}
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/bitir">{{ metin("islemi_bitir") }}</a>
+{% elif c.durum == "tamamlandi" or c.bitis_sebebi %}
+<div class="kart bilgikart" style="margin-top:16px">
+  <h2><span>{{ metin("bitis_" ~ c.bitis_sebebi) if c.bitis_sebebi else metin("tamamlandi_rozet") }}
+    <span class="rozet">{{ metin("iptal_rozet") if c.durum == "iptal" else metin("tamamlandi_rozet") }}</span></span></h2>
+  {% if c.bitis_zamani %}
+  <div class="ipucu" style="padding:10px 14px">{{ say("bitirildi_n", c.bitis_zamani[:10]) }}</div>
+  {% endif %}
+  <div class="alan" style="border:0">
+    <form method="post" action="/cycle/{{ c.id }}/bitisi-geri-al">
+      <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("bitisi_geri_al") }}</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if c.durum == "iptal" and not c.bitis_sebebi and yetkim("silme") %}
 <form method="post" action="/cycle/{{ c.id }}/geri-al">
   <button class="dugme" type="submit">{{ metin("iptali_geri_al") }}</button>
 </form>
