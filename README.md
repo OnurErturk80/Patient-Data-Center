@@ -3994,3 +3994,68 @@ duruyorlar, `disari.py` oradan alıyor — iki kopya birbirinden ayrı düşerdi
 - Bilinmeyen form adı (`/form/yok/1`) cycle'a dönüyor — şablon adı adresten
   gelen metinle kurulmuyor, beyaz listeden geçiyor
 - 13 ekran 200, JS hatası yok, yatay taşma yok
+
+---
+
+# v6.38 — yönetici panelinde istatistikler
+
+Kullanıcının sorusu: "yapılan her kayıt hasta olsun cycle olsun opu olsun,
+yönetici bölümünde yer alan bir istatistikler bölümüne anlık kaydedilebilir
+mi?"
+
+## Kaydedilmiyor — hesaplanıyor
+
+Cevap "evet" ama sorulandan biraz farklı: **kaydetmeye gerek yok, zaten
+kayıtlı.** `/istatistik` her açılışta sayıları `hasta`, `cycle`, `specimen` ve
+`olay` tablolarından hesaplıyor.
+
+Ayrı bir sayaç tutmak aynı bilgiyi iki yere yazmak demek. İkisi er geç ayrı
+düşer — bir kayıt silinir, bir göç araya girer, bir işlem yarım kalır — ve
+hangisinin doğru olduğu anlaşılmaz. Türetilmiş sayı her zaman doğrudur; cryo
+haritasının türetilmiş olmasıyla aynı gerekçe. Ekranın altında bunu söyleyen
+bir not var, kullanıcı sayıların nereden geldiğini bilsin diye.
+
+## Ne gösteriyor
+
+- **Genel toplam** — hasta, cycle, OPU, oosit, 2PN, blastokist, dondurulan,
+  transfer edilen embriyo.
+- **Oranlar** — MII (MII/oosit), fertilizasyon (2PN/ICSI), blastokist
+  (blastokist/2PN), klinik gebelik (gebelik/transfer edilen cycle). Her
+  oranın yanında payı ve paydası yazıyor; **paydası sıfır olan oran
+  basılmıyor** — "%0" yanıltıcı olurdu, ölçülmemiş demek.
+- **Aylara göre** — son 12 ayın kırılımı; işlem yapılmamış ay hiç satır
+  açmıyor.
+- **Son kayıtlar** — en son girilen on kayıt (hasta, cycle, laboratuvar
+  işlemi), satır ilgili cycle'a gidiyor. Kullanıcının "her kayıt anlık"
+  isteğinin ikinci yarısı: sayının yanında **ne olduğu** da görünsün.
+  On satır, çünkü bu bir kayıt defteri değil "en son ne yapıldı" penceresi;
+  uzun tutulunca ekranın yarısını kaplayıp yanındaki ay kırılımını eziyordu
+  (ilk denemede 25'ti, ekran görüntüsünde görüldü). Tam döküm `/disari/tumu`.
+
+Excel hali `/disari/istatistik`: ay ay kırılım + genel toplam, iki sayfa.
+
+## İzin
+
+**Yalnızca yönetici** — ekran hem laboratuvarın bütün üretimini hem son
+girilen hasta adlarını tek sayfada gösteriyor. Hem `/istatistik` hem
+`/disari/istatistik` `yonetici_kontrol(request)` ile başlıyor; düğmeyi
+gizlemek yetmez. Yönetici olmayan kullanıcıyla denendi, ikisi de
+`/hastalar`'a dönüyor.
+
+## Transfer ve gebelik hangi cycle'a yazılıyor
+
+Transfer edilen embriyo başka cycle'dan gelmiş olabilir (FET). Ölçü
+**tedavinin yapıldığı cycle**: `COALESCE(o.tr_cycle_id, s.cycle_id)`. Aynı
+kural ay listesinde de geçerli (v6.36). "Transfer edilen cycle" ile "transfer
+edilen embriyo" ayrı sayılıyor — gebelik oranının paydası cycle, embriyo
+değil.
+
+## Test edildi
+
+- 8 oositlik fikstürle sayılar elle doğrulandı: 8 oosit, 5 MII, 5 ICSI,
+  4×2PN, 3 blastokist, 1 dondurma, 1 cycle'da 2 embriyo transferi →
+  MII %62.5, fertilizasyon %80, blastokist %75
+- Ekran ve Excel aynı sayıları veriyor
+- Yönetici olmayan kullanıcı ikisinden de döndürülüyor
+- 34 ekran 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
+- Test verisi geri alındı (1 hasta, 2 cycle, 1 örnek, 0 olay)

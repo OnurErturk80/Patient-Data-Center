@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("istatistikler") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+
+{# Sayılar **anlık hesaplanıyor**, saklanmıyor: ayrı bir sayaç tutmak aynı
+   bilgiyi iki yere yazmak olurdu ve biri ötekinden ayrı düşerdi. Cryo
+   haritasının türetilmiş olmasıyla aynı gerekçe (v6.38). #}
+
+<div class="kart">
+  <h2>{{ metin("genel_toplam") }}</h2>
+  <div class="ozet ozetsar">
+    <div><div class="sayi">{{ g.hasta }}</div>
+      <div class="etiket">{{ metin("hasta") }}</div></div>
+    <div><div class="sayi">{{ g.cycle }}</div>
+      <div class="etiket">{{ metin("cycle") }}</div></div>
+    <div><div class="sayi">{{ g.opu }}</div>
+      <div class="etiket">OPU</div></div>
+    <div><div class="sayi">{{ g.oosit }}</div>
+      <div class="etiket">{{ metin("oosit_ad") }}</div></div>
+    <div><div class="sayi">{{ g.ikipn }}</div>
+      <div class="etiket">2PN</div></div>
+    <div><div class="sayi">{{ g.blast }}</div>
+      <div class="etiket">{{ metin("blastokist_ad") }}</div></div>
+    <div><div class="sayi">{{ g.donan }}</div>
+      <div class="etiket">{{ metin("dondurulmus") }}</div></div>
+    <div><div class="sayi">{{ g.transfer_embriyo }}</div>
+      <div class="etiket">{{ metin("asama_transfer") }}</div></div>
+  </div>
+</div>
+
+{# Oranlar: paydası olmayan oran basılmıyor -- "%0" yanıltıcı olurdu. #}
+<div class="kart" style="margin-top:14px">
+  <h2>{{ metin("oranlar") }}</h2>
+  <table class="cizelge">
+    <tr><td class="ad">{{ metin("oran_mii") }}</td>
+      <td>{{ yuzde(g.oran_mii) if g.oran_mii is not none else "—" }}</td>
+      <td>{{ g.mii }} / {{ g.oosit }}</td></tr>
+    <tr><td class="ad">{{ metin("oran_fert") }}</td>
+      <td>{{ yuzde(g.oran_fert) if g.oran_fert is not none else "—" }}</td>
+      <td>{{ g.ikipn }} / {{ g.icsi }}</td></tr>
+    <tr><td class="ad">{{ metin("oran_blast") }}</td>
+      <td>{{ yuzde(g.oran_blast) if g.oran_blast is not none else "—" }}</td>
+      <td>{{ g.blast }} / {{ g.ikipn }}</td></tr>
+    {% if g.gebelik_var %}
+    <tr><td class="ad">{{ metin("oran_gebelik") }}</td>
+      <td>{{ yuzde(g.oran_gebelik) if g.oran_gebelik is not none else "—" }}</td>
+      <td>{{ g.gebelik }} / {{ g.transfer_cycle }}</td></tr>
+    {% endif %}
+  </table>
+</div>
+
+<div class="ikisutun" style="margin-top:14px">
+  <div class="kart">
+    <h2>{{ metin("aylara_gore") }}</h2>
+    {% if aylar %}
+    <table class="cizelge">
+      <tr>
+        <th>{{ metin("ay") }}</th><th>{{ metin("cycle") }}</th>
+        <th>{{ metin("oosit_ad") }}</th><th>2PN</th><th>{{ metin("asama_transfer") }}</th>
+      </tr>
+      {% for s in aylar %}
+      <tr>
+        <td class="ad">{{ ay_adi(s.ay[:4]|int, s.ay[5:]|int) }}</td>
+        <td>{{ s.cycle }}</td><td>{{ s.oosit }}</td>
+        <td>{{ s.ikipn }}</td><td>{{ s.transfer }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="bos">{{ metin("istatistik_bos") }}</div>
+    {% endif %}
+  </div>
+
+  <div class="kart">
+    <h2>{{ metin("son_kayitlar") }}</h2>
+    {% for k in son %}
+    {# Hasta kaydının cycle'ı yok; satır hastaya gider. #}
+    <a class="satir hasta" href="{{ '/cycle/' ~ k.cycle_id if k.cycle_id else '/hastalar?ara=' ~ k.dosya_no }}">
+      <div class="ad">{{ k.ad_soyad }}</div>
+      <div class="no">{{ k.dosya_no }}{% if k.cycle_no %} · {{ k.cycle_no }}{% endif %}</div>
+      <div class="meta">
+        {{ metin("kayit_" ~ k.tur) }}{% if k.ad %} · {{ k.ad }}{% endif %}
+        · {{ k.z[:16] if k.z else "" }}
+      </div>
+    </a>
+    {% else %}
+    <div class="bos">{{ metin("istatistik_bos") }}</div>
+    {% endfor %}
+  </div>
+</div>
+
+<a class="dugme ikincil" href="/disari/istatistik">{{ metin("excele_aktar_istatistik") }}</a>
+<div class="ipucu" style="padding:8px 2px">{{ metin("istatistik_ipucu") }}</div>
+{% endblock %}

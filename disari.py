@@ -449,3 +449,232 @@ def tumu_sayfalari():
             f"SELECT {secim} FROM kullanici WHERE lab_id = ?", (db.LAB_ID,))]
         sayfalar.append(("kullanici", kolonlar, satirlar))
     return sayfalar
+
+
+# --------------------------------------------------------------- istatistikler
+
+# İstatistik penceresi: kaç aylık geçmişe bakılacağı. Ay ay kırılım bundan
+# çıkıyor; daha uzunu ekranı şişiriyor, Excel çıktısı zaten tam veriyi veriyor.
+ISTATISTIK_AY = 12
+
+
+def _tek(sql, p=()):
+    r = db.tek(sql, p)
+    return (r["n"] if r and r["n"] is not None else 0)
+
+
+def istatistikler(ay: str = "") -> dict:
+    """Yönetici panelindeki sayılar — **anlık hesaplanır, saklanmaz**.
+
+    Kullanıcının sorusu: "yapılan her kayıt hasta olsun cycle olsun opu olsun
+    yönetici bölümünde yer alan bir istatistikler bölümüne anlık kaydedilebilir
+    mi?" Cevap: kaydedilmesine gerek yok, zaten kayıtlı. Sayılar her açılışta
+    `hasta`, `cycle`, `specimen` ve `olay` tablolarından hesaplanıyor.
+
+    **Ayrı bir sayaç tutulmuyor, bilinçli.** Sayaç tutmak aynı bilgiyi iki
+    yere yazmak demek; biri ötekinden ayrı düşer (bir kayıt silinir, bir göç
+    araya girer, bir işlem yarım kalır) ve hangisinin doğru olduğu
+    anlaşılmaz. Türetilmiş sayı her zaman doğrudur — cryo haritasının
+    türetilmiş olmasıyla aynı gerekçe.
+
+    `ay="2026-09"` verilirse sayılar o aya süzülür; boşsa laboratuvarın
+    tamamı. Ayın ölçüsü ekranlardakiyle aynı: OPU tarihi, yoksa cycle'ın
+    açıldığı tarih.
+    """
+    if ay:
+        cs = ("AND strftime('%Y-%m', COALESCE(c.opu_zamani, c.olusturma_zamani)) "
+              "= '" + ay.replace("'", "") + "'")
+    else:
+        cs = ""
+
+    cycle_kosul = f"c.lab_id = ? {cs}"
+    ornek_kosul = ("s.cycle_id IN (SELECT c.id FROM cycle c "
+                   f"WHERE {cycle_kosul})")
+
+    def _olay(tip, ek=""):
+        return _tek(
+            "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
+            f"JOIN specimen s ON s.id = o.specimen_id WHERE {ornek_kosul} "
+            f"AND o.tip = ? AND o.iptal_mi = 0 {ek}", (db.LAB_ID, tip))
+
+    oosit = _tek(f"SELECT COUNT(*) n FROM specimen s WHERE {ornek_kosul}",
+                 (db.LAB_ID,))
+    mii = _olay("maturasyon_kontrolu", "AND o.mat_deger = 'mii'")
+    icsi = _olay("icsi")
+    ikipn = _olay("fertilizasyon_kontrolu", "AND o.fert_pn_sayisi = '2'")
+    blast = _olay("blastokist_degerlendirme")
+    donan = _olay("vitrifikasyon")
+    cozulen = _olay("thaw")
+
+    # Transfer ve gebelik cycle'a bağlı: transfer edilen embriyo başka
+    # cycle'dan gelmiş olabilir (FET), ölçü tedavinin yapıldığı cycle.
+    transfer_cycle = _tek(
+        "SELECT COUNT(DISTINCT COALESCE(o.tr_cycle_id, s.cycle_id)) n "
+        "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
+        "WHERE o.tip='transfer' AND o.iptal_mi=0 "
+        "AND COALESCE(o.tr_cycle_id, s.cycle_id) IN "
+        f"(SELECT c.id FROM cycle c WHERE {cycle_kosul})", (db.LAB_ID,))
+    transfer_embriyo = _tek(
+        "SELECT COUNT(DISTINCT o.specimen_id) n "
+        "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
+        "WHERE o.tip='transfer' AND o.iptal_mi=0 "
+        "AND COALESCE(o.tr_cycle_id, s.cycle_id) IN "
+        f"(SELECT c.id FROM cycle c WHERE {cycle_kosul})", (db.LAB_ID,))
+
+    gebelik_var = _kolon_var("gebelik_sonucu", "klinik_gebelik")
+    gebelik = _tek(
+        "SELECT COUNT(*) n FROM gebelik_sonucu g WHERE g.klinik_gebelik = 1 "
+        f"AND g.cycle_id IN (SELECT c.id FROM cycle c WHERE {cycle_kosul})",
+        (db.LAB_ID,)) if gebelik_var else 0
+
+    cycle_sayisi = _tek(
+        f"SELECT COUNT(*) n FROM cycle c WHERE {cycle_kosul}", (db.LAB_ID,))
+    tipler = db.sorgu(
+        "SELECT c.cycle_tipi, COUNT(*) n FROM cycle c "
+        f"WHERE {cycle_kosul} GROUP BY c.cycle_tipi ORDER BY n DESC",
+        (db.LAB_ID,))
+    durumlar = db.sorgu(
+        "SELECT c.durum, COUNT(*) n FROM cycle c "
+        f"WHERE {cycle_kosul} GROUP BY c.durum", (db.LAB_ID,))
+
+    return {
+        "ay": ay,
+        "hasta": _tek("SELECT COUNT(*) n FROM hasta WHERE lab_id = ?",
+                      (db.LAB_ID,)) if not ay else None,
+        "hasta_aktif": _tek(
+            "SELECT COUNT(*) n FROM hasta WHERE lab_id=? AND durum='aktif'",
+            (db.LAB_ID,)) if not ay else None,
+        "cycle": cycle_sayisi,
+        "tipler": [(_tip(r["cycle_tipi"]) or r["cycle_tipi"], r["n"])
+                   for r in tipler],
+        "durumlar": [(_durum(r["durum"]), r["n"]) for r in durumlar],
+        "opu": _tek("SELECT COUNT(*) n FROM cycle c "
+                    f"WHERE {cycle_kosul} AND c.opu_zamani IS NOT NULL",
+                    (db.LAB_ID,)),
+        "oosit": oosit,
+        "mii": mii,
+        "icsi": icsi,
+        "ikipn": ikipn,
+        "blast": blast,
+        "donan": donan,
+        "cozulen": cozulen,
+        "transfer_cycle": transfer_cycle,
+        "transfer_embriyo": transfer_embriyo,
+        "gebelik": gebelik,
+        "gebelik_var": gebelik_var,
+        "foto": _tek("SELECT COUNT(*) n FROM goruntu g WHERE g.cycle_id IN "
+                     f"(SELECT c.id FROM cycle c WHERE {cycle_kosul})",
+                     (db.LAB_ID,)),
+        # Oranlar: payda sıfırsa None -- "%0" yazmak yanıltıcı olurdu.
+        "oran_mii": _oran(mii, oosit),
+        "oran_fert": _oran(ikipn, icsi),
+        "oran_blast": _oran(blast, ikipn),
+        "oran_gebelik": _oran(gebelik, transfer_cycle),
+    }
+
+
+def _oran(pay, payda):
+    """Yüzde, bir ondalık. Payda sıfırsa None — "%0" yanıltıcı olurdu."""
+    if not payda:
+        return None
+    return round(pay * 100.0 / payda, 1)
+
+
+def istatistik_aylari(n: int = ISTATISTIK_AY) -> list:
+    """Son n ayın ay ay kırılımı: (ay, cycle, oosit, 2PN, transfer, gebelik)."""
+    from datetime import date
+    bugun = date.today()
+    aylar = []
+    yil, ay = bugun.year, bugun.month
+    for _ in range(n):
+        aylar.append(f"{yil:04d}-{ay:02d}")
+        ay -= 1
+        if ay == 0:
+            yil, ay = yil - 1, 12
+    satirlar = []
+    for a in reversed(aylar):
+        i = istatistikler(a)
+        if i["cycle"]:
+            satirlar.append({
+                "ay": a, "cycle": i["cycle"], "oosit": i["oosit"],
+                "ikipn": i["ikipn"], "transfer": i["transfer_cycle"],
+                "gebelik": i["gebelik"], "oran_fert": i["oran_fert"],
+            })
+    return satirlar
+
+
+def son_kayitlar(n: int = 10) -> list:
+    """En son girilen kayıtlar — hasta, cycle ve laboratuvar işlemleri.
+
+    Kullanıcının "yapılan her kayıt ... anlık" isteğinin ikinci yarısı:
+    sayıların yanında **ne olduğu** da görünsün. Üç tablodan okunup zamana
+    göre birleştiriliyor; ayrı bir günlük tablosu tutulmuyor (bkz.
+    `istatistikler`).
+
+    Varsayılan **on satır**: bu bir kayıt defteri değil, "en son ne yapıldı"
+    penceresi. Uzun tutulunca ekranın yarısını kaplıyor ve yanındaki ay
+    kırılımını eziyordu. Tam döküm zaten `/disari/tumu`'da.
+    """
+    hasta = db.sorgu(
+        "SELECT olusturma_zamani AS z, 'hasta' AS tur, dosya_no, ad_soyad, "
+        "  NULL AS cycle_id, NULL AS cycle_no, NULL AS tip "
+        "FROM hasta WHERE lab_id = ? ORDER BY olusturma_zamani DESC LIMIT ?",
+        (db.LAB_ID, n))
+    cycle = db.sorgu(
+        "SELECT c.olusturma_zamani AS z, 'cycle' AS tur, h.dosya_no, h.ad_soyad, "
+        "  c.id AS cycle_id, c.cycle_no, c.cycle_tipi AS tip "
+        "FROM cycle c JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE c.lab_id = ? ORDER BY c.olusturma_zamani DESC LIMIT ?",
+        (db.LAB_ID, n))
+    olay = db.sorgu(
+        "SELECT o.olusturma_zamani AS z, 'olay' AS tur, h.dosya_no, h.ad_soyad, "
+        "  c.id AS cycle_id, c.cycle_no, o.tip "
+        "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
+        "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+        "WHERE o.lab_id = ? AND o.iptal_mi = 0 "
+        "ORDER BY o.olusturma_zamani DESC LIMIT ?", (db.LAB_ID, n))
+
+    hepsi = [dict(r) for r in list(hasta) + list(cycle) + list(olay)]
+    hepsi.sort(key=lambda r: r["z"] or "", reverse=True)
+    for r in hepsi:
+        if r["tur"] == "cycle":
+            r["ad"] = _tip(r["tip"]) or r["tip"]
+        elif r["tur"] == "olay":
+            r["ad"] = metinler.t("olay_" + r["tip"]) if r["tip"] else ""
+        else:
+            r["ad"] = ""
+    return hepsi[:n]
+
+
+ISTATISTIK_BASLIK = ["Ay", "Cycle", "Oosit", "2PN", "Transfer edilen cycle",
+                     "Klinik gebelik", "Fertilizasyon oranı (%)"]
+
+
+def istatistik_sayfalari():
+    """İstatistiklerin Excel hali: ay ay kırılım + genel toplam."""
+    aylar = [[s["ay"], s["cycle"], s["oosit"], s["ikipn"], s["transfer"],
+              s["gebelik"], s["oran_fert"]] for s in istatistik_aylari()]
+    g = istatistikler()
+    genel = [
+        ["Hasta (toplam)", g["hasta"]],
+        ["Hasta (aktif)", g["hasta_aktif"]],
+        ["Cycle", g["cycle"]],
+        ["OPU yapılan cycle", g["opu"]],
+        ["Oosit", g["oosit"]],
+        ["MII", g["mii"]],
+        ["ICSI yapılan", g["icsi"]],
+        ["2PN", g["ikipn"]],
+        ["Blastokist", g["blast"]],
+        ["Dondurulan", g["donan"]],
+        ["Çözülen", g["cozulen"]],
+        ["Transfer edilen cycle", g["transfer_cycle"]],
+        ["Transfer edilen embriyo", g["transfer_embriyo"]],
+        ["Klinik gebelik", g["gebelik"]],
+        ["Fotoğraf", g["foto"]],
+        ["MII oranı (%)", g["oran_mii"]],
+        ["Fertilizasyon oranı (%)", g["oran_fert"]],
+        ["Blastokist oranı (%)", g["oran_blast"]],
+        ["Gebelik oranı (%)", g["oran_gebelik"]],
+    ]
+    return [("Aylara göre", ISTATISTIK_BASLIK, aylar),
+            ("Genel", ["Ölçü", "Değer"], genel)]

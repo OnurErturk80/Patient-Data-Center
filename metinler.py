@@ -1161,6 +1161,32 @@ METINLER = {
     "ornek_kodu_sonucu": {"tr": "Örnek kodu", "en": "Sample code"},
     "durum_aktif": {"tr": "Aktif", "en": "Active"},
     "excel_cikti": {"tr": "Excel çıktısı", "en": "Excel export"},
+    # ---- istatistikler ----
+    "istatistikler": {"tr": "İstatistikler", "en": "Statistics"},
+    "genel_toplam": {"tr": "Genel toplam", "en": "Overall"},
+    "oranlar": {"tr": "Oranlar", "en": "Rates"},
+    "oran_mii": {"tr": "MII oranı", "en": "MII rate"},
+    "oran_fert": {"tr": "Fertilizasyon oranı (2PN / ICSI)",
+                  "en": "Fertilization rate (2PN / ICSI)"},
+    "oran_blast": {"tr": "Blastokist oranı (blastokist / 2PN)",
+                   "en": "Blastocyst rate (blastocyst / 2PN)"},
+    "oran_gebelik": {"tr": "Klinik gebelik oranı (transfer başına)",
+                     "en": "Clinical pregnancy rate (per transfer)"},
+    "aylara_gore": {"tr": "Aylara göre", "en": "By month"},
+    "son_kayitlar": {"tr": "Son kayıtlar", "en": "Latest records"},
+    "kayit_hasta": {"tr": "Yeni hasta", "en": "New patient"},
+    "kayit_cycle": {"tr": "Yeni cycle", "en": "New cycle"},
+    "kayit_olay": {"tr": "İşlem", "en": "Procedure"},
+    "istatistik_bos": {"tr": "Henüz kayıt yok.", "en": "No records yet."},
+    "excele_aktar_istatistik": {"tr": "İstatistikleri Excel'e aktar",
+                                "en": "Export statistics to Excel"},
+    "istatistik_ipucu": {
+        "tr": "Sayılar her açılışta kayıtlardan hesaplanıyor; ayrı bir sayaç "
+              "tutulmuyor. Böylece hiçbir zaman gerçek kayıtlardan ayrı "
+              "düşmüyorlar.",
+        "en": "The numbers are computed from the records on every visit; no "
+              "separate counter is kept, so they can never drift from the "
+              "actual data."},
     # ---- resmî formlar ----
     "formlar": {"tr": "Formlar", "en": "Forms"},
     "form_ozet": {"tr": "Embriyoloji Özet Formu",

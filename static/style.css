@@ -353,6 +353,12 @@ form { margin: 0; }
 .ozet div + div { border-left: 1px solid var(--line); }
 .ozet .sayi { font-size: 22px; font-weight: 700; }
 .ozet .etiket { font-size: 12px; color: var(--ink-2); }
+/* Istatistiklerde serit sekiz kutu tasiyor; telefonda tek satira sigmiyor,
+   sarmasi gerekiyor (v6.38). Ana ekrandaki uc kutuluk serit sarmiyor. */
+.ozet.ozetsar { flex-wrap: wrap; }
+.ozet.ozetsar > div { flex: 1 1 25%; min-width: 90px;
+                      border-top: 1px solid var(--line); }
+.ozet.ozetsar > div:nth-child(-n+4) { border-top: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

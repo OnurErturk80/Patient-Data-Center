@@ -2320,6 +2320,39 @@ def disari_cryo(request: Request):
     return excel_yaniti("cryo", disari.cryo_sayfalari())
 
 
+@uygulama.get("/istatistik")
+def istatistik_ekrani(request: Request):
+    """Yönetici panelindeki istatistikler — **anlık hesaplanır, saklanmaz**.
+
+    Kullanıcının sorusu "her kayıt anlık kaydedilebilir mi" idi; cevap
+    kaydetmeye gerek olmadığı: sayılar zaten kayıtların kendisinden çıkıyor.
+    Ayrı bir sayaç aynı bilgiyi iki yere yazmak olurdu ve biri ötekinden ayrı
+    düşerdi (bkz. `disari.istatistikler`).
+
+    Yalnızca yönetici: ekran laboratuvarın bütün üretimini ve son girilen
+    hasta adlarını tek sayfada gösteriyor.
+    """
+    engel = yonetici_kontrol(request)
+    if engel:
+        return engel
+    return sablon.TemplateResponse(
+        request, "istatistik.html",
+        {"g": disari.istatistikler(),
+         "aylar": disari.istatistik_aylari(),
+         "son": disari.son_kayitlar(),
+         "kullanici": request.state.kullanici},
+    )
+
+
+@uygulama.get("/disari/istatistik")
+def disari_istatistik(request: Request):
+    """İstatistiklerin Excel hali — ekranla aynı izin: yalnızca yönetici."""
+    engel = yonetici_kontrol(request)
+    if engel:
+        return engel
+    return excel_yaniti("istatistik", disari.istatistik_sayfalari())
+
+
 @uygulama.get("/disari/tumu")
 def disari_tumu(request: Request):
     """Bütün tabloların ham dökümü — **yalnızca yönetici**.

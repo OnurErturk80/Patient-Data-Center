@@ -296,6 +296,20 @@ OPU'dan bu yana. Kullanıcının isteği — formdaki "24 saat / 40-45 saat /
 Örnek başına alt sorgu kuran iki küçük parça; iki kopya birbirinden ayrı
 düşerdi.
 
+**İstatistikler türetilmiştir, sayaç yoktur** (v6.38). `/istatistik` her
+açılışta sayıları `hasta`, `cycle`, `specimen` ve `olay`'dan hesaplıyor.
+**Sayaç tutma** — aynı bilgiyi iki yere yazmak olur ve ikisi er geç ayrı
+düşer; cryo haritasının türetilmiş olmasıyla aynı gerekçe. Kullanıcı "anlık
+kaydedilebilir mi" diye sordu, cevap "kaydetmeye gerek yok, zaten kayıtlı".
+- **Yalnızca yönetici**: hem `/istatistik` hem `/disari/istatistik`
+  `yonetici_kontrol(request)` ile başlıyor. Ekran bütün üretimi ve son
+  girilen hasta adlarını tek sayfada gösteriyor.
+- **Paydası sıfır olan oran basılmaz** — "%0" ölçülmemişi ölçülmüş gösterir.
+- Transfer ve gebelik **tedavinin yapıldığı cycle'a** yazılır
+  (`COALESCE(o.tr_cycle_id, s.cycle_id)`), ay listesindeki kuralın aynısı.
+- "Son kayıtlar" on satır: kayıt defteri değil, "en son ne yapıldı"
+  penceresi. Tam döküm `/disari/tumu`'da.
+
 **Örnek kodu aranabilir** (v6.35). Kod (`527078-2026-0001-03`) tüpün ve
 formun üstünde yazan şey; `<hasta dosya no>-<specimen.id>` olarak
 birleştirilip aranıyor, yani tam kod da kuyruğu da (`0001-03`) buluyor.
