@@ -30,6 +30,13 @@ body {
 
 .kap { max-width: 640px; margin: 0 auto; padding: 0 16px 96px; }
 
+/* `hidden` niteligi her zaman kazansin. Tarayicinin kendi kurali
+   `display: none` ama bizim `display: flex` veren siniflarimiz onu eziyor:
+   `.aygezgin .ok` boyle bir sinifti ve `el.hidden = true` hicbir ise
+   yaramiyordu (v6.30'da goruldu; `.bilgikart[hidden]` ayni sebeple ayrica
+   yazilmisti). */
+[hidden] { display: none !important; }
+
 /* --- üst çubuk --- */
 .ust {
   background: var(--ink);
@@ -186,10 +193,20 @@ body {
   color: var(--ink); text-decoration: none;
 }
 .aygezgin .ok:active { background: var(--zemin); }
-.aygezgin .adi {
-  flex: 1; text-align: center;
-  font-size: 17px; font-weight: 700;
+/* Ay ve yil secicileri (v6.30). Ortadaki alani paylasiyorlar; yil dar,
+   ay adi uzun oldugu icin genis. 16px yazi boyu bilerek: iOS daha kucuk
+   yazili bir alana dokununca sayfayi yakinlastiriyor. */
+.aygezgin select {
+  flex: 1 1 0; min-width: 0;
+  min-height: 48px; padding: 0 6px;
+  font-family: inherit; font-size: 16px; font-weight: 700;
+  color: var(--ink); background: transparent;
+  border: 0; border-radius: var(--r);
+  text-align: center; text-align-last: center;
 }
+.aygezgin select:focus-visible { outline: 2px solid var(--vurgu); outline-offset: -2px; }
+.aygezgin select[name="yil"] { flex: 0 0 auto; }
+.aygezgin .goster { font-size: 15px; }
 .dugme.buay { margin-top: 10px; }
 
 /* --- veri satırları --- */

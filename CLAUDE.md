@@ -197,6 +197,9 @@ aranıyorsa hangi ayda olduğu zaten bilinmiyordur.
 - Ay adları `metinler.py`'de (`ay_1`…`ay_12`), ekrana `ay_adi(yil, ay)`
   basıyor. `strftime("%B")` **kullanma** — işletim sisteminin yerel ayarına
   bağlı, Windows mini PC'de İngilizce çıkar.
+- Yıl ve ay **açılır seçici**, yanlarında `‹ ›` okları (v6.30). Yıl aralığı
+  veriden geliyor (`_yil_araligi`) ve `>= 2000` süzgeci **şart**: bozuk
+  `0026-09-04` tarihi seçiciye iki bin satır koyardı.
 
 **Dört cycle listesi tek fonksiyon, tek satır makrosu** (v6.29). Yapılacaklar,
 bugün bitenler, `/bitenler` arşivi ve ay listesi: sorgu `cycle_listesi()`
@@ -448,6 +451,13 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
     `if (!document.getElementById('<form id>')) return;` koy. Bu gerçekten
     oldu: cycle'da hiç oosit yokken ICSI ekranının bütün JS'i sessizce
     ölüydü (v6.20'de görüldü).
+
+11. **`el.hidden = true` bizim CSS'imizde çalışmayabilir.** Tarayıcının
+    `[hidden] { display: none }` kuralı zayıf; `display: flex`/`block`
+    veren bir sınıf onu eziyor ve eleman gizlenmiyor. v6.30'da CSS'in
+    tepesine `[hidden] { display: none !important; }` konuldu, artık her
+    yerde çalışıyor. Aynı sorunun yedi ayrı yaması (`.bilgikart[hidden]`,
+    `.uyari[hidden]`, ...) hâlâ duruyor — gereksizler, zararsızlar.
 
 ---
 

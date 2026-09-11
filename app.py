@@ -1088,6 +1088,26 @@ def _ay_kaydir(yil: int, ay: int, adim: int) -> tuple:
     return n // 12, n % 12 + 1
 
 
+def _yil_araligi(secili: int) -> list:
+    """Yıl seçicide görünecek yıllar (v6.30).
+
+    En eski kayıttan bugüne. `>= 2000` süzgeci bilerek: bir cycle'da OPU
+    tarihi `0026-09-04` yazıyor (bekleyen iş 6) ve o değer aralığa girseydi
+    seçicide iki bin satır olurdu.
+
+    Seçili yıl listede yoksa yine de eklenir — oklarla aralığın dışına
+    çıkılmış olabilir, seçici boş görünmesin.
+    """
+    tarih = "COALESCE(opu_zamani, olusturma_zamani)"
+    r = db.tek(
+        f"SELECT MIN(CAST(strftime('%Y', {tarih}) AS INTEGER)) y FROM cycle "
+        f"WHERE lab_id = ? AND CAST(strftime('%Y', {tarih}) AS INTEGER) >= 2000",
+        (db.LAB_ID,))
+    bu = _dt.now().year
+    en_eski = min(x for x in ((r and r["y"]) or bu, bu, secili) if x)
+    return list(range(int(en_eski), max(bu, secili) + 1))
+
+
 @uygulama.get("/hastalar")
 def hastalar(request: Request, ara: str = "", arsiv: int = 0,
              yil: int = 0, ay: int = 0):
@@ -1140,6 +1160,7 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
         request, "hastalar.html",
         {"hastalar": kayitlar, "liste": liste, "ara": ara, "arsiv": arsiv,
          "yil": yil, "ay": ay, "bu_ay": bu_ay,
+         "yillar": _yil_araligi(yil),
          "onceki": onceki, "sonraki": sonraki,
          "arsiv_sayisi": arsiv_sayisi, "kullanici": request.state.kullanici,
          "yedek": yedek_durumu()},

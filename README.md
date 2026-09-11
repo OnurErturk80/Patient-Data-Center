@@ -95,6 +95,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.27 — her ekranın üstünde ana menüye dönüş](#v627--her-ekranın-üstünde-ana-menüye-dönüş)
 - [v6.28 — ana ekran yapılacaklar listesi, cycle'ın bitişi](#v628--ana-ekran-yapılacaklar-listesi-cyclein-bitişi)
 - [v6.29 — bugün bitenler, ay ay hasta kayıtları](#v629--bugün-bitenler-ay-ay-hasta-kayıtları)
+- [v6.30 — yıl ve ay açılır seçici](#v630--yıl-ve-ay-açılır-seçici)
 
 ---
 
@@ -3360,3 +3361,61 @@ Dört liste aynı görünsün diye.
   satırı döndürüyor; boş sonuç mesajı çıkıyor
 - Arşivlenmiş hasta: ay listesinde "Arşiv" rozetiyle var, yapılacaklarda yok
 - 31 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok
+
+---
+
+# v6.30 — yıl ve ay açılır seçici
+
+v6.29'da ay yalnızca `‹ ›` oklarıyla değişiyordu. Bir yıl geriye gitmek on
+iki dokunuş demekti. Kullanıcı yıl ve ayın **ayrı açılır seçiciler** olmasını
+istedi.
+
+Oklar yerinde kaldı: komşu aya geçmek en sık yapılan hareket ve tek dokunuş,
+seçici açıp kapatmaktan hızlı. İkisi bir arada:
+`‹  [Eylül ▾]  [2026 ▾]  ›`. Sıra Türkçe okunuşa göre ay → yıl.
+
+## Yıl aralığı veriden geliyor
+
+`_yil_araligi()` en eski cycle'dan bugüne kadarki yılları veriyor. İki
+ayrıntı:
+
+- **`>= 2000` süzgeci var.** Bir cycle'da OPU tarihi `0026-09-04` yazıyor
+  (bekleyen iş 6). Süzgeç olmasaydı seçicide iki bin satır çıkardı. Test
+  edildi: o değer veriye konduğunda seçici yine yalnızca 2026 gösteriyor ve
+  ana ekran ayakta kalıyor.
+- **Seçili yıl listede yoksa yine de ekleniyor.** Oklarla aralığın dışına
+  çıkılmış olabilir; seçicinin boş görünmemesi gerekiyor.
+
+## JS kapalıyken de çalışır
+
+Seçiciler `change` olayında formu gönderiyor. JS kapalıysa bunu yapacak bir
+şey yok, o yüzden formda bir "Göster" düğmesi var ve **betik onu kendisi
+gizliyor** — JS varsa gereksiz, yoksa tek çıkış yolu. Betiğin başında
+`if (!d) return;` var: arama kipinde ay gezgini basılmıyor (tuzak #10).
+
+## Yol boyunca: `hidden` niteliği çalışmıyordu
+
+"Göster" düğmesi `d.hidden = true` ile gizlenmiyordu. Sebep: tarayıcının
+`[hidden] { display: none }` kuralı, bizim `.aygezgin .ok { display: flex }`
+kuralımızdan **daha zayıf**. Aynı tuzağa daha önce de düşülmüş — CSS'te
+`.bilgikart[hidden]`, `.uyari[hidden]`, `.tabaka[hidden]` gibi **yedi ayrı**
+elle yazılmış kural vardı, hepsi aynı sorunun tek tek yamaları.
+
+Tepeye tek kural konuldu:
+
+```css
+[hidden] { display: none !important; }
+```
+
+Eski yedi kural duruyor (artık gereksizler ama zararsızlar); bundan sonra
+`el.hidden = true` her yerde çalışıyor.
+
+## Test edildi
+
+- Ay ve yıl seçilince sayfa kendiliğinden gidiyor; adres iki parametreyi de
+  taşıyor (`?ay=11&yil=2025`)
+- "Göster" düğmesi JS açıkken gizli; oklar ve "Bu ay" eskisi gibi
+- Yıl aralığı 2024'e kadar eski bir kayıt konunca genişliyor, aralık dışı
+  bir yıla (`?yil=2023`) gidilince o yıl da listeye giriyor
+- Bozuk `0026-09-04` tarihiyle seçici şişmiyor, ekranlar 200
+- 32 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok
