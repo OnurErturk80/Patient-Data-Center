@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% import "_gezinme.html" as gz %}
 {% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
 {% block icerik %}
+{{ gz.yan_ana(kullanici) }}
 
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
 {% if yetkisiz %}
@@ -36,13 +38,21 @@
   {% endif %}
 </div>
 
-<a class="dugme" href="/hastalar">{{ metin("hasta_ara_listele") }}</a>
-{% if yetkim("hasta") %}<a class="dugme ikincil" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>{% endif %}
-{% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}
-{% if kullanici.rol == "yonetici" %}
-<a class="dugme ikincil" href="/yonetim">{{ metin("yonetim") }}</a>
-{% endif %}
-<a class="dugme ikincil" href="/sifre">{{ metin("sifre_degistir") }}</a>
+{# Telefonun menusu. Genis ekranda ayni baglantilar solda duruyor,
+   orada CSS bu yigini gizliyor. Sira ve yazilar sol menuyle birebir ayni. #}
+<div class="anadugmeler">
+  <a class="dugme" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
+  {% if yetkim("cryo") %}
+  <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
+  {% endif %}
+  {% if kullanici.rol == "yonetici" %}
+  <a class="dugme ikincil" href="/yonetim">{{ metin("yonetim") }}</a>
+  {% endif %}
+  {% if yetkim("hasta") %}
+  <a class="dugme ikincil" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>
+  {% endif %}
+  <a class="dugme ikincil" href="/sifre">{{ metin("sifre_degistir") }}</a>
+</div>
 
 <div class="ipucu" style="margin-top:14px;text-align:center">
   {{ metin("ana_ekran_ipucu") }}

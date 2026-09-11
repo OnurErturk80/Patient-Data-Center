@@ -738,8 +738,15 @@ body.kilitli { overflow: hidden; }
     font-weight: 600;
     box-shadow: inset 3px 0 0 var(--vurgu);
   }
-  /* Aynı bağlantılar solda duruyor; cycle ekranındaki yığın gereksiz kalıyor */
+  /* Aynı bağlantılar solda duruyor; cycle ekranındaki yığın gereksiz kalıyor.
+     Ana ekranda da öyle: `.anadugmeler` telefonun menüsü. */
   .asama-dugmeler { display: none; }
+  .anadugmeler { display: none; }
+
+  /* Ana menüde alt grup: ekranlar üstte, işlemler altta. Kalın çizgi ikisini
+     ayırıyor, yazı daha sönük -- göz önce üsttekilere gitsin. */
+  .yanmenu .altgrup { border-top: 3px solid var(--line); }
+  .yanmenu .altgrup .oge { color: var(--ink-2); font-size: 13px; }
 
   /* Hasta kimlik bandı tam genişlikte; menü onun üstüne binmesin diye
      yazısı içerik sütunuyla hizalanıyor. "Hasta kimliği her ekranda

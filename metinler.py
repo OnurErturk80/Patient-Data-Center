@@ -999,8 +999,8 @@ METINLER = {
     # (hasta, hasta yakini, teknik servis) hasta listesini gormesin diye.
     # Adlar ancak /hastalar'a girilince gorunur.
     "ana_ekran": {"tr": "Ana ekran", "en": "Home"},
-    "hasta_ara_listele": {"tr": "Hasta ara ve listele",
-                          "en": "Search and list patients"},
+    "ana_menu": {"tr": "Ana menü", "en": "Main menu"},
+    "hasta_kayitlari": {"tr": "Hasta kayıtları", "en": "Patient records"},
     "aktif_hasta": {"tr": "Aktif hasta", "en": "Active patients"},
     "aktif_cycle": {"tr": "Aktif cycle", "en": "Active cycles"},
     "bekleyen_kare": {"tr": "Bekleyen kare", "en": "Pending frames"},
@@ -1027,7 +1027,7 @@ METINLER = {
                             "en": "Back to active patients"},
     "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},
     "cryo_haritasi": {"tr": "Cryo haritası", "en": "Cryo map"},
-    "yonetim": {"tr": "Yönetim", "en": "Administration"},
+    "yonetim": {"tr": "Yönetici", "en": "Administrator"},
     "arsiv": {"tr": "Arşiv", "en": "Archive"},
     "arsivde": {"tr": "arşivde", "en": "archived"},
     "arama_sonucu": {"tr": "Arama sonucu", "en": "Search results"},

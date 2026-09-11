@@ -17,6 +17,36 @@
 {% endif %}
 {% endmacro %}
 
+{# Ana ekranin sol menusu. Asama menusuyle ayni gorunumu paylasiyor
+   (`.yanmenu`), ama icerigi bir cycle'a degil programa ait. Dar ekranda
+   yine CSS ile gizleniyor -- telefonda ayni baglantilar ana ekranin dugme
+   yiginidir, o yuzden ikisinin yazilari birebir ayni tutuluyor.
+
+   Ust grup ekranlar (hasta kayitlari / cryo / yonetici), alttaki ayri grup
+   islemler (yeni hasta, sifre). Izinler burada da kontrol ediliyor ama asil
+   engel middleware'de -- gizlemek tek basina yeterli degil. #}
+{% macro yan_ana(kullanici) %}
+<nav class="yanmenu" aria-label="{{ metin('ana_menu') }}">
+  <div class="baslik">
+    <span class="no">{{ metin("ana_menu") }}</span>
+    <span class="ad">{{ kullanici.kisa_kod }}</span>
+  </div>
+  <a class="oge" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
+  {% if yetkim("cryo") %}
+  <a class="oge" href="/cryo">{{ metin("cryo_haritasi") }}</a>
+  {% endif %}
+  {% if kullanici.rol == "yonetici" %}
+  <a class="oge" href="/yonetim">{{ metin("yonetim") }}</a>
+  {% endif %}
+  <div class="altgrup">
+    {% if yetkim("hasta") %}
+    <a class="oge" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>
+    {% endif %}
+    <a class="oge" href="/sifre">{{ metin("sifre_degistir") }}</a>
+  </div>
+</nav>
+{% endmacro %}
+
 {% macro cubuk(c, g) %}
 {{ yan(c, g) }}
 {% if g %}

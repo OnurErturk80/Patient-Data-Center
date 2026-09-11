@@ -91,6 +91,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.23 — örnek kodu, ilk kare, hasta adı önde](#v623--örnek-kodu-ilk-kare-hasta-adı-önde)
 - [v6.24 — denüdasyon açılışta salt okunur](#v624--denüdasyon-açılışta-salt-okunur)
 - [v6.25 — denüdasyon bilgi ekranı fert/blastokistin aynısı](#v625--denüdasyon-bilgi-ekranı-fertblastokistin-aynısı)
+- [v6.26 — ana ekranda sol menü](#v626--ana-ekranda-sol-menü)
 
 ---
 
@@ -3045,3 +3046,57 @@ kipine götürüyor; yoksa ilk oositi eklemenin yolu kalmıyordu.
 - Kare kaydet → çalışma kipinde kalıyor; over değiştir → çalışma kipi;
   Bitir → bilgi ekranı
 - Hiç oositi olmayan cycle; iki dilde; 25 ekran 200, JS hatası yok
+
+---
+
+# v6.26 — ana ekranda sol menü
+
+Ana ekran v6.18'de eklenmişti (sayılar, hasta adı yok). Kullanıcı şimdi
+giriş sonrası gelen bu ekranda **sol menü** istedi: en üstte hasta kayıtları,
+altında cryo haritası, onun altında da "Yönetim" düğmesi **"Yönetici"** adıyla.
+
+## Menü yeni bir şey değil, olanın ana ekrana taşınması
+
+Aşama ekranlarında v6.18'den beri `.yanmenu` var — `position: fixed`, solda,
+yalnızca 1100px ve üstünde. Ana ekran için ikinci bir menü tasarlamak yerine
+`_gezinme.html`'e `yan_ana(kullanici)` makrosu eklendi; aynı `.yanmenu`
+görünümünü kullanıyor, içeriği bir cycle'a değil programa ait.
+
+Sıra kullanıcının söylediği gibi: **Hasta kayıtları → Cryo haritası →
+Yönetici.** Altında kalın çizgiyle ayrılmış ikinci grup var (Yeni hasta,
+Şifre değiştir) — bunlar ekran değil işlem, o yüzden ayrıldı ve yazıları
+daha sönük. Kullanıcı bu ikisini saymamıştı ama ana ekrandan erişilen tek
+yol onlardı; menüye alınmasalar geniş ekranda kaybolacaklardı.
+
+## Telefonda menü yine düğme yığını
+
+Personel telefonla giriyor, `.yanmenu` 1100px altında gizli. Bu yüzden ana
+ekranın düğmeleri duruyor; yalnız artık `.anadugmeler` sarmalayıcısı içinde
+ve geniş ekranda CSS onu gizliyor (`.asama-dugmeler` ile aynı mantık).
+**İki yüzeyin sırası ve yazıları birebir aynı** — telefonda "Hasta ara ve
+listele", bilgisayarda "Hasta kayıtları" yazması aynı düğmeyi iki isimle
+öğretmek olurdu. İlk düğmenin metni de `hasta_kayitlari` oldu, artık
+kullanılmayan `hasta_ara_listele` anahtarı silindi.
+
+## "Yönetim" → "Yönetici"
+
+`metinler.py`'deki `yonetim` anahtarının **değeri** değişti (tr "Yönetici",
+en "Administrator"); anahtarın kendisi ve `/yonetim` rotası aynı kaldı. Aynı
+anahtarı `hastalar.html` de kullandığı için oradaki düğme de aynı anda
+değişti — iki ekranda aynı yere giden düğmenin farklı isimde olması istenmezdi.
+Panelin kendi başlığı ("Yönetim") değişmedi.
+
+## İzinler
+
+Menüdeki `yetkim("cryo")` / `kullanici.rol == "yonetici"` kontrolleri yalnızca
+bağlantıyı gizler. Asıl engel yerinde duruyor: modül izinleri middleware'de,
+`/yonetim` rotasının başında `yonetici_kontrol(request)`. Test edilirken
+embriyolog hesabıyla `/yonetim` denendi, `/hastalar`'a döndürüldü.
+
+## Test edildi
+
+- Yönetici: menüde üç madde + alt grup; embriyolog: "Yönetici" maddesi yok
+- Embriyolog `/yonetim` → 303 `/hastalar`; girişsiz `/` → 303 `/giris`
+- 1280px'te menü solda, düğme yığını gizli; 390px'te menü gizli, düğmeler
+  aynı sırada
+- İki dilde; 7 ekran 200, JS hatası yok

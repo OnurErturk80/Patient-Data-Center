@@ -158,6 +158,15 @@ cycle, dondurulmuş embriyo, bekleyen kare); adlar ancak `/hastalar`'a girilince
 görünür. Program klinikte gün boyu açık duruyor, ekrana bakan herkes listeyi
 görüyordu (v6.18). Ana ekrana hasta adı/dosya no koyma.
 
+**Ana ekranın menüsü iki yüzeyde, aynı sırayla** (v6.26). Geniş ekranda solda
+`_gezinme.html` `yan_ana()` (aşama menüsüyle aynı `.yanmenu`), telefonda
+`.anadugmeler` düğme yığını; CSS 1100px'te birini gizleyip ötekini gösteriyor.
+Menüye madde eklersen **ikisine birden ekle ve aynı yazıyı kullan** — aynı
+düğmeyi iki isimle öğretmek personeli yanıltır. Sıra: Hasta kayıtları → Cryo
+haritası → Yönetici, altında ayrı grupta işlemler (Yeni hasta, Şifre değiştir).
+Menüdeki izin kontrolü yalnızca bağlantıyı gizler; asıl engel middleware ve
+`yonetici_kontrol()`.
+
 **Kayıt açıp sonra doldurma varsa, dolduramazsan açtığını geri al.**
 Denüdasyonda `specimen_olustur()` önce, `goruntu_bagla()` sonra çalışıyor;
 ikincisi başarısızsa **oosit geri alınmalı**, yoksa oosit sayısı şişer — o
