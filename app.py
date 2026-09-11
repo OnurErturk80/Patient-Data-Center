@@ -4,12 +4,14 @@ import contextvars
 import sqlite3
 from pathlib import Path
 
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import db
+import disari
+import excel
 import guvenlik
 import metinler
 
@@ -289,6 +291,12 @@ def yol_modulu(yol: str):
     if p[0] == "cryo":
         # /cryo/tasiyici/{id}/thaw gerçek bir çözme işlemi — çözme izni ister
         return "thaw" if son == "thaw" else "cryo"
+    if p[0] == "disari":
+        # Excel çıktısı, ekranda görülebilen veriyi dosyaya yazıyor; izni de
+        # ekranınkiyle aynı olmalı. Cryo dökümü cryo haritasına bağlı; ay
+        # listesi ve cycle detayı görüntüleme ekranları gibi serbest.
+        # `/disari/tumu` bunların dışında: rotanın kendisi yönetici istiyor.
+        return "cryo" if len(p) >= 2 and p[1] == "cryo" else None
     if p[0] == "cycle" and len(p) >= 3:
         a = p[2]
         if a in ("foto-ekle", "esle"):
@@ -2253,6 +2261,74 @@ def bitenler(request: Request):
         request, "bitenler.html",
         {"kullanici": request.state.kullanici, "liste": cycle_listesi(True)},
     )
+
+
+# ------------------------------------------------------------- Excel çıktısı
+
+# Dosya `.xlsx` olarak **indiriliyor**, tarayıcıda açılmıyor: içinde hasta adı
+# var, ekranda açık kalmasın; ayrıca Excel dosyası zaten görüntülenemez.
+EXCEL_TURU = ("application/vnd.openxmlformats-officedocument"
+              ".spreadsheetml.sheet")
+
+
+def excel_yaniti(ad_koku: str, sayfalar) -> Response:
+    """Sayfalardan .xlsx üretip indirilecek dosya olarak döndürür."""
+    return Response(
+        excel.kitap(sayfalar),
+        media_type=EXCEL_TURU,
+        headers={"Content-Disposition":
+                 f'attachment; filename="{excel.dosya_adi(ad_koku)}"'},
+    )
+
+
+@uygulama.get("/disari/ay")
+def disari_ay(request: Request, yil: int = 0, ay: int = 0):
+    """Hasta kayıtlarındaki ay görünümünün Excel hali, satır başına bir cycle.
+
+    "Bu ay kaç vaka yaptık, sonuçları ne" sorusunun cevabı: istatistik ve
+    kurum raporu için. Ölçü ekrandakiyle aynı — OPU tarihi, yoksa cycle'ın
+    açıldığı tarih.
+    """
+    bugun = _dt.now()
+    yil = yil or bugun.year
+    ay = ay if 1 <= ay <= 12 else bugun.month
+    baslik = ay_adi(yil, ay)
+    return excel_yaniti(
+        f"ay_{yil}_{ay:02d}",
+        disari.ay_sayfalari(f"{yil:04d}-{ay:02d}", baslik))
+
+
+@uygulama.get("/disari/cycle/{cycle_id}")
+def disari_cycle(request: Request, cycle_id: int):
+    """Bir cycle'ın tamamı: bilgi sayfası + örnek başına bir satır.
+
+    Hastanın dosyasına konacak ya da yazdırılacak çıktı.
+    """
+    ad, sayfalar = disari.cycle_sayfalari(cycle_id)
+    if not sayfalar:
+        return RedirectResponse("/hastalar", status_code=303)
+    return excel_yaniti(f"cycle_{ad}", sayfalar)
+
+
+@uygulama.get("/disari/cryo")
+def disari_cryo(request: Request):
+    """Dolabın dökümü — sayım ve envanter için."""
+    return excel_yaniti("cryo", disari.cryo_sayfalari())
+
+
+@uygulama.get("/disari/tumu")
+def disari_tumu(request: Request):
+    """Bütün tabloların ham dökümü — **yalnızca yönetici**.
+
+    Ötekiler ekranda görülebilen veriyi dosyaya yazıyor; bu, laboratuvarın
+    bütün hasta kayıtlarını tek dosyada klinik dışına çıkarabilir. O yüzden
+    ekranda düğmeyi gizlemek yetmiyor, sunucu da reddediyor — hasta silmedeki
+    kuralın aynısı.
+    """
+    engel = yonetici_kontrol(request)
+    if engel:
+        return engel
+    return excel_yaniti("tum_veri", disari.tumu_sayfalari())
 
 
 # ----------------------------------------------------------------- görüntü

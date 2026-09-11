@@ -1159,6 +1159,22 @@ METINLER = {
     "ara_ipucu": {"tr": "Dosya no, ad veya örnek kodu",
                   "en": "File no, name or sample code"},
     "ornek_kodu_sonucu": {"tr": "Örnek kodu", "en": "Sample code"},
+    "durum_aktif": {"tr": "Aktif", "en": "Active"},
+    "excel_cikti": {"tr": "Excel çıktısı", "en": "Excel export"},
+    "excel_ay": {"tr": "Bu ayı Excel'e aktar", "en": "Export this month to Excel"},
+    "excel_cycle": {"tr": "Bu cycle'ı Excel'e aktar",
+                    "en": "Export this cycle to Excel"},
+    "excel_cryo": {"tr": "Dolabı Excel'e aktar",
+                   "en": "Export the tank to Excel"},
+    "excel_tumu": {"tr": "Tüm veriyi Excel'e aktar",
+                   "en": "Export all data to Excel"},
+    "excel_tumu_ipucu": {
+        "tr": "Bütün hastalar, cycle'lar, örnekler ve olaylar; her tablo ayrı "
+              "sayfada. Dosya bütün hasta adlarını içerir — kime verildiğine "
+              "dikkat et. Şifreler ve oturum anahtarları dosyaya girmez.",
+        "en": "All patients, cycles, samples and events; one sheet per table. "
+              "The file contains every patient name — mind who receives it. "
+              "Passwords and session tokens are not included."},
     "aktif_hastalara_don": {"tr": "Aktif hastalara dön",
                             "en": "Back to active patients"},
     "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},

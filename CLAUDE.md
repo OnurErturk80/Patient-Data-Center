@@ -58,6 +58,8 @@ Patient Data Center/
   db.py             bağlantı ve yardımcılar
   guvenlik.py       oturum / kullanıcı
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
+  excel.py          .xlsx üretir — kütüphanesiz, yalnızca zipfile + XML
+  disari.py         Excel çıktılarının sorguları (rotalar app.py'de)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
   goc_002..028.py   veritabanı göçleri (sırayla)
@@ -233,6 +235,32 @@ giriliyor. Kullanıcının kararı — ayrı kayıt aynı hastayı iki kez girdi
   INSERT/UPDATE'ten çıkarıyor. `CYCLE_ALANLARI`'na yeni bir kolon eklersen
   aynısını yap — yoksa göçü çalıştırmamış makinede **cycle açmak tümden
   bozulur** (tuzak #3'ün en pahalı hali).
+
+**Excel çıktısı kütüphanesiz üretilir** (v6.36). `.xlsx` içinde XML olan bir
+ZIP; `excel.py` onu `zipfile` ile yazıyor. **Buraya `openpyxl` sokma** —
+klinikteki Windows mini PC'ye kurulum eklemek demek, projenin "ek bağımlılık
+yok" kuralı bunun için var. `excel.kitap([(ad, başlıklar, satırlar), ...])`
+bayt döndürür; hücrenin türü değerden anlaşılır (ISO metin tarih olur).
+Yılı 1900'den küçük tarih **metin** yazılır: bozuk `0026-09-04` kaydı
+(bekleyen iş 6) dosyayı bozmasın diye.
+
+**Excel çıktısının izni ekranın iznidir** (v6.36). Dört çıktı var:
+`/disari/ay`, `/disari/cycle/{id}` (ikisi görüntüleme gibi serbest),
+`/disari/cryo` (`yol_modulu` onu `cryo`'ya bağlıyor) ve `/disari/tumu`.
+- **`/disari/tumu` yalnızca yönetici** — rota `yonetici_kontrol(request)` ile
+  başlıyor. Ötekiler ekrandaki veriyi verir, bu laboratuvarın tamamını tek
+  dosyada klinik dışına çıkarabilir. Bu kuralı gevşetme.
+- **Dökümde şifre ve oturum anahtarı yok.** `oturum`/`yetki` hiç çıkmıyor,
+  `kullanici`'dan yalnızca `KULLANICI_KOLONLARI`. Yeni bir tabloya gizli bir
+  alan eklersen `disari.TUM_TABLOLAR`'ı gözden geçir.
+- Yeni bir çıktı eklersen sorguyu `disari.py`'ye yaz, rotayı `app.py`'ye:
+  bütün rotalar orada duruyor.
+- Ay listesinde **çözme ve transfer tedavinin yapıldığı cycle'a** yazılır
+  (`thaw_cycle_id` / `tr_cycle_id`), örneğin geldiği cycle'a değil — FET'te
+  oosit yok ama transfer var.
+- `specimen.durum` **kodla** yazılır; on dörde yakın değerinin çoğunun
+  karşılığı yok, yarısını çevirmek sütunu tutarsız yapar. Etiket listesini
+  kullanıcıya sormadan uydurma.
 
 **Örnek kodu aranabilir** (v6.35). Kod (`527078-2026-0001-03`) tüpün ve
 formun üstünde yazan şey; `<hasta dosya no>-<specimen.id>` olarak
@@ -597,6 +625,11 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    - **Yeni ekran yazarken metni doğrudan şablona yazma**, `metinler.py`'ye
      anahtar ekle ve `metin("...")` kullan — yoksa İngilizce kurulumda o ekran
      Türkçe kalır.
+   - **Excel çıktısının sütun başlıkları da çevrilmedi** (v6.36): `disari.py`
+     içindeki ~90 başlık ve sayfa adı doğrudan yazılı. Hücre değerleri iki
+     dilde doğru çıkıyor, başlıklar çıkmıyor. Bunların İngilizcesi klinik bir
+     sözlük — kullanıcıyla birlikte yazılmalı, uydurulmamalı. Aynı yerde
+     `specimen.durum` etiketleri de eksik (yukarı bak).
 
 `goc_018.py` (endikasyon kopyalarını birleştirir) 2026-09-08'de bu makinede
 çalıştırıldı: `erkek faktoru` ve `tubal faktor` serbest metinleri resmi

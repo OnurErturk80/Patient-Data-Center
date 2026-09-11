@@ -3766,3 +3766,130 @@ istedi, kutu artık başlıkla aynı şeyi söylüyor.
 - Fotoğrafsız kutu beş ekranda: Oosit / Oosit / Zigot / Embriyo / Embriyo
 - 39 ekran 200, iki dilde, JS hatası yok, 390px'te yatay taşma yok
 - Test verisi geri alındı (1 hasta, 2 cycle, 1 örnek, 0 olay)
+
+---
+
+# v6.36 — Excel çıktısı
+
+Kullanıcının sorusu: "tüm bu kayıtlar bir excel formatında çıktı alınabilir
+mi?" Dört çıktı ve dosya biçimi kullanıcının seçimi (2026-09-11).
+
+## Neden kütüphanesiz
+
+Seçenekler: hazır bir kütüphane (`openpyxl`), CSV, ya da dosyayı elle yazmak.
+Kullanıcı **"gerçek .xlsx, ek kurulum yok"** dedi ve bu proje için doğru
+seçim:
+
+- **CSV**, Türkçe Windows'ta tuzaklı: Excel ayraç olarak noktalı virgül
+  bekler, dosya BOM'suz UTF-8 ise ı-ş-ğ-ö-ü-ç bozulur ve bütün satır tek
+  hücreye düşer. Ayarlanabilir ama yine "gerçek Excel dosyası" olmaz —
+  tarih tarih değildir, süzgeç yoktur.
+- **`openpyxl`** hem Mac'e hem klinikteki Windows mini PC'ye kurulmalıydı.
+  Proje bugüne kadar dört bağımlılıkla (`fastapi uvicorn jinja2
+  python-multipart`) idare ediyor; beşincisi iki makinede takip edilecek bir
+  şey daha demek.
+- **Elle yazmak**: `.xlsx` içinde XML dosyaları olan bir ZIP; Python'un kendi
+  `zipfile` modülü yetiyor. `excel.py` ~300 satır ve hiçbir şey kurulmuyor.
+
+`excel.py` ne veriyor: gerçek tarih hücreleri (sıralanabilir, süzülebilir),
+sayı hücreleri, donmuş başlık satırı, süzgeç okları, içeriğe göre sütun
+genişliği, Türkçe karakterler bozulmadan.
+
+İki incelik:
+- **Hücrenin türü değerden anlaşılıyor.** `"2026-09-11"` tarih, `"2026-09-11
+  08:15"` tarih+saat, sayı sayı, gerisi metin. Veritabanı zaten ISO metin
+  sakladığı için çağıran tarafın tür belirtmesi gerekmiyor.
+- **Yılı 1900'den küçük tarih metin olarak yazılıyor.** Excel'in tarih sayacı
+  1900'den başlıyor; veritabanındaki bozuk `0026-09-04` OPU tarihi (bekleyen
+  iş 6) tarihe çevrilseydi dosya bozulurdu. Aynı koruma `2026-02-30` gibi
+  olmayan günleri de yakalıyor.
+- Denetim karakterleri ayıklanıyor: serbest metin alanlarına yapıştırma
+  yoluyla girmiş bir karakter Excel'e dosyayı "bozuk" dedirtir.
+
+Üretilen dosya `openpyxl` ile geri okunarak doğrulandı (bu makinede yalnızca
+test için kuruldu, projeye girmedi): sayfalar, hücre türleri, tarih biçimi,
+donmuş bölme, süzgeç, Türkçe karakterler, XML kaçışı.
+
+## Dört çıktı
+
+| Yol | Ne | Satır |
+|---|---|---|
+| `/disari/ay?yil=&ay=` | O ayın vakaları | Bir cycle |
+| `/disari/cycle/{id}` | Bir cycle'ın tamamı | Bir örnek (+ bilgi sayfası) |
+| `/disari/cryo` | Dolabın dökümü | Bir örnek |
+| `/disari/tumu` | Ham tablo dökümü | Tablo başına bir sayfa |
+
+- **Ay listesi** istatistik için: dosya no, hasta, tip, endikasyon, protokol,
+  OPU, sonra sayılar — toplam oosit, sağ/sol, MII, ICSI, 2PN, gün 2, gün 3,
+  blastokist, donan, çözülen, transfer — ve bitiş. Ayın ölçüsü ekrandakiyle
+  aynı: OPU tarihi, yoksa cycle'ın açıldığı tarih.
+  **Çözme ve transfer sayısı tedavinin yapıldığı cycle'a yazılıyor**
+  (`thaw_cycle_id` / `tr_cycle_id`), örneğin geldiği cycle'a değil: FET
+  cycle'ında oosit yoktur ama transfer vardır.
+- **Cycle detayı** hastanın dosyasına konacak çıktı. İki sayfa: cycle
+  bilgisi (alan/değer) ve örnekler (oosit başına bir satır, denüdasyondan
+  transfere 36 sütun). İki sayfa, çünkü protokol bilgisi tek satırlık değil
+  tek sütunluk bir liste; 40 oositlik tabloya sıkıştırmak okunmaz yapardı.
+- **Cryo dökümü** çözülmüş örnekleri de içeriyor, "Dolapta" sütunu ayırıyor.
+  Böylece aynı dosya hem bugünkü sayımı hem taşıyıcının geçmişini veriyor.
+- **Tüm veri** ham: kodlar etikete çevrilmiyor, kolon adları veritabanındaki
+  adlar. Amaç okumak değil aktarmak.
+
+Ötekilerde **kod değil etiket** yazıyor (`mii` → MII, `2pn` → 2PN): listeler
+laba özgü ve yönetici düzenleyebiliyor, ekranda ne görünüyorsa Excel'de de o
+görünmeli. Etiketler tek sorguda okunup sözlüğe alınıyor — satır başına
+sorgu atmak 40 oositlik bir cycle'da 400 sorgu ederdi.
+
+`specimen.durum` bunun istisnası, **kodla yazılıyor**. Kolonun on dörde yakın
+değeri var (oosit, zigot, immatur, degenere, enjekte, gun2, morula,
+kavitasyon, blastokist, dondurulmus, transfer_edildi, discard, kayip,
+arrest); bir kısmının `metinler.py`'de karşılığı var, çoğunun yok. Yarısını
+çevirmek sütunu tutarsız yapardı ("Dondurulmuş" ile "enjekte" yan yana),
+eksiklerini uydurmak ise klinik bir varsayım olurdu. Etiket listesi
+kullanıcıyla kararlaştırılınca tek satırla çevrilebilir.
+
+## İzinler
+
+Excel çıktısı ekranda görülebilen veriyi dosyaya yazıyor; izni de ekranın
+izni olmalı:
+
+- Ay listesi ve cycle detayı görüntüleme ekranları gibi serbest (`yol_modulu`
+  onlara `None` diyor) — hasta listesi ve cycle özeti de öyle.
+- Cryo dökümü `cryo` modülüne bağlı. Yetkisi olmayan kullanıcı `/cryo` gibi
+  `/disari/cryo`'dan da döndürülüyor; denendi.
+- **Tüm veri yalnızca yönetici.** Ötekiler ekrandaki veriyi verir, bu
+  laboratuvarın bütün hasta kayıtlarını tek dosyada klinik dışına
+  çıkarabilir. Rota `yonetici_kontrol(request)` ile başlıyor — düğmeyi
+  gizlemek yetmez, sunucu da reddetmeli (hasta silmedeki kuralın aynısı).
+  Yönetici olmayan kullanıcıyla denendi: `/hastalar`'a dönüyor.
+
+**Dökümde şifre özeti ve oturum anahtarı yok.** `oturum` ve `yetki` tabloları
+hiç çıkmıyor; `kullanici` tablosundan yalnızca kimlik alanları alınıyor
+(`kullanici_id` kolonlarının kimi gösterdiği okunabilsin diye). Dosyanın
+içinde veritabanındaki `sifre_hash` ve jeton değerlerinin geçmediği
+doğrulandı.
+
+Dosya `Content-Disposition: attachment` ile **indiriliyor**, tarayıcıda
+açılmıyor: içinde hasta adı var, ekranda açık kalmasın.
+
+## Başlıklar Türkçe kaldı
+
+Excel'deki sütun başlıkları ve sayfa adları doğrudan yazıldı,
+`metinler.py`'ye girmedi — hücre **değerleri** iki dilde doğru çıkıyor ama
+başlıklar çıkmıyor. Sebep: ~90 başlığın İngilizcesi klinik bir sözlük ve onu
+uydurmak kullanıcının işi ("klinik bir varsayım yapman gerekiyorsa yapma").
+Çeviri zaten askıda; bekleyen iş 8'e eklendi.
+
+## Test edildi
+
+- Üretilen dosya `openpyxl` ile geri okundu: hücre türleri, tarih biçimi,
+  donmuş bölme, süzgeç aralığı, sayfa adı kısaltma ve tekrar önleme
+- Uç değerler: bozuk tarih (`0026-09-04`), olmayan gün (`2026-02-30`),
+  `&`/`<`/`"`, denetim karakteri, boş hücre, negatif sayı, ondalık, bool
+- Dört çıktı gerçek veriyle (5 örnek, 23 olay, bir taşıyıcı, bir FET
+  transferi): sayılar elle doğrulandı, FET'in transferi FET cycle'ında çıktı
+- İzinler: yönetici olmayan, cryo yetkisi olmayan, giriş yapmamış kullanıcı
+- Boş ay (yalnızca başlık satırı), olmayan cycle (`/hastalar`'a dönüyor),
+  geçersiz ay numarası
+- 30 ekran 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
+- Test verisi geri alındı (1 hasta, 2 cycle, 1 örnek, 0 olay, 0 taşıyıcı)

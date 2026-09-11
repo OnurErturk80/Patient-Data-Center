@@ -1,0 +1,309 @@
+"""Excel (.xlsx) dosyası üretir — dışarıdan hiçbir kütüphane kurmadan.
+
+Neden elle yazılıyor: `.xlsx` aslında içinde XML dosyaları olan bir ZIP.
+Python'un kendi `zipfile` modülü ZIP'i, düz metin de XML'i yazabiliyor. Böylece
+klinikteki Windows mini PC'ye `pip install openpyxl` yapmak gerekmiyor —
+projenin "ek bağımlılık yok" kuralı bozulmuyor ve kullanıcının iki makinede
+ayrı kurulum takip etmesi gerekmiyor.
+
+Ürettiği dosya gerçek bir Excel dosyası: Türkçe karakterler bozulmuyor,
+tarihler tarih olarak (sıralanabilir, süzülebilir), sayılar sayı olarak
+giriyor. CSV'nin Türkçe Windows'taki ayraç ve kodlama tuzakları yok.
+
+Kullanımı:
+
+    import excel
+    veri = excel.kitap([
+        ("Hastalar", ["Dosya no", "Ad"], [[527078, "Ayşe Yılmaz"], ...]),
+    ])
+
+`veri` bayt dizisi; doğrudan HTTP yanıtı olarak verilebilir.
+
+Hücrenin türü **değerden** anlaşılır:
+
+  - `None`                      -> boş hücre
+  - `int` / `float`             -> sayı
+  - "2026-09-11"                -> tarih
+  - "2026-09-11 08:15[:00]"     -> tarih + saat
+  - başka her şey               -> metin
+
+Yılı 1900'den küçük tarihler metin olarak yazılır. Bu bir incelik değil,
+gerçek bir kayıt: veritabanında OPU tarihi `0026-09-04` olan bir cycle var
+(bkz. CLAUDE.md bekleyen iş 6). Excel'in tarih sayacı 1900'den başlar, böyle
+bir değeri tarihe çevirmek dosyayı bozardı.
+"""
+
+import datetime as _dt
+import re
+import zipfile
+from io import BytesIO
+
+# Excel'in tarih sayacı: 1 = 1 Ocak 1900. Başlangıcı 1899-12-30 almak
+# Excel'in bilinen "1900 artık yıldır" hatasını da hesaba katar.
+_SIFIR_GUN = _dt.date(1899, 12, 30)
+
+_TARIH = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+_ZAMAN = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$")
+
+# Biçim numaraları styles.xml'deki cellXfs sırasıyla aynı.
+_DUZ, _BASLIK, _TARIH_BICIM, _ZAMAN_BICIM = 0, 1, 2, 3
+
+# Excel sayfa adında kullanılamayan karakterler ve en fazla uzunluk.
+_YASAK_AD = re.compile(r"[\[\]:*?/\\]")
+_AD_UZUNLUK = 31
+
+# Sütun genişliği: içeriğe göre, ama iki uçta sınırlı. Dar olursa "#####",
+# geniş olursa tablo ekrana sığmıyor.
+_EN_DAR, _EN_GENIS = 8, 42
+
+
+def _kacis(m: str) -> str:
+    """XML'e yazılabilir hale getirir.
+
+    Kaçış dışında **denetim karakterlerini de atar**: veritabanındaki serbest
+    metin alanlarına (notlar, işlemi yapan) yapıştırma yoluyla girmiş olabilir
+    ve Excel böyle bir karakter gördüğünde dosyayı "bozuk" sayıp hiç açmaz.
+    """
+    m = "".join(k for k in m if k in "\t\n\r" or ord(k) >= 32)
+    return (m.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+             .replace('"', "&quot;"))
+
+
+def _sutun_adi(n: int) -> str:
+    """1 -> A, 26 -> Z, 27 -> AA."""
+    ad = ""
+    while n > 0:
+        n, kalan = divmod(n - 1, 26)
+        ad = chr(65 + kalan) + ad
+    return ad
+
+
+def _seri(y, ay, g, sa=0, dk=0, sn=0):
+    """Tarihi Excel'in gün sayacına çevirir; çevrilemiyorsa None."""
+    try:
+        gun = (_dt.date(y, ay, g) - _SIFIR_GUN).days
+    except ValueError:                      # 31 Şubat gibi bozuk bir değer
+        return None
+    if gun <= 0:                            # 1900 öncesi -- Excel sayamaz
+        return None
+    return gun + (sa * 3600 + dk * 60 + sn) / 86400.0
+
+
+def _hucre(adres: str, deger, bicim=_DUZ) -> str:
+    if deger is None or deger == "":
+        return f'<c r="{adres}" s="{bicim}"/>' if bicim else ""
+
+    if isinstance(deger, bool):             # bool int'in alt türü, önce baksın
+        deger = "Evet" if deger else "Hayır"
+
+    elif isinstance(deger, (int, float)):
+        return f'<c r="{adres}" s="{bicim}"><v>{deger}</v></c>'
+
+    elif isinstance(deger, _dt.datetime):
+        s = _seri(deger.year, deger.month, deger.day,
+                  deger.hour, deger.minute, deger.second)
+        if s is not None:
+            return f'<c r="{adres}" s="{_ZAMAN_BICIM}"><v>{s}</v></c>'
+        deger = deger.isoformat(" ", "seconds")
+
+    elif isinstance(deger, _dt.date):
+        s = _seri(deger.year, deger.month, deger.day)
+        if s is not None:
+            return f'<c r="{adres}" s="{_TARIH_BICIM}"><v>{s}</v></c>'
+        deger = deger.isoformat()
+
+    elif isinstance(deger, str) and bicim == _DUZ:
+        e = _ZAMAN.match(deger)
+        if e:
+            p = [int(x) for x in e.groups(default="0")]
+            s = _seri(*p)
+            if s is not None:
+                return f'<c r="{adres}" s="{_ZAMAN_BICIM}"><v>{s}</v></c>'
+        else:
+            e = _TARIH.match(deger)
+            if e:
+                s = _seri(*(int(x) for x in e.groups()))
+                if s is not None:
+                    return f'<c r="{adres}" s="{_TARIH_BICIM}"><v>{s}</v></c>'
+
+    m = _kacis(str(deger))
+    return (f'<c r="{adres}" s="{bicim}" t="inlineStr">'
+            f'<is><t xml:space="preserve">{m}</t></is></c>')
+
+
+def _genislikler(basliklar, satirlar):
+    """Sütun genişlikleri: başlık ve ilk 200 satırın en uzun değerine göre."""
+    olcu = [len(str(b)) for b in basliklar]
+    for satir in satirlar[:200]:
+        for i, d in enumerate(satir[:len(olcu)]):
+            if d is not None:
+                olcu[i] = max(olcu[i], len(str(d)))
+    return [min(_EN_GENIS, max(_EN_DAR, u + 2)) for u in olcu]
+
+
+def _sayfa_xml(basliklar, satirlar) -> str:
+    en_son = _sutun_adi(len(basliklar))
+    p = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+         '<worksheet xmlns="http://schemas.openxmlformats.org/'
+         'spreadsheetml/2006/main">',
+         # Başlık satırı kaydırırken ekranda kalsın: 40 oositlik bir tabloda
+         # hangi sütunda olduğunu görmenin tek yolu bu.
+         '<sheetViews><sheetView workbookViewId="0">'
+         '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" '
+         'state="frozen"/></sheetView></sheetViews>',
+         '<cols>']
+    for i, g in enumerate(_genislikler(basliklar, satirlar), start=1):
+        p.append(f'<col min="{i}" max="{i}" width="{g}" customWidth="1"/>')
+    p.append("</cols><sheetData>")
+
+    p.append('<row r="1">')
+    for i, b in enumerate(basliklar, start=1):
+        p.append(_hucre(f"{_sutun_adi(i)}1", b, _BASLIK))
+    p.append("</row>")
+
+    for n, satir in enumerate(satirlar, start=2):
+        p.append(f'<row r="{n}">')
+        for i, d in enumerate(satir[:len(basliklar)], start=1):
+            p.append(_hucre(f"{_sutun_adi(i)}{n}", d))
+        p.append("</row>")
+
+    p.append("</sheetData>")
+    # Süzgeç okları: kullanıcı tabloyu Excel'de ayıklayabilsin diye.
+    p.append(f'<autoFilter ref="A1:{en_son}{max(1, len(satirlar) + 1)}"/>')
+    p.append("</worksheet>")
+    return "".join(p)
+
+
+def _sayfa_adlari(sayfalar):
+    """Excel'in sayfa adı kuralları: 31 karakter, bazı işaretler yasak, tekrar yok."""
+    adlar, kullanilan = [], set()
+    for i, (ad, _, _) in enumerate(sayfalar, start=1):
+        temiz = _YASAK_AD.sub(" ", str(ad)).strip()[:_AD_UZUNLUK] or f"Sayfa{i}"
+        kok, n = temiz, 2
+        while temiz.lower() in kullanilan:
+            ek = f" {n}"
+            temiz = kok[:_AD_UZUNLUK - len(ek)] + ek
+            n += 1
+        kullanilan.add(temiz.lower())
+        adlar.append(temiz)
+    return adlar
+
+
+_STILLER = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    '<numFmts count="2">'
+    '<numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd"/>'
+    '<numFmt numFmtId="165" formatCode="yyyy\\-mm\\-dd\\ hh:mm"/>'
+    "</numFmts>"
+    '<fonts count="2">'
+    '<font><sz val="11"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="11"/><name val="Calibri"/></font>'
+    "</fonts>"
+    # İlk iki dolgu Excel'in şartı: sırayla "none" ve "gray125" olmak zorunda.
+    '<fills count="3">'
+    '<fill><patternFill patternType="none"/></fill>'
+    '<fill><patternFill patternType="gray125"/></fill>'
+    '<fill><patternFill patternType="solid">'
+    '<fgColor rgb="FFE8EDF0"/><bgColor indexed="64"/></patternFill></fill>'
+    "</fills>"
+    '<borders count="1"><border><left/><right/><top/><bottom/>'
+    "<diagonal/></border></borders>"
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" '
+    'borderId="0"/></cellStyleXfs>'
+    '<cellXfs count="4">'
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" '
+    'applyFont="1" applyFill="1"/>'
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" '
+    'applyNumberFormat="1"/>'
+    '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" '
+    'applyNumberFormat="1"/>'
+    "</cellXfs>"
+    # Adlandirilmis "Normal" stili: Excel onsuz da aciyor ama bazi okuyucular
+    # (openpyxl) "varsayilan stil yok" diye uyariyor.
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/>'
+    "</cellStyles></styleSheet>"
+)
+
+_KOK_REL = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/'
+    'relationships"><Relationship Id="rId1" Type="http://schemas.'
+    'openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+    'Target="xl/workbook.xml"/></Relationships>'
+)
+
+
+def kitap(sayfalar) -> bytes:
+    """Sayfalardan bir .xlsx dosyası üretir ve baytlarını döndürür.
+
+    `sayfalar`: `[(ad, [başlık, ...], [[hücre, ...], ...]), ...]`
+    En az bir sayfa olmalı; boş sayfa (yalnızca başlık satırı) geçerlidir.
+    """
+    if not sayfalar:
+        sayfalar = [("Boş", ["Kayıt yok"], [])]
+    adlar = _sayfa_adlari(sayfalar)
+    n = len(sayfalar)
+
+    tipler = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+              '<Types xmlns="http://schemas.openxmlformats.org/package/2006/'
+              'content-types">',
+              '<Default Extension="rels" ContentType="application/vnd.'
+              'openxmlformats-package.relationships+xml"/>',
+              '<Default Extension="xml" ContentType="application/xml"/>',
+              '<Override PartName="/xl/workbook.xml" ContentType="application/'
+              'vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+              '<Override PartName="/xl/styles.xml" ContentType="application/vnd.'
+              'openxmlformats-officedocument.spreadsheetml.styles+xml"/>']
+
+    kitap_xml = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+                 '<workbook xmlns="http://schemas.openxmlformats.org/'
+                 'spreadsheetml/2006/main" xmlns:r="http://schemas.'
+                 'openxmlformats.org/officeDocument/2006/relationships"><sheets>']
+
+    relq = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/'
+            '2006/relationships">']
+
+    for i, ad in enumerate(adlar, start=1):
+        tipler.append(
+            f'<Override PartName="/xl/worksheets/sheet{i}.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.'
+            'spreadsheetml.worksheet+xml"/>')
+        kitap_xml.append(
+            f'<sheet name="{_kacis(ad)}" sheetId="{i}" r:id="rId{i}"/>')
+        relq.append(
+            f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/'
+            'officeDocument/2006/relationships/worksheet" '
+            f'Target="worksheets/sheet{i}.xml"/>')
+
+    tipler.append("</Types>")
+    kitap_xml.append("</sheets></workbook>")
+    relq.append(
+        f'<Relationship Id="rId{n + 1}" Type="http://schemas.openxmlformats.org/'
+        'officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+        "</Relationships>")
+
+    kova = BytesIO()
+    with zipfile.ZipFile(kova, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", "".join(tipler))
+        z.writestr("_rels/.rels", _KOK_REL)
+        z.writestr("xl/workbook.xml", "".join(kitap_xml))
+        z.writestr("xl/_rels/workbook.xml.rels", "".join(relq))
+        z.writestr("xl/styles.xml", _STILLER)
+        for i, (_, basliklar, satirlar) in enumerate(sayfalar, start=1):
+            z.writestr(f"xl/worksheets/sheet{i}.xml",
+                       _sayfa_xml(basliklar, satirlar))
+    return kova.getvalue()
+
+
+def dosya_adi(kok: str) -> str:
+    """`kok` + bugünün tarihi + .xlsx — indirilen dosyalar karışmasın diye.
+
+    Türkçe harfler ve boşluk ayıklanır: dosya adı tarayıcıdan geçip Windows'a
+    iniyor, orada bozulmasın.
+    """
+    cevir = str.maketrans("çğıöşüÇĞİÖŞÜ ", "cgiosuCGIOSU_")
+    temiz = re.sub(r"[^A-Za-z0-9_.-]", "", str(kok).translate(cevir))
+    return f"{temiz or 'disari'}_{_dt.date.today().isoformat()}.xlsx"

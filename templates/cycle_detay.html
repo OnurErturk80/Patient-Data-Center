@@ -145,6 +145,9 @@
   <button class="dugme" type="submit">{{ metin("iptali_geri_al") }}</button>
 </form>
 {% endif %}
+{# Cycle'ın tamamı: bilgi sayfası + oosit başına bir satır. #}
+<a class="dugme ikincil" href="/disari/cycle/{{ c.id }}">{{ metin("excel_cycle") }}</a>
+
 {% if yetkim("silme") %}
 <a class="dugme ikincil tehlike-bag" href="/cycle/{{ c.id }}/sil">
   {{ metin("kalici_olarak_sil") if c.durum == "iptal" else metin("iptal_et_veya_sil") }}</a>

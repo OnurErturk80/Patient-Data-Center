@@ -23,6 +23,17 @@
 <a class="dugme ikincil" href="/cryo">Cryo haritası</a>
 <a class="dugme ikincil" href="/dil">{{ metin("dil_secimi") }}</a>
 
+{# Panel salt okunur; bu da bir okuma -- veriyi değiştirmiyor, dosyaya
+   yazıyor. Yönetici işi: ötekiler ekrandaki veriyi verir, bu laboratuvarın
+   tamamını tek dosyada verir. Rota da ayrıca yönetici kontrolü yapıyor. #}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("excel_cikti") }}</h2>
+  <div class="alan" style="border:0">
+    <a class="dugme ikincil" href="/disari/tumu" style="margin-top:0">{{ metin("excel_tumu") }}</a>
+    <div class="ipucu">{{ metin("excel_tumu_ipucu") }}</div>
+  </div>
+</div>
+
 <div class="kart" style="margin-top:12px">
   <h2>Yedekleme</h2>
   <dl style="margin:0">

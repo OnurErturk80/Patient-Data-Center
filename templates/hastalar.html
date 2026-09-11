@@ -111,6 +111,9 @@
   {% endfor %}
 </div>
 
+{# Ekranda görünen ayın Excel hali -- satır başına bir cycle, sayılarıyla. #}
+<a class="dugme ikincil" href="/disari/ay?yil={{ yil }}&ay={{ ay }}">{{ metin("excel_ay") }}</a>
+
 {% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>{% endif %}
 {% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}
 {% endif %}
