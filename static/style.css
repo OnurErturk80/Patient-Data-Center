@@ -51,6 +51,19 @@ body {
 }
 .ust h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: .01em; }
 
+/* Ana menüye dönüş: geri okunun yanında, aynı boyda dokunma hedefi. Simge
+   çizim (SVG) -- "⌂" karakteri her yazı tipinde yok, telefonda boş kare
+   çıkabiliyordu. */
+.ust .anaya {
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r);
+  margin-left: -4px;
+}
+.ust .anaya svg { width: 21px; height: 21px; fill: currentColor; }
+.ust .anaya:active { background: rgba(255, 255, 255, .16); }
+
 /* --- hasta kimlik bandı: ekranın en görünür öğesi --- */
 .kimlik {
   background: var(--ink);

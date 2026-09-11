@@ -9,6 +9,22 @@
 <body>
 <div class="ust">
   {% block geri %}{% endblock %}
+  {# Ana menüye dönüş her ekranda, geri okunun yanında. Burada durduğu için
+     42 şablonun hiçbirine dokunmak gerekmedi (tuzak #1). Ana ekranın
+     kendisinde basılmaz; giriş yapılmamış ekranlarda da basılmaz.
+
+     İki kaynağa birden bakılıyor: middleware `request.state.kullanici`'yi
+     yalnızca korumalı yollarda dolduruyor, `/sifre` ise açık bir yol —
+     orada rota `oturumdaki(request)` ile bulduğu kullanıcıyı bağlama
+     koyuyor. Giriş yapmadan açıldığında ikisi de boş, bağlantı basılmaz. #}
+  {% if (kullanici or request.state.kullanici) and request.url.path != "/" %}
+  <a class="anaya" href="/" title="{{ metin('ana_menu') }}"
+     aria-label="{{ metin('ana_menu') }}">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3 11.4 12 4l9 7.4V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/>
+    </svg>
+  </a>
+  {% endif %}
   <h1>{% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}</h1>
   <span class="sag">{% block ustsag %}{% endblock %}</span>
 </div>

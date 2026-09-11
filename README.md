@@ -92,6 +92,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.24 — denüdasyon açılışta salt okunur](#v624--denüdasyon-açılışta-salt-okunur)
 - [v6.25 — denüdasyon bilgi ekranı fert/blastokistin aynısı](#v625--denüdasyon-bilgi-ekranı-fertblastokistin-aynısı)
 - [v6.26 — ana ekranda sol menü](#v626--ana-ekranda-sol-menü)
+- [v6.27 — her ekranın üstünde ana menüye dönüş](#v627--her-ekranın-üstünde-ana-menüye-dönüş)
 
 ---
 
@@ -3100,3 +3101,50 @@ embriyolog hesabıyla `/yonetim` denendi, `/hastalar`'a döndürüldü.
 - 1280px'te menü solda, düğme yığını gizli; 390px'te menü gizli, düğmeler
   aynı sırada
 - İki dilde; 7 ekran 200, JS hatası yok
+
+---
+
+# v6.27 — her ekranın üstünde ana menüye dönüş
+
+Üst çubukta v1'den beri bir geri oku var ama o **bir önceki** ekrana gider:
+denüdasyondan cycle'a, cycle'dan hastaya, hastadan listeye. Ana menüye dönmek
+için üç dört kez geri basmak gerekiyordu. Kullanıcı "geri dönüş olduğu gibi
+ana menüye de dönüş olsun, sayfaların en üstünde" dedi.
+
+## Tek yerde: `base.html`
+
+Bağlantı üst çubuğa, geri okunun yanına kondu. 42 şablonun hepsi `base.html`'i
+genişlettiği için hiçbirine dokunulmadı — aynı işi 42 dosyada tekrarlamak
+tuzak #1'in tarifi.
+
+Nerede basılacağı iki koşula bağlı:
+
+```jinja
+{% if (kullanici or request.state.kullanici) and request.url.path != "/" %}
+```
+
+- **Ana ekranın kendisinde** basılmaz; zaten oradasın.
+- **Giriş yapılmamışken** basılmaz. İki kaynağa birden bakılmasının sebebi
+  şu: middleware `request.state.kullanici`'yi yalnızca korumalı yollarda
+  dolduruyor, `/sifre` ise açık bir yol (giriş ekranından da açılabiliyor,
+  v6.12). Orada kullanıcıyı rotanın kendisi `oturumdaki(request)` ile bulup
+  bağlama koyuyor. Tek koşul yazılsaydı şifre ekranı ya bağlantısız kalırdı
+  ya da giriş yapmamış birine ana menü bağlantısı gösterirdi.
+
+## Simge neden çizim
+
+"⌂" (U+2302) her yazı tipinde yok; telefonda boş kare çıkma ihtimali var.
+Bunun yerine satır içi SVG ev çizildi, `fill: currentColor` ile çubuğun
+rengini alıyor. Dokunma hedefi geri okuyla aynı: 36×36. Yazı yerine simge
+seçildi çünkü "Fertilizasyon kontrolü" gibi uzun başlıklarla birlikte
+390px'e sığması gerekiyordu.
+
+## Test edildi
+
+- 23 ekranda bağlantı var (cycle, 11 aşama, hasta, liste, cryo, yönetim,
+  kullanıcılar, şifre, silme ekranları)
+- `/` ve `/giris`'te yok; `/sifre` girişliyken var, girişsizken yok;
+  `/sifremi-unuttum`'da yok
+- Tıklayınca `/` açılıyor
+- 390px ve 1280px'te üst çubuk taşmıyor (en uzun başlık "Fertilizasyon
+  kontrolü" ile ölçüldü), JS hatası yok

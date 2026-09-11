@@ -158,6 +158,15 @@ cycle, dondurulmuş embriyo, bekleyen kare); adlar ancak `/hastalar`'a girilince
 görünür. Program klinikte gün boyu açık duruyor, ekrana bakan herkes listeyi
 görüyordu (v6.18). Ana ekrana hasta adı/dosya no koyma.
 
+**Üst çubukta iki dönüş var, ikisi farklı şey.** Geri oku (`‹`) **bir
+önceki** ekrana gider ve şablon başına ayrı yazılır; ev simgesi (`.anaya`)
+**ana menüye** gider ve `base.html`'de tek yerde durur, 42 şablonun hepsine
+oradan iner (v6.27). Yeni ekran yazarken ev simgesini eklemene gerek yok,
+kendiliğinden gelir — `{% block geri %}`'yi doldurman yeter. Ana ekranda ve
+giriş yapılmamış ekranlarda basılmaz; koşul `(kullanici or
+request.state.kullanici)` çünkü middleware `request.state`'i açık yollarda
+(`/sifre`) doldurmuyor.
+
 **Ana ekranın menüsü iki yüzeyde, aynı sırayla** (v6.26). Geniş ekranda solda
 `_gezinme.html` `yan_ana()` (aşama menüsüyle aynı `.yanmenu`), telefonda
 `.anadugmeler` düğme yığını; CSS 1100px'te birini gizleyip ötekini gösteriyor.
