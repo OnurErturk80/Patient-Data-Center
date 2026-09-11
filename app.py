@@ -3369,11 +3369,21 @@ def cryo_harita(request: Request, ara: str = ""):
 
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}")
-def tasiyici_detay(request: Request, tasiyici_id: int):
+def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0):
+    """Taşıyıcının içeriği.
+
+    `?cycle=N` çözme ekranından gelindiğini söyler; geri oku cryo haritasına
+    değil o cycle'ın çözme ekranına döner (v6.32). Adresten gelen değer
+    **sayı** ve var olan bir cycle'a bakılarak doğrulanıyor — `geri=<yol>`
+    biçiminde serbest bir adres almıyoruz, `href`'e yazılacak.
+    """
     t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t "
                "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
     if not t:
         return RedirectResponse("/cryo", status_code=303)
+    gecerli = cycle and db.tek("SELECT 1 FROM cycle WHERE id=? AND lab_id=?",
+                               (cycle, db.LAB_ID))
+    geri = f"/cycle/{cycle}/thaw" if gecerli else "/cryo"
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     icerik = tasiyici_icerigi(tasiyici_id)
@@ -3391,7 +3401,8 @@ def tasiyici_detay(request: Request, tasiyici_id: int):
                 "ortalama_canlilik": round(sum(oranlar) / len(oranlar), 1) if oranlar else None}
     return sablon.TemplateResponse(
         request, "tasiyici.html",
-        {"t": t, "icerik": icerik, "etiketler": etiketler, "ozet": ozet})
+        {"t": t, "icerik": icerik, "etiketler": etiketler, "ozet": ozet,
+         "geri": geri, "geri_cycle": cycle if gecerli else 0})
 
 
 @uygulama.get("/specimen/{specimen_id}/vit-sil")

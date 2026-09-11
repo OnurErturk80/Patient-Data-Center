@@ -39,7 +39,7 @@
       <div class="meta">{{ metin("donduruldugu_cycle") }}: {{ t.kaynak_cycle }}</div>
       {% endif %}
       <div class="meta" style="margin-top:6px">
-        <a href="/cryo/tasiyici/{{ t.id }}">{{ metin("icerigi_gor") }}</a>
+        <a href="/cryo/tasiyici/{{ t.id }}?cycle={{ c.id }}">{{ metin("icerigi_gor") }}</a>
       </div>
     </div>
     {% if yetkim("thaw") %}<a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw?cycle={{ c.id }}">{{ metin("coz_dugme") }}</a>{% endif %}
@@ -98,7 +98,7 @@
 <div class="kart">
   <h2>{{ metin("cozulmus_tasiyicilar") }} ({{ bos|length }})</h2>
   {% for t in bos %}
-  <a class="satir" href="/cryo/tasiyici/{{ t.id }}">
+  <a class="satir" href="/cryo/tasiyici/{{ t.id }}?cycle={{ c.id }}">
     <div class="no">{{ t.etiket }}</div>
     <div class="meta">{{ say("n_embriyo", t.adet) }} · {{ say("n_cozme_kaydi", t.cozulen) }}</div>
     <div class="meta">{{ t.tam_yol or '—' }}</div>

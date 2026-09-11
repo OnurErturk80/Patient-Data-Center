@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% import "_kucukfoto.html" as kf %}
 {% block ustbaslik %}{{ metin("tasiyici") }}{% endblock %}
-{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik tekli">
   <div class="dosya">{{ t.etiket }}</div>

@@ -97,6 +97,7 @@ Bir davranışı değiştirmeden önce ilgili sürümü oku — çoğu "tuhaf" g
 - [v6.29 — bugün bitenler, ay ay hasta kayıtları](#v629--bugün-bitenler-ay-ay-hasta-kayıtları)
 - [v6.30 — yıl ve ay açılır seçici](#v630--yıl-ve-ay-açılır-seçici)
 - [v6.31 — bitiş saati elle, bitişi düzenle, hasta kaydına kestirme](#v631--bitiş-saati-elle-bitişi-düzenle-hasta-kaydına-kestirme)
+- [v6.32 — çözmede geri oku geldiğin yere döner](#v632--çözmede-geri-oku-geldiğin-yere-döner)
 
 ---
 
@@ -3488,3 +3489,38 @@ ve `/bitenler`'de yok — istenmedi, liste de dar.
 - "Hasta kaydı" düğmesi `/hasta/1`'e, satır `/cycle/2`'ye gidiyor; iç içe
   `<a>` derinliği 1
 - 33 ekran 200, iki dilde, 390px/1280px'te yatay taşma yok, JS hatası yok
+
+---
+
+# v6.32 — çözmede geri oku geldiğin yere döner
+
+Kullanıcı: "Çözme bölümünde içeriği gör'e girdikten sonra geri aynı sayfaya
+değil cryo haritaya dönüyor."
+
+Doğru: taşıyıcı ekranının geri oku `/cryo`'ya sabitlenmişti. Cryo
+haritasından girildiğinde doğru, çözme ekranından girildiğinde yanlış — iki
+farklı yerden gelinen bir ekranın tek bir geri adresi olamaz.
+
+## Serbest adres değil, cycle numarası
+
+Çözme ekranındaki bağlantılara `?cycle={{ c.id }}` eklendi; taşıyıcı ekranı
+geri adresini **kendisi kuruyor**: `/cycle/<n>/thaw`.
+
+Projede `?geri=<yol>` diye serbest adres taşıyan bir kalıp da var
+(`goruntu_sil`, `foto_ekle`). Burada bilerek kullanılmadı: adresten gelen
+metin doğrudan `href`'e yazılıyor ve `javascript:` gibi bir değer
+girilebiliyor. Sayı almak bu kapıyı açmıyor, üstelik bu bölgede zaten
+`?cycle=` kalıbı vardı (`/cryo/tasiyici/<id>/thaw?cycle=<n>`). Değer ayrıca
+"böyle bir cycle var mı" diye doğrulanıyor; yoksa `/cryo`'ya düşüyor.
+
+Aynı zincirin bir alt basamağı da düzeltildi: çözme **formunun** geri oku ve
+"Vazgeç" düğmesi de cycle'ı taşıyor, böylece form → taşıyıcı → çözme ekranı
+yolu baştan sona geri geliyor.
+
+## Test edildi
+
+- Çözme → "içeriği gör" → geri: `/cycle/1/thaw` (tarayıcıda tıklanarak)
+- Cryo haritası → taşıyıcı → geri: `/cryo` (eskisi gibi)
+- `?cycle=999` (olmayan cycle) → `/cryo`; `?cycle=abc` → 422
+- Çözme formu: cycle'lı ve cycle'sız geri adresleri doğru
+- 13 ekran 200, JS hatası yok

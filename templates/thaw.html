@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("asama_thaw") }}{% endblock %}
-{% block geri %}<a class="geri" href="/cryo/tasiyici/{{ t.id }}">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="/cryo/tasiyici/{{ t.id }}{% if geri_cycle %}?cycle={{ geri_cycle }}{% endif %}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik tekli">
   <div class="dosya">{{ t.etiket }}</div>
@@ -130,7 +130,7 @@
   {% endif %}
 </form>
 
-<a class="dugme ikincil" href="/cryo/tasiyici/{{ t.id }}">{{ metin("vazgec") }}</a>
+<a class="dugme ikincil" href="/cryo/tasiyici/{{ t.id }}{% if geri_cycle %}?cycle={{ geri_cycle }}{% endif %}">{{ metin("vazgec") }}</a>
 
 {% include "_buyutec.html" %}
 <script>

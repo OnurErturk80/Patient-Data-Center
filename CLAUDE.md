@@ -255,6 +255,13 @@ ayrı, bilinçli bir yol: dosya no yaz → `SIL` yaz → tarayıcı onayı.
 **Transfer kaydı olan hasta/cycle kalıcı silinemez** — ekranda seçenek
 görünmez, sunucu da reddeder. Bu kuralı gevşetme.
 
+**İki yerden gelinen ekranın geri oku sabit olamaz.** Taşıyıcı ekranına hem
+cryo haritasından hem çözme ekranından giriliyor; `?cycle=N` ile hangisinden
+gelindiği söyleniyor ve geri adresi **sunucuda** kuruluyor (v6.32).
+`?geri=<yol>` kalıbını yeni yerlerde kullanma — adresten gelen metin doğrudan
+`href`'e yazılıyor, `javascript:` girilebilir. Sayı al, doğrula, yolu kendin
+kur.
+
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
