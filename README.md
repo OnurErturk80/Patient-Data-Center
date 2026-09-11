@@ -3746,12 +3746,13 @@ adı** ve sırası, altında fotoğraflı halindeki gibi örnek kodu:
 |---|---|
 | Denüdasyon, ICSI | Oosit *n* |
 | Fertilizasyon | Zigot *n* |
-| Gün 2/3, Blastokist | Embriyo *n* |
+| Gün 2/3 | Cleavage *n* |
+| Blastokist | Blastokist *n* |
 
-Ad çağıran ekrandan geliyor (`ornek_adi(...)` / `metin('embriyo_ad')`),
-makroya sabit yazılmadı — dil değişince ekrandaki isim de değişmeli.
-Gün 2/3 ve blastokistte `ornek_adi` "Cleavage" ve "Blastokist" derdi;
-kullanıcının isteği üzerine kutuda **Embriyo** yazıyor.
+Ad çağıran ekrandan `ornek_adi(asama, cycle_tipi)` ile geliyor, makroya
+sabit yazılmadı — dil değişince ekrandaki isim de değişmeli. İlk denemede
+gün 2/3 ve blastokistte "Embriyo" yazıyordu; kullanıcı ekranın kendi adını
+istedi, kutu artık başlıkla aynı şeyi söylüyor.
 
 ## Test edildi
 

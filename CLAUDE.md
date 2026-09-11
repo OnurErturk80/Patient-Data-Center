@@ -123,11 +123,10 @@ alan adrese yazıldığı için yalnızca rakam kabul ediliyor.
 
 **Fotoğrafsız örnek boş bir alan bırakmaz** (v6.35). `_kareler.html`
 `yer(ad, sp, ekle_yolu)` makrosu fotoğrafın yerini tutar ve içine örneğin
-**o aşamadaki adını** yazar: denüdasyon ve ICSI'de Oosit, fertilizasyonda
-Zigot, gün 2/3 ve blastokistte **Embriyo** (`ornek_adi` oralarda
-"Cleavage"/"Blastokist" der; kutuda kullanıcının isteğiyle Embriyo yazıyor).
-Adı makroya sabit yazma, çağıran ekrandan geçir — dil değişince isim de
-değişmeli. Yeni bir aşama ekranında "fotoğraf yok" diye boş kart basma,
+**o aşamadaki adını** yazar -- ekranın başlığında ne yazıyorsa o: Oosit,
+Zigot, Cleavage, Blastokist. Beşi de `ornek_adi(asama, cycle_tipi)`'den
+geliyor; adı makroya sabit yazma, çağıran ekrandan geçir — dil değişince
+isim de değişmeli. Yeni bir aşama ekranında "fotoğraf yok" diye boş kart basma,
 bu makroyu çağır.
 
 **Ekran düzeni her aşamada aynı: üstte örnekler, altta bilgi kartı.** Bir
