@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 import db
 import disari
 import excel
+import form_kalip
 import formlar
 import guvenlik
 import metinler
@@ -2373,11 +2374,14 @@ def disari_tumu(request: Request):
 # Kullanıcının tutmak zorunda olduğu formlar. İki çıktı: tarayıcıdan
 # yazdırılabilir sayfa (`/form/...`) ve Excel (`/disari/form/...`). İçerik tek
 # yerden geliyor -- `formlar.py` -- ki ikisi birbirinden ayrı düşmesin.
+# Basılabilir resmî formlar. Her satır: veriyi çeken fonksiyon, kalıba
+# yazılacakları hazırlayan fonksiyon, kalıbın adı (`form_kalip.json`), indirilen
+# dosyanın kökü ve Excel sayfasının adı.
 FORMLAR = {
-    "ozet": (formlar.ozet_verisi, formlar.ozet_yerlesimi,
-             "form_ozet.html", "form_ozet", formlar.OZET_KUNYE),
-    "artlab": (formlar.artlab_verisi, formlar.artlab_yerlesimi,
-               "form_artlab.html", "form_artlab", formlar.ARTLAB_KUNYE),
+    "ozet": (formlar.ozet_verisi, formlar.ozet_dolgu, "ozet",
+             "form_ozet", "Embriyoloji Özet Formu"),
+    "artlab": (formlar.artlab_verisi, formlar.artlab_dolgu, "artlab",
+               "form_artlab", "ART Lab. Raporu"),
 }
 
 
@@ -2390,13 +2394,17 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
     """
     if ad not in FORMLAR:
         return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
-    veri_al, _, sablon_adi, _, kunye = FORMLAR[ad]
+    veri_al, dolgu, kalip, _, _ = FORMLAR[ad]
     v = veri_al(cycle_id)
     if not v:
         return RedirectResponse("/hastalar", status_code=303)
+    # Ekranda basılan ızgara ile Excel'e giden ızgara **aynı kalıptan** geliyor.
+    sayfalar = [form_kalip.satirlar(kalip, deger, ek)
+                for deger, ek in dolgu(v)]
     return sablon.TemplateResponse(
-        request, sablon_adi,
-        {"v": v, "kunye": kunye, "govde": formlar.OZET_GOVDE,
+        request, "form.html",
+        {"v": v, "sayfalar": sayfalar, "form_adi": ad,
+         "yon": form_kalip.yon(kalip),
          "kullanici": request.state.kullanici},
     )
 
@@ -2406,12 +2414,18 @@ def form_excel(request: Request, ad: str, cycle_id: int):
     """Aynı formun .xlsx hali — Excel'den basmak ya da üstünde oynamak için."""
     if ad not in FORMLAR:
         return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
-    veri_al, yerlesim, _, dosya, _ = FORMLAR[ad]
+    veri_al, dolgu, kalip, dosya, sayfa_adi = FORMLAR[ad]
     v = veri_al(cycle_id)
     if not v:
         return RedirectResponse("/hastalar", status_code=303)
-    return excel_yaniti(f"{dosya}_{v['dosya_no']}-{v['cycle_no']}",
-                        [yerlesim(v)])
+    parcalar = dolgu(v)
+    sayfalar = [
+        form_kalip.yerlesim(
+            kalip, sayfa_adi if len(parcalar) == 1 else f"{sayfa_adi} {i}",
+            deger, ek)
+        for i, (deger, ek) in enumerate(parcalar, start=1)
+    ]
+    return excel_yaniti(f"{dosya}_{v['dosya_no']}-{v['cycle_no']}", sayfalar)
 
 
 # ----------------------------------------------------------------- görüntü

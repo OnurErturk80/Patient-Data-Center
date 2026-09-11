@@ -959,9 +959,12 @@ body.kilitli { overflow: hidden; }
 
 /* ----------------------------------------------------- yazdirilabilir form
 
-   Resmi formlar (Embriyoloji Ozet, ART Lab Raporu) ekranda da gorunur,
-   Ctrl+P ile kagida iner. Kalip kurumun kalite sisteminden geliyor; olculer
-   A4'e oturacak sekilde ayarli (v6.37). */
+   Resmi formlar (Embriyoloji Ozet DH.FR.91, ART Lab Raporu DH.FR.107) ekranda
+   da gorunur, Ctrl+P ile kagida iner. Izgaranin kendisi form_kalip.json'dan
+   geliyor -- kagit aslindan cikarilmis satir/sutun olculeri, birlesik
+   hucreler ve kenarliklar. Buradaki is sadece o olculeri bogmadan basmak:
+   sutun genisligi ve satir yuksekligi satir ici stil olarak geliyor, burada
+   yalniz punto, hiza ve kenarlik sinifi var (v6.39). */
 
 .yazdirmadugmeleri { display: flex; gap: 10px; margin-bottom: 14px; }
 .yazdirmadugmeleri .dugme { margin-top: 0; }
@@ -970,45 +973,63 @@ body.kilitli { overflow: hidden; }
   background: #fff; color: #000; border: 1px solid var(--line);
   border-radius: var(--r); padding: 14px; overflow-x: auto;
 }
-.kagit .formbasi { text-align: center; margin-bottom: 10px; }
-.kagit .kurum { font-size: 12px; font-weight: 600; line-height: 1.35; }
-.kagit .formadi { font-size: 15px; font-weight: 700; margin: 8px 0 6px; }
-.kagit .kunye {
-  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px;
-  font-size: 9px; border: 1px solid #000; padding: 3px 5px;
-}
+.kagit + .kagit { margin-top: 14px; }
 
-.formtablo { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.formtablo th, .formtablo td {
-  border: 1px solid #000; padding: 3px 5px; font-size: 10px;
-  vertical-align: middle; word-wrap: break-word;
+.kalip {
+  width: 100%; border-collapse: collapse; table-layout: fixed;
+  font-family: Arial, Helvetica, sans-serif; color: #000;
+  /* Form A4 icin kurulmus. Telefonda sikistirilirsa yazilar kirpilip
+     okunmaz hale geliyor; onun yerine .kagit icinde yana kaydiriliyor.
+     Yazdirirken bu sinir kalkiyor, kagidin genisligi ne ise o. */
+  min-width: 660px;
 }
-.formtablo th {
-  background: #f2f2f2; font-weight: 600; text-align: left; width: 27%;
+.kagit.yatay .kalip { min-width: 980px; }
+/* Hucre kagittakinden buyumesin: tasan yazi kirpilir, satir kaymaz.
+   white-space:pre cunku kagittaki bazi yazilar bosluklarla hizalanmis
+   ("            grade", "Raporu dolduran      Tarih      ..."); HTML o
+   bosluklari normalde tek bosluga indirir ve hiza bozulur. */
+.kalip td {
+  padding: 0 2px; overflow: hidden; white-space: pre;
+  line-height: 1.05; vertical-align: middle;
 }
-.formtablo td { width: 23%; }
-.formtablo th.bolum {
-  background: #d9d9d9; text-align: center; font-weight: 700; width: auto;
-}
-.formtablo tr.notlar td { height: 34px; }
-/* Bos etiket hucresi kagitta cizgi birakmasin: form aslinda da bos duruyor. */
-.formtablo th:empty { background: transparent; border-color: transparent; }
+.kalip .sar { white-space: pre-wrap; }
 
-.kagit .formdibi {
-  display: flex; justify-content: space-between;
-  font-size: 9px; margin-top: 6px;
-}
+/* Punto: tablonun taban puntosu olcekli geliyor, sinifllar ona goreli. */
+.kalip .p7 { font-size: .7em; }
+.kalip .p8 { font-size: .8em; }
+.kalip .p9 { font-size: .9em; }
+.kalip .p10 { font-size: 1em; }
+.kalip .p11 { font-size: 1.1em; }
+.kalip .p12 { font-size: 1.2em; }
+.kalip .p14 { font-size: 1.4em; }
+.kalip .kln { font-weight: 700; }
 
-/* Izgarali form (ART Lab): cok sutunlu, yatay basilir. */
-.izgaraform { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.izgaraform th, .izgaraform td {
-  border: 1px solid #000; padding: 2px 3px; font-size: 9px;
-  text-align: center; vertical-align: middle; word-wrap: break-word;
-}
-.izgaraform th { background: #f2f2f2; font-weight: 600; }
-.izgaraform th.sol { text-align: left; width: 128px; }
-.izgaraform th.bolum { background: #d9d9d9; text-align: center; }
-.izgaraform td.bos { height: 16px; }
+.kalip .hsol { text-align: left; }
+.kalip .hort { text-align: center; }
+.kalip .hsag { text-align: right; }
+.kalip .dust { vertical-align: top; }
+.kalip .dort { vertical-align: middle; }
+.kalip .dalt { vertical-align: bottom; }
+
+/* Kenarlik numaralari kagit aslindan: 1 ince, 3 kesik, 5 kalin, 7 kil.
+   border-collapse komsu hucreler arasinda kalin olani secer -- Excel de
+   boyle ciziyor. */
+.kalip .ust1 { border-top: .75pt solid #000; }
+.kalip .ust3 { border-top: .75pt dashed #000; }
+.kalip .ust5 { border-top: 2pt solid #000; }
+.kalip .ust7 { border-top: .4pt solid #000; }
+.kalip .alt1 { border-bottom: .75pt solid #000; }
+.kalip .alt3 { border-bottom: .75pt dashed #000; }
+.kalip .alt5 { border-bottom: 2pt solid #000; }
+.kalip .alt7 { border-bottom: .4pt solid #000; }
+.kalip .sol1 { border-left: .75pt solid #000; }
+.kalip .sol3 { border-left: .75pt dashed #000; }
+.kalip .sol5 { border-left: 2pt solid #000; }
+.kalip .sol7 { border-left: .4pt solid #000; }
+.kalip .sag1 { border-right: .75pt solid #000; }
+.kalip .sag3 { border-right: .75pt dashed #000; }
+.kalip .sag5 { border-right: 2pt solid #000; }
+.kalip .sag7 { border-right: .4pt solid #000; }
 
 @media print {
   /* Kagida yalniz form insin: ust cubuk, menu, dugmeler ekranda kalir. */
@@ -1017,7 +1038,9 @@ body.kilitli { overflow: hidden; }
   body { background: #fff; }
   .kap, .kap.genis { max-width: none; padding: 0; margin: 0; }
   .kagit { border: 0; border-radius: 0; padding: 0; overflow: visible; }
-  .formtablo th, .formtablo td, .izgaraform th, .izgaraform td {
+  .kalip, .kagit.yatay .kalip { min-width: 0; }
+  .kagit + .kagit { margin-top: 0; page-break-before: always; }
+  .kalip td {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   @page { size: A4 portrait; margin: 8mm; }

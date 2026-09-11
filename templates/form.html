@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("form_" ~ form_adi) }}{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ v.cycle_id }}">&#8249;</a>{% endblock %}
+{% block kapsinif %}{% if yon == "yatay" %} genis{% endif %}{% endblock %}
+{% block icerik %}
+
+{# Form **kâğıt aslının ızgarası**: satır yükseklikleri, sütun genişlikleri,
+   birleşik hücreler, puntolar ve kenarlıklar `form_kalip.json`'dan geliyor,
+   o da orijinal .xls dosyalarından çıkarıldı. Buraya alan ekleme/çıkarma —
+   kalıp değişecekse kâğıt asıl değişir (bkz. form_kalip.py).
+
+   Ölçek: kâğıdın kendi puntoları A4'e sığmıyor (Excel de "sayfaya sığdır" ile
+   basıyor). Tablonun taban puntosu tek katsayıyla küçültülüyor, hücre
+   sınıfları (p7..p14) ona göre `em` ile ölçekleniyor — oranlar bozulmuyor. #}
+
+<div class="yazdirmadugmeleri">
+  <button class="dugme" type="button" onclick="window.print()">{{ metin("yazdir") }}</button>
+  <a class="dugme ikincil" href="/disari/form/{{ form_adi }}/{{ v.cycle_id }}">{{ metin("excel_indir") }}</a>
+</div>
+
+{% for s in sayfalar %}
+<div class="kagit{% if yon == 'yatay' %} yatay{% endif %}">
+  <table class="kalip" style="font-size:{{ (10 * s.olcek)|round(2) }}pt">
+    <colgroup>
+      {%- for g in s.sutunlar %}<col style="width:{{ g }}%">{% endfor -%}
+    </colgroup>
+    <tbody>
+      {%- for r in s.satirlar %}
+      <tr style="height:{{ r.yukseklik }}pt">
+        {%- for h in r.hucreler -%}
+        <td{% if h.sinif %} class="{{ h.sinif }}"{% endif %}
+           {%- if h.sutun_yayilim > 1 %} colspan="{{ h.sutun_yayilim }}"{% endif %}
+           {%- if h.satir_yayilim > 1 %} rowspan="{{ h.satir_yayilim }}"{% endif %}>{{ h.metin }}</td>
+        {%- endfor %}
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% endblock %}

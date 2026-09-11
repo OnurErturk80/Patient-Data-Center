@@ -4059,3 +4059,119 @@ değil.
 - Yönetici olmayan kullanıcı ikisinden de döndürülüyor
 - 34 ekran 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
 - Test verisi geri alındı (1 hasta, 2 cycle, 1 örnek, 0 olay)
+
+---
+
+# v6.39 — formlar kâğıt aslının kalıbıyla basılıyor
+
+Kullanıcı v6.37'de çıkan formlara baktı: **"Formlar orijinal görüntüsünde
+değil. Birebir aynı formları kullanmaz mısın?"** Haklıydı. v6.37'de formların
+*içeriği* doğruydu ama *görünümü* benim kurduğum tablolardı — kutuların yeri,
+puntolar, çerçeveler, bölüm başlıkları kâğıda benziyordu, kâğıt değildi.
+Kalite sisteminden gelen bir forma "benzemek" yetmez; hastanın fiziksel
+dosyasına giren kâğıt, boş formun aynısı olmalı.
+
+## Kalıp artık kâğıdın kendisinden çıkıyor
+
+Kullanıcının yüklediği iki `.xls` dosyası (`formlar_asil/`) **programatik
+olarak** okundu ve ızgaraları `form_kalip.json`'a çıkarıldı:
+
+- satır yükseklikleri ve sütun genişlikleri (Excel'in kendi ölçüleriyle)
+- birleşik hücreler
+- her hücrenin puntosu, kalınlığı, yatay/dikey hizası
+- her hücrenin **dört kenarının** çizgi tipi (ince / kesik / kalın / kıl)
+- kâğıtta basılı olan bütün yazılar
+
+Elle kopyalanmadı; `formlar_asil/kalip_uret.py` çıkardı. Bu yüzden kâğıttaki
+yazım hataları bile duruyor: **"TRANSFES EMBRİYOLOG"**, "Nukleus durmu",
+"Labratuvar", "Oasit tipi". Bunlar düzeltilmedi — form kalite sisteminin
+belgesi, düzeltmek onu başka bir belge yapardı.
+
+`formlar.py` artık kalıbı **kurmuyor**, yalnızca dolduruyor: `*_verisi()`
+cycle'ın verisini toplar, `*_dolgu()` onu hücre adreslerine dağıtır. Aynı
+dolgu iki yere gidiyor — `form.html` (yazdırılabilir sayfa) ve `.xlsx` — o
+yüzden ikisi birbirinden ayrı düşemiyor. İki ayrı şablon (`form_ozet.html`,
+`form_artlab.html`) silindi; tek `form.html` her iki kalıbı da basıyor.
+
+## Excel'de tarafsız stil
+
+`excel.py`'nin stil tablosu sabitti (on üç hazır stil). Kalıp bunu
+kaldırmıyordu: kâğıtta 45 ayrı punto/kenarlık birleşimi var. Artık
+`styles.xml` **dosya başına** kuruluyor — taban stiller aynı sırada duruyor
+(numaraları dosyaya yazılıyor, değiştirilemez), kalıbın stilleri sonuna
+ekleniyor. Font Arial, kenarlıklar kâğıttaki çizgi tipiyle aynı.
+
+## Excel'in "taşma"sı HTML'de yok
+
+Excel'de bir hücrenin yazısı, yanındaki hücre boşsa ve aralarında dikey çizgi
+yoksa oraya taşar — kâğıttaki `Dosya No : ..........` tek bir açık alan gibi
+görünür, aslında altı ayrı hücredir. HTML tablosunda taşma yok, yazı kırpılır.
+Kalıp çıkarılırken bu birleştirildi: aralarında çizgi olmayan boş hücreler
+soldaki hücreye katılıyor. Görüntü aynı, kutular gerçekten geniş.
+
+Aynı sebeple hücreler `white-space: pre` ile basılıyor: kâğıtta bazı yazılar
+boşlukla hizalanmış (`"            grade"`, `"Raporu dolduran      ' Tarih"`),
+HTML normalde o boşlukları tek boşluğa indirir ve hiza bozulurdu.
+
+## A4'e sığdırma
+
+Kâğıdın kendi puntoları ve satır yükseklikleri A4'e sığmıyor; Excel bunu
+"sayfaya sığdır" ile çözüyor. Tarayıcıda aynısı tek katsayıyla yapılıyor:
+bütün yükseklikler ve puntolar aynı oranda küçülüyor, oranlar bozulmadığı
+için form aynı görünüyor. Özet formu %85, ART raporu %80 ile basılıyor ve
+ikisi de tek A4'e oturuyor (dikey / yatay).
+
+Telefonda form sıkıştırılmıyor — sıkıştırılınca yazılar kırpılıp okunmaz
+oluyordu. `.kalip`'in en az genişliği var, kâğıt kartının içinde yana
+kaydırılıyor. Yazdırırken bu sınır kalkıyor.
+
+## Programdan forma ne geçiyor
+
+**Embriyoloji Özet Formu (DH.FR.91).** Bütün kutular programdan doluyor;
+programda karşılığı olmayanlar boş kalıyor: kimlik no, empty zona, morfolojik
+anomalili, intakt, transfer klinisyen.
+
+**ART Lab. Raporu (DH.FR.107).**
+
+- Kimlik satırları kâğıttaki `:` işaretinin arkasına yazılıyor
+- "İşlem" ve "Sperm" kutularında seçenekler basılı (`IVF , ICSI`); kâğıtta
+  doğru olan daire içine alınıyor. Program daire çizemediği için seçenekleri
+  olduğu gibi bırakıp cevabı **okla** arkasına yazıyor:
+  `IVF , ICSI  →  IVF/ICSI`. Yoksa `IVF , ICSI IVF/ICSI` diye üç seçenek gibi
+  okunuyordu.
+- Oosit ızgarası: Over (R/L), Nukleus durumu, PN durumu, gün 2 hücre/grade,
+  gün 3 hücre/grade, transfer işareti. Blastokist skoru "Yorum" satırına
+  yazılıyor — kâğıtta blastokist satırı yok, form gün 3'te bitiyor.
+- **"24 saat : hücre" satırı boş kalıyor** — programda 24. saat kaydı yok,
+  uydurulmadı.
+- "İŞLEM / Tarih / Sa." bloğu (OPU, Mikro, Freeze, Thaw, Transf) zaman
+  çizelgesinden doluyor: tarih ve saat. Geçen saat hesabı v6.37'deki yerinde,
+  cycle ekranının çizelge kartında.
+- Medium/Lot satırları boş — programda tutulmuyor.
+
+**Oosit sayısı 13'ü geçerse** kalıp ikinci kez basılıyor ve kalan oositler
+oraya yazılıyor; kâğıtta ikinci form demek. Özet ve işlem saatleri yalnızca
+ilk sayfada — aynı toplamı iki kez basmak hangisinin doğru olduğunu
+sordururdu. Kırpmak klinik bir sayıyı gizlerdi, sütun eklemek kalıbı bozardı.
+
+## Gün 2 / gün 3 hangi satıra yazılıyor
+
+Kâğıttaki satır başlıkları "40-45 saat" ve "72 saat". Program gün 2 kaydını
+birinciye, gün 3 kaydını ikinciye yazıyor. Bu bir eşleme ve kullanıcının
+onayını bekliyor: v6.37'de saat başlıklarını aşamalara eşleme önerisi
+**reddedilmişti** ("gerçek geçen saati hesapla"). Buradaki fark, satırın
+içeriğinin zaten o günün değerlendirmesi olması; yine de gerçek saatler
+çizelgede duruyor, kullanıcı bakıp doğrulayabiliyor. İstemezse iki satır
+boşaltılır.
+
+## Test edildi
+
+- İki form da tek A4'e oturuyor (dikey 780pt / yatay 535pt), Chromium'un
+  yazdırma önizlemesiyle ölçüldü
+- `.xlsx` openpyxl ile okundu: Arial, kesik çizgili kutular, kalın bölüm
+  çizgisi, kâğıttaki sütun genişlikleri ve satır yükseklikleri, A4
+  dikey/yatay, sayfaya sığdır
+- 20 oositlik veriyle iki sayfa üretiliyor, ikinci sayfada oositler 14-20 ve
+  özet bloğu boş
+- 39 adres 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
+- Form iki dilde de **Türkçe** basılıyor: kurum belgesi, arayüz metni değil

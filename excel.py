@@ -207,7 +207,7 @@ def _adres_coz(adres: str):
     return n, int(satir)
 
 
-def _yerlesim_xml(y: dict) -> str:
+def _yerlesim_xml(y: dict, taban: int = 0) -> str:
     """Serbest yerleşimli sayfa: resmî formların birebir kopyası.
 
     Tablo sayfasından farkı, hücrelerin **adresle** verilmesi: form kâğıdı
@@ -221,7 +221,12 @@ def _yerlesim_xml(y: dict) -> str:
       birlesik     ["A1:I1", ...]
       genislikler  {sütun no: karakter genişliği}
       yukseklikler {satır no: punto}
+      stiller      [{"pt":..,"kalin":..,"kenar":(..)}, ...] -- kalıp stilleri
       yazdirma     {"yon": "dikey"|"yatay", "sigdir": True, "kenar": 0.3}
+
+    Hücrenin stili ya bir ad (`STILLER` sözlüğü) ya da `stiller` listesindeki
+    sıra numarasıdır. Sıra numarası `taban` ile kaydırılıyor, çünkü aynı
+    dosyadaki her kalıp kendi stillerini styles.xml'in sonuna ekliyor.
     """
     hucreler, birlesik = y.get("hucreler", {}), y.get("birlesik", [])
     yaz = y.get("yazdirma", {})
@@ -260,7 +265,9 @@ def _yerlesim_xml(y: dict) -> str:
                 deger, stil = deger
             else:
                 stil = "duz"
-            p.append(_hucre(adres, deger, STILLER.get(stil, _DUZ)))
+            bicim = (taban + stil if isinstance(stil, int)
+                     else STILLER.get(stil, _DUZ))
+            p.append(_hucre(adres, deger, bicim))
         p.append("</row>")
     p.append("</sheetData>")
 
@@ -302,88 +309,157 @@ def _sayfa_adlari(sayfalar):
     return adlar
 
 
-_STILLER = (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    '<numFmts count="2">'
-    '<numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd"/>'
-    '<numFmt numFmtId="165" formatCode="yyyy\\-mm\\-dd\\ hh:mm"/>'
-    "</numFmts>"
-    # 0-1 tablo yazıları, 2-7 form yazıları (punto ve kalınlık).
-    '<fonts count="8">'
-    '<font><sz val="11"/><name val="Calibri"/></font>'
-    '<font><b/><sz val="11"/><name val="Calibri"/></font>'
-    '<font><b/><sz val="12"/><name val="Calibri"/></font>'
-    '<font><b/><sz val="14"/><name val="Calibri"/></font>'
-    '<font><sz val="8"/><name val="Calibri"/></font>'
-    '<font><b/><sz val="9"/><name val="Calibri"/></font>'
-    '<font><sz val="10"/><name val="Calibri"/></font>'
-    '<font><b/><sz val="10"/><name val="Calibri"/></font>'
-    "</fonts>"
-    # İlk iki dolgu Excel'in şartı: sırayla "none" ve "gray125" olmak zorunda.
-    '<fills count="3">'
-    '<fill><patternFill patternType="none"/></fill>'
-    '<fill><patternFill patternType="gray125"/></fill>'
-    '<fill><patternFill patternType="solid">'
-    '<fgColor rgb="FFE8EDF0"/><bgColor indexed="64"/></patternFill></fill>'
-    '<fill><patternFill patternType="solid">'
-    '<fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>'
-    '<fill><patternFill patternType="solid">'
-    '<fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>'
-    "</fills>"
-    # 0: kenarlıksız, 1: dört yanı ince çizgi (form kutuları).
-    '<borders count="2">'
-    '<border><left/><right/><top/><bottom/><diagonal/></border>'
+# styles.xml parça parça kuruluyor: tablo sayfalarının stilleri sabit, form
+# kalıplarınınki **dosyaya özel** (kâğıt aslındaki punto ve kenarlıklar
+# formdan forma değişiyor). Taban listelerin sırası dosyaya sayı olarak
+# yazılıyor -- araya ekleme, sona ekle.
+
+_NUMFMT = ('<numFmts count="2">'
+           '<numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd"/>'
+           '<numFmt numFmtId="165" formatCode="yyyy\\-mm\\-dd\\ hh:mm"/>'
+           "</numFmts>")
+
+# 0-1 tablo yazıları, 2-7 form yazıları (punto ve kalınlık).
+_TABAN_FONT = [
+    '<font><sz val="11"/><name val="Calibri"/></font>',
+    '<font><b/><sz val="11"/><name val="Calibri"/></font>',
+    '<font><b/><sz val="12"/><name val="Calibri"/></font>',
+    '<font><b/><sz val="14"/><name val="Calibri"/></font>',
+    '<font><sz val="8"/><name val="Calibri"/></font>',
+    '<font><b/><sz val="9"/><name val="Calibri"/></font>',
+    '<font><sz val="10"/><name val="Calibri"/></font>',
+    '<font><b/><sz val="10"/><name val="Calibri"/></font>',
+]
+
+# İlk iki dolgu Excel'in şartı: sırayla "none" ve "gray125" olmak zorunda.
+_FILL = ('<fills count="5">'
+         '<fill><patternFill patternType="none"/></fill>'
+         '<fill><patternFill patternType="gray125"/></fill>'
+         '<fill><patternFill patternType="solid">'
+         '<fgColor rgb="FFE8EDF0"/><bgColor indexed="64"/></patternFill></fill>'
+         '<fill><patternFill patternType="solid">'
+         '<fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>'
+         '<fill><patternFill patternType="solid">'
+         '<fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>'
+         "</fills>")
+
+# 0: kenarlıksız, 1: dört yanı ince çizgi (form kutuları).
+_TABAN_KENAR = [
+    "<border><left/><right/><top/><bottom/><diagonal/></border>",
     '<border><left style="thin"><color indexed="64"/></left>'
     '<right style="thin"><color indexed="64"/></right>'
     '<top style="thin"><color indexed="64"/></top>'
     '<bottom style="thin"><color indexed="64"/></bottom>'
-    "<diagonal/></border></borders>"
-    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" '
-    'borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="13">'
+    "<diagonal/></border>",
+]
+
+_TABAN_XF = [
     # 0-3: tablo sayfaları (düz, başlık, tarih, tarih+saat)
-    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" '
-    'applyFont="1" applyFill="1"/>'
+    'applyFont="1" applyFill="1"/>',
     '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" '
-    'applyNumberFormat="1"/>'
+    'applyNumberFormat="1"/>',
     '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" '
-    'applyNumberFormat="1"/>'
-    # 4-12: form sayfaları
+    'applyNumberFormat="1"/>',
+    # 4-12: eski form stilleri (adla çağrılıyor, bkz. STILLER)
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" '
     'applyFont="1" applyAlignment="1">'
-    '<alignment horizontal="center" vertical="center"/></xf>'
+    '<alignment horizontal="center" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" '
     'applyFont="1" applyAlignment="1">'
-    '<alignment horizontal="center" vertical="center"/></xf>'
+    '<alignment horizontal="center" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" '
     'applyFont="1" applyBorder="1" applyAlignment="1">'
-    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" '
     'applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
-    '<alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+    '<alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="6" fillId="0" borderId="1" xfId="0" '
     'applyFont="1" applyBorder="1" applyAlignment="1">'
-    '<alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+    '<alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="7" fillId="4" borderId="1" xfId="0" '
     'applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
-    '<alignment horizontal="center" vertical="center"/></xf>'
+    '<alignment horizontal="center" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" '
     'applyFont="1" applyBorder="1" applyAlignment="1">'
-    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" '
     'applyFont="1" applyAlignment="1">'
-    '<alignment horizontal="left" vertical="center"/></xf>'
+    '<alignment horizontal="left" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" '
     'applyFont="1" applyBorder="1" applyAlignment="1">'
-    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
-    "</cellXfs>"
-    # Adlandirilmis "Normal" stili: Excel onsuz da aciyor ama bazi okuyucular
-    # (openpyxl) "varsayilan stil yok" diye uyariyor.
-    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/>'
-    "</cellStyles></styleSheet>"
-)
+    '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
+]
+
+# Kalıp stilleri kâğıt aslından geliyor; sayılar orada ne ise o.
+_CIZGI = {1: "thin", 2: "medium", 3: "dashed", 4: "dotted", 5: "thick",
+          6: "double", 7: "hair"}
+_YATAY = {1: "left", 2: "center", 3: "right"}
+_DIKEY = {0: "top", 1: "center", 2: "bottom"}
+
+
+def _kenar_xml(kenar) -> str:
+    """(üst, alt, sol, sağ) çizgi numaralarından border parçası."""
+    ust, alt, sol, sag = kenar
+
+    def yan(ad, n):
+        if not n:
+            return f"<{ad}/>"
+        return (f'<{ad} style="{_CIZGI.get(n, "thin")}">'
+                f'<color indexed="64"/></{ad}>')
+
+    return ("<border>" + yan("left", sol) + yan("right", sag) +
+            yan("top", ust) + yan("bottom", alt) + "<diagonal/></border>")
+
+
+def _kalip_xf(stil: dict, fontlar: list, kenarlar: list) -> str:
+    """Kalıptan gelen bir stili cellXfs satırına çevirir.
+
+    Gereken font ve kenarlık listede yoksa sona ekleniyor; aynısı ikinci kez
+    istendiğinde var olan kullanılıyor.
+    """
+    punto = stil.get("pt", 10)
+    kalin = "<b/>" if stil.get("kalin") else ""
+    font = f'<font>{kalin}<sz val="{punto}"/><name val="Arial"/></font>'
+    if font not in fontlar:
+        fontlar.append(font)
+    fid = fontlar.index(font)
+
+    kenar = _kenar_xml(stil.get("kenar", (0, 0, 0, 0)))
+    if kenar not in kenarlar:
+        kenarlar.append(kenar)
+    kid = kenarlar.index(kenar)
+
+    hiza = []
+    y = _YATAY.get(stil.get("yatay", 0))
+    if y:
+        hiza.append(f'horizontal="{y}"')
+    hiza.append('vertical="%s"' % _DIKEY.get(stil.get("dikey", 1), "center"))
+    if stil.get("sar"):
+        hiza.append('wrapText="1"')
+    return (f'<xf numFmtId="0" fontId="{fid}" fillId="0" borderId="{kid}" '
+            'xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">'
+            f'<alignment {" ".join(hiza)}/></xf>')
+
+
+def _stil_xml(fontlar, kenarlar, xfler) -> str:
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<styleSheet xmlns="http://schemas.openxmlformats.org/'
+            'spreadsheetml/2006/main">' + _NUMFMT +
+            f'<fonts count="{len(fontlar)}">' + "".join(fontlar) + "</fonts>" +
+            _FILL +
+            f'<borders count="{len(kenarlar)}">' + "".join(kenarlar) +
+            "</borders>"
+            '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" '
+            'borderId="0"/></cellStyleXfs>'
+            f'<cellXfs count="{len(xfler)}">' + "".join(xfler) + "</cellXfs>"
+            # Adlandırılmış "Normal" stili: Excel onsuz da açıyor ama bazı
+            # okuyucular (openpyxl) "varsayılan stil yok" diye uyarıyor.
+            '<cellStyles count="1">'
+            '<cellStyle name="Normal" xfId="0" builtinId="0"/>'
+            "</cellStyles></styleSheet>")
+
 
 _KOK_REL = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -410,6 +486,16 @@ def kitap(sayfalar) -> bytes:
         sayfalar = [("Boş", ["Kayıt yok"], [])]
     adlar = _sayfa_adlari(sayfalar)
     n = len(sayfalar)
+
+    # Kalıp stilleri styles.xml'in sonuna ekleniyor; her sayfa kendi
+    # başlangıç numarasını (taban) öğreniyor.
+    fontlar, kenarlar = list(_TABAN_FONT), list(_TABAN_KENAR)
+    xfler, tabanlar = list(_TABAN_XF), {}
+    for i, sayfa in enumerate(sayfalar):
+        if isinstance(sayfa, dict) and sayfa.get("stiller"):
+            tabanlar[i] = len(xfler)
+            for stil in sayfa["stiller"]:
+                xfler.append(_kalip_xf(stil, fontlar, kenarlar))
 
     tipler = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
               '<Types xmlns="http://schemas.openxmlformats.org/package/2006/'
@@ -456,9 +542,10 @@ def kitap(sayfalar) -> bytes:
         z.writestr("_rels/.rels", _KOK_REL)
         z.writestr("xl/workbook.xml", "".join(kitap_xml))
         z.writestr("xl/_rels/workbook.xml.rels", "".join(relq))
-        z.writestr("xl/styles.xml", _STILLER)
+        z.writestr("xl/styles.xml", _stil_xml(fontlar, kenarlar, xfler))
         for i, sayfa in enumerate(sayfalar, start=1):
-            icerik = (_yerlesim_xml(sayfa) if isinstance(sayfa, dict)
+            icerik = (_yerlesim_xml(sayfa, tabanlar.get(i - 1, 0))
+                      if isinstance(sayfa, dict)
                       else _sayfa_xml(sayfa[1], sayfa[2]))
             z.writestr(f"xl/worksheets/sheet{i}.xml", icerik)
     return kova.getvalue()

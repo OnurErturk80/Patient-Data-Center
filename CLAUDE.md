@@ -61,6 +61,9 @@ Patient Data Center/
   excel.py          .xlsx üretir — kütüphanesiz, yalnızca zipfile + XML
   disari.py         Excel çıktılarının sorguları (rotalar app.py'de)
   formlar.py        resmî formların verisi + zaman çizelgesi
+  form_kalip.py     resmî formların ızgarası (form_kalip.json'ı okur)
+  form_kalip.json   kâğıt aslından çıkarılmış ızgara — ELLE DÜZENLEME
+  formlar_asil/     orijinal .xls formlar + kalip_uret.py (kalıbı üreten araç)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
   goc_002..028.py   veritabanı göçleri (sırayla)
@@ -263,24 +266,40 @@ Yılı 1900'den küçük tarih **metin** yazılır: bozuk `0026-09-04` kaydı
   karşılığı yok, yarısını çevirmek sütunu tutarsız yapar. Etiket listesini
   kullanıcıya sormadan uydurma.
 
-**Resmî formlar kalıbıyla basılır** (v6.37). İki form, ikisi de kullanıcının
-tutmak **zorunda** olduğu kurum formları: Embriyoloji Özet (DH.FR.91, dikey)
-ve ART Lab. Raporu (DH.FR.107, yatay). Her biri iki çıktı veriyor —
-yazdırılabilir sayfa (`/form/{ad}/{id}`, Ctrl+P) ve Excel
-(`/disari/form/{ad}/{id}`) — ama **içerik tek yerden**: `formlar.py`
-`*_verisi()`. İkisi ayrı düşmesin diye böyle.
-- **Kalıba dokunma.** Doküman kodu, yayın/revizyon tarihi, alan adları ve form
-  numarası kalite sisteminden geliyor; kâğıt aslıyla aynı görünmek zorunda.
-  Kutunun **içini** doldur, başlığını değiştirme.
+**Resmî formlar kâğıt aslının kalıbıyla basılır** (v6.37, v6.39'da birebir
+oldu). İki form, ikisi de kullanıcının tutmak **zorunda** olduğu kurum
+formları: Embriyoloji Özet (DH.FR.91, dikey) ve ART Lab. Raporu (DH.FR.107,
+yatay). Her biri iki çıktı veriyor — yazdırılabilir sayfa
+(`/form/{ad}/{id}`, Ctrl+P) ve Excel (`/disari/form/{ad}/{id}`) — ve **tek
+kalıptan**: `form_kalip.json`.
+- **Kalıp elle yazılmadı, kâğıttan çıkarıldı.** `formlar_asil/` altındaki iki
+  orijinal `.xls` dosyası `kalip_uret.py` ile okundu; satır yükseklikleri,
+  sütun genişlikleri, birleşik hücreler, puntolar ve dört kenarın çizgi tipi
+  oradan geliyor. **`form_kalip.json`'ı elle düzenleme** — kâğıt asıl
+  değişirse onu değiştir, sonra aracı tekrar çalıştır (araç `xlrd` istiyor;
+  programın bağımlılığı değil, tek seferlik geliştirme aracı).
+- **Kalıba dokunma.** Doküman kodu, revizyon tarihi, alan adları ve form
+  numarası kalite sisteminden geliyor. Kâğıttaki **yazım hataları da öyle**:
+  "TRANSFES EMBRİYOLOG", "Nukleus durmu", "Labratuvar", "Oasit tipi" —
+  düzeltme, belge o.
+- `formlar.py` kalıbı kurmuyor, **dolduruyor**: `*_verisi()` veriyi toplar,
+  `*_dolgu()` hücre adreslerine dağıtır. İki tür dolgu var: `deger` kâğıtta
+  boş olan kutuya yazar, `ek` kâğıtta basılı yazının arkasına ekler
+  (`"Dosya No :"` + numara).
 - **Programda karşılığı olmayan alan boş kalır** (kimlik no, empty zona,
-  intakt, tüp no, medium/lot, seleksiyon, transfer klinisyeni). Uydurma —
-  resmî forma yanlış veri yazmak boş bırakmaktan kötü. Kullanıcı hangilerinin
-  programa gireceğine sonra karar verecek.
+  intakt, tüp no, medium/lot, seleksiyon, transfer klinisyeni, 24. saat
+  hücre sayısı). Uydurma — resmî forma yanlış veri yazmak boş bırakmaktan
+  kötü. Kullanıcı hangilerinin programa gireceğine sonra karar verecek.
+- **Oosit 13'ü geçerse kalıp ikinci kez basılır** (kâğıtta ikinci form).
+  Sütun ekleme, kırpma da yapma; özet bloğu yalnızca ilk sayfada.
+- Ekranda ve Excel'de aynı ızgara: `form_kalip.satirlar()` ve
+  `form_kalip.yerlesim()`. Şablon tek: `form.html`.
 - Form adı adresten geliyor; `FORMLAR` **beyaz listesinden** geçiyor. Şablon
   adını adresteki metinle kurma.
-- `excel.py`'nin **yerleşim sayfası** bunun için var: hücreler adresle
-  veriliyor, birleşik hücre/kenarlık/yazdırma ayarı destekliyor. Stil
-  numaraları dosyaya yazıldığı için `STILLER`'e **araya değil sona** ekle.
+- `excel.py`'nin **yerleşim sayfası** bunun için var. Taban stillerin sırası
+  dosyaya sayı olarak yazılıyor — `_TABAN_XF`/`STILLER`'e **araya değil sona**
+  ekle. Kalıbın kendi stilleri `styles.xml`'in sonuna, sayfa başına ekleniyor.
+- Form **iki dilde de Türkçe** basılır: kurum belgesi, arayüz metni değil.
 
 **Zaman çizelgesi türetilmiştir, kayıt değil** (v6.37). `formlar.zaman_cizelgesi()`
 cycle'ın aşama saatlerini toplayıp iki süre veriyor: önceki işlemden ve

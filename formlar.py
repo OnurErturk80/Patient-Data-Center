@@ -6,10 +6,12 @@ Tıp Fakültesi, Üreme Endokrinolojisi ve YÜT Merkezi):
   - **Embriyoloji Özet Formu** — DH.FR.91, Rev.03, cycle başına bir sayfa
   - **ART Lab. Raporu** — DH.FR.107, Rev.01, cycle başına bir sayfa (yatay)
 
-İkisi de iki biçimde çıkıyor: tarayıcıdan yazdırılabilir sayfa (şablonlar
-`form_ozet.html` / `form_artlab.html`) ve `.xlsx` (buradaki `*_yerlesimi`
-fonksiyonları). İçerik tek yerden — `*_verisi()` — geliyor ki iki çıktı
-birbirinden ayrı düşmesin.
+Formun **kalıbı burada değil**: satır/sütun ölçüleri, kutular ve kâğıtta
+basılı yazılar `form_kalip.json`'da duruyor ve orijinal `.xls` dosyalarından
+çıkarıldı (bkz. `form_kalip.py`). Bu dosyanın işi **verinin hangi kutuya
+gireceği**: `*_verisi()` cycle'ın verisini toplar, `*_dolgu()` onu kalıbın
+hücre adreslerine dağıtır. Aynı dolgu iki yere gidiyor — tarayıcıdan
+yazdırılan sayfa (`form.html`) ve `.xlsx` — o yüzden ikisi ayrı düşemiyor.
 
 **Form kalıbına dokunma.** Doküman kodu, yayın/revizyon tarihi, alan adları
 ve form numarası kurumun kalite sisteminden geliyor; kâğıt aslıyla aynı
@@ -412,69 +414,47 @@ def ozet_verisi(cycle_id: int):
     }
 
 
-# --------------------------------------- embriyoloji özet formu: yerleşim
+# ------------------------------------ embriyoloji özet formu: kalıba yerleşim
 
-# Formun künyesi — kâğıt aslından birebir. Değiştirme.
-OZET_KUNYE = {
-    "kurum": ["AKDENİZ ÜNİVERSİTESİ TIP FAKÜLTESİ",
-              "KADIN HASTALIKLARI VE DOĞUM ANABİLİM DALI",
-              "ÜREME ENDOKRİNOLOJİSİ VE YARDIMCI ÜREME TEKNİKLERİ MERKEZİ"],
-    "ad": "EMBRİYOLOJİ ÖZET FORMU",
-    "serit": ["Doküman Kodu:DH.FR.91", "Yayın Tarihi:27.03.2007",
-              "Revizyon Tarihi:24.04.2019", "Revizyon No:03",
-              "Sayfa No Sayısı:1/1"],
-    "dipnot": "Form - 70 01 26 02 03",
-    "rev": "Rev.No: 03",
-}
-
-# Formun gövdesi: (satır, sol etiket, sol anahtar, sağ etiket, sağ anahtar).
-# Satır numaraları kâğıt aslındaki satırlar — kutuların yeri birebir aynı
-# olsun diye korunuyor. Sağ tarafı olmayan satırda sağ etiket boş.
-# "#" ile başlayan satır bölüm başlığı.
-OZET_GOVDE = [
-    (8,  "KİMLİK NO", "kimlik_no", "EŞİNİN ADI", "esinin_adi"),
-    (10, "DOSYA NO", "dosya_no", "YAŞI", "yasi"),
-    (12, "SOYADI", "soyadi", "ÖNCEKİ TEDAVİ SAYISI", "onceki_tedavi"),
-    (14, "ADI", "adi", "TEDAVİ PROTOKOLÜ", "tedavi_protokolu"),
-    (16, "#OOSİT BİLGİLERİ", None, None, None),
-    (18, "OPU TARİHİ", "opu_tarihi", "DEJENERE", "dejenere"),
-    (20, "TOPLANAN OOSİT", "toplanan_oosit", "ATRETİK", "atretik"),
-    (22, "MATÜR (MII)", "matur_mii", "MORFOLOJİK ANOMALİLİ", "morfolojik_anomalili"),
-    (24, "İMMATÜR (MI+GV)", "immatur", "OPU KLİNİSYEN", "opu_klinisyen"),
-    (26, "EMPTY ZONA", "empty_zona", "OPU EMBRİYOLOG", "opu_embriyolog"),
-    (28, "#SPERM BİLGİLERİ", None, None, None),
-    (30, "SPERM KAYNAĞI", "sperm_kaynagi", "HAZIRLAMA YÖNTEMİ", "hazirlama_yontemi"),
-    (32, "BAZAL VOLÜM (ML)", "bazal_volum", "VOLÜM (ML)", "son_volum"),
-    (34, "KONSANTRASYON (x106/ML)", "bazal_konsantrasyon",
-         "KONSANTRASYON (x106/ML)", "son_konsantrasyon"),
-    (36, "BAZAL MOTİLİTE (%)", "bazal_motilite", "MOTİLİTE (%)", "son_motilite"),
-    (38, "BAZAL PROGRESSİF (%)", "bazal_progressif",
-         "PROGRESSİF (%)", "son_progressif"),
-    (40, "MORFOLOJİ (% NORMAL)", "morfoloji_normal",
-         "HAZIRLAYAN EMBRİYOLOG", "hazirlayan_embriyolog"),
-    (42, "LÖKOSİT (x106/ML)", "lokosit", None, None),
-    (44, "#FERTİLİZASYON BİLGİLERİ", None, None, None),
-    (46, "FERTİLİZASYON YÖNTEMİ", "fertilizasyon_yontemi", "INTAKT", "intakt"),
-    (48, "İŞLEME ALINAN OOSİT SAYISI", "islenen_oosit",
-         "İŞLEM SONRASI DEJENERE", "islem_sonrasi_dejenere"),
-    (50, "NORMAL FERTİLİZASYON 2PN", "normal_2pn",
-         "ANORMAL FERTİLİZASYON", "anormal_fertilizasyon"),
-    (52, None, None, "EMBRİYOLOG", "fert_embriyolog"),
-    (54, "#EMBRİYO TRANSFERİ BİLGİLERİ", None, None, None),
-    (56, "EMBRİYO TRANSFER AŞAMASI", "transfer_asamasi",
-         "EMBRİYO1 HÜCRE/AŞAMA", "embriyo1_asama"),
-    (58, "TRANSFER TARİHİ", "transfer_tarihi", "EMBRİYO1 KALİTE", "embriyo1_kalite"),
-    (60, "TRANSFER EMBRİYO SAYISI", "transfer_sayisi",
-         "EMBRİYO2 HÜCRE/AŞAMA", "embriyo2_asama"),
-    (62, "TRANSFER KLİNİSYEN", "transfer_klinisyen",
-         "EMBRİYO2 KALİTE", "embriyo2_kalite"),
-    (64, "TRANSFER EMBRİYOLOG", "transfer_embriyolog", None, None),
-    (66, "#KRİYOPREZERVASYON BİLGİLERİ", None, None, None),
-    (68, "DONDURULAN EMBRİYO SAYISI", "dondurulan_sayi",
-         "ÇÖZDÜRÜLEN EMBRİYO SAYISI", "cozdurulen_sayi"),
-    (70, "EMBRİYO DONDURMA AŞAMASI", "dondurma_asamasi",
-         "ÇÖZDÜRME SONRASI VİABİLİTE", "cozdurme_viabilite"),
+# Formun kutuları: (kâğıttaki satır no, sol kutunun anahtarı, sağ kutununki).
+# Satır numaraları kâğıt aslındaki satırlar. Kutuların **adları burada değil**
+# -- onlar kalıptan geliyor (`form_kalip.json`, kâğıttan çıkarıldı); burada
+# yalnızca hangi verinin hangi kutuya yazıldığı duruyor. Satır sonundaki
+# yorumlar kâğıtta ne yazdığını hatırlatmak için.
+OZET_KUTULARI = [
+    (8,  "kimlik_no", "esinin_adi"),        # KİMLİK NO / EŞİNİN ADI
+    (10, "dosya_no", "yasi"),               # DOSYA NO / YAŞI
+    (12, "soyadi", "onceki_tedavi"),        # SOYADI / ÖNCEKİ TEDAVİ SAYISI
+    (14, "adi", "tedavi_protokolu"),        # ADI / TEDAVİ PROTOKOLÜ
+    (18, "opu_tarihi", "dejenere"),         # OPU TARİHİ / DEJENERE
+    (20, "toplanan_oosit", "atretik"),      # TOPLANAN OOSİT / ATRETİK
+    (22, "matur_mii", "morfolojik_anomalili"),
+    (24, "immatur", "opu_klinisyen"),       # İMMATÜR (MI+GV) / OPU KLİNİSYEN
+    (26, "empty_zona", "opu_embriyolog"),   # EMPTY ZONA / OPU EMBRİYOLOG
+    (30, "sperm_kaynagi", "hazirlama_yontemi"),
+    (32, "bazal_volum", "son_volum"),       # BAZAL VOLÜM / VOLÜM
+    (34, "bazal_konsantrasyon", "son_konsantrasyon"),
+    (36, "bazal_motilite", "son_motilite"),
+    (38, "bazal_progressif", "son_progressif"),
+    (40, "morfoloji_normal", "hazirlayan_embriyolog"),
+    (42, "lokosit", None),                  # LÖKOSİT (x106/ML)
+    (46, "fertilizasyon_yontemi", "intakt"),
+    (48, "islenen_oosit", "islem_sonrasi_dejenere"),
+    (50, "normal_2pn", "anormal_fertilizasyon"),
+    (52, None, "fert_embriyolog"),          # EMBRİYOLOG
+    (56, "transfer_asamasi", "embriyo1_asama"),
+    (58, "transfer_tarihi", "embriyo1_kalite"),
+    (60, "transfer_sayisi", "embriyo2_asama"),
+    (62, "transfer_klinisyen", "embriyo2_kalite"),
+    (64, "transfer_embriyolog", None),      # TRANSFES EMBRİYOLOG (kâğıttaki
+                                            # yazım hatası; kalıp öyle basıyor)
+    (68, "dondurulan_sayi", "cozdurulen_sayi"),
+    (70, "dondurma_asamasi", "cozdurme_viabilite"),
 ]
+
+# Sol kutu C sütununda, sağ kutu H sütununda (kâğıttaki birleşik hücreler).
+_OZET_SOL, _OZET_SAG = 2, 7
+_OZET_NOTLAR = (70, 2)                      # NOTLAR kutusu (0'dan sayıyor)
 
 
 def _yaz(v):
@@ -482,117 +462,49 @@ def _yaz(v):
     return "" if v is None else str(v)
 
 
-def ozet_yerlesimi(v: dict) -> dict:
-    """Özet formunu `excel.kitap()`'ın yerleşim sayfası olarak kurar.
+def ozet_dolgu(v: dict) -> list:
+    """Özet formunun kalıbına yazılacaklar: [(değer, ek)] -- tek sayfa.
 
-    Satır numaraları, sütun genişlikleri ve birleşik hücreler kâğıt aslından
-    alındı; çıktı Excel'den basıldığında formun aslıyla aynı yere oturuyor.
+    `değer` kâğıtta **boş** olan kutulara yazıyor; bu formda hepsi öyle, o
+    yüzden `ek` boş. Programda karşılığı olmayan kutular (kimlik no, empty
+    zona, intakt, transfer klinisyen) None geliyor ve boş basılıyor.
     """
-    hucreler, birlesik = {}, []
-
-    for i, metin in enumerate(OZET_KUNYE["kurum"], start=1):
-        hucreler[f"A{i}"] = (metin, "kurum")
-        birlesik.append(f"A{i}:I{i}")
-    hucreler["A5"] = (OZET_KUNYE["ad"], "formadi")
-    birlesik.append("A5:I5")
-
-    serit = OZET_KUNYE["serit"]
-    for adres, aralik, metin in (("A6", "A6:B6", serit[0]),
-                                 ("C6", "C6:D6", serit[1]),
-                                 ("E6", "E6:F6", serit[2]),
-                                 ("G6", None, serit[3]),
-                                 ("H6", "H6:I6", serit[4])):
-        hucreler[adres] = (metin, "kunye")
-        if aralik:
-            birlesik.append(aralik)
-
-    for satir, sol, sol_k, sag, sag_k in OZET_GOVDE:
-        if sol and sol.startswith("#"):
-            hucreler[f"A{satir}"] = (sol[1:], "bolum")
-            birlesik.append(f"A{satir}:I{satir}")
-            continue
-        # Etiket iki satır yüksekliğinde; aralarındaki ince satır kâğıtta
-        # kutuları ayıran boşluk. Tek satırlık olanlar aslında da öyle.
-        cift = satir not in (14, 26, 42, 52, 64, 70)
+    d = {}
+    for satir, sol, sag in OZET_KUTULARI:
         if sol:
-            hucreler[f"A{satir}"] = (sol, "etiket")
-            birlesik.append(f"A{satir}:B{satir + 1}" if cift
-                            else f"A{satir}:B{satir}")
-            hucreler[f"C{satir}"] = (_yaz(v.get(sol_k)), "deger")
-            birlesik.append(f"C{satir}:D{satir}")
+            d[(satir - 1, _OZET_SOL)] = _yaz(v.get(sol))
         if sag:
-            hucreler[f"F{satir}"] = (sag, "etiket")
-            birlesik.append(f"F{satir}:G{satir + 1}" if cift
-                            else f"F{satir}:G{satir}")
-            hucreler[f"H{satir}"] = (_yaz(v.get(sag_k)), "deger")
-            birlesik.append(f"H{satir}:I{satir}")
-
-    hucreler["A72"] = ("NOTLAR", "etiket")
-    birlesik.append("A72:B73")
-    hucreler["C72"] = (_yaz(v.get("notlar")), "deger")
-    birlesik.append("C72:I73")
-    hucreler["A74"] = (OZET_KUNYE["dipnot"], "dipnot")
-    hucreler["I74"] = (OZET_KUNYE["rev"], "dipnot")
-
-    # Kâğıt aslındaki satır yükseklikleri: 16 punto kutu satırı, 5 punto
-    # ayırıcı. Bunlar olmadan form A4'e oturmuyor.
-    yukseklikler = {1: 22, 2: 15, 3: 16, 5: 18, 6: 13, 7: 15, 74: 12}
-    for satir, sol, _, _, _ in OZET_GOVDE:
-        yukseklikler[satir] = 16
-        if sol and sol.startswith("#"):
-            yukseklikler[satir + 1] = 10
-        else:
-            yukseklikler[satir + 1] = 5
-    yukseklikler[72] = 17
-    yukseklikler[73] = 17
-
-    return {
-        "ad": "Embriyoloji Özet",
-        "hucreler": hucreler,
-        "birlesik": birlesik,
-        "genislikler": {1: 10, 2: 20, 3: 11, 4: 11, 5: 8,
-                        6: 10, 7: 20, 8: 11, 9: 11},
-        "yukseklikler": yukseklikler,
-        "yazdirma": {"yon": "dikey", "sigdir": True, "kenar": 0.3},
-    }
+            d[(satir - 1, _OZET_SAG)] = _yaz(v.get(sag))
+    d[_OZET_NOTLAR] = _yaz(v.get("notlar"))
+    return [(d, {})]
 
 
 # ------------------------------------------------------------ ART lab raporu
 
-ARTLAB_KUNYE = {
-    "kurum": ["AKDENİZ ÜNİVERSİTESİ TIP FAKÜLTESİ",
-              "KADIN HASTALIKLARI VE DOĞUM A.B.D.",
-              "ÜREME ENDOKRİNOLOJİSİ VE YARDIMCI ÜREME TEKNİKLERİ MERKEZİ"],
-    "ad": "ART LAB. RAPORU",
-    "serit": ["Doküman Kodu:DH.FR.107", "Yayın Tarihi:16.01.2017",
-              "Yayın Tarihi:14.09.2012", "Revizyon No:01",
-              "Sayfa No Sayısı:1/1"],
-    "dipnot": "Form - 70 01 26 02 39",
-    "rev": "Rev.No: 01",
-}
-
-# Formdaki oosit ızgarası 13 sütunluk. Daha çok oosit varsa fazlası ikinci
-# tabloya taşıyor (kâğıtta ikinci sayfa demek) -- kırpmak klinik bir sayıyı
-# gizlerdi.
+# Kâğıttaki oosit ızgarası **13 sütunluk**. Daha çok oosit varsa fazlası
+# ikinci sayfaya geçiyor (kâğıtta ikinci form demek) -- kırpmak klinik bir
+# sayıyı gizlerdi, sütun eklemek kalıbı bozardı.
 ARTLAB_SUTUN = 13
 
-# Izgaranın satırları: (etiket, anahtar). Anahtarı None olan satır programda
-# tutulmuyor, boş çıkıyor -- kalemle dolduruluyor.
-ARTLAB_SATIRLAR = [
-    ("Over (R / L)", "taraf"),
-    ("Tüp (folikül)", None),             # programda tutulmuyor
-    ("Nukleus durumu", "mat"),
-    ("Fertilizasyon : PN", "pn"),
-    ("Fertilizasyon sonucu", "fert"),
-    ("Gün 2 : hücre", "g2_hucre"),
-    ("             grade", "g2_skor"),
-    ("Gün 3 : hücre", "g3_hucre"),
-    ("             grade", "g3_skor"),
-    ("Blastokist", "bl"),
-    ("Transfer", "transfer"),
-    ("Yorum", "yorum"),
+# Izgaranın kâğıttaki satırları (0'dan sayıyor) ve o satıra hangi verinin
+# yazıldığı. Anahtarı None olan satır programda tutulmuyor, boş kalıyor.
+ARTLAB_IZGARA = [
+    (11, "taraf"),      # Over (R / L)
+    (12, None),         # Tüp (folikül) -- programda yok
+    (13, "no"),         # Oosit: kâğıtta 1..13 basılı, örneğin kendi numarası
+    (14, "mat"),        # Nukleus durmu
+    (15, "pn"),         # PM durumu (18 sa)
+    (16, None),         # 24 saat : hücre -- programda 24. saat kaydı yok
+    (17, "g2_hucre"),   # 40-45 saat : hücre
+    (18, "g2_skor"),    #              grade
+    (19, "g3_hucre"),   # 72   saat : hücre
+    (20, "g3_skor"),    #              grade
+    (21, "transfer"),   # Transfer
+    (22, "yorum"),      # Yorum
 ]
 
+# İlk oositin sütunu; kâğıtta her oosit iki sütun geniş.
+_IZGARA_SUTUN0, _IZGARA_ADIM = 3, 2
 
 def artlab_verisi(cycle_id: int):
     """ART Lab. Raporu'nun (DH.FR.107) verisi.
@@ -646,7 +558,9 @@ def artlab_verisi(cycle_id: int):
             "g3_skor": o["g3_skor"] or "",
             "bl": o["bl"] or "",
             "transfer": "✓" if o["tr_zaman"] else ("F" if o["vit_zaman"] else ""),
-            "yorum": "",
+            # Kâğıtta blastokist satırı yok (form gün 3'te bitiyor); blastokist
+            # skoru "Yorum" satırına yazılıyor -- orası serbest metin.
+            "yorum": o["bl"] or _et(h, "fert_sonuc", o["fert"]) or "",
         })
 
     mat = _oosit_sayilari(cycle_id)
@@ -670,6 +584,15 @@ def artlab_verisi(cycle_id: int):
         "AND o.iptal_mi=0 AND COALESCE(o.thaw_cycle_id, s.cycle_id)=?",
         (cycle_id,))["n"]
     transfer = len(_transfer_edilenler(cycle_id))
+    # Kâğıttaki FERTİLİZASYON bloğunun "Dej" sütunu: işlemden **sonra**
+    # dejenere olan oosit (ICSI sırasında ya da fert kontrolünde görülen).
+    dej_islem = db.tek(
+        "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
+        "JOIN specimen s ON s.id=o.specimen_id "
+        "WHERE s.cycle_id=? AND o.iptal_mi=0 AND "
+        "((o.tip='icsi' AND o.icsi_sonuc='degenere') OR "
+        " (o.tip='fertilizasyon_kontrolu' AND o.fert_sonuc='degenere'))",
+        (cycle_id,))["n"]
 
     return {
         "cycle_id": cycle_id,
@@ -684,7 +607,6 @@ def artlab_verisi(cycle_id: int):
         "hekim": c["opu_hekim"] or "",
         "laboratuvar": _yapan(cycle_id, "opu") or "",
         "sutunlar": sutunlar,
-        "satirlar": ARTLAB_SATIRLAR,
         "cizelge": cizelge,
         # --- özet bloğu ---
         "bazal_kons": _sayi(bazal, "konsantrasyon_milyon_ml"),
@@ -695,8 +617,11 @@ def artlab_verisi(cycle_id: int):
         "son_normal": _sayi(sonrasi, "morfoloji_normal_yuzde"),
         "oosit_toplam": len(ornekler),
         "oosit_mii": mat.get("mii"),
+        "oosit_mi": mat.get("mi"),
+        "oosit_gv": mat.get("gv"),
         "oosit_mi_gv": (mat.get("mi") or 0) + (mat.get("gv") or 0) or None,
         "oosit_dej": mat.get("degenere"),
+        "oosit_dej_islem": dej_islem or None,
         "oosit_atretik": mat.get("atretik"),
         "pn0": pn.get("0"), "pn1": pn.get("1"), "pn2": pn.get("2"),
         "pn3": pn.get("3"), "pn4": pn.get("4+"),
@@ -706,110 +631,88 @@ def artlab_verisi(cycle_id: int):
     }
 
 
-def artlab_yerlesimi(v: dict) -> dict:
-    """ART Lab. Raporu'nu `excel.kitap()`'ın yerleşim sayfası olarak kurar.
+# Özet bloğunun kutuları: (satır, sütun, anahtar). Kâğıt aslındaki yerler.
+_ARTLAB_OZET = [
+    (28, 0, "bazal_kons"), (28, 2, "son_kons"),          # M/ml
+    (28, 5, "oosit_mii"), (29, 5, "oosit_mi"), (30, 5, "oosit_gv"),
+    (31, 5, "oosit_dej"),                                 # Mll / Ml / Pl / Dej
+    (28, 6, "oosit_dej_islem"),                           # Dej (fertilizasyon)
+    (28, 8, "pn0"), (28, 9, "pn1"), (28, 10, "pn2"), (28, 11, "pn3"),
+    (28, 12, "freeze"), (28, 14, "thaw"), (28, 16, "transfer"),
+]
 
-    Yatay basılıyor: 13 oositlik ızgara dikey A4'e sığmıyor. Yerleşim kâğıt
-    aslının blok düzenini izliyor (kimlik → ızgara → özet → işlem saatleri →
-    medium/lot), ama satır numaraları birebir değil: ızgaranın boyu oosit
-    sayısına göre değişiyor, sabit satıra oturtmak fazlasını kırpardı.
+# "% Motil" ve "% Normal" kutularında kâğıtta zaten yazı var; sayı onun
+# arkasına yazılıyor -- kalemle de öyle yapılıyor.
+_ARTLAB_OZET_EK = [
+    (29, 0, "bazal_motil"), (30, 0, "bazal_normal"),
+    (29, 2, "son_motil"), (30, 2, "son_normal"),
+]
+
+# "İŞLEM / Tarih / Sa." bloğu: kâğıttaki beş satır ve çizelgedeki karşılığı.
+_ARTLAB_ISLEM = [
+    (27, "opu"), (28, "icsi"), (29, "vitrifikasyon"),
+    (30, "thaw"), (31, "transfer"),
+]
+_ISLEM_TARIH, _ISLEM_SAAT = 25, 27
+
+
+def _cizelge_zamani(cizelge, asama):
+    for s in cizelge:
+        if s["asama"] == asama:
+            return s["zaman"] or ""
+    return ""
+
+
+def artlab_dolgu(v: dict) -> list:
+    """ART Lab. Raporu'nun kalıbına yazılacaklar: sayfa başına (değer, ek).
+
+    Kâğıtta 13 oosit sütunu var; daha çoksa aynı kalıp ikinci kez basılıyor ve
+    kalan oositler oraya yazılıyor. Özet ve işlem saatleri **yalnızca ilk
+    sayfada**: aynı toplamı iki kere basmak hangisinin doğru olduğunu
+    sorduruyor.
     """
-    hucreler, birlesik = {}, []
-    sutun_sayisi = max(2, len(v["sutunlar"]) + 1)
-    son = sutun_sayisi
+    sutunlar = v["sutunlar"]
+    sayfa_sayisi = max(1, -(-len(sutunlar) // ARTLAB_SUTUN))
+    cizelge = v.get("cizelge") or []
+    sayfalar = []
 
-    def _harf(n):
-        ad = ""
-        while n > 0:
-            n, k = divmod(n - 1, 26)
-            ad = chr(65 + k) + ad
-        return ad
+    for sayfa in range(sayfa_sayisi):
+        d, ek = {}, {}
 
-    satir = 1
-    for metin in ARTLAB_KUNYE["kurum"]:
-        hucreler[f"A{satir}"] = (metin, "kurum")
-        birlesik.append(f"A{satir}:{_harf(son)}{satir}")
-        satir += 1
-    hucreler[f"A{satir}"] = (ARTLAB_KUNYE["ad"], "formadi")
-    birlesik.append(f"A{satir}:{_harf(son)}{satir}")
-    satir += 1
-    for i, parca in enumerate(ARTLAB_KUNYE["serit"]):
-        hucreler[f"{_harf(1 + i)}{satir}"] = (parca, "kunye")
-    satir += 2
+        # --- kimlik: kâğıtta "Dosya No : ......" tek açık alan, ":" hücresine
+        #     yazılıyor ki kalıptaki iki nokta yerinde kalsın.
+        ek[(5, 2)] = v["dosya_no"]
+        ek[(6, 2)] = v["adi"]
+        ek[(7, 2)] = v["yasi"]
+        ek[(8, 2)] = v["esinin_adi"]
+        # İşlem ve sperm kutularında seçenekler basılı ("IVF , ICSI");
+        # kâğıtta doğru olan daire içine alınıyor. Program daire çizemediği
+        # için seçenekleri olduğu gibi bırakıp cevabı okla arkasına yazıyor --
+        # yoksa "IVF , ICSI IVF/ICSI" diye üç seçenek gibi okunuyor.
+        ek[(6, 9)] = "→ " + v["islem"] if v["islem"] else None
+        ek[(8, 9)] = ("→ " + v["sperm_kaynagi"]) if v["sperm_kaynagi"] else None
+        ek[(6, 21)] = v["hekim"]              # Hekimler: OPU
+        ek[(7, 17)] = v["laboratuvar"]        # Labratuvar
 
-    def _blok(basliklar, degerler_listesi):
-        """Etiket + değer satırlarından bir blok basar, sonraki satırı döndürür."""
-        nonlocal satir
-        for i, b in enumerate(basliklar, start=1):
-            hucreler[f"{_harf(i)}{satir}"] = (b, "etiket")
-        satir += 1
-        for degerler in degerler_listesi:
-            for i, d in enumerate(degerler, start=1):
-                hucreler[f"{_harf(i)}{satir}"] = (_yaz(d), "ortali")
-            satir += 1
-        satir += 1
+        # --- oosit ızgarası
+        dilim = sutunlar[sayfa * ARTLAB_SUTUN:(sayfa + 1) * ARTLAB_SUTUN]
+        for i, o in enumerate(dilim):
+            c = _IZGARA_SUTUN0 + i * _IZGARA_ADIM
+            for satir, anahtar in ARTLAB_IZGARA:
+                if anahtar:
+                    d[(satir, c)] = _yaz(o.get(anahtar))
 
-    # --- kimlik ---
-    _blok(["Dosya No", "Adı", "Yaş", "Eşinin Adı", "İşlem", "Sperm",
-           "Hekimler", "Laboratuvar"],
-          [[v["dosya_no"], v["adi"], v["yasi"], v["esinin_adi"],
-            v["islem"], v["sperm_kaynagi"], v["hekim"], v["laboratuvar"]]])
+        if sayfa == 0:
+            for satir, c, anahtar in _ARTLAB_OZET:
+                d[(satir, c)] = _yaz(v.get(anahtar))
+            for satir, c, anahtar in _ARTLAB_OZET_EK:
+                ek[(satir, c)] = v.get(anahtar)
+            for satir, asama in _ARTLAB_ISLEM:
+                z = _cizelge_zamani(cizelge, asama)
+                if z:
+                    d[(satir, _ISLEM_TARIH)] = z[:10]
+                    d[(satir, _ISLEM_SAAT)] = z[11:16]
 
-    # --- oosit ızgarası ---
-    hucreler[f"A{satir}"] = ("OOSİT VE EMBRYO", "bolum")
-    birlesik.append(f"A{satir}:{_harf(son)}{satir}")
-    satir += 1
-    hucreler[f"A{satir}"] = ("Oosit", "etiket")
-    for i, s in enumerate(v["sutunlar"], start=2):
-        hucreler[f"{_harf(i)}{satir}"] = (s["no"], "ortali_kalin")
-    satir += 1
-    for etiket, anahtar in ARTLAB_SATIRLAR:
-        hucreler[f"A{satir}"] = (etiket, "etiket")
-        for i, s in enumerate(v["sutunlar"], start=2):
-            hucreler[f"{_harf(i)}{satir}"] = (
-                _yaz(s[anahtar]) if anahtar else "", "ortali")
-        satir += 1
-    satir += 1
-
-    # --- özet ---
-    hucreler[f"A{satir}"] = ("ÖZET", "bolum")
-    birlesik.append(f"A{satir}:{_harf(son)}{satir}")
-    satir += 1
-    _blok(["SEMEN", "M/ml", "% Motil", "% Normal"],
-          [["Bazal", v["bazal_kons"], v["bazal_motil"], v["bazal_normal"]],
-           ["İşlem", v["son_kons"], v["son_motil"], v["son_normal"]]])
-    _blok(["OPU", "Toplam", "MII", "MI+GV", "Dejenere", "Atretik"],
-          [["Oosit tipi", v["oosit_toplam"], v["oosit_mii"], v["oosit_mi_gv"],
-            v["oosit_dej"], v["oosit_atretik"]]])
-    _blok(["FERTİLİZASYON", "0PN", "1PN", "2PN", "3PN", "4+PN",
-           "FREEZE", "THAW", "TRANSFER"],
-          [["", v["pn0"], v["pn1"], v["pn2"], v["pn3"], v["pn4"],
-            v["freeze"], v["thaw"], v["transfer"]]])
-
-    # --- işlem saatleri (zaman çizelgesinden) ---
-    hucreler[f"A{satir}"] = ("İŞLEM", "bolum")
-    birlesik.append(f"A{satir}:{_harf(son)}{satir}")
-    satir += 1
-    _blok(["İşlem", "Tarih", "Önceki işlemden (sa)", "OPU'dan bu yana (sa)"],
-          [[z["ad"], z["zaman"][:16], z["onceki_saat"], z["opu_saat"]]
-           for z in v["cizelge"]] or [["", "", "", ""]])
-
-    # --- programda tutulmayanlar: kalemle doldurulacak boş kutular ---
-    _blok(["Medium / Lot", "IVF", "Sperm Prep", "PVP", "Hyalurinidase",
-           "Freezing pack", "Thawing pack"], [["Lot", "", "", "", "", "", ""]])
-    _blok(["Raporu dolduran", "Tarih", "Seleksiyon", "Yorum"],
-          [["", "", "", ""]])
-
-    hucreler[f"A{satir}"] = (ARTLAB_KUNYE["dipnot"], "dipnot")
-    hucreler[f"{_harf(son)}{satir}"] = (ARTLAB_KUNYE["rev"], "dipnot")
-
-    genislikler = {1: 22}
-    for i in range(2, son + 1):
-        genislikler[i] = 8
-    return {
-        "ad": "ART Lab Raporu",
-        "hucreler": hucreler,
-        "birlesik": birlesik,
-        "genislikler": genislikler,
-        "yazdirma": {"yon": "yatay", "sigdir": True, "kenar": 0.3},
-    }
+        sayfalar.append((d, {k: x for k, x in ek.items()
+                             if x is not None and str(x) != ""}))
+    return sayfalar
