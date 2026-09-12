@@ -517,7 +517,9 @@ METINLER = {
     "zigot_bulgulari": {"tr": "Zigot bulguları", "en": "Zygote findings"},
 
     # ---- gün 2/3 (cleavage) ----
-    "gun_n_degerlendirme": {"tr": "Gün {n} değerlendirme", "en": "Day {n} assessment"},
+    # Kardes ekranin kalibi: "Blastokist · Gün 5". Menu "Cleavage" derken
+    # ekranin basligi aşama adini hiç taşımıyordu (v6.60).
+    "gun_n_degerlendirme": {"tr": "Cleavage · Gün {n}", "en": "Cleavage · Day {n}"},
     "gun_n_buyuk": {"tr": "Gün {n}", "en": "Day {n}"},
     "fert_kontrolunde_npn": {
         "tr": "Bu oosit fertilizasyon kontrolünde {n}PN idi.",
@@ -933,7 +935,9 @@ METINLER = {
     "asama_denudasyon": {"tr": "Denüdasyon", "en": "Denudation"},
     "asama_icsi": {"tr": "ICSI", "en": "ICSI"},
     "asama_fert": {"tr": "Fertilizasyon", "en": "Fertilization"},
-    "asama_cleavage": {"tr": "Gün 2 / 3", "en": "Day 2 / 3"},
+    # Klinik terim, iki dilde de İngilizce kalır -- gün numarası değil,
+    # embriyonun o andaki evresi (kullanıcının kararı, 2026-09-12).
+    "asama_cleavage": {"tr": "Cleavage", "en": "Cleavage"},
     "asama_blast": {"tr": "Blastokist", "en": "Blastocyst"},
     "asama_vitrifikasyon": {"tr": "Vitrifikasyon", "en": "Vitrification"},
     "asama_thaw": {"tr": "Çözme", "en": "Thaw"},
@@ -1095,8 +1099,8 @@ METINLER = {
     "olay_icsi": {"tr": "ICSI", "en": "ICSI"},
     "olay_fertilizasyon_kontrolu": {"tr": "Fertilizasyon kontrolü",
                                     "en": "Fertilisation check"},
-    "olay_cleavage_degerlendirme": {"tr": "Gün 2 / 3 değerlendirme",
-                                    "en": "Day 2 / 3 assessment"},
+    "olay_cleavage_degerlendirme": {"tr": "Cleavage değerlendirme",
+                                    "en": "Cleavage assessment"},
     "olay_blastokist_degerlendirme": {"tr": "Blastokist değerlendirme",
                                       "en": "Blastocyst assessment"},
     "olay_biyopsi": {"tr": "Biyopsi", "en": "Biopsy"},

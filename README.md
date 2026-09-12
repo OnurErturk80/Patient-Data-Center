@@ -5951,3 +5951,70 @@ Hangisi olacağı kullanıcının kararı — ona sorulmadan yeniden bölünmesi
 > Kullanıcı ikisini birlikte değerlendirdi ve düzeni seçti. Bir düzen
 > değişikliğini sayı ile savunmadan önce **görüntüsünü göster ve sor** —
 > v6.57'de ekran görüntüsü istenmesinin sebebi buydu, ilk turda anlamadım.
+
+
+---
+
+# v6.60 — "Gün 2 / 3" aşaması artık "Cleavage"
+
+Kullanıcının kararı (2026-09-12): "sol taraftaki menüde yer alan Gün 2/3
+yerine Cleavage olsun, daha doğru olur". Klinik olarak doğrusu bu — o gün
+numarası değil, embriyonun **evresi**. Projenin kendi kuralıyla da uyumlu:
+klinik terimler iki dilde de İngilizce kalır (blastocyst, ICSI, PN, ICM, TE,
+FET). `ornek_adi()` zaten o aşamadaki örneğe "Cleavage" diyordu; aşamanın
+adı ondan geri kalmıştı.
+
+## Ad tek yerden geliyor — ama beklenen yerden değil
+
+İlk arama `ASAMA_SIRASI`'ndaki `("cleavage", "Gün 2 / 3", ...)` satırını
+gösterdi. **O değil.** Ekrana giden ad `asama_adi(kod)` → `metinler.t("asama_"
++ kod)` üzerinden geliyor; anahtar çalışma anında kurulduğu için düz arama
+bulmuyor. `ASAMA_SIRASI`'ndaki Türkçe metin yalnızca kimlik/okunurluk için
+duruyor (app.py'deki docstring bunu söylüyor).
+
+Doğru yer: `metinler.py`, `asama_cleavage`. Oradan **üç yüzey birden**
+besleniyor — sol menü, cycle ekranındaki aşama düğmeleri, alt gezinme çubuğu.
+
+## Dört yer değişti
+
+| yer | ne besliyor |
+|---|---|
+| `metinler.asama_cleavage` | sol menü + cycle ekranı düğmeleri + alt gezinme |
+| `metinler.olay_cleavage_degerlendirme` | ana ekranda "son işlem" satırı |
+| `app.MODULLER` | yetki ekranındaki modül adı, "yetkisiz" mesajı |
+| `app.ASAMA_SIRASI` | kimlik/okunurluk (ekrana gitmiyor, tutarlı dursun) |
+
+İlk üçü **ekranda görünüyor**; üçünü birden değiştirmemin sebebi CLAUDE.md'nin
+kendi kuralı: "aynı düğmeyi iki isimle öğretmek personeli yanıltır".
+
+## Ekranın kendi başlığı da hizalandı
+
+Değişiklik bir tutarsızlık ortaya çıkardı: menü "Cleavage" derken ekranın
+başlığı **"Gün 2 değerlendirme"** idi — aşama adını hiç taşımıyordu. Oysa
+kardeş ekran zaten doğru kalıbı kullanıyor: **"Blastokist · Gün 5"**.
+
+`gun_n_degerlendirme` o kalıba çevrildi: **"Cleavage · Gün 2"** /
+"Cleavage · Day 2". Gün numarası kayboldu değil — hangi günün
+değerlendirildiği gerçek bir bilgi, duruyor.
+
+## Bilerek değişmeyenler
+
+- **Silme ekranı**: "Gün 2 kaydını sil", "Gün 2 değerlendirmesi temizlenecek".
+  Orada silinen şey o **günün** kaydı; blastokistin silme ekranı da aynı
+  şekilde günle anıyor.
+- **Excel sütun başlıkları** (`disari.py`): "Gün 2", "Gün 3", "Gün 2 hücre",
+  "Gün 2 simetri"… Bunlar belirli günlerin sütunları, aşama adı değil.
+- **`goruntu_asama` seçim listesi** (`gun2`, `gun3` → "Gün 2", "Gün 3"):
+  fotoğrafın hangi gün çekildiğini söylüyor, laba özgü ve yönetici
+  düzenleyebiliyor.
+
+Kullanıcı isterse bunlar da çevrilir — klinik terim kararı onun.
+
+## Test edildi
+
+- Sol menü okundu: OPU, Androloji, Denüdasyon, ICSI, Fertilizasyon,
+  **Cleavage**, Blastokist, Vitrifikasyon, Çözme, Transfer, Gebelik sonucu.
+- Altı ekranda "Gün 2 / 3" metni **sıfır** kez geçiyor.
+- Başlıklar: "Cleavage · Gün 2", "Cleavage · Gün 3", "Blastokist · Gün 5".
+- İki dilde de doğru (İngilizcede de "Cleavage" — klinik terim).
+- 31 adres 200, günlükte hata yok. Deneme verisi geri alındı.
