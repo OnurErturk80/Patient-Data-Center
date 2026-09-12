@@ -596,6 +596,37 @@ Veri hep anında kaydoluyordu — eski olan sayfaydı. `base.html`'deki
   bırakılmış telefon hiç düşmez, 12 saatlik sınır işlevsiz kalırdı.
   `son_erisim` de artık her istekte değil, bir dakikadan eskiyse yazılıyor.
 
+**Aynı kaydı iki kişi düzenlerse uyarı çıkar** (v6.55). Klinikte birkaç
+telefon aynı anda kayıt giriyor; ikinci kaydeden birincinin yazdığını siliyor.
+- **Birim "alan" değil KAYIT.** Kaydederken formun **tamamı** yazılıyor
+  (`UPDATE olay SET <bütün alanlar>`), yalnızca dokunduğun alan değil — yani
+  farklı alanları düzenlemek de çarpışma. Alan bazında uyarmak **yanlış
+  güven** verirdi; bu birimi daraltma.
+- **Uyarı engellemez.** Katı kilit klinikte yanlış: pili biten telefon kaydı
+  kilitli bırakır, acele eden personeli engellemek çarpışmadan pahalı.
+  Program haber verir, kararı kullanıcı verir. Bunu kilide çevirme.
+- **Bellekte tutulur, `lab.db`'de değil** (`_duzenleyenler` + `threading.Lock`).
+  İki sebep: o anki sunucu çalışmasına ait, klinik kayıt değil; ve `lab.db`
+  USB ile taşınıyor, bayat "düzenleniyor" satırları da onunla giderdi. Bunu
+  tabloya taşıma. **Sunucu tek süreç** çalışıyor (`baslat.py`) — birden çok
+  işçiyle çalıştırılırsa sözlük paylaşılmaz ve uyarı çalışmaz.
+- **Kimlik sekme başına**, kullanıcı başına değil: aynı kişinin telefonu ve
+  masaüstü de gerçek bir çarpışma.
+- **`GET /degisim` hiçbir şey yazmaz**, haber ayrı bir `POST /duzenliyorum`
+  ile gelir ve yalnızca gerçekten düzenleyen gönderir. Sadece izleyen ekran
+  ne veritabanına ne belleğe dokunur — bu ayrımı bozma.
+- **Anahtarı şablon söyler**: `{% block kayitanahtari %}`. Adresten türetme —
+  aşama ekranı adressiz açıldığında ilk örneği seçiyor (v6.35), o yüzden
+  `/cycle/1/icsi` ile `?oosit=1` aynı kaydı farklı anahtarla gösterir ve uyarı
+  kaçar. Anahtar sunucuda `ANAHTAR_KALIBI`'ndan geçer (tuzak #9); ekrana
+  yalnızca veritabanındaki `kisa_kod` basılır.
+- **Kapsam dışı: vitrifikasyon, çözme, transfer** — tek ekranda birden çok
+  örneğin kartı var, ekran bazında anahtar farklı embriyolarda çalışan iki
+  kişiyi de uyarırdı. Yanlış alarm uyarıya olan güveni bitirir.
+- **Uyarı kaybı engellemiyor**: iki kişi yine de kaydederse ikincisi üzerine
+  yazar. Asıl güvenlik ağı (forma gömülü imza + kaydederken reddetme)
+  kullanıcıya sorulacak, README v6.55 sonu.
+
 **İşlem saatleri elle girilebilir.** Her aşamada varsayılan "şu an", ama
 değiştirilebilir — personel işlemi yaparken değil sonra kaydediyor olabilir.
 Bu özelliği asla kaldırma.

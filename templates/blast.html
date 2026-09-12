@@ -1,4 +1,7 @@
 {% extends "base.html" %}
+{# Ayni kaydi baska biri duzenliyorsa uyari (v6.55): birim ALAN degil
+   KAYIT, cunku kaydederken formun tamami yaziliyor. #}
+{% block kayitanahtari %}{% if sp %}cycle:{{ c.id }}:blast:{{ sp.id }}{% endif %}{% endblock %}
 {% import "_kareler.html" as kr %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}

@@ -283,11 +283,9 @@ METINLER = {
     "sigdir": {"tr": "Sığdır", "en": "Fit"},
     "kare_n": {"tr": "Kare {n}", "en": "Frame {n}"},
     "bu_kareyi_sil": {"tr": "Bu kareyi sil", "en": "Delete this frame"},
-    "bekleyen_kare": {"tr": "Bekleyen kare", "en": "Waiting frame"},
     "buyut": {"tr": "büyüt", "en": "enlarge"},
 
     # ---- vitrifikasyon ----
-    "dondurulmus": {"tr": "Dondurulmuş", "en": "Frozen"},
     "coz": {"tr": "çöz", "en": "thaw"},
     "kaydi_geri_al": {"tr": "kaydı geri al", "en": "undo record"},
     "dondurulacak_kalmadi": {"tr": "Dondurulacak embriyo kalmadı.",
@@ -348,7 +346,6 @@ METINLER = {
     "girilmemis": {"tr": "girilmemiş", "en": "not entered"},
     "icerik": {"tr": "İçerik", "en": "Contents"},
     "canli": {"tr": "Canlı", "en": "Surviving"},
-    "sagkalim": {"tr": "Sağkalım", "en": "Survival"},
     "ort_canlilik": {"tr": "Ort. canlılık", "en": "Avg. viability"},
     "tasiyicida_n_embriyo": {
         "tr": "Bu taşıyıcıda {n} embriyo var. Çözüldüğünde hepsi etkilenir.",
@@ -719,7 +716,6 @@ METINLER = {
     "zaman": {"tr": "Zaman", "en": "Time"},
 
     # ---- silme ekranları (ortak) ----
-    "geri_don": {"tr": "Geri dön", "en": "Go back"},
     "yok_kucuk": {"tr": "yok", "en": "none"},
     "bagli_kayitlar": {"tr": "Bağlı kayıtlar", "en": "Linked records"},
     "silinecek_kayit": {"tr": "Silinecek kayıt", "en": "Record to be deleted"},
@@ -1004,12 +1000,19 @@ METINLER = {
     "ana_ekran": {"tr": "Ana ekran", "en": "Home"},
     "ana_menu": {"tr": "Ana menü", "en": "Main menu"},
 
-    # Ekran kendini tazeleme (v6.54)
+    # Ekran kendini tazeleme (v6.54). "yenile" zaten yukarida var.
     "yeni_kayit_var": {"tr": "Başka bir cihazdan yeni kayıt girildi.",
                        "en": "New data was entered from another device."},
-    "yenile": {"tr": "Yenile", "en": "Refresh"},
     "yazdiklarin_gider": {"tr": "Yazdıkların kaybolur — önce kaydet.",
                           "en": "You will lose what you typed - save first."},
+
+    # Ayni kaydi iki kisi duzenliyor (v6.55)
+    "birlikte_duzenleme": {
+        "tr": "Bu kaydı şu anda {kim} da düzenliyor.",
+        "en": "{kim} is editing this record right now."},
+    "birlikte_uyari": {
+        "tr": "Aynı anda kaydederseniz biri ötekinin yazdığını siler.",
+        "en": "If you both save, one will overwrite the other."},
 
     # ---- yapilacaklar listesi (v6.28): kagit klasorun karsiligi ----
     "yapilacaklar": {"tr": "Yapılacaklar", "en": "To do"},
@@ -1180,7 +1183,6 @@ METINLER = {
     "oran_gebelik": {"tr": "Klinik gebelik oranı (transfer başına)",
                      "en": "Clinical pregnancy rate (per transfer)"},
     "aylara_gore": {"tr": "Aylara göre", "en": "By month"},
-    "son_kayitlar": {"tr": "Son kayıtlar", "en": "Latest records"},
     "kayit_hasta": {"tr": "Yeni hasta", "en": "New patient"},
     "kayit_cycle": {"tr": "Yeni cycle", "en": "New cycle"},
     "kayit_olay": {"tr": "İşlem", "en": "Procedure"},

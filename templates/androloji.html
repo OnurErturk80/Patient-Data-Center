@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# Ayni kaydi baska biri duzenliyorsa uyari (v6.55). #}
+{% block kayitanahtari %}cycle:{{ c.id }}:androloji{% endblock %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_bilgikart.html" as bk %}

@@ -227,6 +227,16 @@ body {
   .kap.genis.yanmenusuz { max-width: var(--genis-sutun-menusuz); }
 }
 
+/* Ayni kaydi baska biri duzenliyor (v6.55). `.uyari`nin uzerine biniyor:
+   orasi sari, bu turuncu -- "bilgi" ile "dikkat" birbirine benzemesin.
+   Satir ici, sabit degil: gecici bir olay degil sayfanin o anki durumu. */
+.uyari.birlikte {
+  border-color: #e4a33a;
+  background: #fdf3e3;
+  color: #6b4a12;
+}
+.uyari.birlikte b { color: #8a4b00; }
+
 /* Baska bir cihazdan kayit girildiginde cikan serit (v6.54). Sayfa
    kendiliginden yenilenmiyor cunku kullanici bir seye yaziyor -- serit
    haber veriyor, yenileme karari onun. Altta duruyor: ustteki kimlik

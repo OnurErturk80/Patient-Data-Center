@@ -7,6 +7,8 @@ import json
 import os
 import socket
 import sqlite3
+import threading
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request, Response
@@ -529,16 +531,132 @@ def veri_damgasi() -> str:
 sablon.env.globals["veri_damgasi"] = veri_damgasi
 
 
+# ------------------------------------------------- kim neyi düzenliyor
+
+# Aynı kaydı iki kişi aynı anda düzenlerse, ikinci kaydeden birincinin
+# yazdığını siler -- kayıt edilirken formun **tamamı** yazılıyor
+# (`UPDATE olay SET <bütün alanlar>`), yalnızca dokunduğun alan değil.
+# Bu yüzden uyarının birimi "alan" değil **kayıt**: farklı alanları
+# düzenlemek de çarpışma (v6.55).
+#
+# **Uyarı engellemez.** Katı kilit klinikte yanlış olurdu: telefonun pili
+# biterse kayıt kilitli kalır, ve acele eden personeli kayıt girmekten
+# alıkoymak çarpışmadan pahalıya gelir. Program haber veriyor, kararı
+# kullanıcı veriyor.
+#
+# **Bellekte tutuluyor, `lab.db`'de değil.** İki sebep: (1) bu veri o anki
+# sunucu çalışmasına ait, klinik kayıt değil; (2) `lab.db` USB ile
+# taşınıyor, bayat "düzenleniyor" satırları da onunla taşınırdı.
+# Sunucu tek süreç çalışıyor (`baslat.py`); birden çok işçiyle çalıştırılırsa
+# bu sözlük paylaşılmaz, o gün ortak bir yere taşınması gerekir.
+DUZENLEME_OMRU = 45.0          # sn -- bu kadar ses vermeyen bırakmış sayılır
+DUZENLEME_EN_COK = 500         # sözlük sınırsız büyümesin
+ANAHTAR_KALIBI = re.compile(r"^[a-z0-9:_-]{1,60}$")
+
+# {anahtar: {sekme_kimligi: (kisa_kod, son_an)}}
+_duzenleyenler = {}
+_duzenleme_kilidi = threading.Lock()
+
+
+def _bayatlari_at(simdi):
+    """Ömrü geçenleri ve boşalan anahtarları siler. Kilit tutuluyorken çağır."""
+    for anahtar in list(_duzenleyenler):
+        kalan = {k: v for k, v in _duzenleyenler[anahtar].items()
+                 if simdi - v[1] < DUZENLEME_OMRU}
+        if kalan:
+            _duzenleyenler[anahtar] = kalan
+        else:
+            del _duzenleyenler[anahtar]
+
+
+def duzenleme_bildir(anahtar: str, sekme: str, kisa_kod: str):
+    """"Bu kaydı düzenliyorum" haberi. Aynı kaydın öteki düzenleyenlerini döner.
+
+    Kimlik **sekme başına**, kullanıcı başına değil: aynı kişi telefonundan
+    ve masaüstünden aynı kaydı açtıysa o da gerçek bir çarpışma.
+    """
+    simdi = time.monotonic()
+    with _duzenleme_kilidi:
+        _bayatlari_at(simdi)
+        if anahtar not in _duzenleyenler and len(_duzenleyenler) >= DUZENLEME_EN_COK:
+            return []                    # sınır aşıldı: haber alınmıyor
+        _duzenleyenler.setdefault(anahtar, {})[sekme] = (kisa_kod, simdi)
+        return [v[0] for k, v in _duzenleyenler[anahtar].items() if k != sekme]
+
+
+def duzenleme_birak(anahtar: str, sekme: str):
+    """Sayfa kapandı / kaydedildi: haberi geri al."""
+    with _duzenleme_kilidi:
+        if anahtar in _duzenleyenler:
+            _duzenleyenler[anahtar].pop(sekme, None)
+            if not _duzenleyenler[anahtar]:
+                del _duzenleyenler[anahtar]
+
+
+def duzenleyenler(anahtar: str, sekme: str):
+    """Bu kaydı başka kim düzenliyor? Hiçbir şey yazmaz."""
+    simdi = time.monotonic()
+    with _duzenleme_kilidi:
+        _bayatlari_at(simdi)
+        return [v[0] for k, v in _duzenleyenler.get(anahtar, {}).items()
+                if k != sekme]
+
+
+def _anahtar_gecerli(anahtar: str, sekme: str) -> bool:
+    """Adresten gelen metin: kalıptan geçmeyen istek hiç işlenmiyor (tuzak #9).
+
+    Ekrana basılan yazı yalnızca **veritabanındaki** `kisa_kod`; istemciden
+    gelen metin hiç basılmıyor. Kalıp bellekte çöp birikmesin diye.
+    """
+    return bool(anahtar and sekme
+                and ANAHTAR_KALIBI.match(anahtar) and ANAHTAR_KALIBI.match(sekme))
+
+
+@uygulama.post("/duzenliyorum")
+async def duzenliyorum(request: Request):
+    """Form doldurulurken saniyeler içinde bir gelen haber (v6.55)."""
+    f = dict(await request.form())
+    anahtar = (f.get("anahtar") or "").strip()
+    sekme = (f.get("sekme") or "").strip()
+    if not _anahtar_gecerli(anahtar, sekme):
+        return JSONResponse({"baskalari": []})
+    # `request.state.kullanici` bir sqlite3.Row -- `.get()` yok, köşeli parantez.
+    k = request.state.kullanici
+    kod = ((k["kisa_kod"] or k["kullanici_adi"] or "?"))[:8]
+    return JSONResponse({"baskalari": duzenleme_bildir(anahtar, sekme, kod)},
+                        headers={"Cache-Control": "no-store"})
+
+
+@uygulama.post("/duzenlemeyi-biraktim")
+async def duzenlemeyi_biraktim(request: Request):
+    """Sayfa kapanınca `sendBeacon` ile geliyor; gelmezse haber bayatlıyor."""
+    f = dict(await request.form())
+    anahtar = (f.get("anahtar") or "").strip()
+    sekme = (f.get("sekme") or "").strip()
+    if _anahtar_gecerli(anahtar, sekme):
+        duzenleme_birak(anahtar, sekme)
+    return JSONResponse({"tamam": True})
+
+
 @uygulama.get("/degisim")
-def degisim():
-    """Açık ekranların "yeni kayıt var mı" sorusu (v6.54).
+def degisim(anahtar: str = "", sekme: str = ""):
+    """Açık ekranların iki sorusu, tek istekte (v6.54, v6.55).
+
+    "Yeni kayıt var mı" (damga) ve "bu kaydı başka kim düzenliyor". İkinci
+    bir yoklayıcı eklemek yerine aynı isteğe bindirildi -- klinikte birkaç
+    telefon var, istek sayısı iki katına çıkmasın.
+
+    **Hiçbir şey yazmaz**: düzenleme haberi ayrı bir POST ile geliyor, yani
+    yalnızca izleyen bir ekran ne veritabanına ne belleğe dokunuyor.
 
     Middleware'in arkasında: oturumu olmayan bu yolu da göremez.
     `yol_modulu("/degisim")` None dönüyor, yani modül izni istemiyor --
     ekranı görebilen onun tazeliğini de sorabilmeli.
     """
-    return JSONResponse({"damga": veri_damgasi()},
-                        headers={"Cache-Control": "no-store"})
+    cevap = {"damga": veri_damgasi(), "baskalari": []}
+    if _anahtar_gecerli(anahtar, sekme):
+        cevap["baskalari"] = duzenleyenler(anahtar, sekme)
+    return JSONResponse(cevap, headers={"Cache-Control": "no-store"})
 
 
 @uygulama.middleware("http")

@@ -46,6 +46,14 @@
 </div>
 {% block kimlik %}{% endblock %}
 <div class="kap{% block kapsinif %}{% endblock %}">
+{# Ayni kaydi baska biri duzenliyorsa haber (v6.55). Sabit serit degil satir
+   ici: bu gecici bir olay degil, sayfanin o anki DURUMU -- ustte, formun
+   hemen oncesinde duruyor. #}
+{% if kullanici or request.state.kullanici %}
+<div class="uyari birlikte" id="birlikte" hidden>
+  <b id="birliktekim"></b> {{ metin("birlikte_uyari") }}
+</div>
+{% endif %}
 {% block icerik %}{% endblock %}
 </div>
 
@@ -61,9 +69,22 @@
 <script>
 (function () {
   var damga = {{ veri_damgasi()|tojson }};
-  var ARALIK = 5000;                       // ms
-  var sayac = null;
+  // Bu ekranin duzenledigi kaydin adi. Sablon soyluyor; bos ise bu ekranda
+  // "kim duzenliyor" takibi yok (liste ve yonetim ekranlari boyle).
+  var anahtar = "{% block kayitanahtari %}{% endblock %}".trim();
+  // Kimlik SEKME basina, kullanici basina degil: ayni kisi telefonundan ve
+  // masaustunden ayni kaydi actiysa o da gercek bir carpismadir.
+  var sekme = 's' + Math.random().toString(36).slice(2, 12);
+
+  var ARALIK = 5000;              // "yeni kayit var mi" yoklamasi
+  var HABER_ARALIGI = 15000;      // "bu kaydi duzenliyorum" haberi
+  var BOS_SINIR = 120000;         // bu kadar dokunulmazsa haber kesilir
+  var sayac = null, haberci = null, duzenliyorum = false, sonDokunma = 0;
+
   var kutu = document.getElementById('tazelekutu');
+  var birlikte = document.getElementById('birlikte');
+  var birliktekim = document.getElementById('birliktekim');
+  var METIN = {{ metin("birlikte_duzenleme")|tojson }};
 
   // Kullanici bir seye yaziyor mu? Yaziyorsa sayfa KENDILIGINDEN yenilenmez --
   // yenilemek yazdigini silmek olurdu. Onun yerine kutu cikiyor, karar onun.
@@ -87,15 +108,76 @@
     return false;
   }
 
+  function baskalari(liste) {
+    if (!birlikte) return;
+    if (!liste || !liste.length) { birlikte.hidden = true; return; }
+    birliktekim.textContent = METIN.replace('{kim}', liste.join(', '));
+    birlikte.hidden = false;
+  }
+
+  function postala(yol, geri) {
+    var v = new FormData();
+    v.append('anahtar', anahtar);
+    v.append('sekme', sekme);
+    fetch(yol, {method: 'POST', body: v, credentials: 'same-origin'})
+      .then(function (y) { return y.ok ? y.json() : null; })
+      .then(function (d) { if (d && geri) geri(d); })
+      .catch(function () {});
+  }
+
+  function haberVer() {
+    // Yanlislikla bir alana dokunup birakmis olabilir: hicbir sey yazilmamis
+    // ve uzun suredir dokunulmamissa haberi kes, yoksa oteki bosuna uyarilir.
+    if (!kirli() && Date.now() - sonDokunma > BOS_SINIR) { haberiKes(); return; }
+    postala('/duzenliyorum', function (d) { baskalari(d.baskalari); });
+  }
+
+  function haberiKes() {
+    duzenliyorum = false;
+    if (haberci) { clearInterval(haberci); haberci = null; }
+    postala('/duzenlemeyi-biraktim');   // kutuyu gizleme: oteki hala duruyorsa
+  }                                     // yoklama onu yine gosterir
+
+  function duzenlemeyeBasla() {
+    sonDokunma = Date.now();
+    if (duzenliyorum || !anahtar) return;
+    duzenliyorum = true;
+    haberVer();
+    haberci = setInterval(haberVer, HABER_ARALIGI);
+  }
+
+  if (anahtar) {
+    document.addEventListener('focusin', function (o) {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(o.target.tagName)) duzenlemeyeBasla();
+    });
+    document.addEventListener('input', duzenlemeyeBasla);
+    // Sayfa kapaninca haberi geri al. Gelmezse zarar yok: sunucudaki haber
+    // kirk bes saniyede bayatliyor. `pagehide` iOS'ta `beforeunload`dan
+    // guvenilir; `sendBeacon` sayfa kapanirken de gidiyor.
+    window.addEventListener('pagehide', function () {
+      if (!duzenliyorum || !navigator.sendBeacon) return;
+      var v = new FormData();
+      v.append('anahtar', anahtar); v.append('sekme', sekme);
+      navigator.sendBeacon('/duzenlemeyi-biraktim', v);
+    });
+  }
+
   function bak() {
-    fetch('/degisim', {cache: 'no-store', credentials: 'same-origin'})
+    var yol = '/degisim';
+    if (anahtar) {
+      yol += '?anahtar=' + encodeURIComponent(anahtar) +
+             '&sekme=' + encodeURIComponent(sekme);
+    }
+    fetch(yol, {cache: 'no-store', credentials: 'same-origin'})
       .then(function (y) { return y.ok ? y.json() : null; })
       .then(function (d) {
-        if (!d || !d.damga || d.damga === damga) return;
+        if (!d) return;
+        if (anahtar) baskalari(d.baskalari);
+        if (!d.damga || d.damga === damga) return;
         if (kirli()) { kutu.hidden = false; dur(); return; }
         location.reload();
       })
-      .catch(function () {});             // ag koptuysa sessizce gec
+      .catch(function () {});            // ag koptuysa sessizce gec
   }
 
   function dur() { if (sayac) { clearInterval(sayac); sayac = null; } }
@@ -112,6 +194,7 @@
     location.reload();
   });
 
+  bak();                                 // ilk bakis hemen: kim duzenliyor?
   basla();
 })();
 </script>

@@ -1,4 +1,7 @@
 {% extends "base.html" %}
+{# Ayni cycle'i baska biri duzenliyorsa uyari (v6.55). Yeni cycle
+   acarken kayit henuz yok, anahtar bos. #}
+{% block kayitanahtari %}{% if duzenleme %}cycle:{{ cycle_id }}:form{% endif %}{% endblock %}
 {% macro d(alan) %}{{ v.get(alan) if v.get(alan) is not none else '' }}{% endmacro %}
 {% macro dz(alan) %}{{ (v.get(alan)|string|replace(' ','T')) if v.get(alan) else '' }}{% endmacro %}
 {% block ustbaslik %}{{ metin("cycle_duzenle") if duzenleme else metin("yeni_cycle") }}{% endblock %}

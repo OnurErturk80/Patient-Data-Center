@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# Ayni hastayi baska biri duzenliyorsa uyari (v6.55). #}
+{% block kayitanahtari %}hasta:{{ h.id }}{% endblock %}
 {% block ustbaslik %}{{ metin("hastayi_duzenle") }}{% endblock %}
 {% block geri %}<a class="geri" href="/hasta/{{ h.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}

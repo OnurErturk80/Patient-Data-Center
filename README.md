@@ -5522,3 +5522,132 @@ açılınca güncellendi.
   taşma yok.
 - 36 adres 200; yazdırma ekranlarında betik yok, giriş ekranında da yok.
 - Deneme verisi geri alındı.
+
+
+---
+
+# v6.55 — aynı kaydı iki kişi düzenlerse uyarı
+
+Kullanıcının isteği: "biri bir alana bilgi girerken başka cihazdan aynı alana
+bir şey girilmek istendiğinde uyarı verse". v6.54 **ne değiştiğini**
+gösteriyordu; bu sürüm **kimin şu anda yazdığını** gösteriyor.
+
+## Uyarının birimi "alan" değil "kayıt"
+
+İstek alan bazında geldi ama alan bazında uyarmak **yanlış bir güven**
+verirdi. Sebebi kodda: kayıt edilirken formun **tamamı** yazılıyor —
+
+```python
+db.yaz(f"UPDATE olay SET {set_ifade}, zaman=?, kullanici_id=? WHERE id=?", ...)
+```
+
+`set_ifade` o formun bütün alanları. Yani iki kişi **farklı** alanları
+düzenlese bile, ikinci kaydeden birincinin alanını kendi tarayıcısının
+yüklediği eski değere geri çeviriyor. "Ben başka alandayım, sorun yok"
+demek tam da kaybın yaşandığı durum.
+
+Bu yüzden birim **kayıt**: bir oositin ICSI kaydı, bir cycle'ın OPU'su, bir
+hastanın künyesi. Farklı oosit, farklı aşama, farklı cycle → uyarı yok
+(denendi, dördü de doğru).
+
+## Uyarı engellemez
+
+Katı kilit klinikte yanlış olurdu:
+
+- Telefonun pili biterse kayıt kilitli kalır ve kimse giremez.
+- Acele eden personeli kayıt girmekten alıkoymak, çarpışmadan pahalıya gelir.
+
+Program haber veriyor, kararı kullanıcı veriyor — projenin "ekranda gizlemek
+yetmez ama insanın işini de kesme" dengesiyle aynı çizgide.
+
+## Bellekte, `lab.db`'de değil
+
+İki sebep:
+
+1. Bu veri **o anki sunucu çalışmasına** ait, klinik kayıt değil. Göç de
+   gerekmiyor.
+2. `lab.db` USB ile taşınıyor; "düzenleniyor" satırları tabloda olsaydı
+   bayat haberler de onunla birlikte klinikten eve giderdi.
+
+`_duzenleyenler` sözlüğü + `threading.Lock` (rotalar iş parçacığı havuzunda
+çalışıyor, eş zamanlı erişim gerçek). 45 saniye ses vermeyen bırakmış
+sayılıyor; sözlük `DUZENLEME_EN_COK` ile sınırlı.
+
+> **Sunucu tek süreç çalışıyor** (`baslat.py`). Birden çok işçiyle
+> çalıştırılırsa bu sözlük paylaşılmaz ve uyarı çalışmaz. O gün ortak bir
+> yere taşınması gerekir — bugünkü kurulumda gerek yok.
+
+## Kimlik sekme başına, kullanıcı başına değil
+
+Aynı kişi telefonundan ve masaüstünden aynı kaydı açtıysa **o da gerçek bir
+çarpışma**: iki tarayıcıdan ikisi de kaydeder ve biri ötekini siler. O yüzden
+kimlik sayfa başına üretilen rastgele bir dizgi; uyarı kendi kısa kodunu
+göstererek "öteki cihazında da açık" diyor.
+
+## Yalnızca izleyen ekran hiçbir şey yazmıyor
+
+İki ayrı yol var, bilerek:
+
+- `GET /degisim?anahtar=...` — damgayı **ve** o kaydı başka kim düzenliyorsa
+  onu döndürüyor. **Hiçbir şey yazmıyor.** İkinci bir yoklayıcı eklemek
+  yerine v6.54'ün isteğine bindirildi: klinikte birkaç telefon var, istek
+  sayısı iki katına çıkmasın.
+- `POST /duzenliyorum` — haber. Yalnızca **gerçekten düzenleyen** gönderiyor,
+  15 saniyede bir.
+
+Yani bir kaydı sadece izleyen ekran ne veritabanına ne belleğe dokunuyor.
+
+**Yanlışlıkla bir alana dokunup bırakan** haber vermeyi bırakıyor: hiçbir şey
+yazılmamış ve iki dakika dokunulmamışsa haber kesiliyor. Olmasa öteki kişi
+sonsuza kadar boşuna uyarılırdı.
+
+## Anahtarı şablon söylüyor
+
+`{% block kayitanahtari %}` — hangi kaydı düzenlediğini ekranın kendisi
+biliyor. Adresten türetmek denenmedi çünkü yanlış olurdu: aşama ekranı
+adressiz açıldığında ilk örneği seçiyor (v6.35), yani `/cycle/1/icsi` ile
+`/cycle/1/icsi?oosit=1` **aynı kaydı** gösterip farklı anahtar üretirdi ve
+uyarı kaçardı.
+
+Anahtar sunucuda `ANAHTAR_KALIBI`'ndan geçiyor (tuzak #9): kalıba uymayan
+istek hiç işlenmiyor. Ekrana basılan yazı yalnızca **veritabanındaki**
+`kisa_kod`; istemciden gelen metin hiç basılmıyor.
+
+**Bu sürümde kapsanan ekranlar:** OPU, androloji, denüdasyon, ICSI,
+fertilizasyon, gün 2/3, blastokist, gebelik, işlemi bitir, cycle formu,
+hasta künyesi. **Kapsam dışı:** vitrifikasyon, çözme ve transfer — orada tek
+ekranda birden çok örneğin kartı var (`_ornekkart.html` ızgarası), ekran
+bazında anahtar iki kişiyi **farklı embriyolarda** çalışırken de uyarırdı.
+Yanlış alarm, uyarıya olan güveni bitirir. İstenirse açık kartın örnek
+kodundan anahtar üretilerek eklenir.
+
+## Test edildi
+
+- İki tarayıcı bağlamı, iki farklı kullanıcı (TK ve AD), ikisi de aynı
+  cycle'ın OPU ekranı: kimse yazmazken **uyarı yok**; AD telefondan yazınca
+  TK'nin ekranında **"Bu kaydı şu anda AD da düzenliyor"**; TK de yazınca
+  AD'de karşılığı çıktı; AD sayfayı kapatınca uyarı **5 saniyede** kalktı.
+- Yanlış alarm aranıp bulunamadı: farklı aşama, farklı cycle, farklı kayıt
+  türü — üçünde de uyarı yok.
+- Kötü anahtarlar reddedildi (büyük harf, 70 karakter, `x;drop table`,
+  `../../etc`, boş). İki rota da oturumsuz erişimde `/giris`'e döndü.
+- İki izleyen ekran aynı anahtarı sorduğunda ikisi de boş liste aldı —
+  `GET` gerçekten yazmıyor.
+- 37 adres 200. Deneme verisi geri alındı.
+
+## Yol boyunca: `metinler.py`'de beş ölü anahtar
+
+Sözlükte beş anahtar iki kez tanımlıydı (`bekleyen_kare`, `dondurulmus`,
+`sagkalim`, `geri_don`, `son_kayitlar`). Python'da sonraki kazanıyor, yani
+öncekiler **ölü** satırlardı — ikisinin İngilizcesi de farklıydı ("Waiting
+frame" / "Pending frames"). Türkçeleri aynı olduğu için bugün bir şey
+bozmuyordu, ama birini düzeltip "neden değişmedi" demek için hazır bir
+tuzak. Ölü olanlar silindi, davranış birebir aynı kaldı (714 anahtar).
+
+## Sırada — bu uyarının yapmadığı şey
+
+Uyarı **haber veriyor**, kaybı **engellemiyor**: iki kişi uyarıya rağmen
+kaydederse ikinci yine birincinin üzerine yazıyor. Asıl güvenlik ağı şu
+olurdu: form basılırken kaydın imzası forma gömülür, kaydederken imza
+değişmişse kayıt **reddedilir** ve "bu kayıt sen düzenlerken değişti"
+denir. Kullanıcıya sorulacak: uyarı yeterli mi, yoksa bu da eklenecek mi?
