@@ -769,6 +769,109 @@ def klasor_gozat(request: Request, yol: str = ""):
                          "klasorler": alt, "fotograf": foto})
 
 
+# ---------------------------------------------- işletim sisteminin penceresi
+#
+# Kullanıcının isteği (v6.44): "gözata basınca işletim sisteminin kendi
+# ekranında bulalım". Pencere açılıyor, ama tarayıcı seçilen klasörün
+# **nerede olduğunu söylemiyor** -- güvenlik kuralı, `C:\fakepath` diye sahte
+# bir yol veriyor; Chrome'un `showDirectoryPicker` API'si de yalnızca adı
+# veriyor. Bu bir ayar değil, geçilemiyor.
+#
+# O yüzden ikinci adım burada: tarayıcı klasörün **adını ve içindeki dosya
+# adlarını** gönderiyor, program kendi makinesinde o klasörü arıyor. Ad
+# tutması yetmiyor -- içindeki dosyalardan en az biri de yerinde olmalı,
+# yoksa aynı adlı başka bir klasör seçilebilirdi.
+#
+# Bulamazsa ekran listeli gezgine düşüyor; o her yerde çalışıyor.
+
+ARAMA_SURESI = 4.0           # saniye; bulunamazsa listeye düşülüyor
+ARAMA_EN_COK_KLASOR = 40000  # gezilecek klasör tavanı
+ARAMA_EN_COK_ADAY = 8
+
+# Aramanın girmediği yerler: ya devasa ya da kamera klasörü olamaz.
+ARAMA_ATLA = {
+    "windows", "program files", "program files (x86)", "programdata",
+    "$recycle.bin", "system volume information", "node_modules",
+    "__pycache__", "proc", "sys", "dev", "snap",
+}
+
+
+def _arama_kokleri():
+    """Aranacak yerler, olasılık sırasıyla: önce ev, sonra sürücüler."""
+    kokler, gorulen = [], set()
+    surucu = _surucu_kokleri() if os.name == "nt" else []
+    for y in [Path.home(), KOK] + [Path(k) for k in surucu] + \
+             [Path("/Volumes"), Path("/media"), Path("/mnt")]:
+        try:
+            if y.is_dir() and str(y) not in gorulen:
+                gorulen.add(str(y))
+                kokler.append(y)
+        except OSError:
+            continue
+    return kokler
+
+
+def _klasoru_ara(ad: str, ornekler: list):
+    """Adı `ad` olan ve içinde `ornekler`den biri bulunan klasörleri arar."""
+    import time
+    bitis = time.monotonic() + ARAMA_SURESI
+    hedef = ad.lower()
+    adaylar, sayac, zaman_doldu = [], 0, False
+
+    for kok in _arama_kokleri():
+        for dizin, altlar, _ in os.walk(kok, onerror=lambda e: None):
+            sayac += 1
+            if sayac > ARAMA_EN_COK_KLASOR or time.monotonic() > bitis:
+                zaman_doldu = True
+                break
+            # Gezilmeyecek dalları listeden çıkarmak `os.walk`'a oraya hiç
+            # girmemesini söylüyor -- asıl hızlanma burada.
+            altlar[:] = [a for a in altlar
+                         if not a.startswith(".") and a.lower() not in ARAMA_ATLA]
+            if os.path.basename(dizin).lower() != hedef:
+                continue
+            if any((Path(dizin) / o).exists() for o in ornekler):
+                if dizin not in adaylar:
+                    adaylar.append(dizin)
+                if len(adaylar) >= ARAMA_EN_COK_ADAY:
+                    return adaylar, False
+        if zaman_doldu or len(adaylar) >= ARAMA_EN_COK_ADAY:
+            break
+    return adaylar, zaman_doldu
+
+
+@uygulama.post("/klasorler/bul")
+async def klasor_bul(request: Request):
+    """Tarayıcının verdiği klasör adını bu makinede arar. Yalnızca yönetici."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    try:
+        gelen = await request.json()
+    except ValueError:
+        return JSONResponse({"adaylar": [], "sebep": "okunamadi"})
+
+    ad = str(gelen.get("ad") or "").strip()
+    # Ad tek bir klasör adı olmalı: yol ayıracı gelmiş olamaz.
+    if not ad or len(ad) > 120 or "/" in ad or "\\" in ad or ad in (".", ".."):
+        return JSONResponse({"adaylar": [], "sebep": "okunamadi"})
+
+    ornekler = []
+    for o in (gelen.get("dosyalar") or [])[:5]:
+        o = str(o).replace("\\", "/").strip("/")
+        if o and ".." not in o.split("/"):
+            ornekler.append(o)
+    if not ornekler:
+        # Boş klasör seçilmiş: tarayıcı hiçbir dosya adı vermiyor, aramanın
+        # doğrulayacak bir şeyi yok.
+        return JSONResponse({"adaylar": [], "sebep": "bos"})
+
+    adaylar, zaman_doldu = _klasoru_ara(ad, ornekler)
+    return JSONResponse({"adaylar": adaylar,
+                         "sebep": "" if adaylar else
+                                  ("sure" if zaman_doldu else "yok")})
+
+
 @uygulama.post("/klasorler")
 def klasorler_kaydet(request: Request,
                      goruntu_kaynak_klasor: str = Form(""),

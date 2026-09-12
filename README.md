@@ -4611,3 +4611,84 @@ fotoğraf var" denen klasörde kuyrukta 34 kare çıkardı.
 - Yönetici olmayan hesap gezgine giremedi (303)
 - 390 px'te yatay taşma yok, JS hatası yok (tek 404 `favicon.ico`)
 - İki dilde metinler yerinde
+
+---
+
+# v6.44 — Gözat işletim sisteminin kendi penceresini açıyor
+
+## İstek
+
+Kullanıcı v6.43'teki listeyi beğenmedi: "fotoğraf kaydederken kullandığımız
+tarzda... gözata basınca işletim sisteminin kendi ekranında bulalım."
+
+## Neden tek başına olmuyor
+
+Tarayıcı o pencereyi **açabiliyor** (`<input type="file" webkitdirectory>`)
+ama seçilen klasörün **nerede olduğunu sayfaya söylemiyor** — `C:\fakepath`
+diye sahte bir yol veriyor. Chrome'un yeni `showDirectoryPicker()` API'si de
+yalnızca klasörün *adını* veriyor, yolunu değil. Bu bir ayar değil, bütün
+tarayıcıların güvenlik kuralı: bir web sayfası ziyaretçinin disk düzenini
+öğrenemez.
+
+## Çözüm: pencere + arama
+
+İki adım:
+
+1. **Gözat** işletim sisteminin kendi klasör penceresini açıyor. Kullanıcı
+   tanıdığı ekranda geziyor, klasörü seçiyor.
+2. Tarayıcı bize klasörün **adını** ve içindeki **dosya adlarını** veriyor
+   (`webkitRelativePath`: `Snapshot/2026-09-09/x.jpg`). Program o klasörü
+   kendi makinesinde **arıyor** ve yolu alana yazıyor.
+
+**Ad tutması yetmiyor**, içindeki dosyalardan en az biri de yerinde olmalı.
+Yoksa aynı adlı başka bir klasör seçilirdi — laboratuvarda "Snapshot" adında
+birkaç klasör olması çok olası.
+
+Sonuç üç türlü:
+- **Tek aday** → yol kendiliğinden yazılıyor.
+- **Birden çok aday** → hepsi listeleniyor, kullanıcı doğru olanı seçiyor.
+- **Bulunamadı** → sebebi yazılıyor ve **listeli gezgin açılıyor**; o her
+  yerde çalışıyor.
+
+## İki düğme, kullanıcının kararı
+
+**Gözat** (işletim sisteminin penceresi) ve **Listeden seç** (v6.43'ün
+gezgini) yan yana. Kullanıcı "ikisi de olsun" dedi ve doğrusu bu: birincisi
+tanıdık ama her durumda sonuç vermiyor, ikincisi her yerde çalışıyor.
+
+**iOS Safari'de Gözat basılmıyor.** Orada `webkitdirectory` yok sayılıyor ve
+pencere klasör değil tek dosya seçiyor; çalışmayan bir düğme, olmayan bir
+düğmeden kötü. Destek `'webkitdirectory' in document.createElement('input')`
+ile bakılıyor, desteklenmiyorsa düğme gizleniyor ve yalnızca liste kalıyor.
+
+## Arama sınırları
+
+- Gezilen yerler: önce ev klasörü, sonra program klasörü, Windows'ta sürücü
+  harfleri, ayrıca `/Volumes`, `/media`, `/mnt`. **POSIX'te `/` kökünden
+  aranmıyor** — süre bütçesi sistem klasörlerinde biter, kullanıcının
+  klasörüne hiç ulaşılmazdı.
+- `Windows`, `Program Files`, `ProgramData`, `$Recycle.Bin`, `node_modules`,
+  `__pycache__`, `proc`, `sys`, `dev` ve nokta ile başlayanlar atlanıyor. Bu
+  dallar `os.walk`'ın listesinden **çıkarılıyor**, yani oraya hiç girilmiyor —
+  asıl hızlanma orada.
+- 4 saniye ve 40000 klasör tavanı, en çok 8 aday. Süre dolarsa liste açılıyor.
+- Klasör adı tek parça olmalı: içinde `/` ya da `\` varsa istek reddediliyor.
+  Örnek dosya yollarında `..` kabul edilmiyor.
+- **Yalnızca yönetici.**
+
+## Adlandırma
+
+Kullanıcı "Klasörler yerine Dosyalar olsun mu" diye sordu; etiketlerin tam
+karşılığı sorulunca **"klasör kalsın"** dedi. Programda "dosya" zaten iki şey
+demek — hastanın kaydı (dosya no) ve yüklenen `.xlsx` — üçüncü bir anlam
+karışıklık yaratırdı.
+
+## Test edildi
+
+- Gerçek klasör seçildi → tek aday bulundu, yol alana yazıldı
+- Aynı adlı iki klasör kuruldu → ikisi de listelendi, seçilen alana yazıldı
+- Aranmayan bir yerdeki klasör seçildi → açıklama çıktı ve liste açıldı
+- Boş dosya listesi, yol ayıracı içeren ad ve bozuk JSON: üçü de reddedildi
+- Yönetici olmayan hesap `/klasorler/bul`'a giremedi (303)
+- 390 ve 1440 px'te yatay taşma yok, JS hatası yok, liste hâlâ çalışıyor
+- 11 adres 200, iki dilde metinler yerinde

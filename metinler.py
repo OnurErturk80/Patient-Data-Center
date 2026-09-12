@@ -1305,6 +1305,28 @@ METINLER = {
     "klasor_okunamadi": {"tr": "Klasör okunamadı.",
                          "en": "The folder could not be read."},
     "yukleniyor": {"tr": "Yükleniyor…", "en": "Loading…"},
+    # İşletim sisteminin kendi penceresi + arama (v6.44). Tarayıcı seçilen
+    # klasörün yerini vermediği için program onu bu makinede arıyor.
+    "listeden_sec": {"tr": "Listeden seç", "en": "Pick from list"},
+    "klasor_araniyor": {"tr": "\u201c{ad}\u201d bu bilgisayarda aranıyor…",
+                        "en": "Looking for \u201c{ad}\u201d on this computer…"},
+    "klasor_bulundu": {"tr": "Klasör bulundu, yol yukarıya yazıldı.",
+                       "en": "Folder found, the path is filled in above."},
+    "klasor_cok_aday": {
+        "tr": "Bu adda birden çok klasör var. Doğru olanı seçin:",
+        "en": "There is more than one folder with this name. Pick the right one:"},
+    "klasor_bulunamadi": {
+        "tr": "\u201c{ad}\u201d bu bilgisayarda bulunamadı. Program yalnızca "
+              "kendi çalıştığı bilgisayara bakabiliyor — klasör başka bir "
+              "makinedeyse aşağıdaki listeden seçin.",
+        "en": "\u201c{ad}\u201d was not found on this computer. The program can "
+              "only look at the computer it runs on — if the folder is on "
+              "another machine, pick it from the list below."},
+    "klasor_bos_secildi": {
+        "tr": "Seçilen klasörde dosya yok; program onu bu bilgisayarda "
+              "arayamıyor. Aşağıdaki listeden seçin.",
+        "en": "The selected folder has no files, so the program cannot find "
+              "it on this computer. Pick it from the list below."},
     "klasorleri_kaydet": {"tr": "Klasörleri kaydet", "en": "Save folders"},
     "klasor_kaydedildi": {"tr": "Klasörler kaydedildi.", "en": "Folders saved."},
     "klasor_hata_kamera": {

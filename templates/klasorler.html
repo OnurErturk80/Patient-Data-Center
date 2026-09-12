@@ -20,14 +20,25 @@
       <label for="{{ y.anahtar }}">{{ metin(y.anahtar) }}</label>
       <input id="{{ y.anahtar }}" name="{{ y.anahtar }}" type="text"
              value="{{ y.yol }}" autocomplete="off" spellcheck="false">
-      <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+      {# İki yol (v6.44, kullanıcının kararı "ikisi de olsun"):
+         "Gözat" işletim sisteminin kendi penceresini açıyor, program seçilen
+         klasörü bu makinede arıyor; "Listeden seç" programın kendi gezgini.
+         Birincisi tanıdık ama telefonda pencere açılmıyor ve klasör
+         bulunamayabiliyor -- o zaman ikincisine düşülüyor. #}
+      <input type="file" class="yerelsec" data-alan="{{ y.anahtar }}"
+             webkitdirectory directory multiple hidden>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;
+                  flex-wrap:wrap">
+        <button type="button" class="minidugme yerelac" data-alan="{{ y.anahtar }}">
+          {{ metin("gozat") }}</button>
         <button type="button" class="minidugme ikincil gozat"
                 data-alan="{{ y.anahtar }}">
-          {{ metin("gozat") }}</button>
+          {{ metin("listeden_sec") }}</button>
         <span class="ipucu"
               style="margin:0{% if not y.var %};color:#a11f1f{% endif %}">
           {{ metin("klasor_var") if y.var else metin("klasor_yok") }}</span>
       </div>
+      <div class="arama ipucu" id="ar_{{ y.anahtar }}" hidden></div>
 
       {# Gezgin: sunucunun klasörleri. Tarayıcı sayfaya gerçek yolu vermediği
          için isletim sisteminin kendi penceresi acilamiyor. #}
@@ -110,6 +121,100 @@
       yukle(d.closest('.gezgin'), yol);
     });
     return d;
+  }
+
+  // --- isletim sisteminin kendi penceresi ---------------------------------
+  // Pencere aciliyor ama tarayici secilen klasorun YERINI vermiyor; elimize
+  // yalnizca klasorun adi ve icindeki dosya adlari geciyor. Onlari sunucuya
+  // gonderip klasoru bu makinede aratiyoruz.
+  function duyuru(alanAdi, yazi, bekle) {
+    var d = document.getElementById('ar_' + alanAdi);
+    d.hidden = false;
+    d.textContent = yazi;
+    d.classList.toggle('bekliyor', !!bekle);
+    return d;
+  }
+
+  // iOS Safari'de klasor secici yok: nitelik yok sayiliyor ve pencere tek
+  // dosya seciyor, webkitRelativePath bos geliyor. Orada dugmeyi hic
+  // gostermiyoruz -- calismayan bir dugme, olmayan bir dugmeden kotu.
+  var klasorSecilebilir = 'webkitdirectory' in document.createElement('input');
+
+  document.querySelectorAll('.yerelac').forEach(function (b) {
+    if (!klasorSecilebilir) { b.hidden = true; return; }
+    b.addEventListener('click', function () {
+      document.querySelector('.yerelsec[data-alan="' + b.dataset.alan + '"]').click();
+    });
+  });
+
+  document.querySelectorAll('.yerelsec').forEach(function (g) {
+    g.addEventListener('change', function () {
+      var alanAdi = g.dataset.alan;
+      var dosyalar = Array.prototype.slice.call(g.files || []);
+      if (!dosyalar.length) {
+        duyuru(alanAdi, {{ metin("klasor_bos_secildi")|tojson }});
+        return;
+      }
+      // webkitRelativePath: "Snapshot/2026-09-09/x.jpg". Ilk parca klasorun
+      // adi, gerisi icerideki goreli yol.
+      var yol0 = dosyalar[0].webkitRelativePath || '';
+      var ad = yol0.split('/')[0];
+      var ornek = [];
+      for (var i = 0; i < dosyalar.length && ornek.length < 5; i++) {
+        var p = (dosyalar[i].webkitRelativePath || '').split('/').slice(1).join('/');
+        if (p) ornek.push(p);
+      }
+      g.value = '';                       // ayni klasor tekrar secilebilsin
+      if (!ad || !ornek.length) {
+        duyuru(alanAdi, {{ metin("klasor_bos_secildi")|tojson }});
+        return;
+      }
+
+      duyuru(alanAdi, {{ metin("klasor_araniyor")|tojson }}.replace('{ad}', ad), true);
+      fetch('/klasorler/bul', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ad: ad, dosyalar: ornek})
+      })
+        .then(function (c) { return c.ok ? c.json() : Promise.reject(c.status); })
+        .then(function (d) { sonuc(alanAdi, ad, d); })
+        .catch(function () {
+          duyuru(alanAdi, {{ metin("klasor_okunamadi")|tojson }});
+        });
+    });
+  });
+
+  function sonuc(alanAdi, ad, d) {
+    var alan = document.getElementById(alanAdi);
+    if (d.adaylar && d.adaylar.length === 1) {
+      alan.value = d.adaylar[0];
+      duyuru(alanAdi, {{ metin("klasor_bulundu")|tojson }});
+      return;
+    }
+    if (d.adaylar && d.adaylar.length > 1) {
+      var k = duyuru(alanAdi, {{ metin("klasor_cok_aday")|tojson }});
+      d.adaylar.forEach(function (y) {
+        var s = document.createElement('button');
+        s.type = 'button';
+        s.className = 'gzoge';
+        s.textContent = y;
+        s.addEventListener('click', function () {
+          alan.value = y;
+          duyuru(alanAdi, {{ metin("klasor_bulundu")|tojson }});
+        });
+        k.appendChild(s);
+      });
+      return;
+    }
+    // Bulunamadi: listeli gezgin her yerde calisiyor, ona dus.
+    duyuru(alanAdi, (d.sebep === 'bos'
+      ? {{ metin("klasor_bos_secildi")|tojson }}
+      : {{ metin("klasor_bulunamadi")|tojson }}.replace('{ad}', ad)));
+    var kap = document.getElementById('gz_' + alanAdi);
+    if (acik && acik !== kap) acik.hidden = true;
+    kap.hidden = false;
+    acik = kap;
+    yukle(kap, alan.value);
   }
 
   document.querySelectorAll('.gozat').forEach(function (b) {

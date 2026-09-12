@@ -364,6 +364,21 @@ form { margin: 0; }
 .gezgin .gzoge:active { background: var(--vurgu-ac); }
 .gezgin .gzbos { padding: 10px; font-size: 13px; color: var(--ink-3); }
 
+/* Isletim sisteminin penceresinden secilen klasorun aranmasi (v6.44).
+   Pencere klasorun YERINI vermiyor, program onu bu makinede ariyor;
+   bu satir arama sonucunu soyluyor. */
+.arama { margin-top: 6px; }
+.arama.bekliyor { color: var(--vurgu); }
+.arama .gzoge {
+  display: block; width: 100%; text-align: left;
+  min-height: 40px; padding: 9px 10px; margin-top: 4px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--yuzey); color: var(--ink);
+  font-family: inherit; font-size: 13px; cursor: pointer;
+  word-break: break-all;
+}
+.arama .gzoge:active { background: var(--vurgu-ac); }
+
 /* --- düğmeler --- */
 .dugme {
   display: block;

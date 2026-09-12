@@ -626,6 +626,21 @@ oraya yalnızca bağlantı kondu — dil seçimindeki düzenin aynısı.
   tek sayı fotoğraf sayısı. Bu üçünü gevşetme.
 - **Fotoğraf sayımı `goruntuler.UZANTILAR` ile.** İkinci bir uzantı listesi
   yazma: gezginin saydığıyla kuyruğun aldığı ayrı düşer.
+- **İki düğme var, ikisi de kalsın** (v6.44, kullanıcının kararı): **Gözat**
+  işletim sisteminin kendi klasör penceresini açıyor, **Listeden seç** programın
+  gezginini. Tarayıcı seçilen klasörün **yerini vermediği** için Gözat'ın ikinci
+  adımı `POST /klasorler/bul`: klasörün adı ve içindeki dosya adları gelir,
+  program onu bu makinede arar. **Ad tutması yetmez** — içindeki dosyalardan
+  biri de yerinde olmalı, yoksa aynı adlı başka klasör seçilirdi. Bulunamazsa
+  listeli gezgine düşülür; o her yerde çalışıyor.
+- **iOS Safari'de Gözat gizlenir** (`'webkitdirectory' in
+  document.createElement('input')`): orada nitelik yok sayılıp tek dosya
+  seçiliyor. Çalışmayan düğme bırakma.
+- Arama sınırları `ARAMA_SURESI` / `ARAMA_EN_COK_KLASOR` / `ARAMA_ATLA`'da;
+  **POSIX'te `/` kökünden aranmaz** (süre sistem klasörlerinde biterdi).
+  Klasör adında `/` veya `\` varsa istek reddedilir.
+- **Adlar "klasör" kalacak** (kullanıcının kararı, 2026-09-12): "dosya"
+  programda zaten hastanın kaydı (dosya no) ve yüklenen `.xlsx`.
 
 **"Şifremi unuttum" hiçbir şey sıfırlamaz.** Sistemde e-posta/SMS yok, kimliği
 doğrulayacak ikinci kanal yok; doğrulamasız sıfırlama iç ağdaki herkese yönetici
