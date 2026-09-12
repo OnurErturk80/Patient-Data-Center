@@ -24,6 +24,7 @@
 <a class="dugme ikincil" href="/cryo">Cryo haritası</a>
 <a class="dugme ikincil" href="/dil">{{ metin("dil_secimi") }}</a>
 <a class="dugme ikincil" href="/formlar">{{ metin("lab_formlari") }}</a>
+<a class="dugme ikincil" href="/klasorler">{{ metin("klasorler") }}</a>
 
 {# Panel salt okunur; bu da bir okuma -- veriyi değiştirmiyor, dosyaya
    yazıyor. Yönetici işi: ötekiler ekrandaki veriyi verir, bu laboratuvarın
@@ -87,7 +88,8 @@
   {% endfor %}
   <div class="alan" style="border:0">
     <div class="ipucu">
-      Değiştirmek için terminalden <code>python3 yerel_kur.py</code>.
+      Değiştirmek için <a href="/klasorler">{{ metin("klasorler") }}</a>
+      ekranı (terminalden <code>python3 yerel_kur.py</code> da olur).
       Yedek klasörünün <b>farklı bir diskte</b> olması gerekir.
     </div>
   </div>

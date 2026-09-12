@@ -114,6 +114,10 @@ python3 liste_duzenle.py             # seçim listelerini gör / temizle
 python3 yerel_kur.py                 # bu makinenin klasör yollarını ayarla
 ```
 
+Klasör yollarını (kamera / arşiv / yedek) **ekrandan** da ayarlayabilirsin:
+yönetici olarak `/yonetim` → **Klasörler** (v6.41). `yerel_kur.py` aynı işi
+terminalden yapıyor; ikisi de aynı dosyaya yazıyor.
+
 Hiçbiri veri silmez.
 
 ---

@@ -46,6 +46,32 @@
   <a class="dugme ikincil" href="/formlar/etiketler">{{ metin("form_etiketleri") }}</a>
 </div>
 
+{# Programla gelen formlar: bu programı yazan laboratuvarın kurum belgeleri.
+   Başka bir laboratuvarda ekranda durmaları yanlış -- personel yanlışlıkla
+   basarsa ortaya başka bir kurumun formunda gerçek hasta verisi çıkar.
+   Silinmiyor, gizleniyor: kalıp programın dosyasında, veritabanında değil. #}
+{% if gomulu %}
+<div class="kart" style="margin-top:14px">
+  <h2>{{ metin("gomulu_formlar") }}</h2>
+  <div class="ipucu" style="padding:0 14px">{{ metin("gomulu_form_ipucu") }}</div>
+  {% for f in gomulu %}
+  <div class="satir" style="cursor:default">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                gap:8px;flex-wrap:wrap">
+      <div>
+        <b>{{ f.baslik }}</b>
+        {% if f.gizli %}<span class="rozet">{{ metin("form_gizli") }}</span>{% endif %}
+      </div>
+      <form method="post" action="/formlar/gomulu/{{ f.ad }}/gizle">
+        <button class="minidugme" type="submit">
+          {{ metin("form_goster") if f.gizli else metin("form_gizle") }}</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="kart" style="margin-top:14px">
   <h2>{{ metin("form_yuklenenler") }}{% if formlar %} ({{ formlar|length }}){% endif %}</h2>
   {% for f in formlar %}

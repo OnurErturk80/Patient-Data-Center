@@ -40,8 +40,15 @@ import re
 _YOL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     "form_kalip.json")
 
-with open(_YOL, encoding="utf-8") as _d:
-    KALIPLAR = json.load(_d)
+# Dosya yoksa program yine calisir, yalnizca gomulu form olmaz. Ticari
+# dagitimda bu laboratuvarin kurum formlari depodan cikacak (form_kalip.json
+# + static/form_amblem.png silinir); o zaman burada kod degistirmek
+# gerekmesin diye eksiklige tahammul ediyor. Her lab kendi formunu yukluyor.
+try:
+    with open(_YOL, encoding="utf-8") as _d:
+        KALIPLAR = json.load(_d)
+except (OSError, ValueError):
+    KALIPLAR = {}
 
 # Formun kâğıt yönü ve yazdırma alanına sığması için ölçek hesabında
 # kullanılan yükseklik (punto). A4: dikey 297mm, yatay 210mm; kenar payı 8mm.

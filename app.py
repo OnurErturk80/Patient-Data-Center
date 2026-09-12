@@ -646,6 +646,87 @@ def dil_kaydet(request: Request, dil_kodu: str = Form(...)):
     return RedirectResponse("/dil?kaydedildi=1", status_code=303)
 
 
+# ----------------------------------------------------- bu makinenin klasörleri
+#
+# Kamera klasörünü (mikroskobun snapshot attığı yer) yöneticinin ekrandan
+# seçebilmesi için (v6.41, kullanıcının isteği). Önceden tek yol terminaldi:
+# `python yerel_kur.py`. Görüntü eşlemesi kuracak bir laboratuvar için bu
+# fazla yüksek bir eşik -- kamera klasörü yanlışsa kuyruk hep boş görünür.
+#
+# **Ayar veritabanında değil `yerel_ayar.json`'da**, makine adına göre
+# bölümlenmiş: `lab.db` USB ile taşınıyor, klinik bilgisayarı Mac'in
+# yollarını kullanmaya başlamamalı. Yazan tek yer `db.yerel_yaz()`.
+#
+# `/yonetim` salt okunur kaldı; bu ayrı bir ekran, panelden yalnızca
+# bağlantı veriliyor (dil seçiminde olduğu gibi).
+
+KLASOR_ALANLARI = ("goruntu_kaynak_klasor", "goruntu_arsiv_klasor",
+                   "yedek_klasor")
+
+# Hata anahtarları adresten geliyor; `metin()` bulamadığını olduğu gibi
+# döndürdüğü için beyaz listeden geçiyor (tuzak #9).
+KLASOR_HATALARI = {"klasor_hata_kamera", "klasor_hata_arsiv"}
+
+
+@uygulama.get("/klasorler")
+def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    yollar = []
+    for anahtar in KLASOR_ALANLARI:
+        yol = db.ayar(anahtar, "")
+        yollar.append({"anahtar": anahtar, "yol": yol,
+                       "var": bool(yol) and Path(yol).is_dir()})
+    return sablon.TemplateResponse(request, "klasorler.html", {
+        "yollar": yollar, "makine": db.MAKINE,
+        "hata": metinler.t(hata) if hata in KLASOR_HATALARI else "",
+        "kaydedildi": kaydedildi,
+        "kullanici": request.state.kullanici,
+    })
+
+
+@uygulama.post("/klasorler")
+def klasorler_kaydet(request: Request,
+                     goruntu_kaynak_klasor: str = Form(""),
+                     goruntu_arsiv_klasor: str = Form(""),
+                     yedek_klasor: str = Form("")):
+    """Üç klasörün üçü de farklı davranıyor, sebepleri farklı.
+
+    - **Kamera klasörünü program yalnızca okur**; oraya kareleri mikroskop
+      yazıyor. Var olmayan bir yol kabul edilmiyor: yoksa yazım hatasıdır ve
+      kuyruk aylarca boş görünür. Klasörü açmak işe yaramaz, kamera oraya
+      yazmıyor olurdu.
+    - **Arşive program yazıyor**, o yüzden yoksa oluşturuluyor.
+    - **Yedek klasörü olduğu gibi kaydediliyor**, oluşturulmuyor: çoğu zaman
+      takılı olmayan bir disk (klinikte `E:`). Mac'te `E:\yedek` adında klasör
+      açmak v6.8'de başa geldi; `yedek.py` yolu çalışma anında doğruluyor.
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+
+    kamera = goruntu_kaynak_klasor.strip()
+    arsiv = goruntu_arsiv_klasor.strip()
+    yedek = yedek_klasor.strip()
+
+    if kamera and not Path(kamera).is_dir():
+        return RedirectResponse("/klasorler?hata=klasor_hata_kamera",
+                                status_code=303)
+    if arsiv:
+        try:
+            Path(arsiv).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            print(f"arsiv klasoru olusturulamadi: {e}")
+            return RedirectResponse("/klasorler?hata=klasor_hata_arsiv",
+                                    status_code=303)
+
+    db.yerel_yaz({"goruntu_kaynak_klasor": kamera,
+                  "goruntu_arsiv_klasor": arsiv,
+                  "yedek_klasor": yedek})
+    return RedirectResponse("/klasorler?kaydedildi=1", status_code=303)
+
+
 @uygulama.get("/yonetim")
 def yonetim_ekran(request: Request):
     """Yönetici paneli — sistemin durumu tek ekranda, hepsi salt okunur.
@@ -1519,7 +1600,10 @@ def cycle_detay(request: Request, cycle_id: int):
          # Aşamalar arasında geçen süre (v6.37). Ayrı kayıt yok: aşama
          # ekranlarında elle girilen saatlerden hesaplanıyor.
          "cizelge": formlar.zaman_cizelgesi(cycle_id),
-        "lab_formlari": lab_formlari(),
+         # Basılabilir formlar: programla gelenler (gizlenmemişler) +
+         # laboratuvarın kendi yükledikleri.
+         "gomulu_formlar": gomulu_formlar(),
+         "lab_formlari": lab_formlari(),
          "bugun": _dt.now().strftime("%Y-%m-%d"),
          "asamalar": cycle_asamalari(cycle["cycle_tipi"]),
          # yan menü aşama ekranlarındakiyle aynı listeden beslensin
@@ -2382,11 +2466,33 @@ def disari_tumu(request: Request):
 # yazılacakları hazırlayan fonksiyon, kalıbın adı (`form_kalip.json`), indirilen
 # dosyanın kökü ve Excel sayfasının adı.
 FORMLAR = {
-    "ozet": (formlar.ozet_verisi, formlar.ozet_dolgu, "ozet",
-             "form_ozet", "Embriyoloji Özet Formu"),
-    "artlab": (formlar.artlab_verisi, formlar.artlab_dolgu, "artlab",
-               "form_artlab", "ART Lab. Raporu"),
+    ad: satir for ad, satir in (
+        ("ozet", (formlar.ozet_verisi, formlar.ozet_dolgu, "ozet",
+                  "form_ozet", "Embriyoloji Özet Formu")),
+        ("artlab", (formlar.artlab_verisi, formlar.artlab_dolgu, "artlab",
+                    "form_artlab", "ART Lab. Raporu")),
+    ) if satir[2] in form_kalip.KALIPLAR
 }
+
+
+# Gömülü formlar **bu** laboratuvarın kurum belgeleri: doküman kodu, alan
+# adları ve amblem onun kalite sisteminden. Başka bir laboratuvarda ekranda
+# durmaları yanlış -- personel yanlışlıkla basarsa ortaya başka bir kurumun
+# formunda gerçek hasta verisi çıkar. O yüzden gizlenebiliyorlar (v6.41).
+#
+# Silinmiyor, gizleniyor: kalıp programın dosyasında, veritabanında değil.
+# Ayar `ayarlar` tablosunda, varsayılanı görünür -- bu laboratuvarda hiçbir
+# şey değişmiyor.
+def gomulu_form_gizli(ad: str) -> bool:
+    return db.ayar("form_gizli_" + ad) == "1"
+
+
+def gomulu_formlar(yalniz_gorunen=True):
+    """Programla gelen formlar. Kalıbı olmayan (ticari dağıtımda silinen) yok."""
+    return [{"ad": ad, "baslik": metinler.t("form_" + ad),
+             "gizli": gomulu_form_gizli(ad)}
+            for ad in FORMLAR
+            if not (yalniz_gorunen and gomulu_form_gizli(ad))]
 
 
 @uygulama.get("/form/{ad}/{cycle_id}")
@@ -2473,6 +2579,7 @@ def lab_formlari_ekrani(request: Request, hata: str = "", eklendi: str = ""):
     return sablon.TemplateResponse(
         request, "lab_formlari.html",
         {"formlar": lab_formlari(yalniz_aktif=False),
+         "gomulu": gomulu_formlar(yalniz_gorunen=False),
          "hata": metinler.t(hata) if hata in FORM_HATALARI else "",
          "eklendi": eklendi,
          "kullanici": request.state.kullanici},
@@ -2551,6 +2658,24 @@ def lab_formu_gizle(request: Request, form_id: int):
         return red
     db.yaz("UPDATE lab_formu SET aktif_mi = 1 - aktif_mi "
            "WHERE id = ? AND lab_id = ?", (form_id, db.LAB_ID))
+    return RedirectResponse("/formlar", status_code=303)
+
+
+@uygulama.post("/formlar/gomulu/{ad}/gizle")
+def gomulu_form_gizle(request: Request, ad: str):
+    """Programla gelen formu cycle ekranından kaldırır/geri getirir.
+
+    Adres parçası `FORMLAR` beyaz listesinden geçiyor: ayar anahtarı adresten
+    gelen metinle kurulsaydı `ayarlar` tablosuna istenen satır yazılırdı.
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    if ad in FORMLAR:
+        db.yaz("INSERT INTO ayarlar (lab_id, anahtar, deger) VALUES (?,?,?) "
+               "ON CONFLICT (lab_id, anahtar) DO UPDATE SET deger = excluded.deger",
+               (db.LAB_ID, "form_gizli_" + ad,
+                "0" if gomulu_form_gizli(ad) else "1"))
     return RedirectResponse("/formlar", status_code=303)
 
 

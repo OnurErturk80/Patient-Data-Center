@@ -169,9 +169,12 @@
 </div>
 {% endif %}
 
-{# Kurumun zorunlu formu, verisi dolu; yazdırılabilir sayfa olarak açılıyor. #}
-<a class="dugme ikincil" href="/form/ozet/{{ c.id }}">{{ metin("form_ozet") }}</a>
-<a class="dugme ikincil" href="/form/artlab/{{ c.id }}">{{ metin("form_artlab") }}</a>
+{# Programla gelen formlar, verisi dolu; yazdırılabilir sayfa olarak açılıyor.
+   Yönetici bunları /formlar'dan gizleyebiliyor: başka bir laboratuvarda bu
+   kurumun belgesini basmak yanlış olur (v6.41). #}
+{% for f in gomulu_formlar %}
+<a class="dugme ikincil" href="/form/{{ f.ad }}/{{ c.id }}">{{ f.baslik }}</a>
+{% endfor %}
 
 {# Laboratuvarın kendi yüklediği formlar (yönetici alanından). Yoksa hiç
    düğme basılmıyor -- bu laboratuvarda öyle. #}

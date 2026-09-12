@@ -4337,3 +4337,115 @@ Taşındıktan sonra gömülü kalıp yeniden üretildi: çıktı bayt bayt ayn�
 - Yönetici olmayan kullanıcı yükleme/silmeden döndürülüyor, basmaya giriyor
 - 45 adres 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
 - Test formu ve oturumları geri alındı (lab_formu 0, 1 hasta / 2 cycle)
+
+---
+
+# v6.41 — gömülü formlar gizlenebiliyor, klasörler ekrandan ayarlanıyor
+
+## Sorun: başka bir laboratuvar benim formumdan kurtulamıyordu
+
+v6.40 başka bir laboratuvarın kendi formunu yüklemesini sağladı ama gömülü iki
+formu **kaldıramıyordu**: cycle ekranı o iki düğmeyi her zaman basıyordu.
+Kullanıcı sordu — "başka bir laba verdiğimde default benim formlarım mı
+çıkacak" — cevap evet ve bu bir kusur.
+
+Kusurun ağırlığı şurada: DH.FR.91 ve DH.FR.107 bu kullanıcının kurumunun
+**kalite sistemi belgeleri**; üzerinde o kurumun doküman kodu, revizyon tarihi
+ve üniversitenin ambleminin var. Başka bir hastanenin embriyoloğu yanlışlıkla o
+düğmeye bastığında ortaya çıkan şey "yanlış form" değil, **ait olmadığı kurumun
+belgesinde gerçek hasta verisi**.
+
+## Çözüm: gizleme, silme değil
+
+`/formlar` ekranına "Programla gelen formlar" kartı eklendi; iki formun
+yanında Gizle/Göster düğmesi var. Gizlenen form cycle ekranında görünmüyor.
+
+Silme değil gizleme, çünkü kalıp **programın dosyasında** (`form_kalip.json`),
+veritabanında değil — silinecek bir kayıt yok. Ayar `ayarlar` tablosunda
+(`form_gizli_ozet`, `form_gizli_artlab`), varsayılanı görünür: bu
+laboratuvarda hiçbir şey değişmiyor.
+
+Adres parçası `FORMLAR` beyaz listesinden geçiyor. Geçmeseydi ayar anahtarı
+adresten gelen metinle kurulurdu ve `ayarlar` tablosuna istenen satır
+yazılabilirdi.
+
+**Gizli form adresten hâlâ basılabiliyor** (`/form/ozet/5`). Bilerek: yüklenen
+formlarda da öyle ve gizleme bir yetki sınırı değil, ekran düzeni. Kimse o
+adresi elle yazmıyor; yetki sınırı `yonetici_kontrol()`'de.
+
+## Ticari dağıtım: gömülü form hiç olmayacak
+
+Kullanıcının kararı (2026-09-12): programı ticari olarak verirse **hiçbir form
+gömülü gelmeyecek**, kendi formları da depodan çıkacak, her laboratuvar
+kendininkini yükleyecek.
+
+O gün kod değiştirmek gerekmesin diye bugün hazırlandı:
+
+- `form_kalip.py` dosyayı bulamazsa `KALIPLAR = {}` ile devam ediyor, hata
+  vermiyor.
+- `FORMLAR` yalnızca **kalıbı olan** formlardan kuruluyor.
+- `gomulu_formlar()` boş dönünce cycle ekranında düğme, `/formlar`'da kart
+  basılmıyor.
+
+Yani ticari sürüm iki dosyayı silmekten ibaret: `form_kalip.json` ve
+`static/form_amblem.png` (istenirse `formlar_asil/` de). **Denendi:** ikisi
+yokken ana ekran, cycle, `/formlar` ve `/yonetim` 200 veriyor, form düğmesi
+çıkmıyor, `/form/ozet/2` cycle'a dönüyor.
+
+## Kamera klasörü artık ekrandan seçiliyor
+
+Görüntü eşlemesi kuracak laboratuvarın kamera klasörünü göstermesi gerekiyor.
+Tek yol terminaldi: `python yerel_kur.py`. Kullanıcının isteği — yönetici
+alanından seçilsin.
+
+Yeni ekran: **`/klasorler`**, yalnızca yönetici. Üç yol da orada.
+
+**`/yonetim` salt okunur kaldı.** Panel yolları göstermeye devam ediyor,
+değiştirme kendi ekranında; panelden yalnızca bağlantı veriliyor — dil
+seçiminde alınan kararın aynısı.
+
+**Ayar veritabanında değil**, `yerel_ayar.json`'da ve makine adına göre
+bölümlü. `lab.db` USB ile taşınıyor; yollar orada olsaydı Mac'te girilen
+klasör klinik bilgisayarında da geçerli olurdu. Test edildi: kaydetme dosyadaki
+öteki makinenin bölümüne dokunmuyor.
+
+### Üç klasör, üç farklı davranış
+
+Aynı ekranda ama kuralları farklı, çünkü programın onlarla ilişkisi farklı:
+
+| Klasör | Program ne yapıyor | Yoksa |
+|---|---|---|
+| Kamera | yalnızca **okur** | **kabul edilmez** |
+| Arşiv | **yazar** | oluşturulur |
+| Yedek | yazar (ara sıra) | olduğu gibi kaydedilir |
+
+- **Kamera klasörü var olmalı.** Kareleri oraya mikroskop yazıyor; olmayan bir
+  yolu açmak işe yaramaz, kamera oraya yazmıyor olurdu. Yazım hatası kabul
+  edilseydi kamera kuyruğu aylarca boş görünürdü ve sebebi anlaşılmazdı.
+- **Arşiv yoksa oluşturulur** — oraya yazan biziz.
+- **Yedek oluşturulmaz.** Çoğu zaman takılı olmayan bir disk (klinikte `E:`).
+  Mac'te `E:\yedek` adında klasör açmak v6.8'de gerçekten başa geldi; hedefi
+  `yedek.py` çalışma anında doğruluyor.
+
+Ekranın altında bir uyarı var: **arşiv klasörünü taşımadan değiştirme.**
+Veritabanı görüntü yollarını bu klasöre göre saklıyor; yol değişirse eski
+fotoğraflar yeni klasörde aranır.
+
+### Dosyaya yazan tek yer: `db.yerel_yaz()`
+
+`yerel_ayar.json`'a iki yerden yazılıyordu — `yerel_kur.py` kendi
+`json.dumps`'ını çağırıyordu. Yeni ekranla üçüncü bir yazıcı olacaktı.
+`db.py`'ye `yerel_yaz()` kondu, `yerel_kur.py` de ona çevrildi. Ayarı iki
+yerden okumak v6.8'de başa gelmişti (tuzak #8); yazmak daha kötüsü olurdu.
+
+## Test edildi
+
+- Gizle → cycle ekranında düğme kayboldu, Göster → geri geldi; ayar tabloda
+- Uydurma form adıyla (`/formlar/gomulu/dil/gizle`) istek: hiçbir şey yazılmadı
+- Embriyolog hesabı: `/klasorler` ve `/formlar` GET'i, ikisinin POST'u ve
+  gizleme reddedildi (303) — ama form **basabiliyor** (200)
+- Olmayan kamera klasörü reddedildi, var olan kabul edildi, arşiv oluşturuldu,
+  `E:\yedek` olduğu gibi kaydedildi
+- Dosyada ikinci bir makine bölümü varken kaydetme ona dokunmadı
+- `form_kalip.json` yokken bütün ekranlar açıldı, form düğmesi çıkmadı
+- Test verisi geri alındı (oturum 22, 1 hasta / 2 cycle, 0 kırık referans)

@@ -191,6 +191,27 @@ def yerel_ayarlar() -> dict:
     return bolum
 
 
+def yerel_yaz(degerler: dict) -> dict:
+    """Bu makinenin yol ayarlarını günceller, yeni bölümü döndürür.
+
+    Dosyada başka makinelerin bölümleri varsa onlara **dokunulmaz** — klasörün
+    tamamı USB ile taşındığında klinik bilgisayarı Mac'in yollarını kullanmaya
+    başlamasın diye. `YOL_ANAHTARLARI` dışındaki anahtarlar yok sayılır.
+
+    Yazan tek yer burası: ayarı iki yerden okumak (ya da yazmak) v6.8'de
+    `yedek.py`'de başa geldi, Mac'te `E:\yedek` adında klasör açılmıştı.
+    """
+    veri = _dosyayi_oku()
+    bolum = dict(veri.get(MAKINE) or {})
+    for anahtar_ in YOL_ANAHTARLARI:
+        deger = (degerler.get(anahtar_) or "").strip()
+        if deger:
+            bolum[anahtar_] = deger
+    veri[MAKINE] = bolum
+    _dosyaya_yaz(veri)
+    return bolum
+
+
 def ayar(anahtar, varsayilan=""):
     """Ayar değeri. Klasör yolları makineye özgü dosyadan, gerisi veritabanından."""
     if anahtar in YOL_ANAHTARLARI:

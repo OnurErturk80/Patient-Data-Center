@@ -1251,6 +1251,81 @@ METINLER = {
               "contain other text too, such as \"File no: {{dosya_no}}\". "
               "A label the program does not know is printed as it is, so a "
               "typo cannot slip through."},
+    # Bu makinenin klasörleri (v6.41). Değer `yerel_ayar.json`'da, makine
+    # adına göre bölümlü -- `lab.db` USB ile taşınıyor.
+    "klasorler": {"tr": "Klasörler", "en": "Folders"},
+    "klasorler_makine": {"tr": "Bu bilgisayar", "en": "This computer"},
+    "klasorler_ipucu": {
+        "tr": "Bu ayarlar yalnızca bu bilgisayara aittir. Program iki makinede "
+              "kuruluysa her biri kendi klasörlerini kullanır; veritabanını "
+              "USB ile taşımak bu yolları değiştirmez.",
+        "en": "These settings belong to this computer only. If the program is "
+              "installed on two machines each uses its own folders; carrying "
+              "the database on a USB stick does not change these paths."},
+    "goruntu_kaynak_klasor": {"tr": "Kamera klasörü",
+                              "en": "Camera folder"},
+    "goruntu_kaynak_klasor_ipucu": {
+        "tr": "Mikroskop kamerasının fotoğrafı kaydettiği klasör. Program bu "
+              "klasörü yalnızca okur, içine bir şey yazmaz. Var olmayan bir "
+              "yol kabul edilmiyor: yazım hatası olursa kamera kuyruğu hep "
+              "boş görünürdü.",
+        "en": "The folder where the microscope camera saves its photos. The "
+              "program only reads this folder, it never writes into it. A "
+              "path that does not exist is refused: with a typo the camera "
+              "queue would always look empty."},
+    "goruntu_arsiv_klasor": {"tr": "Arşiv klasörü", "en": "Archive folder"},
+    "goruntu_arsiv_klasor_ipucu": {
+        "tr": "Program fotoğrafları buraya kopyalar ve ekranda buradan "
+              "gösterir; kamera klasörü boşaltılsa da görüntüler durur. "
+              "Yoksa oluşturulur.",
+        "en": "The program copies the photos here and shows them from here, "
+              "so images survive the camera folder being emptied. Created if "
+              "it does not exist."},
+    "yedek_klasor": {"tr": "Yedek klasörü", "en": "Backup folder"},
+    "yedek_klasor_ipucu": {
+        "tr": "Yedeğin yazılacağı yer — <b>başka bir diskte</b> olmalı, yoksa "
+              "disk bozulduğunda yedek de gider. Takılı olmayan bir disk "
+              "(örneğin E:) yazılabilir; oluşturulmaz, yedek alınırken "
+              "aranır.",
+        "en": "Where backups are written — it must be on <b>a different "
+              "disk</b>, otherwise a disk failure takes the backup with it. A "
+              "disk that is not plugged in (E: for example) may be entered; "
+              "it is not created, it is looked for when a backup runs."},
+    "klasor_var": {"tr": "klasör bulundu", "en": "folder found"},
+    "klasor_yok": {"tr": "klasör bulunamadı", "en": "folder not found"},
+    "klasorleri_kaydet": {"tr": "Klasörleri kaydet", "en": "Save folders"},
+    "klasor_kaydedildi": {"tr": "Klasörler kaydedildi.", "en": "Folders saved."},
+    "klasor_hata_kamera": {
+        "tr": "Kamera klasörü bulunamadı. Yolu olduğu gibi yazın; klasörün "
+              "bu bilgisayarda var olması gerekir.",
+        "en": "The camera folder was not found. Type the path exactly; the "
+              "folder must exist on this computer."},
+    "klasor_hata_arsiv": {
+        "tr": "Arşiv klasörü oluşturulamadı. Yolu ve yazma iznini kontrol edin.",
+        "en": "The archive folder could not be created. Check the path and "
+              "the write permission."},
+    "klasor_arsiv_uyari": {
+        "tr": "<b>Arşiv klasörünü taşımadan değiştirmeyin.</b> Veritabanı "
+              "görüntüleri bu klasöre göre saklıyor; yol değişirse eski "
+              "fotoğraflar yeni klasörde aranır ve bulunamaz. Önce klasörün "
+              "içindekileri yeni yere kopyalayın, sonra burayı değiştirin.",
+        "en": "<b>Do not change the archive folder without moving it.</b> The "
+              "database stores images relative to this folder; if the path "
+              "changes, old photos are looked for in the new folder and are "
+              "not found. Copy the contents to the new place first, then "
+              "change this."},
+    "gomulu_formlar": {"tr": "Programla gelen formlar",
+                       "en": "Forms that came with the program"},
+    "gomulu_form_ipucu": {
+        "tr": "Bu formlar programı yazan laboratuvarın kurum belgeleri. "
+              "Sizin kurumunuzun formu değilse gizleyin — yanlışlıkla "
+              "basılırsa başka bir kurumun belgesinde hastanızın verisi "
+              "görünür. Gizlemek silmez, istediğinizde geri açarsınız.",
+        "en": "These forms are the institutional documents of the laboratory "
+              "that wrote the program. If they are not your institution's "
+              "forms, hide them — printed by mistake, your patient's data "
+              "would appear on another institution's document. Hiding does "
+              "not delete; you can show them again at any time."},
     "form_yuklenenler": {"tr": "Yüklenen formlar", "en": "Uploaded forms"},
     "form_yok": {"tr": "Henüz form yüklenmedi.", "en": "No form uploaded yet."},
     "form_gizle": {"tr": "Gizle", "en": "Hide"},

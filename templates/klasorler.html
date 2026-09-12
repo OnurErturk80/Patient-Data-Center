@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("klasorler") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{# Ayar veritabanında değil `yerel_ayar.json`'da, makine adına göre bölümlü:
+   `lab.db` USB ile taşınıyor, klinik bilgisayarı Mac'in yollarını
+   kullanmamalı. Yazan tek yer `db.yerel_yaz()`. #}
+
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+{% if kaydedildi %}<div class="uyari">{{ metin("klasor_kaydedildi") }}</div>{% endif %}
+
+<form method="post" action="/klasorler">
+  <div class="kart" style="margin-top:12px">
+    <h2>{{ metin("klasorler_makine") }}: {{ makine }}</h2>
+    <div class="ipucu" style="padding:0 14px">{{ metin("klasorler_ipucu") }}</div>
+
+    {% for y in yollar %}
+    <div class="alan" {% if loop.last %}style="border:0"{% endif %}>
+      <label for="{{ y.anahtar }}">{{ metin(y.anahtar) }}</label>
+      <input id="{{ y.anahtar }}" name="{{ y.anahtar }}" type="text"
+             value="{{ y.yol }}" autocomplete="off" spellcheck="false">
+      <div class="ipucu" {% if not y.var %}style="color:#a11f1f"{% endif %}>
+        {{ metin("klasor_var") if y.var else metin("klasor_yok") }}
+      </div>
+      <div class="ipucu">{{ metin(y.anahtar ~ "_ipucu")|safe }}</div>
+    </div>
+    {% endfor %}
+
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">{{ metin("klasorleri_kaydet") }}</button>
+    </div>
+  </div>
+</form>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("klasor_arsiv_uyari")|safe }}</div>
+  </div>
+</div>
+{% endblock %}

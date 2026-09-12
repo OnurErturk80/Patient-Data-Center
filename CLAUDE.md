@@ -343,6 +343,24 @@ yükleyip programdaki verilerle doldurup basıyor.
 - Bu sürümde **oosit ızgarası yok** (kullanıcının kararı): bir kutu = bir
   değer. Izgara desteği eklenirse etiket yazımı ve ekran birlikte düşünülmeli.
 
+**Gömülü formlar gizlenebilir, ticari sürümde hiç olmayacak** (v6.41).
+Gömülü iki form **bu** laboratuvarın kurum belgesi: doküman kodu, revizyon
+tarihi ve üniversite ambleminin sahibi o. Başka bir laboratuvarda ekranda
+durmaları yanlış — yanlışlıkla basılırsa ortaya ait olmadığı kurumun
+belgesinde gerçek hasta verisi çıkar.
+- `/formlar`'da Gizle/Göster var; ayar `ayarlar` tablosunda
+  (`form_gizli_<ad>`), **varsayılanı görünür** — bu labda bir şey değişmiyor.
+- Adres parçası `FORMLAR` **beyaz listesinden** geçiyor: ayar anahtarını
+  adresten gelen metinle kurma, `ayarlar`'a istenen satır yazılırdı.
+- Gizli form adresten hâlâ basılıyor; gizleme ekran düzeni, yetki sınırı
+  değil (yüklenen formlarda da öyle). Yetki `yonetici_kontrol()`'de.
+- **Ticari dağıtımda gömülü form olmayacak** (kullanıcının kararı,
+  2026-09-12): `form_kalip.json` + `static/form_amblem.png` silinir, her lab
+  kendi formunu yükler. O gün **kod değişmemeli** — bugün hazırlandı:
+  `form_kalip.py` dosya yoksa `KALIPLAR = {}` ile devam ediyor, `FORMLAR`
+  yalnızca kalıbı olanlardan kuruluyor, `gomulu_formlar()` boş dönüyor.
+  Bu toleransı kaldırma, `form_kalip.json`'ın varlığına güvenen kod yazma.
+
 **Zaman çizelgesi türetilmiştir, kayıt değil** (v6.37). `formlar.zaman_cizelgesi()`
 cycle'ın aşama saatlerini toplayıp iki süre veriyor: önceki işlemden ve
 OPU'dan bu yana. Kullanıcının isteği — formdaki "24 saat / 40-45 saat /
@@ -559,6 +577,25 @@ yoldan da şifre değiştiremez.
 ayarlar kendi ekranlarından/scriptlerinden yapılır. Buraya yazma işlemi ekleme
 (v6.12).
 
+**Klasör yolları `/klasorler` ekranından ayarlanır** (v6.41). Kamera klasörünü
+(mikroskobun snapshot attığı yer), arşivi ve yedeği yönetici ekrandan
+değiştiriyor; önce tek yol `python yerel_kur.py` idi. Panel yine salt okunur,
+oraya yalnızca bağlantı kondu — dil seçimindeki düzenin aynısı.
+- **Değer veritabanında değil** `yerel_ayar.json`'da, makine adına göre
+  bölümlü. `lab.db` USB ile taşınıyor; yol `ayarlar` tablosunda olsaydı Mac'te
+  girilen klasör klinikte de geçerli olurdu. `ayarlar`'a yol yazma.
+- **Dosyaya yazan tek yer `db.yerel_yaz()`** — kaydetme öteki makinelerin
+  bölümüne dokunmuyor. Kendi `json.dumps`'ını yazma (tuzak #8'in yazma hali;
+  `yerel_kur.py` de v6.41'de buna çevrildi).
+- **Üçü farklı davranır, sebebi programın onlarla ilişkisi:** kamera klasörünü
+  program yalnızca **okur** → var olmayan yol **reddedilir** (yazım hatası
+  olursa kamera kuyruğu aylarca boş görünür, sebebi anlaşılmaz); arşive
+  **yazar** → yoksa oluşturulur; yedek olduğu gibi kaydedilir, oluşturulmaz
+  (çoğu zaman takılı olmayan disk; Mac'te `E:\yedek` klasörü açmak v6.8'de
+  başa geldi). Bu üçünü tek kurala indirgeme.
+- Hata anahtarları adresten geliyor, `KLASOR_HATALARI` beyaz listesinden
+  geçiyor (tuzak #9).
+
 **"Şifremi unuttum" hiçbir şey sıfırlamaz.** Sistemde e-posta/SMS yok, kimliği
 doğrulayacak ikinci kanal yok; doğrulamasız sıfırlama iç ağdaki herkese yönetici
 şifresini değiştirme hakkı verirdi (HTTPS de yok). Sayfa kullanıcı adı da
@@ -682,8 +719,9 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin
      `yerel_ayar.json` bölümündeki `yedek_klasor`'e gider. Komut satırı argümanı
      hep kazanır. Platforma uymayan yol (Mac'te `E:\yedek`) reddedilir.
-   - **Windows mini PC'de bir kez `python yerel_kur.py` çalıştırılmalı** ve
-     `yedek_klasor` `E:\yedek` yapılmalı. Yol ayarları artık makineye özgü
+   - **Windows mini PC'de `yedek_klasor` `E:\yedek` yapılmalı** — v6.41'den
+     beri ekrandan da olur (`/yonetim` → Klasörler), `python yerel_kur.py` de
+     çalışıyor. Yol ayarları artık makineye özgü
      dosyadan okunuyor, DB'deki `goc_008` değeri hedefi belirlemiyor. Yapılmazsa
      o makinede varsayılan `D:\lab_yedek` olur.
    - **Mac'te otomatik zamanlama YOK.** `yedek.bat` sadece Windows Görev

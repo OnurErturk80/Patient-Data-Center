@@ -51,8 +51,7 @@ for k in db.YOL_ANAHTARLARI:
     if yeni:
         bolum[k] = yeni
 
-tum[db.MAKINE] = bolum
-HEDEF.write_text(json.dumps(tum, indent=2, ensure_ascii=False), encoding="utf-8")
+bolum = db.yerel_yaz(bolum)
 
 for k in ("goruntu_kaynak_klasor", "goruntu_arsiv_klasor"):
     try:
