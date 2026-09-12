@@ -14,6 +14,13 @@
 </div>
 {% endif %}
 
+{% if sifre_istegi %}
+<div class="uyari">
+  {{ metin("bekleyen_sifre_istegi").format(n=sifre_istegi) }}
+  <a href="/sifre-istekleri">{{ metin("sifre_istekleri") }}</a>
+</div>
+{% endif %}
+
 {% if yonetici_sayisi <= 1 %}
 <div class="uyari">
   Tek yönetici var. O hesap kilitlenirse kullanıcı yönetimine kimse giremez —

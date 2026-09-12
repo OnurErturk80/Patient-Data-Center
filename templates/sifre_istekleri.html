@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("sifre_istekleri") }}{% endblock %}
+{% block geri %}<a class="geri" href="/kullanicilar">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
+{% block govde %}genissayfa menusuzsayfa{% endblock %}
+{% block icerik %}
+
+{% if bilgi %}<div class="uyari">{{ bilgi }}</div>{% endif %}
+
+{% if goc_gerekli %}
+<div class="uyari">
+  Şifre onayı henüz kullanılamıyor. Terminalde
+  <code>python3 goc_030.py</code> çalıştır.
+</div>
+{% endif %}
+
+<div class="sutunlar">
+<div class="sutun">
+
+<div class="kart">
+  <h2>{{ liste|length }}</h2>
+  {% if not liste %}
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("sifre_istegi_yok") }}</div>
+  </div>
+  {% endif %}
+  {% for i in liste %}
+  <div class="satir" style="cursor:default">
+    <div>
+      <b>{{ i.kullanici_adi }}</b>
+      <div style="font-size:13px">{{ i.ad_soyad }} · {{ i.kisa_kod }}</div>
+      <div class="ipucu">{{ metin("istek_zamani") }}: {{ i.olusturma_zamani }}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <form method="post" action="/sifre-istekleri/{{ i.id }}/onayla">
+        <button class="minidugme" type="submit">{{ metin("onayla") }}</button>
+      </form>
+      <form method="post" action="/sifre-istekleri/{{ i.id }}/reddet">
+        <button class="minidugme ikincil" type="submit">{{ metin("reddet") }}</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+</div>{# sutun #}
+<div class="sutun">
+
+<div class="kart">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("sifre_istegi_aciklama")|safe }}</div>
+  </div>
+</div>
+
+</div>{# sutun #}
+</div>{# sutunlar #}
+{% endblock %}

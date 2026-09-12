@@ -1547,4 +1547,40 @@ METINLER = {
               "laboratory's own lists; edit them with "
               "<code>python3 liste_duzenle.py</code>."},
     "dil_degisti": {"tr": "Dil değiştirildi.", "en": "Language changed."},
+
+    # ---- şifre değişikliğinde yönetici onayı (v6.61) ----
+    "sifre_onay_bekliyor": {
+        "tr": "Şifre isteğin <b>yöneticiye gönderildi</b>. Yönetici onaylayana "
+              "kadar eski şifren geçerli — onaylandığında oturumların kapanır "
+              "ve yeni şifreyle girersin.",
+        "en": "Your password request was <b>sent to an administrator</b>. Your "
+              "old password stays valid until it is approved; once approved you "
+              "are signed out everywhere and sign in with the new one."},
+    "sifre_onay_gerekir": {
+        "tr": "Şifre değişikliği <b>yönetici onayı</b> ister. İsteğini "
+              "gönderdikten sonra eski şifren onaya kadar geçerli kalır.",
+        "en": "A password change needs <b>administrator approval</b>. After you "
+              "send the request your old password stays valid until it is "
+              "approved."},
+    "sifre_istekleri": {"tr": "Şifre istekleri", "en": "Password requests"},
+    "sifre_istegi_yok": {"tr": "Onay bekleyen istek yok.",
+                         "en": "No requests waiting for approval."},
+    "bekleyen_sifre_istegi": {"tr": "{n} şifre isteği onay bekliyor.",
+                              "en": "{n} password request(s) waiting."},
+    "onayla": {"tr": "Onayla", "en": "Approve"},
+    "reddet": {"tr": "Reddet", "en": "Reject"},
+    "sifre_istegi_aciklama": {
+        "tr": "Onaylarsan şifre <b>o anda</b> değişir ve kullanıcının açık "
+              "oturumları kapanır. Reddedersen eski şifresi kalır. Yeni şifreyi "
+              "burada göremezsin — program şifreleri düz metin tutmaz; "
+              "kullanıcının kendi yazdığı şifre geçerli olur.",
+        "en": "Approving changes the password <b>at once</b> and signs that "
+              "user out everywhere. Rejecting keeps the old one. You cannot see "
+              "the new password here — the program never stores passwords in "
+              "plain text; what the user typed becomes their password."},
+    "istek_zamani": {"tr": "İstek zamanı", "en": "Requested"},
+    "sifre_onaylandi": {"tr": "{kim} kullanıcısının şifresi değiştirildi.",
+                        "en": "Password changed for {kim}."},
+    "sifre_reddedildi": {"tr": "{kim} kullanıcısının isteği reddedildi.",
+                         "en": "Request from {kim} rejected."},
 }

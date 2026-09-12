@@ -114,7 +114,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..029.py   veritabanı göçleri (sırayla)
+  goc_002..030.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -761,6 +761,41 @@ açılır (v6.12). Güvenliği düşürmez — kimlik yine mevcut şifreyle kan�
 Hata mesajı **tek ve aynı**: "Kullanıcı adı veya mevcut şifre yanlış." Ayrı
 mesaj yazma, hangi kullanıcı adının var olduğunu sızdırır. Pasif kullanıcı bu
 yoldan da şifre değiştiremez.
+
+**Şifre değişikliği yönetici onayı ister** (v6.61, `goc_030`). Kullanıcının
+kararı (2026-09-12). `/sifre`'nin kuralları değişmedi (giriş gerekmez, mevcut
+şifre şart, hata mesajı tek); değişen, kaydetmenin şifreyi **yazmak yerine**
+`sifre_istegi` tablosuna istek koyması.
+- **Bekletilen şey hash.** Düz şifre hiçbir yerde durmuyor; kimlik zaten istek
+  anında mevcut şifreyle kanıtlanıyor, bekleyen hash onaylanana kadar hiçbir
+  girişte geçmiyor. "Yeni şifreyi onay anında sor" denmedi: onayı iki kişinin
+  aynı anda orada olmasına bağlardı.
+- **Yöneticinin kendi şifresi anında geçer.** Onaylayacak kişi o; tek yönetici
+  kendi isteğini onaylamak için giremez duruma düşerdi (README v6.11'deki
+  kilitlenme korumasının aynısı). Bu istisnayı kaldırma.
+- **Bekleyen istek kullanıcı başına tek** — ikincisi birincinin yerine geçiyor,
+  yoksa yönetici eski bir şifreyi onaylayabilir.
+- **Onay şifreyi yazar ve o kullanıcının oturumlarını kapatır.** `sifre_yaz()`
+  düz şifre beklediği için çağrılamıyor; iki satır elle yazılı, ikisi de
+  kalmalı — oturum düşmezse "onayladım" yanıltıcı olur.
+- **Ekran `/sifre-istekleri`, yalnızca yönetici.** Rotalar `onayla`/`reddet`
+  diye adlandırıldı: `sil` ile bitse `yol_modulu()` onu "silme" modülüne
+  bağlardı.
+- **Göç çalıştırılmamışsa eski davranış** (`sifre_istegi_tablosu_var()`):
+  şifre anında değişir. Şifre değiştirmeyi tümden engellemek, onayın çözdüğü
+  sorundan pahalı (tuzak #3).
+- Bekleyen istek `/yonetim` düğmesinde sayıyla ve `/kullanicilar`'ın tepesinde
+  uyarıyla görünür. **Giriş yapmamış birine `/sifre`'de "onay gerekir" notu
+  basılmaz** — hangi kullanıcı adının yönetici olduğunu sızdırırdı.
+
+**Tazeleme şeridi sayfanın son düğmesini kapatmamalı** (v6.61). Şerit
+`position: fixed` ve altta; `.kap`'ın alt dolgusu 96px ama şerit 320px
+genişlikte satır sarıp **113px** oluyordu. Ölçüldü: `/hasta/yeni`'de
+**"Hastayı kaydet"**, `/hastalar`'da "Cryo haritası" şeridin altında
+kalıyordu — kullanıcı kaydet yerine **Yenile**'ye basıyor, sayfa yenileniyor,
+yazdığı gidiyor, hiçbir mesaj çıkmıyor. Şerit açılırken `<body>` `seritli`
+sınıfını alıyor, `body.seritli .kap` dolguyu 160px yapıyor. Şeridi açan tek
+yer `seridiAc()` — `kutu.hidden = false` yazma, o fonksiyonu çağır.
 
 **`/yonetim` paneli salt okunurdur.** Durumu gösterir, hiçbir şey değiştirmez;
 ayarlar kendi ekranlarından/scriptlerinden yapılır. Buraya yazma işlemi ekleme

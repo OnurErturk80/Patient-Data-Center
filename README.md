@@ -6018,3 +6018,113 @@ Kullanıcı isterse bunlar da çevrilir — klinik terim kararı onun.
 - Başlıklar: "Cleavage · Gün 2", "Cleavage · Gün 3", "Blastokist · Gün 5".
 - İki dilde de doğru (İngilizcede de "Cleavage" — klinik terim).
 - 31 adres 200, günlükte hata yok. Deneme verisi geri alındı.
+
+---
+
+# v6.61 — şifre değişikliğinde yönetici onayı + tazeleme şeridi düğmeyi kapatmıyor
+
+Kullanıcının iki isteği: "Yeni kullanıcı ekliyemiyorum. Ayrıca şifre değiştirme
+işlemlerinde yönetici onayı olsun."
+
+## Şifre değişikliği artık onaya gidiyor
+
+Kullanıcının kararı (2026-09-12): personel kendi şifresini değiştirsin ama
+**yönetici onaylayınca** geçsin. `/sifre` ekranının kuralları **değişmedi** —
+giriş gerektirmiyor, mevcut şifreyi istiyor, hata mesajı yine tek ve aynı
+(README v6.12). Değişen tek şey: kaydetme anında şifre yazılmıyor, istek
+kuyruğa giriyor.
+
+- **Yeni tablo `sifre_istegi`** (`goc_030`): kim, hangi hash, hangi durum
+  (`bekliyor` / `onaylandi` / `reddedildi`), kim karar verdi ve ne zaman.
+- **Bekletilen şey hash, düz şifre değil.** Program şifreleri hiçbir yerde düz
+  metin tutmuyor; bu da tutmuyor. Kullanıcı isteği gönderirken kimliğini
+  **mevcut şifresiyle** kanıtlıyor, yani bekleyen hash onaylanana kadar hiçbir
+  girişte işe yaramıyor — kimlik bilgisi değil, bir teklif.
+  - Alternatif "yeni şifreyi onay anında sor" olurdu; o, onayı iki kişinin aynı
+    anda aynı yerde olmasına bağlardı. Klinikte olmuyor.
+- **Yöneticinin kendi şifresi anında geçer.** Onaylayacak kişi o; kendi isteğini
+  onaylamak için giriş yapamaz duruma düşerdi. Tek yönetici varsa bu tam
+  kilitlenme demekti — README v6.11'deki korumanın aynısı.
+- **Bekleyen istek kullanıcı başına tek.** İkinci istek birincinin yerine
+  geçiyor (önce siliniyor, sonra yazılıyor). Yoksa yönetici hangisinin
+  sonuncusu olduğunu bilemez ve **eski bir şifreyi** onaylayabilirdi.
+- **Onaylamak şifreyi o anda yazar ve o kullanıcının açık oturumlarını
+  kapatır** — "şifre değişince oturumlar düşer" kuralı burada da geçerli.
+  `sifre_yaz()` çağrılamıyor (o düz şifre bekliyor), o yüzden iki satır elle
+  yazıldı; gerekçesi kodun içinde duruyor.
+- **Reddetmek hiçbir şeyi değiştirmiyor**, eski şifre kalıyor.
+- **Ekran `/sifre-istekleri`, yalnızca yönetici** (`yonetici_kontrol`).
+  Rota adları `onayla` / `reddet` — `sil` ile bitse `yol_modulu()` onu "silme"
+  modülüne bağlardı ve silme izni olmayan yönetici bu işi yapamazdı
+  (v6.40'taki `kaldir`/`gizle` kararının aynısı).
+- **Bekleyen istek iki yerde görünüyor**: `/yonetim` panelinde düğme vurgulu ve
+  sayıyla, `/kullanicilar`'ın tepesinde uyarı olarak. Onaylanmayan bir şifre
+  isteği, "değiştirdim" sanıp giremeyen bir personel demek — saklanacak bir şey
+  değil.
+- **Göç çalıştırılmamışsa eski davranış**: şifre anında değişiyor
+  (`sifre_istegi_tablosu_var()`). Personelin şifre değiştirmesini tümden
+  engellemek, onayın çözdüğü sorundan pahalı olurdu (tuzak #3).
+- **Kullanıcıya önceden söyleniyor.** `/sifre` ekranı, giriş yapmış ve yönetici
+  olmayan kişiye "bu değişiklik yönetici onayı ister" yazıyor; oturum uyarısı
+  o durumda basılmıyor, çünkü oturumlar **şimdi** düşmüyor.
+  - Giriş yapmamış birine bu not **yazılmıyor**: yazılsaydı "bu kullanıcı adı
+    yönetici mi" sorusu ekrandan okunabilirdi. Aynı sebeple hata mesajı da
+    tek ve aynı (v6.12).
+
+## "Yeni kullanıcı ekliyemiyorum" — bulunanlar
+
+Bildirilen belirti: sayfa yenileniyor, kullanıcı listede yok, mesaj da yok.
+Rota ve şablon satır satır okundu, her ret yolu tarayıcıda 390px'te denendi:
+zaten var olan kullanıcı adı, Türkçe karakter, boşluk, tutmayan şifreler —
+**dördü de ekranın tepesinde görünür uyarı veriyor**; geçerli bir giriş
+kullanıcıyı ekliyor. Yani bildirilen belirti bu yollardan **hiçbirine**
+uymuyor. Onun yerine iki şey yapıldı:
+
+- **Sessiz kalabilecek tek yol kapatıldı.** `kullanici_adi` şemada
+  laboratuvardan bağımsız olarak `UNIQUE`, ama rotadaki kopya kontrolü
+  `lab_id`'ye göre bakıyor. İki lab satırı olan bir veritabanında kontrol
+  geçer, `INSERT` patlar ve ekran çıplak bir 500 verirdi. Artık
+  `sqlite3.IntegrityError` yakalanıyor ve sebebi ekrana yazılıyor.
+- **Her ret ve her ekleme `program.log`'a düşüyor.** Ekranda mesaj
+  görünmediğini söyleyen kullanıcının elindeki tek kanıt günlük olur.
+
+## Gerçek bulunan hata: tazeleme şeridi kaydet düğmesinin üstüne düşüyordu
+
+Aramanın yan ürünü, ama aynı belirtiyi veren **ölçülmüş** bir hata. v6.54'ün
+"yeni kayıt var" şeridi `position: fixed` ve altta duruyor; `.kap`'ın alt
+dolgusu 96px. Şerit 390px genişlikte 65px, ama **320px'te satır sarıyor ve
+113px** oluyor — dolguyu aşıyor.
+
+320px'te sekiz ekran tarandı, şerit açıkken hangi düğmenin gerçekten
+kapandığına `elementFromPoint` ile bakıldı:
+
+| ekran | şerit altında kalan |
+|---|---|
+| `/hasta/yeni` | **"Hastayı kaydet"** |
+| `/hastalar` | "Cryo haritası" |
+
+Yani telefonda dar ekranda, sayfa sonuna kaydırılmış halde, kullanıcı
+"Hastayı kaydet"e basmak isterken şeridin **"Yenile"** düğmesine basıyor:
+sayfa yenileniyor, yazdığı gidiyor, hiçbir mesaj çıkmıyor. Bildirilen
+belirtinin birebir aynısı.
+
+Düzeltme: şerit görünürken `<body>` `seritli` sınıfını alıyor ve
+`body.seritli .kap` alt dolgusu 160px'e çıkıyor. Tek yerde, bütün ekranlar
+için. Aynı tarama düzeltmeden sonra tekrar çalıştırıldı: **kapanan düğme yok.**
+
+## Test edildi
+
+- Embriyolog `/sifre`'den şifre değiştirdi → istek kuyruğa girdi, **eski şifre
+  hâlâ geçerli**, yeni şifre geçmiyor.
+- Yönetici onayladı → yeni şifre geçti, eski geçersiz, o kullanıcının
+  oturumları kapandı, istek `onaylandi` olarak kapandı.
+- Reddetme → eski şifre kaldı, yeni şifre geçmedi.
+- Aynı kullanıcı iki istek gönderdi → bekleyen istek **bir** kaldı.
+- Embriyolog `/sifre-istekleri`'ne girmeye çalıştı → `/hastalar`'a döndü;
+  `POST .../onayla` da döndü ve **şifre değişmedi** (ekranda gizlemek yetmez).
+- Yönetici kendi şifresini değiştirdi → **anında** geçti, `/giris?sifre=1`.
+- Giriş yapılmamış `/sifre` ekranında "yönetici onayı" notu **yok**.
+- Tazeleme şeridi: sayfa kirliyken şerit çıkıyor, `body.seritli` geliyor,
+  dolgu 160px, forma yazılan değer **yerinde duruyor**, JS hatası yok.
+- Göç açılışta kendiliğinden uygulandı (`GOC: 1 goc uygulandi (goc_030)`).
+  Deneme kullanıcıları ve istekleri geri alındı.

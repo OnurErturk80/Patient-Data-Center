@@ -267,6 +267,14 @@ body {
   .tazelekutu { left: auto; right: 16px; max-width: 520px; }
 }
 
+/* Serit gorunurken sayfanin alti bosalsin. `.tazelekutu` sabit konumlu ve
+   telefonda tam genislikte; sayfanin SON dugmesinin tam ustune duser. Boyle
+   bir ekranda ("Yeni kullanici" formu sag sutunun en altinda) kullanici
+   "Kullaniciyi ekle" yerine "Yenile"ye basiyor: sayfa yenileniyor, yazdigi
+   gidiyor, hicbir mesaj cikmiyor. Ustteki kimlik bandi zaten kapanmiyor
+   (serit bilerek altta), asil sorun buydu. */
+body.seritli .kap { padding-bottom: 160px; }
+
 /* "Islemi bitir" ekraninda her secenegin altindaki tek satirlik aciklama.
    Dugmeye yapisik dursun ki hangi aciklamanin hangi dugmeye ait oldugu
    belli olsun; bir sonraki dugmeden once bosluk birakiyor. */

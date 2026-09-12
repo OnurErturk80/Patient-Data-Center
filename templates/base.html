@@ -174,10 +174,18 @@
         if (!d) return;
         if (anahtar) baskalari(d.baskalari);
         if (!d.damga || d.damga === damga) return;
-        if (kirli()) { kutu.hidden = false; dur(); return; }
+        if (kirli()) { seridiAc(); dur(); return; }
         location.reload();
       })
       .catch(function () {});            // ag koptuysa sessizce gec
+  }
+
+  // Serit ALTTA sabit duruyor; sayfanin son dugmesini kapatmamali. Yoksa
+  // kullanici "Kaydet" yerine "Yenile"ye basar ve yazdigi sessizce gider
+  // (kullanicilar ekraninda "Yeni kullanici" dugmesi tam oraya dusuyordu).
+  function seridiAc() {
+    kutu.hidden = false;
+    document.body.classList.add('seritli');
   }
 
   function dur() { if (sayac) { clearInterval(sayac); sayac = null; } }

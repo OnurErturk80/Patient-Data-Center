@@ -27,6 +27,10 @@
 <a class="dugme" href="/kullanicilar">Kullanıcılar
   ({{ aktif_kullanici }} aktif{% if toplam_kullanici > aktif_kullanici %},
   {{ toplam_kullanici - aktif_kullanici }} pasif{% endif %})</a>
+{# Bekleyen istek varsa ONDE dursun: onaylanmayan sifre, kullanicinin
+   "degistirdim" sanip giremedigi bir hesap demek (v6.61). #}
+<a class="dugme{% if not sifre_istegi %} ikincil{% endif %}" href="/sifre-istekleri">
+  {{ metin("sifre_istekleri") }}{% if sifre_istegi %} ({{ sifre_istegi }}){% endif %}</a>
 <a class="dugme ikincil" href="/istatistik">{{ metin("istatistikler") }}</a>
 <a class="dugme ikincil" href="/cryo">Cryo haritası</a>
 <a class="dugme ikincil" href="/dil">{{ metin("dil_secimi") }}</a>

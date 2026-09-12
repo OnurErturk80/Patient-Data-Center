@@ -6,6 +6,17 @@
 {% block icerik %}
 
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+{% if onay %}<div class="uyari">{{ metin("sifre_onay_bekliyor")|safe }}</div>{% endif %}
+
+{# Onay gereken kullaniciya ONCEDEN soyle: "degistirdim" sanip eski sifreyle
+   giris denemesin. Yonetici kendi sifresini aninda degistiriyor (v6.61). #}
+{% if onay_gerekir %}
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("sifre_onay_gerekir")|safe }}</div>
+  </div>
+</div>
+{% endif %}
 
 <form method="post" action="/sifre">
   <div class="kart" style="margin-top:12px">
@@ -48,8 +59,7 @@
 <div class="kart" style="margin-top:12px">
   <div class="alan" style="border:0">
     <div class="ipucu">
-      {{ metin("sifre_oturum_uyari")|safe }}
-      <br><br>
+      {% if not onay_gerekir %}{{ metin("sifre_oturum_uyari")|safe }}<br><br>{% endif %}
       {{ metin("sifre_bilmiyorsan") }}
       <a href="/sifremi-unuttum">{{ metin("sifremi_unuttum")|lower }}</a>.
     </div>

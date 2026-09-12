@@ -786,6 +786,36 @@ def sifre_gecerli(yeni: str, tekrar: str):
     return None
 
 
+_SIFRE_ISTEGI_TABLOSU = None
+
+
+def sifre_istegi_tablosu_var() -> bool:
+    """`goc_030` çalıştırıldı mı.
+
+    Çalışmadıysa şifre değiştirme **eski gibi** anında geçer: göçü
+    çalıştırmamış bir makinede personelin şifre değiştirmesini tümden
+    engellemek, onay akışının çözdüğü sorundan pahalı olurdu (tuzak #3).
+    """
+    global _SIFRE_ISTEGI_TABLOSU
+    if _SIFRE_ISTEGI_TABLOSU is None:
+        _SIFRE_ISTEGI_TABLOSU = bool(db.tek(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='sifre_istegi'"))
+    return _SIFRE_ISTEGI_TABLOSU
+
+
+def bekleyen_sifre_istekleri():
+    """Onay bekleyen istekler, eskiden yeniye."""
+    if not sifre_istegi_tablosu_var():
+        return []
+    return db.sorgu(
+        "SELECT i.id, i.kullanici_id, i.olusturma_zamani, "
+        "       k.kullanici_adi, k.ad_soyad, k.kisa_kod "
+        "FROM sifre_istegi i JOIN kullanici k ON k.id = i.kullanici_id "
+        "WHERE i.lab_id = ? AND i.durum = 'bekliyor' "
+        "ORDER BY i.olusturma_zamani", (db.LAB_ID,))
+
+
 def sifre_yaz(kid: int, yeni: str, oturum_dusur: bool = True):
     """Şifreyi değiştirir ve o kullanıcının açık oturumlarını kapatır.
 
@@ -823,16 +853,22 @@ def oturumdaki(request: Request):
 
 
 @uygulama.get("/sifre")
-def sifre_ekran(request: Request, hata: str = ""):
+def sifre_ekran(request: Request, hata: str = "", onay: str = ""):
     """Giriş yapılmadan da açılır — giriş ekranından bağlantısı var.
 
     Güvenliği düşürmez: her iki durumda da **mevcut şifre** isteniyor, yani
     kimlik yine kanıtlanıyor. Giriş yapmışsa kullanıcı adı hazır gelir,
     yapmamışsa kendisi yazar (README v6.12).
     """
+    k = oturumdaki(request)
+    # Onay kuralı kullanıcıya göre: yönetici anında değiştirir. Giriş
+    # yapmamış birine "onay gerekir" demek kimin yönetici olduğunu sızdırırdı
+    # — o yüzden yalnızca giriş yapmışa yazılıyor.
+    onay_gerekir = bool(k) and not yonetici_mi(k) and sifre_istegi_tablosu_var()
     return sablon.TemplateResponse(
         request, "sifre.html",
-        {"kullanici": oturumdaki(request), "hata": hata})
+        {"kullanici": k, "hata": hata, "onay": bool(onay),
+         "onay_gerekir": onay_gerekir})
 
 
 @uygulama.post("/sifre")
@@ -864,11 +900,26 @@ async def sifre_kaydet(request: Request):
     if guvenlik.dogrula(yeni, tam["sifre_hash"]):
         return hata("Yeni şifre eskisiyle aynı.")
 
-    sifre_yaz(tam["id"], yeni)
-    # Oturumlar düştü (varsa kendisininki de) — yeniden giriş yapmalı.
-    yanit = RedirectResponse("/giris?sifre=1", status_code=303)
-    yanit.delete_cookie(guvenlik.CEREZ_ADI)
-    return yanit
+    # Yöneticinin kendi şifresi onay beklemez (v6.61). Tek yönetici kendi
+    # isteğini onaylamak için giriş yapamaz duruma düşerdi — README v6.11'deki
+    # kilitlenme korumasının aynısı. Göç çalıştırılmamışsa da eski yol.
+    if yonetici_mi(tam) or not sifre_istegi_tablosu_var():
+        sifre_yaz(tam["id"], yeni)
+        # Oturumlar düştü (varsa kendisininki de) — yeniden giriş yapmalı.
+        yanit = RedirectResponse("/giris?sifre=1", status_code=303)
+        yanit.delete_cookie(guvenlik.CEREZ_ADI)
+        return yanit
+
+    # Bekleyen istek TEK: ikinci istek birincinin yerine geçiyor. Yoksa
+    # yönetici hangisinin sonuncusu olduğunu bilemez ve eski bir şifreyi
+    # onaylayabilir.
+    db.yaz("DELETE FROM sifre_istegi WHERE lab_id = ? AND kullanici_id = ? "
+           "AND durum = 'bekliyor'", (db.LAB_ID, tam["id"]))
+    db.yaz("INSERT INTO sifre_istegi (lab_id, kullanici_id, yeni_hash) "
+           "VALUES (?,?,?)", (db.LAB_ID, tam["id"], guvenlik.sifrele(yeni)))
+    _gunluk.info("sifre istegi: %s", tam["kullanici_adi"])
+    # Şifre HENÜZ değişmedi: oturumu düşürmek yanıltıcı olurdu.
+    return RedirectResponse("/sifre?onay=1", status_code=303)
 
 
 # --------------------------------------------- yönetici: kullanıcı listesi
@@ -1373,7 +1424,8 @@ def yonetim_ekran(request: Request):
          "makine": db.MAKINE,
          "toplam_kullanici": sum(r["n"] for r in kullanicilar),
          "aktif_kullanici": sum(r["n"] for r in kullanicilar if r["aktif_mi"]),
-         "yonetici_sayisi": aktif_yonetici_sayisi()})
+         "yonetici_sayisi": aktif_yonetici_sayisi(),
+         "sifre_istegi": len(bekleyen_sifre_istekleri())})
 
 
 @uygulama.get("/kullanicilar")
@@ -1393,7 +1445,82 @@ def kullanicilar_ekran(request: Request, hata: str = "", bilgi: str = ""):
          "moduller": MODULLER,
          "yetki_goc_gerekli": not yetki_tablosu_var(),
          "yetkiler": _kullanici_yetki_haritasi(),
-         "min_sifre": MIN_SIFRE, "hata": hata, "bilgi": bilgi})
+         "min_sifre": MIN_SIFRE, "hata": hata, "bilgi": bilgi,
+         "sifre_istegi": len(bekleyen_sifre_istekleri())})
+
+
+# ------------------------------------- yönetici: bekleyen şifre istekleri
+#
+# Kullanıcının kararı (2026-09-12): personel şifresini kendisi değiştirsin ama
+# yönetici onaylayınca geçsin. İstek `/sifre`'de oluşuyor (mevcut şifreyle
+# kimlik kanıtlanmış halde), burada yalnızca karar veriliyor.
+#
+# Rota adlarında `sil` YOK: `yol_modulu()` `sil` ile biten yolu "silme"
+# modülüne bağlıyor, o da bu işi silme izni olmayan yöneticiden saklardı.
+
+@uygulama.get("/sifre-istekleri")
+def sifre_istekleri_ekran(request: Request, bilgi: str = ""):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(
+        request, "sifre_istekleri.html",
+        {"kullanici": request.state.kullanici,
+         "liste": bekleyen_sifre_istekleri(),
+         "goc_gerekli": not sifre_istegi_tablosu_var(),
+         "bilgi": bilgi})
+
+
+def _bekleyen_istek(iid: int):
+    if not sifre_istegi_tablosu_var():
+        return None
+    return db.tek(
+        "SELECT i.*, k.kullanici_adi FROM sifre_istegi i "
+        "JOIN kullanici k ON k.id = i.kullanici_id "
+        "WHERE i.id = ? AND i.lab_id = ? AND i.durum = 'bekliyor'",
+        (iid, db.LAB_ID))
+
+
+@uygulama.post("/sifre-istekleri/{iid}/onayla")
+def sifre_istegi_onayla(request: Request, iid: int):
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    istek = _bekleyen_istek(iid)
+    if not istek:
+        return RedirectResponse("/sifre-istekleri", status_code=303)
+    # Hash zaten hazır — düz metin hiçbir yerde durmuyor. `sifre_yaz()`
+    # kullanılamaz, o düz metin bekliyor; oturum düşürmeyi burada elle yap
+    # (şifre değişince açık oturumlar kapanır, README v6.11).
+    db.yaz("UPDATE kullanici SET sifre_hash = ? WHERE id = ?",
+           (istek["yeni_hash"], istek["kullanici_id"]))
+    db.yaz("DELETE FROM oturum WHERE kullanici_id = ?", (istek["kullanici_id"],))
+    db.yaz("UPDATE sifre_istegi SET durum = 'onaylandi', karar_veren_id = ?, "
+           "karar_zamani = datetime('now') WHERE id = ?",
+           (request.state.kullanici["id"], iid))
+    _gunluk.info("sifre istegi onaylandi: %s", istek["kullanici_adi"])
+    mesaj = metinler.t("sifre_onaylandi").format(kim=istek["kullanici_adi"])
+    return RedirectResponse(f"/sifre-istekleri?bilgi={quote(mesaj)}",
+                            status_code=303)
+
+
+@uygulama.post("/sifre-istekleri/{iid}/reddet")
+def sifre_istegi_reddet(request: Request, iid: int):
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    istek = _bekleyen_istek(iid)
+    if not istek:
+        return RedirectResponse("/sifre-istekleri", status_code=303)
+    db.yaz("UPDATE sifre_istegi SET durum = 'reddedildi', karar_veren_id = ?, "
+           "karar_zamani = datetime('now') WHERE id = ?",
+           (request.state.kullanici["id"], iid))
+    _gunluk.info("sifre istegi reddedildi: %s", istek["kullanici_adi"])
+    mesaj = metinler.t("sifre_reddedildi").format(kim=istek["kullanici_adi"])
+    return RedirectResponse(f"/sifre-istekleri?bilgi={quote(mesaj)}",
+                            status_code=303)
 
 
 @uygulama.post("/kullanicilar/yeni")
@@ -1405,6 +1532,9 @@ async def kullanici_yeni(request: Request):
     f = dict(await request.form())
 
     def hata(m):
+        # Her ret gunluge de dusuyor: "ekleyemiyorum" diyen kullanicinin
+        # ekraninda mesaj gorunmediginde tek kanit `program.log` oluyor.
+        _gunluk.info("kullanici eklenemedi: %s", m)
         return RedirectResponse(f"/kullanicilar?hata={quote(m)}", status_code=303)
 
     ad = (f.get("ad_soyad") or "").strip()
@@ -1426,10 +1556,22 @@ async def kullanici_yeni(request: Request):
 
     rol = "yonetici" if (f.get("rol") or "") == "yonetici" else "embriyolog"
     kod = ((f.get("kisa_kod") or "").strip() or ad[:2]).upper()
-    yeni_id = db.yaz("INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
-                     "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
-                     (db.LAB_ID, ad, kod, rol, kadi, guvenlik.sifrele(f.get("sifre"))))
+    # `kullanici_adi` semada LAB'DAN BAGIMSIZ olarak UNIQUE, yukaridaki
+    # kontrol ise `lab_id`'ye gore bakiyor. Iki lab satiri olan bir
+    # veritabaninda kontrol gecer, INSERT patlar ve ekran cirilciplak 500
+    # verir. Yakala, sebebini yaz (tuzak: sessiz basarisizlik).
+    try:
+        yeni_id = db.yaz(
+            "INSERT INTO kullanici (lab_id, ad_soyad, kisa_kod, rol, "
+            "kullanici_adi, sifre_hash) VALUES (?,?,?,?,?,?)",
+            (db.LAB_ID, ad, kod, rol, kadi, guvenlik.sifrele(f.get("sifre"))))
+    except sqlite3.IntegrityError:
+        return hata(f"'{kadi}' bu veritabaninda zaten var.")
+    except sqlite3.Error as e:
+        _gunluk.exception("kullanici INSERT hatasi")
+        return hata(f"Kullanici kaydedilemedi: {e}")
     tum_yetkileri_ver(yeni_id)
+    _gunluk.info("kullanici eklendi: %s (id=%s, rol=%s)", kadi, yeni_id, rol)
     return RedirectResponse(
         f"/kullanicilar?bilgi={quote(kadi + ' eklendi.')}", status_code=303)
 
