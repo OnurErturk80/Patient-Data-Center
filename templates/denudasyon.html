@@ -6,13 +6,6 @@
 {% import "_islem_yapan.html" as iy %}
 {% import "_bilgikart.html" as bk %}
 {% import "_kareler.html" as kr %}
-{# Genis ekranda fotograf ve bilgi karti yan yana (v6.57). Yan menusu VAR,
-   o yuzden `yanmenusuz` degil `asama`; band da onunla hizalaniyor.
-   Denudasyon saati ve oosit ekleme (kamera kuyrugu) sutunlarin USTUNDE
-   tam genislikte kaliyor: ikisi de ekranin tamamina ait, secilen
-   oosite degil. #}
-{% block kapsinif %} genis asama{% endblock %}
-{% block govde %}genissayfa asamasayfa{% endblock %}
 {% block ustbaslik %}{{ metin("asama_denudasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -51,12 +44,6 @@
 </div>
 {% endif %}
 
-{# --- Denüdasyon saati + oosit ekleme: genis ekranda yan yana (v6.57).
-     Bilgi kipinde oosit ekleme karti yok; `.ustblok` tek kalan sutunun
-     tam genislige yayilmasini engelliyor. --- #}
-<div class="sutunlar ustblok">
-<div class="sutun">
-
 {# --- Denüdasyon saati --- #}
 {% if c.denudasyon_zamani and duzenle != "saat" %}
 {{ bk.kart(metin("denudasyon_zamani"),
@@ -80,11 +67,8 @@
 </div>
 {% endif %}
 
-</div>{# sutun #}
 {# --- Oosit ekleme: yalnızca çalışma kipinde --- #}
 {% if calisma %}
-<div class="sutun">
-
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("oosit_ekle") }}</h2>
 
@@ -153,9 +137,7 @@
     {% endif %}
   </div>
 </div>
-</div>{# sutun #}
 {% endif %}
-</div>{# sutunlar #}
 
 {# --- Kaydedilen oositler: iki kipte de görünür --- #}
 {% if not kayitli %}
@@ -184,11 +166,6 @@
     <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
-{# Solda fotograf, sagda bilgi karti. Bolme noktasi kaynak sirasinda:
-   telefonda sutunlar alt alta dizilince sira bire bir ayni kaliyor. #}
-<div class="sutunlar">
-<div class="sutun">
-
 {% if kareler %}
 <div class="foto">
   <img src="/dosya/{{ kareler[0].id }}" alt="{{ oosit_ad }} {{ sp.cycle_sira_no }}">
@@ -203,9 +180,6 @@
 {{ kr.yer(oosit_ad, sp, '/cycle/' ~ c.id ~ '/foto-ekle?specimen_id=' ~ sp.id
                         ~ '&asama=denudasyon&geri=' ~ bu_yol|urlencode) }}
 {% endif %}
-
-</div>{# sutun #}
-<div class="sutun">
 
 {% if calisma %}
 {# Over düğmeleri kendi başına gönderir — tek alan, ayrı Kaydet gereksiz. #}
@@ -250,9 +224,6 @@
      kok ~ '?duzenle=oosit&oosit=' ~ sp.cycle_sira_no,
      metin("kaydedildi_rozet")) }}
 {% endif %}
-
-</div>{# sutun #}
-</div>{# sutunlar #}
 {% endif %}
 
 {% set buyutec_ad = oosit_ad %}

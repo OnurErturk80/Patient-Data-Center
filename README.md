@@ -5736,6 +5736,9 @@ kapatıyor, zemin/kenarlık/renk zaten CSS'te veriliyordu.
 
 # v6.57 — aşama ekranları iki sütuna geçti
 
+> **Bu değişiklik v6.59'da geri alındı.** Aşağısı ne denendiğinin ve
+> neden olmadığının kaydı; uygulama bugün böyle çalışmıyor.
+
 Kullanıcının isteği: "büyük ekranlı bir monitörde çok fazla boş alan
 görünüyor". v6.52'de aşama ekranları **bilerek** dışarıda bırakılmıştı
 ("kendi düzenleri var: şerit → fotoğraf → kart"). Bu sürüm o kararı gözden
@@ -5826,6 +5829,9 @@ Sonuç: en geniş düğme 1178 → **590px**.
 
 # v6.58 — aşama sütunları eşit genişliğe getirildi
 
+> **Bu değişiklik v6.59'da geri alındı.** Aşağısı ne denendiğinin ve
+> neden olmadığının kaydı; uygulama bugün böyle çalışmıyor.
+
 v6.57 kullanıcıya gösterildi ve **beğenilmedi**: "bölümler çok asimetrik,
 düzensiz görünüyor, simetrik şekilde yerleşmesi gerekiyor".
 
@@ -5885,3 +5891,63 @@ Sayı keyfi değil: `2 × sütun + 16px boşluk + 32px kenar dolgusu`.
 > genişlikte yaptım; kazanç 38px, bedeli ekranın düzensiz görünmesiydi.
 > Simetriyi ölçüyle koru — fotoğraf gerekiyorsa **kabı** genişlet, sütunları
 > değil.
+
+
+---
+
+# v6.59 — aşama ekranları eski haline döndü
+
+Kullanıcı v6.58'i de beğenmedi: "eski halinde kalsın, daha sonra bir şeyler
+düşünürüz". Beş ekran (androloji, denüdasyon, fertilizasyon, gün 2/3,
+blastokist) v6.56'daki haline döndürüldü — 640px'lik tek sütun.
+
+Geri alınanlar: şablonlardaki `.sutunlar` bölmeleri ve `genis asama` /
+`genissayfa asamasayfa` sınıfları, CSS'te `--genis-sutun-asama`,
+`.kap.genis.asama`, `.sutunlar.ustblok`, `body.genissayfa.asamasayfa .kimlik`.
+`static/style.css` ve beş şablon v6.56 ile **birebir aynı**.
+
+## İki denemeden kalan: ölçüler
+
+Bu ekranların neden bölünmediği artık tahmin değil, ölçülmüş bilgi — sıradaki
+denemeye başlamadan önce buraya bakılsın.
+
+**Kart boyları (1920px, androloji):** 586 / 235 / 877 / 563px. Sırayı bozmadan
+(v6.42) yapılabilecek üç bölme noktasının verdiği fark: **1089 / 619 / 1135px**.
+Yani en iyi bölme bile ~600px ragged bırakıyor. Öteki ekranlarda fark 328–520px.
+
+**Fotoğraf dengeyi tersine çeviriyor.** Deneme verisinde fotoğraf yok; gerçek
+fotoğrafla sol sütun ~500px büyüyor ve sağ sütun kısa kalan taraf oluyor. Bir
+duruma göre dengelenen düzen ötekinde bozuluyor — statik bir bölme bu ekranlar
+için yeterli değil.
+
+**Tek geniş sütun da çözüm değil.** 940px'te denendi ve gösterildi: tam
+simetrik, fotoğraf 608 → 908px büyüyor, **ama sayfa boyu birebir aynı kalıyor**
+(2940 / 1770 / 1964). Sebebi formların zaten `.alan ikili` ile iki sütunlu
+satır kullanması: genişlik artınca satır sayısı değişmiyor, alanlar geniyor.
+
+## Sıradaki deneme için üç yol
+
+Kullanıcı "daha sonra bir şeyler düşünürüz" dedi. Bugünden görünen seçenekler:
+
+1. **Fotoğrafı sabitlemek** (`position: sticky`): tek sütun kalır, form
+   kaydırılırken fotoğraf ekranda durur. Simetri bozulmaz, sayfa kısalmaz ama
+   kaydırma sorunu çözülür.
+2. **Formun içini yeniden düzenlemek**: kartları bölmek yerine kart
+   *içindeki* alanları geniş ekranda üçlü/dörtlü satıra çıkarmak. Sayfa
+   gerçekten kısalır, sütun bölünmez.
+3. **Kabul etmek**: telefon öncelikli bir program büyük monitörde boşluk
+   bırakır; klinikte asıl kullanım telefonda.
+
+Hangisi olacağı kullanıcının kararı — ona sorulmadan yeniden bölünmesin.
+
+## Test edildi
+
+- Beş şablon ve `static/style.css` v6.56 ile birebir aynı (`git diff` boş).
+- 34 adres 200, sunucu günlüğünde hata yok.
+- Deneme verisi geri alındı.
+
+> **Ders.** İki sürüm boyunca "ölçülebilir kazanç" (sayfa %20-29 kısaldı,
+> fotoğraf büyüdü) ile "ekran nasıl görünüyor" ayrı şeylermiş gibi davrandım.
+> Kullanıcı ikisini birlikte değerlendirdi ve düzeni seçti. Bir düzen
+> değişikliğini sayı ile savunmadan önce **görüntüsünü göster ve sor** —
+> v6.57'de ekran görüntüsü istenmesinin sebebi buydu, ilk turda anlamadım.

@@ -256,31 +256,20 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   `{% if gomulu %}`'nin içine düştü; gömülü form olmayan kurulumda (ticari
   dağıtım, v6.41) `</div>` hiç basılmayacaktı. Sütun sınırı her zaman
   basılan bir yerde olmalı.
-- **Aşama ekranları da iki sütun** (v6.57): solda fotoğraf + kare şeridi,
-  sağda bilgi kartı / form — embriyoya bakarken puan giriliyor. Numara şeridi
-  sütunların **üstünde** tam genişlikte kalır (seçici, ekranın tamamına ait).
-  Androlojide fotoğraf yok, bölme anlamla: solda örnek + makroskopik, sağda
-  iki analiz (`fotolu` sınıfı verilmez).
-  - **Sütunlar EŞİT genişlikte** (v6.58). v6.57'de fotoğraf büyük kalsın diye
-    460/360 yapılmıştı; kullanıcı "asimetrik, düzensiz" dedi ve haklıydı.
-    Kazanç 38px, bedeli ekranın düzensiz görünmesiydi. **Simetriyi ölçüyle
-    koru — fotoğraf gerekiyorsa kabı genişlet, sütunları değil.**
-  - **Ayrı ve daha geniş ölçü**: `--genis-sutun-asama` (1320px). Sayı keyfi
-    değil: `2 × sütun + 16px boşluk + 32px dolgu`, her sütun eski tek sütunun
-    genişliğinde (636px) kalsın diye. 940 olsaydı sütunlar 446'ya düşer,
-    fotoğraf bugünkünden (608px) küçük kalırdı (v6.20).
-  - Sınıf `genis asama` (+ `govde genissayfa asamasayfa`). **`yanmenusuz`
-    değil** — bu ekranların yan menüsü var.
-  - **Sütunların bittiği yer farklı kalır, düzeltilemez.** Androlojinin dört
-    kartı 586/235/877/563px; sırayı bozmadan (v6.42) yapılabilecek üç bölmenin
-    farkları 1089/619/1135 — seçilen zaten en iyisi. Fotoğraf gelince denge
-    tersine döner. **Kullanıcı bu farkı bilerek kabul etti** (2026-09-12):
-    sayfanın %20-29 kısalması ondan önemli. Dengelemeye çalışıp sırayı bozma.
-  - **Tam genişlik kartı şişirir**: denüdasyonun üst kartı 1206px'e yayılınca
-    1178px'lik bir "Düzenle" düğmesi çıkıyordu. O iki kart kendi satırında;
-    tek kalan sütun `.sutunlar.ustblok > .sutun:only-child` ile 620px'te
-    sınırlı. Kural **`.ustblok` ile sınırlı** — `/cryo` gibi tek sütunun
-    genişlemesi gereken yerleri bozma.
+- **Aşama ekranları iki sütuna BÖLÜNMEZ** — iki kez denendi, kullanıcı iki
+  kez beğenmedi, v6.59'da geri alındı. Tekrar denemeden önce README v6.57–59'u
+  oku. Sebep ölçülü: kartların boyu çok farklı (androlojide 586/235/877/563px)
+  ve **sırayı bozmadan** (v6.42) yapılabilecek üç bölmenin verdiği farklar
+  1089/619/1135px — yani en iyi bölme bile ~600px ragged bırakıyor. Üstelik
+  fotoğraf geldiğinde sol sütun ~500px büyüyüp denge **tersine** dönüyor:
+  bir duruma göre dengelenen düzen ötekinde bozuluyor. Kullanıcının sözü:
+  "bölümler çok asimetrik, düzensiz görünüyor".
+  - Tek geniş sütun (940px) da denendi ve gösterildi: simetrik ve fotoğraf
+    608 → 908px, **ama sayfa boyu hiç kısalmıyor** (formlar zaten `.alan ikili`
+    ile iki sütunlu satır kullanıyor). Kullanıcı onu da istemedi.
+  - Bugün bu ekranlar 640px'lik tek sütunda. Büyük monitörde iki yanda geniş
+    boşluk kalıyor; kullanıcı "daha sonra bir şeyler düşünürüz" dedi
+    (2026-09-12). Ona sormadan yeniden bölme.
 - **Kimlik bandı + geniş + yan menüsüz üçlüsü ayrı ölçü ister**
   (`--genis-sutun-menusuz`, v6.52). Şablon ikisini birlikte verir:
   `{% block kapsinif %} genis yanmenusuz{% endblock %}` **ve**

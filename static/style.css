@@ -18,13 +18,6 @@
      kalir. Hem `.kap.genis.yanmenusuz` hem kimlik bandinin hizasi bunu
      kullaniyor -- iki ayri sayi olsaydi band ile kartlar kayardi. */
   --genis-sutun-menusuz: 940px;
-  /* Asama ekranlari (fotograf + form yan yana) daha genis. Olcu keyfi degil:
-     iki sutun + aradaki bosluk + kenar dolgusu, HER SUTUN eski tek sutunun
-     genisliginde (~636px) kalacak sekilde secildi. 940'a sikissa sutunlar
-     446'ya duserdi ve fotograf bugunkunden (608px) KUCUK kalirdi, oysa
-     "fotograflar tek tek ve buyuk bakilacak yerde" (v6.20). Yan menu payi
-     burada da var: bu ekranlarin menusu var (v6.57). */
-  --genis-sutun-asama: max(640px, min(1320px, calc(100vw - 500px)));
 }
 
 * { box-sizing: border-box; }
@@ -216,13 +209,6 @@ body {
    `align-items: flex-start`: kisa sutun uzun olanin boyuna uzamasin. */
 .sutunlar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
 .sutunlar > .sutun { flex: 1 1 380px; min-width: 0; }
-/* Denudasyonun ustundeki islem kartlari (denudasyon saati + oosit ekleme).
-   Tek basina kalinca (bilgi kipinde oosit ekleme karti yok) tam genislige
-   YAYILMAMALI: ikisi de form, ve "alan genisledikce etiketle deger
-   birbirinden uzaklasir" (v6.52). Yayilinca 1200px'lik bir "Duzenle"
-   dugmesi cikiyordu. `/cryo` gibi tek sutunun genislemesi GEREKEN yerler
-   etkilenmesin diye kural `.ustblok` ile sinirli (v6.57). */
-.sutunlar.ustblok > .sutun:only-child { max-width: 620px; }
 
 /* Iki sutunlu ekran (yalniz ana ekran) 640px'lik olcuye sigmiyor: kartlar
    296px'te kaliyor, sagda yarim ekran bos duruyordu. Sutun genisliyor.
@@ -239,8 +225,6 @@ body {
      Sinif bilerek "opt-in": unutulursa sayfa dar kalir, menunun altina
      girmez -- yanlis tarafa dusmesi ucuz olan secenek bu. */
   .kap.genis.yanmenusuz { max-width: var(--genis-sutun-menusuz); }
-  /* Asama ekrani: yan menusu VAR, o yuzden `yanmenusuz` degil. */
-  .kap.genis.asama { max-width: var(--genis-sutun-asama); }
 }
 
 /* Ayni kaydi baska biri duzenliyor (v6.55). `.uyari`nin uzerine biniyor:
@@ -1090,11 +1074,6 @@ body.kilitli { overflow: hidden; }
   body.genissayfa.menusuzsayfa .kimlik {
     padding-left: calc((100% - var(--genis-sutun-menusuz)) / 2 + 16px);
     padding-right: calc((100% - var(--genis-sutun-menusuz)) / 2 + 16px);
-  }
-  /* Asama ekraninda band da o ekranin olcusuyle hizalanir (v6.57). */
-  body.genissayfa.asamasayfa .kimlik {
-    padding-left: calc((100% - var(--genis-sutun-asama)) / 2 + 16px);
-    padding-right: calc((100% - var(--genis-sutun-asama)) / 2 + 16px);
   }
 }
 
