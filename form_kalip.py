@@ -35,6 +35,7 @@ ekran için yüzde/puntoya hem Excel için EMU'ya çeviriyor.
 
 import json
 import os
+import re
 
 _YOL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     "form_kalip.json")
@@ -61,8 +62,161 @@ _EMU_PUNTO, _EMU_PIKSEL = 12700, 9525
 _SUTUN_PIKSEL = 7.0 / 256.0
 
 
-def yon(ad: str) -> str:
-    return _SAYFA.get(ad, ("dikey", 780.0))[0]
+# Kutulara yazılan etiket: {{dosya_no}} (v6.40). Yalnızca küçük harf, rakam
+# ve alt çizgi -- yüklenen dosyadan gelen metinle düzenli ifade kuruyoruz,
+# dar tutmak hem yazım hatasını hem sürprizi engelliyor.
+_ETIKET = re.compile(r"\{\{\s*([a-z0-9_]{1,40})\s*\}\}")
+
+
+def _kalip_al(kaynak):
+    """Kaynak ya gömülü kalıbın adı ya da yüklenmiş bir kalıp sözlüğü."""
+    return KALIPLAR[kaynak] if isinstance(kaynak, str) else kaynak
+
+
+def _sayfa_olcusu(kaynak):
+    """(yön, A4'e sığması için hedef yükseklik -- punto)."""
+    if isinstance(kaynak, str):
+        return _SAYFA.get(kaynak, ("dikey", 780.0))
+    y = "yatay" if kaynak.get("yon") == "yatay" else "dikey"
+    return (y, 535.0 if y == "yatay" else 780.0)
+
+
+def yon(kaynak) -> str:
+    return _sayfa_olcusu(kaynak)[0]
+
+
+def etiketleri_doldur(metin: str, alan) -> str:
+    """`{{dosya_no}}` -> değer. Tanınmayan etiket **olduğu gibi kalır**.
+
+    Bilerek: yazım hatası yapılmış bir etiket ("{{dosyano}}") formda göze
+    çarpsın, sessizce boş kutu olarak geçmesin. Yükleme ekranı da dosyadaki
+    tanınmayan etiketleri sayıp uyarıyor.
+    """
+    if not metin or "{{" not in metin:
+        return metin
+
+    def degistir(e):
+        ad = e.group(1)
+        if ad not in alan:
+            return e.group(0)
+        deger = alan[ad]
+        return "" if deger is None else str(deger)
+
+    return _ETIKET.sub(degistir, metin)
+
+
+def etiketler(kaynak) -> list:
+    """Kalıpta geçen bütün `{{...}}` etiketleri, geçiş sırasıyla ve tekrarsız."""
+    k = _kalip_al(kaynak)
+    bulunan = []
+    for satir in k["satirlar"]:
+        for _c, _rs, _cs, metin, _stil in satir:
+            for ad in _ETIKET.findall(metin or ""):
+                if ad not in bulunan:
+                    bulunan.append(ad)
+    return bulunan
+
+
+# --------------------------------------------------------------- ızgara kurma
+#
+# Kalıbı iki yer üretiyor: `formlar_asil/kalip_uret.py` (kâğıt aslındaki .xls'ten,
+# tek seferlik) ve `xlsx_oku.py` (yöneticinin yüklediği .xlsx'ten, çalışma
+# anında). İkisi de hücreleri okuyup aynı ızgarayı kurmak zorunda — kural burada
+# tek kopya duruyor, yoksa yüklenen form ile gömülü form farklı basılırdı.
+
+def _katilir(onceki_stil, stil, metin, rs, cs) -> bool:
+    """Bu boş hücre soldaki hücreye katılabilir mi?
+
+    Excel'de bir hücrenin yazısı, yanındaki hücre boşsa ve aralarında dikey
+    çizgi yoksa oraya taşar; kâğıtta `Dosya No : ......` tek bir açık alan gibi
+    görünür, aslında altı ayrı hücredir. HTML tablosunda taşma yok, yazı
+    kırpılır — o yüzden aralarında çizgi olmayan boş hücreler soldakine
+    katılıyor (colspan). Üst/alt çizgileri farklıysa katılmıyor: birleştirmek
+    kâğıttaki çizgiyi bozardı.
+    """
+    if metin.strip() or rs != 1 or cs != 1:
+        return False
+    if onceki_stil is None:
+        return False
+    ok, yk = onceki_stil[5], stil[5]
+    return (ok[3] == 0 and yk[2] == 0          # aralarında dikey çizgi yok
+            and ok[0] == yk[0] and ok[1] == yk[1])   # üst/alt aynı
+
+
+def izgara_kur(ncol: int, nsatir: int, birlesmeler, oku):
+    """Hücrelerden kalıbın ızgarasını kurar.
+
+    `birlesmeler`  [(r1, r2, c1, c2)] -- üst sınır dışta (Excel'in kendi kuralı)
+    `oku(r, c)`    -> (metin, stil) ; stil altı parçalı bir demet:
+                      (punto, kalın, yatay, dikey, sar, (üst, alt, sol, sağ))
+
+    Döner: (stiller, satirlar, son_satir). `satirlar` her satır için
+    [sütun, satır yayılımı, sütun yayılımı, metin, stil no] listesi; stil no
+    None ise yalnızca yer tutan boş hücre (Excel'e hiç yazılmıyor).
+    """
+    kapali, yayilim = {}, {}
+    for (r1, r2, c1, c2) in birlesmeler:
+        yayilim[(r1, c1)] = (r2 - r1, c2 - c1)
+        for r in range(r1, r2):
+            for c in range(c1, c2):
+                if (r, c) != (r1, c1):
+                    kapali[(r, c)] = True
+
+    def dolu_mu(metin, stil):
+        return bool(metin.strip()) or any(stil[5])
+
+    son = 0
+    for r in range(nsatir):
+        for c in range(ncol):
+            if (r, c) in kapali:
+                continue
+            if dolu_mu(*oku(r, c)):
+                son = r
+    for (r1, r2, c1, c2) in birlesmeler:
+        son = max(son, r2 - 1)
+
+    stiller, stil_no = [], {}
+
+    def no(stil):
+        if stil not in stil_no:
+            stil_no[stil] = len(stiller)
+            stiller.append({"pt": stil[0], "kalin": stil[1], "yatay": stil[2],
+                            "dikey": stil[3], "sar": stil[4],
+                            "kenar": list(stil[5])})
+        return stil_no[stil]
+
+    satirlar = []
+    for r in range(son + 1):
+        hucreler, satir_stilleri, bos = [], [], 0
+        for c in range(ncol):
+            if (r, c) in kapali:
+                continue
+            rs, cs = yayilim.get((r, c), (1, 1))
+            metin, stil = oku(r, c)
+
+            onceki = hucreler[-1] if hucreler and not bos else None
+            onc_stil = satir_stilleri[-1] if onceki else None
+            if (onceki and onceki[1] == 1
+                    and _katilir(onc_stil, stil, metin, rs, cs)):
+                onceki[2] += 1                        # colspan
+                k = onc_stil[5]
+                yeni = onc_stil[:5] + ((k[0], k[1], k[2], stil[5][3]),)
+                satir_stilleri[-1] = yeni
+                onceki[4] = no(yeni)
+                continue
+
+            if not dolu_mu(metin, stil) and rs == 1 and cs == 1:
+                bos += 1
+                continue
+            if bos:
+                hucreler.append([c - bos, 1, bos, "", None])
+                satir_stilleri.append(None)
+                bos = 0
+            hucreler.append([c, rs, cs, metin, no(stil)])
+            satir_stilleri.append(stil)
+        satirlar.append(hucreler)      # kuyruktaki boş hücreler atılıyor
+
+    return stiller, satirlar, son
 
 
 def _x(k, sutun, kesir):
@@ -115,7 +269,7 @@ def _yazi(kalip_metni: str, deger, ekleme) -> str:
     return kalip_metni
 
 
-def satirlar(ad: str, deger=None, ek=None) -> dict:
+def satirlar(kaynak, deger=None, ek=None, alan=None) -> dict:
     """Şablonun bastığı ızgara: sütun genişlikleri + satır satır hücreler.
 
     Ölçek: kâğıdın kendi punto ve satır yükseklikleri A4'e sığmıyor (Excel
@@ -123,11 +277,11 @@ def satirlar(ad: str, deger=None, ek=None) -> dict:
     yükseklikler ve puntolar tek bir katsayıyla küçültülüyor — oranlar
     bozulmadığı için form aynı görünüyor.
     """
-    k = KALIPLAR[ad]
-    deger, ek = deger or {}, ek or {}
+    k = _kalip_al(kaynak)
+    deger, ek, alan = deger or {}, ek or {}, alan or {}
 
     toplam = sum(h or 15.0 for h in k["satir_yuksekligi"])
-    hedef = _SAYFA.get(ad, ("dikey", 780.0))[1]
+    sayfa_yon, hedef = _sayfa_olcusu(kaynak)
     olcek = min(1.0, hedef / toplam) if toplam else 1.0
 
     gen_toplam = sum(k["sutun"]) or 1
@@ -139,7 +293,8 @@ def satirlar(ad: str, deger=None, ek=None) -> dict:
         for c, rs, cs, metin, stil_no in satir:
             stil = k["stiller"][stil_no] if stil_no is not None else None
             hucreler.append({
-                "metin": _yazi(metin, deger.get((r, c)), ek.get((r, c))),
+                "metin": etiketleri_doldur(
+                    _yazi(metin, deger.get((r, c)), ek.get((r, c))), alan),
                 "sinif": _sinif(stil) if stil else "",
                 "satir_yayilim": rs,
                 "sutun_yayilim": cs,
@@ -153,7 +308,10 @@ def satirlar(ad: str, deger=None, ek=None) -> dict:
     for g in k.get("gorseller", []):
         sol, ust, gen, yuk = _gorsel_kutusu(k, g)
         gorseller.append({
-            "dosya": g["dosya"],
+            # Gömülü formun amblemi `static/` altında; yüklenen formunki
+            # kalıbın içinde base64 -- veritabanıyla birlikte taşınsın diye.
+            "kaynak": (f"data:{g['tur']};base64,{g['veri']}" if g.get("veri")
+                       else "/static/" + g["dosya"]),
             "sol": round(100.0 * sol / gen_toplam, 4),
             "genislik": round(100.0 * gen / gen_toplam, 4),
             "ust": round(ust * olcek, 2),
@@ -161,13 +319,13 @@ def satirlar(ad: str, deger=None, ek=None) -> dict:
         })
 
     return {"sutunlar": sutunlar, "satirlar": cikti, "gorseller": gorseller,
-            "olcek": round(olcek, 4), "yon": yon(ad)}
+            "olcek": round(olcek, 4), "yon": sayfa_yon}
 
 
-def yerlesim(ad: str, sayfa_adi: str, deger=None, ek=None) -> dict:
+def yerlesim(kaynak, sayfa_adi: str, deger=None, ek=None, alan=None) -> dict:
     """Aynı kalıbı `excel.kitap()`'ın yerleşim sayfası olarak kurar."""
-    k = KALIPLAR[ad]
-    deger, ek = deger or {}, ek or {}
+    k = _kalip_al(kaynak)
+    deger, ek, alan = deger or {}, ek or {}, alan or {}
 
     hucreler, birlesik = {}, []
     for r, satir in enumerate(k["satirlar"]):
@@ -175,8 +333,10 @@ def yerlesim(ad: str, sayfa_adi: str, deger=None, ek=None) -> dict:
             if stil_no is None:            # yalnızca yer tutan boş hücre
                 continue
             adres = _adres(r, c)
-            hucreler[adres] = (_yazi(metin, deger.get((r, c)), ek.get((r, c))),
-                               stil_no)
+            hucreler[adres] = (
+                etiketleri_doldur(
+                    _yazi(metin, deger.get((r, c)), ek.get((r, c))), alan),
+                stil_no)
             if rs > 1 or cs > 1:
                 birlesik.append(f"{adres}:{_adres(r + rs - 1, c + cs - 1)}")
 
@@ -185,6 +345,8 @@ def yerlesim(ad: str, sayfa_adi: str, deger=None, ek=None) -> dict:
         s1, dx1, r1, dy1, s2, dx2, r2, dy2 = g["sabit"]
         gorseller.append({
             "dosya": g["dosya"],
+            "tur": g.get("tur"),
+            "veri": g.get("veri"),
             "bas": (s1, _emu_x(k, s1, dx1), r1, _emu_y(k, r1, dy1)),
             "bit": (s2, _emu_x(k, s2, dx2), r2, _emu_y(k, r2, dy2)),
         })
@@ -200,7 +362,7 @@ def yerlesim(ad: str, sayfa_adi: str, deger=None, ek=None) -> dict:
                         for c, g in enumerate(k["sutun"])},
         "yukseklikler": {r + 1: h for r, h in
                          enumerate(k["satir_yuksekligi"]) if h},
-        "yazdirma": {"yon": yon(ad), "sigdir": True, "kenar": 0.3},
+        "yazdirma": {"yon": yon(kaynak), "sigdir": True, "kenar": 0.3},
     }
 
 

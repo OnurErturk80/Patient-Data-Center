@@ -173,6 +173,12 @@
 <a class="dugme ikincil" href="/form/ozet/{{ c.id }}">{{ metin("form_ozet") }}</a>
 <a class="dugme ikincil" href="/form/artlab/{{ c.id }}">{{ metin("form_artlab") }}</a>
 
+{# Laboratuvarın kendi yüklediği formlar (yönetici alanından). Yoksa hiç
+   düğme basılmıyor -- bu laboratuvarda öyle. #}
+{% for f in lab_formlari %}
+<a class="dugme ikincil" href="/form/lab/{{ f.id }}/{{ c.id }}">{{ f.ad }}</a>
+{% endfor %}
+
 {# Cycle'ın tamamı: bilgi sayfası + oosit başına bir satır. #}
 <a class="dugme ikincil" href="/disari/cycle/{{ c.id }}">{{ metin("excel_cycle") }}</a>
 

@@ -716,3 +716,117 @@ def artlab_dolgu(v: dict) -> list:
         sayfalar.append((d, {k: x for k, x in ek.items()
                              if x is not None and str(x) != ""}))
     return sayfalar
+
+
+# ----------------------------------------------- yüklenen formların alanları
+#
+# Laboratuvarın kendi yüklediği `.xlsx` formunda kutuların içine `{{dosya_no}}`
+# gibi bir etiket yazılıyor; program onu değerle değiştiriyor (v6.40).
+# Etiketlerin listesi burada **tek yerde** duruyor: hem doldurma hem yönetici
+# alanındaki "hangi etiketi yazabilirim" ekranı bunu okuyor, yoksa ekrandaki
+# liste ile gerçekte çalışan etiketler birbirinden ayrı düşerdi.
+#
+# Değerlerin çoğu `ozet_verisi()`'nden geliyor -- resmî özet formunun kutuları
+# zaten bir laboratuvarın bir cycle için isteyeceği şeylerin listesi.
+
+ALAN_ACIKLAMA = [
+    ("— Hasta —", None),
+    ("hasta_adi", "Hastanın adı soyadı"),
+    ("adi", "Adı (son kelime soyadı sayılıyor)"),
+    ("soyadi", "Soyadı"),
+    ("dosya_no", "Dosya numarası"),
+    ("yasi", "OPU günündeki yaşı"),
+    ("esinin_adi", "Eşinin adı"),
+    ("kimlik_no", "Kimlik no — programda tutulmuyor, boş çıkar"),
+    ("— Cycle —", None),
+    ("cycle_no", "Cycle numarası (2026-0001)"),
+    ("ornek_kodu", "Cycle'ın örnek kodu kökü (527078-2026-0001)"),
+    ("tedavi_protokolu", "Tedavi protokolü"),
+    ("fertilizasyon_yontemi", "Tedavi tipi (IVF/ICSI, FET, oosit cryo)"),
+    ("onceki_tedavi", "Önceki tedavi sayısı"),
+    ("notlar", "Cycle'ın protokol notu"),
+    ("bugun", "Formun basıldığı tarih"),
+    ("laboratuvar", "Laboratuvarın adı"),
+    ("— OPU ve oosit —", None),
+    ("opu_tarihi", "OPU tarihi"),
+    ("toplanan_oosit", "Toplanan oosit sayısı"),
+    ("matur_mii", "MII (matür) sayısı"),
+    ("immatur", "MI + GV sayısı"),
+    ("dejenere", "Dejenere oosit sayısı"),
+    ("atretik", "Atretik oosit sayısı"),
+    ("opu_klinisyen", "OPU hekimi"),
+    ("opu_embriyolog", "OPU embriyoloğu"),
+    ("— Sperm —", None),
+    ("sperm_kaynagi", "Sperm kaynağı (ejakülat, TESE...)"),
+    ("hazirlama_yontemi", "Hazırlama yöntemi"),
+    ("bazal_volum", "Bazal volüm (ml)"),
+    ("bazal_konsantrasyon", "Bazal konsantrasyon (x10⁶/ml)"),
+    ("bazal_motilite", "Bazal total motilite (%)"),
+    ("bazal_progressif", "Bazal progressif motilite (%)"),
+    ("morfoloji_normal", "Normal morfoloji (%)"),
+    ("lokosit", "Lökosit (x10⁶/ml)"),
+    ("son_volum", "Hazırlık sonrası volüm (ml)"),
+    ("son_konsantrasyon", "Hazırlık sonrası konsantrasyon"),
+    ("son_motilite", "Hazırlık sonrası motilite (%)"),
+    ("son_progressif", "Hazırlık sonrası progressif (%)"),
+    ("hazirlayan_embriyolog", "Spermi hazırlayan embriyolog"),
+    ("— Fertilizasyon —", None),
+    ("islenen_oosit", "İşleme alınan oosit sayısı"),
+    ("normal_2pn", "2PN sayısı"),
+    ("anormal_fertilizasyon", "Anormal fertilizasyon (0/1/3PN)"),
+    ("islem_sonrasi_dejenere", "İşlem sonrası dejenere"),
+    ("fert_embriyolog", "Fertilizasyonu değerlendiren embriyolog"),
+    ("— Transfer —", None),
+    ("transfer_tarihi", "Transfer tarihi"),
+    ("transfer_sayisi", "Transfer edilen embriyo sayısı"),
+    ("transfer_asamasi", "Transfer aşaması"),
+    ("transfer_embriyolog", "Transfer embriyoloğu"),
+    ("embriyo1_asama", "1. embriyonun hücre/aşaması"),
+    ("embriyo1_kalite", "1. embriyonun kalitesi"),
+    ("embriyo2_asama", "2. embriyonun hücre/aşaması"),
+    ("embriyo2_kalite", "2. embriyonun kalitesi"),
+    ("— Dondurma / çözme —", None),
+    ("dondurulan_sayi", "Dondurulan embriyo sayısı"),
+    ("dondurma_asamasi", "Dondurma aşaması"),
+    ("cozdurulen_sayi", "Çözdürülen embriyo sayısı"),
+    ("cozdurme_viabilite", "Çözdürme sonrası viabilite"),
+    ("— İşlem saatleri —", None),
+    ("saat_opu", "OPU tarihi ve saati"),
+    ("saat_denudasyon", "Denüdasyon tarihi ve saati"),
+    ("saat_icsi", "Mikroenjeksiyon tarihi ve saati"),
+    ("saat_fert", "Fertilizasyon kontrolü tarihi ve saati"),
+    ("saat_vitrifikasyon", "Vitrifikasyon tarihi ve saati"),
+    ("saat_thaw", "Çözme tarihi ve saati"),
+    ("saat_transfer", "Transfer tarihi ve saati"),
+]
+
+# Başlık satırları (`— Hasta —`) yalnızca ekranda; etiket değil.
+ALAN_ADLARI = [a for a, aciklama in ALAN_ACIKLAMA if aciklama]
+
+
+def alanlar(cycle_id: int):
+    """Yüklenen formun etiketlerine karşılık gelen değerler.
+
+    `{{dosya_no}}` gibi etiketlerin sözlüğü. Değeri `None` olan etiket boş
+    basılıyor -- "girilmedi" ile "sıfır" aynı görünmesin diye kutuyu doldurmuyor.
+    """
+    v = ozet_verisi(cycle_id)
+    if not v:
+        return None
+
+    c = db.tek("SELECT c.cycle_no, h.dosya_no FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    cizelge = {s["asama"]: s["zaman"] for s in zaman_cizelgesi(cycle_id)}
+
+    lab = db.tek("SELECT ad FROM lab WHERE id = ?", (db.LAB_ID,))
+
+    v = dict(v)
+    v.pop("cycle_id", None)        # iç numara; forma basılacak bir şey değil
+    v["ornek_kodu"] = f"{c['dosya_no']}-{c['cycle_no']}" if c else None
+    v["bugun"] = _dt.date.today().isoformat()
+    v["laboratuvar"] = (lab["ad"] if lab else None) or None
+    for asama in ("opu", "denudasyon", "icsi", "fert", "vitrifikasyon",
+                  "thaw", "transfer"):
+        z = cizelge.get(asama)
+        v["saat_" + asama] = (z or "")[:16] or None
+    return v

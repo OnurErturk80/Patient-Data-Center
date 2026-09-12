@@ -16,6 +16,10 @@ her hucrenin punto/kalinlik/hiza bilgisi, dort kenarinin cizgi tipi ve kagitta
 basili olan yazilar. Kagittaki yazim hatalari **duzeltilmez** -- belge o.
 """
 import json, os, struct, sys, xlrd
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+import form_kalip                     # izgara kurma kurali orada
 from xlrd.compdoc import CompDoc
 
 # --------------------------------------------------------------- amblem
@@ -81,17 +85,8 @@ def kalip(yol):
     sh = b.sheet_by_index(0)
     ncol = sh.ncols
 
-    kapali = {}          # (r,c) -> True  (birlesmenin icinde, basilmaz)
-    yayilim = {}         # (r,c) -> (rowspan, colspan)
-    for (r1, r2, c1, c2) in sh.merged_cells:
-        yayilim[(r1, c1)] = (r2 - r1, c2 - c1)
-        for r in range(r1, r2):
-            for c in range(c1, c2):
-                if (r, c) != (r1, c1):
-                    kapali[(r, c)] = True
-
-    def bilgi(r, c):
-        """(metin, stil_tuple, dolu_mu)"""
+    def oku(r, c):
+        """(metin, stil) -- izgara_kur'un bekledigi bicimde."""
         cell = sh.cell(r, c)
         xf = b.xf_list[sh.cell_xf_index(r, c)]
         f = b.font_list[xf.font_index]
@@ -108,73 +103,12 @@ def kalip(yol):
         stil = (f.height // 20, 1 if f.bold else 0,
                 xf.alignment.hor_align, xf.alignment.vert_align,
                 1 if xf.alignment.text_wrapped else 0, kenar)
-        return m, stil, bool(m.strip()) or any(kenar)
+        return m, stil
 
-    # son dolu satir
-    son = 0
-    for r in range(sh.nrows):
-        for c in range(ncol):
-            if (r, c) in kapali:
-                continue
-            _, _, dolu = bilgi(r, c)
-            if dolu:
-                son = r
-    for (r1, r2, c1, c2) in sh.merged_cells:
-        son = max(son, r2 - 1)
-
-    stiller, stil_no = [], {}
-    def no(stil):
-        if stil not in stil_no:
-            stil_no[stil] = len(stiller)
-            stiller.append({"pt": stil[0], "kalin": stil[1], "yatay": stil[2],
-                            "dikey": stil[3], "sar": stil[4],
-                            "kenar": list(stil[5])})
-        return stil_no[stil]
-
-    # Excel'de bir hucrenin yazisi, yanindaki hucre bossa ve aralarinda dikey
-    # cizgi yoksa oraya tasar. HTML tablosunda tasma yok; ayni gorunumu vermek
-    # icin bos hucre soldaki hucreye katiliyor (colspan). Ayni sey degerin
-    # yazilacagi kutular icin de gecerli: kagitta "Dosya No : ......" tek bir
-    # acik alan, 6 ayri hucre degil.
-    def katilir(onceki_stil, stil, metin, rs, cs):
-        if metin.strip() or rs != 1 or cs != 1:
-            return False
-        if onceki_stil is None:
-            return False
-        ok, yk = onceki_stil[5], stil[5]
-        return (ok[3] == 0 and yk[2] == 0        # aralarinda dikey cizgi yok
-                and ok[0] == yk[0] and ok[1] == yk[1])   # ust/alt ayni
-
-    satirlar = []
-    for r in range(son + 1):
-        hucreler, stiller_satir, bos = [], [], 0
-        for c in range(ncol):
-            if (r, c) in kapali:
-                continue
-            rs, cs = yayilim.get((r, c), (1, 1))
-            m, stil, dolu = bilgi(r, c)
-
-            onceki = hucreler[-1] if hucreler and not bos else None
-            onc_stil = stiller_satir[-1] if onceki else None
-            if (onceki and onceki[1] == 1
-                    and katilir(onc_stil, stil, m, rs, cs)):
-                onceki[2] += 1                       # colspan
-                yeni_stil = onc_stil[:5] + ((onc_stil[5][0], onc_stil[5][1],
-                                             onc_stil[5][2], stil[5][3]),)
-                stiller_satir[-1] = yeni_stil
-                onceki[4] = no(yeni_stil)
-                continue
-
-            if not dolu and rs == 1 and cs == 1:
-                bos += 1
-                continue
-            if bos:
-                hucreler.append([c - bos, 1, bos, "", None])
-                stiller_satir.append(None)
-                bos = 0
-            hucreler.append([c, rs, cs, m, no(stil)])
-            stiller_satir.append(stil)
-        satirlar.append(hucreler)          # kuyruktaki bos hucreler atiliyor
+    # Izgarayi kuran kural programla ortak: yuklenen .xlsx de ayni yoldan
+    # geciyor (form_kalip.izgara_kur), yoksa iki form farkli basilirdi.
+    stiller, satirlar, son = form_kalip.izgara_kur(
+        ncol, sh.nrows, list(sh.merged_cells), oku)
 
     yuk = []
     for r in range(son + 1):
@@ -187,6 +121,7 @@ def kalip(yol):
         "stiller": stiller,
         "satirlar": satirlar,
     }
+
 
 AMBLEM = "form_amblem.png"     # static/ altina yaziliyor
 

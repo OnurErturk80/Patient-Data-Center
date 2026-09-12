@@ -1,6 +1,7 @@
 """IVF Laboratuvar Kayıt Modülü — hasta ve cycle ekranları, giriş ve düzenleme."""
 
 import contextvars
+import json
 import sqlite3
 from pathlib import Path
 
@@ -16,6 +17,7 @@ import form_kalip
 import formlar
 import guvenlik
 import metinler
+import xlsx_oku
 
 KOK = Path(__file__).parent
 uygulama = FastAPI(title="Patient Data Center")
@@ -445,6 +447,7 @@ KULLANICI_KAYITLARI = [
     ("islem_yapan", "kullanici_id", "işlemi yapan kaydı"),
     ("pgt_sonuc", "kaydeden_kullanici_id", "PGT sonucu"),
     ("degisiklik_log", "kullanici_id", "değişiklik kaydı"),
+    ("lab_formu", "kullanici_id", "yüklediği form kalıbı"),
 ]
 
 
@@ -1516,6 +1519,7 @@ def cycle_detay(request: Request, cycle_id: int):
          # Aşamalar arasında geçen süre (v6.37). Ayrı kayıt yok: aşama
          # ekranlarında elle girilen saatlerden hesaplanıyor.
          "cizelge": formlar.zaman_cizelgesi(cycle_id),
+        "lab_formlari": lab_formlari(),
          "bugun": _dt.now().strftime("%Y-%m-%d"),
          "asamalar": cycle_asamalari(cycle["cycle_tipi"]),
          # yan menü aşama ekranlarındakiyle aynı listeden beslensin
@@ -2403,8 +2407,9 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
                 for deger, ek in dolgu(v)]
     return sablon.TemplateResponse(
         request, "form.html",
-        {"v": v, "sayfalar": sayfalar, "form_adi": ad,
-         "yon": form_kalip.yon(kalip),
+        {"sayfalar": sayfalar, "baslik": metinler.t("form_" + ad),
+         "cycle_id": cycle_id, "yon": form_kalip.yon(kalip),
+         "excel_yolu": f"/disari/form/{ad}/{cycle_id}",
          "kullanici": request.state.kullanici},
     )
 
@@ -2426,6 +2431,172 @@ def form_excel(request: Request, ad: str, cycle_id: int):
         for i, (deger, ek) in enumerate(parcalar, start=1)
     ]
     return excel_yaniti(f"{dosya}_{v['dosya_no']}-{v['cycle_no']}", sayfalar)
+
+
+# ------------------------------------------------- laboratuvarın kendi formu
+#
+# Gömülü iki form bu laboratuvarın; başka bir laboratuvar kendi formunu
+# yükleyip programdaki verilerle doldurabilsin diye (v6.40, kullanıcının
+# isteği). Yüklenen dosya `.xlsx`; kutuların içine `{{dosya_no}}` gibi
+# etiketler yazılıyor ve program onları değerle değiştiriyor.
+#
+# **Hepsi yönetici işi.** Kalıp laboratuvarın resmî kâğıdı; onu değiştirmek
+# ya da silmek personelin günlük işi değil.
+
+
+def lab_formlari(yalniz_aktif=True):
+    """Bu laboratuvarın yüklediği formlar. Kalıbın kendisi gelmiyor (büyük)."""
+    kosul = " AND aktif_mi = 1" if yalniz_aktif else ""
+    return db.sorgu(
+        "SELECT id, ad, dosya_adi, yon, aktif_mi, bilinmeyen, "
+        "olusturma_zamani FROM lab_formu "
+        f"WHERE lab_id = ?{kosul} ORDER BY ad", (db.LAB_ID,))
+
+
+def lab_formu_kalibi(form_id: int):
+    """(kayıt, kalıp) ya da (None, None). Kalıp JSON metin olarak saklanıyor."""
+    r = db.tek("SELECT * FROM lab_formu WHERE id = ? AND lab_id = ?",
+               (form_id, db.LAB_ID))
+    if not r:
+        return None, None
+    try:
+        return r, json.loads(r["kalip"])
+    except ValueError:
+        return None, None
+
+
+@uygulama.get("/formlar")
+def lab_formlari_ekrani(request: Request, hata: str = "", eklendi: str = ""):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(
+        request, "lab_formlari.html",
+        {"formlar": lab_formlari(yalniz_aktif=False),
+         "hata": metinler.t(hata) if hata in FORM_HATALARI else "",
+         "eklendi": eklendi,
+         "kullanici": request.state.kullanici},
+    )
+
+
+# Yükleme hataları adresten geliyor; `metin()` bulamadığı anahtarı olduğu gibi
+# döndürdüğü için beyaz listeden geçiyor (tuzak #9).
+FORM_HATALARI = {
+    "form_hata_dosya", "form_hata_ad", "form_hata_okuma", "form_hata_bos",
+}
+
+
+@uygulama.post("/formlar/yukle")
+async def lab_formu_yukle(request: Request):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = await request.form()
+    ad = (f.get("ad") or "").strip()[:80]
+    dosya = f.get("dosya")
+    dosya_adi = getattr(dosya, "filename", "") or ""
+
+    if not dosya_adi.lower().endswith(".xlsx"):
+        return RedirectResponse("/formlar?hata=form_hata_dosya", status_code=303)
+    icerik = await dosya.read() if dosya else b""
+
+    try:
+        kalip = xlsx_oku.kalip(icerik)
+    except xlsx_oku.Hata as e:
+        # Sebebi kullanıcıya gösteriliyor ama adresten değil: adrese yalnızca
+        # beyaz listedeki anahtar yazılıyor, ayrıntı günlüğe.
+        print(f"form yukleme hatasi: {e}")
+        return RedirectResponse("/formlar?hata=form_hata_okuma", status_code=303)
+
+    if not any(s for s in kalip["satirlar"]):
+        return RedirectResponse("/formlar?hata=form_hata_bos", status_code=303)
+
+    # Formda geçen ama programda karşılığı olmayan etiketler: yazım hatası
+    # olabilir. Silmiyoruz (form olduğu gibi basılsın), listede uyarıyoruz.
+    bilinmeyen = [e for e in form_kalip.etiketler(kalip)
+                  if e not in formlar.ALAN_ADLARI]
+
+    ad = ad or kalip.get("ad") or dosya_adi.rsplit(".", 1)[0]
+    db.yaz(
+        "INSERT INTO lab_formu (lab_id, ad, dosya_adi, yon, kalip, "
+        "bilinmeyen, kullanici_id, olusturma_zamani) VALUES (?,?,?,?,?,?,?,?)",
+        (db.LAB_ID, ad[:80], dosya_adi[:120], kalip.get("yon", "dikey"),
+         json.dumps(kalip, ensure_ascii=False),
+         ", ".join(bilinmeyen[:20]) or None,
+         request.state.kullanici["id"],
+         _dt.now().isoformat(" ", "seconds")),
+    )
+    return RedirectResponse("/formlar?eklendi=" + str(len(kalip["satirlar"])),
+                            status_code=303)
+
+
+@uygulama.post("/formlar/{form_id}/kaldir")
+def lab_formu_kaldir(request: Request, form_id: int):
+    """Kalıcı siler. Kalıp klinik bir kayıt değil, laboratuvarın kâğıdı —
+    yeniden yüklemek bir dosya seçmek kadar. Saklamanın bedeli var: her
+    kalıp yüz kilobaytlarca JSON ve `lab.db` USB ile taşınan dosya."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    db.yaz("DELETE FROM lab_formu WHERE id = ? AND lab_id = ?",
+           (form_id, db.LAB_ID))
+    return RedirectResponse("/formlar", status_code=303)
+
+
+@uygulama.post("/formlar/{form_id}/gizle")
+def lab_formu_gizle(request: Request, form_id: int):
+    """Cycle ekranında görünmesin, kaydı dursun."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    db.yaz("UPDATE lab_formu SET aktif_mi = 1 - aktif_mi "
+           "WHERE id = ? AND lab_id = ?", (form_id, db.LAB_ID))
+    return RedirectResponse("/formlar", status_code=303)
+
+
+@uygulama.get("/formlar/etiketler")
+def lab_formu_etiketleri(request: Request):
+    """Forma yazılabilecek etiketlerin listesi -- kopyala, Excel'e yapıştır."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(
+        request, "form_etiketleri.html",
+        {"alanlar": formlar.ALAN_ACIKLAMA,
+         "kullanici": request.state.kullanici},
+    )
+
+
+@uygulama.get("/form/lab/{form_id}/{cycle_id}")
+def lab_formu_ekrani(request: Request, form_id: int, cycle_id: int):
+    """Yüklenen formun doldurulmuş, yazdırılabilir hali."""
+    kayit, kalip = lab_formu_kalibi(form_id)
+    if not kayit:
+        return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+    alan = formlar.alanlar(cycle_id)
+    if alan is None:
+        return RedirectResponse("/hastalar", status_code=303)
+    return sablon.TemplateResponse(
+        request, "form.html",
+        {"sayfalar": [form_kalip.satirlar(kalip, alan=alan)],
+         "baslik": kayit["ad"], "cycle_id": cycle_id,
+         "yon": form_kalip.yon(kalip),
+         "excel_yolu": f"/disari/form/lab/{form_id}/{cycle_id}",
+         "kullanici": request.state.kullanici},
+    )
+
+
+@uygulama.get("/disari/form/lab/{form_id}/{cycle_id}")
+def lab_formu_excel(request: Request, form_id: int, cycle_id: int):
+    kayit, kalip = lab_formu_kalibi(form_id)
+    if not kayit:
+        return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
+    alan = formlar.alanlar(cycle_id)
+    if alan is None:
+        return RedirectResponse("/hastalar", status_code=303)
+    return excel_yaniti(
+        f"{kayit['ad']}_{alan['dosya_no']}-{alan['cycle_no']}",
+        [form_kalip.yerlesim(kalip, kayit["ad"][:31], alan=alan)])
 
 
 # ----------------------------------------------------------------- görüntü

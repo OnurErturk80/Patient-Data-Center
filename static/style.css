@@ -957,6 +957,14 @@ body.kilitli { overflow: hidden; }
 .cizelge td.ad { font-weight: 600; }
 .cizelge tr:last-child td { border-bottom: 0; }
 
+/* Etiket listesi (yuklenen formlar icin) bir cizelge ama aciklama sutunu
+   uzun; telefonda satira sigmasi icin sarilabiliyor. `.cizelge`nin kendisi
+   nowrap kaliyor -- zaman cizelgesi ve istatistiklerde dogru olan o. */
+.etiketlistesi td { white-space: normal; padding-left: 0; }
+.etiketlistesi td.ad { white-space: nowrap; padding-right: 8px; }
+.etiketlistesi code { font-size: 12px; }
+.etiketlistesi th { padding-top: 14px; text-align: left; }
+
 /* ----------------------------------------------------- yazdirilabilir form
 
    Resmi formlar (Embriyoloji Ozet DH.FR.91, ART Lab Raporu DH.FR.107) ekranda

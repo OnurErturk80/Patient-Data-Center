@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("form_etiketleri") }}{% endblock %}
+{% block geri %}<a class="geri" href="/formlar">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{# Liste `formlar.ALAN_ACIKLAMA`'dan geliyor -- doldurmayı yapan kod da aynı
+   yerden okuyor. İki liste olsaydı ekrandakiyle gerçekte çalışan etiketler
+   er geç ayrı düşerdi. #}
+
+<div class="ipucu" style="padding:0 2px 10px">{{ metin("form_etiket_ipucu") }}</div>
+
+<table class="cizelge etiketlistesi">
+  {% for ad, aciklama in alanlar %}
+    {% if aciklama %}
+  <tr>
+    <td class="ad"><code>&#123;&#123;{{ ad }}&#125;&#125;</code></td>
+    <td>{{ aciklama }}</td>
+  </tr>
+    {% else %}
+  <tr><th colspan="2">{{ ad }}</th></tr>
+    {% endif %}
+  {% endfor %}
+</table>
+{% endblock %}

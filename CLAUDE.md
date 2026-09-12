@@ -61,13 +61,14 @@ Patient Data Center/
   excel.py          .xlsx üretir — kütüphanesiz, yalnızca zipfile + XML
   disari.py         Excel çıktılarının sorguları (rotalar app.py'de)
   formlar.py        resmî formların verisi + zaman çizelgesi
-  form_kalip.py     resmî formların ızgarası (form_kalip.json'ı okur)
+  form_kalip.py     form ızgarası: kalıbı kuran/basan ortak kurallar
   form_kalip.json   kâğıt aslından çıkarılmış ızgara — ELLE DÜZENLEME
+  xlsx_oku.py       yüklenen .xlsx'ten kalıp çıkarır — kütüphanesiz
   formlar_asil/     orijinal .xls formlar + kalip_uret.py (kalıbı üreten araç)
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..028.py   veritabanı göçleri (sırayla)
+  goc_002..029.py   veritabanı göçleri (sırayla)
   goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
@@ -310,6 +311,35 @@ kalıptan**: `form_kalip.json`.
   dosyaya sayı olarak yazılıyor — `_TABAN_XF`/`STILLER`'e **araya değil sona**
   ekle. Kalıbın kendi stilleri `styles.xml`'in sonuna, sayfa başına ekleniyor.
 - Form **iki dilde de Türkçe** basılır: kurum belgesi, arayüz metni değil.
+
+**Laboratuvar kendi formunu yükleyebilir** (v6.40, `goc_029`). Gömülü iki form
+bu laboratuvarın; başka bir laboratuvar `/formlar`'dan kendi `.xlsx` formunu
+yükleyip programdaki verilerle doldurup basıyor.
+- **Yalnızca `.xlsx` kabul edilir.** `.xls` okumak `xlrd` isterdi; o
+  `formlar_asil/` altındaki **geliştirme aracının** bağımlılığı, programın
+  değil. `.xlsx` içinde XML olan bir ZIP — `zipfile` + `xml.etree` yetiyor.
+  Bu kuralı gevşetip çalışma anına kütüphane sokma.
+- **Izgarayı kuran kural tek yerde**: `form_kalip.izgara_kur()`. Hem
+  `kalip_uret.py` (kâğıt aslından) hem `xlsx_oku.py` (yüklenen dosyadan) onu
+  çağırıyor — iki kopya olsaydı yüklenen form ile gömülü form farklı basılırdı.
+- **Doldurma etiketle**: kutunun içine `{{dosya_no}}` yazılıyor. Etiketlerin
+  listesi `formlar.ALAN_ACIKLAMA`'da, **tek yerde**; hem doldurma hem
+  `/formlar/etiketler` ekranı oradan okuyor. Yeni alan eklersen oraya ekle.
+- **Tanınmayan etiket olduğu gibi basılır** — yazım hatası gözden kaçmasın
+  diye; yükleme listesi de ayrıca uyarıyor. Boş basma.
+- **Kalıp veritabanında** (`lab_formu.kalip`, JSON metin), logosu da içinde
+  base64. `lab.db` USB ile taşınan tek dosya; kalıp diskte ayrı dursaydı
+  taşınırken unutulurdu. Aynı sebeple `/disari/tumu` dökümüne **girmiyor** —
+  `TUM_TABLOLAR`'a `lab_formu` ekleme: klinik kayıt değil ve tek Excel
+  hücresine sığmaz (sınır 32767 karakter).
+- **Yükleme/gizleme/silme yalnızca yönetici** (`yonetici_kontrol`); **basmak
+  serbest**, gömülü formlarla aynı. Rotalar `kaldir`/`gizle` diye adlandırıldı:
+  `sil` adı "silme" modülüne düşerdi.
+- **Dışarıdan gelen dosya.** Boyut/parça/satır/sütun/görsel sınırları
+  `xlsx_oku.py`'de; XML'de `<!DOCTYPE`/`<!ENTITY` varsa dosya hiç açılmıyor.
+  Bu korumaları kaldırma.
+- Bu sürümde **oosit ızgarası yok** (kullanıcının kararı): bir kutu = bir
+  değer. Izgara desteği eklenirse etiket yazımı ve ekran birlikte düşünülmeli.
 
 **Zaman çizelgesi türetilmiştir, kayıt değil** (v6.37). `formlar.zaman_cizelgesi()`
 cycle'ın aşama saatlerini toplayıp iki süre veriyor: önceki işlemden ve

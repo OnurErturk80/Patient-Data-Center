@@ -33,6 +33,7 @@ gerçek bir kayıt: veritabanında OPU tarihi `0026-09-04` olan bir cycle var
 bir değeri tarihe çevirmek dosyayı bozardı.
 """
 
+import base64
 import datetime as _dt
 import os
 import re
@@ -574,7 +575,14 @@ def kitap(sayfalar) -> bytes:
     gorselli = [(i, sayfa) for i, sayfa in enumerate(sayfalar, start=1)
                 if isinstance(sayfa, dict) and sayfa.get("gorseller")]
     if gorselli:
-        tipler.append('<Default Extension="png" ContentType="image/png"/>')
+        # Kullanılan her resim türü bildirilmeli; yüklenen formda PNG olmayabilir.
+        uzantilar = set()
+        for _, sayfa in gorselli:
+            for g in sayfa["gorseller"]:
+                uzantilar.add(_uzanti(g))
+        for uz in sorted(uzantilar):
+            tipler.append(f'<Default Extension="{uz}" '
+                          f'ContentType="{_TUR.get(uz, "image/png")}"/>')
         for i, _ in gorselli:
             tipler.append(
                 f'<Override PartName="/xl/drawings/drawing{i}.xml" '
@@ -618,26 +626,43 @@ def kitap(sayfalar) -> bytes:
                     '<Relationships xmlns="http://schemas.openxmlformats.org/'
                     'package/2006/relationships">']
             for n, resim in enumerate(g, start=1):
-                ad = resim["dosya"]
+                ad = f"resim{n}.{_uzanti(resim)}" if resim.get("veri") \
+                    else os.path.basename(str(resim["dosya"]))
+                ad = f"{i}_{ad}" if resim.get("veri") else ad
                 rels.append(
                     f'<Relationship Id="rId{n}" Type="http://schemas.'
                     'openxmlformats.org/officeDocument/2006/relationships/image" '
                     f'Target="../media/{ad}"/>')
                 if ad not in yazilan:
-                    z.writestr(f"xl/media/{ad}", _resim_oku(ad))
+                    z.writestr(f"xl/media/{ad}", _resim_baytlari(resim))
                     yazilan.add(ad)
             rels.append("</Relationships>")
             z.writestr(f"xl/drawings/_rels/drawing{i}.xml.rels", "".join(rels))
     return kova.getvalue()
 
 
-def _resim_oku(ad: str) -> bytes:
-    """Kalıbın görselini `static/` altından okur.
+# Resim türü -> dosya uzantısı; yüklenen formda PNG olmayabilir.
+_TUR = {"png": "image/png", "jpeg": "image/jpeg", "gif": "image/gif"}
+_UZANTI = {"image/png": "png", "image/jpeg": "jpeg", "image/gif": "gif"}
 
-    Ad kalıptan geliyor, adresten değil; yine de klasör dışına çıkan bir ad
-    kabul edilmiyor -- dosya adı buraya bir gün başka yerden gelirse diye.
+
+def _uzanti(resim) -> str:
+    if resim.get("tur"):
+        return _UZANTI.get(resim["tur"], "png")
+    return os.path.splitext(str(resim.get("dosya", "")))[1].lstrip(".") or "png"
+
+
+def _resim_baytlari(resim) -> bytes:
+    """Görselin baytları.
+
+    İki kaynak var: yüklenen formun görseli kalıbın içinde base64 duruyor
+    (veritabanıyla taşınsın diye), gömülü formunki `static/` altında bir
+    dosya. Ad kalıptan geliyor, adresten değil; yine de klasör dışına çıkan
+    bir ad kabul edilmiyor.
     """
-    temiz = os.path.basename(str(ad))
+    if resim.get("veri"):
+        return base64.b64decode(resim["veri"])
+    temiz = os.path.basename(str(resim["dosya"]))
     yol = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "static", temiz)
     with open(yol, "rb") as f:

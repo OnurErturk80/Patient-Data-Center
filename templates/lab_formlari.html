@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("lab_formlari") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{# Gömülü iki resmî form bu laboratuvarın; buraya yüklenenler başka bir
+   laboratuvarın kendi formları. Kalıp veritabanında duruyor (lab.db USB ile
+   taşınan tek dosya), formun içindeki logo da kalıbın içinde. #}
+
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+{% if eklendi %}<div class="uyari">{{ metin("form_eklendi") }}</div>{% endif %}
+
+<div class="kart">
+  <h2>{{ metin("form_yukle") }}</h2>
+  <div class="ipucu">{{ metin("lab_formu_ipucu") }}</div>
+  <form method="post" action="/formlar/yukle" enctype="multipart/form-data">
+    <div class="alan">
+      <label for="fad">{{ metin("form_adi") }}</label>
+      <input id="fad" type="text" name="ad" maxlength="80">
+      <div class="ipucu">{{ metin("form_adi_ipucu") }}</div>
+    </div>
+    <div class="alan" style="border:0">
+      <label for="fdosya">{{ metin("form_dosyasi") }}</label>
+      <input id="fdosya" type="file" name="dosya" accept=".xlsx" required>
+    </div>
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">{{ metin("form_yukle") }}</button>
+    </div>
+  </form>
+  <a class="dugme ikincil" href="/formlar/etiketler">{{ metin("form_etiketleri") }}</a>
+</div>
+
+<div class="kart" style="margin-top:14px">
+  <h2>{{ metin("form_yuklenenler") }}{% if formlar %} ({{ formlar|length }}){% endif %}</h2>
+  {% for f in formlar %}
+  <div class="satir" style="cursor:default">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <div>
+        <b>{{ f.ad }}</b>
+        {% if not f.aktif_mi %}<span class="rozet">{{ metin("form_gizli") }}</span>{% endif %}
+        <div style="font-size:13px">{{ f.dosya_adi }} · {{ f.yon }}</div>
+        {% if f.bilinmeyen %}
+        {# Yazım hatası olabilir: formda geçiyor ama programda karşılığı yok.
+           Form yine de basılıyor, etiket olduğu gibi görünüyor. #}
+        <div class="ipucu">{{ metin("form_bilinmeyen") }} {{ f.bilinmeyen }}</div>
+        {% endif %}
+      </div>
+      <div style="font-size:13px;white-space:nowrap">
+        {{ (f.olusturma_zamani or "")[:10] }}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <form method="post" action="/formlar/{{ f.id }}/gizle">
+        <button class="minidugme" type="submit">
+          {{ metin("form_goster") if not f.aktif_mi else metin("form_gizle") }}</button>
+      </form>
+      <form method="post" action="/formlar/{{ f.id }}/kaldir"
+            onsubmit="return confirm('{{ metin("form_kaldir_onay") }}')">
+        <button class="minidugme ikincil tehlike-bag" type="submit">
+          {{ metin("form_kaldir") }}</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div class="bos">{{ metin("form_yok") }}</div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block ustbaslik %}{{ metin("form_" ~ form_adi) }}{% endblock %}
-{% block geri %}<a class="geri" href="/cycle/{{ v.cycle_id }}">&#8249;</a>{% endblock %}
+{% block ustbaslik %}{{ baslik }}{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ cycle_id }}">&#8249;</a>{% endblock %}
 {% block kapsinif %}{% if yon == "yatay" %} genis{% endif %}{% endblock %}
 {% block icerik %}
 
@@ -15,7 +15,7 @@
 
 <div class="yazdirmadugmeleri">
   <button class="dugme" type="button" onclick="window.print()">{{ metin("yazdir") }}</button>
-  <a class="dugme ikincil" href="/disari/form/{{ form_adi }}/{{ v.cycle_id }}">{{ metin("excel_indir") }}</a>
+  <a class="dugme ikincil" href="{{ excel_yolu }}">{{ metin("excel_indir") }}</a>
 </div>
 
 {% for s in sayfalar %}
@@ -24,7 +24,7 @@
   {#- Amblem tablonun üstüne biniyor: yeri kâğıttaki sabitleyiciden
       (Excel'in client anchor'ı) hesaplandı, satırlarla aynı ölçekte. -#}
   {%- for g in s.gorseller %}
-  <img class="kalipgorsel" src="/static/{{ g.dosya }}" alt=""
+  <img class="kalipgorsel" src="{{ g.kaynak }}" alt=""
        style="left:{{ g.sol }}%;top:{{ g.ust }}pt;width:{{ g.genislik }}%;height:{{ g.yukseklik }}pt">
   {%- endfor %}
   <table class="kalip" style="font-size:{{ (10 * s.olcek)|round(2) }}pt">

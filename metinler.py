@@ -1192,6 +1192,60 @@ METINLER = {
     "form_ozet": {"tr": "Embriyoloji Özet Formu",
                   "en": "Embryology Summary Form"},
     "form_artlab": {"tr": "ART Lab. Raporu", "en": "ART Lab. Report"},
+
+    # Laboratuvarın kendi yüklediği formlar (v6.40)
+    "lab_formlari": {"tr": "Laboratuvar formları", "en": "Laboratory forms"},
+    "lab_formu_ipucu": {
+        "tr": "Kendi formunuzu Excel'de açıp kutuların içine etiket yazın "
+              "(örnek: {{dosya_no}}), .xlsx olarak kaydedip buraya yükleyin. "
+              "Program etiketleri o cycle'ın verisiyle değiştirip formu "
+              "kâğıdınızın düzeninde basar.",
+        "en": "Open your own form in Excel, type a label inside a box "
+              "(for example {{dosya_no}}), save it as .xlsx and upload it "
+              "here. The program replaces the labels with that cycle's data "
+              "and prints the form in your own layout."},
+    "form_yukle": {"tr": "Form yükle", "en": "Upload form"},
+    "form_adi": {"tr": "Formun adı", "en": "Form name"},
+    "form_adi_ipucu": {"tr": "Boş bırakılırsa dosyanın adı kullanılır",
+                       "en": "Left empty, the file name is used"},
+    "form_dosyasi": {"tr": "Excel dosyası (.xlsx)", "en": "Excel file (.xlsx)"},
+    "form_etiketleri": {"tr": "Yazılabilecek etiketler",
+                        "en": "Labels you can use"},
+    "form_etiket_ipucu": {
+        "tr": "Bu etiketleri formunuzdaki kutuların içine yazın. Kutuda başka "
+              "yazı da olabilir: \"Dosya No: {{dosya_no}}\" gibi. Programda "
+              "karşılığı olmayan bir etiket yazarsanız formda olduğu gibi "
+              "görünür — yazım hatası gözden kaçmasın diye.",
+        "en": "Type these labels inside the boxes of your form. A box may "
+              "contain other text too, such as \"File no: {{dosya_no}}\". "
+              "A label the program does not know is printed as it is, so a "
+              "typo cannot slip through."},
+    "form_yuklenenler": {"tr": "Yüklenen formlar", "en": "Uploaded forms"},
+    "form_yok": {"tr": "Henüz form yüklenmedi.", "en": "No form uploaded yet."},
+    "form_gizle": {"tr": "Gizle", "en": "Hide"},
+    "form_goster": {"tr": "Göster", "en": "Show"},
+    "form_gizli": {"tr": "Gizli", "en": "Hidden"},
+    "form_kaldir": {"tr": "Sil", "en": "Delete"},
+    "form_kaldir_onay": {
+        "tr": "Bu form kalıbı silinsin mi? Hasta kaydı etkilenmez, "
+              "yalnızca kalıp gider; yeniden yükleyebilirsiniz.",
+        "en": "Delete this form template? No patient record is affected, "
+              "only the template; you can upload it again."},
+    "form_eklendi": {"tr": "Form yüklendi.", "en": "Form uploaded."},
+    "form_hata_dosya": {"tr": "Yalnızca .xlsx dosyası yüklenebilir. "
+                              "Excel'de \"Farklı Kaydet\" ile .xlsx yapın.",
+                        "en": "Only .xlsx files can be uploaded. Use "
+                              "\"Save As\" in Excel to make one."},
+    "form_hata_okuma": {"tr": "Dosya okunamadı. Excel'de açılıp .xlsx olarak "
+                              "kaydedilmiş bir dosya olmalı.",
+                        "en": "The file could not be read. It must be a file "
+                              "saved as .xlsx from Excel."},
+    "form_hata_bos": {"tr": "Dosyanın ilk sayfası boş görünüyor.",
+                      "en": "The first sheet of the file looks empty."},
+    "form_satir": {"tr": "{n} satır", "en": "{n} rows"},
+    "form_bilinmeyen": {
+        "tr": "Tanınmayan etiket (formda olduğu gibi basılıyor):",
+        "en": "Unknown label (printed as it is on the form):"},
     "yazdir": {"tr": "Yazdır", "en": "Print"},
     "excel_indir": {"tr": "Excel olarak indir", "en": "Download as Excel"},
     "zaman_cizelgesi": {"tr": "Zaman çizelgesi", "en": "Timeline"},

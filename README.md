@@ -4206,3 +4206,117 @@ dosyaya bir kez yazılıyor.
   özet bloğu boş
 - 39 adres 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
 - Form iki dilde de **Türkçe** basılıyor: kurum belgesi, arayüz metni değil
+
+---
+
+# v6.40 — başka bir laboratuvar kendi formunu yükleyebiliyor
+
+Kullanıcının isteği: *"Bu formlar benim kullandığım. Başka bir lab farklı bir
+form kullanmak isterse diye laboratuvar formlarını yönetici alanında yükleme
+yapsak."*
+
+Gömülü iki form (DH.FR.91, DH.FR.107) **bu** laboratuvarın kalite sisteminden.
+Başka bir laboratuvarın formu bambaşka. Artık yönetici kendi formunu yükleyip
+programdaki verilerle doldurup basabiliyor.
+
+## Neden `.xlsx`, `.xls` değil
+
+Kullanıcının kendi formları `.xls`'ti ve onları okumak için `xlrd` gerekmişti —
+ama o **geliştirme aracı**, programın bağımlılığı değil (`formlar_asil/`).
+Çalışma anında, klinikteki mini PC'de okumak başka bir şey: `.xls` ikili bir
+belge biçimi, elle ayrıştırmak yüzlerce satır risk demek.
+
+`.xlsx` ise içinde XML olan bir ZIP — Python'un kendi `zipfile` ve `xml.etree`
+modülleri yetiyor. Zaten `.xlsx` **yazıyorduk**; okumak bunun simetriği.
+Laboratuvara düşen tek iş: formu Excel'de bir kez "Farklı Kaydet → Excel
+Çalışma Kitabı (.xlsx)" ile kaydetmek. Program yanlış biçimi kabul etmiyor ve
+hata mesajı tam bunu söylüyor.
+
+`xlsx_oku.py` şunları çıkarıyor: satır yükseklikleri, sütun genişlikleri,
+birleşik hücreler, her hücrenin punto/kalınlık/hiza/kenarlık bilgisi, basılı
+yazılar, sayfa yönü ve **sayfadaki görseller** (logo — `twoCellAnchor` ve
+`oneCellAnchor` ikisi de). Çıktı `form_kalip.json`'daki ile aynı biçimde, yani
+yüklenen form da gömülü form da tek yoldan basılıyor.
+
+**Doğrulama:** gömülü kalıp → `.xlsx` → geri oku → kalıp turunda hücre sayısı,
+birleşmeler ve logonun sabitleyicisi **birebir** aynı çıkıyor.
+
+## Hangi kutuya ne yazılacağı: etiket
+
+Kalıp yüklenince program formun *düzenini* öğreniyor ama *anlamını*
+öğrenmiyor — hangi kutuya "MII sayısı" gireceğini bilemez. İki yol vardı:
+ekranda ızgarayı gösterip kutuya tıklatarak eşlemek, ya da laboratuvarın kendi
+Excel'inde kutunun içine bir etiket yazması. Kullanıcı **"önce Excel etiketi,
+sonra ekran"** dedi; bu sürüm birincisi.
+
+Kutunun içine `{{dosya_no}}` yazılıyor, program onu değerle değiştiriyor.
+Kutuda başka yazı da olabilir: `Dosya No: {{dosya_no}}`. 60 etiket var; listesi
+`/formlar/etiketler` ekranında, Türkçe açıklamalarıyla.
+
+- Etiketler `formlar.ALAN_ACIKLAMA`'da **tek yerde** duruyor; hem doldurma hem
+  ekran oradan okuyor. İki liste olsaydı ekrandaki ile gerçekte çalışan
+  etiketler er geç ayrı düşerdi.
+- Değerlerin çoğu `ozet_verisi()`'nden geliyor — resmî özet formunun kutuları
+  zaten bir laboratuvarın bir cycle için isteyeceği şeylerin listesi.
+- **Tanınmayan etiket olduğu gibi basılıyor.** `{{dosyano}}` diye yazılmış bir
+  etiket boş kutu olarak geçseydi yazım hatası fark edilmezdi; formda göze
+  çarpsın diye duruyor. Yükleme ekranı da o formun yanında uyarı gösteriyor.
+  (`metin()`'in bilinmeyen anahtarı olduğu gibi döndürmesiyle aynı gerekçe.)
+- Bu sürümde **oosit ızgarası yok** (kullanıcının kararı): bir kutu = bir
+  değer. Izgaralı bir form yüklenebiliyor, ızgarası elle dolduruluyor.
+
+## Kalıp neden veritabanında
+
+`lab.db` `tasi.py` ile USB'de taşınan **tek** dosya. Kalıp diskte ayrı bir
+klasörde dursaydı taşınırken unutulur, program karşı makinede "form yok"
+derdi. Formun içindeki logo da aynı sebeple kalıbın içinde, base64 olarak.
+
+`/disari/tumu` dökümüne **girmiyor**: `TUM_TABLOLAR` beyaz liste ve `lab_formu`
+orada yok. Kalıp klinik bir kayıt değil, laboratuvarın kâğıdı; üstelik tek
+hücreye sığmaz (Excel'in hücre sınırı 32767 karakter, kalıp yüz kilobaytlarca).
+
+## İzinler
+
+Yükleme, gizleme ve silme **yalnızca yönetici** — üçü de
+`yonetici_kontrol(request)` ile başlıyor, ekrandaki düğmeyi gizlemek yetmez.
+Yüklenen formu **basmak** serbest: gömülü formlarla aynı, personelin günlük
+işi. Doğrulandı: embriyolog hesabı `/formlar`, `/formlar/yukle` ve silmeden
+döndürülüyor, ama `/form/lab/1/1`'i açabiliyor.
+
+Silme kalıcı (tarayıcı onayıyla). Hasta kaydı gibi değil: kalıp laboratuvarın
+kâğıdı, yeniden yüklemek bir dosya seçmek kadar — ve her kalıp yüz
+kilobaytlarca JSON, USB ile taşınan dosyayı şişirmesin.
+
+## Dışarıdan gelen dosya
+
+Yönetici yüklüyor ama dosya yine de dışarıdan geliyor:
+
+- dosya boyu 5 MB, ZIP'teki parça sayısı 200, açılmış boyut 20 MB,
+  500 satır × 200 sütun, görsel 2 MB ile sınırlı
+- XML'de `<!DOCTYPE` ya da `<!ENTITY` varsa dosya **hiç açılmıyor** —
+  "milyar kahkaha" saldırısı belleği tüketebilir
+- ZIP'ten yalnızca bilinen parça adları okunuyor, hiçbir şey diske yazılmıyor
+  (logo doğrudan veritabanına gidiyor), yani dizin dışına çıkan bir ad işe
+  yaramaz
+- tanınmayan bir görsel türü dosyaya konmuyor (PNG / JPEG / GIF)
+
+Bozuk ZIP, `.xls`, boş dosya ve varlık tanımlı XML ile denendi; dördü de
+anlaşılır bir hata mesajıyla dönüyor, sunucu ayakta kalıyor.
+
+## Ortak ızgara kuralı
+
+Kalıbı iki yer üretiyor: `kalip_uret.py` (kâğıt aslından, tek seferlik) ve
+`xlsx_oku.py` (yüklenen dosyadan, çalışma anında). Izgarayı kuran kural —
+hangi boş hücrenin soldakine katılacağı dahil — `form_kalip.izgara_kur()`'da
+**tek kopya**. İki kopya olsaydı yüklenen form ile gömülü form farklı basılırdı.
+Taşındıktan sonra gömülü kalıp yeniden üretildi: çıktı bayt bayt aynı.
+
+## Test edildi
+
+- openpyxl ile üretilmiş (bizim yazıcımız değil) gerçekçi bir laboratuvar
+  formu yüklendi: 18 etiket, logo, birleşik hücreler, kenarlıklar, sütun
+  genişlikleri — ekranda ve `.xlsx`'te doğru çıktı
+- Bilerek yazılmış `{{dosyano}}` hatası hem formda göründü hem listede uyardı
+- Yönetici olmayan kullanıcı yükleme/silmeden döndürülüyor, basmaya giriyor
+- 45 adres 200, iki dilde, JS hatası yok, 390 ve 1280px'te yatay taşma yok
+- Test formu ve oturumları geri alındı (lab_formu 0, 1 hasta / 2 cycle)
