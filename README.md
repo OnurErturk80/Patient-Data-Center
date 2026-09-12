@@ -5820,3 +5820,68 @@ Sonuç: en geniş düğme 1178 → **590px**.
 > ICSI/OPU'da −114px). Band hizası kuralı `@media (min-width: 1100px)`
 > içinde, altında yalnızca 16px dolgu var. Eskiden beri böyle; dönüştürülen
 > ekranlar 900px'te aksine düzeldi. Kullanıcıya bildirildi.
+
+
+---
+
+# v6.58 — aşama sütunları eşit genişliğe getirildi
+
+v6.57 kullanıcıya gösterildi ve **beğenilmedi**: "bölümler çok asimetrik,
+düzensiz görünüyor, simetrik şekilde yerleşmesi gerekiyor".
+
+## Haklıydı, ve sebebi ikiydi
+
+**1. Sütunları bilerek eşit olmayan yapmıştım** (taban 460 / 360 → 646 / 546).
+Gerekçem "fotoğraf büyük kalsın"dı ama sonuç göze düzensiz geliyor. Kaldırıldı:
+ikisi de `flex: 1 1 380px`, yani **eşit**.
+
+**2. Sütunların bittiği yer çok farklı.** Ölçüldü:
+
+| ekran | sol | sağ | fark |
+|---|---|---|---|
+| Androloji | 844 | 1464 | 620px |
+| Blastokist | 404 | 924 | 520px |
+| Gün 2/3 | 404 | 747 | 343px |
+| Fertilizasyon | 404 | 732 | 328px |
+
+Bu **düzeltilemez**, ve bunu bilmek önemli. Androlojinin dört kartı
+586/235/877/563px; sırayı bozmadan (v6.42 kuralı) yapılabilecek üç bölme
+noktasının verdiği farklar 1089 / **619** / 1135 — yani seçilen zaten en
+iyisi. Üstelik fotoğraf geldiğinde sol sütun ~500px büyüyor ve denge
+**tersine** dönüyor: bir durum için dengelenen düzen ötekinde bozuluyor.
+
+## Kullanıcı seçti
+
+Üç seçenek ölçülüp ekran görüntüleriyle sunuldu:
+
+- **Tek geniş sütun (940px)** — tam simetrik, fotoğraf 608 → 908px, ama sayfa
+  boyu hiç kısalmıyor (2940 / 1770 / 1964 — birebir eski değerler). Formlar
+  zaten `.alan ikili` ile iki sütunlu satır kullandığı için genişlik boyu
+  kısaltmıyor.
+- **İki eşit sütun, boy farkını kabul et** ← **seçilen**
+- Eskiye dönmek
+
+Karar kullanıcının: sayfanın kısalması (%20–29) boy farkından önemli.
+
+## Ölçü değişti: her sütun eski tek sütunun genişliğinde
+
+Sütunlar eşitlenince 1240px'te her biri 596px olurdu — fotoğraf bugünkü
+608'den **küçük**. Ölçü 1320'ye çıkarıldı; artık her sütun **636px**, yani
+projenin bildiği 640px'lik sütunun neredeyse aynısı. Fotoğraf 608 → 636.
+
+Sayı keyfi değil: `2 × sütun + 16px boşluk + 32px kenar dolgusu`.
+
+## Test edildi
+
+- Dokuz genişlikte (2560 → 390) sütunlar **her yerde eşit**; yan menü
+  çakışması ve yatay taşma yok.
+- 1920px'de: androloji 596→**636**/636, fert/gün2-3/blastokist 636/636.
+- Sayfa boyları v6.57'deki gibi: androloji 2096, fert 1366, blastokist 1560
+  (eski değerler 2940 / 1770 / 1964).
+- 34 adres 200. Deneme verisi geri alındı.
+
+> Ders: bir düzen kararını "daha iyi görünür" diye gerekçelendirip
+> asimetri üretme. v6.57'de fotoğrafı büyütmek için sütunları farklı
+> genişlikte yaptım; kazanç 38px, bedeli ekranın düzensiz görünmesiydi.
+> Simetriyi ölçüyle koru — fotoğraf gerekiyorsa **kabı** genişlet, sütunları
+> değil.

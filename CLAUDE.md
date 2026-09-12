@@ -261,12 +261,21 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   sütunların **üstünde** tam genişlikte kalır (seçici, ekranın tamamına ait).
   Androlojide fotoğraf yok, bölme anlamla: solda örnek + makroskopik, sağda
   iki analiz (`fotolu` sınıfı verilmez).
-  - **Ayrı ve daha geniş ölçü**: `--genis-sutun-asama` (1240px). 940 olsaydı
-    fotoğraf 446px'e düşerdi — bugünkünden küçük, oysa "fotoğraflar büyük
-    bakılacak yerde" (v6.20). 1240'ta durur: daha genişi form sütununu şişirir.
+  - **Sütunlar EŞİT genişlikte** (v6.58). v6.57'de fotoğraf büyük kalsın diye
+    460/360 yapılmıştı; kullanıcı "asimetrik, düzensiz" dedi ve haklıydı.
+    Kazanç 38px, bedeli ekranın düzensiz görünmesiydi. **Simetriyi ölçüyle
+    koru — fotoğraf gerekiyorsa kabı genişlet, sütunları değil.**
+  - **Ayrı ve daha geniş ölçü**: `--genis-sutun-asama` (1320px). Sayı keyfi
+    değil: `2 × sütun + 16px boşluk + 32px dolgu`, her sütun eski tek sütunun
+    genişliğinde (636px) kalsın diye. 940 olsaydı sütunlar 446'ya düşer,
+    fotoğraf bugünkünden (608px) küçük kalırdı (v6.20).
   - Sınıf `genis asama` (+ `govde genissayfa asamasayfa`). **`yanmenusuz`
     değil** — bu ekranların yan menüsü var.
-  - Sol sütun sağdan geniş (`.sutunlar.fotolu`, taban 460/360).
+  - **Sütunların bittiği yer farklı kalır, düzeltilemez.** Androlojinin dört
+    kartı 586/235/877/563px; sırayı bozmadan (v6.42) yapılabilecek üç bölmenin
+    farkları 1089/619/1135 — seçilen zaten en iyisi. Fotoğraf gelince denge
+    tersine döner. **Kullanıcı bu farkı bilerek kabul etti** (2026-09-12):
+    sayfanın %20-29 kısalması ondan önemli. Dengelemeye çalışıp sırayı bozma.
   - **Tam genişlik kartı şişirir**: denüdasyonun üst kartı 1206px'e yayılınca
     1178px'lik bir "Düzenle" düğmesi çıkıyordu. O iki kart kendi satırında;
     tek kalan sütun `.sutunlar.ustblok > .sutun:only-child` ile 620px'te

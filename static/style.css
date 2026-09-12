@@ -18,12 +18,13 @@
      kalir. Hem `.kap.genis.yanmenusuz` hem kimlik bandinin hizasi bunu
      kullaniyor -- iki ayri sayi olsaydi band ile kartlar kayardi. */
   --genis-sutun-menusuz: 940px;
-  /* Asama ekranlari (fotograf + form yan yana) daha genis: 940'a sikissa
-     fotograf bugunkunden KUCUK kalirdi, oysa "fotograflar tek tek ve buyuk
-     bakilacak yerde" (v6.20). 1240'ta duruyor -- daha genisi formun
-     etiketiyle degerini birbirinden uzaklastirir (v6.52). Yan menu payi
+  /* Asama ekranlari (fotograf + form yan yana) daha genis. Olcu keyfi degil:
+     iki sutun + aradaki bosluk + kenar dolgusu, HER SUTUN eski tek sutunun
+     genisliginde (~636px) kalacak sekilde secildi. 940'a sikissa sutunlar
+     446'ya duserdi ve fotograf bugunkunden (608px) KUCUK kalirdi, oysa
+     "fotograflar tek tek ve buyuk bakilacak yerde" (v6.20). Yan menu payi
      burada da var: bu ekranlarin menusu var (v6.57). */
-  --genis-sutun-asama: max(640px, min(1240px, calc(100vw - 500px)));
+  --genis-sutun-asama: max(640px, min(1320px, calc(100vw - 500px)));
 }
 
 * { box-sizing: border-box; }
@@ -215,13 +216,6 @@ body {
    `align-items: flex-start`: kisa sutun uzun olanin boyuna uzamasin. */
 .sutunlar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
 .sutunlar > .sutun { flex: 1 1 380px; min-width: 0; }
-/* Asama ekraninda iki sutun esit degil: solda fotograf, sagda form (v6.57).
-   Fotograf buyuk kalmali -- embriyoya bakarak puan giriliyor. Olculer taban
-   genislik (`flex-basis`), medya sorgusu degil: toplami sigmayinca sutunlar
-   kendiliginden alt alta diziliyor, kural her genislikte dogru. */
-.sutunlar.fotolu > .sutun:first-child { flex: 1 1 460px; }
-.sutunlar.fotolu > .sutun:last-child  { flex: 1 1 360px; }
-
 /* Denudasyonun ustundeki islem kartlari (denudasyon saati + oosit ekleme).
    Tek basina kalinca (bilgi kipinde oosit ekleme karti yok) tam genislige
    YAYILMAMALI: ikisi de form, ve "alan genisledikce etiketle deger
