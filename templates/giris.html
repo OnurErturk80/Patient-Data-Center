@@ -25,4 +25,9 @@
 </form>
 <a class="dugme ikincil" href="/sifre" style="margin-top:12px">{{ metin("sifre_degistir") }}</a>
 <a class="dugme ikincil" href="/sifremi-unuttum">{{ metin("sifremi_unuttum") }}</a>
+
+{# Telefona ekleme yönergesi buradan açılıyor (v6.48). Karekod doğrudan
+   programa açılıyor ki ilk gelen ekran şifre ekranı olsun; yönerge de
+   ulaşılabilir kalsın diye bağlantı burada. #}
+<a class="dugme ikincil" href="/ekle">{{ metin("ekle_baslik") }}</a>
 {% endblock %}

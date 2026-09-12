@@ -1321,12 +1321,8 @@ METINLER = {
     "ekle_dugme": {"tr": "Ana ekrana ekle", "en": "Add to home screen"},
     "ekle_eklendi": {"tr": "Eklendi. Ana ekranınıza bakın.",
                      "en": "Added. Look at your home screen."},
-    "ekle_programa_git": {"tr": "Şimdilik programa gir",
-                          "en": "Just open the program"},
-    "ekle_zaten": {
-        "tr": "Program zaten ana ekrandan açıldı — eklemeye gerek yok.",
-        "en": "The program was opened from the home screen already — nothing "
-              "to add."},
+    "ekle_programa_git": {"tr": "Giriş ekranına dön",
+                          "en": "Back to the login screen"},
     "ekle_masaustu": {
         "tr": "Bu sayfa telefon içindir. Bilgisayarda programı yer imlerine "
               "ekleyebilirsiniz.",

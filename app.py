@@ -704,10 +704,13 @@ def baglan_ekrani(request: Request):
     if red:
         return red
     adres = _baglanti_adresi(request)
-    # Karekod **yönergeye** açılıyor, giriş ekranına değil (v6.47): okutan
-    # kişi telefonda tek başına kalıyor, elindeki kâğıda bakamıyor.
+    # Karekod **programın kendisine** açılıyor, yani ilk gelen ekran şifre
+    # ekranı (v6.48). v6.47'de `/ekle` yönergesine açılıyordu; iPhone "Ana
+    # Ekrana Ekle" derken çoğu zaman **o an açık olan adresi** kaydettiği
+    # için simge açık bir sayfayı yakalıyor ve şifre hiç sorulmuyordu.
+    # Yönergeye giriş ekranındaki bağlantıdan gidiliyor.
     try:
-        kare = karekod.svg(adres + "/ekle", kutu=6)
+        kare = karekod.svg(adres, kutu=6)
     except karekod.Hata:
         kare = ""
     return sablon.TemplateResponse(request, "baglan.html", {

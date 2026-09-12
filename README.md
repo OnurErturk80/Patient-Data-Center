@@ -4916,3 +4916,50 @@ karakter sığıyor. Kısaltılmış bir ad istenirse tek yerden değişiyor.
 - Karekod artık `http://<adres>/ekle` taşıyor
 - Manifest ve iOS başlığı "Patient Data Center"
 - 12 adres 200, iki dilde metinler yerinde
+
+---
+
+# v6.48 — ilk gelen ekran yine şifre ekranı (v6.47'nin gerilemesi)
+
+## Ne oldu
+
+Kullanıcı bildirdi: karekodu okutup ana ekrana ekleyince **şifre ekranı
+çıkmıyor**.
+
+Sebep v6.47'de yaptığım değişiklik. Karekodu `/ekle` yönergesine çevirmiştim;
+iPhone "Ana Ekrana Ekle" derken çoğu zaman **manifest'in `start_url`'ünü
+değil, o an açık olan adresi** kaydediyor. Simge `/ekle`'yi yakalamış oluyor
+ve o sayfa `ACIK_YOLLAR`'da — program hiç açılmadığı için şifre de hiç
+sorulmuyor.
+
+Giriş kapısının kendisi sağlamdı: oturumsuz `/`, `/hastalar`, `/cycle/...`,
+`/yonetim`, `/baglan` hepsi `/giris`'e dönüyordu; `/ekle` yalnızca yönerge
+gösteriyordu, hasta verisi değil. Ama kullanıcı haklı — **ilk gelen ekran
+şifre ekranı olmalı.**
+
+## İki katmanlı düzeltme
+
+**1. Karekod yine programın kendisine açılıyor.** Okutan kişi doğrudan şifre
+ekranını görüyor; ana ekrana oradan eklerse simge `/giris`'i yakalıyor ve her
+açılışta yine şifre ekranı geliyor.
+
+Yönerge kaybolmadı: **giriş ekranına "Ana ekrana ekle" bağlantısı** kondu.
+Yani sıra artık şifre ekranı → (isterse) yönerge.
+
+**2. Yönerge sayfası ana ekrandan açılırsa programa geçiyor.** Birinin
+simgesi v6.47 döneminde `/ekle`'yi yakaladıysa `location.replace('/')` ile
+programa düşüyor — oradan da şifre ekranına. Eski simgeler kendiliğinden
+düzeliyor, kimsenin bir şey silip yeniden eklemesi gerekmiyor.
+
+`replace` bilerek: geri tuşu yönergeye dönmesin.
+
+## Test edildi
+
+- Oturumsuz `/` → `/giris`, şifre alanı ekranda
+- Giriş ekranında "Ana ekrana ekle" bağlantısı var, `/ekle` oradan açılıyor
+- Safari'den `/ekle`: yönerge görünüyor
+- **Ana ekrandan açılmış gibi** (`navigator.standalone`) `/ekle`: `/giris`'e
+  düşüyor ve şifre alanı geliyor
+- Oturumsuz açık olan adresler yalnızca: `/giris`, `/sifre`,
+  `/sifremi-unuttum`, `/manifest.json`, `/ekle` — hiçbirinde hasta verisi yok
+- Oturumlu 12 adres 200, sunucu günlüğünde hata yok

@@ -685,10 +685,15 @@ ekranı karekod + adım adım yönerge veriyor, yazdırılıp laboratuvara asıl
 - Adres seçimi: yöneticinin kullandığı adres varsa o, yoksa `_yerel_ip()`.
   O da UDP soketiyle **paket göndermeden** buluyor; `gethostbyname` çoğu
   makinede 127.0.0.1 döndürüyor.
-- **Karekod `/ekle` yönergesine açılır, giriş ekranına değil** (v6.47).
-  Okutan kişi telefonda tek başına; giriş ekranına düşerse ne yapacağını
-  bilemez. `/ekle` **`ACIK_YOLLAR`'da** (hesabı yok, ekranda hasta verisi de
-  yok) ve telefona göre kendi adımlarını gösteriyor.
+- **Karekod programın kendisine açılır; ilk gelen ekran şifre ekranıdır**
+  (v6.48). v6.47'de `/ekle` yönergesine açılıyordu ve **gerileme oldu**:
+  iPhone "Ana Ekrana Ekle" derken manifest'in `start_url`'ünü değil **o an
+  açık olan adresi** kaydediyor, simge açık bir sayfayı yakalıyor ve şifre
+  hiç sorulmuyordu. Karekodu açık bir yola çevirme.
+- Yönerge `/ekle` **`ACIK_YOLLAR`'da** (okutanın hesabı yok, ekranda hasta
+  verisi de yok) ve **giriş ekranındaki bağlantıdan** açılıyor. Ana ekrandan
+  açılırsa `location.replace('/')` ile programa geçiyor — v6.47 döneminde
+  yanlış adresi yakalamış simgeler böyle kendiliğinden düzeliyor.
 - **Bir web sayfası kendini ana ekrana ekleyemez.** iOS'ta API yok;
   Android'de `beforeinstallprompt` var ama HTTPS + service worker istiyor.
   Kod hazır duruyor, HTTPS gelince kendiliğinden çalışacak. "Otomatik ekle"

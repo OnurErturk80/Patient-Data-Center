@@ -22,7 +22,6 @@
   <a class="dugme" href="#" id="kurdugme">{{ metin("ekle_dugme") }}</a>
 </div>
 <div class="uyari" id="tamam" hidden>{{ metin("ekle_eklendi") }}</div>
-<div class="uyari" id="zaten" hidden>{{ metin("ekle_zaten") }}</div>
 
 <div class="kart" id="kios" style="margin-top:12px" hidden>
   <h2>{{ metin("baglan_ios") }}</h2>
@@ -61,11 +60,14 @@
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var android = /Android/.test(ua);
 
-  // Zaten ana ekrandan acildiysa yonergeye gerek yok.
+  // Ana ekrandan acildiysa programa gec. iPhone "Ana Ekrana Ekle" derken
+  // cogu zaman O AN ACIK OLAN adresi kaydediyor; simge bu sayfayi
+  // yakalamissa program hic acilmaz ve sifre ekrani gorunmezdi (v6.47'de
+  // tam bu oldu). `replace` kullaniliyor ki geri tusu buraya donmesin.
   var icerde = window.matchMedia('(display-mode: standalone)').matches ||
                navigator.standalone === true;
   if (icerde) {
-    document.getElementById('zaten').hidden = false;
+    location.replace('/');
     return;
   }
 
