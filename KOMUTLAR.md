@@ -136,7 +136,7 @@ LAB_VERI=/bir/klasor python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000
 python3 teshis.py                    # genel kontrol
 python3 teshis_silme.py 527078       # bu hasta neden silinemiyor
 python3 liste_duzenle.py             # seçim listelerini gör / temizle
-python3 tarih_duzelt.py liste        # yılı bozuk tarih var mı (dokunmaz)
+python3 tarih_duzelt.py liste        # bozuk tarih var mı (dokunmaz)
 python3 yerel_kur.py                 # bu makinenin klasör yollarını ayarla
 ```
 
@@ -144,7 +144,9 @@ python3 yerel_kur.py                 # bu makinenin klasör yollarını ayarla
 
 `datetime-local` alanına yıl olarak "26" yazılırsa tarayıcı **26. yılı**
 gönderiyor (`0026-09-04`). v6.51'den beri program böyle bir değeri kabul
-etmiyor, ama daha önce girilmiş kayıtlar duruyor olabilir.
+etmiyor, ama daha önce girilmiş kayıtlar duruyor olabilir. Araç üç şeye
+bakıyor: yılı çok eski, yılı çok ileri (`9999`), hiç okunamayan biçim
+(`04.09.2026`, `88-01-05`).
 
 ```
 python3 tarih_duzelt.py liste        # yalnızca listeler

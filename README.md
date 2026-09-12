@@ -5328,3 +5328,83 @@ olmalı.
 > sütuna düşüyor (`--genis-sutun` = 780, iki sütuna yetmiyor). Yan menüsü
 > olduğu için `yanmenusuz` sınıfını alamıyor. 1440'ta iki sütun. Kullanıcı
 > isterse menü payı ayrıca gözden geçirilir.
+
+
+---
+
+# v6.53 — tarih denetimi sıkılaştırıldı
+
+Kullanıcı v6.51'in aracını kendi veritabanında çalıştırdı ve "düzeltilecek bir
+şey bulunamadı" çıktı — bekleyen iş 6'nın kaydı artık yok. Ama "temiz" cevabı
+aracın **ne kadar geniş baktığına** bağlı ve orada bir boşluk vardı.
+
+## Boşluk
+
+v6.51 tek bir şeye bakıyordu: dört haneli yıl, 1900'den küçük mü. Bunlar
+elinden kaçıyordu:
+
+| değer | v6.51 | neden kaçıyordu |
+|---|---|---|
+| `20026-09-02 09:00` | kaçtı | ilk dört hane `2002`, sınırın içinde |
+| `04.09.2026 14:35` | kaçtı | `^\d{4}-` kalıbına hiç uymuyor |
+| `88-01-05` | kaçtı | yıl iki haneli, kalıp eşleşmiyor |
+| `0026-09-04` | buldu | |
+| `0085-04-11` | buldu | |
+
+Yani "bozuk tarih yok" demek "dört haneli yılı küçük tarih yok" demekti. Bir
+aracın işi sessiz duran bozuk veriyi bulmaksa, dar bir kalıba güvenmemesi
+gerekir.
+
+## Denetim tersine çevrildi
+
+Artık **"bozuk olanı tanı" değil, "makul olanı geçir"**: değer tarihe
+çevrilmeye çalışılıyor (`_coz`, `datetime.fromisoformat`) ve üç şey
+bildiriliyor — yılı çok eski, yılı çok ileri, hiç okunamıyor. Ekranda sebep
+de yazıyor.
+
+Üst sınır `bu yıl + 5`. `planlanan_tarih` bilerek gelecekte olabiliyor
+(ileri tarihli cycle) ve bebeğin doğum tarihi dokuz ay ileri; beş yıl ikisine
+bol bol yetiyor, `9999` gibi bir yazım hatasını yakalıyor.
+
+**Öneri artık ayrıştırılmış tarihten kuruluyor**, dizginin ilk dört hanesini
+değiştirerek değil: `20026-09-04`'te ilk dört hane yılı vermiyordu. 29 Şubat
+kaydı artık yıl olmayan bir yıla taşınırsa öneri yapılmıyor (ValueError
+yakalanıyor).
+
+Okunamayan değere öneri yok — gün ve ay da belirsiz, kullanıcı yazacak.
+
+## Göç defteri taranmıyor
+
+Yeni denetim ilk çalıştığında hemen bir şey buldu: `goc_kaydi.zaman =
+'onceden'`. Bu yanlış alarm değil bir **yanlış hedef**: `goc.py` zaten
+uygulanmış bir göç için bilerek o işareti yazıyor (`ELLE` sözlüğü,
+`_etkisi_var()` yolu).
+
+`goc_kaydi` taramadan çıkarıldı (`ATLA_TABLO`) — iki sebeple: tarih tutmuyor,
+ve o tabloyu düzenlemeye davet etmek tehlikeli. Oradaki bir satırı değiştirmek
+bir göçün yeniden çalışmasına ya da atlanmasına yol açar. Klinik veri değil,
+çalıştırıcının kendi kaydı.
+
+## Sunucu tarafı: üst sınır da kondu
+
+`yil_kontrol()` yalnızca alt sınırı tutuyordu. `9999-01-01` de `0026-09-04`
+kadar sessiz bir yazım hatası, ve aynı şekilde hiçbir katmanda patlamıyor.
+Sınır artık iki yönlü, aynı ölçüyle (`EN_YENI_YIL_PAYI = 5`) ve **her çağrıda
+hesaplanıyor** — yıl dönünce sabit kalmasın.
+
+**Şablonlarda yalnızca `min` var, `max` yok.** Üst sınır her yıl değişen bir
+değer; şablona sabit yazılsa eskirdi, Jinja global'i eklemek 18 alan için
+kurulacak makineden fazla iş. Asıl engel zaten sunucuda.
+
+## Test edildi
+
+- Beş bozuk biçim aynı anda konuldu (yukarıdaki tablo): **beşi de bulundu**,
+  sebepleriyle. v6.51 bunlardan ikisini buluyordu.
+- Düzeltme yolu gerçek bir terminal üzerinden sürüldü: elle tarih yazma,
+  Enter ile öneriyi kabul, `a` ile atlama. Dört kayıt düzeltildi, **atlanan
+  kayıt olduğu gibi kaldı** ve ikinci çalıştırmada yine bildirildi.
+- Sunucu sınırı: 1899 red, 1900 kabul, 2031 kabul, 2032 red; `0026` ve `9999`
+  cycle formunda reddedildi ve form yazılanla birlikte geri geldi.
+- 32 adres 200; `teshis.py` "tarihlerin yılları makul" diyor.
+- Denemeler **veritabanının kopyası** üzerinde yapıldı, asıl dosyaya
+  dokunulmadı; deneme verisi geri alındı.

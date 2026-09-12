@@ -19,7 +19,6 @@ klinik veridir, varsayımla düzeltilmez.
 öneri yapılmaz (kaydın girildiği yılla doğum yılının ilgisi yok).
 """
 
-import re
 import sqlite3
 import sys
 from datetime import datetime
@@ -30,11 +29,40 @@ import db as _db          # veritabanının yeri tek yerde: db.py (tuzak #8)
 # olabilir, o yüzden sınır 2000 değil 1900.
 EN_ESKI_YIL = 1900
 
-# Bir tarihin başlangıcı: 0026-09-04, 2026-09-04 08:15:00, 2026-09-04T08:15
-TARIH = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
+# Üst sınır bu yıldan itibaren beş yıl. `planlanan_tarih` bilerek gelecekte
+# olabiliyor (ileri tarihli cycle) ve bebeğin doğum tarihi de dokuz ay ileri;
+# beş yıl ikisine de bol bol yeter, `20026` gibi bir yazım hatasını yakalar.
+EN_YENI_YIL = datetime.now().year + 5
 
 # Kaydın girildiği yıl bu tarihler için ölçü olmaz.
 ONERISIZ = {"dogum_tarihi", "es_dogum_tarihi", "dogum_zamani"}
+
+# Göç defteri taranmıyor. İki sebep: (1) `goc.py` zaten uygulanmış bir göç
+# için bilerek `"onceden"` yazıyor -- tarih değil, işaret; (2) o tabloyu
+# düzenlemeye davet etmek tehlikeli, göçün yeniden çalışmasına ya da
+# atlanmasına yol açar. Klinik veri değil, çalıştırıcının kendi kaydı.
+ATLA_TABLO = {"goc_kaydi"}
+
+SEBEP = {
+    "yil_kucuk": "yili cok eski",
+    "yil_buyuk": "yili cok ileri",
+    "okunamadi": "tarih olarak okunamiyor",
+}
+
+
+def _coz(deger):
+    """Değeri tarihe çevirir; çevrilemezse None.
+
+    Yalnızca "yılı küçük mü" diye bakmak yetmiyor: `26-09-04` ya da
+    `04.09.2026` gibi bir değer o denetimden sessizce geçer. Program böyle
+    bir şey yazmaz ama elle düzeltme, göç ya da başka bir araç yazabilir --
+    ve buranın işi tam da sessiz duran bozuk veriyi bulmak.
+    """
+    m = str(deger).strip().replace("T", " ")
+    try:
+        return datetime.fromisoformat(m)
+    except ValueError:
+        return None
 
 
 def _tarih_kolonlari(b):
@@ -45,6 +73,8 @@ def _tarih_kolonlari(b):
     """
     for t in [r[0] for r in b.execute(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]:
+        if t in ATLA_TABLO:
+            continue
         kolonlar = [k["name"] for k in b.execute(f"PRAGMA table_info({t})")
                     if ("tarih" in k["name"] or "zaman" in k["name"])
                     and "INT" not in (k["type"] or "").upper()]
@@ -95,28 +125,46 @@ def _kime_ait(b, tablo, satir):
     return " / ".join(parca)
 
 
-def _oneri(b, tablo, satir, kolon, deger):
-    """Aynı gün ve saat, yılı kaydın oluşturma yılından. Bulunamazsa None."""
-    if kolon in ONERISIZ:
-        return None
-    yil = None
+def _kayit_yili(b, satir):
+    """Kaydın girildiği yıl: kendi `olusturma_zamani`'ndan, yoksa cycle'ından."""
     for kaynak in ("olusturma_zamani",):
         if kaynak in satir.keys() and satir[kaynak]:
-            e = TARIH.match(str(satir[kaynak]))
-            if e and int(e.group(1)) >= EN_ESKI_YIL:
-                yil = e.group(1)
-    if yil is None and "cycle_id" in satir.keys() and satir["cycle_id"]:
+            d = _coz(satir[kaynak])
+            if d and EN_ESKI_YIL <= d.year <= EN_YENI_YIL:
+                return d.year
+    if "cycle_id" in satir.keys() and satir["cycle_id"]:
         c = b.execute("SELECT olusturma_zamani FROM cycle WHERE id=?",
                       (satir["cycle_id"],)).fetchone()
         if c and c["olusturma_zamani"]:
-            e = TARIH.match(str(c["olusturma_zamani"]))
-            if e and int(e.group(1)) >= EN_ESKI_YIL:
-                yil = e.group(1)
-    return yil + str(deger)[4:] if yil else None
+            d = _coz(c["olusturma_zamani"])
+            if d and EN_ESKI_YIL <= d.year <= EN_YENI_YIL:
+                return d.year
+    return None
+
+
+def _oneri(b, tablo, satir, kolon, deger, cozulen):
+    """Aynı gün ve saat, yılı kaydın oluşturma yılından. Kuramazsa None.
+
+    Öneri **ayrıştırılmış tarihten** kuruluyor, dizginin ilk dört hanesini
+    değiştirerek değil: `20026-09-04`'te ilk dört hane yılı vermiyor.
+    Okunamayan değere öneri yapılmıyor — gün ve ay da belirsiz.
+    """
+    if kolon in ONERISIZ or cozulen is None:
+        return None
+    yil = _kayit_yili(b, satir)
+    if yil is None:
+        return None
+    try:
+        y = cozulen.replace(year=yil)
+    except ValueError:              # 29 Şubat, hedef yıl artık yıl değil
+        return None
+    # Saati olmayan tarih (dogum_tarihi, planlanan_tarih) saatsiz kalsın.
+    return (y.strftime("%Y-%m-%d") if len(str(deger).strip()) <= 10
+            else y.isoformat(" ", "seconds"))
 
 
 def bulgular(b):
-    """Yılı EN_ESKI_YIL'den küçük bütün tarihler."""
+    """Makul olmayan bütün tarihler: yılı çok eski, çok ileri ya da okunamayan."""
     cikti = []
     for tablo, kolonlar in _tarih_kolonlari(b):
         ak = _anahtar(b, tablo)
@@ -126,28 +174,29 @@ def bulgular(b):
                 deger = satir[kolon]
                 if not deger:
                     continue
-                e = TARIH.match(str(deger))
-                if e and int(e.group(1)) < EN_ESKI_YIL:
-                    cikti.append({
-                        "tablo": tablo, "anahtar": ak,
-                        "id": satir[ak] if ak != "rowid" else satir["rowid"],
-                        "kolon": kolon, "deger": str(deger),
-                        "ait": _kime_ait(b, tablo, satir),
-                        "oneri": _oneri(b, tablo, satir, kolon, deger),
-                    })
+                d = _coz(deger)
+                if d is None:
+                    sebep = "okunamadi"
+                elif d.year < EN_ESKI_YIL:
+                    sebep = "yil_kucuk"
+                elif d.year > EN_YENI_YIL:
+                    sebep = "yil_buyuk"
+                else:
+                    continue
+                cikti.append({
+                    "tablo": tablo, "anahtar": ak,
+                    "id": satir[ak] if ak != "rowid" else satir["rowid"],
+                    "kolon": kolon, "deger": str(deger), "sebep": sebep,
+                    "ait": _kime_ait(b, tablo, satir),
+                    "oneri": _oneri(b, tablo, satir, kolon, deger, d),
+                })
     return cikti
 
 
 def _gecerli(metin):
     """Kullanıcının yazdığı tarih kabul edilebilir mi?"""
-    e = TARIH.match(metin)
-    if not e or int(e.group(1)) < EN_ESKI_YIL:
-        return False
-    try:
-        datetime.fromisoformat(metin.replace("T", " "))
-    except ValueError:
-        return False
-    return True
+    d = _coz(metin)
+    return d is not None and EN_ESKI_YIL <= d.year <= EN_YENI_YIL
 
 
 def main():
@@ -160,13 +209,15 @@ def main():
     print(f"Veritabani: {yol}\n")
     bulunan = bulgular(b)
     if not bulunan:
-        print(f"Yili {EN_ESKI_YIL}'den kucuk tarih yok. Duzeltilecek bir sey bulunamadi.")
+        print(f"Butun tarihler {EN_ESKI_YIL}-{EN_YENI_YIL} arasinda ve okunabiliyor.")
+        print("Duzeltilecek bir sey bulunamadi.")
         return 0
 
     print(f"{len(bulunan)} bozuk tarih bulundu:\n")
     for i, x in enumerate(bulunan, 1):
         ait = f"  ({x['ait']})" if x["ait"] else ""
         print(f"{i}. {x['tablo']}.{x['kolon']} = {x['deger']}{ait}")
+        print(f"   sebep   : {SEBEP[x['sebep']]}")
         if x["oneri"]:
             print(f"   onerilen: {x['oneri']}")
         else:
@@ -184,7 +235,8 @@ def main():
     degisen = 0
     for x in bulunan:
         ait = f" ({x['ait']})" if x["ait"] else ""
-        print(f"\n{x['tablo']}.{x['kolon']} = {x['deger']}{ait}")
+        print(f"\n{x['tablo']}.{x['kolon']} = {x['deger']}{ait}"
+              f"  -- {SEBEP[x['sebep']]}")
         varsayilan = x["oneri"]
         if varsayilan:
             soru = f"  Enter = {varsayilan} yaz | baska tarih yaz | a = atla | q = cik: "

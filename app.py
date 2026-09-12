@@ -249,8 +249,11 @@ def tam(v, alan="Sayı"):
 
 
 # Yılı bundan eskiyse yazım hatasıdır. Doğum tarihleri 1900'lerde olabildiği
-# için sınır 2000 değil 1900.
+# için sınır 2000 değil 1900. Üst sınır bu yıldan beş yıl sonrası:
+# `planlanan_tarih` bilerek gelecekte olabiliyor ve bebeğin doğumu dokuz ay
+# ileri, ama `9999` de `0026` kadar sessiz bir yazım hatası (v6.53).
 EN_ESKI_YIL = 1900
+EN_YENI_YIL_PAYI = 5
 
 
 def yil_kontrol(v, alan="Tarih"):
@@ -262,12 +265,22 @@ def yil_kontrol(v, alan="Tarih"):
     cycle'ın OPU tarihi aylarca böyle durdu (bekleyen iş 6). Ekranlarda
     `min` niteliği var ama asıl engel burası: tarayıcıya güvenilmez.
 
-    Bulunmuş bozuk kayıtları `tarih_duzelt.py` sorarak düzeltiyor.
+    Üst sınır da var (`9999-01-01` de sessiz bir yazım hatası) ama
+    şablonlarda yalnızca `min` niteliği yazılı: `max` her yıl değişen bir
+    değer olurdu, sabit yazılsa eskir. Üst sınırı sunucu tutuyor.
+
+    Bulunmuş bozuk kayıtları `tarih_duzelt.py` sorarak düzeltiyor; o araç
+    okunamayan biçimleri de (`04.09.2026`, `88-01-05`) buluyor.
     """
-    if v and str(v)[:4].isdigit() and int(str(v)[:4]) < EN_ESKI_YIL:
+    if not v:
+        return v
+    # Sınır her çağrıda hesaplanıyor: yıl dönünce sabit kalmasın.
+    en_yeni = _dt.now().year + EN_YENI_YIL_PAYI
+    dort = str(v)[:4]
+    if dort.isdigit() and not (EN_ESKI_YIL <= int(dort) <= en_yeni):
         raise FormHatasi(
-            f"{alan} yılı hatalı: {v}. Yıl dört haneli olmalı "
-            f"(örnek: {_dt.now().year}).")
+            f"{alan} yılı hatalı: {v}. Yıl {EN_ESKI_YIL} ile {en_yeni} "
+            f"arasında olmalı (örnek: {_dt.now().year}).")
     return v
 
 

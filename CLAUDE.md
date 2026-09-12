@@ -554,9 +554,20 @@ sessizce yanlış duruyor (bir cycle'ın OPU tarihi aylarca böyleydi). Kontrol
   bozuk yıl **şu ana** düşer, fonksiyonun belgelenmiş davranışı.
 - Şablonlarda `min="1900-01-01"` var ama asıl engel sunucuda; tarayıcıya
   güvenme.
+- **Üst sınır da var** (v6.53): `bu yıl + 5`. `9999-01-01` de `0026-09-04`
+  kadar sessiz bir hata. Şablonlarda `max` **yok** — her yıl değişen bir değer
+  şablona sabit yazılamaz; üst sınırı sunucu tutuyor.
 - Bulunmuş bozuk kayıtları **`tarih_duzelt.py`** sorarak düzeltir; hiçbir
   şeyi kendiliğinden değiştirmez, doğum tarihlerine öneri yapmaz. `teshis.py`
   de bozuk tarih varsa söyler.
+- Araç **"bozuk olanı tanımıyor, makul olanı geçiriyor"** (v6.53): değeri
+  tarihe çevirmeye çalışıp üç şey bildiriyor — yılı çok eski, çok ileri, hiç
+  okunamıyor. v6.51 yalnızca dört haneli küçük yılı arıyordu ve
+  `20026-09-02`, `04.09.2026`, `88-01-05` elinden kaçıyordu. Denetimi
+  daraltma.
+- **`goc_kaydi` taranmaz** (`ATLA_TABLO`). `goc.py` zaten uygulanmış göç için
+  bilerek `"onceden"` yazıyor — tarih değil, işaret; ayrıca o tabloyu
+  düzenlemek göçün yeniden çalışmasına ya da atlanmasına yol açar.
 
 **İşlem saatleri elle girilebilir.** Her aşamada varsayılan "şu an", ama
 değiştirilebilir — personel işlemi yaparken değil sonra kaydediyor olabilir.
@@ -908,10 +919,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
    değişecek — ona sor.
-6. ~~**Bozuk tarih**~~ — v6.51'de kapandı. Yılı 1900'den küçük tarih artık
-   hiçbir ekrandan kaydedilemiyor; var olanı `python3 tarih_duzelt.py`
-   sorarak düzeltiyor. **Kullanıcının kendi veritabanında bu aracı bir kez
-   çalıştırması gerekiyor** — kayıt onun makinesinde.
+6. ~~**Bozuk tarih**~~ — **kapandı.** v6.51'de koruma ve araç yazıldı,
+   v6.53'te denetim genişletildi (okunamayan biçimler + üst sınır).
+   Kullanıcı 2026-09-12'de kendi veritabanında `tarih_duzelt.py`'yi
+   çalıştırdı: **düzeltilecek kayıt bulunamadı**, `0026-09-04` artık yok.
 7. **`sema_guncel.sql` güncel değil.** `goc_019`, `goc_021`, `goc_022` ve
    `goc_025`'in getirdiklerini içermiyor. v6.9'da `sifirdan_kur.py` göçleri
    kendisi çalıştırdığı için kurulum artık eksiksiz çıkıyor, ama dosyanın adı
