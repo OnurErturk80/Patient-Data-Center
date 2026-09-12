@@ -10,6 +10,10 @@
   --uyari:    #b4530e;
   --uyari-ac: #fbeee2;
   --r: 6px;
+  /* Genis ekranda icerik sutunu. Yan menu solda 200px yer kapliyor,
+     500px pay onunla carpismayi onluyor. Formul TEK yerde: kimlik bandinin
+     hizasi da bunu kullaniyor, yoksa band ile kartlar birbirinden kayar. */
+  --genis-sutun: max(640px, min(940px, calc(100vw - 500px)));
 }
 
 * { box-sizing: border-box; }
@@ -186,6 +190,22 @@ body {
   .ikisutun > .kart { flex: 1 1 0; }
 }
 
+/* Kart yiginini iki sutuna ayirir (v6.42). Genis ekranda tek sutun 640px'te
+   kaliyordu: iki yanda ~400'er piksel bos duruyor, sayfa bosuna uzuyordu.
+
+   Medya sorgusu YOK, sarma var: sutun 380px'in altina dusecekse kendiliginden
+   alt alta diziliyor. Boylece kural her genislikte dogru -- telefonda,
+   tablette ve sutunu dar kalan bir sayfada tek sutun; yeri olan ekranda iki.
+   Sira iki duzende de HTML sirasiyla ayni.
+
+   Sutunlar SABLONDA ayriliyor, `column-count` ile degil: o kartlari
+   yuksekliklerine gore boluyor ve "Bitir" gibi bir dugme verinin ustune
+   dusebiliyor. Hangi kartin nerede duracagi anlamla ilgili bir karar.
+
+   `align-items: flex-start`: kisa sutun uzun olanin boyuna uzamasin. */
+.sutunlar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+.sutunlar > .sutun { flex: 1 1 380px; min-width: 0; }
+
 /* Iki sutunlu ekran (yalniz ana ekran) 640px'lik olcuye sigmiyor: kartlar
    296px'te kaliyor, sagda yarim ekran bos duruyordu. Sutun genisliyor.
    Yan menu 1100px'ten sonra soldaki 216px'i kapliyor; ikinci kural sutunu
@@ -195,7 +215,12 @@ body {
   .kap.genis { max-width: 940px; }
 }
 @media (min-width: 1100px) {
-  .kap.genis { max-width: max(640px, min(940px, calc(100vw - 500px))); }
+  .kap.genis { max-width: var(--genis-sutun); }
+  /* Yan menusu olmayan genis ekranda (yonetim) menu payi gereksiz: sutun
+     940'ta kaliyor, boylece 1280px'lik bir ekrana da iki sutun sigiyor.
+     Sinif bilerek "opt-in": unutulursa sayfa dar kalir, menunun altina
+     girmez -- yanlis tarafa dusmesi ucuz olan secenek bu. */
+  .kap.genis.yanmenusuz { max-width: 940px; }
 }
 
 /* "Islemi bitir" ekraninda her secenegin altindaki tek satirlik aciklama.
@@ -908,8 +933,13 @@ body.kilitli { overflow: hidden; }
      yazısı içerik sütunuyla hizalanıyor. "Hasta kimliği her ekranda
      görünür" kuralı menüden önce gelir. */
   .kimlik {
-    padding-left: calc((100% - 640px) / 2);
-    padding-right: calc((100% - 640px) / 2);
+    padding-left: calc((100% - 640px) / 2 + 16px);
+    padding-right: calc((100% - 640px) / 2 + 16px);
+  }
+  /* Sutunu genisleyen sayfada (cycle) band da onunla hizalanmali. */
+  body.genissayfa .kimlik {
+    padding-left: calc((100% - var(--genis-sutun)) / 2 + 16px);
+    padding-right: calc((100% - var(--genis-sutun)) / 2 + 16px);
   }
 }
 

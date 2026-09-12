@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block ustbaslik %}Yönetim{% endblock %}
 {% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
 {% block icerik %}
 {# Salt okunur panel: buradan hiçbir şey silinmez veya değiştirilmez. #}
 
@@ -16,6 +17,12 @@
   Tek yönetici var. O hesap kilitlenirse yönetim ekranına kimse giremez.
 </div>
 {% endif %}
+
+{# Genis ekranda iki sutun (v6.42): solda gidilecek ekranlar ve Excel,
+   sagda durum kartlari. Bolme noktasi kaynak sirasinda oldugu icin
+   telefonda sira aynen korunuyor -- sutunlar alt alta diziliyor. #}
+<div class="sutunlar">
+<div class="sutun">
 
 <a class="dugme" href="/kullanicilar">Kullanıcılar
   ({{ aktif_kullanici }} aktif{% if toplam_kullanici > aktif_kullanici %},
@@ -53,6 +60,10 @@
     </div>
   </div>
 </div>
+
+</div>
+
+<div class="sutun">
 
 <div class="kart" style="margin-top:12px">
   <h2>Veritabanı</h2>
@@ -102,5 +113,7 @@
       değiştirilmez — sadece durumu gösterir.
     </div>
   </div>
+</div>
+</div>
 </div>
 {% endblock %}

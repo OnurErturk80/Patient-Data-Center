@@ -4449,3 +4449,101 @@ yerden okumak v6.8'de başa gelmişti (tuzak #8); yazmak daha kötüsü olurdu.
 - Dosyada ikinci bir makine bölümü varken kaydetme ona dokunmadı
 - `form_kalip.json` yokken bütün ekranlar açıldı, form düğmesi çıkmadı
 - Test verisi geri alındı (oturum 22, 1 hasta / 2 cycle, 0 kırık referans)
+
+---
+
+# v6.42 — geniş ekranda iki sütun
+
+## Sorun
+
+Kullanıcı bilgisayarda baktı: içerik ekranın ortasında dar bir şeritte
+toplanıyor, iki yanda büyük boşluk kalıyor. Ölçüldü — 1440 px'lik bir ekranda
+içerik sütunu **640 px**, iki yanda ~400'er piksel boş; `/yonetim` ekranı da
+1954 px'e uzuyor, yani ekranın iki katı.
+
+Sebep tasarımın kendisi: program telefon önceliğiyle yazıldı, `.kap` 640 px'te
+sabit. v6.34'te yalnızca ana ekran (`kap genis`, 940 px) ve sonra istatistikler
+genişletilmişti.
+
+## Neden sadece genişletmek yetmiyor
+
+İlk akla gelen çözüm sütunu 940'a çıkarmak. Ama cycle ekranındaki "Protokol"
+kartında etiket solda, değer sağda duruyor: kartı genişletince "Gonadotropin"
+ile "girilmedi" arası daha da açılıyor, okumak zorlaşıyor. Geniş ekranın
+cevabı **daha geniş kart değil, daha çok sütun**.
+
+Kullanıcıya soruldu, **"kartlar yan yana iki sütun"** dedi; kapsam olarak da
+**"önce yönetim + cycle"**.
+
+## Nasıl
+
+`.sutunlar` > iki `.sutun`. Ana ekranın `.ikisutun`'u ile aynı fikir, farkı
+sütunun içine **birden çok kart** koyabilmesi.
+
+**Medya sorgusu yok, sarma var.** `flex: 1 1 380px` + `flex-wrap`: sütun
+380 px'in altına düşecekse kendiliğinden alt alta diziliyor. Böylece tek kural
+her genişlikte doğru — telefonda, tablette ve sütunu dar kalan sayfada tek
+sütun; yeri olan ekranda iki. Sabit bir kırılma noktası yazsaydık, sütunu
+940 yerine 780 px olan bir sayfada iki sütun 380'in altına inerdi.
+
+**Sütunlar şablonda ayrılıyor, `column-count` ile değil.** CSS'in çok sütunu
+kartları *yüksekliğe* göre bölüyor; hangi kartın nereye düşeceği veriye göre
+değişiyor ve "İşlemi bitir" düğmesi verinin üstünde başlayabiliyor. Hangi
+kartın nerede duracağı anlamla ilgili bir karar, ölçüyle ilgili değil.
+
+**Bölme noktası kaynak sırasında.** Şablonda sıra değişmiyor, araya
+`</div><div class="sutun">` giriyor. Böylece sütunlar alt alta dizildiğinde
+(telefon) sıra **bire bir eskisi gibi** kalıyor. Ölçüldü: cycle ekranı
+telefonda değişiklikten önce de sonra da 1846 px.
+
+Bölme:
+
+| Ekran | Sol sütun | Sağ sütun |
+|---|---|---|
+| `/cycle/{id}` | sayı özeti, Zamanlar, Protokol, protokol notu | Oositler, arşiv, işlem düğmeleri, zaman çizelgesi |
+| `/yonetim` | gidilecek ekranlar, Excel çıktısı, Yedekleme | Veritabanı, klasörler, salt okunur notu |
+
+Yedekleme kartı sağdan sola alındı — sol sütun 720 px'te bitip altında boşluk
+bırakıyordu; şimdi 800'e 992.
+
+## Genişlik formülü tek yerde
+
+Cycle ekranının sütunu genişleyince **kimlik bandının** hizası da değişmeli:
+bant `.kap`'ın dışında, tam genişlikte duruyor ve yazısını içerik sütunuyla
+hizalıyor. İki yerde ayrı formül olsaydı band ile kartlar birbirinden kayardı.
+
+Formül `:root`'ta bir değişken: `--genis-sutun`. Hem `.kap.genis` hem bandın
+dolgusu onu kullanıyor. Bandın hangi ölçüyü kullanacağını **gövdedeki sınıf**
+söylüyor (`body.genissayfa`) — bant `.kap`'ın kardeşi olduğu için `:has()`
+gerekirdi, o da eski Safari'de yok.
+
+Bu arada bandın yazısı kartların **16 px soluna** düşüyormuş (eskiden beri):
+dolgu hesabı `.kap`'ın kendi 16 px'lik iç boşluğunu saymıyordu. `+ 16px`
+eklendi, artık hasta adı kartın sol kenarıyla tam hizalı.
+
+## `yanmenusuz`
+
+`.kap.genis` 1100 px'ten sonra `100vw - 500px` ile sınırlı — solda duran yan
+menüyle çarpışmasın diye. `/yonetim`'de yan menü yok, o pay boşuna: 1280 px'lik
+bir ekranda sütun 780'de kalıyor ve iki sütun sığmıyordu.
+`.kap.genis.yanmenusuz` payı kaldırıyor.
+
+Sınıf bilerek **opt-in**: unutulursa sayfa dar kalır, menünün altına girmez.
+Yanlış tarafa düşmesi ucuz olan seçenek bu.
+
+## Ölçüldü
+
+| Ekran | Önce | Sonra (1440 px) |
+|---|---|---|
+| `/yonetim` | 1954 px | 1404 px |
+| `/cycle/{id}` | 1626 px | 964 px |
+
+Cycle ekranı artık tek ekrana sığıyor.
+
+- 390 / 768 / 1024 / 1100 / 1280 / 1366 / 1440 / 1920 px'te bakıldı; hiçbirinde
+  yatay taşma yok, yan menü hiçbir genişlikte içeriğin üstüne binmiyor
+- Telefonda sıra ve sayfa yüksekliği değişmedi (1846 px → 1846 px)
+- Kimlik bandı cycle ve aşama ekranlarında sekiz genişlikte de kartlarla
+  tam hizalı (fark 0 px)
+- Ana ekran, istatistikler ve hasta kayıtları etkilenmedi — ölçüleri aynı
+- 30 adres 200, sunucu günlüğünde hata yok

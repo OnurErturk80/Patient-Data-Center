@@ -172,6 +172,30 @@ gerekir.
 `?hata=...` ile geri dönmek "mesajı göster, formu gizle" demek — kullanıcı
 yazdığını göremez. Hata dönüşü `?duzenle=1&hata=...` olmalı (v6.21, OPU).
 
+**Geniş ekranda kartlar iki sütuna ayrılır** (v6.42). Telefon öncelikli
+tasarım geniş ekranda içeriği ortada 640px'lik bir şeride sıkıştırıyordu; iki
+yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
+`/yonetim` şimdi `.sutunlar` > iki `.sutun` kullanıyor.
+- **Sütunlar şablonda ayrılır, `column-count` ile değil.** CSS'in çok sütunu
+  kartları yüksekliğe göre böler; "İşlemi bitir" düğmesi verinin üstüne
+  düşebilir. Hangi kartın nerede duracağı anlamla ilgili bir karar.
+- **Bölme noktası kaynak sırasında olmalı** — araya `</div><div class="sutun">`
+  girer, sıra değişmez. Böylece sütunlar alt alta dizildiğinde (telefon) sıra
+  bire bir aynı kalır. Kart taşıyacaksan sırayı bozmadan taşı.
+- **Medya sorgusu yok, sarma var**: `flex: 1 1 380px` + `flex-wrap`. Sütun
+  380px'in altına düşecekse kendiliğinden alt alta diziliyor, yani kural her
+  genişlikte doğru. Sabit kırılma noktası yazma.
+- **İçerik sütununun genişliği tek yerde**: `--genis-sutun`. Hem `.kap.genis`
+  hem kimlik bandının hizası onu kullanıyor — iki ayrı formül olsaydı band ile
+  kartlar birbirinden kayardı. Bandın hangi ölçüyü kullanacağını
+  `body.genissayfa` söylüyor (`base.html`'deki `{% block govde %}`); bant
+  `.kap`'ın kardeşi olduğu için `:has()` gerekirdi, o da eski Safari'de yok.
+- **`.kap.genis` yan menü payını (`100vw - 500px`) içerir.** Yan menüsü olmayan
+  ekranda `.kap.genis.yanmenusuz` payı kaldırıyor. Sınıf bilerek opt-in:
+  unutulursa sayfa dar kalır, menünün altına **girmez**.
+- Bu düzen şimdilik iki ekranda (kullanıcının kararı: "önce yönetim + cycle").
+  Ötekilere yayarken aynı kurallara uy.
+
 **Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
 ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim
 ekleme.

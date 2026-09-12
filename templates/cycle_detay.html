@@ -13,7 +13,15 @@
   </div>
 </div>
 {% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block govde %}genissayfa{% endblock %}
 {% block icerik %}
+{# Genis ekranda iki sutun (v6.42): solda cycle'in kendi verisi (sayilar,
+   saatler, protokol), sagda ornekler ve islem dugmeleri. Bolme noktasi
+   kaynak sirasinda oldugu icin telefonda sira aynen korunuyor. #}
+<div class="sutunlar">
+<div class="sutun">
+
 <div class="kart">
   <div class="ozet">
     <div>
@@ -75,6 +83,10 @@
 
 {# Cycle ekrani klinik ozet: fotograf yok. Oosit resimleri kendi asama
    ekranlarinda, buyuk ve tek tek bakilacak yerde duruyor. #}
+</div>
+
+<div class="sutun">
+
 <div class="kart">
   <h2>{{ metin("oositler") }} ({{ specimenler|length }})</h2>
   {% if specimenler %}
@@ -189,6 +201,9 @@
 <a class="dugme ikincil tehlike-bag" href="/cycle/{{ c.id }}/sil">
   {{ metin("kalici_olarak_sil") if c.durum == "iptal" else metin("iptal_et_veya_sil") }}</a>
 {% endif %}
+
+</div>
+</div>
 
 {{ gez.yan(c, gezinme) }}
 {% endblock %}

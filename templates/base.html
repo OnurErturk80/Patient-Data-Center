@@ -9,7 +9,7 @@
 <title>{% block baslik %}{{ metin("program_adi") }}{% endblock %}</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="{% block govde %}{% endblock %}">
 <div class="ust">
   {% block geri %}{% endblock %}
   {# Ana menüye dönüş her ekranda, geri okunun yanında. Burada durduğu için
