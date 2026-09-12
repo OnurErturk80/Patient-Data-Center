@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("istatistikler") }}{% endblock %}
 {% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
-{% block kapsinif %} genis{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
 {% block icerik %}
 
 {# Sayılar **anlık hesaplanıyor**, saklanmıyor: ayrı bir sayaç tutmak aynı
@@ -30,8 +30,11 @@
   </div>
 </div>
 
+<div class="sutunlar" style="margin-top:14px">
+<div class="sutun">
+
 {# Oranlar: paydası olmayan oran basılmıyor -- "%0" yanıltıcı olurdu. #}
-<div class="kart" style="margin-top:14px">
+<div class="kart">
   <h2>{{ metin("oranlar") }}</h2>
   <table class="cizelge">
     <tr><td class="ad">{{ metin("oran_mii") }}</td>
@@ -51,45 +54,49 @@
   </table>
 </div>
 
-<div class="ikisutun" style="margin-top:14px">
-  <div class="kart">
-    <h2>{{ metin("aylara_gore") }}</h2>
-    {% if aylar %}
-    <table class="cizelge">
-      <tr>
-        <th>{{ metin("ay") }}</th><th>{{ metin("cycle") }}</th>
-        <th>{{ metin("oosit_ad") }}</th><th>2PN</th><th>{{ metin("asama_transfer") }}</th>
-      </tr>
-      {% for s in aylar %}
-      <tr>
-        <td class="ad">{{ ay_adi(s.ay[:4]|int, s.ay[5:]|int) }}</td>
-        <td>{{ s.cycle }}</td><td>{{ s.oosit }}</td>
-        <td>{{ s.ikipn }}</td><td>{{ s.transfer }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-    {% else %}
-    <div class="bos">{{ metin("istatistik_bos") }}</div>
-    {% endif %}
-  </div>
+<div class="kart" style="margin-top:14px">
+  <h2>{{ metin("aylara_gore") }}</h2>
+  {% if aylar %}
+  <table class="cizelge">
+    <tr>
+      <th>{{ metin("ay") }}</th><th>{{ metin("cycle") }}</th>
+      <th>{{ metin("oosit_ad") }}</th><th>2PN</th><th>{{ metin("asama_transfer") }}</th>
+    </tr>
+    {% for s in aylar %}
+    <tr>
+      <td class="ad">{{ ay_adi(s.ay[:4]|int, s.ay[5:]|int) }}</td>
+      <td>{{ s.cycle }}</td><td>{{ s.oosit }}</td>
+      <td>{{ s.ikipn }}</td><td>{{ s.transfer }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="bos">{{ metin("istatistik_bos") }}</div>
+  {% endif %}
+</div>
 
-  <div class="kart">
-    <h2>{{ metin("son_kayitlar") }}</h2>
-    {% for k in son %}
-    {# Hasta kaydının cycle'ı yok; satır hastaya gider. #}
-    <a class="satir hasta" href="{{ '/cycle/' ~ k.cycle_id if k.cycle_id else '/hastalar?ara=' ~ k.dosya_no }}">
-      <div class="ad">{{ k.ad_soyad }}</div>
-      <div class="no">{{ k.dosya_no }}{% if k.cycle_no %} · {{ k.cycle_no }}{% endif %}</div>
-      <div class="meta">
-        {{ metin("kayit_" ~ k.tur) }}{% if k.ad %} · {{ k.ad }}{% endif %}
-        · {{ k.z[:16] if k.z else "" }}
-      </div>
-    </a>
-    {% else %}
-    <div class="bos">{{ metin("istatistik_bos") }}</div>
+</div>{# sutun #}
+<div class="sutun">
+
+<div class="kart">
+  <h2>{{ metin("son_kayitlar") }}</h2>
+  {% for k in son %}
+  {# Hasta kaydının cycle'ı yok; satır hastaya gider. #}
+  <a class="satir hasta" href="{{ '/cycle/' ~ k.cycle_id if k.cycle_id else '/hastalar?ara=' ~ k.dosya_no }}">
+    <div class="ad">{{ k.ad_soyad }}</div>
+    <div class="no">{{ k.dosya_no }}{% if k.cycle_no %} · {{ k.cycle_no }}{% endif %}</div>
+    <div class="meta">
+      {{ metin("kayit_" ~ k.tur) }}{% if k.ad %} · {{ k.ad }}{% endif %}
+      · {{ k.z[:16] if k.z else "" }}
+    </div>
+  </a>
+  {% else %}
+  <div class="bos">{{ metin("istatistik_bos") }}</div>
     {% endfor %}
   </div>
-</div>
+
+</div>{# sutun #}
+</div>{# sutunlar #}
 
 <a class="dugme ikincil" href="/disari/istatistik">{{ metin("excele_aktar_istatistik") }}</a>
 <div class="ipucu" style="padding:8px 2px">{{ metin("istatistik_ipucu") }}</div>

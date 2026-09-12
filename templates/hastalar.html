@@ -6,6 +6,7 @@
    kayıtlarından tümden çıkmak istenmiyordu. #}
 {% block geri %}<a class="geri" href="{{ '/hastalar' if (ara or arsiv) else '/' }}">&#8249;</a>{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
 

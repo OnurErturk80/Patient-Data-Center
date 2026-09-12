@@ -14,6 +14,10 @@
      500px pay onunla carpismayi onluyor. Formul TEK yerde: kimlik bandinin
      hizasi da bunu kullaniyor, yoksa band ile kartlar birbirinden kayar. */
   --genis-sutun: max(640px, min(940px, calc(100vw - 500px)));
+  /* Yan menusu olmayan genis sayfada menu payi gereksiz: sutun 940'ta
+     kalir. Hem `.kap.genis.yanmenusuz` hem kimlik bandinin hizasi bunu
+     kullaniyor -- iki ayri sayi olsaydi band ile kartlar kayardi. */
+  --genis-sutun-menusuz: 940px;
 }
 
 * { box-sizing: border-box; }
@@ -220,7 +224,7 @@ body {
      940'ta kaliyor, boylece 1280px'lik bir ekrana da iki sutun sigiyor.
      Sinif bilerek "opt-in": unutulursa sayfa dar kalir, menunun altina
      girmez -- yanlis tarafa dusmesi ucuz olan secenek bu. */
-  .kap.genis.yanmenusuz { max-width: 940px; }
+  .kap.genis.yanmenusuz { max-width: var(--genis-sutun-menusuz); }
 }
 
 /* "Islemi bitir" ekraninda her secenegin altindaki tek satirlik aciklama.
@@ -999,6 +1003,14 @@ body.kilitli { overflow: hidden; }
   body.genissayfa .kimlik {
     padding-left: calc((100% - var(--genis-sutun)) / 2 + 16px);
     padding-right: calc((100% - var(--genis-sutun)) / 2 + 16px);
+  }
+  /* Yan menusu olmayan genis sayfada (hasta kaydi) `.kap` 940'ta kaliyor;
+     band da ayni olcuyu kullanmali, yoksa 1100-1440 arasinda bandin yazisi
+     kartlardan ~120px kayiyor. Sinif `.kap.genis.yanmenusuz` ile birlikte
+     verilir (v6.52). */
+  body.genissayfa.menusuzsayfa .kimlik {
+    padding-left: calc((100% - var(--genis-sutun-menusuz)) / 2 + 16px);
+    padding-right: calc((100% - var(--genis-sutun-menusuz)) / 2 + 16px);
   }
 }
 

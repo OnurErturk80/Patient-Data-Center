@@ -5239,3 +5239,92 @@ veriyor ve gizli alan ekranda görünmediği için oradan düzeltilemiyor.
 > Geri alırken WAL tuzağına girildi: uygulama çalışırken `lab.db`'nin üzerine
 > kopyalamak işe yaramıyor, `lab.db-wal` sonradan üstüne biniyor. README
 > v6.6'da yazılı olan kural burada da geçerliymiş — önce durdur, sonra kopyala.
+
+
+---
+
+# v6.52 — geniş ekran düzeni öteki ekranlara yayıldı
+
+v6.42'de iki sütunlu düzen yalnızca iki ekranda vardı (yönetim ve cycle),
+kullanıcının kararıyla: "önce yönetim + cycle, sonra bakarız". Sonrası bu.
+
+## Kural: iki sütun her yerin çözümü değil
+
+Şikâyet "ekranın yarısı boş kalıyor"du. Çözümü her ekranda ikiye bölmek
+değil — **bölmenin bir anlamı olmalı.** Ölçü şu: ekranda birbirinden bağımsız
+kartlar mı var, yoksa genişliğe ihtiyacı olan tek bir şey mi?
+
+**İki sütun** (bağımsız kartlar, ikisi de dar içerik):
+
+| ekran | solda | sağda | boy |
+|---|---|---|---|
+| `/kullanicilar` | kullanıcı listesi | yeni kullanıcı + açıklama | 2596 → 1705 |
+| `/istatistik` | oranlar + aylık çizelge | son kayıtlar | 1103 → 913 |
+| `/formlar` | form yükleme | gömülü + yüklenen formlar | 1090 → 692 |
+
+`/istatistik`'te "Genel toplam" sütunların **üstünde tam genişlikte** kaldı:
+sekiz sayılık şerit genişliği zaten kullanıyor, ikiye bölmek onu sıkıştırırdı.
+
+**Yalnızca genişleme** (tek bir şey var, ona genişlik lazım):
+
+| ekran | neden | genişlik |
+|---|---|---|
+| `/klasorler` | tek form kartı; klasör yolları uzun metin | 640 → 940 |
+| `/cryo` | taşıyıcı satırında tam konum yolu yazıyor | 640 → 940 |
+| `/hasta/{id}` | cycle satırları; ana ekrandaki satırın aynısı | 640 → 940 |
+| `/hastalar`, `/bitenler`, `/takvim` | aynı `_cyclesatir` satırları | 640 → 940 |
+
+Liste ekranlarını bölmedim: `_cyclesatir.html` satırları soldan sağa okunan
+tek bir akış. İki sütuna bölmek "aşağı devam et"i "yukarı dön"e çevirirdi.
+Şimdi altısı da ana ekranın listeleriyle **aynı ölçüde** görünüyor.
+
+**Bilerek dar bırakılanlar:**
+
+- `/cycle/{id}/bitir` — onay ekranı. Üç düğmeden biri cycle'ı kapatıyor;
+  dar olması yanlışlıkla basmayı zorlaştırıyor, bu bir özellik.
+- `/dil` ve form ekranları (`/hasta/yeni`, `/hasta/{id}/duzenle`,
+  cycle formu) — form alanı genişledikçe etiketle değer birbirinden uzaklaşır.
+  v6.42'nin "genişletmek tek başına çözüm değil" gerekçesinin aynısı.
+- Aşama ekranları — kendi düzenleri var (şerit → fotoğraf → kart).
+
+## Kimlik bandının hizası
+
+`/hasta/{id}` genişleyen ilk **kimlik bantlı, yan menüsüz** ekran oldu ve
+orada bir boşluk çıktı: bant `--genis-sutun` ile hizalanıyordu, `.kap` ise
+`.yanmenusuz` yüzünden 940'ta duruyordu. 1440'ta ikisi aynı sayıya geliyor,
+**1100–1440 arasında bandın yazısı kartlardan ~120px kayıyordu.**
+
+Ölçü ikinci bir değişkene alındı: `--genis-sutun-menusuz`. Hem
+`.kap.genis.yanmenusuz` hem `body.genissayfa.menusuzsayfa .kimlik` onu
+kullanıyor — v6.42'nin "içerik sütununun genişliği tek yerde" kuralının
+yan menüsüz hali. Şablon ikisini birlikte veriyor:
+
+```jinja
+{% block kapsinif %} genis yanmenusuz{% endblock %}
+{% block govde %}genissayfa menusuzsayfa{% endblock %}
+```
+
+## Bir tuzak: bölme noktası `{% if %}`'in içine düşmemeli
+
+`/formlar`'da bölme noktası ilk yazışta `{% if gomulu %}`'nin **içine**
+düştü. Gömülü form yoksa `</div>` hiç basılmayacak, sondaki kapanışlar
+açıkta kalacaktı — ve ticari dağıtımda gömülü form **olmayacak** (v6.41),
+yani tam da o durumda bozulacaktı. Sütun sınırı koşulun dışına alındı.
+
+Yeni bir ekranı bölerken: bölme noktası **her zaman** basılan bir yerde
+olmalı.
+
+## Test edildi
+
+- 15 ekran 1440 ve 1280px'te ölçüldü: genişlik, sayfa boyu, kimlik bandı ile
+  kart sütununun hizası. Bant farkı her ekranda tam 16px (istenen iç boşluk).
+- 1100 / 1150 / 900 / 860 / 700px'te yatay taşma ve yan menü çakışması
+  arandı — hiçbirinde yok.
+- 390px'te (telefon) sütunlar alt alta diziliyor ve **sıra kaynak sırasıyla
+  bire bir aynı**: değişen ekranların telefon görünümü eskisinin aynısı.
+- 31 adres 200 verdi. Deneme verisi geri alındı.
+
+> Ölçerken görülen, bu sürümün dışında bir şey: `/cycle/{id}` 1280px'te tek
+> sütuna düşüyor (`--genis-sutun` = 780, iki sütuna yetmiyor). Yan menüsü
+> olduğu için `yanmenusuz` sınıfını alamıyor. 1440'ta iki sütun. Kullanıcı
+> isterse menü payı ayrıca gözden geçirilir.

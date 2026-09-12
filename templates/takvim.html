@@ -3,6 +3,7 @@
 {% block ustbaslik %}{{ metin("takvim") }}{% endblock %}
 {% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
 {% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
 {% block icerik %}
 {% if goc_gerekli %}<div class="uyari">{{ metin("takvim_goc_gerekli") }}</div>{% endif %}
 

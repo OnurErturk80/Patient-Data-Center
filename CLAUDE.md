@@ -243,8 +243,24 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
 - **`.kap.genis` yan menü payını (`100vw - 500px`) içerir.** Yan menüsü olmayan
   ekranda `.kap.genis.yanmenusuz` payı kaldırıyor. Sınıf bilerek opt-in:
   unutulursa sayfa dar kalır, menünün altına **girmez**.
-- Bu düzen şimdilik iki ekranda (kullanıcının kararı: "önce yönetim + cycle").
-  Ötekilere yayarken aynı kurallara uy.
+- **İki sütun her ekranın çözümü değil** (v6.52). Ölçü: ekranda birbirinden
+  bağımsız kartlar mı var, yoksa genişliğe ihtiyacı olan tek bir şey mi?
+  İki sütun: `/yonetim`, `/cycle/{id}`, `/kullanicilar`, `/istatistik`,
+  `/formlar`. Yalnızca genişleyen (`kap genis yanmenusuz`): `/klasorler`,
+  `/cryo`, `/hasta/{id}`, `/hastalar`, `/bitenler`, `/takvim` — liste
+  ekranlarını bölme, `_cyclesatir` satırları soldan sağa okunan tek bir akış.
+  Bilerek dar kalanlar: `/cycle/{id}/bitir` (onay ekranı — dar olması
+  yanlışlıkla basmayı zorlaştırıyor), `/dil` ve form ekranları (alan
+  genişledikçe etiketle değer birbirinden uzaklaşır).
+- **Bölme noktası `{% if %}`'in içine düşmemeli.** `/formlar`'da ilk yazışta
+  `{% if gomulu %}`'nin içine düştü; gömülü form olmayan kurulumda (ticari
+  dağıtım, v6.41) `</div>` hiç basılmayacaktı. Sütun sınırı her zaman
+  basılan bir yerde olmalı.
+- **Kimlik bandı + geniş + yan menüsüz üçlüsü ayrı ölçü ister**
+  (`--genis-sutun-menusuz`, v6.52). Şablon ikisini birlikte verir:
+  `{% block kapsinif %} genis yanmenusuz{% endblock %}` **ve**
+  `{% block govde %}genissayfa menusuzsayfa{% endblock %}`. Yalnız birini
+  verirsen bant ile kartlar 1100-1440 arasında ~120px kayar.
 
 **Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
 ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim

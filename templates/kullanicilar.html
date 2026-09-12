@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block ustbaslik %}Kullanıcılar{% endblock %}
 {% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
 {% block icerik %}
 
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
@@ -19,6 +20,9 @@
   ikinci bir yönetici eklemek iyi olur.
 </div>
 {% endif %}
+
+<div class="sutunlar">
+<div class="sutun">
 
 <div class="kart">
   <h2>{{ liste|length }} kullanıcı</h2>
@@ -107,7 +111,10 @@
   {% endfor %}
 </div>
 
-<div class="kart" style="margin-top:12px">
+</div>{# sutun #}
+<div class="sutun">
+
+<div class="kart">
   <h2>Yeni kullanıcı</h2>
   <form method="post" action="/kullanicilar/yeni">
     <div class="alan">
@@ -159,4 +166,7 @@
     </div>
   </div>
 </div>
+
+</div>{# sutun #}
+</div>{# sutunlar #}
 {% endblock %}

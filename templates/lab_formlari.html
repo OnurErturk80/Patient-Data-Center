@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("lab_formlari") }}{% endblock %}
 {% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
 {% block icerik %}
 
 {# Gömülü iki resmî form bu laboratuvarın; buraya yüklenenler başka bir
@@ -9,6 +10,9 @@
 
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
 {% if eklendi %}<div class="uyari">{{ metin("form_eklendi") }}</div>{% endif %}
+
+<div class="sutunlar">
+<div class="sutun">
 
 <div class="kart">
   <h2>{{ metin("form_yukle") }}</h2>
@@ -50,8 +54,14 @@
    Başka bir laboratuvarda ekranda durmaları yanlış -- personel yanlışlıkla
    basarsa ortaya başka bir kurumun formunda gerçek hasta verisi çıkar.
    Silinmiyor, gizleniyor: kalıp programın dosyasında, veritabanında değil. #}
+
+{# Bolme noktasi `{% if gomulu %}`'nin DISINDA: ticari dagitimda gomulu form
+   olmayacak (v6.41) ve sutun o zaman da kapanmali. #}
+</div>{# sutun #}
+<div class="sutun">
+
 {% if gomulu %}
-<div class="kart" style="margin-top:14px">
+<div class="kart">
   <h2>{{ metin("gomulu_formlar") }}</h2>
   <div class="ipucu" style="padding:0 14px">{{ metin("gomulu_form_ipucu") }}</div>
   {% for f in gomulu %}
@@ -72,7 +82,7 @@
 </div>
 {% endif %}
 
-<div class="kart" style="margin-top:14px">
+<div class="kart"{% if gomulu %} style="margin-top:14px"{% endif %}>
   <h2>{{ metin("form_yuklenenler") }}{% if formlar %} ({{ formlar|length }}){% endif %}</h2>
   {% for f in formlar %}
   <div class="satir" style="cursor:default">
@@ -106,4 +116,7 @@
   <div class="bos">{{ metin("form_yok") }}</div>
   {% endfor %}
 </div>
+
+</div>{# sutun #}
+</div>{# sutunlar #}
 {% endblock %}
