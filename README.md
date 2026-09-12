@@ -5651,3 +5651,82 @@ kaydederse ikinci yine birincinin üzerine yazıyor. Asıl güvenlik ağı şu
 olurdu: form basılırken kaydın imzası forma gömülür, kaydederken imza
 değişmişse kayıt **reddedilir** ve "bu kayıt sen düzenlerken değişti"
 denir. Kullanıcıya sorulacak: uyarı yeterli mi, yoksa bu da eklenecek mi?
+
+
+---
+
+# v6.56 — denüdasyondaki over düğmeleri ötekilerin aynısı oldu
+
+Kullanıcı iki şey bildirdi ve ikisinin **tek bir sebebi** vardı: denüdasyondaki
+Sağ / Sol düğmelerinin yazısı telefonda seçilmeden önce görünmüyordu, ve o
+düğmeler ICSI / fertilizasyon / blastokistteki aynı bileşenden farklı
+duruyordu.
+
+## Sebep: `<button>` ile `<label>` aynı sınıfı paylaşıyordu
+
+`.sec` bileşeni **`<label>` + gizli radyo + `<span>`** için yazılmış: bütün
+görsel biçim iç `<span>`'de. ICSI, fertilizasyon, gün 2/3, blastokist ve
+gebelik böyle kullanıyor.
+
+Denüdasyondaki over seçimi ise `<button class="sec">` — bilerek, çünkü tek
+alanlık bir seçim için ayrı bir "Kaydet" düğmesi olmasın diye düğme kendi
+başına gönderiyor (JS de gerekmiyor). Ama sınıf aynı olunca tarayıcının
+**kendi düğme biçimi** devrede kalıyordu. Ölçüldü:
+
+| | denüdasyon (`<button>`) | ICSI (`<label>`) |
+|---|---|---|
+| dış kutu | 96×58, **gri zemin + 2px kenarlık** | 105×52, şeffaf, kenarlıksız |
+| iç span | 80×52 — içe gömülü | 105×52 — kutuyu tam dolduruyor |
+| `appearance` | **auto** | none |
+| yazı rengi | `rgb(0,0,0)` | `rgb(23,34,43)` (`--ink`) |
+
+Yani beyaz kutunun etrafında **ikinci bir gri çerçeve** vardı, 6px daha
+dar ve 6px daha yüksekti, yazı rengi de projenin mürekkebi değil tarayıcının
+siyahıydı.
+
+**Telefonda yazının kaybolması da buradan:** iOS Safari, `appearance: auto`
+olan bir `<button>` içindeki `display: flex` çocuğun yazısını basmıyor.
+Seçildikten sonra görünmesinin sebebi `.secili span`'in vurgulu zemini —
+kutu renklenince boşluk fark ediliyordu. Chromium bu çocuğu basıyor, bu
+yüzden masaüstünde sorun görünmüyordu.
+
+## Düzeltme: elemanı sıfırla, `<span>`'i bırak
+
+```css
+.secenek button.sec {
+  appearance: none; -webkit-appearance: none;
+  margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; text-align: inherit;
+}
+```
+
+Tek kural. Şablona, Python'a dokunulmadı — **`<button>` olarak kaldı**, yani
+tek dokunuşla gönderme davranışı ve JS'siz çalışması korundu. Kullanıcının
+istediği "tasarım bütünlüğü" görünüşle ilgiliydi, davranışla değil; davranış
+zaten daha iyisiydi.
+
+`appearance: none` satırını kaldırma: yazının iOS'ta görünmesi ona bağlı.
+
+## Aynı hata `esle` ekranında da bekliyordu
+
+Tararken görüldü: `/cycle/{id}/esle` ekranındaki oosit numaraları da
+`<button class="onum">` ve `.onum` kendisi `display: flex`. Ölçüldü,
+`appearance: auto` — yani **iPhone'da o numaralar da boş kare olarak
+çıkabilirdi**. Kullanıcı bunu henüz bildirmedi; kamera eşleştirme ekranı
+laboratuvarda telefonla kullanılan bir ekran, beklemeye bırakmanın anlamı yok.
+`.onum`'a da aynı satır kondu. Chromium'da görünüm birebir aynı kaldı
+(56×56, beyaz, 1px kenarlık) — kural yalnızca tarayıcının kendi biçimini
+kapatıyor, zemin/kenarlık/renk zaten CSS'te veriliyordu.
+
+## Test edildi
+
+- Yedi aşama ekranındaki ilk seçim düğmesi ölçüldü: denüdasyon dahil hepsi
+  artık `appearance: none`, dış kenarlık 0px, yazı rengi `rgb(23,34,43)` ve
+  **span kutuyu tam dolduruyor**. Denüdasyon (`BUTTON`) ötekilerle
+  (`LABEL`) birebir aynı.
+- Blastokist 46px: o `.secenek.dar` varyantı (satıra dört seçenek),
+  bilinçli ölçü — gerileme değil.
+- Görsel karşılaştırma: denüdasyonun Sağ/Sol/Belirtme şeridi ile ICSI'nin
+  MII/MI/GV şeridi aynı kutu, aynı kenarlık, aynı yazı, aynı yükseklik.
+- 39 adres 200, sunucu günlüğünde hata yok, 390px'te yatay taşma yok.
+- Yalnızca `static/style.css` değişti. Deneme verisi geri alındı.

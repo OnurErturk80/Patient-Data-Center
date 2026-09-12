@@ -766,6 +766,29 @@ body.kilitli { overflow: hidden; }
 .secenek .sec.secili span {
   background: var(--vurgu); color: #fff; border-color: var(--vurgu); font-weight: 600;
 }
+/* Denudasyonda over secimi <button>, otekilerde <label>+radio: buton kendi
+   basina gonderiyor, tek alan icin ayri "Kaydet" dugmesi gerekmesin diye.
+   Ama tarayicinin kendi dugme bicimi iki sorun cikariyordu (v6.56):
+
+     1. Gri zemin + 2px kenarlik, ic spanin beyaz kutusunun etrafinda IKINCI
+        bir cerceve -- ayni bilesen ICSI/fert/blastokistte baska goruniyordu.
+     2. iOS Safari'de `appearance: auto` olan bir <button> icindeki
+        `display: flex` cocugun yazisini basmiyor: dugmeler SECILMEDEN once
+        bos gorunuyordu (secilince vurgulu zemin geldigi icin okunuyordu).
+
+   Eleman sifirlaniyor, gorunen kutu her yerde ayni span. Isaretleyiciyi
+   (`appearance: none`) kaldirma: yazinin iOS'ta gorunmesi buna bagli. */
+.secenek button.sec {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+}
 
 .cipler { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; }
 .cip input { position: absolute; opacity: 0; pointer-events: none; }
@@ -1058,6 +1081,12 @@ body.kilitli { overflow: hidden; }
 .oositler { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; }
 .onum {
   flex: 0 0 auto; min-width: 56px; min-height: 56px;
+  /* `appearance: none` sart: bu bir <button> ve iOS Safari kendi dugme
+     bicimi acikken icindeki flex cocuklarin yazisini basmiyor -- numaralar
+     bos kare olarak cikar. Denudasyondaki over dugmelerinde tam bu oldu
+     (v6.56). Zemin/kenarlik/renk asagida zaten veriliyor, bu satir yalnizca
+     tarayicinin kendi bicimini kapatiyor. */
+  appearance: none; -webkit-appearance: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: var(--r);
   background: var(--yuzey); color: var(--ink);

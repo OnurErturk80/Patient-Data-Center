@@ -945,6 +945,19 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
     yerde çalışıyor. Aynı sorunun yedi ayrı yaması (`.bilgikart[hidden]`,
     `.uyari[hidden]`, ...) hâlâ duruyor — gereksizler, zararsızlar.
 
+12. **`<button>`'a bileşen sınıfı verirken `appearance: none` yaz.**
+    `.sec` bileşeni `<label>` + gizli radyo için yazılmış; denüdasyondaki over
+    seçimi ise `<button class="sec">` (bilerek — tek alan için ayrı "Kaydet"
+    olmasın diye kendi başına gönderiyor). Sınıf aynı olunca tarayıcının kendi
+    düğme biçimi devrede kaldı: beyaz kutunun etrafında ikinci bir gri çerçeve,
+    farklı yazı rengi, 6px farklı ölçü. Daha kötüsü, **iOS Safari
+    `appearance: auto` olan bir `<button>` içindeki `display: flex` çocuğun
+    yazısını basmıyor** — düğmeler telefonda seçilmeden önce bomboş görünüyordu,
+    seçilince (vurgulu zemin) okunuyordu. Masaüstü Chromium basıyor, o yüzden
+    aylarca fark edilmedi. v6.56'da `.secenek button.sec` ve `.onum` sıfırlandı.
+    Yeni bir yerde `<button>`'a görsel bir bileşen sınıfı verirsen aynısını
+    yap ve **telefonda aç** (tuzak #5'in mobil hali).
+
 ---
 
 ## Bekleyen işler
