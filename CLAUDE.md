@@ -46,6 +46,23 @@ ayrıca çalıştırmaya gerek yok.
 
 ## Mimari
 
+**Kod ve veri iki ayrı kökte** (v6.46, paketlemenin ön şartı). `db.py`:
+
+- `PROGRAM_KOK` — kod, `templates/`, `static/`, `sema_guncel.sql`, göçler.
+  Paketlenmiş kurulumda **salt okunur** (Mac'te `.app` içi, Windows'ta
+  `Program Files`) ve program güncellenince üzerine yazılır.
+- `VERI_KOK` — `lab.db`, `yerel_ayar.json`, `arsiv/`, `snapshot/`, `yedek.log`.
+
+Veri kökü sırayla: `LAB_VERI` ortam değişkeni → **kodun yanında `lab.db` varsa
+orası** (bugünkü iki kurulum böyle, veri yerinde kalıyor) → işletim sisteminin
+veri klasörü.
+
+**Veritabanının yerini kendi başına kuran kod yazma** — `db.DB_YOLU` kullan.
+28 betik (`goc_002`…`goc_029`, `goc_hepsi`, `teshis`, `teshis_silme`,
+`liste_duzenle`) eskiden her biri kendi yolunu kuruyordu; veri taşınınca kod
+klasöründe **bomboş yeni bir veritabanı** açarlar, "27 başarılı" derler ve
+gerçek veriye hiç dokunmazlardı. Tuzak #8'in sessiz ve en pahalı hali.
+
 SQLite + FastAPI + Jinja2. Framework yok, ORM yok, build adımı yok. Mobil
 öncelikli responsive HTML.
 
@@ -55,7 +72,7 @@ klasöründeydi):
 ```
 Patient Data Center/
   app.py            ~3300 satır — TÜM rotalar burada
-  db.py             bağlantı ve yardımcılar
+  db.py             bağlantı, yardımcılar, PROGRAM_KOK / VERI_KOK
   guvenlik.py       oturum / kullanıcı
   goruntuler.py     snapshot kuyruğu, arşivleme, dosya yolları
   excel.py          .xlsx üretir — kütüphanesiz, yalnızca zipfile + XML

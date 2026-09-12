@@ -15,7 +15,8 @@ from pathlib import Path
 import db
 import guvenlik
 
-DB = Path(__file__).parent / "lab.db"
+import db as _db          # veritabanının yeri tek yerde: db.py
+DB = _db.DB_YOLU
 
 if not DB.exists():
     sys.exit("lab.db bulunamadi. Once kur.py calistirilmali.")

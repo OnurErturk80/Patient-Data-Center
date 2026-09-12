@@ -22,8 +22,9 @@ from pathlib import Path
 
 import db
 
-KOK = Path(__file__).parent
-DB = KOK / "lab.db"
+# Yedeklenen ve yazılan her şey **veri** kökünde (bkz. db.py "iki kök").
+KOK = db.VERI_KOK
+DB = db.DB_YOLU
 LOG = KOK / "yedek.log"
 
 GUNLUK_SAKLA = 14        # son kaç günlük veritabanı kopyası tutulsun

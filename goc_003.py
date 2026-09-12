@@ -12,7 +12,8 @@ import sys
 from pathlib import Path
 
 KOK = Path(__file__).parent
-DB = KOK / "lab.db"
+import db as _db          # veritabanının yeri tek yerde: db.py
+DB = _db.DB_YOLU
 
 if not DB.exists():
     sys.exit("lab.db bulunamadi.")

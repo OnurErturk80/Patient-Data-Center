@@ -1,12 +1,75 @@
 """Veritabanı bağlantısı ve yardımcı fonksiyonlar."""
 
 import json
+import os
 import platform
 import sqlite3
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 
-DB_YOLU = Path(__file__).parent / "lab.db"
+# ----------------------------------------------------------------- iki kök
+#
+# Program paketlenip kurulabilir hale gelecek (PyInstaller). O zaman kodun
+# durduğu yer **salt okunur** olur: Mac'te `.app` paketinin içi, Windows'ta
+# `Program Files`. Veri oraya yazılamaz; yazılsa bile program güncellenince
+# üzerine yazılır ve **veri silinir**.
+#
+# Bu yüzden iki ayrı kök var ve karıştırılmamalı:
+#
+#   PROGRAM_KOK  kod, şablonlar, `static/`, `sema_guncel.sql`, göç betikleri
+#   VERI_KOK     `lab.db`, `yerel_ayar.json`, `arsiv/`, `snapshot/`, yedek
+#
+# Veritabanının yerini **kendi başına kuran kod yazma** -- `db.DB_YOLU`
+# kullan. Göç betikleri eskiden her biri kendi yolunu kuruyordu; veri
+# taşınınca kod klasöründe bomboş yeni bir `lab.db` açarlar ve göç çalıştı
+# sanılırdı (tuzak #8'in en pahalı hali).
+
+
+def _program_kok() -> Path:
+    """Kodun yeri. Paketlenmiş çalıştırmada PyInstaller'ın açtığı klasör."""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    return Path(__file__).parent
+
+
+def _veri_kok() -> Path:
+    """Yazılabilir veri klasörü.
+
+    Sıra bilerek böyle:
+
+    1. `LAB_VERI` ortam değişkeni -- kurulum betiği ve testler bunu kullanıyor.
+    2. **Kodun yanında `lab.db` varsa orası.** Bugünkü kurulumlar (kullanıcının
+       Mac'i ve klinik mini PC'si) böyle çalışıyor; paketlemeye geçerken
+       hiçbiri bozulmasın diye veri olduğu yerde bırakılıyor.
+    3. Yoksa işletim sisteminin veri klasörü -- yeni (paketlenmiş) kurulumlar.
+    """
+    ozel = os.environ.get("LAB_VERI")
+    if ozel:
+        return Path(ozel).expanduser()
+
+    yanindaki = _program_kok() / "lab.db"
+    if yanindaki.exists():
+        return _program_kok()
+
+    if os.name == "nt":
+        taban = Path(os.environ.get("PROGRAMDATA") or Path.home())
+    elif sys.platform == "darwin":
+        taban = Path.home() / "Library" / "Application Support"
+    else:
+        taban = Path(os.environ.get("XDG_DATA_HOME")
+                     or Path.home() / ".local" / "share")
+    return taban / "PatientDataCenter"
+
+
+PROGRAM_KOK = _program_kok()
+VERI_KOK = _veri_kok()
+try:
+    VERI_KOK.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
+
+DB_YOLU = VERI_KOK / "lab.db"
 LAB_ID = 1          # v1 tek laboratuvar
 
 # Kilitli veritabanında ne kadar beklenecek. Klinikte birkaç telefon aynı anda
@@ -106,8 +169,8 @@ def liste(liste_adi):
 
 # ----------------------------------------------------------------- yerel ayar
 
-YEREL_DOSYA = Path(__file__).parent / "yerel_ayar.json"
-KOK = Path(__file__).parent
+YEREL_DOSYA = VERI_KOK / "yerel_ayar.json"
+KOK = VERI_KOK          # `snapshot/` ve `arsiv/` varsayılanları buna göre
 MAKINE = platform.node() or "bilinmeyen"
 
 # Bu anahtarlar makineye özgüdür: her bilgisayarda kendi değeri olur

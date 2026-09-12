@@ -22,7 +22,7 @@ import karekod
 import metinler
 import xlsx_oku
 
-KOK = Path(__file__).parent
+KOK = db.PROGRAM_KOK          # kod: static/, templates/
 uygulama = FastAPI(title="Patient Data Center")
 uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
@@ -886,7 +886,7 @@ def _arama_kokleri():
     """Aranacak yerler, olasılık sırasıyla: önce ev, sonra sürücüler."""
     kokler, gorulen = [], set()
     surucu = _surucu_kokleri() if os.name == "nt" else []
-    for y in [Path.home(), KOK] + [Path(k) for k in surucu] + \
+    for y in [Path.home(), db.VERI_KOK] + [Path(k) for k in surucu] + \
              [Path("/Volumes"), Path("/media"), Path("/mnt")]:
         try:
             if y.is_dir() and str(y) not in gorulen:

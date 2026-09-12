@@ -20,9 +20,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-KOK = Path(__file__).parent
-DB = KOK / "lab.db"
-SEMA = KOK / "sema_guncel.sql"
+import db
+
+# Kod ve veri ayrı köklerde (bkz. db.py). Şema dosyası ve göç betikleri
+# kodun yanında; veritabanı, ayar dosyası ve arşiv veri klasöründe.
+KOK = db.VERI_KOK
+PROGRAM = db.PROGRAM_KOK
+DB = db.DB_YOLU
+SEMA = PROGRAM / "sema_guncel.sql"
 
 if DB.exists():
     sys.exit(
@@ -184,7 +189,7 @@ else:
              "goruntu_arsiv_klasor": str(KOK / "arsiv"),
              "yedek_klasor": str(ev / "lab_yedek")}
 
-hedef = KOK / "yerel_ayar.json"
+hedef = db.YEREL_DOSYA
 if not hedef.exists():
     hedef.write_text(json.dumps(yerel, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nyerel_ayar.json yazildi ({sistem}):")
@@ -201,7 +206,7 @@ if not hedef.exists():
 # tekrar calismalarinin zarari yok; bu yuzden kurulumun parcasi.
 print("\nGocler calistiriliyor...")
 komut = "python" if sistem == "Windows" else "python3"
-sonuc = subprocess.run([sys.executable, str(KOK / "goc_hepsi.py")],
+sonuc = subprocess.run([sys.executable, str(PROGRAM / "goc_hepsi.py")],
                        capture_output=True, text=True)
 son_satirlar = [x for x in sonuc.stdout.strip().splitlines() if x.strip()]
 for satir in son_satirlar[-6:]:

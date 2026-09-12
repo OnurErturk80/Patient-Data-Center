@@ -4787,3 +4787,84 @@ tasarım işi.
 - İki dilde metinler yerinde; manifest dile göre değişiyor
   (`short_name` "Lab Kayıt" / "Lab Record")
 - 13 adres 200, JS hatası yok
+
+---
+
+# v6.46 — veri programdan ayrıldı (paketlemenin ön şartı)
+
+## Neden
+
+Program kurulabilir bir uygulama haline gelecek (PyInstaller + kurulum
+dosyası). O zaman **kodun durduğu yer salt okunur** olur: Mac'te `.app`
+paketinin içi, Windows'ta `Program Files`. Bugün `lab.db`, `yerel_ayar.json`,
+`arsiv/` ve `snapshot/` kodun yanında duruyor — paketlenince ya yazılamaz ya
+da program güncellenince **üzerine yazılır ve veri silinir**.
+
+Bu iş ne kadar geç yapılırsa o kadar pahalı: bugün kod değişikliği, sonra
+"kurulmuş makinelerdeki veriyi taşıma" işi.
+
+## İki kök
+
+`db.py` artık iki ayrı kök tanımlıyor ve **karıştırılmamalı**:
+
+| | ne var | pakette |
+|---|---|---|
+| `PROGRAM_KOK` | kod, `templates/`, `static/`, `sema_guncel.sql`, göçler | salt okunur |
+| `VERI_KOK` | `lab.db`, `yerel_ayar.json`, `arsiv/`, `snapshot/`, `yedek.log` | yazılabilir |
+
+Veri kökü üç adımda bulunuyor, sıra bilerek böyle:
+
+1. **`LAB_VERI` ortam değişkeni** — kurulum dosyası ve testler bunu kullanıyor.
+2. **Kodun yanında `lab.db` varsa orası.** Kullanıcının Mac'i ve klinik mini
+   PC'si böyle çalışıyor; veri **olduğu yerde bırakılıyor**, hiçbir şey
+   taşınmıyor, hiçbir şey bozulmuyor.
+3. Yoksa işletim sisteminin veri klasörü — yeni (paketlenmiş) kurulumlar:
+   - Windows `%PROGRAMDATA%\PatientDataCenter`
+   - macOS `~/Library/Application Support/PatientDataCenter`
+   - ötekiler `~/.local/share/PatientDataCenter`
+
+`PROGRAM_KOK` ayrıca `sys.frozen`'a bakıyor: paketlenmiş çalıştırmada
+PyInstaller'ın açtığı klasörü döndürüyor. Yani paketleme günü bu dosyada
+**kod değişmeyecek**.
+
+## Asıl tehlike: 28 betik kendi yolunu kuruyordu
+
+`goc_002.py` … `goc_029.py`, `goc_hepsi.py`, `teshis.py`, `teshis_silme.py`,
+`liste_duzenle.py` — her biri `Path(__file__).parent / "lab.db"` yazıyordu.
+
+Veri taşınsaydı bu betikler **kod klasöründe bomboş yeni bir `lab.db`
+açardı**: göç sorunsuz çalışırdı, "27 başarılı" derdi, ve kullanıcı göçün
+uygulandığını sanırdı. Gerçek veritabanına hiç dokunulmamış olurdu. Tuzak
+#8'in ("ayarı iki yerden okuma") en pahalı hali — çünkü sessiz.
+
+Hepsi `db.DB_YOLU`'na bağlandı. **Veritabanının yerini kendi başına kuran kod
+yazma.**
+
+`teshis.py` ve `sifirdan_kur.py`'de iki kök birden lazım: şema dosyası ve göç
+betikleri `PROGRAM_KOK`'te, veritabanı ve ayar dosyası `VERI_KOK`'te. `yedek.py`
+ve `tasi.py`'nin dokunduğu her şey veri.
+
+## Test edildi
+
+Paketlenmiş kurulum `LAB_VERI` ile taklit edildi:
+
+- **Boş veri klasörü:** `goc_hepsi.py` "lab.db bulunamadi" deyip durdu,
+  **boş veritabanı açmadı** (asıl korkulan buydu)
+- Gerçek veritabanı o klasöre konunca 27 göç orada çalıştı, proje
+  klasöründeki `lab.db` **bitine kadar değişmedi** (md5 aynı)
+- Uygulama ayrı veri klasörüyle açıldı; `yerel_ayar.json`, `arsiv/` ve
+  `snapshot/` oraya oluşturuldu
+- `yedek.py` iki kipte de çalıştı, `yedek.log` veri klasörüne yazıldı
+- **Normal kip (bugünkü kurulum) bozulmadı:** 20 adres 200, sunucu günlüğünde
+  hata yok, `goc_hepsi.py` ve `teshis.py` doğru veritabanını buluyor
+
+## Sırada ne var
+
+1. **Göçler açılışta kendiliğinden çalışsın.** Bugün `python goc_hepsi.py`
+   elle çalıştırılıyor; hiçbir klinik bunu yapmaz. Bu aynı zamanda tuzak #3'ü
+   (göç çalıştırılmamış makinede ekranların bozulması) kalıcı olarak bitirir.
+2. **Windows kurulum dosyası** — PyInstaller + Inno Setup, servis olarak
+   kurulum, açılışta başlatma, güvenlik duvarı kuralı.
+3. **Mac paketi** (`.app` + `.dmg`) — kullanıcının evdeki makinesi için.
+4. İmzalama: Windows SmartScreen ve Mac Gatekeeper uyarıları. Kendi kliniğin
+   için gerekmez, satarken gerekir.

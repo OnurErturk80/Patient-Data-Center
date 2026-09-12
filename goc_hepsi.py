@@ -13,8 +13,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-KOK = Path(__file__).parent
-if not (KOK / "lab.db").exists():
+import db as _db
+
+# Göç betikleri kodun yanında, `lab.db` veri klasöründe -- ikisi ayrı
+# (bkz. db.py "iki kök"). Aynı sanılırsa paketlenmiş kurulumda kod
+# klasöründe bomboş bir veritabanı açılırdı.
+KOK = _db.PROGRAM_KOK
+if not _db.DB_YOLU.exists():
     sys.exit("lab.db bulunamadi. Bu scripti app klasorunde calistir.")
 
 gocler = sorted(
@@ -61,7 +66,7 @@ if atlanan:
 
 # Son kontrol
 import sqlite3
-b = sqlite3.connect(KOK / "lab.db")
+b = sqlite3.connect(_db.DB_YOLU)
 kirik = b.execute("PRAGMA foreign_key_check").fetchall()
 tablo = b.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
 print(f"\nVeritabani: {tablo} tablo, {len(kirik)} kirik referans")

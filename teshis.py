@@ -6,8 +6,10 @@ Kullanım:  python teshis.py
 import sqlite3
 from pathlib import Path
 
-KOK = Path(__file__).parent
-DB = KOK / "lab.db"
+import db as _db          # veritabanının yeri tek yerde: db.py
+
+KOK = _db.PROGRAM_KOK     # kod dosyaları
+DB = _db.DB_YOLU          # veri
 
 print("=" * 60)
 print("1. DOSYALAR")

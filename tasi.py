@@ -32,7 +32,9 @@ from pathlib import Path
 
 import db
 
-KOK = Path(__file__).parent
+# Taşınan her şey veri kökünde: `lab.db`, geçici kopya, `lab_ONCEKI_*.db`
+# ve `arsiv/` (bkz. db.py "iki kök").
+KOK = db.VERI_KOK
 KLASOR_ADI = "lab_tasima"          # USB'de açılacak klasör
 DB_ADI = "lab.db"
 

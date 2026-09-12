@@ -105,6 +105,25 @@ Kullanıcı adını `<...>` içine alma, düz yaz.
 
 ---
 
+## Veri nerede duruyor
+
+`lab.db`, `yerel_ayar.json`, `arsiv/` ve `snapshot/` **veri klasöründe**.
+Bugünkü kurulumlarda bu proje klasörünün kendisi (kodun yanında `lab.db`
+varsa orası kullanılıyor). Paketlenmiş kurulumlarda işletim sisteminin veri
+klasörü olacak. Nerede olduğunu görmek için:
+
+```
+python3 -c "import db; print(db.VERI_KOK)"
+```
+
+Başka bir klasörle çalıştırmak (deneme için):
+
+```
+LAB_VERI=/bir/klasor python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000
+```
+
+---
+
 ## Sorun teşhisi
 
 ```
