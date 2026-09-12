@@ -4241,6 +4241,23 @@ yüklenen form da gömülü form da tek yoldan basılıyor.
 **Doğrulama:** gömülü kalıp → `.xlsx` → geri oku → kalıp turunda hücre sayısı,
 birleşmeler ve logonun sabitleyicisi **birebir** aynı çıkıyor.
 
+### Çevirme yönergesi ekranın kendisinde
+
+Hata mesajı "Excel'de Farklı Kaydet ile .xlsx yapın" diyordu ama **nasıl**
+yapılacağını söylemiyordu. Bilgisayarla arası iyi olmayan biri için bu cümle
+bir çözüm değil, ikinci bir soru. Yükleme kutusunun hemen altına açılır bir
+yardım kondu: beş adım, sonra Mac'te o kutunun adının farklı olduğu notu, en
+sonda "formun görünümü değişmez, eski dosyanız yerinde durur" güvencesi.
+Kullanıcının isteği — ek bir işlem gerekmeden yükleyebilsin.
+
+Kapalı duruyor (`<details>`): `.xlsx` dosyası olan kullanıcı beş adımı
+okumak zorunda kalmıyor. Metinler `metinler.py`'de (`form_xls_*`), iki dilde;
+şablona doğrudan yazılmadı.
+
+Programa `.xls` okuma yeteneği eklemek yerine yönerge yazmanın sebebi yukarıda:
+`xlrd`'yi çalışma anına sokmak klinikteki mini PC'ye kalıcı bir kurulum adımı
+eklemek demekti. Bir kerelik "Farklı Kaydet" tıklaması bundan ucuz.
+
 ## Hangi kutuya ne yazılacağı: etiket
 
 Kalıp yüklenince program formun *düzenini* öğreniyor ama *anlamını*

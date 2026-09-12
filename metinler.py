@@ -1209,6 +1209,37 @@ METINLER = {
     "form_adi_ipucu": {"tr": "Boş bırakılırsa dosyanın adı kullanılır",
                        "en": "Left empty, the file name is used"},
     "form_dosyasi": {"tr": "Excel dosyası (.xlsx)", "en": "Excel file (.xlsx)"},
+    # Elindeki form .xls ise: yukleme kutusunun altinda adim adim anlatiliyor.
+    # Ek bir kurulum gerekmesin diye Excel'in kendi "Farkli Kaydet"i kullaniliyor
+    # -- .xls okumak programa kutuphane eklemek demekti (CLAUDE.md v6.40).
+    "form_xls_baslik": {
+        "tr": "Formum .xls ile bitiyor, ne yapmalıyım?",
+        "en": "My form ends with .xls — what do I do?"},
+    "form_xls_1": {"tr": "Formunuzu Excel'de açın.",
+                   "en": "Open your form in Excel."},
+    "form_xls_2": {"tr": "Dosya menüsünden Farklı Kaydet'i seçin.",
+                   "en": "In the File menu choose Save As."},
+    "form_xls_3": {
+        "tr": "Dosya adının altındaki biçim kutusunu açın ve "
+              "Excel Çalışma Kitabı (.xlsx) seçeneğine tıklayın.",
+        "en": "Open the format box under the file name and click "
+              "Excel Workbook (.xlsx)."},
+    "form_xls_4": {"tr": "Kaydet'e basın.", "en": "Click Save."},
+    "form_xls_5": {
+        "tr": "Aynı klasörde sonu .xlsx olan yeni bir dosya belirir. "
+              "Buraya yükleyeceğiniz dosya odur.",
+        "en": "A new file ending in .xlsx appears in the same folder. "
+              "That is the one you upload here."},
+    "form_xls_mac": {
+        "tr": "Mac'te o kutunun adı \"Dosya Biçimi\"dir; seçenek yine "
+              "Excel Çalışma Kitabı (.xlsx).",
+        "en": "On a Mac the box is called \"File Format\"; the option is "
+              "again Excel Workbook (.xlsx)."},
+    "form_xls_son": {
+        "tr": "Formun görünümü değişmez: çizgiler, yazılar ve logo aynı kalır. "
+              "Eski .xls dosyanız da yerinde durur.",
+        "en": "The form itself does not change: lines, text and logo stay the "
+              "same. Your old .xls file also stays where it is."},
     "form_etiketleri": {"tr": "Yazılabilecek etiketler",
                         "en": "Labels you can use"},
     "form_etiket_ipucu": {

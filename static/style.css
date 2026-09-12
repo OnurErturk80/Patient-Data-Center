@@ -291,6 +291,21 @@ form { margin: 0; }
 
 .ipucu { font-size: 12px; color: var(--ink-3); margin-top: 5px; }
 
+/* Acilir yardim: uzun yonerge ekrani sisirmesin diye kapali duruyor.
+   Ozet satirina `display: flex` verme -- tarayicinin acilir ucgenini
+   goturuyor ve satir tiklanabilir gorunmuyor. Dokunma hedefi yuksekligi
+   dolgu ile veriliyor. */
+.yardim { margin-top: 8px; }
+.yardim > summary {
+  cursor: pointer; font-size: 13px; color: var(--ink-2);
+  padding: 11px 0;
+}
+.adimlar {
+  margin: 4px 0 0; padding-left: 22px;
+  font-size: 13px; color: var(--ink-2); line-height: 1.5;
+}
+.adimlar li { margin-bottom: 4px; }
+
 /* --- düğmeler --- */
 .dugme {
   display: block;

@@ -319,6 +319,8 @@ yükleyip programdaki verilerle doldurup basıyor.
   `formlar_asil/` altındaki **geliştirme aracının** bağımlılığı, programın
   değil. `.xlsx` içinde XML olan bir ZIP — `zipfile` + `xml.etree` yetiyor.
   Bu kuralı gevşetip çalışma anına kütüphane sokma.
+  Yükleme kutusunun altında `.xls`'i çevirmenin beş adımı yazılı
+  (`form_xls_*`, açılır); kütüphane eklemek yerine yönerge yazıldı.
 - **Izgarayı kuran kural tek yerde**: `form_kalip.izgara_kur()`. Hem
   `kalip_uret.py` (kâğıt aslından) hem `xlsx_oku.py` (yüklenen dosyadan) onu
   çağırıyor — iki kopya olsaydı yüklenen form ile gömülü form farklı basılırdı.

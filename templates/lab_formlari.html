@@ -22,6 +22,22 @@
     <div class="alan" style="border:0">
       <label for="fdosya">{{ metin("form_dosyasi") }}</label>
       <input id="fdosya" type="file" name="dosya" accept=".xlsx" required>
+      {# Eski formlar cogu zaman .xls; program onu okumuyor (kutuphane
+         gerekirdi). Cevirme yolu Excel'in kendi "Farkli Kaydet"i -- kurulum
+         istemedigi icin buraya adim adim yazildi. Kapali duruyor ki .xlsx
+         dosyasi olan kullaniciyi mesgul etmesin. #}
+      <details class="yardim">
+        <summary>{{ metin("form_xls_baslik") }}</summary>
+        <ol class="adimlar">
+          <li>{{ metin("form_xls_1") }}</li>
+          <li>{{ metin("form_xls_2") }}</li>
+          <li>{{ metin("form_xls_3") }}</li>
+          <li>{{ metin("form_xls_4") }}</li>
+          <li>{{ metin("form_xls_5") }}</li>
+        </ol>
+        <div class="ipucu">{{ metin("form_xls_mac") }}</div>
+        <div class="ipucu">{{ metin("form_xls_son") }}</div>
+      </details>
     </div>
     <div class="alan" style="border:0">
       <button class="dugme" type="submit">{{ metin("form_yukle") }}</button>
