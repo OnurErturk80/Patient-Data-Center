@@ -66,6 +66,35 @@
 
 <div class="sutun">
 
+{# Açılışta çalışan göçler (v6.49). Panel salt okunur: yalnızca durumu
+   gösteriyor, buradan göç çalıştırılmıyor. #}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("goc_durumu") }}</h2>
+  {% if goc.hatali %}
+  <div class="alan">
+    <div class="ipucu" style="color:#a11f1f">{{ metin("goc_hata") }}</div>
+    {% for ad, mesaj in goc.hatali %}
+    <div style="margin-top:6px"><code>{{ ad }}</code></div>
+    <div class="ipucu" style="white-space:pre-wrap">{{ mesaj[-400:] }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if goc.elle %}
+  <div class="alan">
+    <div class="ipucu">{{ metin("goc_elle") }}
+      {% for ad in goc.elle %}<code>python {{ ad }}.py</code>{% endfor %}</div>
+  </div>
+  {% endif %}
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      {% if goc.atlandi == "veritabani-yok" %}{{ metin("goc_veritabani_yok") }}
+      {% elif goc.calisti %}{{ say("goc_uygulandi", goc.calisti|length) }}
+      {% elif not goc_bekleyen and not goc.hatali %}{{ metin("goc_guncel") }}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 <div class="kart" style="margin-top:12px">
   <h2>Veritabanı</h2>
   <dl style="margin:0">

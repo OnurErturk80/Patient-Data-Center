@@ -1,5 +1,6 @@
 """IVF Laboratuvar Kayıt Modülü — hasta ve cycle ekranları, giriş ve düzenleme."""
 
+import contextlib
 import contextvars
 import json
 import os
@@ -17,13 +18,60 @@ import disari
 import excel
 import form_kalip
 import formlar
+import goc
 import guvenlik
 import karekod
 import metinler
 import xlsx_oku
 
 KOK = db.PROGRAM_KOK          # kod: static/, templates/
-uygulama = FastAPI(title="Patient Data Center")
+
+# ------------------------------------------------------- açılışta göçler
+#
+# Göçler eskiden elle çalıştırılıyordu (`python goc_hepsi.py`). Hiçbir klinik
+# bunu yapmaz; kurulum dosyasına geçerken bu adımın kalkması şart (v6.49).
+# Aynı zamanda tuzak #3'ün ("göç yazdıysan kullanıcının çalıştırdığını
+# varsayma") kalıcı çözümü.
+#
+# Göç patlarsa program **yine açılıyor**: sebebi terminale ve `/yonetim`
+# paneline yazılıyor, ekranlar çalışmaya devam ediyor. Açılmayan bir program
+# teşhis edilemez.
+
+GOC_SONUCU = {}
+
+
+@contextlib.asynccontextmanager
+async def _yasam(app):
+    global GOC_SONUCU
+    try:
+        GOC_SONUCU = goc.calistir()
+    except Exception as e:                 # beklenmedik bir şey olsa da aç
+        GOC_SONUCU = {"calisti": [], "hatali": [("baslangic", repr(e))],
+                      "bekleyen": [], "elle": [], "atlandi": ""}
+    _goc_ozeti(GOC_SONUCU)
+    yield
+
+
+def _goc_ozeti(s):
+    """Terminale tek satırlık özet; hata varsa ayrıntısıyla."""
+    if s.get("atlandi") == "veritabani-yok":
+        print("GOC: veritabani yok, gocler atlandi.")
+        return
+    if s.get("atlandi") == "baska-surec":
+        print("GOC: baska bir surec gocleri calistiriyor, atlandi.")
+        return
+    if s.get("calisti"):
+        print(f"GOC: {len(s['calisti'])} goc uygulandi "
+              f"({', '.join(s['calisti'][:4])}"
+              f"{'...' if len(s['calisti']) > 4 else ''}).")
+    for ad, mesaj in s.get("hatali", []):
+        print(f"GOC HATASI: {ad}\n  " +
+              "\n  ".join(str(mesaj).splitlines()[-6:]))
+    for ad in s.get("elle", []):
+        print(f"GOC: {ad} soru soruyor, elle calistirilmali: python {ad}.py")
+
+
+uygulama = FastAPI(title="Patient Data Center", lifespan=_yasam)
 uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
@@ -1072,6 +1120,9 @@ def yonetim_ekran(request: Request):
          "son_yedek": _ayar("son_yedek", ""),
          "yedek_uyari_gun": _ayar("yedek_uyari_gun", "3"),
          "db_boyut": boyut, "db_yolu": str(db.DB_YOLU),
+         # Açılışta çalışan göçlerin sonucu (v6.49). Panel salt okunur:
+         # yalnızca gösteriyor, buradan bir şey çalıştırılmıyor.
+         "goc": GOC_SONUCU, "goc_bekleyen": goc.bekleyenler(),
          "sayilar": sayilar, "kirik": kirik, "yollar": yollar,
          "makine": db.MAKINE,
          "toplam_kullanici": sum(r["n"] for r in kullanicilar),

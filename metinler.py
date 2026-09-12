@@ -1311,6 +1311,23 @@ METINLER = {
     # Ana ekrandaki simgenin altında yazan ad (kullanıcının isteği: tam ad).
     # Telefon uzun adı kısaltıp "..." koyuyor; kısaltma istenirse buradan.
     "kisa_ad": {"tr": "Patient Data Center", "en": "Patient Data Center"},
+    # Açılışta çalışan göçlerin durumu (v6.49).
+    "goc_durumu": {"tr": "Veritabanı güncellemeleri", "en": "Database updates"},
+    "goc_guncel": {"tr": "Veritabanı güncel.", "en": "The database is up to date."},
+    "goc_uygulandi": {"tr": "Bu açılışta {n} güncelleme uygulandı.",
+                      "en": "{n} update(s) applied at this start."},
+    "goc_hata": {
+        "tr": "Bir güncelleme uygulanamadı. Program çalışmaya devam ediyor "
+              "ama bazı ekranlar eksik davranabilir; aşağıdaki adı not alıp "
+              "bildirin.",
+        "en": "An update could not be applied. The program keeps running but "
+              "some screens may behave incompletely; note the name below and "
+              "report it."},
+    "goc_elle": {
+        "tr": "Şu güncelleme soru sorduğu için elle çalıştırılmalı:",
+        "en": "This update asks a question, so it must be run by hand:"},
+    "goc_veritabani_yok": {"tr": "Veritabanı bulunamadı.",
+                           "en": "The database was not found."},
     "baglan": {"tr": "Telefona ekle", "en": "Add to a phone"},
     "ekle_baslik": {"tr": "Ana ekrana ekle", "en": "Add to home screen"},
     "ekle_giris": {

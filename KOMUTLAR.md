@@ -53,7 +53,7 @@ Windows'ta yol `E:\` gibi olur: `python tasi.py durum E:\`
 | | |
 |---|---|
 | Makineden **kalkarken** | `python3 tasi.py disari <usb>` |
-| Makineye **otururken** | `python3 tasi.py iceri <usb>` sonra `python3 goc_hepsi.py` |
+| Makineye **otururken** | `python3 tasi.py iceri <usb>`, sonra sunucuyu yeniden başlat |
 
 - `iceri` öncesi **uygulamayı durdur** (Ctrl+C) — açık dosyanın üzerine yazılamaz.
 - Emin değilsen önce `durum` çalıştır; hiçbir şeye dokunmaz.
@@ -77,12 +77,18 @@ Hedef **farklı bir diskte** olmalı — aynı disk bozulursa yedek de gider.
 
 ## Göçler (şema güncelleme)
 
+**Artık elle bir şey yapmana gerek yok** (v6.49): program her açılışta
+bekleyen güncellemeleri kendisi uyguluyor. `git pull` ya da `tasi.py iceri`
+sonrası sunucuyu yeniden başlatman yeter. Durumu `/yonetim` panelindeki
+**Veritabanı güncellemeleri** kartından görürsün.
+
+Terminalden kontrol etmek istersen:
+
 ```
 python3 goc_hepsi.py
 ```
 
-**Ne zaman:** `git pull` sonrası, `tasi.py iceri` sonrası, ya da ekranda
-"göç gerekli" uyarısı çıkınca. Tekrar tekrar çalıştırmak zararsız.
+Tekrar tekrar çalıştırmak zararsız; uygulanmış olanlar atlanıyor.
 
 ---
 
@@ -184,7 +190,7 @@ Klasör ZIP ile kurulmuş. Yukarıdaki `git clone` adımını uygula.
 Commit etmişsin, push etmemişsin. `git push origin main`.
 
 **Bir ekran veya gün eksik görünüyor**
-Göç çalıştırmayı unutmuşsun: `python3 goc_hepsi.py`.
+Göç uygulanamamış olabilir: `/yonetim` → Veritabanı güncellemeleri kartına bak, ya da `python3 goc_hepsi.py` çalıştır.
 
 **Hasta verisi yanlışlıkla git'e girmiş mi?**
 ```

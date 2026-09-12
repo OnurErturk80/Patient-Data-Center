@@ -4963,3 +4963,91 @@ düzeliyor, kimsenin bir şey silip yeniden eklemesi gerekmiyor.
 - Oturumsuz açık olan adresler yalnızca: `/giris`, `/sifre`,
   `/sifremi-unuttum`, `/manifest.json`, `/ekle` — hiçbirinde hasta verisi yok
 - Oturumlu 12 adres 200, sunucu günlüğünde hata yok
+
+---
+
+# v6.49 — göçler açılışta kendiliğinden çalışıyor
+
+## Neden
+
+Paketlemenin ikinci adımı. Bugün veritabanı güncellemeleri terminalden elle
+çalıştırılıyor (`python goc_hepsi.py`). **Hiçbir klinik bunu yapmaz** — ve
+yapmazsa ekranlar sessizce eksik davranır. Bu aynı zamanda tuzak #3'ün
+("göç yazdıysan kullanıcının çalıştırdığını varsayma") kalıcı çözümü.
+
+## Paketlemenin tuzağı: alt süreç
+
+`goc_hepsi.py` her göçü şöyle çalıştırıyordu:
+
+```python
+subprocess.run([sys.executable, "goc_029.py"])
+```
+
+Paketlenmiş uygulamada `sys.executable` **programın kendisidir**. Bu satır
+göçü çalıştırmaz, programı yeniden başlatır — ve `.py` dosyaları diskte
+olmayabilir bile.
+
+Çözüm: göçler **süreç içinde** çalışıyor. Göç betikleri en üst düzeyde
+çalışan betikler, yani `import goc_029` demek onu çalıştırmak demek.
+`goc.py` bunu yapıyor, çıktısını yakalıyor, `sys.exit()`'i çıkış koduna
+bakarak hata sayıp saymıyor.
+
+## Hangi göç çalıştı: `goc_kaydi`
+
+Yeni bir tablo uygulanan göçlerin adını tutuyor. Tabloyu **çalıştırıcı
+kendisi açıyor**, bir göçle değil — kendi kaydını tutan tabloyu göçle kurmak
+tavuk-yumurta olurdu.
+
+Eski kurulumlarda kayıt yok ama göçler uygulanmış: ilk açılışta 27'si
+yeniden koşuyor (hepsi idempotent, saniyenin altında) ve kaydediliyor.
+Sonraki açılışlarda hiçbiri çalışmıyor.
+
+Kazanç sadece hız değil: artık **hangi göçün ne zaman uygulandığı** yazılı.
+
+## Soru soran göç
+
+`goc_002` şifre soruyor, kendiliğinden çalıştırılamaz. Ama her açılışta
+"elle çalıştır" diye uyarmak da yanlış — çoğu kurulumda **zaten
+uygulanmış**. `ELLE` sözlüğü artık her biri için o göçün **etkisini** arayan
+bir sorgu tutuyor (`goc_002` → `oturum` tablosu var mı). Etki varsa göç
+uygulanmış sayılıp kaydediliyor ve panel susuyor.
+
+## Göç patlarsa program yine açılıyor
+
+Bilerek: açılmayan bir program teşhis edilemez. Hata terminale ve
+`/yonetim` paneline yazılıyor, ekranlar çalışmaya devam ediyor. Sıradaki
+göçler çalıştırılmıyor — biri ötekine dayanıyor olabilir.
+
+**Denendi:** bilerek patlayan bir göç konuldu. 27 sağlam göç uygulandı,
+patlayan rapor edildi, program açıldı, bütün ekranlar 200 verdi ve panelde
+göçün adı, çıktısı ve hata mesajı göründü.
+
+## Eşzamanlılık
+
+İki süreç aynı anda başlarsa aynı `ALTER` iki kez çalışabilirdi.
+`BEGIN IMMEDIATE` ile bir işaret konuyor; işareti kapan çalıştırıyor, öteki
+atlıyor. Beş dakikadan eski işaret çökmüş bir süreçten kalmış sayılıp yok
+sayılıyor.
+
+## `goc_hepsi.py` duruyor ama artık ince
+
+Aynı çalıştırıcıyı (`goc.calistir()`) kullanıyor — ikinci bir kopya yok.
+İşi terminalden kontrol etmek, ayrıntılı çıktı görmek ya da sunucuyu
+başlatmadan veritabanını güncellemek.
+
+## Test edildi
+
+- Ayrı bir veri klasöründe 27 göç açılışta uygulandı, ikinci açılışta hiçbiri
+- Bir göçün etkisi **gerçekten geri geldi**: `cycle.planlanan_tarih` kolonu ve
+  indeksi elle silindi, göç ikisini de geri getirdi
+- Patlayan göç: program açıldı, 4 ekran 200, panel hatayı adıyla gösterdi
+- `goc_002` artık uyarmıyor (etkisi var)
+- Normal kip: açılışta çıktı yok, panel "Veritabanı güncel" diyor,
+  19 adres 200, sunucu günlüğünde hata yok
+
+## Sırada
+
+Windows kurulum dosyası: PyInstaller + Inno Setup, servis olarak kurulum,
+açılışta başlatma, güvenlik duvarı kuralı. Göç betiklerinin pakete
+alınması için PyInstaller'a `hiddenimports` verilecek — `goc.py` zaten
+dosya bulamazsa modül listesine bakıyor.

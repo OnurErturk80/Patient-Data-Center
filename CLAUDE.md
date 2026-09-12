@@ -37,10 +37,20 @@ python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
 
 Bağımlılıklar: `fastapi uvicorn jinja2 python-multipart`. Python 3.10+.
 
-Veritabanı göçleri: `python3 goc_hepsi.py` (idempotent, sırayla hepsini
-çalıştırır). `goc_002.py` soru sorduğu için ayrıdır, elle çalıştırılır.
-`sifirdan_kur.py` sonunda göçleri **kendisi** çalıştırır (v6.9) — yeni kurulumda
-ayrıca çalıştırmaya gerek yok.
+**Göçler açılışta kendiliğinden çalışır** (v6.49). Elle bir şey yapmak
+gerekmiyor; `python3 goc_hepsi.py` yalnızca terminalden kontrol etmek için.
+- **Çalıştırıcı tek yerde: `goc.py`.** Göçler **süreç içinde** çalışıyor
+  (`import goc_029` demek onu çalıştırmak demek). `subprocess.run([sys.executable,
+  ...])` yazma — paketlenmiş uygulamada `sys.executable` **programın kendisi**
+  olur, o satır göçü değil programı yeniden başlatır.
+- Uygulananlar `goc_kaydi` tablosunda. Tabloyu **çalıştırıcı açıyor**, göçle
+  değil (kendi kaydını tutan tabloyu göçle kurmak tavuk-yumurta olurdu).
+- Soru soran göçler `goc.ELLE` sözlüğünde; değer o göçün **etkisini** arayan
+  bir sorgu. Etki varsa göç uygulanmış sayılır ve panel susar. Yeni bir soru
+  soran göç yazarsan oraya etkisini de yaz.
+- **Göç patlarsa program yine açılır**: hata terminale ve `/yonetim` paneline
+  yazılır, sıradaki göçler çalıştırılmaz. Açılmayan program teşhis edilemez.
+- İki süreç aynı anda başlarsa `BEGIN IMMEDIATE` işaretini kapan çalıştırır.
 
 ---
 
@@ -88,7 +98,8 @@ Patient Data Center/
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
   goc_002..029.py   veritabanı göçleri (sırayla)
-  goc_hepsi.py      hepsini çalıştırır + kırık referans kontrolü
+  goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
+  goc_hepsi.py      aynı çalıştırıcının terminal yüzü
   teshis.py         genel sorun teşhisi
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
   liste_duzenle.py  seçim listelerini görüntüle / temizle
