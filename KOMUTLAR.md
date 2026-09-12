@@ -136,8 +136,24 @@ LAB_VERI=/bir/klasor python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000
 python3 teshis.py                    # genel kontrol
 python3 teshis_silme.py 527078       # bu hasta neden silinemiyor
 python3 liste_duzenle.py             # seçim listelerini gör / temizle
+python3 tarih_duzelt.py liste        # yılı bozuk tarih var mı (dokunmaz)
 python3 yerel_kur.py                 # bu makinenin klasör yollarını ayarla
 ```
+
+### Yılı bozuk tarih
+
+`datetime-local` alanına yıl olarak "26" yazılırsa tarayıcı **26. yılı**
+gönderiyor (`0026-09-04`). v6.51'den beri program böyle bir değeri kabul
+etmiyor, ama daha önce girilmiş kayıtlar duruyor olabilir.
+
+```
+python3 tarih_duzelt.py liste        # yalnızca listeler
+python3 tarih_duzelt.py              # tek tek sorar, onayladığını düzeltir
+```
+
+Her kayıt için kime ait olduğunu ve önerilen tarihi yazar. **Enter** öneriyi
+kabul eder, kendin de bir tarih yazabilirsin, `a` atlar, `q` çıkar. Doğum
+tarihlerine öneri yapmaz — doğru yılı sen yazarsın.
 
 Klasör yollarını (kamera / arşiv / yedek) **ekrandan** da ayarlayabilirsin:
 yönetici olarak `/yonetim` → **Klasörler** (v6.41). `yerel_kur.py` aynı işi

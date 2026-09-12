@@ -40,12 +40,12 @@
     <div class="alan">
       <label for="islem_zamani">{{ metin("cozme_saati") }}</label>
       {% set ilk = mevcut.get(icerik[0].id) %}
-      <input id="islem_zamani" name="islem_zamani" type="datetime-local"
+      <input id="islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local"
              value="{{ ilk.zaman[:16]|replace(' ','T') if ilk else simdi }}">
     </div>
     <div class="alan">
       <label for="kontrol_zamani">{{ metin("ikinci_kontrol_saati") }}</label>
-      <input id="kontrol_zamani" name="kontrol_zamani" type="datetime-local"
+      <input id="kontrol_zamani" name="kontrol_zamani" min="1900-01-01T00:00" type="datetime-local"
              value="{{ ilk.thaw_kontrol_zamani[:16]|replace(' ','T') if ilk and ilk.thaw_kontrol_zamani else '' }}">
       <div class="ipucu">{{ metin("ikinci_kontrol_ipucu") }}</div>
     </div>

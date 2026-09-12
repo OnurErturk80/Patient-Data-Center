@@ -55,7 +55,7 @@
        (v6.33). Saat yok -- plan gün bazında yapılıyor. #}
     <div class="alan">
       <label for="planlanan_tarih">{{ metin("planlanan_tarih") }}</label>
-      <input id="planlanan_tarih" name="planlanan_tarih" type="date"
+      <input id="planlanan_tarih" name="planlanan_tarih" min="1900-01-01" type="date"
              value="{{ d('planlanan_tarih')[:10] }}">
       <div class="ipucu">{{ metin("planlanan_tarih_ipucu") }}</div>
     </div>
@@ -132,12 +132,12 @@
     <h2>{{ metin("zamanlar_ve_opu") }}</h2>
     <div class="alan">
       <label for="hcg_zamani">{{ metin("hcg_zamani") }}</label>
-      <input id="hcg_zamani" name="hcg_zamani" type="datetime-local" value="{{ dz('hcg_zamani') }}">
+      <input id="hcg_zamani" name="hcg_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('hcg_zamani') }}">
       <div class="ipucu">{{ metin("hcg_zamani_ipucu") }}</div>
     </div>
     <div class="alan">
       <label for="opu_zamani">{{ metin("opu_zamani") }}</label>
-      <input id="opu_zamani" name="opu_zamani" type="datetime-local" value="{{ dz('opu_zamani') }}">
+      <input id="opu_zamani" name="opu_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('opu_zamani') }}">
     </div>
     <input type="hidden" name="denudasyon_zamani" value="{{ dz('denudasyon_zamani') }}">
     <div class="alan" style="border:0;padding-bottom:0">

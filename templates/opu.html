@@ -44,7 +44,7 @@
   <div class="kart" style="margin-top:12px">
     <div class="alan">
       <label for="opu_zamani">{{ metin("opu_zamani") }}</label>
-      <input id="opu_zamani" name="opu_zamani" type="datetime-local"
+      <input id="opu_zamani" name="opu_zamani" min="1900-01-01T00:00" type="datetime-local"
              value="{{ c.opu_zamani[:16]|replace(' ','T') if c.opu_zamani else simdi }}">
       <div class="ipucu">{{ metin("varsayilan_su_an") }}</div>
     </div>

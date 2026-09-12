@@ -38,7 +38,7 @@
 {% macro dt(ad, etiket, kaynak, alan, varsayilan='') %}
 <div>
   <label for="{{ ad }}">{{ etiket }}</label>
-  <input id="{{ ad }}" name="{{ ad }}" type="datetime-local"
+  <input id="{{ ad }}" name="{{ ad }}" min="1900-01-01T00:00" type="datetime-local"
          value="{{ kaynak[alan][:16]|replace(' ','T') if kaynak and kaynak[alan] else varsayilan }}">
 </div>
 {% endmacro %}

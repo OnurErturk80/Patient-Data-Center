@@ -248,15 +248,46 @@ def tam(v, alan="Sayı"):
         raise FormHatasi(f"{alan} alanına tam sayı yazılmalı. Girilen: {v}")
 
 
-def zaman(v):
+# Yılı bundan eskiyse yazım hatasıdır. Doğum tarihleri 1900'lerde olabildiği
+# için sınır 2000 değil 1900.
+EN_ESKI_YIL = 1900
+
+
+def yil_kontrol(v, alan="Tarih"):
+    """Tarihin yılı makul mü? Değilse FormHatasi.
+
+    `date` / `datetime-local` alanına yıl olarak "26" yazılırsa tarayıcı
+    **26. yılı** gönderiyor: `0026-09-04`. Değer geçerli bir ISO tarihi
+    olduğu için hiçbir katmanda patlamıyor, sessizce kaydediliyor — bir
+    cycle'ın OPU tarihi aylarca böyle durdu (bekleyen iş 6). Ekranlarda
+    `min` niteliği var ama asıl engel burası: tarayıcıya güvenilmez.
+
+    Bulunmuş bozuk kayıtları `tarih_duzelt.py` sorarak düzeltiyor.
+    """
+    if v and str(v)[:4].isdigit() and int(str(v)[:4]) < EN_ESKI_YIL:
+        raise FormHatasi(
+            f"{alan} yılı hatalı: {v}. Yıl dört haneli olmalı "
+            f"(örnek: {_dt.now().year}).")
+    return v
+
+
+def zaman(v, alan="Tarih"):
     """datetime-local alanı '2026-04-17T09:45' verir, veritabanı boşluk ister."""
-    return bos_ise_none((v or "").replace("T", " "))
+    return yil_kontrol(bos_ise_none((v or "").replace("T", " ")), alan)
 
 
 def islem_zamani(v):
-    """Ekrandan gelen işlem saati. Boş veya geçersizse şu an."""
+    """Ekrandan gelen işlem saati. Boş veya geçersizse şu an.
+
+    Yılı bozuk değer de "geçersiz" sayılıyor: aşama ekranlarının POST'unda
+    hata gösterecek yer yok, bu yüzden tarih **reddedilip** şu ana düşülüyor.
+    Kullanıcı kaydettikten sonra bilgi kartında yazan saati görüyor.
+    """
     from datetime import datetime as _d
-    t = zaman(v)
+    try:
+        t = zaman(v)
+    except FormHatasi:
+        return _d.now().isoformat(" ", "seconds")
     if not t:
         return _d.now().isoformat(" ", "seconds")
     try:
@@ -1697,11 +1728,14 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
 
 @uygulama.get("/hasta/yeni")
 def hasta_yeni(request: Request, dosya_no: str = ""):
-    return sablon.TemplateResponse(request, "hasta_form.html", {"dosya_no": dosya_no})
+    # `v` hata dönüşünde yazılanları taşır; boş formda da tanımlı olmalı.
+    return sablon.TemplateResponse(
+        request, "hasta_form.html", {"dosya_no": dosya_no, "v": {}})
 
 
 @uygulama.post("/hasta/yeni")
 def hasta_kaydet(
+    request: Request,
     dosya_no: str = Form(...),
     ad_soyad: str = Form(...),
     dogum_tarihi: str = Form(""),
@@ -1716,11 +1750,25 @@ def hasta_kaydet(
     if mevcut:
         return RedirectResponse(f"/hasta/{mevcut['id']}", status_code=303)
 
+    try:
+        dt = zaman(dogum_tarihi, "Doğum tarihi")
+        edt = zaman(es_dogum_tarihi, "Eş doğum tarihi")
+    except FormHatasi as e:
+        # Yazılan doldurulmuş halde geri gelsin (v6.21 kuralı): hata mesajı
+        # gösterip formu boşaltmak kullanıcıya ne yazdığını unutturur.
+        return sablon.TemplateResponse(
+            request, "hasta_form.html",
+            {"dosya_no": dosya_no, "hata": str(e),
+             "v": {"ad_soyad": ad_soyad, "dogum_tarihi": dogum_tarihi,
+                   "es_adi": es_adi, "es_dogum_tarihi": es_dogum_tarihi,
+                   "notlar": notlar}},
+        )
+
     yeni_id = db.yaz(
         "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, dogum_tarihi, es_adi, "
         "es_dogum_tarihi, notlar) VALUES (?,?,?,?,?,?,?)",
-        (db.LAB_ID, int(dosya_no), ad_soyad.strip(), bos_ise_none(dogum_tarihi),
-         bos_ise_none(es_adi), bos_ise_none(es_dogum_tarihi), bos_ise_none(notlar)),
+        (db.LAB_ID, int(dosya_no), ad_soyad.strip(), dt,
+         bos_ise_none(es_adi), edt, bos_ise_none(notlar)),
     )
     return RedirectResponse(f"/hasta/{yeni_id}", status_code=303)
 
@@ -1765,13 +1813,23 @@ def hasta_guncelle(
     notlar: str = Form(""),
 ):
     eski = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
-    yeni = {
-        "ad_soyad": ad_soyad.strip(),
-        "dogum_tarihi": bos_ise_none(dogum_tarihi),
-        "es_adi": bos_ise_none(es_adi),
-        "es_dogum_tarihi": bos_ise_none(es_dogum_tarihi),
-        "notlar": bos_ise_none(notlar),
-    }
+    try:
+        yeni = {
+            "ad_soyad": ad_soyad.strip(),
+            "dogum_tarihi": zaman(dogum_tarihi, "Doğum tarihi"),
+            "es_adi": bos_ise_none(es_adi),
+            "es_dogum_tarihi": zaman(es_dogum_tarihi, "Eş doğum tarihi"),
+            "notlar": bos_ise_none(notlar),
+        }
+    except FormHatasi as e:
+        # Şablon `h`'ye sözlükle de erişiyor; yazılanlar ekranda kalsın.
+        return sablon.TemplateResponse(
+            request, "hasta_duzenle.html",
+            {"h": {**dict(eski), "ad_soyad": ad_soyad,
+                   "dogum_tarihi": dogum_tarihi, "es_adi": es_adi,
+                   "es_dogum_tarihi": es_dogum_tarihi, "notlar": notlar},
+             "hata": str(e)},
+        )
     db.yaz(
         "UPDATE hasta SET ad_soyad=?, dogum_tarihi=?, es_adi=?, es_dogum_tarihi=?, "
         "notlar=? WHERE id=?",
@@ -1826,14 +1884,14 @@ def cycle_formu_oku(f: dict) -> dict:
         "endometrium_mm": sayi(f.get("endometrium_mm"), "Endometrium"),
         "folikul_sayisi": tam(f.get("folikul_sayisi"), "Folikül sayısı"),
         "amh": sayi(f.get("amh"), "AMH"),
-        "hcg_zamani": zaman(f.get("hcg_zamani")),
-        "opu_zamani": zaman(f.get("opu_zamani")),
-        "denudasyon_zamani": zaman(f.get("denudasyon_zamani")),
+        "hcg_zamani": zaman(f.get("hcg_zamani"), "hCG zamanı"),
+        "opu_zamani": zaman(f.get("opu_zamani"), "OPU zamanı"),
+        "denudasyon_zamani": zaman(f.get("denudasyon_zamani"), "Denüdasyon zamanı"),
         "opu_sag_oosit": tam(f.get("opu_sag_oosit")),
         "opu_sol_oosit": tam(f.get("opu_sol_oosit")),
         "protokol_notu": bos_ise_none(f.get("protokol_notu")),
         # Planlanan tarih gün bazında: "14/09/2026 FET" -- saat yok.
-        "planlanan_tarih": bos_ise_none(f.get("planlanan_tarih")),
+        "planlanan_tarih": zaman(f.get("planlanan_tarih"), "Planlanan tarih"),
     }
 
 
@@ -5099,7 +5157,7 @@ async def opu_kaydet(request: Request, cycle_id: int):
 
     try:
         yeni = {
-            "opu_zamani": zaman(f.get("opu_zamani")),
+            "opu_zamani": zaman(f.get("opu_zamani"), "OPU zamanı"),
             "opu_sag_oosit": tam(f.get("opu_sag_oosit"), "Sağ over oosit sayısı"),
             "opu_sol_oosit": tam(f.get("opu_sol_oosit"), "Sol over oosit sayısı"),
         }

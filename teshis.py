@@ -42,6 +42,23 @@ if "kaynak_dosya" not in tablolar:
 kolonlar = [r[1] for r in b.execute("PRAGMA table_info(goruntu)")]
 print(f"   {'VAR ' if 'kaynak_imza' in kolonlar else 'YOK!'}  goruntu.kaynak_imza")
 
+# Yili bozuk tarih hicbir yerde patlamaz, sessizce durur (bkz. tarih_duzelt.py).
+# Burada gorunuyor ki teshis calistiran kullanici ayrica aramak zorunda kalmasin.
+try:
+    import tarih_duzelt
+    bozuk = tarih_duzelt.bulgular(b)
+    if bozuk:
+        print(f"   BOZUK! {len(bozuk)} tarihin yili "
+              f"{tarih_duzelt.EN_ESKI_YIL}'den kucuk:")
+        for x in bozuk[:10]:
+            ait = f"  ({x['ait']})" if x["ait"] else ""
+            print(f"            {x['tablo']}.{x['kolon']} = {x['deger']}{ait}")
+        print("   -> duzeltmek icin: python3 tarih_duzelt.py")
+    else:
+        print("   VAR   tarihlerin yillari makul")
+except Exception as h:                  # teshis tarih yuzunden durmasin
+    print(f"   Tarih kontrolu yapilamadi: {h}")
+
 print()
 print("=" * 60)
 print("3. KLASOR AYARI")

@@ -180,7 +180,7 @@
   <div class="kart">
     <div class="alan">
       <label for="islem_zamani">{{ metin("islem_saati") }}</label>
-      <input id="islem_zamani" name="islem_zamani" type="datetime-local"
+      <input id="islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local"
              value="{% set kz = (ic.zaman if ic else (mat.zaman if mat else None)) %}{{ kz[:16]|replace(' ','T') if kz else simdi }}">
       <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
     </div>

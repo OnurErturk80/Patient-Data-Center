@@ -5130,3 +5130,112 @@ denenmedi**, ilk kurulumda birlikte gözden geçirilecek.
 deyip duruyor. Yeni bir klinikte veritabanını ve ilk yönetici hesabını kuracak
 bir ilk açılış akışı gerekiyor — `sifirdan_kur.py` terminalde soru soruyor,
 paketlenmiş uygulamada terminal yok.
+
+
+---
+
+# v6.51 — bozuk tarihler: bulundu, düzeltildi, bir daha girilemiyor
+
+Bekleyen iş 6 kapandı. Bir cycle'da OPU tarihi `0026-09-04` yazıyordu; bu
+sürüm hem o kaydı düzeltmenin yolunu veriyor, hem de aynı hatanın bir daha
+kaydedilmesini engelliyor.
+
+## Hata nasıl oluyor
+
+`datetime-local` ve `date` alanlarına yıl olarak "26" yazılırsa tarayıcı
+bunu **26. yıl** diye gönderiyor: `0026-09-04`. Telefonda yıl kutusuna iki
+hane yazmak çok kolay.
+
+Asıl mesele şu: `0026-09-04` **geçerli bir ISO tarihidir**. `fromisoformat`
+onu sorunsuz okur, SQLite sorunsuz saklar, ekran sorunsuz basar. Hiçbir
+katman itiraz etmiyor, o yüzden kayıt aylarca fark edilmeden duruyor.
+Sessizce yanlış olan veri, gürültüyle patlayan veriden pahalıdır.
+
+Görünen sonuçları: o vaka ay listesinde çıkmıyor (ayın ölçüsü OPU tarihi),
+`_opu_gunu()` None dönüyor, resmî formda saçma bir tarih basılıyor, yıl
+seçicisi iki bin satır olmak istiyor (v6.30'da `>= 2000` süzgeciyle
+kapatılmıştı — o yama artık sebebin kendisini de düzeltiyor).
+
+## Üç katman
+
+**1. Bulunanı düzeltmek: `tarih_duzelt.py`.**
+
+Yılı 1900'den küçük bütün tarihleri buluyor — tek bir kolona bakmıyor,
+veritabanındaki adında `tarih` ya da `zaman` geçen **bütün metin
+kolonlarını** tarıyor (`gun`, `stim_gun_sayisi` gibi sayı kolonları tipten
+eleniyor). Bir tanesini biliyorduk; aracın işi bilmediklerimizi de bulmak.
+
+**Hiçbir şeyi kendiliğinden değiştirmiyor.** Her kayıt için ne bulduğunu,
+**kime ait olduğunu** (dosya no, hasta adı, cycle no) ve ne önerdiğini
+yazıyor; kararı kullanıcı veriyor. Tarih klinik veridir, varsayımla
+düzeltilmez — bu projenin kuralı.
+
+Öneri de uydurma değil: gün ve saat olduğu gibi kalıyor, **yıl kaydın kendi
+oluşturma yılından** geliyor. Kayıt 2026'da girildiyse o gün yazılan klinik
+tarih de 2026'dır. `olusturma_zamani` yoksa cycle'ınkine bakılıyor.
+
+**Doğum tarihlerine öneri yapılmıyor** (`dogum_tarihi`, `es_dogum_tarihi`,
+`dogum_zamani`): kaydın girildiği yılla doğum yılının ilgisi yok. Orada araç
+"öneremiyorum, doğru tarihi kendin yaz" diyor. Yanlış öneri, önerisizlikten
+kötüdür — kullanıcı Enter'a basıp geçer.
+
+```
+python3 tarih_duzelt.py         bulur, tek tek sorar, onayladığını düzeltir
+python3 tarih_duzelt.py liste   yalnızca listeler, hiçbir şeye dokunmaz
+```
+
+Terminalden çalıştırılmadıysa (boru, betik) soru soramayacağı için hiçbir
+şey değiştirmiyor.
+
+**2. Bir daha girilememesi: `yil_kontrol()`.**
+
+`zaman()` artık yılı 1900'den küçük değeri kabul etmiyor, `FormHatasi`
+atıyor. Sınır 2000 değil **1900**, çünkü doğum tarihleri 1900'lerde olabilir.
+
+Hata dönüşü v6.21 kuralına uyuyor: **form kapanmıyor, yazılan duruyor.**
+Cycle formu ve hasta formları yazılan değerlerle yeniden basılıyor; OPU
+ekranı kendi `?duzenle=1&hata=...` yoluyla dönüyor. Kullanıcı ne yazdığını
+görüyor ve yalnız yılı düzeltiyor.
+
+Hasta ekleme/düzenleme ekranlarında hata gösterecek yer **yoktu** — bu sürümde
+eklendi (`{% if hata %}`), doğum tarihleri artık orada da korunuyor.
+
+`islem_zamani()` ayrı davranıyor: aşama ekranlarının POST'unda hata
+gösterecek yer yok, bu yüzden bozuk yıl "geçersiz" sayılıp **şu ana**
+düşülüyor — fonksiyonun zaten belgelenmiş davranışı. Kullanıcı kaydettikten
+sonra bilgi kartında yazan saati görüyor.
+
+**3. Tarayıcı tarafı: `min` niteliği.**
+
+18 tarih alanına `min="1900-01-01"` kondu. Tarayıcı yılı küçük değeri
+göndermeden reddediyor, hata da alan altında kendi diliyle çıkıyor — sunucuya
+hiç gitmeden. Ama asıl engel sunucudaki kontrol: tarayıcıya güvenilmez.
+
+## Teşhiste de görünüyor
+
+`teshis.py`'nin **veritabanı** bölümüne kondu, klasör bölümüne değil: klasör
+yolu yanlışsa betik orada `sys.exit` ediyor ve arkasındaki hiçbir kontrol
+çalışmıyor. Tarih kontrolü o çıkışın önünde duruyor.
+
+## Bir şey açıkta kaldı
+
+Cycle formunda `denudasyon_zamani` **gizli alan** olarak taşınıyor. Bir
+cycle'ın denüdasyon saati bozuksa cycle formundan kaydetmek artık hata
+veriyor ve gizli alan ekranda görünmediği için oradan düzeltilemiyor.
+Çıkışı `tarih_duzelt.py`. Bugüne kadar böyle bir kayıt görülmedi.
+
+## Test edildi
+
+- Araç, kasten bozulmuş üç kayıtla denendi: cycle OPU zamanı (öneri kabul
+  edildi), hasta doğum tarihi (önerisiz dal, elle yazıldı), sayı tipli `gun`
+  kolonu (doğru şekilde hiç taranmadı). İkinci çalıştırmada "düzeltilecek bir
+  şey yok" dedi.
+- Cycle formu, hasta ekleme, hasta düzenleme ve OPU ekranı bozuk yılla
+  denendi: dördü de hata gösterdi, **yazılan değerler ekranda kaldı** ve
+  veritabanına hiçbir şey yazılmadı.
+- `islem_zamani()`: `0026-...` → şu an, `2026-...` → olduğu gibi.
+- Deneme verisi geri alındı (1 hasta, 2 cycle, 22 oturum).
+
+> Geri alırken WAL tuzağına girildi: uygulama çalışırken `lab.db`'nin üzerine
+> kopyalamak işe yaramıyor, `lab.db-wal` sonradan üstüne biniyor. README
+> v6.6'da yazılı olan kural burada da geçerliymiş — önce durdur, sonra kopyala.

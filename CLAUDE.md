@@ -120,6 +120,7 @@ Patient Data Center/
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
   goc_hepsi.py      aynı çalıştırıcının terminal yüzü
   teshis.py         genel sorun teşhisi
+  tarih_duzelt.py   yılı bozuk tarihleri bulur, sorarak düzeltir
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
@@ -525,6 +526,22 @@ klinik bir sayı (v6.19). Geri alma `goruntuler.bos_specimen_sil()` ile:
 yalnızca hiç görüntüsü ve olayı olmayan oosit silinir. Başarısızlık **sessiz
 olmasın**, sebebini ekrana yaz.
 
+**Tarihin yılı 1900'den küçükse kaydedilmez** (v6.51). `datetime-local`
+alanına yıl olarak "26" yazılınca tarayıcı `0026-09-04` gönderiyor; değer
+geçerli bir ISO tarihi olduğu için hiçbir katman itiraz etmiyor ve kayıt
+sessizce yanlış duruyor (bir cycle'ın OPU tarihi aylarca böyleydi). Kontrol
+`yil_kontrol()`'de, `zaman()` onu çağırıyor — yeni bir tarih alanı yazarsan
+`bos_ise_none` değil **`zaman(v, "Alan adı")`** kullan.
+- **Sınır 2000 değil 1900** — doğum tarihleri 1900'lerde olabilir.
+- Hata dönüşü formu kapatmaz: yazılan değerlerle yeniden basılır (v6.21).
+- `islem_zamani()` ayrı: aşama POST'unda hata gösterecek yer olmadığı için
+  bozuk yıl **şu ana** düşer, fonksiyonun belgelenmiş davranışı.
+- Şablonlarda `min="1900-01-01"` var ama asıl engel sunucuda; tarayıcıya
+  güvenme.
+- Bulunmuş bozuk kayıtları **`tarih_duzelt.py`** sorarak düzeltir; hiçbir
+  şeyi kendiliğinden değiştirmez, doğum tarihlerine öneri yapmaz. `teshis.py`
+  de bozuk tarih varsa söyler.
+
 **İşlem saatleri elle girilebilir.** Her aşamada varsayılan "şu an", ama
 değiştirilebilir — personel işlemi yaparken değil sonra kaydediyor olabilir.
 Bu özelliği asla kaldırma.
@@ -875,10 +892,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
    değişecek — ona sor.
-6. **Bozuk tarih** — bir cycle'da OPU tarihi `0026-09-04` (yıl 4 haneli değil).
-   Düzeltilmeli. v6.28'de `_opu_gunu()` korumaya alındı (böyle bir değer
-   yüzünden bütün yapılacaklar listesi patlamasın diye), ama kaydın kendisi
-   hâlâ bozuk.
+6. ~~**Bozuk tarih**~~ — v6.51'de kapandı. Yılı 1900'den küçük tarih artık
+   hiçbir ekrandan kaydedilemiyor; var olanı `python3 tarih_duzelt.py`
+   sorarak düzeltiyor. **Kullanıcının kendi veritabanında bu aracı bir kez
+   çalıştırması gerekiyor** — kayıt onun makinesinde.
 7. **`sema_guncel.sql` güncel değil.** `goc_019`, `goc_021`, `goc_022` ve
    `goc_025`'in getirdiklerini içermiyor. v6.9'da `sifirdan_kur.py` göçleri
    kendisi çalıştırdığı için kurulum artık eksiksiz çıkıyor, ama dosyanın adı

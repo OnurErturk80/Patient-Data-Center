@@ -3,6 +3,7 @@
 {% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
 {% block icerik %}
 <div class="uyari" id="mukerrer" hidden></div>
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
 <form method="post" action="/hasta/yeni">
   <div class="kart">
@@ -14,24 +15,28 @@
     </div>
     <div class="alan">
       <label for="ad_soyad">{{ metin("ad_soyad") }}</label>
-      <input id="ad_soyad" name="ad_soyad" type="text" required autocomplete="off">
+      <input id="ad_soyad" name="ad_soyad" type="text" required autocomplete="off"
+             value="{{ v.ad_soyad or '' }}">
     </div>
     <div class="alan">
       <label for="dogum_tarihi">{{ metin("dogum_tarihi") }}</label>
-      <input id="dogum_tarihi" name="dogum_tarihi" type="date">
+      <input id="dogum_tarihi" name="dogum_tarihi" type="date"
+             min="1900-01-01" value="{{ v.dogum_tarihi or '' }}">
       <div class="ipucu">{{ metin("yas_hesaplanir") }}</div>
     </div>
     <div class="alan">
       <label for="es_adi">{{ metin("es_adi") }}</label>
-      <input id="es_adi" name="es_adi" type="text" autocomplete="off">
+      <input id="es_adi" name="es_adi" type="text" autocomplete="off"
+             value="{{ v.es_adi or '' }}">
     </div>
     <div class="alan">
       <label for="es_dogum_tarihi">{{ metin("es_dogum_tarihi") }}</label>
-      <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date">
+      <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date"
+             min="1900-01-01" value="{{ v.es_dogum_tarihi or '' }}">
     </div>
     <div class="alan">
       <label for="notlar">{{ metin("not") }}</label>
-      <textarea id="notlar" name="notlar"></textarea>
+      <textarea id="notlar" name="notlar">{{ v.notlar or '' }}</textarea>
     </div>
   </div>
   <button class="dugme" type="submit">{{ metin("hastayi_kaydet") }}</button>

@@ -179,7 +179,7 @@
     <div class="alan">
       <label for="islem_zamani">{{ metin("islem_saati") }}</label>
       {% set kz = kayit.zaman if kayit else None %}
-      <input id="islem_zamani" name="islem_zamani" type="datetime-local"
+      <input id="islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local"
              value="{{ kz[:16]|replace(' ','T') if kz else simdi }}">
       <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
     </div>

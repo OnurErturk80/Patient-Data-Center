@@ -68,7 +68,7 @@
       </div>
       <div>
         <label for="beta_zaman">{{ metin("olcum_zamani") }}</label>
-        <input id="beta_zaman" name="beta_zaman" type="datetime-local" value="{{ simdi }}">
+        <input id="beta_zaman" name="beta_zaman" min="1900-01-01T00:00" type="datetime-local" value="{{ simdi }}">
       </div>
     </div>
     <div class="alan" style="border:0;padding-top:0">
@@ -114,7 +114,7 @@
     </div>
     <div class="alan">
       <label for="fk_kontrol_zamani">{{ metin("kontrol_zamani") }}</label>
-      <input id="fk_kontrol_zamani" name="fk_kontrol_zamani" type="datetime-local"
+      <input id="fk_kontrol_zamani" name="fk_kontrol_zamani" min="1900-01-01T00:00" type="datetime-local"
              value="{{ k.fk_kontrol_zamani[:16]|replace(' ','T') if k and k.fk_kontrol_zamani else '' }}">
     </div>
   </div>
@@ -133,7 +133,7 @@
     <div class="alan ikili">
       <div>
         <label for="dogum_zamani">{{ metin("dogum_zamani") }}</label>
-        <input id="dogum_zamani" name="dogum_zamani" type="datetime-local"
+        <input id="dogum_zamani" name="dogum_zamani" min="1900-01-01T00:00" type="datetime-local"
                value="{{ k.dogum_zamani[:16]|replace(' ','T') if k and k.dogum_zamani else '' }}">
       </div>
       <div>

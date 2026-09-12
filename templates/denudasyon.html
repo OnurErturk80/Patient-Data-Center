@@ -53,7 +53,7 @@
   <form method="post" action="/cycle/{{ c.id }}/denudasyon-zaman">
     <div class="alan">
       <div style="display:flex;gap:8px">
-        <input id="denudasyon_zamani" name="denudasyon_zamani" type="datetime-local"
+        <input id="denudasyon_zamani" name="denudasyon_zamani" min="1900-01-01T00:00" type="datetime-local"
                value="{{ c.denudasyon_zamani[:16]|replace(' ','T') if c.denudasyon_zamani else '' }}"
                style="flex:1" aria-label="{{ metin('denudasyon_zamani') }}">
         <button class="minidugme" type="submit" style="min-width:88px">{{ metin("kaydet") }}</button>

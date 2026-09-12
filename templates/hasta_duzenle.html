@@ -8,6 +8,7 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 <form method="post" action="/hasta/{{ h.id }}/duzenle">
   <div class="kart">
     <div class="alan">
@@ -22,7 +23,7 @@
     </div>
     <div class="alan">
       <label for="dogum_tarihi">{{ metin("dogum_tarihi") }}</label>
-      <input id="dogum_tarihi" name="dogum_tarihi" type="date" value="{{ h.dogum_tarihi or '' }}">
+      <input id="dogum_tarihi" name="dogum_tarihi" type="date" min="1900-01-01" value="{{ h.dogum_tarihi or '' }}">
     </div>
     <div class="alan">
       <label for="es_adi">{{ metin("es_adi") }}</label>
@@ -30,7 +31,7 @@
     </div>
     <div class="alan">
       <label for="es_dogum_tarihi">{{ metin("es_dogum_tarihi") }}</label>
-      <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date" value="{{ h.es_dogum_tarihi or '' }}">
+      <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date" min="1900-01-01" value="{{ h.es_dogum_tarihi or '' }}">
     </div>
     <div class="alan">
       <label for="notlar">{{ metin("not") }}</label>

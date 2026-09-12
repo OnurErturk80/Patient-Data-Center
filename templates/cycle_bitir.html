@@ -24,7 +24,7 @@
   <div class="kart" style="margin-top:16px">
     <div class="alan">
       <label for="bitis_zamani">{{ metin("bitis_saati") }}</label>
-      <input id="bitis_zamani" name="bitis_zamani" type="datetime-local"
+      <input id="bitis_zamani" name="bitis_zamani" min="1900-01-01T00:00" type="datetime-local"
              value="{{ c.bitis_zamani[:16]|replace(' ','T') if (duzenle and c.bitis_zamani) else simdi }}">
       <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
     </div>
