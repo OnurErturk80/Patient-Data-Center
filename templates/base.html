@@ -48,5 +48,74 @@
 <div class="kap{% block kapsinif %}{% endblock %}">
 {% block icerik %}{% endblock %}
 </div>
+
+{# Ekran kendini tazeler (v6.54). Klinikte birkaç telefon aynı anda kayıt
+   giriyor; masaüstünde açık duran sayfa, elle yenilenene kadar eski kalıyordu.
+   Yazdırma ekranı bu bloğu boşaltarak dışarıda kalıyor. #}
+{% block tazeleme %}
+{% if kullanici or request.state.kullanici %}
+<div class="tazelekutu" id="tazelekutu" hidden>
+  <span>{{ metin("yeni_kayit_var") }} <b>{{ metin("yazdiklarin_gider") }}</b></span>
+  <a href="#" id="tazeledugme">{{ metin("yenile") }}</a>
+</div>
+<script>
+(function () {
+  var damga = {{ veri_damgasi()|tojson }};
+  var ARALIK = 5000;                       // ms
+  var sayac = null;
+  var kutu = document.getElementById('tazelekutu');
+
+  // Kullanici bir seye yaziyor mu? Yaziyorsa sayfa KENDILIGINDEN yenilenmez --
+  // yenilemek yazdigini silmek olurdu. Onun yerine kutu cikiyor, karar onun.
+  function kirli() {
+    var a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return true;
+    var alanlar = document.querySelectorAll('input, textarea, select');
+    for (var i = 0; i < alanlar.length; i++) {
+      var e = alanlar[i];
+      if (e.disabled || e.type === 'hidden') continue;
+      if (e.type === 'checkbox' || e.type === 'radio') {
+        if (e.checked !== e.defaultChecked) return true;
+      } else if (e.tagName === 'SELECT') {
+        for (var j = 0; j < e.options.length; j++) {
+          if (e.options[j].selected !== e.options[j].defaultSelected) return true;
+        }
+      } else if (e.value !== e.defaultValue) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function bak() {
+    fetch('/degisim', {cache: 'no-store', credentials: 'same-origin'})
+      .then(function (y) { return y.ok ? y.json() : null; })
+      .then(function (d) {
+        if (!d || !d.damga || d.damga === damga) return;
+        if (kirli()) { kutu.hidden = false; dur(); return; }
+        location.reload();
+      })
+      .catch(function () {});             // ag koptuysa sessizce gec
+  }
+
+  function dur() { if (sayac) { clearInterval(sayac); sayac = null; } }
+  function basla() { dur(); if (!document.hidden) sayac = setInterval(bak, ARALIK); }
+
+  // Sekmeye/pencereye donunce HEMEN bak: kullanici masaustune gectiginde
+  // ekran zaten guncel olsun, bes saniye beklemesin.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { dur(); } else if (kutu.hidden) { bak(); basla(); }
+  });
+
+  document.getElementById('tazeledugme').addEventListener('click', function (o) {
+    o.preventDefault();
+    location.reload();
+  });
+
+  basla();
+})();
+</script>
+{% endif %}
+{% endblock %}
 </body>
 </html>

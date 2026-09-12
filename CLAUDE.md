@@ -569,6 +569,33 @@ sessizce yanlış duruyor (bir cycle'ın OPU tarihi aylarca böyleydi). Kontrol
   bilerek `"onceden"` yazıyor — tarih değil, işaret; ayrıca o tabloyu
   düzenlemek göçün yeniden çalışmasına ya da atlanmasına yol açar.
 
+**Ekran kendini tazeler** (v6.54). Klinikte birkaç telefon aynı anda kayıt
+giriyor; masaüstünde açık duran sayfa elle yenilenene kadar eski kalıyordu.
+Veri hep anında kaydoluyordu — eski olan sayfaydı. `base.html`'deki
+`{% block tazeleme %}` beş saniyede bir `/degisim`'e soruyor.
+- **Yazdığın asla silinmez.** Sayfa "kirli" ise (bir alanın değeri
+  varsayılanından farklı ya da imleç bir alanın içinde) **kendiliğinden
+  yenilenmiyor**; altta şerit çıkıyor, karar kullanıcının. Bu korumayı
+  kaldırma — form doldururken yenilemek, çözdüğü sorundan pahalı bir hata.
+- Şerit **altta** durur: üstteki kimlik bandını kapatmamalı.
+- **Damga `veri_damgasi()`'nde**: her tablo için `COUNT(*)` + `MAX(rowid)`
+  (+ `DEGISIM_EK` ile `olay.iptal_mi` toplamı, çünkü iptal yerinde yazılıyor
+  ve günlüğe düşmüyor). `DEGISIM_ATLA` bir **dışlama** listesi — yeni tablo
+  kendiliğinden kapsanır. `oturum` dışarıda: her istekte yazıldığı için
+  sinyal sayılsa sayfa kendi sorusu yüzünden sonsuz yenilenirdi.
+- **Yerinde düzenleme günlük sayesinde yakalanıyor**: `degisiklikleri_yaz`
+  satır yazıyor, o satır damgayı değiştiriyor. Günlüğe yazmayan bir düzenleme
+  yolu yazarsan o değişiklik öteki ekranda görünmez.
+- **`PRAGMA data_version` ve dosya damgası denendi, ikisi de olmaz** —
+  birincisi bağlantı başına, ikincisi oturum yazısını da sinyal sayıyor
+  (README v6.54).
+- **Yazdırma ekranları dışarıda**: `form.html` ve `/baglan`
+  `{% block tazeleme %}{% endblock %}` yazıyor. Yeni bir yazdırma ekranında
+  aynısını yap — Ctrl+P açıkken sayfa altından değişirse çıktı bozulur.
+- **Yoklama oturumu tazelemez** (`dokun=False`). Olmasa ekranı açık
+  bırakılmış telefon hiç düşmez, 12 saatlik sınır işlevsiz kalırdı.
+  `son_erisim` de artık her istekte değil, bir dakikadan eskiyse yazılıyor.
+
 **İşlem saatleri elle girilebilir.** Her aşamada varsayılan "şu an", ama
 değiştirilebilir — personel işlemi yaparken değil sonra kaydediyor olabilir.
 Bu özelliği asla kaldırma.

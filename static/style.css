@@ -227,6 +227,36 @@ body {
   .kap.genis.yanmenusuz { max-width: var(--genis-sutun-menusuz); }
 }
 
+/* Baska bir cihazdan kayit girildiginde cikan serit (v6.54). Sayfa
+   kendiliginden yenilenmiyor cunku kullanici bir seye yaziyor -- serit
+   haber veriyor, yenileme karari onun. Altta duruyor: ustteki kimlik
+   bandini kapatmasin, "yanlis hasta" en pahali hata. */
+.tazelekutu {
+  position: fixed;
+  left: 12px; right: 12px; bottom: 12px;
+  z-index: 50;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: var(--r);
+  box-shadow: 0 6px 24px rgba(0,0,0,.25);
+  font-size: 14px;
+  /* Telefonda ana ekran simgesinden acilinca alt cubugun altinda kalmasin */
+  margin-bottom: env(safe-area-inset-bottom);
+}
+.tazelekutu span { flex: 1 1 200px; }
+.tazelekutu b { display: block; font-weight: 600; color: #ffd7a8; }
+.tazelekutu a {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  background: #fff; color: var(--ink);
+  border-radius: var(--r); text-decoration: none; font-weight: 600;
+}
+@media (min-width: 640px) {
+  .tazelekutu { left: auto; right: 16px; max-width: 520px; }
+}
+
 /* "Islemi bitir" ekraninda her secenegin altindaki tek satirlik aciklama.
    Dugmeye yapisik dursun ki hangi aciklamanin hangi dugmeye ait oldugu
    belli olsun; bir sonraki dugmeden once bosluk birakiyor. */

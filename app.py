@@ -466,6 +466,81 @@ sablon.env.globals["yuzde"] = metinler.yuzde
 sablon.env.globals["dil"] = metinler.dil
 
 
+# --------------------------------------------------------------- tazeleme
+
+# Ekranın kendini yenilemesi için "veri değişti mi" sorusunun cevabı (v6.54).
+# `oturum` dışarıda: her istekte yazılıyor, sinyal sayarsak sayfa kendi
+# sorgusu yüzünden sonsuz yenilenirdi. `goc_kaydi` de klinik veri değil.
+# Bu bir **dışlama** listesi: yeni bir tablo eklersen kendiliğinden kapsanır.
+DEGISIM_ATLA = {"oturum", "goc_kaydi"}
+
+# Satır sayısı ve en büyük rowid ekleme/silmeyi yakalıyor; **yerinde**
+# değişen alanları yakalamıyor. Düzenlemelerin çoğu `degisiklik_log`'a satır
+# yazdığı için oradan yakalanıyor, ama iptal işareti yazmıyor: `iptal_mi`
+# yerinde 1'e çekiliyor ve günlüğe düşmüyor. İptal klinik bir karar (atılan
+# oosit, geri alınan işlem), öteki ekranda görünmesi gerekir -- o yüzden
+# ayrıca sayılıyor. Aynı işlem `specimen.durum`'u da değiştiriyor ama onu
+# ayrıca saymaya gerek yok: durum değişen her yerde bir `olay` satırı da var.
+DEGISIM_EK = {"olay": "COALESCE(SUM(iptal_mi), 0)"}
+
+_DEGISIM_TABLOLARI = None
+
+
+def _degisim_tablolari(b):
+    """Taranacak tablolar. Bir kez bulunup saklanıyor — şema değişmiyor."""
+    global _DEGISIM_TABLOLARI
+    if _DEGISIM_TABLOLARI is None:
+        _DEGISIM_TABLOLARI = [
+            r[0] for r in b.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name NOT LIKE 'sqlite_%' ORDER BY name")
+            if r[0] not in DEGISIM_ATLA]
+    return _DEGISIM_TABLOLARI
+
+
+def veri_damgasi() -> str:
+    """Klinik verinin o anki imzası. Değiştiyse açık ekranlar yenileniyor.
+
+    Her tablo için `COUNT(*)` ve `MAX(rowid)`: en büyük rowid **eklemeyi**,
+    sayı **silmeyi** yakalıyor. İkisi de rowid indeksinden okunuyor.
+
+    Kapsam: her yeni kayıt, her silme, her iptal (`DEGISIM_EK`) ve
+    `degisiklik_log`'a satır yazan her düzenleme -- programın ekranlarından
+    yapılan düzenlemeler bunu yazıyor, denendi. Kapsam dışı: günlüğe hiç
+    yazmayan bir yerinde düzenleme; o ekran bugünkü gibi elle yenilenene
+    kadar eski kalır -- gerileme değil, kapsanmayan bir durum.
+
+    Damga hiçbir veri sızdırmaz: yalnızca sayılardan oluşan bir dizgi.
+    """
+    with db.baglan() as b:
+        parcalar = []
+        for t in _degisim_tablolari(b):
+            ek = DEGISIM_EK.get(t)
+            try:
+                satir = b.execute(
+                    f"SELECT COUNT(*), COALESCE(MAX(rowid), 0)"
+                    f"{', ' + ek if ek else ''} FROM {t}").fetchone()
+            except sqlite3.Error:        # tablo silinmiş/erişilemiyor
+                continue
+            parcalar.append(".".join(str(x) for x in satir))
+    return "-".join(parcalar)
+
+
+sablon.env.globals["veri_damgasi"] = veri_damgasi
+
+
+@uygulama.get("/degisim")
+def degisim():
+    """Açık ekranların "yeni kayıt var mı" sorusu (v6.54).
+
+    Middleware'in arkasında: oturumu olmayan bu yolu da göremez.
+    `yol_modulu("/degisim")` None dönüyor, yani modül izni istemiyor --
+    ekranı görebilen onun tazeliğini de sorabilmeli.
+    """
+    return JSONResponse({"damga": veri_damgasi()},
+                        headers={"Cache-Control": "no-store"})
+
+
 @uygulama.middleware("http")
 async def oturum_kontrolu(request: Request, sonraki):
     yol = request.url.path
@@ -479,8 +554,10 @@ async def oturum_kontrolu(request: Request, sonraki):
         if yol in ACIK_YOLLAR:
             return await sonraki(request)
 
+        # `/degisim` oturumu tazelemez: yoklama kullanıcının işlemi değil.
         kullanici = guvenlik.oturumdaki_kullanici(
-            request.cookies.get(guvenlik.CEREZ_ADI))
+            request.cookies.get(guvenlik.CEREZ_ADI),
+            dokun=(yol != "/degisim"))
         if not kullanici:
             return RedirectResponse("/giris", status_code=303)
 

@@ -1004,6 +1004,13 @@ METINLER = {
     "ana_ekran": {"tr": "Ana ekran", "en": "Home"},
     "ana_menu": {"tr": "Ana menü", "en": "Main menu"},
 
+    # Ekran kendini tazeleme (v6.54)
+    "yeni_kayit_var": {"tr": "Başka bir cihazdan yeni kayıt girildi.",
+                       "en": "New data was entered from another device."},
+    "yenile": {"tr": "Yenile", "en": "Refresh"},
+    "yazdiklarin_gider": {"tr": "Yazdıkların kaybolur — önce kaydet.",
+                          "en": "You will lose what you typed - save first."},
+
     # ---- yapilacaklar listesi (v6.28): kagit klasorun karsiligi ----
     "yapilacaklar": {"tr": "Yapılacaklar", "en": "To do"},
     "bugun_bitenler": {"tr": "Bugün bitenler", "en": "Finished today"},

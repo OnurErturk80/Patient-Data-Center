@@ -5408,3 +5408,117 @@ kurulacak makineden fazla iş. Asıl engel zaten sunucuda.
 - 32 adres 200; `teshis.py` "tarihlerin yılları makul" diyor.
 - Denemeler **veritabanının kopyası** üzerinde yapıldı, asıl dosyaya
   dokunulmadı; deneme verisi geri alındı.
+
+
+---
+
+# v6.54 — ekran kendini tazeler
+
+Kullanıcı fark etti: telefondan bir cycle'a bilgi ve fotoğraf girdi,
+masaüstünde açık duran sayfa **elle yenilenene kadar** eskiyi göstermeye
+devam etti. Klinikte birkaç telefon aynı anda kayıt giriyor; "ekranda ne
+görüyorsam o güncel" olması gerekiyor.
+
+## Veri zaten anında kaydoluyordu
+
+Önce bunu ayırmak lazım: telefondan girilen kayıt **o anda** veritabanına
+yazılıyordu. Eski olan veri değil, **masaüstündeki sayfa**. Tarayıcı bir
+kere aldığı HTML'i kendiliğinden güncellemez. Yani sunucuda düzeltilecek bir
+gecikme yoktu; eksik olan, açık duran sayfanın "yeni bir şey oldu mu" diye
+sorması.
+
+## Neden yoklama, neden push değil
+
+WebSocket `websockets`/`wsproto` paketi ister — projenin "ek bağımlılık yok"
+kuralı bunun için var (`excel.py`, `karekod.py` ile aynı gerekçe). SSE
+kütüphanesiz olurdu ama her açık sayfa için canlı bir bağlantı demek;
+telefon ekranı kilitlenince kopuyor, yeniden bağlanma mantığı yazmak
+gerekiyor.
+
+Beş saniyede bir küçük bir JSON sorusu hem daha basit hem daha dayanıklı.
+Üstüne bir şey eklendi: **sekmeye/pencereye dönünce hemen soruyor.**
+Kullanıcı masaüstüne geçtiğinde ekran zaten güncel oluyor, beş saniye
+beklemiyor — algılanan gecikme sıfır. Sayfa arkadayken yoklama duruyor
+(telefon pili).
+
+## "Değişti mi" sorusunun ucuz cevabı
+
+Denenen ve çalışmayan yollar:
+
+- **`PRAGMA data_version`** — bağlantı başına çalışıyor. Her istek kendi
+  bağlantısını açtığı için değeri hiç değişmiyor; ölçüldü, hep aynı sayı.
+- **Dosya damgası (`lab.db` mtime)** — her yazıyı yakalar, ama **oturum
+  tablosu her istekte yazılıyordu**. Yani sayfa, kendi sorusunun yazdığı
+  satır yüzünden "değişti" cevabı alıp sonsuz yenilenirdi.
+
+Kalan yol: veriden türetilen bir imza. `veri_damgasi()` her tablo için
+`COUNT(*)` ve `MAX(rowid)` topluyor — en büyük rowid **eklemeyi**, sayı
+**silmeyi** yakalıyor, ikisi de rowid indeksinden okunuyor. Ölçüldü:
+23 tablo, **0.7 ms**.
+
+`DEGISIM_ATLA` bir **dışlama** listesi (`oturum`, `goc_kaydi`), kapsama
+listesi değil: yeni bir tablo eklersen kendiliğinden kapsanır, bir şey
+yapmana gerek yok.
+
+**Kapsam** — her yeni kayıt, her silme, her iptal, ve `degisiklik_log`'a
+satır yazan her düzenleme. Son madde önemli: programın ekranlarından yapılan
+düzenlemeler günlüğe yazıyor, o yüzden yerinde düzenleme de yakalanıyor —
+telefondan hasta adı değiştirildi, masaüstü **4 saniyede** güncellendi.
+
+**İptal ayrıca sayılıyor** (`DEGISIM_EK`): `iptal_mi` yerinde 1'e çekiliyor
+ve günlüğe düşmüyor. İptal klinik bir karar (atılan oosit, geri alınan
+işlem), öteki ekranda görünmesi gerekir.
+
+**Kapsam dışı:** günlüğe hiç yazmayan bir yerinde düzenleme. O ekran bugünkü
+gibi elle yenilenene kadar eski kalır — gerileme değil, kapsanmayan bir
+durum. Damga hiçbir veri sızdırmıyor, yalnızca sayılardan oluşan bir dizgi.
+
+## Yazdığın asla silinmez
+
+En büyük risk şu: personel telefonda form doldururken sayfa kendiliğinden
+yenilenirse **yazdığı gider**. Bu, çözdüğü sorundan pahalı bir hata olurdu.
+
+Bu yüzden yenilemeden önce sayfa "kirli mi" diye bakıyor: herhangi bir
+alanın değeri varsayılanından farklıysa ya da imleç bir alanın içindeyse
+**kendiliğinden yenilenmiyor**. Onun yerine altta bir şerit çıkıyor —
+"başka bir cihazdan yeni kayıt girildi, yazdıkların kaybolur, önce kaydet" —
+ve yenileme kararı kullanıcının. Denendi: forma yarım bir not yazılmış
+haldeyken kayıt girildi, **not yerinde kaldı**, şerit çıktı.
+
+Şerit **altta** duruyor: üstteki kimlik bandını kapatmamalı, "yanlış hasta"
+bu işin en pahalı hatası.
+
+## Yazdırma ekranları dışarıda
+
+`form.html` (resmî form) ve `/baglan` (karekod, yazdırılıp laboratuvara
+asılıyor) `{% block tazeleme %}` bloğunu boşaltıyor. Ctrl+P açıkken sayfanın
+altından değişmesi çıktıyı bozar ve ikisinde de tazelenecek canlı veri yok.
+Yeni bir yazdırma ekranı yazarsan aynısını yap.
+
+## İki yan etki, ikisi de bilerek
+
+**Oturum yazısı kısıldı.** `son_erisim` her istekte değil, bir dakikadan
+eskiyse yazılıyor. Birkaç telefon beş saniyede bir soruyor; her soruda
+veritabanına yazmak dakikada yüzlerce gereksiz yazı demekti. Oturum ömrü
+12 saat, bir dakikalık kabalık onu etkilemiyor.
+
+**Yoklama oturumu tazelemiyor** (`oturumdaki_kullanici(..., dokun=False)`).
+Bu olmasa ekranı açık bırakılmış bir telefon **hiç düşmezdi** ve 12 saatlik
+sınır işlevsiz kalırdı. Yoklama kullanıcının işlemi değil, sayfanın kendi
+işi. Ölçüldü: `son_erisim` geriye alındı, yoklamadan sonra değişmedi, sayfa
+açılınca güncellendi.
+
+## Test edildi
+
+- İki ayrı tarayıcı bağlamı: masaüstünde cycle ekranı açık, telefondan kayıt
+  girildi → **5 saniyede kendiliğinden yenilendi**. Yeni hasta kaydı da
+  5 saniyede listeye düştü.
+- Telefondan hasta adı düzenlendi (gerçek ekrandan, POST ile) → masaüstü
+  4 saniyede güncellendi.
+- İptal işareti yerinde 1'e çekildi (günlüğe yazmadan) → damga değişti.
+- **Döngü yok:** üç ekranda 26 saniye beklendi, hiçbir şey değişmedi —
+  5 yoklama, **0 yenileme**. Gezinmek de damgayı değiştirmiyor.
+- Kirli form korundu (yukarı bak). Şerit 1280 ve 390px'te denendi, yatay
+  taşma yok.
+- 36 adres 200; yazdırma ekranlarında betik yok, giriş ekranında da yok.
+- Deneme verisi geri alındı.

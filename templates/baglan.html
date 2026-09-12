@@ -2,6 +2,9 @@
 {% block ustbaslik %}{{ metin("baglan") }}{% endblock %}
 {% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis yanmenusuz{% endblock %}
+{# Bu ekran yazdirilip laboratuvara asiliyor; canli veri yok.
+   Yazdirma sirasinda altindan degismesin diye tazelenmiyor. #}
+{% block tazeleme %}{% endblock %}
 {% block icerik %}
 
 {# Karekod sunucuda ciziliyor (`karekod.py`), disaridan kutuphane yok.

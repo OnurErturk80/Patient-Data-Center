@@ -1,4 +1,7 @@
 {% extends "base.html" %}
+{# Yazdirma ekrani kendini tazelemez: Ctrl+P acikken sayfanin altindan
+   degismesi cikti bozar. Resmi form zaten o andaki veriyle basiliyor. #}
+{% block tazeleme %}{% endblock %}
 {% block ustbaslik %}{{ baslik }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ cycle_id }}">&#8249;</a>{% endblock %}
 {% block kapsinif %}{% if yon == "yatay" %} genis{% endif %}{% endblock %}

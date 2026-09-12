@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 import db
 
 OTURUM_SURESI_SAAT = 12       # bu süre boyunca işlem yapılmazsa oturum düşer
+# `son_erisim` bundan eskiyse yazılır, her istekte değil (v6.54).
+TAZELEME_ARALIGI = timedelta(minutes=1)
 CEREZ_ADI = "lab_oturum"
 
 
@@ -57,8 +59,15 @@ def giris_yap(kullanici_adi: str, sifre: str):
     return jeton
 
 
-def oturumdaki_kullanici(jeton: str):
-    """Geçerli oturumsa kullanıcıyı, değilse None döndürür."""
+def oturumdaki_kullanici(jeton: str, dokun: bool = True):
+    """Geçerli oturumsa kullanıcıyı, değilse None döndürür.
+
+    `dokun=False` oturumun **son erişim zamanını güncellemez**. Açık ekranın
+    "yeni kayıt var mı" yoklaması bunu kullanıyor: yoklama da oturumu
+    tazelerse ekranı açık bırakılmış bir telefon hiç düşmezdi ve 12 saatlik
+    sınır işlevsiz kalırdı. Yoklama kullanıcının işlemi değil, sayfanın
+    kendi işi (v6.54).
+    """
     if not jeton:
         return None
     o = db.tek("SELECT * FROM oturum WHERE jeton = ?", (jeton,))
@@ -70,10 +79,16 @@ def oturumdaki_kullanici(jeton: str):
         db.yaz("DELETE FROM oturum WHERE jeton = ?", (jeton,))
         return None
 
-    db.yaz(
-        "UPDATE oturum SET son_erisim = ? WHERE jeton = ?",
-        (datetime.now().isoformat(" ", "seconds"), jeton),
-    )
+    # `son_erisim` her istekte değil, eskidiyse yazılıyor (v6.54). Açık
+    # ekranlar "yeni kayıt var mı" diye birkaç saniyede bir soruyor; her
+    # soruda veritabanına yazmak birkaç telefonla dakikada yüzlerce gereksiz
+    # yazı demek olurdu. Oturum ömrü 12 saat, bir dakikalık kabalık onu
+    # etkilemiyor.
+    if dokun and datetime.now() - son > TAZELEME_ARALIGI:
+        db.yaz(
+            "UPDATE oturum SET son_erisim = ? WHERE jeton = ?",
+            (datetime.now().isoformat(" ", "seconds"), jeton),
+        )
     return db.tek("SELECT * FROM kullanici WHERE id = ?", (o["kullanici_id"],))
 
 
