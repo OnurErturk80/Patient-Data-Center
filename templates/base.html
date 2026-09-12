@@ -8,6 +8,19 @@
 <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
 <title>{% block baslik %}{{ metin("program_adi") }}{% endblock %}</title>
 <link rel="stylesheet" href="/static/style.css">
+
+{# Ana ekrana eklenince uygulama gibi acilsin (v6.45). iOS manifest'in
+   `display` alanini yeni surumlerde okuyor, eskilerde `apple-...-capable`
+   metasina bakiyor -- ikisi de duruyor. `black-translucent` durum cubugunu
+   sayfanin uzerine biniyor; ust cubuk `env(safe-area-inset-top)` kadar
+   asagidan basliyor, yoksa baslik saatin altinda kalirdi. #}
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#17222b">
+<link rel="apple-touch-icon" href="/static/ikon_180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="{{ metin('kisa_ad') }}">
 </head>
 <body class="{% block govde %}{% endblock %}">
 <div class="ust">

@@ -3,6 +3,7 @@
 import contextvars
 import json
 import os
+import socket
 import sqlite3
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import excel
 import form_kalip
 import formlar
 import guvenlik
+import karekod
 import metinler
 import xlsx_oku
 
@@ -25,7 +27,8 @@ uygulama = FastAPI(title="Patient Data Center")
 uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
-ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre"}
+ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre",
+                "/manifest.json"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
 TIP_KODLARI = ("ivf_icsi", "fet", "oosit_cryo", "taze")   # taze: eski kod
@@ -611,6 +614,89 @@ def yonetici_kontrol(request: Request):
     if not yonetici_mi(request.state.kullanici):
         return RedirectResponse("/hastalar", status_code=303)
     return None
+
+
+# --------------------------------------------------- telefonun ana ekranına
+#
+# Personel adres yazmak yerine karekodu okutuyor, sonra "Ana Ekrana Ekle"
+# diyor: program kendi simgesiyle, tam ekran, uygulama gibi açılıyor
+# (v6.45, kullanıcının isteği). Mağazaya gerek yok -- mağazadan inen bir
+# uygulama da yine bu sunucuya bağlanacaktı.
+
+@uygulama.get("/manifest.json")
+def manifest():
+    """Ana ekrana eklenen simgenin tanımı.
+
+    `ACIK_YOLLAR`'da: tarayıcı bu dosyayı oturum çerezi göndermeden
+    istiyor, korumalı olsaydı giriş ekranına yönlendirilir ve simge
+    adsız/ikonsuz eklenirdi. İçinde hasta verisi yok -- program adı ve
+    simge yolları.
+    """
+    return JSONResponse({
+        "name": metinler.t("program_adi"),
+        "short_name": metinler.t("kisa_ad"),
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#eef2f4",       # sayfa zemini
+        "theme_color": "#17222b",            # üst çubuk
+        "lang": metinler.dil(),
+        "icons": [
+            {"src": "/static/ikon_192.png", "sizes": "192x192",
+             "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/ikon_512.png", "sizes": "512x512",
+             "type": "image/png", "purpose": "any maskable"},
+        ],
+    })
+
+
+def _yerel_ip():
+    """Bu makinenin yerel ağdaki adresi.
+
+    Dışarıya **paket gitmiyor**: UDP soketinde `connect` yalnızca çekirdeğe
+    "bu hedefe hangi arayüzden çıkardım" diye soruyor. `gethostbyname` ise
+    çoğu makinede 127.0.0.1 döndürüyor, işe yaramıyor.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))
+        return s.getsockname()[0]
+    except OSError:
+        return ""
+    finally:
+        s.close()
+
+
+def _baglanti_adresi(request: Request):
+    """Personelin telefonuna yazılacak adres.
+
+    Yönetici zaten ağ üzerinden bağlandıysa **onun kullandığı adres** en
+    doğrusu: çalıştığı kanıtlanmış. Sunucunun kendi tarayıcısından
+    bakılıyorsa (localhost) yerel ağ adresi bulunuyor.
+    """
+    ana = request.url.hostname or ""
+    if ana in ("localhost", "127.0.0.1", "::1", ""):
+        ana = _yerel_ip() or ana
+    port = request.url.port or 8000
+    return f"http://{ana}:{port}" if port != 80 else f"http://{ana}"
+
+
+@uygulama.get("/baglan")
+def baglan_ekrani(request: Request):
+    """Karekod + "ana ekrana ekle" yönergesi. Duvara asmak için yazdırılabilir."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    adres = _baglanti_adresi(request)
+    try:
+        kare = karekod.svg(adres, kutu=6)
+    except karekod.Hata:
+        kare = ""
+    return sablon.TemplateResponse(request, "baglan.html", {
+        "adres": adres, "karekod": kare,
+        "makine_adi": socket.gethostname(),
+        "kullanici": request.state.kullanici,
+    })
 
 
 @uygulama.get("/dil")

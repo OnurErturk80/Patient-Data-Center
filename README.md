@@ -4692,3 +4692,98 @@ karışıklık yaratırdı.
 - Yönetici olmayan hesap `/klasorler/bul`'a giremedi (303)
 - 390 ve 1440 px'te yatay taşma yok, JS hatası yok, liste hâlâ çalışıyor
 - 11 adres 200, iki dilde metinler yerinde
+
+---
+
+# v6.45 — telefonun ana ekranına, karekodla
+
+## İstek
+
+Kullanıcı programı önce kendi laboratuvarında deneyecek, sonra ticari yolları
+arayacak. Bu aşamada istediği iki şey: personel adresi elle yazmasın
+(**karekod**), ve program telefonda uygulama gibi dursun (**ana ekran
+simgesi**) — hem iOS'ta hem Android'de.
+
+Mağazaya gerek yok: mağazadan inen bir uygulama da yine klinikteki sunucuya
+bağlanacaktı. Ana ekran simgesi aynı görüntüyü ücretsiz, onay süreci olmadan
+veriyor.
+
+## Karekod kütüphanesiz
+
+`karekod.py` karekodu kendi çiziyor. Gerekçe `excel.py` ile aynı: klinikteki
+mini PC'ye kurulum adımı eklememek. Çıktı **SVG** — resim kütüphanesi
+gerekmiyor, her boyutta keskin, yazdırınca da düzgün basılıyor.
+
+Kapsam bilerek dar: bayt kipi, M düzeltme düzeyi, sürüm 1–10 (213 karaktere
+kadar). Bizim yazdığımız şey `http://klinik-pc:8000` gibi kısa bir adres.
+
+**Doğrulama iki aşamalı:**
+
+1. Olgun bir kütüphaneyle (`qrcode`, yalnızca geliştirme sırasında kuruldu)
+   ürettiğimiz **ızgaralar karşılaştırıldı**: 18 elle seçilmiş örnek + 600
+   rastgele metin, hepsi **birebir aynı**. Türkçe karakter (çok baytlı UTF-8)
+   dahil.
+2. Gerçek bir okuyucuya (`opencv`) **okutuldu**: yedi örneğin yedisi de doğru
+   çözüldü.
+
+Yol boyunca üç hata bulundu ve düzeltildi: biçim bilgisinin iki kopyası yer
+değiştirmişti, 4. ceza kuralının formülü yanlıştı, ve maske seçimi biçim
+bitleri yazıldıktan **sonra** puanlanıyordu. Üçüncüsü yaygın uygulamaların
+tersiydi; düzeltilince 618 denemenin 618'i tuttu.
+
+## Ana ekran simgesi
+
+- `/manifest.json` bir **rota**, statik dosya değil: program adı ve dil
+  laboratuvarın diline göre değişiyor.
+- Manifest `ACIK_YOLLAR`'da. Tarayıcı onu **oturum çerezi göndermeden**
+  istiyor; korumalı olsaydı giriş ekranına yönlenir, simge adsız ve ikonsuz
+  eklenirdi. İçinde hasta verisi yok.
+- iOS yeni sürümlerde manifest'in `display` alanını okuyor, eskilerde
+  `apple-mobile-web-app-capable` metasına bakıyor — **ikisi de** var.
+- Durum çubuğu `black-translucent`: sayfanın üstüne biniyor, o yüzden üst
+  çubuk `env(safe-area-inset-top)` kadar aşağıdan başlıyor. Tarayıcıda bu
+  değer 0, hiçbir şey değişmiyor.
+- Simgeler `simge_uret.py` ile üretildi (geliştirme aracı, Pillow istiyor —
+  `kalip_uret.py` gibi). Çizim: koyu zeminde bir oosit; dışta zona halkası,
+  içinde dört blastomer. 48 pikselde bile okunuyor.
+- Aynı dosya hem normal hem **maskable**: Android kenarlardan kırpıyor,
+  içeriğin merkezin %40'lık dairesinde kalması gerekiyor; çizim %25'te
+  bitiyor.
+
+## `/baglan` ekranı
+
+Karekod, adresin yazılı hali, bilgisayarın adı ve iki telefon için adım adım
+yönerge. **Yazdırılabilir** — laboratuvara asılınca yeni gelen personel
+okutup kendi telefonuna ekliyor.
+
+Adres seçimi: yönetici zaten ağ üzerinden bağlandıysa **onun kullandığı
+adres** yazılıyor (çalıştığı kanıtlanmış). Sunucunun kendi tarayıcısından
+bakılıyorsa (`localhost`) yerel ağ adresi bulunuyor — UDP soketiyle, **paket
+göndermeden**: `connect` yalnızca çekirdeğe "bu hedefe hangi arayüzden
+çıkardım" diye soruyor. `gethostbyname` çoğu makinede `127.0.0.1` döndürüyor,
+işe yaramıyor.
+
+**Yalnızca yönetici**, öteki `/yonetim` ekranlarıyla aynı.
+
+## Bilinen sınır: Android'de tam ekran HTTPS istiyor
+
+iOS'ta ana ekrana eklenen program **tam ekran** açılıyor, adres çubuğu yok.
+Android'de tam ekran (`display: standalone`) yalnızca güvenli bağlantıda
+geçerli; programda HTTPS yok (bekleyen iş 3), o yüzden simge Chrome içinde
+açılabiliyor. Simge, ad ve tek dokunuşla erişim yine çalışıyor.
+
+HTTPS kararı paketleme aşamasına bırakıldı — yerel ağda sertifika ayrı bir
+tasarım işi.
+
+## Test edildi
+
+- 618 karekod referans uygulamayla birebir aynı; 7 örnek gerçek okuyucuyla
+  çözüldü
+- `/manifest.json` oturumsuz 200 veriyor, üç simge de 200
+- `/baglan` 390 ve 1440 px'te taşmıyor; geniş ekranda iOS/Android adımları
+  yan yana, telefonda alt alta
+- Yazdırma denendi (A4 PDF üretildi)
+- Yönetici olmayan hesap `/baglan`'a giremiyor (303)
+- İki dilde metinler yerinde; manifest dile göre değişiyor
+  (`short_name` "Lab Kayıt" / "Lab Record")
+- 13 adres 200, JS hatası yok

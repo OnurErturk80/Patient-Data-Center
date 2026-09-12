@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("baglan") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis yanmenusuz{% endblock %}
+{% block icerik %}
+
+{# Karekod sunucuda ciziliyor (`karekod.py`), disaridan kutuphane yok.
+   Sayfa yazdirilabilir: duvara asilinca yeni gelen personel okutup
+   telefonuna ekliyor. #}
+
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("baglan_adres") }}</h2>
+  <div class="alan" style="border:0;text-align:center">
+    {% if karekod %}
+    <div class="karekod">{{ karekod|safe }}</div>
+    {% endif %}
+    <div class="baglantiadres">{{ adres }}</div>
+    <div class="ipucu">{{ metin("baglan_makine") }} <b>{{ makine_adi }}</b></div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("baglan_ipucu")|safe }}</div>
+  </div>
+</div>
+
+<div class="sutunlar" style="margin-top:12px">
+<div class="sutun">
+  <div class="kart">
+    <h2>{{ metin("baglan_ios") }}</h2>
+    <div class="alan" style="border:0">
+      <ol class="adimlar">
+        <li>{{ metin("baglan_ios_1") }}</li>
+        <li>{{ metin("baglan_ios_2") }}</li>
+        <li>{{ metin("baglan_ios_3") }}</li>
+        <li>{{ metin("baglan_ios_4") }}</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div class="sutun">
+  <div class="kart">
+    <h2>{{ metin("baglan_android") }}</h2>
+    <div class="alan" style="border:0">
+      <ol class="adimlar">
+        <li>{{ metin("baglan_android_1") }}</li>
+        <li>{{ metin("baglan_android_2") }}</li>
+        <li>{{ metin("baglan_android_3") }}</li>
+      </ol>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="yazdirmadugmeleri">
+  <a class="dugme ikincil" href="#" onclick="window.print();return false">
+    {{ metin("yazdir") }}</a>
+</div>
+{% endblock %}

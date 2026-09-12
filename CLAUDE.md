@@ -64,6 +64,8 @@ Patient Data Center/
   form_kalip.py     form ızgarası: kalıbı kuran/basan ortak kurallar
   form_kalip.json   kâğıt aslından çıkarılmış ızgara — ELLE DÜZENLEME
   xlsx_oku.py       yüklenen .xlsx'ten kalıp çıkarır — kütüphanesiz
+  karekod.py        karekod (QR) üretir — kütüphanesiz, çıktı SVG
+  simge_uret.py     ana ekran simgelerini üretir (araç, Pillow ister)
   formlar_asil/     orijinal .xls formlar + kalip_uret.py (kalıbı üreten araç)
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
@@ -641,6 +643,31 @@ oraya yalnızca bağlantı kondu — dil seçimindeki düzenin aynısı.
   Klasör adında `/` veya `\` varsa istek reddedilir.
 - **Adlar "klasör" kalacak** (kullanıcının kararı, 2026-09-12): "dosya"
   programda zaten hastanın kaydı (dosya no) ve yüklenen `.xlsx`.
+
+**Program telefonun ana ekranına eklenebilir** (v6.45). Mağazaya gerek yok:
+mağazadan inen bir uygulama da yine klinikteki sunucuya bağlanırdı. `/baglan`
+ekranı karekod + adım adım yönerge veriyor, yazdırılıp laboratuvara asılıyor.
+- **Karekod kütüphanesiz**: `karekod.py`, çıktı SVG. Gerekçe `excel.py` ile
+  aynı — klinikteki mini PC'ye kurulum adımı eklememek. Kapsam: bayt kipi,
+  M düzeyi, sürüm 1-10. Doğrulaması README v6.45'te: 618 ızgara olgun bir
+  kütüphaneyle birebir aynı, ayrıca gerçek okuyucuyla çözüldü. **Dokunursan
+  o karşılaştırmayı tekrar çalıştır.**
+- **`/manifest.json` bir rota ve `ACIK_YOLLAR`'da.** Tarayıcı onu oturum
+  çerezi göndermeden istiyor; korumalı olsaydı simge adsız eklenirdi. İçinde
+  hasta verisi yok. Rota olması adın ve dilin lab ayarını izlemesi için.
+- iOS yeni sürümlerde manifest'i, eskilerde `apple-mobile-web-app-capable`
+  metasını okuyor — **ikisini de** bırak.
+- Durum çubuğu `black-translucent`, bu yüzden `.ust`'ün dolgusu
+  `env(safe-area-inset-top)` içeriyor. Kaldırırsan iOS'ta başlık saatin
+  altında kalır.
+- Simgeler `simge_uret.py` ile üretildi; aynı dosya hem normal hem maskable
+  (içerik merkezin %25'inde bitiyor, Android'in istediği sınır %40).
+- **Android'de tam ekran HTTPS istiyor**, programda yok (bekleyen iş 3):
+  orada simge tarayıcı içinde açılabiliyor. iOS'ta tam ekran çalışıyor.
+  HTTPS kararı paketleme aşamasına bırakıldı.
+- Adres seçimi: yöneticinin kullandığı adres varsa o, yoksa `_yerel_ip()`.
+  O da UDP soketiyle **paket göndermeden** buluyor; `gethostbyname` çoğu
+  makinede 127.0.0.1 döndürüyor.
 
 **"Şifremi unuttum" hiçbir şey sıfırlamaz.** Sistemde e-posta/SMS yok, kimliği
 doğrulayacak ikinci kanal yok; doğrulamasız sıfırlama iç ağdaki herkese yönetici

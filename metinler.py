@@ -1307,6 +1307,41 @@ METINLER = {
     "yukleniyor": {"tr": "Yükleniyor…", "en": "Loading…"},
     # İşletim sisteminin kendi penceresi + arama (v6.44). Tarayıcı seçilen
     # klasörün yerini vermediği için program onu bu makinede arıyor.
+    # Telefonun ana ekranına ekleme + karekod (v6.45).
+    "kisa_ad": {"tr": "Lab Kayıt", "en": "Lab Record"},
+    "baglan": {"tr": "Telefona ekle", "en": "Add to a phone"},
+    "baglan_adres": {"tr": "Programın adresi", "en": "The program's address"},
+    "baglan_makine": {"tr": "Bu bilgisayarın adı:", "en": "This computer's name:"},
+    "baglan_ipucu": {
+        "tr": "Telefon <b>kliniğin kablosuz ağına bağlı</b> olmalı; program "
+              "dışarıya açık değil. Bu sayfayı yazdırıp laboratuvara asın, "
+              "yeni gelen personel karekodu okutup kendi telefonuna eklesin.",
+        "en": "The phone must be <b>on the clinic's wireless network</b>; the "
+              "program is not open to the outside. Print this page and put it "
+              "up in the laboratory so new staff can scan it and add it to "
+              "their own phone."},
+    "baglan_ios": {"tr": "iPhone / iPad", "en": "iPhone / iPad"},
+    "baglan_ios_1": {
+        "tr": "Karekodu telefonun kamerasıyla okutun, çıkan bağlantıya dokunun.",
+        "en": "Scan the code with the phone's camera and tap the link."},
+    "baglan_ios_2": {
+        "tr": "Safari'de alttaki paylaşma simgesine dokunun (kutudan çıkan ok).",
+        "en": "In Safari tap the share icon at the bottom (the box with an "
+              "arrow)."},
+    "baglan_ios_3": {"tr": "\u201cAna Ekrana Ekle\u201d seçeneğine dokunun.",
+                     "en": "Tap \u201cAdd to Home Screen\u201d."},
+    "baglan_ios_4": {"tr": "Sağ üstteki Ekle'ye dokunun.",
+                     "en": "Tap Add at the top right."},
+    "baglan_android": {"tr": "Android", "en": "Android"},
+    "baglan_android_1": {
+        "tr": "Karekodu telefonun kamerasıyla okutun, çıkan bağlantıya dokunun.",
+        "en": "Scan the code with the phone's camera and tap the link."},
+    "baglan_android_2": {
+        "tr": "Chrome'da sağ üstteki üç noktaya dokunun.",
+        "en": "In Chrome tap the three dots at the top right."},
+    "baglan_android_3": {
+        "tr": "\u201cAna ekrana ekle\u201d seçeneğine dokunun.",
+        "en": "Tap \u201cAdd to Home screen\u201d."},
     "listeden_sec": {"tr": "Listeden seç", "en": "Pick from list"},
     "klasor_araniyor": {"tr": "\u201c{ad}\u201d bu bilgisayarda aranıyor…",
                         "en": "Looking for \u201c{ad}\u201d on this computer…"},
