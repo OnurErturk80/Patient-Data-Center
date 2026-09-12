@@ -9,9 +9,16 @@ arsiv/
 snapshot/
 yedek/
 yedek.log
+program.log
+program.log.*
 
 # Makineye özel ayar
 yerel_ayar.json
+
+# Paketleme çıktısı (PyInstaller) — her makinede yeniden üretilir
+build/
+dist/
+*.manifest
 
 # Python
 __pycache__/

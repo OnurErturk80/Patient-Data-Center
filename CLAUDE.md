@@ -37,6 +37,23 @@ python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
 
 Bağımlılıklar: `fastapi uvicorn jinja2 python-multipart`. Python 3.10+.
 
+**Program kurulabilir paket olarak dağıtılacak** (v6.50, `PAKETLEME.md`).
+Giriş noktası `baslat.py`; `python -m uvicorn app:uygulama` pakette çalışmaz
+(`python` yok, `-m` yok). Uvicorn kütüphane gibi çağrılıp uygulama nesnesi
+doğrudan veriliyor. Geliştirmede de aynı yol: `python3 baslat.py`.
+- **Şablonlar ve `static/` tarifte veri olarak ekleniyor.** PyInstaller
+  yalnızca `import` edilenleri toplar; eksik kalırsa program açılır ama her
+  ekran hata verir.
+- **Göç betikleri `hiddenimports`'ta** — adıyla çağrıldıkları için görünmezler.
+  Tarif dosya adına bakıp kendiliğinden buluyor, yeni göç eklerken bir şey
+  yapmana gerek yok.
+- **`print` kullanma, `logging` kullan.** Servis olarak çalışırken konsol yok
+  ve `print` tamponda kalıp kayboluyor -- paketlenmiş denemede göç özeti
+  günlüğe hiç düşmedi. `baslat.py` günlüğü konsola **ve** veri klasöründeki
+  `program.log`'a bağlıyor.
+- Paket denendi: kaynak klasörünün dışında, `PYTHONPATH` temizlenmiş halde
+  27 göç uygulandı ve 22 adres 200 verdi.
+
 **Göçler açılışta kendiliğinden çalışır** (v6.49). Elle bir şey yapmak
 gerekmiyor; `python3 goc_hepsi.py` yalnızca terminalden kontrol etmek için.
 - **Çalıştırıcı tek yerde: `goc.py`.** Göçler **süreç içinde** çalışıyor
@@ -98,6 +115,8 @@ Patient Data Center/
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
   goc_002..029.py   veritabanı göçleri (sırayla)
+  baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
+  paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
   goc_hepsi.py      aynı çalıştırıcının terminal yüzü
   teshis.py         genel sorun teşhisi

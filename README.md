@@ -5051,3 +5051,82 @@ Windows kurulum dosyası: PyInstaller + Inno Setup, servis olarak kurulum,
 açılışta başlatma, güvenlik duvarı kuralı. Göç betiklerinin pakete
 alınması için PyInstaller'a `hiddenimports` verilecek — `goc.py` zaten
 dosya bulamazsa modül listesine bakıyor.
+
+---
+
+# v6.50 — kurulabilir paket
+
+Paketlemenin üçüncü adımı: programın Python kurulu olmayan bir makinede
+çalışması.
+
+## Giriş noktası
+
+Geliştirmede sunucu `python3 -m uvicorn app:uygulama ...` ile açılıyor.
+Pakette bu **çalışmaz**: `python` yok, `-m` yok, `"app:uygulama"` metniyle
+modül aramak da paketin içinde güvenilir değil.
+
+`baslat.py` uvicorn'u kütüphane gibi çağırıp uygulama nesnesini doğrudan
+veriyor. Geliştirmede de aynı yol kullanılıyor (`python3 baslat.py`) — iki
+ayrı başlatma yolu olsaydı biri er geç ötekinden ayrı düşerdi.
+
+Ayarlar ortam değişkeninden: `LAB_ADRES`, `LAB_PORT`, `LAB_VERI`. Kurulum
+dosyası bunları göreve yazacak.
+
+## `print` yerine `logging`
+
+İlk paket denemesinde göçler **çalıştı** (`goc_kaydi`'da 28 satır vardı) ama
+"27 göç uygulandı" satırı günlüğe hiç düşmedi. Sebep: `print` çıktısı dosyaya
+yönlendirilince tamponda kalıyor ve süreç çalışmaya devam ettiği için
+boşalmıyor.
+
+Servis olarak çalışırken konsol yok; bir şey ters giderse bakılacak **tek yer**
+günlük dosyası. `app.py`'deki bütün `print`'ler `logging`'e çevrildi;
+`baslat.py` günlüğü hem konsola hem veri klasöründeki `program.log`'a
+bağlıyor (1 MB'ta yenileniyor, üç eski kopya).
+
+## Tarifte iki tuzak
+
+İkisi de sessizce bozar — program açılır, sonra yanlış davranır:
+
+1. **Şablonlar ve `static/` veri olarak eklenmeli.** PyInstaller yalnızca
+   `import` edilenleri toplar; Jinja şablonlarını ve CSS'i göremez.
+2. **Göç betikleri `hiddenimports`'ta olmalı.** `importlib.import_module(
+   "goc_029")` ile adıyla çağrıldıkları için görünmezler. Eksik kalsalar
+   veritabanı güncellemeleri sessizce çalışmazdı.
+
+Tarif her ikisini de dosya adına bakarak kendiliğinden topluyor: yeni bir göç
+yazdığında `pdc.spec`'e dokunmak gerekmiyor.
+
+## Gerçekten denendi
+
+Linux paketi üretilip **kaynak klasörünün dışına** kopyalandı ve `PYTHONPATH`
+temizlenmiş halde çalıştırıldı:
+
+- Veri klasörünü ortam değişkeninden buldu
+- **27 göç paketin içinden uygulandı**
+- 22 adres 200: bütün ekranlar, `static/`, `manifest.json`, karekod, resmî
+  form ve Excel çıktısı (24 KB'lık geçerli bir `.xlsx`)
+- Günlük hem konsola hem `program.log`'a düştü
+
+Paket ~32 MB. Windows ve Mac paketleri **o işletim sistemlerinde** üretilecek
+— PyInstaller çapraz derleme yapmıyor.
+
+## Windows kurulum dosyası (taslak)
+
+`paket/pdc_kurulum.iss`, Inno Setup ile derleniyor. **Henüz Windows'ta
+denenmedi**, ilk kurulumda birlikte gözden geçirilecek.
+
+- Program `C:\Program Files\Patient Data Center`, veri
+  `C:\ProgramData\PatientDataCenter` — ayrı, çünkü paketin içi güncellemede
+  siliniyor
+- Açılışta başlatma **Görev Zamanlayıcı** ile (servis kurmak için NSSM gibi
+  bir aracı pakete katmak gerekirdi; bu Windows'un kendi parçası)
+- Güvenlik duvarı kuralı bilerek yalnızca **yerel ağ** için
+- Kaldırma verileri **silmiyor**
+
+## Sırada
+
+**İlk kurulum ekranı.** Paket bugün `lab.db` yoksa "önce kurulumu tamamlayın"
+deyip duruyor. Yeni bir klinikte veritabanını ve ilk yönetici hesabını kuracak
+bir ilk açılış akışı gerekiyor — `sifirdan_kur.py` terminalde soru soruyor,
+paketlenmiş uygulamada terminal yok.

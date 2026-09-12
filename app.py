@@ -2,6 +2,7 @@
 
 import contextlib
 import contextvars
+import logging
 import json
 import os
 import socket
@@ -37,6 +38,11 @@ KOK = db.PROGRAM_KOK          # kod: static/, templates/
 # paneline yazılıyor, ekranlar çalışmaya devam ediyor. Açılmayan bir program
 # teşhis edilemez.
 
+# Servis olarak çalışırken konsol yok: `print` tamponda kalıp kayboluyor.
+# `baslat.py` bu günlüğü hem konsola hem veri klasöründeki dosyaya
+# bağlıyor -- bir şey ters giderse bakılacak tek yer orası.
+_gunluk = logging.getLogger("program")
+
 GOC_SONUCU = {}
 
 
@@ -55,20 +61,21 @@ async def _yasam(app):
 def _goc_ozeti(s):
     """Terminale tek satırlık özet; hata varsa ayrıntısıyla."""
     if s.get("atlandi") == "veritabani-yok":
-        print("GOC: veritabani yok, gocler atlandi.")
+        _gunluk.info("GOC: veritabani yok, gocler atlandi.")
         return
     if s.get("atlandi") == "baska-surec":
-        print("GOC: baska bir surec gocleri calistiriyor, atlandi.")
+        _gunluk.info("GOC: baska bir surec gocleri calistiriyor, atlandi.")
         return
     if s.get("calisti"):
-        print(f"GOC: {len(s['calisti'])} goc uygulandi "
-              f"({', '.join(s['calisti'][:4])}"
-              f"{'...' if len(s['calisti']) > 4 else ''}).")
+        _gunluk.info("GOC: %d goc uygulandi (%s%s).", len(s["calisti"]),
+                     ", ".join(s["calisti"][:4]),
+                     "..." if len(s["calisti"]) > 4 else "")
     for ad, mesaj in s.get("hatali", []):
-        print(f"GOC HATASI: {ad}\n  " +
-              "\n  ".join(str(mesaj).splitlines()[-6:]))
+        _gunluk.error("GOC HATASI: %s\n  %s", ad,
+                      "\n  ".join(str(mesaj).splitlines()[-6:]))
     for ad in s.get("elle", []):
-        print(f"GOC: {ad} soru soruyor, elle calistirilmali: python {ad}.py")
+        _gunluk.warning("GOC: %s soru soruyor, elle calistirilmali: "
+                        "python %s.py", ad, ad)
 
 
 uygulama = FastAPI(title="Patient Data Center", lifespan=_yasam)
@@ -1058,7 +1065,7 @@ def klasorler_kaydet(request: Request,
         try:
             Path(arsiv).mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            print(f"arsiv klasoru olusturulamadi: {e}")
+            _gunluk.error("arsiv klasoru olusturulamadi: %s", e)
             return RedirectResponse("/klasorler?hata=klasor_hata_arsiv",
                                     status_code=303)
 
@@ -2956,7 +2963,7 @@ async def lab_formu_yukle(request: Request):
     except xlsx_oku.Hata as e:
         # Sebebi kullanıcıya gösteriliyor ama adresten değil: adrese yalnızca
         # beyaz listedeki anahtar yazılıyor, ayrıntı günlüğe.
-        print(f"form yukleme hatasi: {e}")
+        _gunluk.error("form yukleme hatasi: %s", e)
         return RedirectResponse("/formlar?hata=form_hata_okuma", status_code=303)
 
     if not any(s for s in kalip["satirlar"]):
