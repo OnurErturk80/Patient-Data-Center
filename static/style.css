@@ -331,6 +331,39 @@ form { margin: 0; }
 }
 .adimlar li { margin-bottom: 4px; }
 
+/* Klasor gezgini (v6.43). Tarayici sayfaya gercek dosya yolunu vermedigi
+   icin isletim sisteminin kendi penceresi acilamiyor; bu liste SUNUCUNUN
+   klasorlerini geziyor. Yuksekligi sinirli, kendi icinde kayiyor -- yuz
+   alt klasoru olan bir yer sayfayi metrelerce uzatmasin. */
+.gezgin {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--zemin);
+}
+.gezgin .gzyol {
+  padding: 8px 10px;
+  font-size: 12px;
+  word-break: break-all;
+  border-bottom: 1px solid var(--line);
+  background: var(--yuzey);
+}
+.gezgin .gzsayi { padding: 6px 10px 0; margin: 0; }
+.gezgin .gzliste { max-height: 260px; overflow-y: auto; padding: 6px; }
+.gezgin .gzoge {
+  display: block; width: 100%; text-align: left;
+  min-height: 40px;                 /* parmakla basilacak kadar */
+  padding: 9px 10px;
+  border: 0; border-radius: var(--r);
+  background: transparent; color: var(--ink);
+  font-family: inherit; font-size: 14px;
+  cursor: pointer;
+  word-break: break-all;
+}
+.gezgin .gzoge:hover { background: var(--yuzey); }
+.gezgin .gzoge:active { background: var(--vurgu-ac); }
+.gezgin .gzbos { padding: 10px; font-size: 13px; color: var(--ink-3); }
+
 /* --- düğmeler --- */
 .dugme {
   display: block;

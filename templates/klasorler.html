@@ -20,9 +20,27 @@
       <label for="{{ y.anahtar }}">{{ metin(y.anahtar) }}</label>
       <input id="{{ y.anahtar }}" name="{{ y.anahtar }}" type="text"
              value="{{ y.yol }}" autocomplete="off" spellcheck="false">
-      <div class="ipucu" {% if not y.var %}style="color:#a11f1f"{% endif %}>
-        {{ metin("klasor_var") if y.var else metin("klasor_yok") }}
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <button type="button" class="minidugme ikincil gozat"
+                data-alan="{{ y.anahtar }}">
+          {{ metin("gozat") }}</button>
+        <span class="ipucu"
+              style="margin:0{% if not y.var %};color:#a11f1f{% endif %}">
+          {{ metin("klasor_var") if y.var else metin("klasor_yok") }}</span>
       </div>
+
+      {# Gezgin: sunucunun klasörleri. Tarayıcı sayfaya gerçek yolu vermediği
+         için isletim sisteminin kendi penceresi acilamiyor. #}
+      <div class="gezgin" id="gz_{{ y.anahtar }}" hidden>
+        <div class="gzyol"></div>
+        <div class="gzsayi ipucu"></div>
+        <div class="gzliste"></div>
+        <div style="display:flex;gap:8px;padding:8px">
+          <button type="button" class="minidugme gzsec">{{ metin("bu_klasoru_sec") }}</button>
+          <button type="button" class="minidugme ikincil gzkapat">{{ metin("kapat") }}</button>
+        </div>
+      </div>
+
       <div class="ipucu">{{ metin(y.anahtar ~ "_ipucu")|safe }}</div>
     </div>
     {% endfor %}
@@ -38,4 +56,89 @@
     <div class="ipucu">{{ metin("klasor_arsiv_uyari")|safe }}</div>
   </div>
 </div>
+
+<script>
+(function () {
+  // Gezgin sunucunun klasorlerini geziyor: aranan klasor programin kurulu
+  // oldugu makinede (mikroskop oraya yaziyor), telefonda degil.
+  var acik = null;                       // o an acik olan gezgin
+
+  function yukle(kap, yol) {
+    var liste = kap.querySelector('.gzliste');
+    liste.textContent = {{ metin("yukleniyor")|tojson }};
+    fetch('/klasorler/gozat?yol=' + encodeURIComponent(yol), {
+      headers: {'Accept': 'application/json'}
+    })
+      .then(function (c) { return c.ok ? c.json() : Promise.reject(c.status); })
+      .then(function (d) { ciz(kap, d); })
+      .catch(function () { liste.textContent = {{ metin("klasor_okunamadi")|tojson }}; });
+  }
+
+  function ciz(kap, d) {
+    kap.dataset.yol = d.yol;
+    kap.querySelector('.gzyol').textContent = d.yol || '—';
+    var sayi = kap.querySelector('.gzsayi');
+    sayi.textContent = d.kok ? '' :
+      {{ metin("n_fotograf")|tojson }}.replace('{n}', d.fotograf);
+
+    var liste = kap.querySelector('.gzliste');
+    liste.textContent = '';
+
+    if (!d.kok) {
+      liste.appendChild(satir('⌂ ' + {{ metin("en_ust")|tojson }}, '*'));
+      if (d.ust) liste.appendChild(satir('‹ ' + {{ metin("ust_klasor")|tojson }}, d.ust));
+    }
+    d.klasorler.forEach(function (ad) {
+      var tam = d.kok ? ad : d.yol.replace(/[\/\\]$/, '') +
+                (d.yol.indexOf('\\') >= 0 ? '\\' : '/') + ad;
+      liste.appendChild(satir(ad, tam));
+    });
+    if (!d.klasorler.length && d.kok === false) {
+      var b = document.createElement('div');
+      b.className = 'gzbos';
+      b.textContent = {{ metin("alt_klasor_yok")|tojson }};
+      liste.appendChild(b);
+    }
+  }
+
+  function satir(yazi, yol) {
+    var d = document.createElement('button');
+    d.type = 'button';
+    d.className = 'gzoge';
+    d.textContent = yazi;
+    d.addEventListener('click', function () {
+      yukle(d.closest('.gezgin'), yol);
+    });
+    return d;
+  }
+
+  document.querySelectorAll('.gozat').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var alan = document.getElementById(b.dataset.alan);
+      var kap = document.getElementById('gz_' + b.dataset.alan);
+      if (acik && acik !== kap) acik.hidden = true;
+      if (!kap.hidden) { kap.hidden = true; acik = null; return; }
+      kap.hidden = false;
+      acik = kap;
+      yukle(kap, alan.value);
+    });
+  });
+
+  document.querySelectorAll('.gzsec').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var kap = b.closest('.gezgin');
+      var alan = document.getElementById(kap.id.slice(3));
+      if (kap.dataset.yol) alan.value = kap.dataset.yol;
+      kap.hidden = true;
+      acik = null;
+    });
+  });
+  document.querySelectorAll('.gzkapat').forEach(function (b) {
+    b.addEventListener('click', function () {
+      b.closest('.gezgin').hidden = true;
+      acik = null;
+    });
+  });
+})();
+</script>
 {% endblock %}

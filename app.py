@@ -2,11 +2,12 @@
 
 import contextvars
 import json
+import os
 import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -684,6 +685,88 @@ def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0):
         "kaydedildi": kaydedildi,
         "kullanici": request.state.kullanici,
     })
+
+
+# Klasör gezgini (v6.43, kullanıcının isteği: "göz at şeklinde olsa").
+#
+# Uzun bir yolu elle yazmak zor ve tek harf yanlışsa kamera kuyruğu sessizce
+# boş kalıyor. Ama tarayıcı sayfaya **gerçek dosya yolunu vermiyor**
+# (`<input type="file">` ile seçilen klasörün tam yolu gizli), yani işletim
+# sisteminin kendi "Klasör Seç" penceresi buradan açılamaz.
+#
+# Karşılığı sunucu tarafında gezinmek: program kendi çalıştığı makinenin
+# klasörlerini listeliyor, kullanıcı tıklayarak iniyor. Aranan klasör zaten
+# o makinede (mikroskop oraya yazıyor), telefonda değil.
+#
+# **Yalnızca klasör adları döner** — dosya adları değil, içerik hiç değil.
+# Tek sayı geri veriliyor: bulunulan klasördeki fotoğraf sayısı. Kamera
+# klasörünü bulmanın en kolay yolu o ("burada 37 fotoğraf var").
+
+# Fotoğraf sayısı `goruntuler.UZANTILAR` ile sayılıyor -- ikinci bir liste
+# yazsaydık kuyruğun aldığı dosyalarla gezginin saydığı dosyalar birbirinden
+# ayrı düşerdi ("37 fotoğraf var" diyen klasörde kuyrukta 34 kare çıkardı).
+EN_COK_KLASOR = 300          # devasa klasörde sayfa kilitlenmesin
+EN_COK_SAYIM = 2000          # fotoğraf sayarken bu kadarında dur
+
+
+def _surucu_kokleri():
+    """Windows'ta sürücü harfleri, ötekinde kök. Gezginin en üst basamağı."""
+    if os.name == "nt":
+        return [f"{h}:\\" for h in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                if os.path.isdir(f"{h}:\\")]
+    return ["/"]
+
+
+def _klasor_listesi(yol: Path):
+    """(alt klasörler, fotoğraf sayısı). İzin verilmeyen klasörde boş döner."""
+    alt, foto, tarandi = [], 0, 0
+    try:
+        with os.scandir(yol) as gz:
+            for g in gz:
+                try:
+                    if g.name.startswith("."):
+                        continue        # gizli klasörler gürültü yapıyor
+                    if g.is_dir():
+                        if len(alt) < EN_COK_KLASOR:
+                            alt.append(g.name)
+                    elif tarandi < EN_COK_SAYIM:
+                        tarandi += 1
+                        if (os.path.splitext(g.name)[1].lower()
+                                in goruntuler.UZANTILAR):
+                            foto += 1
+                except OSError:
+                    continue
+    except OSError:
+        return [], 0
+    alt.sort(key=str.lower)
+    return alt, foto
+
+
+@uygulama.get("/klasorler/gozat")
+def klasor_gozat(request: Request, yol: str = ""):
+    """Bir klasörün alt klasörleri. Yalnızca yönetici."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+
+    # Yol boşsa ya da okunamıyorsa makul bir yerden başla: önce kayıtlı
+    # kamera klasörü, o da yoksa kullanıcının ev klasörü.
+    ham = (yol or "").strip()
+    if ham == "*":                       # gezginin en üst basamağı
+        return JSONResponse({"yol": "", "ust": None, "kok": True,
+                             "klasorler": _surucu_kokleri(), "fotograf": 0})
+    try:
+        p = Path(ham).expanduser() if ham else Path.home()
+        p = p.resolve()
+    except (OSError, ValueError, RuntimeError):
+        p = Path.home()
+    if not p.is_dir():
+        p = Path.home()
+
+    alt, foto = _klasor_listesi(p)
+    ust = str(p.parent) if p.parent != p else None
+    return JSONResponse({"yol": str(p), "ust": ust, "kok": False,
+                         "klasorler": alt, "fotograf": foto})
 
 
 @uygulama.post("/klasorler")

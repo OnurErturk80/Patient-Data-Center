@@ -1293,6 +1293,18 @@ METINLER = {
               "it is not created, it is looked for when a backup runs."},
     "klasor_var": {"tr": "klasör bulundu", "en": "folder found"},
     "klasor_yok": {"tr": "klasör bulunamadı", "en": "folder not found"},
+    # Klasör gezgini (v6.43). Tarayıcı sayfaya gerçek yolu vermediği için
+    # gezilen klasörler **sunucunun** klasörleri.
+    "gozat": {"tr": "Gözat", "en": "Browse"},
+    "bu_klasoru_sec": {"tr": "Bu klasörü seç", "en": "Use this folder"},
+    "ust_klasor": {"tr": "Üst klasör", "en": "Parent folder"},
+    "en_ust": {"tr": "En üst", "en": "Top"},
+    "alt_klasor_yok": {"tr": "İçinde klasör yok.", "en": "No folders inside."},
+    "n_fotograf": {"tr": "Bu klasörde {n} fotoğraf var.",
+                   "en": "{n} photos in this folder."},
+    "klasor_okunamadi": {"tr": "Klasör okunamadı.",
+                         "en": "The folder could not be read."},
+    "yukleniyor": {"tr": "Yükleniyor…", "en": "Loading…"},
     "klasorleri_kaydet": {"tr": "Klasörleri kaydet", "en": "Save folders"},
     "klasor_kaydedildi": {"tr": "Klasörler kaydedildi.", "en": "Folders saved."},
     "klasor_hata_kamera": {

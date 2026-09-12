@@ -4547,3 +4547,67 @@ Cycle ekranı artık tek ekrana sığıyor.
   tam hizalı (fark 0 px)
 - Ana ekran, istatistikler ve hasta kayıtları etkilenmedi — ölçüleri aynı
 - 30 adres 200, sunucu günlüğünde hata yok
+
+---
+
+# v6.43 — klasör seçmek için gözat
+
+## Sorun
+
+v6.41'de klasör yolları ekrandan ayarlanabilir oldu ama **elle yazılıyordu**.
+Kullanıcı haklı olarak takıldı: `C:\Users\lab\Documents\Octax\Snapshot` gibi
+bir yolu yazmak zor ve bir harf yanlışsa kamera kuyruğu sessizce boş kalıyor —
+kimse sebebini bulamıyor.
+
+## Neden işletim sisteminin kendi penceresi açılmıyor
+
+İlk akla gelen "Klasör Seç" düğmesi. Olmuyor: tarayıcı, güvenlik gereği
+sayfaya **gerçek dosya yolunu vermiyor**. `<input type="file" webkitdirectory>`
+ile seçilen klasörün dosya adları geliyor ama tam yolu gelmiyor (`C:\fakepath`).
+Yani seçilen klasörün nerede olduğunu sunucuya söylemenin yolu yok.
+
+## Çözüm: sunucu tarafında gezinmek
+
+Program **kendi çalıştığı makinenin** klasörlerini listeliyor, kullanıcı
+tıklayarak iniyor. Aranan klasör zaten o makinede — mikroskop oraya yazıyor,
+telefona değil. Bu yüzden personel telefondan baksa bile doğru klasörleri
+görüyor.
+
+`GET /klasorler/gozat?yol=...` → `{yol, ust, kok, klasorler, fotograf}`.
+Ekranda her alanın altında bir **Gözat** düğmesi, açılınca o klasörün alt
+klasörleri, "En üst" ve "Üst klasör" satırları, altta "Bu klasörü seç".
+
+**Fotoğraf sayısı da dönüyor.** Kamera klasörünü bulmanın en kolay yolu bu:
+"Bu klasörde 37 fotoğraf var" yazıyorsa doğru yerdesin. Sayım
+`goruntuler.UZANTILAR` ile yapılıyor — ayrı bir uzantı listesi yazsaydık
+gezginin saydığı dosyalarla kuyruğun aldığı dosyalar ayrı düşerdi ve "37
+fotoğraf var" denen klasörde kuyrukta 34 kare çıkardı.
+
+## Sınırlar
+
+- **Yalnızca yönetici** (`yonetici_kontrol`). Yönetici olmayan hesapla
+  denendi: 303.
+- **Yalnızca klasör adları döner** — dosya adları değil, dosya içeriği hiç
+  değil. Tek sayı geri gidiyor (fotoğraf sayısı).
+- Yetki artışı değil: yönetici zaten istediği yolu **elle yazabiliyordu** ve
+  `/disari/tumu` ile bütün veritabanını dışarı alabiliyor. Gezgin yeni bir
+  kapı açmıyor, var olan alanı görünür kılıyor.
+- `EN_COK_KLASOR = 300` ve `EN_COK_SAYIM = 2000`: devasa bir klasörde sayfa
+  kilitlenmesin. Liste kendi içinde kayıyor (260 px), sayfayı uzatmıyor.
+- Okuma izni olmayan klasör (`/proc/1/root` gibi) sessizce ev klasörüne
+  düşüyor — hata sayfası yok, sızıntı yok.
+- Gizli klasörler (`.` ile başlayanlar) listelenmiyor; Mac'te ev klasörünü
+  okunmaz hale getiriyorlardı.
+- Windows'ta "En üst" sürücü harflerini veriyor (`C:\`, `D:\`, `E:\`),
+  ötekinde `/`.
+
+## Test edildi
+
+- Gözat → alt klasöre in → "Bu klasörü seç": yol alana yazıldı, gezgin kapandı
+- Fotoğraf sayısı doğru (7 dosyalı deneme klasöründe 7; `snapshot/`'ta 3 —
+  `.dng` sayılmıyor, program da onu kabul etmiyor)
+- 50 alt klasörlü bir yerde liste kendi içinde kaydı, sayfa uzamadı
+- Olmayan yol ve izinsiz klasör ev klasörüne düştü, hata vermedi
+- Yönetici olmayan hesap gezgine giremedi (303)
+- 390 px'te yatay taşma yok, JS hatası yok (tek 404 `favicon.ico`)
+- İki dilde metinler yerinde

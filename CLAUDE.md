@@ -619,6 +619,13 @@ oraya yalnızca bağlantı kondu — dil seçimindeki düzenin aynısı.
   başa geldi). Bu üçünü tek kurala indirgeme.
 - Hata anahtarları adresten geliyor, `KLASOR_HATALARI` beyaz listesinden
   geçiyor (tuzak #9).
+- **Gözat gezgini sunucunun klasörlerini geziyor** (v6.43). Tarayıcı sayfaya
+  gerçek dosya yolunu vermiyor (`C:\fakepath`), o yüzden işletim sisteminin
+  kendi "Klasör Seç" penceresi açılamıyor. `GET /klasorler/gozat` **yalnızca
+  yönetici**, **yalnızca klasör adları** döndürüyor — dosya adı ve içerik yok,
+  tek sayı fotoğraf sayısı. Bu üçünü gevşetme.
+- **Fotoğraf sayımı `goruntuler.UZANTILAR` ile.** İkinci bir uzantı listesi
+  yazma: gezginin saydığıyla kuyruğun aldığı ayrı düşer.
 
 **"Şifremi unuttum" hiçbir şey sıfırlamaz.** Sistemde e-posta/SMS yok, kimliği
 doğrulayacak ikinci kanal yok; doğrulamasız sıfırlama iç ağdaki herkese yönetici
