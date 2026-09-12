@@ -5730,3 +5730,93 @@ kapatıyor, zemin/kenarlık/renk zaten CSS'te veriliyordu.
   MII/MI/GV şeridi aynı kutu, aynı kenarlık, aynı yazı, aynı yükseklik.
 - 39 adres 200, sunucu günlüğünde hata yok, 390px'te yatay taşma yok.
 - Yalnızca `static/style.css` değişti. Deneme verisi geri alındı.
+
+
+---
+
+# v6.57 — aşama ekranları iki sütuna geçti
+
+Kullanıcının isteği: "büyük ekranlı bir monitörde çok fazla boş alan
+görünüyor". v6.52'de aşama ekranları **bilerek** dışarıda bırakılmıştı
+("kendi düzenleri var: şerit → fotoğraf → kart"). Bu sürüm o kararı gözden
+geçiriyor — düzen aynı kalıyor, yalnızca yan yana diziliyor.
+
+## Bölme: solda fotoğraf, sağda form
+
+Fotoğraflı dört ekranda (denüdasyon, fertilizasyon, gün 2/3, blastokist)
+sol sütun **fotoğraf + kare şeridi**, sağ sütun **bilgi kartı / form**.
+Gerekçe klinik: embriyoya bakarken puanı giriyorsun, aralarında aşağı yukarı
+kaydırmıyorsun.
+
+**Numara şeridi sütunların üstünde tam genişlikte** kaldı: o seçici, ekranın
+tamamına ait, bir sütuna ait değil.
+
+Androlojide fotoğraf yok; orada bölme **anlamla** yapıldı: solda örneğin
+kendisi (alınma + makroskopik), sağda iki mikroskobik analiz. `fotolu`
+sınıfı verilmedi, sütunlar eşit.
+
+Denüdasyonda üstteki iki işlem kartı da (denüdasyon saati | oosit ekleme)
+kendi satırında yan yana.
+
+## Fotoğraf küçülmesin diye ayrı bir ölçü
+
+Doğrudan `--genis-sutun` (940px) kullanılsaydı ikiye bölünen fotoğraf
+446px'e düşerdi — bugünkü 608'den **küçük**. Oysa "fotoğraflar aşama
+ekranlarında, tek tek ve **büyük** bakılacak yerde" (v6.20).
+
+`--genis-sutun-asama` 1240px'te duruyor. 1920px'lik bir monitörde:
+
+| ekran | boy önce | boy sonra |
+|---|---|---|
+| Androloji | 2940 | **2096** (−%29) |
+| Denüdasyon | 1856 | **1495** (−%19) |
+| Fertilizasyon | 1770 | **1376** (−%22) |
+| Gün 2/3 | 1788 | **1383** (−%23) |
+| Blastokist | 1964 | **1560** (−%21) |
+
+Fotoğraf 608 → **646px**: sayfa kısaldı *ve* fotoğraf büyüdü.
+
+Sol sütun sağdan geniş (`flex-basis` 460 / 360): fotoğraf tarafı büyük
+kalsın, form tarafı v6.52'nin "alan genişledikçe etiketle değer birbirinden
+uzaklaşır" sınırında kalsın diye.
+
+**1240'ta durmasının sebebi** formun kendisi: daha genişi form sütununu da
+şişirir. Yan menü payı (`100vw - 500px`) burada da var — bu ekranların menüsü
+**var**, o yüzden `yanmenusuz` değil yeni `asama` sınıfı.
+
+## 1440px'te bir ödünleşme var
+
+Orada sütun en fazla 940 olabiliyor (yan menüye çarpmasın diye), ikiye
+bölününce fotoğraf 608 → **496px** düşüyor. Sayfa yine ~%20 kısalıyor ama
+fotoğraf küçülüyor. Kullanıcıya soruldu; 1920'de kazanç net, 1440'ta tercih
+meselesi.
+
+1280px ve altında sütunlar kendiliğinden alt alta diziliyor (taban
+genişliklerin toplamı sığmıyor) — ama sayfa artık `genis` olduğu için orada
+da fotoğraf **748px**, yani eskisinden büyük.
+
+## Tam genişlik kartları şişiriyordu
+
+Denüdasyonun üstündeki "Denüdasyon zamanı" kartı 1206px'e yayılınca
+**1178px'lik bir "Düzenle" düğmesi** çıkıyordu. Düzeltildi: o iki kart kendi
+`.sutunlar` satırında. Bilgi kipinde oosit ekleme kartı yok — tek kalan sütun
+tam genişliğe yayılmasın diye `.sutunlar.ustblok > .sutun:only-child`
+620px'te sınırlı. Kural **`.ustblok` ile sınırlı**: `/cryo` gibi tek sütunun
+genişlemesi *gereken* yerler etkilenmesin (v6.52).
+
+Sonuç: en geniş düğme 1178 → **590px**.
+
+## Test edildi
+
+- **Telefonda sıra bire bir aynı**: beş ekranda 138 başlık/etiket/düğmenin
+  görsel sırası önce ve sonra karşılaştırıldı, beşi de birebir eşleşti.
+  Bölme noktaları kaynak sırasında (v6.42 kuralı).
+- 2560 / 1920 / 1600 / 1440 / 1280 / 1100 / 900 / 700 / 390px: yan menü
+  çakışması yok, yatay taşma yok, kimlik bandı kart sütunuyla hizalı.
+- 40 adres 200, sunucu günlüğünde hata yok. Deneme verisi geri alındı.
+
+> Ölçerken görülen, bu sürümün dışında bir şey: **1100px altında kimlik
+> bandının hizası zaten kayık** (700px'te −14px, 900px'te dokunulmamış
+> ICSI/OPU'da −114px). Band hizası kuralı `@media (min-width: 1100px)`
+> içinde, altında yalnızca 16px dolgu var. Eskiden beri böyle; dönüştürülen
+> ekranlar 900px'te aksine düzeldi. Kullanıcıya bildirildi.

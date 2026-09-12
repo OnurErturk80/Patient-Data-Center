@@ -7,6 +7,10 @@
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
 {% import "_bilgikart.html" as bk %}
+{# Genis ekranda fotograf ve form yan yana (v6.57). Yan menusu VAR,
+   o yuzden `yanmenusuz` degil `asama`; band da onunla hizalaniyor. #}
+{% block kapsinif %} genis asama{% endblock %}
+{% block govde %}genissayfa asamasayfa{% endblock %}
 {% block ustbaslik %}{{ metin("blastokist_gun_n").format(n=gun) }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -52,6 +56,11 @@
 <div class="uyari">{{ metin("fert_kontrolunde_npn").format(n=sp.pn) }}</div>
 {% endif %}
 
+{# Solda fotograf, sagda form. Bolme noktasi kaynak sirasinda:
+   telefonda sutunlar alt alta dizilince sira bire bir ayni kaliyor. #}
+<div class="sutunlar fotolu">
+<div class="sutun">
+
 {{ snap.blok(sp, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no, bekleyen) }}
 
 {% if sp.goruntu %}
@@ -70,6 +79,9 @@
           ~ '&asama=gun' ~ gun ~ '&geri=/cycle/' ~ c.id ~ '/blast%3Fgun%3D' ~ gun
           ~ '%26oosit%3D' ~ sp.cycle_sira_no) }}
 {% endif %}
+
+</div>{# sutun #}
+<div class="sutun">
 
 {% set geri_yol = '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no %}
 {% if kayit and not duzenle %}
@@ -198,6 +210,9 @@
    href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
 {% endif %}
 {% endif %}
+
+</div>{# sutun #}
+</div>{# sutunlar #}
 
 {% endif %}
 

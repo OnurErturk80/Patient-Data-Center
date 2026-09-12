@@ -256,6 +256,22 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   `{% if gomulu %}`'nin içine düştü; gömülü form olmayan kurulumda (ticari
   dağıtım, v6.41) `</div>` hiç basılmayacaktı. Sütun sınırı her zaman
   basılan bir yerde olmalı.
+- **Aşama ekranları da iki sütun** (v6.57): solda fotoğraf + kare şeridi,
+  sağda bilgi kartı / form — embriyoya bakarken puan giriliyor. Numara şeridi
+  sütunların **üstünde** tam genişlikte kalır (seçici, ekranın tamamına ait).
+  Androlojide fotoğraf yok, bölme anlamla: solda örnek + makroskopik, sağda
+  iki analiz (`fotolu` sınıfı verilmez).
+  - **Ayrı ve daha geniş ölçü**: `--genis-sutun-asama` (1240px). 940 olsaydı
+    fotoğraf 446px'e düşerdi — bugünkünden küçük, oysa "fotoğraflar büyük
+    bakılacak yerde" (v6.20). 1240'ta durur: daha genişi form sütununu şişirir.
+  - Sınıf `genis asama` (+ `govde genissayfa asamasayfa`). **`yanmenusuz`
+    değil** — bu ekranların yan menüsü var.
+  - Sol sütun sağdan geniş (`.sutunlar.fotolu`, taban 460/360).
+  - **Tam genişlik kartı şişirir**: denüdasyonun üst kartı 1206px'e yayılınca
+    1178px'lik bir "Düzenle" düğmesi çıkıyordu. O iki kart kendi satırında;
+    tek kalan sütun `.sutunlar.ustblok > .sutun:only-child` ile 620px'te
+    sınırlı. Kural **`.ustblok` ile sınırlı** — `/cryo` gibi tek sütunun
+    genişlemesi gereken yerleri bozma.
 - **Kimlik bandı + geniş + yan menüsüz üçlüsü ayrı ölçü ister**
   (`--genis-sutun-menusuz`, v6.52). Şablon ikisini birlikte verir:
   `{% block kapsinif %} genis yanmenusuz{% endblock %}` **ve**

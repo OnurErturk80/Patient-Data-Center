@@ -7,6 +7,10 @@
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
 {% import "_bilgikart.html" as bk %}
+{# Genis ekranda fotograf ve form yan yana (v6.57). Yan menusu VAR,
+   o yuzden `yanmenusuz` degil `asama`; band da onunla hizalaniyor. #}
+{% block kapsinif %} genis asama{% endblock %}
+{% block govde %}genissayfa asamasayfa{% endblock %}
 {% block ustbaslik %}{{ metin("fertilizasyon_kontrolu") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -54,6 +58,11 @@
 </div>
 {% endif %}
 
+{# Solda fotograf, sagda form. Bolme noktasi kaynak sirasinda:
+   telefonda sutunlar alt alta dizilince sira bire bir ayni kaliyor. #}
+<div class="sutunlar fotolu">
+<div class="sutun">
+
 {{ snap.blok(sp, 'fertilizasyon_kontrolu', '/cycle/' ~ c.id ~ '/fert?oosit=' ~ sp.cycle_sira_no, bekleyen) }}
 
 {% if sp.son_goruntu %}
@@ -72,6 +81,9 @@
           ~ '&asama=fertilizasyon_kontrolu&geri=/cycle/' ~ c.id
           ~ '/fert%3Foosit%3D' ~ sp.cycle_sira_no) }}
 {% endif %}
+
+</div>{# sutun #}
+<div class="sutun">
 
 {% set geri_yol = '/cycle/' ~ c.id ~ '/fert?oosit=' ~ sp.cycle_sira_no %}
 {% if kayit and not duzenle %}
@@ -202,6 +214,9 @@
    href="/specimen/{{ sp.id }}/fert-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
 {% endif %}
 {% endif %}
+
+</div>{# sutun #}
+</div>{# sutunlar #}
 
 {% endif %}
 

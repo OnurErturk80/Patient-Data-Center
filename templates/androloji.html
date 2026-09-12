@@ -4,6 +4,11 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_bilgikart.html" as bk %}
+{# Genis ekranda dort bolum iki sutuna ayriliyor (v6.57): solda ornegin
+   kendisi (alinma + makroskopik), sagda iki mikroskobik analiz. Fotograf
+   yok, o yuzden `fotolu` degil -- sutunlar esit. Yan menusu VAR. #}
+{% block kapsinif %} genis asama{% endblock %}
+{% block govde %}genissayfa asamasayfa{% endblock %}
 {% block ustbaslik %}{{ metin("asama_androloji") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -71,6 +76,9 @@
                  ~ ('&ornek=' ~ secili.id if secili else '') %}
 {% if kayit_var and not duzenle %}
 {# --- kaydedilmis: bolum bolum bilgi kartlari, en altta tek Duzenle --- #}
+<div class="sutunlar">
+<div class="sutun">
+
 {{ bk.kart(metin("ornek_bilgisi"),
      [
        (metin("alinma_zamani"), secili.alinma_zamani),
@@ -89,6 +97,9 @@
        (metin("gorunum_renk"), liste_etiket('sperm_gorunum', secili.renk)),
        (metin("viskozite"), liste_etiket('viskozite', secili.viskozite)),
      ]) }}
+
+</div>{# sutun #}
+<div class="sutun">
 
 {{ bk.kart(metin("bazal_analiz"),
      [
@@ -120,11 +131,17 @@
        (metin("hazirlik_sonrasi_not"), sonrasi.notlar if sonrasi else None),
      ]) }}
 
+</div>{# sutun #}
+</div>{# sutunlar #}
+
 <a class="dugme" href="{{ duz_yol }}">{{ metin("duzenle_kaydi") }}</a>
 
 {% else %}
 <form method="post" action="/cycle/{{ c.id }}/androloji">
   <input type="hidden" name="ornek_id" value="{{ secili.id if secili else '' }}">
+
+  <div class="sutunlar">
+  <div class="sutun">
 
   <div class="kart">
     <h2>{{ metin("ornek_bilgisi") }}</h2>
@@ -160,6 +177,9 @@
       {{ sec('viskozite', metin('viskozite'), viskoziteler, secili, 'viskozite') }}
     </div>
   </div>
+
+  </div>{# sutun #}
+  <div class="sutun">
 
   <div class="kart">
     <h2>{{ metin("bazal_analiz") }}</h2>
@@ -218,6 +238,9 @@
       <textarea id="sonrasi_notlar" name="sonrasi_notlar" rows="2">{{ sonrasi.notlar if sonrasi and sonrasi.notlar else '' }}</textarea>
     </div>
   </div>
+
+  </div>{# sutun #}
+  </div>{# sutunlar #}
 
   <button class="dugme" type="submit">{{ metin("kaydet") }}</button>
 </form>
