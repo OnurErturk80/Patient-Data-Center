@@ -1308,8 +1308,30 @@ METINLER = {
     # İşletim sisteminin kendi penceresi + arama (v6.44). Tarayıcı seçilen
     # klasörün yerini vermediği için program onu bu makinede arıyor.
     # Telefonun ana ekranına ekleme + karekod (v6.45).
-    "kisa_ad": {"tr": "Lab Kayıt", "en": "Lab Record"},
+    # Ana ekrandaki simgenin altında yazan ad (kullanıcının isteği: tam ad).
+    # Telefon uzun adı kısaltıp "..." koyuyor; kısaltma istenirse buradan.
+    "kisa_ad": {"tr": "Patient Data Center", "en": "Patient Data Center"},
     "baglan": {"tr": "Telefona ekle", "en": "Add to a phone"},
+    "ekle_baslik": {"tr": "Ana ekrana ekle", "en": "Add to home screen"},
+    "ekle_giris": {
+        "tr": "Programı telefonunuzun ana ekranına ekleyin — sonra tek "
+              "dokunuşla açılır, her seferinde adres yazmanız gerekmez.",
+        "en": "Add the program to your phone's home screen — then it opens "
+              "with one tap and you never type the address again."},
+    "ekle_dugme": {"tr": "Ana ekrana ekle", "en": "Add to home screen"},
+    "ekle_eklendi": {"tr": "Eklendi. Ana ekranınıza bakın.",
+                     "en": "Added. Look at your home screen."},
+    "ekle_programa_git": {"tr": "Şimdilik programa gir",
+                          "en": "Just open the program"},
+    "ekle_zaten": {
+        "tr": "Program zaten ana ekrandan açıldı — eklemeye gerek yok.",
+        "en": "The program was opened from the home screen already — nothing "
+              "to add."},
+    "ekle_masaustu": {
+        "tr": "Bu sayfa telefon içindir. Bilgisayarda programı yer imlerine "
+              "ekleyebilirsiniz.",
+        "en": "This page is for phones. On a computer you can bookmark the "
+              "program instead."},
     "baglan_adres": {"tr": "Programın adresi", "en": "The program's address"},
     "baglan_makine": {"tr": "Bu bilgisayarın adı:", "en": "This computer's name:"},
     "baglan_ipucu": {

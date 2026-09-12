@@ -28,7 +28,7 @@ uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
 ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre",
-                "/manifest.json"}
+                "/manifest.json", "/ekle"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
 TIP_KODLARI = ("ivf_icsi", "fet", "oosit_cryo", "taze")   # taze: eski kod
@@ -681,6 +681,22 @@ def _baglanti_adresi(request: Request):
     return f"http://{ana}:{port}" if port != 80 else f"http://{ana}"
 
 
+@uygulama.get("/ekle")
+def ekle_ekrani(request: Request):
+    """Karekodu okutan kişinin telefonunda açılan yönerge.
+
+    **Giriş gerektirmiyor** (`ACIK_YOLLAR`): kişi henüz hesabını açmadı,
+    zaten ekranda yalnızca "ana ekrana nasıl eklenir" yazıyor -- hasta
+    verisi yok.
+
+    Bir web sayfası kendini ana ekrana **ekleyemez**: iOS'ta böyle bir API
+    hiç yok, Android'de `beforeinstallprompt` var ama güvenli bağlantı
+    (HTTPS) ve service worker istiyor. Yapılabilecek en yakın şey bu:
+    okutan kişi doğrudan yönergeye düşsün, giriş ekranına değil.
+    """
+    return sablon.TemplateResponse(request, "ekle.html", {})
+
+
 @uygulama.get("/baglan")
 def baglan_ekrani(request: Request):
     """Karekod + "ana ekrana ekle" yönergesi. Duvara asmak için yazdırılabilir."""
@@ -688,8 +704,10 @@ def baglan_ekrani(request: Request):
     if red:
         return red
     adres = _baglanti_adresi(request)
+    # Karekod **yönergeye** açılıyor, giriş ekranına değil (v6.47): okutan
+    # kişi telefonda tek başına kalıyor, elindeki kâğıda bakamıyor.
     try:
-        kare = karekod.svg(adres, kutu=6)
+        kare = karekod.svg(adres + "/ekle", kutu=6)
     except karekod.Hata:
         kare = ""
     return sablon.TemplateResponse(request, "baglan.html", {

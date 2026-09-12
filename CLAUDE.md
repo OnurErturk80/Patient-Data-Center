@@ -685,6 +685,16 @@ ekranı karekod + adım adım yönerge veriyor, yazdırılıp laboratuvara asıl
 - Adres seçimi: yöneticinin kullandığı adres varsa o, yoksa `_yerel_ip()`.
   O da UDP soketiyle **paket göndermeden** buluyor; `gethostbyname` çoğu
   makinede 127.0.0.1 döndürüyor.
+- **Karekod `/ekle` yönergesine açılır, giriş ekranına değil** (v6.47).
+  Okutan kişi telefonda tek başına; giriş ekranına düşerse ne yapacağını
+  bilemez. `/ekle` **`ACIK_YOLLAR`'da** (hesabı yok, ekranda hasta verisi de
+  yok) ve telefona göre kendi adımlarını gösteriyor.
+- **Bir web sayfası kendini ana ekrana ekleyemez.** iOS'ta API yok;
+  Android'de `beforeinstallprompt` var ama HTTPS + service worker istiyor.
+  Kod hazır duruyor, HTTPS gelince kendiliğinden çalışacak. "Otomatik ekle"
+  sözü verme.
+- Simgenin altındaki ad `kisa_ad` (kullanıcının kararı: tam ad,
+  "Patient Data Center"). Hem manifest `short_name` hem iOS başlığı oradan.
 
 **"Şifremi unuttum" hiçbir şey sıfırlamaz.** Sistemde e-posta/SMS yok, kimliği
 doğrulayacak ikinci kanal yok; doğrulamasız sıfırlama iç ağdaki herkese yönetici

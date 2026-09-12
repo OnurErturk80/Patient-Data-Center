@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block baslik %}{{ metin("ekle_baslik") }}{% endblock %}
+{% block ustbaslik %}{{ metin("ekle_baslik") }}{% endblock %}
+{% block icerik %}
+
+{# Karekodu okutan kisinin telefonunda acilan sayfa. Giris istemiyor:
+   kisi henuz hesabini acmadi ve ekranda yalnizca yonerge var.
+
+   Bir web sayfasi kendini ana ekrana EKLEYEMEZ -- iOS'ta API yok,
+   Android'de HTTPS + service worker istiyor. Yapilabilecek en yakin sey:
+   okutan kisi dogrudan buraya dussun, giris ekranina degil. #}
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("ekle_giris") }}</div>
+  </div>
+</div>
+
+{# Android: tarayici kurulum istemi verirse gercek bir dugme cikariyoruz.
+   HTTPS gelene kadar bu olay tetiklenmiyor, o yuzden varsayilan gizli. #}
+<div id="kur" hidden>
+  <a class="dugme" href="#" id="kurdugme">{{ metin("ekle_dugme") }}</a>
+</div>
+<div class="uyari" id="tamam" hidden>{{ metin("ekle_eklendi") }}</div>
+<div class="uyari" id="zaten" hidden>{{ metin("ekle_zaten") }}</div>
+
+<div class="kart" id="kios" style="margin-top:12px" hidden>
+  <h2>{{ metin("baglan_ios") }}</h2>
+  <div class="alan" style="border:0">
+    <ol class="adimlar">
+      <li>{{ metin("baglan_ios_2") }}</li>
+      <li>{{ metin("baglan_ios_3") }}</li>
+      <li>{{ metin("baglan_ios_4") }}</li>
+    </ol>
+  </div>
+</div>
+
+<div class="kart" id="kandroid" style="margin-top:12px" hidden>
+  <h2>{{ metin("baglan_android") }}</h2>
+  <div class="alan" style="border:0">
+    <ol class="adimlar">
+      <li>{{ metin("baglan_android_2") }}</li>
+      <li>{{ metin("baglan_android_3") }}</li>
+    </ol>
+  </div>
+</div>
+
+<div class="kart" id="kmasaustu" style="margin-top:12px" hidden>
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("ekle_masaustu") }}</div>
+  </div>
+</div>
+
+<a class="dugme ikincil" href="/" style="margin-top:14px">
+  {{ metin("ekle_programa_git") }}</a>
+
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  var ios = /iPad|iPhone|iPod/.test(ua) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var android = /Android/.test(ua);
+
+  // Zaten ana ekrandan acildiysa yonergeye gerek yok.
+  var icerde = window.matchMedia('(display-mode: standalone)').matches ||
+               navigator.standalone === true;
+  if (icerde) {
+    document.getElementById('zaten').hidden = false;
+    return;
+  }
+
+  if (ios) document.getElementById('kios').hidden = false;
+  else if (android) document.getElementById('kandroid').hidden = false;
+  else document.getElementById('kmasaustu').hidden = false;
+
+  // Android'de tarayici izin verirse gercek kurulum istemi.
+  var istem = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    istem = e;
+    document.getElementById('kur').hidden = false;
+    var k = document.getElementById('kandroid');
+    if (k) k.hidden = true;                 // dugme varken adim listesi gereksiz
+  });
+  document.getElementById('kurdugme').addEventListener('click', function (e) {
+    e.preventDefault();
+    if (!istem) return;
+    istem.prompt();
+    istem.userChoice.then(function (s) {
+      istem = null;
+      document.getElementById('kur').hidden = true;
+      if (s && s.outcome === 'accepted') {
+        document.getElementById('tamam').hidden = false;
+      } else {
+        var k = document.getElementById('kandroid');
+        if (k) k.hidden = false;
+      }
+    });
+  });
+  window.addEventListener('appinstalled', function () {
+    document.getElementById('kur').hidden = true;
+    document.getElementById('tamam').hidden = false;
+  });
+})();
+</script>
+{% endblock %}

@@ -4868,3 +4868,51 @@ Paketlenmiş kurulum `LAB_VERI` ile taklit edildi:
 3. **Mac paketi** (`.app` + `.dmg`) — kullanıcının evdeki makinesi için.
 4. İmzalama: Windows SmartScreen ve Mac Gatekeeper uyarıları. Kendi kliniğin
    için gerekmez, satarken gerekir.
+
+---
+
+# v6.47 — karekod doğrudan yönergeye açılıyor, simgenin adı tam ad
+
+## "Okutunca direkt eklensin"
+
+Kullanıcının isteği. Bunu tam olarak yapmak **mümkün değil**: bir web sayfası
+kendini ana ekrana ekleyemiyor. iOS'ta böyle bir API hiç yok — "Ana Ekrana
+Ekle" yalnızca kullanıcının paylaşma menüsünden yapabileceği bir iş.
+Android'de `beforeinstallprompt` var ama **güvenli bağlantı (HTTPS) ve
+service worker** istiyor; ikisi de bizde yok (bekleyen iş 3).
+
+Yapılabilecek en yakın şey yapıldı: karekod artık programın **giriş ekranına
+değil, ekleme yönergesine** açılıyor (`/ekle`).
+
+Önceden okutan kişi giriş ekranına düşüyordu ve "şimdi ne yapacağım" sorusunun
+cevabı yöneticinin elindeki kâğıtta kalıyordu. Şimdi telefonunda **kendi
+telefonuna göre** üç adım görüyor: iPhone'a iPhone adımları, Android'e Android
+adımları, bilgisayara "bu sayfa telefon içindir" notu.
+
+Üç ayrıntı:
+
+- **Giriş gerektirmiyor** (`ACIK_YOLLAR`). Okutan kişinin henüz hesabı yok;
+  ekranda da yalnızca yönerge var, hasta verisi yok.
+- Program **zaten ana ekrandan açıldıysa** (`display-mode: standalone`)
+  yönerge basılmıyor, "eklemeye gerek yok" yazıyor.
+- Android kurulum istemi verirse **gerçek bir "Ana ekrana ekle" düğmesi**
+  çıkıyor ve adım listesi gizleniyor. Bugün tetiklenmiyor (HTTPS yok), ama
+  HTTPS geldiğinde kod hazır — o gün tek dokunuşla eklenecek.
+
+## Simgenin altındaki ad
+
+"Lab Kayıt" yazıyordu; kullanıcı **Patient Data Center** istedi. `kisa_ad`
+değişti, hem manifest'in `short_name`'i hem iOS'un
+`apple-mobile-web-app-title`'ı oradan geliyor.
+
+Telefon uzun adı kısaltıp "..." koyabilir — simgenin altında yaklaşık 12
+karakter sığıyor. Kısaltılmış bir ad istenirse tek yerden değişiyor.
+
+## Test edildi
+
+- `/ekle` oturumsuz 200 veriyor
+- iPhone, Android ve masaüstü kimliğiyle açıldı; üçünde de **yalnızca kendi
+  kartı** görünüyor, JS hatası yok
+- Karekod artık `http://<adres>/ekle` taşıyor
+- Manifest ve iOS başlığı "Patient Data Center"
+- 12 adres 200, iki dilde metinler yerinde
