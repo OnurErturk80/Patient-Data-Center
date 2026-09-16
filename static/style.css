@@ -30,7 +30,18 @@
 
 * { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Tarayiciya "bu sayfa koyu" de (v6.74). Bunsuz tarayici hala "acik" sanip
+     kendi cizdigi ogeleri (select acilir listesi, tarih/saat secici,
+     kaydirma cubugu) kendi ACIK renkleriyle basiyordu -- bizim CSS'imiz
+     `<select>`'in KAPALI kutusuna acik renk yazi veriyordu ama acilan liste
+     tarayicinin varsayilan BEYAZ zeminini kullaniyordu: beyaz zeminde beyaza
+     yakin yazi, okunmuyordu. `prefers-color-scheme` ile otomatik koyuyken
+     (v6.71) tarayici bunu zaten biliyordu; v6.72'de tek temaya gecince bu
+     satir unutulmustu. */
+  color-scheme: dark;
+}
 
 body {
   margin: 0;
@@ -602,7 +613,7 @@ form { margin: 0; }
   font-size: 11px; line-height: 1; padding: 3px 6px; border-radius: 3px;
   font-weight: 600;
 }
-.hucre .kk.bos .tarafr { background: var(--ink-2); }
+.hucre .kk.bos .tarafr { background: #3d4f63; }
 .hucre .kk .kare {
   position: absolute; right: 4px; bottom: 4px;
   background: rgba(13,20,25,.82); color: #fff;
@@ -740,7 +751,13 @@ body.kilitli { overflow: hidden; }
 /* Rozetin ortak bicimi. Onceden yalnizca `.kimlik` ve `.bilgikart` icinde
    tanimliydi; liste satirlarindaki `.rozet.arsiv` yalin metin gibi cikiyor,
    koyu zemine koyu yazi biniyordu (v6.28'de goruldu). Ozel yerlerin kendi
-   kurallari daha ozgul, bu taban onlari bozmuyor. */
+   kurallari daha ozgul, bu taban onlari bozmuyor.
+
+   Zemin sabit koyu gri-lacivert (v6.74) -- `var(--ink-2)` DEGIL: o artik
+   metin icin acik bir renk (koyu tema), zemin olarak kullanilinca uzerindeki
+   beyaz yazi (Iptal/Arsiv/Tamamlandi rozetleri -- hemen her liste ekraninda)
+   neredeyse okunmuyordu. Kullanicinin "bazi yazilar okunmuyor" bildirdigi
+   sey buydu. */
 .rozet {
   display: inline-block;
   border-radius: 3px;
@@ -748,10 +765,10 @@ body.kilitli { overflow: hidden; }
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  background: var(--ink-2);
+  background: #3d4f63;
   vertical-align: 2px;
 }
-.rozet.arsiv { background: var(--ink-2); font-size: 11px; }
+.rozet.arsiv { background: #3d4f63; font-size: 11px; }
 
 
 .hucre .kk.bos {
@@ -1147,7 +1164,7 @@ body.kilitli { overflow: hidden; }
 }
 .hucre .alt .tar, .onum b .tar {
   display: inline-block; margin-left: 3px; font-size: 10px; font-weight: 700;
-  color: #fff; background: var(--ink-2); border-radius: 3px; padding: 1px 3px;
+  color: #fff; background: #3d4f63; border-radius: 3px; padding: 1px 3px;
   vertical-align: 1px;
 }
 .say .hed .tarafet {

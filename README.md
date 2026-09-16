@@ -6745,3 +6745,45 @@ olsun. Açık tema tamamen kaldırıldı.
 Kullanıcının isteği: amblem biraz daha büyük olsun. `.ust .amblem`
 24px → 32px (`base.html`'deki `.marka` sarmalayıcısı zaten `align-items:
 center` ile hizalıyor, tek satır değişti).
+
+# v6.74 — koyu temada bazı yazılar okunmuyordu (rozet zemini + native kontroller)
+
+Kullanıcı: "Arayüzde bazı yazılar okunmuyor." İki ayrı sebep bulundu.
+
+## 1. Genel `.rozet` zemini artık açık renkti
+
+`.rozet` (İptal/Arşiv/Tamamlandı etiketleri — hemen her liste ekranında:
+hasta kartı, cycle listeleri, bitenler) zemin olarak `var(--ink-2)`
+kullanıyordu. v6.72'de `--ink-2` **metin** rengi olarak açık bir tona
+çevrilmişti (koyu tema); zemin olarak kullanılan yerlerde beyaz yazının
+üstüne binince neredeyse okunmuyordu. Aynı hata üç yerde daha bulundu
+(`.hucre .kk.bos .tarafr`, `.hucre .alt .tar` / `.onum b .tar` — taraf
+etiketleri). Hepsi sabit koyu bir gri-lacivert (`#3d4f63`) aldı — bunlar
+"durum" rengi taşımıyor (yeşil/kırmızı/turuncu gibi), nötr bir zemin yeterli.
+- **Ders**: `--ink-2`/`--ink-3` artık yalnızca **metin** için güvenli;
+  zemin/kenarlık olarak kullanılacaksa sabit bir renk seç. v6.72'nin
+  taramasında bu ikisi (arka plan olarak `--ink-2`) atlanmıştı çünkü arama
+  yalnızca eskiden-açık-temaya-özel sabit hex renkleri hedefliyordu, CSS
+  değişkeni kullanan ama *anlamı tersine dönen* bu satırları yakalamadı.
+
+## 2. Tarayıcının kendi çizdiği kontroller hâlâ "açık" sanıyordu
+
+`<select>` açılır listesi, tarih/saat seçici gibi öğeleri tarayıcı kendisi
+çiziyor. Sayfa CSS'i onlara doğrudan renk veremez; tarayıcı yalnızca sayfanın
+**`color-scheme`**'ine bakıp kendi açık ya da koyu setini seçiyor. v6.71'de
+`prefers-color-scheme` ile otomatik koyuyken tarayıcı bunu zaten biliyordu;
+v6.72'de tek/kalıcı temaya geçilince bu sinyal hiç verilmedi — tarayıcı hâlâ
+"açık" sanıp `<select>`'in açılan listesini kendi açık renkleriyle çiziyordu,
+bizim CSS'imiz yalnızca **kapalı** kutuya açık renk yazı vermişti (dark tema
+metni) → bazı tarayıcılarda okunmuyordu. `html { color-scheme: dark; }`
+eklendi — artık tarayıcı kendi çizdiği her şeyi (açılır liste, tarih/saat
+seçici, kaydırma çubuğu) koyu setiyle çiziyor.
+
+## Test edildi
+
+- Bir cycle'ı "Tamamlandı" durumuna alıp `/hasta/{id}` ekranında rozeti
+  ekran görüntüsüyle kontrol ettim — önce (aynı hex ile canlandırılan) düşük
+  kontrast doğrulandı, düzeltmeden sonra net okunuyor.
+- `getComputedStyle(document.documentElement).colorScheme` ile `dark`
+  döndüğü doğrulandı.
+- Deneme verisi (cycle durumu) geri alındı, `PRAGMA foreign_key_check` temiz.

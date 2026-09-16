@@ -735,6 +735,23 @@ yok.
 - **Resmî form ekranı (`/form/...`) dışarıda** — kâğıt aslı hep beyaz
   basılacak, `.kagit` sınıfı sabit `#fff`/`#000` kullanıyor, koyu temadan
   etkilenmiyor. Yeni bir yazdırma ekranı yazarsan aynı şekilde sabit tut.
+- **`--ink-2` / `--ink-3` yalnızca METİN için güvenli, zemin/kenarlık için
+  değil** (v6.74). İkisi de koyu temada açık renk (ikincil/üçüncül metin).
+  `.rozet` (İptal/Arşiv/Tamamlandı etiketi) zemini `var(--ink-2)`
+  kullanıyordu — v6.72'de bu satır atlandı çünkü tarama yalnızca eskiden
+  sabit-hex-yazılmış renkleri arıyordu, *anlamı temayla tersine dönen* bir
+  değişken kullanımını yakalamadı. Sonuç: beyaz yazı artık açık gri zemine
+  biniyordu, neredeyse okunmuyordu (kullanıcı "bazı yazılar okunmuyor" dedi).
+  Zemin/kenarlık olarak `--ink-2`/`--ink-3` kullanan yeni bir satır yazma —
+  gerekiyorsa sabit bir koyu ton seç (`.rozet` `#3d4f63` kullanıyor).
+- **`html { color-scheme: dark; }` şart** (v6.74). Tarayıcının kendi çizdiği
+  kontroller (`<select>` açılır listesi, tarih/saat seçici, kaydırma çubuğu)
+  CSS'ten değil, sayfanın `color-scheme`'inden renk alıyor. `prefers-color-
+  scheme` ile otomatikken (v6.71) tarayıcı zaten biliyordu; v6.72'de tek
+  temaya geçilince bu satır unutulmuş, tarayıcı hâlâ "açık" sanıp `<select>`
+  listesini kendi açık renkleriyle çiziyordu — bizim CSS'imiz yalnızca
+  kapalı kutuya koyu-tema yazı rengi vermişti, bazı tarayıcılarda liste
+  okunmuyordu. Bu satırı kaldırma.
 
 **Ekran kendini tazeler** (v6.54). Klinikte birkaç telefon aynı anda kayıt
 giriyor; masaüstünde açık duran sayfa elle yenilenene kadar eski kalıyordu.
