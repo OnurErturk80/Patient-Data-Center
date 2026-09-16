@@ -140,7 +140,7 @@
   <h2><span>{{ metin("bitis_" ~ c.bitis_sebebi) if c.bitis_sebebi else metin("tamamlandi_rozet") }}
     <span class="rozet">{{ metin("iptal_rozet") if c.durum == "iptal" else metin("tamamlandi_rozet") }}</span></span></h2>
   {% if c.bitis_zamani %}
-  <div class="ipucu" style="padding:10px 14px">{{ say("bitirildi_n", c.bitis_zamani[:10]) }}</div>
+  <div class="ipucu" style="padding:10px 14px">{{ say("bitirildi_n", gg_aa_yyyy(c.bitis_zamani)) }}</div>
   {% endif %}
   <div class="alan" style="border:0">
     {# Düzenle: sebebi ve saati değiştirir, cycle listeye DÖNMEZ.

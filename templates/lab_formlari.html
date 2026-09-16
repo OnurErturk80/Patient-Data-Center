@@ -98,7 +98,7 @@
         {% endif %}
       </div>
       <div style="font-size:13px;white-space:nowrap">
-        {{ (f.olusturma_zamani or "")[:10] }}</div>
+        {{ gg_aa_yyyy(f.olusturma_zamani) }}</div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <form method="post" action="/formlar/{{ f.id }}/gizle">

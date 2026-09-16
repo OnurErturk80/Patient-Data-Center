@@ -19,17 +19,19 @@
 {# Hastayı bulmanın kısayolu — sonuç hasta kayıtları ekranındaki Tüm
    Hastalar/arama sütununda açılıyor (v6.65), ayrı bir arama mantığı
    yazılmadı. #}
-<form class="arama" method="get" action="/hastalar" style="margin-top:8px">
+<form class="arama kucuk" method="get" action="/hastalar" style="margin-top:8px">
   <input type="search" name="ara" placeholder="{{ metin('ara_ipucu') }}"
          inputmode="search" autocomplete="off">
 </form>
 
-{# Yapilacaklar ve Bugun bitenler YAN YANA, Yaklasanlar altlarinda
-   (v6.34, kullanicinin istegi). Yan yana durmalari icin ekranin genis
-   olmasi gerekiyor: `.ikisutun` 720px altinda alt alta diziyor, cunku
-   telefonda iki sutun okunmuyor. Alt alta duserken sira yine ayni:
-   Yapilacaklar -> Bugun bitenler -> Yaklasanlar. #}
-<div class="ikisutun">
+{# Devam Eden Tedaviler, Bugun Biten Tedaviler ve Yaklasan Tedaviler UCU DE
+   YAN YANA (v6.67, kullanicinin istegi -- v6.34'te ilk ikisi yan yana, ucuncusu
+   altindaydi). `.ucsutun` medya sorgusu kullanmiyor: her kart en az 260px
+   istiyor, siga sigan kadari yan yana duruyor, gerisi sarip alt satira
+   iniyor -- CLAUDE.md'deki "sutunlu kart" deseniyle ayni (sabit kirilma
+   noktasi yerine flex-wrap). Telefonda 260px genislik cogu ekrana
+   sigmadigi icin kendiliginden tek sutuna dusuyor. #}
+<div class="ucsutun">
 {# Kullanicinin kagit klasoru: laboratuvarda isi suren cycle'lar. v6.18'de bu
    ekranda hasta adi yoktu; v6.28'de kullanici kurali kendi istegiyle gevsetti
    -- adsiz bir liste her sabah bakilan klasorun isini gormuyor. #}
@@ -54,7 +56,6 @@
   <div class="bos" style="padding:20px 16px">{{ metin("bugun_biten_yok") }}</div>
   {% endfor %}
 </div>
-</div>
 
 {# Yaklasanlar: planlanan tarihi onumuzdeki iki hafta icinde olan cycle'lar
    (v6.33). Bugun planlananlar burada degil, Yapilacaklar'da -- tarihi gelen
@@ -66,6 +67,7 @@
   {% else %}
   <div class="bos" style="padding:20px 16px">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
   {% endfor %}
+</div>
 </div>
 
 <div class="kart" style="margin-top:16px">

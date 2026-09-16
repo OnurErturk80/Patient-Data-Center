@@ -170,6 +170,23 @@ def gg_aa_yyyy(tarih) -> str:
 sablon.env.globals["gg_aa_yyyy"] = gg_aa_yyyy
 
 
+def gg_aa_yyyy_saat(zaman) -> str:
+    """'2026-09-16 08:23:11' -> '16.09.2026 08:23' (v6.67).
+
+    `gg_aa_yyyy()` ile aynı gerekçe, saat de taşıyan kayıt zamanları için
+    (işlem geçmişi, şifre isteği, taşıyıcı). Saniye basılmıyor -- dakika
+    kullanıcı için yeterli, saniye gösterimi kalabalık ediyor.
+    """
+    try:
+        z = _dt.fromisoformat(str(zaman)[:19])
+    except (ValueError, TypeError):
+        return str(zaman or "")
+    return z.strftime("%d.%m.%Y %H:%M")
+
+
+sablon.env.globals["gg_aa_yyyy_saat"] = gg_aa_yyyy_saat
+
+
 def _islem_yapan_ad(cycle_id, asama):
     """Bir cycle aşamasını fiilen yapan kişinin adı (yoksa boş).
 
@@ -1822,7 +1839,8 @@ def yedek_durumu():
         return None
     gun = (_dt.now() - t).days
     if gun >= sinir:
-        return f"Son yedek {gun} gün önce alındı ({son}). Yedekleme çalışmıyor olabilir."
+        return (f"Son yedek {gun} gün önce alındı ({gg_aa_yyyy_saat(son)}). "
+                "Yedekleme çalışmıyor olabilir.")
     return None
 
 

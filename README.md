@@ -6496,3 +6496,68 @@ Kullanıcının isteği: ana ekrandaki iki kart başlığı daha açık olsun, v
   halde) "Patient Data Center" metni doğrulandı — hem `curl` ile hem
   telefon genişliğinde (390px) ekran görüntüsüyle.
 - Deneme oturumu geri alındı.
+
+# v6.67 — ekrandaki tarihler gün.ay.yıl, ana ekranda üç sütun, arama küçüldü
+
+Kullanıcının üç isteği: (1) ekrandaki bütün tarihler gün.ay.yıl sırasıyla
+görünsün — v6.64'te yalnızca hasta kartındaki doğum tarihi düzeltilmişti,
+geri kalan ekranlarda hâlâ ham ISO (`2026-09-04`) görünüyordu; (2) ana
+ekrandaki üç kart (Devam Eden Tedaviler / Bugün Biten Tedaviler / Yaklaşan
+Tedaviler) yan yana sığsın — v6.34'te ilk ikisi yan yana, üçüncüsü altındaydı;
+(3) ana ekrandaki arama kutusu küçük olsun, satırı boydan boya kaplamasın.
+
+## Tarihler
+
+- Yeni Jinja global **`gg_aa_yyyy_saat(zaman)`**: `'2026-09-16 08:23:11'` →
+  `'16.09.2026 08:23'`. `gg_aa_yyyy()` ile aynı gerekçe (v6.64) — yalnızca
+  saat de taşıyan kayıtlar için (saniye basılmıyor, kalabalık ediyordu).
+- Ekrana ham `[:10]` dilimiyle ISO tarih basan yerler `gg_aa_yyyy()`'ye
+  çevrildi: `hasta_detay.html` (cycle satırındaki OPU tarihi),
+  `androloji.html` (sperm örneği alınma tarihi), `_cyclesatir.html` (üç
+  yerde — bitiş, OPU, kayıt tarihi; ana ekran/hasta kayıtları/bitenler hepsi
+  buradan besleniyor), `cycle_detay.html` (bitiş kartı), `lab_formlari.html`
+  (form yükleme tarihi).
+- Saat de taşıyan ham zamanlar `gg_aa_yyyy_saat()`'e çevrildi: `gebelik.html`
+  (son güncelleme), `sifre_istekleri.html` (istek zamanı), `tasiyici.html`
+  (vitrifikasyon zamanı), `gecmis.html` (değişiklik geçmişi satırları),
+  `yedek_durumu()` (`/yonetim`'deki "Son yedek ... alındı" uyarısı — bu
+  mesaj `metinler.py`'den bile geçmiyordu, sunucuda elle kurulan bir
+  f-string'di, yine de düzeltildi).
+- **Dokunulmayanlar, bilerek**: `type="date"`/`type="datetime-local"` form
+  alanlarının `value`'su ISO kalıyor — tarayıcı zaten kendi yerel biçiminde
+  gösteriyor, değeri ISO olmayan bir şeye çevirmek input'u bozardı.
+  `cycle_detay.html`'deki `planlanan_tarih[:10] > bugun` karşılaştırması da
+  dokunulmadı — o bir görüntüleme değil, sıralama/karşılaştırma. Resmî form
+  çıktılarındaki (`formlar.py`, DH.FR.91/107) tarih hücreleri de
+  dokunulmadı: kâğıt aslının birebir kopyası, formatı kalite sisteminden
+  geliyor — "kalıba dokunma" kuralı burada da geçerli.
+- `CLAUDE.md`'ye tek bir kural olarak yazıldı: yeni bir tarih/zaman alanı
+  ekranda görünecekse `gg_aa_yyyy()`/`gg_aa_yyyy_saat()`'ten birini çağır,
+  `[:10]` dilimleme.
+
+## Ana ekran: üç sütun, küçük arama
+
+- `.ikisutun` → **`.ucsutun`**. Artık üç kart da aynı flex sarmalayıcıda.
+  **Medya sorgusu yok**: her kart `flex: 1 1 260px` — sığan kadarı aynı
+  satırda kalıyor, gerisi alt satıra sarıyor. Bu, aşama ekranlarının
+  denenip vazgeçilen sabit-kırılma-noktalı iki sütununun (README v6.57–59)
+  tam tersi bir çözüm ama kart içerikleri (kısa liste satırları, hepsi aynı
+  genişlikte) orada asimetrik olan şeyi burada sorun etmiyor — kartlar zaten
+  farklı boyda olabiliyordu (v6.34'ten beri), üçüncüsü de aynı satıra
+  girince görünüm bozulmadı.
+  1400px, 900px, 700px ve 390px'te ekran görüntüsüyle doğrulandı: geniş
+  ekranda üçü yan yana, ~700px'te iki + biri alt satırda, telefonda tek
+  sütun — sıra hep aynı.
+- Arama kutusuna `.arama.kucuk` (`max-width: 280px`) eklendi. **Yalnızca
+  ana ekranın** arama formu bu sınıfı alıyor — `/hastalar` ve `/cryo`'daki
+  aramalar dokunulmadı, onlar sonuç listesine giriş olduğu için geniş
+  kalmalı.
+
+## Test edildi
+
+- `curl` ile: hasta kartında "OPU 09.09.2026", değişiklik geçmişinde
+  "09.09.2026 17:04", `/yonetim`'de "Son yedek ... (12.09.2026 11:14)
+  alındı" doğrulandı.
+- Androloji ve cycle ekranı 200 döndü (sperm örneği/taşıyıcı test verisi
+  yoktu, şablon hatası olup olmadığı bu şekilde kontrol edildi).
+- `PRAGMA foreign_key_check` temiz. Deneme oturumu geri alındı.

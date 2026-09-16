@@ -184,15 +184,16 @@ body {
    bakarken once tarihi okuyorsun (v6.33). */
 .kart h2.gun { font-size: 15px; color: var(--ink); }
 
-/* Ana ekranda Yapilacaklar ve Bugun bitenler yan yana, Yaklasanlar altlarinda
-   (v6.34, kullanicinin istegi). 720px altinda alt alta -- telefonda iki sutun
-   okunmuyor; alt alta duserken sira HTML sirasiyla ayni kaliyor.
+/* Ana ekranda uc kart yan yana (v6.67, kullanicinin istegi -- v6.34'te iki
+   kart yan yana, ucuncusu altindaydi). Medya sorgusu yok, sarma var:
+   `flex: 1 1 260px` her karta en az 260px istiyor, sigan kadari ayni satirda
+   duruyor, gerisi alt satira sariyor (CLAUDE.md'deki sutunlu kart deseniyle
+   ayni -- sabit bir kirilma noktasi her genislikte doğru olmuyordu).
    `align-items: flex-start`: bos bir kart otekinin boyuna uzamasin. */
-.ikisutun > .kart { min-width: 0; }
-@media (min-width: 720px) {
-  .ikisutun { display: flex; align-items: flex-start; gap: 16px; }
-  .ikisutun > .kart { flex: 1 1 0; }
+.ucsutun {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px;
 }
+.ucsutun > .kart { flex: 1 1 260px; min-width: 0; }
 
 /* Kart yiginini iki sutuna ayirir (v6.42). Genis ekranda tek sutun 640px'te
    kaliyordu: iki yanda ~400'er piksel bos duruyor, sayfa bosuna uzuyordu.
@@ -491,6 +492,12 @@ form { margin: 0; }
   border-radius: var(--r);
   background: var(--yuzey);
 }
+
+/* Ana ekrandaki arama kucuk kalsin (v6.67, kullanicinin istegi) -- kutu
+   satiri boydan boya kaplamasin. Yalnizca `.kucuk`: hasta kayitlari ve
+   cryo'daki arama kutulari sonuc listesine giris oldugu icin genis kalmali,
+   bu degistirmiyor. */
+.arama.kucuk { max-width: 280px; }
 
 .bos {
   padding: 40px 16px;

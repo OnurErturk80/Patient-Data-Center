@@ -26,7 +26,7 @@
   <a class="satir" href="/cycle/{{ c.id }}">
     <div class="no">{% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }}{% else %}{{ c.cycle_no }}{% endif %}{% if c.durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% elif c.durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>{% endif %}</div>
     <div class="meta">
-      {{ c.cycle_no }} · {{ tip_kisa(c.cycle_tipi) }}{% if c.opu_zamani %} · OPU {{ c.opu_zamani[:10] }}{% endif %}
+      {{ c.cycle_no }} · {{ tip_kisa(c.cycle_tipi) }}{% if c.opu_zamani %} · OPU {{ gg_aa_yyyy(c.opu_zamani) }}{% endif %}
       {% if c.opu_sag_oosit is not none %}
         · {{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }} {{ metin("oosit_kucuk") }}
       {% endif %}

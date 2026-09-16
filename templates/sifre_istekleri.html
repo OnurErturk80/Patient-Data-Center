@@ -29,7 +29,7 @@
     <div>
       <b>{{ i.kullanici_adi }}</b>
       <div style="font-size:13px">{{ i.ad_soyad }} · {{ i.kisa_kod }}</div>
-      <div class="ipucu">{{ metin("istek_zamani") }}: {{ i.olusturma_zamani }}</div>
+      <div class="ipucu">{{ metin("istek_zamani") }}: {{ gg_aa_yyyy_saat(i.olusturma_zamani) }}</div>
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       <form method="post" action="/sifre-istekleri/{{ i.id }}/onayla">

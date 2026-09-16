@@ -32,10 +32,10 @@
     {{ tip_kisa(s.cycle_tipi) }}
     {%- if kip == "bitmis" %}
       {%- if s.bitis_sebebi %} · {{ metin("bitis_" ~ s.bitis_sebebi) }}{% endif %}
-      {%- if s.bitis_zamani %} · {{ s.bitis_zamani[:10] }}{% endif %}
+      {%- if s.bitis_zamani %} · {{ gg_aa_yyyy(s.bitis_zamani) }}{% endif %}
     {%- elif kip == "ay" %}
-      {%- if s.opu_zamani %} · OPU {{ s.opu_zamani[:10] }}
-      {%- else %} · {{ s.olusturma_zamani[:10] }}{% endif %}
+      {%- if s.opu_zamani %} · OPU {{ gg_aa_yyyy(s.opu_zamani) }}
+      {%- else %} · {{ gg_aa_yyyy(s.olusturma_zamani) }}{% endif %}
     {%- elif kip == "plan" %}
       {#- "Yaklaşanlar"da gün başlığı yok, tarih satırda yazıyor. Takvimde
           (`plangun`) başlık zaten tarihi söylüyor, tekrar basılmıyor. #}

@@ -58,7 +58,7 @@
     {% for o in ornekler %}
     <a href="/cycle/{{ c.id }}/androloji?ornek={{ o.id }}"
        class="{% if secili and secili.id == o.id %}aktif{% endif %}">
-      {{ loop.index }}{% if o.alinma_zamani %} · {{ o.alinma_zamani[:10] }}{% endif %}
+      {{ loop.index }}{% if o.alinma_zamani %} · {{ gg_aa_yyyy(o.alinma_zamani) }}{% endif %}
     </a>
     {% endfor %}
     <a href="/cycle/{{ c.id }}/androloji?ornek=yeni"

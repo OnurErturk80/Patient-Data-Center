@@ -323,6 +323,21 @@ ekleme.
 `liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda
 `liste_etiket(liste_adi, kod)` (Jinja global) kullan, sabit sözlük yazma.
 
+**Ekranda tarih gün.ay.yıl sırasıyla basılır, ISO değil** (v6.64, v6.67'de
+tüm ekranlara genişledi). Veritabanı ISO (`YYYY-MM-DD[ HH:MM:SS]`) tutmaya
+devam ediyor — kaydetme, arama, sıralama, karşılaştırma (`cycle_detay.html`
+`planlanan_tarih[:10] > bugun` gibi) hep ISO'ya güveniyor, bu değişmedi.
+Yalnızca **ekrana basarken** iki Jinja global var: **`gg_aa_yyyy(tarih)`**
+saat taşımayan alanlar için (`'2026-09-04'` → `'04.09.2026'`), **
+`gg_aa_yyyy_saat(zaman)`** saat de taşıyan kayıtlar için
+(`'2026-09-04 08:15:00'` → `'04.09.2026 08:15'`). `[:10]`'u elle dilimleyip
+ekrana basma — yeni bir tarih/zaman alanı ekranda görünecekse bu ikisinden
+birini çağır. (`type="date"`/`type="datetime-local"` form alanları istisna:
+tarayıcı değeri kendi yerel biçiminde gösteriyor, `value` ISO kalmalı.)
+`takvim_basligi(tarih)` ayrı kalıyor — gün adı + ay adını yazıyor
+("16 Eylül 2026 Çarşamba"), planlanan tarih gibi zaten günün önemli olduğu
+yerlerde kullanılıyor.
+
 **Ana ekran yapılacaklar listesidir** (v6.28). Kullanıcının kâğıt düzeni:
 laboratuvarda işi bitmemiş hastaların formları bir klasörde durur, her sabah
 ona bakılır, iş bitince form arşive kaldırılır. `/` tam bunun karşılığı —
@@ -332,12 +347,17 @@ işlem. Altında **"Bugün bitenler"** (v6.29) — ölçü
 kendiliğinden boşalıyor; saklanan bir "bugünün listesi" yok, olmasın da.
 Sonra sayı özeti, en altta menü.
 
-Düzen (v6.34, kullanıcının isteği): **Yapılacaklar ve Bugün bitenler yan
-yana, Yaklaşanlar altlarında.** `.ikisutun` 720px'in altında alt alta
-diziyor — telefonda iki sütun okunmuyor; sıra iki düzende de aynı. Ana ekran
-`kap genis` sınıfını alıyor, sütunu 940px'e kadar genişliyor ama yan menüyle
-çarpışmasın diye `calc(100vw - 500px)` ile sınırlı. Yeni bir kart eklersen
-bu iki sütunu şişirme, altına koy.
+Düzen (v6.34'te iki kart, v6.67'de kullanıcının isteğiyle üçe çıktı):
+**Devam Eden Tedaviler, Bugün Biten Tedaviler ve Yaklaşan Tedaviler üçü de
+yan yana.** `.ucsutun` **medya sorgusu kullanmıyor** — her kart `flex: 1 1
+260px` istiyor, sığan kadarı aynı satırda duruyor, gerisi sarıp alt satıra
+iniyor (aşama ekranlarındaki "sabit kırılma noktası yerine sarma" deseninin
+aynısı, aşağıdaki "İki sütun her ekranın çözümü değil" bölümüne bak). Sıra
+HTML sırasıyla aynı, telefonda kendiliğinden tek sütuna düşüyor (260px çoğu
+telefon genişliğine sığmıyor). Ana ekran `kap genis` sınıfını alıyor, sütunu
+940px'e kadar genişliyor ama yan menüyle çarpışmasın diye
+`calc(100vw - 500px)` ile sınırlı. Yeni bir kart eklersen bu üç sütunu
+şişirme, altına koy.
 
 > v6.18'de bu ekranda **hasta adı yoktu** (ekrana bakan herkes listeyi
 > görüyordu). Kuralı v6.28'de **kullanıcı kendi isteğiyle gevşetti**: adsız

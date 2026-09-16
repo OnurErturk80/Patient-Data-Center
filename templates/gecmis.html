@@ -11,7 +11,7 @@
       <span style="text-decoration:line-through;color:var(--ink-3)">{{ d.eski_deger or '—' }}</span>
       &rarr; {{ d.yeni_deger or '—' }}
     </div>
-    <div class="meta">{{ d.ad_soyad }} · {{ d.zaman }}</div>
+    <div class="meta">{{ d.ad_soyad }} · {{ gg_aa_yyyy_saat(d.zaman) }}</div>
   </div>
   {% else %}
   <div class="bos">{{ metin("henuz_degisiklik_yok") }}</div>
