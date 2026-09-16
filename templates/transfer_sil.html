@@ -24,7 +24,7 @@
 <div class="kart">
   <h2>Silinecek kayıt</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Transfer cycle'ı</dt><dd>{{ kayit.tr_cycle_no or '—' }}</dd></div>
+    <div class="veri"><dt>Transfer tedavisi</dt><dd>{{ kayit.tr_cycle_no or '—' }}</dd></div>
     <div class="veri"><dt>Tip</dt>
       <dd>{{ 'Donmuş embriyo transferi' if kayit.tr_tipi == 'donmus' else 'Taze transfer' }}</dd></div>
     <div class="veri"><dt>Zaman</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>

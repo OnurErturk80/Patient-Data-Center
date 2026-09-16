@@ -14,7 +14,7 @@
 <div class="kart">
   <h2>Bu hastaya bağlı kayıtlar</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Cycle</dt><dd>{{ s.cycle }}</dd></div>
+    <div class="veri"><dt>Tedavi</dt><dd>{{ s.cycle }}</dd></div>
     <div class="veri"><dt>Oosit / embriyo</dt><dd>{{ s.oosit }}</dd></div>
     <div class="veri"><dt>İşlem kaydı</dt><dd>{{ s.olay }}</dd></div>
     <div class="veri"><dt>Fotoğraf</dt><dd>{{ s.goruntu }}</dd></div>
@@ -36,7 +36,7 @@
     <div class="ad">{{ t.kaynak_cycle }} · oosit {{ t.cycle_sira_no }}</div>
     <div class="meta">
       {{ t.zaman }}{% if t.transfer_cycle and t.transfer_cycle != t.kaynak_cycle %}
-      · {{ t.transfer_cycle }} cycle'ında transfer{% endif %}
+      · {{ t.transfer_cycle }} tedavisinde transfer{% endif %}
     </div>
   </div>
   {% endfor %}
@@ -62,7 +62,7 @@
       <span class="kutu"></span>
       <span class="bilgi">
         <strong>Kalıcı olarak sil</strong>
-        <em>Hasta, cycle'ları, oositleri, işlem kayıtları ve fotoğrafları
+        <em>Hasta, tedavileri, oositleri, işlem kayıtları ve fotoğrafları
         veritabanından ve diskten silinir. Geri alınamaz.</em>
       </span>
     </label>
@@ -72,7 +72,7 @@
   <div id="silUyari" hidden>
     <div class="tehlike">
       <strong>Bu işlem geri alınamaz.</strong><br>
-      {{ s.cycle }} cycle, {{ s.oosit }} oosit, {{ s.olay }} işlem kaydı ve
+      {{ s.cycle }} tedavi, {{ s.oosit }} oosit, {{ s.olay }} işlem kaydı ve
       {{ s.goruntu }} fotoğraf kalıcı olarak silinecek. Arşiv klasöründeki
       dosyalar da diskten kaldırılacak.
     </div>
@@ -120,7 +120,7 @@
   });
   document.getElementById('silform').addEventListener('submit', function (e) {
     if (document.querySelector('input[name="eylem"]:checked').value !== 'sil') return;
-    if (!confirm('{{ s.cycle }} cycle ve {{ s.goruntu }} fotoğraf kalıcı olarak ' +
+    if (!confirm('{{ s.cycle }} tedavi ve {{ s.goruntu }} fotoğraf kalıcı olarak ' +
                  'silinecek. Bu işlem geri alınamaz. Devam edilsin mi?')) {
       e.preventDefault();
     }

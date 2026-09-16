@@ -425,7 +425,7 @@ def sonraki_lab_no() -> str:
 # Yönetici, her kullanıcının hangi ekranlara girebileceğini tek tek belirler
 # (v6.14). `goc_026` ile aynı liste olmalı — yeni modül eklersen ikisine de.
 MODULLER = [
-    ("hasta",         "Hasta ve cycle kaydı"),
+    ("hasta",         "Hasta ve tedavi kaydı"),
     ("opu",           "OPU"),
     ("androloji",     "Androloji"),
     ("denudasyon",    "Denüdasyon"),
@@ -1452,7 +1452,7 @@ def yonetim_ekran(request: Request):
         pass
 
     sayilar = []
-    for tablo, ad in [("hasta", "Hasta"), ("cycle", "Cycle"),
+    for tablo, ad in [("hasta", "Hasta"), ("cycle", "Tedavi"),
                       ("specimen", "Örnek (oosit/embriyo)"), ("goruntu", "Fotoğraf"),
                       ("olay", "Olay"), ("degisiklik_log", "Değişiklik kaydı")]:
         try:
@@ -2379,7 +2379,7 @@ async def cycle_kaydet(request: Request, hasta_id: int):
         return formu_goster(str(e))
 
     if not d["cycle_no"]:
-        return formu_goster("Cycle no boş bırakılamaz.")
+        return formu_goster("Lab kayıt no boş bırakılamaz.")
 
     ayni = db.tek(
         "SELECT c.id, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -2388,7 +2388,7 @@ async def cycle_kaydet(request: Request, hasta_id: int):
     )
     if ayni:
         return formu_goster(
-            f"'{d['cycle_no']}' numaralı cycle zaten var "
+            f"'{d['cycle_no']}' numaralı tedavi zaten var "
             f"(dosya {ayni['dosya_no']}, {ayni['ad_soyad']}). Farklı bir numara gir."
         )
 
@@ -2488,14 +2488,14 @@ async def cycle_guncelle(request: Request, cycle_id: int):
         return formu_goster(str(e))
 
     if not d["cycle_no"]:
-        return formu_goster("Cycle no boş bırakılamaz.")
+        return formu_goster("Lab kayıt no boş bırakılamaz.")
 
     ayni = db.tek(
         "SELECT id FROM cycle WHERE lab_id = ? AND cycle_no = ? AND id <> ?",
         (db.LAB_ID, d["cycle_no"], cycle_id),
     )
     if ayni:
-        return formu_goster(f"'{d['cycle_no']}' numaralı başka bir cycle var.")
+        return formu_goster(f"'{d['cycle_no']}' numaralı başka bir tedavi var.")
 
     db.yaz(
         f"UPDATE cycle SET {', '.join(a + '=?' for a in cycle_alanlari())} WHERE id=?",
@@ -2955,7 +2955,7 @@ async def hasta_sil(request: Request, hasta_id: int):
         silme_logla(
             "hasta", hasta_id,
             f"dosya {hasta['dosya_no']} · {hasta['ad_soyad']} · "
-            f"{len(cycles)} cycle · {say['oosit']} oosit · {say['goruntu']} goruntu",
+            f"{len(cycles)} tedavi · {say['oosit']} oosit · {say['goruntu']} goruntu",
             kid)
         try:
             for cid in cycles:
@@ -3035,8 +3035,8 @@ async def cycle_sil(request: Request, cycle_id: int):
         tr = cycle_transfer_kayitlari(cycle_id)
         if tr:
             return hata(
-                f"Bu cycle'ın {len(tr)} transfer kaydı var. Transfere gitmiş "
-                "cycle kalıcı olarak silinemez; iptal et.")
+                f"Bu tedavinin {len(tr)} transfer kaydı var. Transfere gitmiş "
+                "tedavi kalıcı olarak silinemez; iptal et.")
         if (f.get("onay2") or "").strip().upper() != "SIL":
             return hata("Kalıcı silme için ikinci onay kutusuna SIL yazılmalı.")
         say = cycle_icerik_sayilari(cycle_id)
@@ -5505,7 +5505,7 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
 
     # 2. Başka cycle'lardan bu cycle'a yapılmış transferleri serbest bırak
     db.yaz("UPDATE olay SET tr_cycle_id=NULL, iptal_mi=1, "
-           "iptal_sebep='Transfer cycle''i silindi' "
+           "iptal_sebep='Transfer tedavisi silindi' "
            "WHERE tr_cycle_id=? AND cycle_id<>?", (cycle_id, cycle_id))
     # Aynısı çözme için: bu cycle'a yapılmış ama embriyosu başka cycle'dan olan
     # çözmelerin bağı kopar (kayıt kalır, hangi tedavi için olduğu bilinmez)

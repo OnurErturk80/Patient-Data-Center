@@ -85,7 +85,7 @@ METINLER = {
     # ---- program ve genel ----
     "program_adi": {"tr": "Patient Data Center", "en": "Patient Data Center"},
     "giris_aciklama": {
-        "tr": "IVF laboratuvarının hasta, cycle ve oosit kayıtlarını tuttuğu "
+        "tr": "IVF laboratuvarının hasta, tedavi ve oosit kayıtlarını tuttuğu "
               "program. Klinik içi ağda çalışır, veriler bu cihazın dışına "
               "çıkmaz.",
         "en": "Keeps this IVF lab's patient, cycle and oocyte records. Runs "
@@ -210,14 +210,14 @@ METINLER = {
                               "en": "No frozen embryos yet."},
 
     # ---- cycle formu ----
-    "cycle_duzenle": {"tr": "Cycle düzenle", "en": "Edit cycle"},
-    "yeni_cycle": {"tr": "Yeni cycle", "en": "New cycle"},
-    "cycle_i_kaydet": {"tr": "Cycle'ı kaydet", "en": "Save cycle"},
+    "cycle_duzenle": {"tr": "Tedaviyi düzenle", "en": "Edit cycle"},
+    "yeni_cycle": {"tr": "Yeni tedavi", "en": "New cycle"},
+    "cycle_i_kaydet": {"tr": "Tedaviyi kaydet", "en": "Save cycle"},
     "lab_kayit_no": {"tr": "Lab kayıt no", "en": "Lab record no"},
-    "kacinci_cycle": {"tr": "Kaçıncı cycle", "en": "Patient's cycle no"},
+    "kacinci_cycle": {"tr": "Kaçıncı tedavi", "en": "Patient's cycle no"},
     "cycle_no_ipucu": {
         "tr": "Lab kayıt no otomatik atandı; gerekirse değiştirebilirsin. "
-              "Kaçıncı cycle hastanın denemesidir — başka merkezdeki "
+              "Kaçıncı tedavi hastanın denemesidir — başka merkezdeki "
               "tedavileri de sayıyorsan elle değiştir.",
         "en": "The lab record no was assigned automatically; change it if you "
               "need to. The patient's cycle no counts this patient's attempts "
@@ -328,7 +328,7 @@ METINLER = {
     "cozme_ekrani": {"tr": "Çözme ekranı", "en": "Thaw screen"},
 
     # ---- transfer ----
-    "bu_cyclede_transfer": {"tr": "Bu cycle'da transfer edilenler",
+    "bu_cyclede_transfer": {"tr": "Bu tedavide transfer edilenler",
                             "en": "Transferred in this cycle"},
     "donmus": {"tr": "donmuş", "en": "frozen"},
     "taze": {"tr": "taze", "en": "fresh"},
@@ -343,7 +343,7 @@ METINLER = {
     "transfer_edilecek_embriyolar": {"tr": "Transfer edilecek embriyolar",
                                      "en": "Embryos to transfer"},
     "transfer_ipucu": {
-        "tr": "Hastanın tüm cycle'larından uygun embriyolar listelenir. "
+        "tr": "Hastanın tüm tedavilerinden uygun embriyolar listelenir. "
               "Çözülmüş embriyolar \"donmuş transfer\", diğerleri \"taze\" "
               "olarak kaydedilir.",
         "en": "Eligible embryos from all of this patient's cycles are listed. "
@@ -351,7 +351,7 @@ METINLER = {
               "as \"fresh\"."},
     "transfer_saati": {"tr": "Transfer saati", "en": "Transfer time"},
     "transferi_kaydet": {"tr": "Transferi kaydet", "en": "Save transfer"},
-    "cycle_kartina_don": {"tr": "Cycle kartına dön", "en": "Back to cycle card"},
+    "cycle_kartina_don": {"tr": "Tedavi kartına dön", "en": "Back to cycle card"},
 
     # ---- taşıyıcı ----
     "girilmemis": {"tr": "girilmemiş", "en": "not entered"},
@@ -363,7 +363,7 @@ METINLER = {
         "en": "This carrier holds {n} embryos. Thawing affects all of them."},
     "icindeki_embriyolar": {"tr": "İçindeki embriyolar",
                             "en": "Embryos on this carrier"},
-    "cyclei_ac": {"tr": "cycle'ı aç", "en": "open cycle"},
+    "cyclei_ac": {"tr": "tedaviyi aç", "en": "open cycle"},
     "tasiyici_bosaltilmis": {"tr": "Bu taşıyıcı boşaltılmış.",
                              "en": "This carrier has been emptied."},
     "bu_tasiyiciyi_coz": {"tr": "Bu taşıyıcıyı çöz", "en": "Thaw this carrier"},
@@ -380,7 +380,7 @@ METINLER = {
     "cozme_hangi_tedavi": {"tr": "Bu çözme hangi tedavi için?",
                            "en": "Which treatment is this thaw for?"},
     "thaw_cycle_ipucu": {
-        "tr": "Çözme bu cycle'ın kaydına yazılır. Embriyo canlı çıkmasa da o "
+        "tr": "Çözme bu tedavinin kaydına yazılır. Embriyo canlı çıkmasa da o "
               "tedavide çözüldüğü görünür.",
         "en": "The thaw is recorded against this cycle. Even if the embryo "
               "does not survive, it still shows as thawed for that treatment."},
@@ -425,12 +425,12 @@ METINLER = {
     "fet_tum_tasiyicilar": {
         "tr": "Hastanın tüm tedavilerindeki taşıyıcılar listelenir.",
         "en": "Carriers from all of this patient's treatments are listed."},
-    "donduruldugu_cycle": {"tr": "dondurulduğu cycle", "en": "frozen in cycle"},
+    "donduruldugu_cycle": {"tr": "dondurulduğu tedavi", "en": "frozen in cycle"},
     "icerigi_gor": {"tr": "içeriği gör", "en": "view contents"},
     "coz_dugme": {"tr": "Çöz", "en": "Thaw"},
     "fet_tasiyici_yok": {"tr": "Bu hastanın tankta duran taşıyıcısı yok.",
                          "en": "This patient has no carriers in the tank."},
-    "cycle_tasiyici_yok": {"tr": "Bu cycle'a ait tankta duran taşıyıcı yok.",
+    "cycle_tasiyici_yok": {"tr": "Bu tedaviye ait tankta duran taşıyıcı yok.",
                            "en": "No carriers from this cycle are in the tank."},
     "bu_tedavide_cozulenler": {"tr": "Bu tedavide çözülenler",
                                "en": "Thawed in this treatment"},
@@ -448,7 +448,7 @@ METINLER = {
 
     # ---- ICSI ----
     "henuz_oosit_yok_icsi": {
-        "tr": "Bu cycle'da henüz oosit yok.",
+        "tr": "Bu tedavide henüz oosit yok.",
         "en": "There are no oocytes in this cycle yet."},
     "once_denudasyon": {"tr": "Önce denüdasyon ekranından oositleri oluştur.",
                         "en": "Create the oocytes from the denudation screen first."},
@@ -568,7 +568,7 @@ METINLER = {
               "cavitation option or the grade field is missing. Stop the "
               "application and run <code>python goc_010.py</code> and "
               "<code>python goc_011.py</code>."},
-    "henuz_oosit_yok_kisa": {"tr": "Bu cycle'da henüz oosit yok.",
+    "henuz_oosit_yok_kisa": {"tr": "Bu tedavide henüz oosit yok.",
                              "en": "There are no oocytes in this cycle yet."},
     "genisleme": {"tr": "Genişleme", "en": "Expansion"},
     "genisleme_ipucu": {
@@ -641,10 +641,10 @@ METINLER = {
                              "en": "Post-preparation note"},
 
     # ---- gebelik sonucu ----
-    "bu_cyclede_transfer_edilen": {"tr": "Bu cycle'da transfer edilen",
+    "bu_cyclede_transfer_edilen": {"tr": "Bu tedavide transfer edilen",
                                    "en": "Transferred in this cycle"},
     "transfer_kaydi_yok_uyari": {
-        "tr": "Bu cycle'da transfer kaydı yok. Sonuç yine de girilebilir, ama "
+        "tr": "Bu tedavide transfer kaydı yok. Sonuç yine de girilebilir, ama "
               "transferi önce kaydetmek kayıtları birbirine bağlar.",
         "en": "There is no transfer record in this cycle. The outcome can "
               "still be entered, but recording the transfer first links the "
@@ -695,7 +695,7 @@ METINLER = {
     "hangi_oosite": {"tr": "Hangi oosite", "en": "To which oocyte"},
     "her_dosya_ayri_oosit": {"tr": "Her dosya ayrı oosit olsun (yeni numaralar)",
                              "en": "Each file its own oocyte (new numbers)"},
-    "oosite_baglama": {"tr": "Oosite bağlama — cycle arşivine koy",
+    "oosite_baglama": {"tr": "Oosite bağlama — tedavi arşivine koy",
                        "en": "Do not link to an oocyte — put in the cycle archive"},
     "asama": {"tr": "Aşama", "en": "Stage"},
     "dosyalar": {"tr": "Dosyalar", "en": "Files"},
@@ -721,7 +721,7 @@ METINLER = {
               "available for matching again."},
     "silinecek_goruntu": {"tr": "Silinecek görüntü", "en": "Image to be deleted"},
     "ornek_kodu_alan": {"tr": "Örnek kodu", "en": "Sample code"},
-    "ornege_bagli_degil": {"tr": "örneğe bağlı değil (cycle arşivi)",
+    "ornege_bagli_degil": {"tr": "örneğe bağlı değil (tedavi arşivi)",
                            "en": "not linked to a sample (cycle archive)"},
     "kaynak_alan": {"tr": "Kaynak", "en": "Source"},
     "mikroskop_kamerasi": {"tr": "Mikroskop kamerası", "en": "Microscope camera"},
@@ -931,7 +931,7 @@ METINLER = {
                         "en": "No oocytes recorded yet."},
     "denudasyondan_ekle": {"tr": "Denüdasyon ekranından ekleyebilirsin.",
                            "en": "You can add them from the denudation screen."},
-    "cycle_arsivi": {"tr": "Cycle arşivi", "en": "Cycle archive"},
+    "cycle_arsivi": {"tr": "Tedavi arşivi", "en": "Cycle archive"},
     "oosite_baglanmamis": {"tr": "Oosite bağlanmamış fotoğraflar.",
                            "en": "Photos not linked to an oocyte."},
     "arsivi_temizle": {"tr": "arşivi temizle", "en": "clear archive"},
@@ -980,12 +980,12 @@ METINLER = {
     "numara": {"tr": "Numara", "en": "Number"},
     # Embriyo cycle değiştirmez; transferde "hangi cycle'dan geldi" sorusunun
     # cevabı specimen.cycle_id (bkz. CLAUDE.md "üç alan üç soruyu yanıtlar").
-    "geldigi_cycle": {"tr": "Geldiği cycle", "en": "Origin cycle"},
+    "geldigi_cycle": {"tr": "Geldiği tedavi", "en": "Origin cycle"},
     "cozme_saati_kisa": {"tr": "Çözme saati", "en": "Thaw time"},
     "sagkalim": {"tr": "Sağkalım", "en": "Survival"},
     "canlilik": {"tr": "Canlılık oranı", "en": "Viability"},
     "transfer_durumu": {"tr": "Transfer", "en": "Transfer"},
-    "kaynak_cycle": {"tr": "Kaynak cycle", "en": "Source cycle"},
+    "kaynak_cycle": {"tr": "Kaynak tedavi", "en": "Source cycle"},
     "cozulen_embriyolar": {"tr": "Çözülen embriyolar", "en": "Thawed embryos"},
     "ornek_kodu_baslik": {"tr": "Örnek kodu", "en": "Specimen code"},
     "saat": {"tr": "Saat", "en": "Time"},
@@ -1048,7 +1048,7 @@ METINLER = {
                      "en": "Nothing planned in the next {n} days."},
     "planlanan_tarih": {"tr": "Planlanan tarih", "en": "Planned date"},
     "planlanan_tarih_ipucu": {
-        "tr": "İleri tarihli iş için doldur. O tarihe kadar cycle ana "
+        "tr": "İleri tarihli iş için doldur. O tarihe kadar tedavi ana "
               "ekrandaki Yapılacaklar listesinde görünmez, takvimde durur.",
         "en": "Fill in for work planned ahead. Until that date the cycle "
               "stays off the home to-do list and sits in the calendar."},
@@ -1073,9 +1073,9 @@ METINLER = {
     "gun_7": {"tr": "Pazar", "en": "Sunday"},
     "onceki_ay": {"tr": "Önceki ay", "en": "Previous month"},
     "sonraki_ay": {"tr": "Sonraki ay", "en": "Next month"},
-    "n_cycle_ayda": {"tr": "{n} cycle", "en": "{n} cycles"},
-    "n_cycle_ayda_tekil": {"tr": "{n} cycle", "en": "{n} cycle"},
-    "ayda_islem_yok": {"tr": "Bu ayda işlem yapılmış cycle yok.",
+    "n_cycle_ayda": {"tr": "{n} tedavi", "en": "{n} cycles"},
+    "n_cycle_ayda_tekil": {"tr": "{n} tedavi", "en": "{n} cycle"},
+    "ayda_islem_yok": {"tr": "Bu ayda işlem yapılmış tedavi yok.",
                        "en": "No cycles worked on in this month."},
     # Ay adlari -- `ay_adi(yil, ay)` Jinja global'i bunlari okuyor
     "ay_1": {"tr": "Ocak", "en": "January"},
@@ -1094,7 +1094,7 @@ METINLER = {
     # dondurmanin yaninda durdugu icin klinik "discard" ile karisirdi.
     "geri_don": {"tr": "Geri dön", "en": "Go back"},
     "yapilacak_yok": {
-        "tr": "Laboratuvarda işi süren cycle yok.",
+        "tr": "Laboratuvarda işi süren tedavi yok.",
         "en": "No cycles in progress in the lab."},
     "n_devam_eden": {"tr": "{n} devam eden tedavi", "en": "{n} ongoing treatments"},
     "n_devam_eden_tekil": {"tr": "{n} devam eden tedavi",
@@ -1127,7 +1127,7 @@ METINLER = {
     # ---- cycle bitisi ----
     "islemi_bitir": {"tr": "İşlemi bitir", "en": "Finish treatment"},
     "islemi_bitir_ipucu": {
-        "tr": "Laboratuvar işi bitince cycle yapılacaklar listesinden düşer. "
+        "tr": "Laboratuvar işi bitince tedavi yapılacaklar listesinden düşer. "
               "Kayıtlar silinmez, hasta ekranından görünmeye devam eder.",
         "en": "When lab work is done the cycle leaves the to-do list. "
               "Nothing is deleted; it stays on the patient's screen."},
@@ -1145,7 +1145,7 @@ METINLER = {
         "en": "Transfer completed, no lab work left."},
     "bitis_iptal": {"tr": "İptal", "en": "Cancelled"},
     "bitis_iptal_ipucu": {
-        "tr": "Tedavi yarıda kaldı. Cycle iptal olarak işaretlenir.",
+        "tr": "Tedavi yarıda kaldı, iptal olarak işaretlenir.",
         "en": "Treatment stopped. The cycle is marked cancelled."},
     "tamamlandi_rozet": {"tr": "Tamamlandı", "en": "Completed"},
     "bitisi_geri_al": {"tr": "Listeye geri al", "en": "Reopen"},
@@ -1162,15 +1162,15 @@ METINLER = {
               "terminal, then restart the program."},
     "hasta_kayitlari": {"tr": "Hasta kayıtları", "en": "Patient records"},
     "aktif_hasta": {"tr": "Aktif hasta", "en": "Active patients"},
-    "aktif_cycle": {"tr": "Aktif cycle", "en": "Active cycles"},
+    "aktif_cycle": {"tr": "Aktif tedavi", "en": "Active cycles"},
     "bekleyen_kare": {"tr": "Bekleyen kare", "en": "Pending frames"},
     "dondurulmus": {"tr": "Dondurulmuş", "en": "Frozen"},
     "durum_ozeti": {"tr": "Durum", "en": "Status"},
     # v6.28'de degisti: ekranda artik hasta adi var, eski ipucu yalan
     # soyluyordu. Yerine listenin nasil bosaldigi anlatiliyor.
     "ana_ekran_ipucu": {
-        "tr": "Listede laboratuvarda işi süren cycle'lar var. İş bitince "
-              "cycle ekranındaki \u201cİşlemi bitir\u201d ile listeden düşer.",
+        "tr": "Listede laboratuvarda işi süren tedaviler var. İş bitince "
+              "tedavi ekranındaki \u201cİşlemi bitir\u201d ile listeden düşer.",
         "en": "The list holds cycles still being worked on. Close one with "
               "\u201cFinish treatment\u201d on the cycle screen."},
     "aramayi_temizle": {"tr": "Aramayı temizle", "en": "Clear search"},
@@ -1179,8 +1179,8 @@ METINLER = {
     # ---- hasta listesi ----
     "hastalar": {"tr": "Hastalar", "en": "Patients"},
     "hasta": {"tr": "Hasta", "en": "Patient"},
-    "cycle": {"tr": "Cycle", "en": "Cycle"},
-    "cycleler": {"tr": "Cycle'lar", "en": "Cycles"},
+    "cycle": {"tr": "Tedavi", "en": "Cycle"},
+    "cycleler": {"tr": "Tedaviler", "en": "Cycles"},
     "yetkisiz_ekran": {
         "tr": "ekranına erişim iznin yok. Gerekiyorsa yöneticiye söyle.",
         "en": "— you do not have access to this screen. Ask an administrator "
@@ -1203,7 +1203,7 @@ METINLER = {
                      "en": "Clinical pregnancy rate (per transfer)"},
     "aylara_gore": {"tr": "Aylara göre", "en": "By month"},
     "kayit_hasta": {"tr": "Yeni hasta", "en": "New patient"},
-    "kayit_cycle": {"tr": "Yeni cycle", "en": "New cycle"},
+    "kayit_cycle": {"tr": "Yeni tedavi", "en": "New cycle"},
     "kayit_olay": {"tr": "İşlem", "en": "Procedure"},
     "istatistik_bos": {"tr": "Henüz kayıt yok.", "en": "No records yet."},
     "excele_aktar_istatistik": {"tr": "İstatistikleri Excel'e aktar",
@@ -1226,7 +1226,7 @@ METINLER = {
     "lab_formu_ipucu": {
         "tr": "Kendi formunuzu Excel'de açıp kutuların içine etiket yazın "
               "(örnek: {{dosya_no}}), .xlsx olarak kaydedip buraya yükleyin. "
-              "Program etiketleri o cycle'ın verisiyle değiştirip formu "
+              "Program etiketleri o tedavinin verisiyle değiştirip formu "
               "kâğıdınızın düzeninde basar.",
         "en": "Open your own form in Excel, type a label inside a box "
               "(for example {{dosya_no}}), save it as .xlsx and upload it "
@@ -1498,14 +1498,14 @@ METINLER = {
         "en": "Hours are computed from the times you enter on the stage "
               "screens; nothing is stored separately."},
     "excel_ay": {"tr": "Bu ayı Excel'e aktar", "en": "Export this month to Excel"},
-    "excel_cycle": {"tr": "Bu cycle'ı Excel'e aktar",
+    "excel_cycle": {"tr": "Bu tedaviyi Excel'e aktar",
                     "en": "Export this cycle to Excel"},
     "excel_cryo": {"tr": "Dolabı Excel'e aktar",
                    "en": "Export the tank to Excel"},
     "excel_tumu": {"tr": "Tüm veriyi Excel'e aktar",
                    "en": "Export all data to Excel"},
     "excel_tumu_ipucu": {
-        "tr": "Bütün hastalar, cycle'lar, örnekler ve olaylar; her tablo ayrı "
+        "tr": "Bütün hastalar, tedaviler, örnekler ve olaylar; her tablo ayrı "
               "sayfada. Dosya bütün hasta adlarını içerir — kime verildiğine "
               "dikkat et. Şifreler ve oturum anahtarları dosyaya girmez.",
         "en": "All patients, cycles, samples and events; one sheet per table. "
@@ -1522,9 +1522,9 @@ METINLER = {
     "tum_hastalar": {"tr": "Tüm hastalar", "en": "All patients"},
     "son_kayitlar": {"tr": "Son kayıtlar", "en": "Recent records"},
     "es": {"tr": "Eş", "en": "Partner"},
-    "n_cycle": {"tr": "{n} cycle", "en": "{n} cycles"},
-    "n_cycle_tekil": {"tr": "{n} cycle", "en": "{n} cycle"},
-    "n_cycle_sirali": {"tr": "{n}. cycle", "en": "Cycle {n}"},
+    "n_cycle": {"tr": "{n} tedavi", "en": "{n} cycles"},
+    "n_cycle_tekil": {"tr": "{n} tedavi", "en": "{n} cycle"},
+    "n_cycle_sirali": {"tr": "{n}. tedavi", "en": "Cycle {n}"},
     "aramaya_uyan_yok": {"tr": "Bu aramaya uyan kayıt yok.",
                          "en": "No records match this search."},
     "henuz_hasta_yok": {"tr": "Henüz hasta kaydı yok.",
@@ -1533,9 +1533,9 @@ METINLER = {
     # ---- hasta detay ----
     "duzenle": {"tr": "Düzenle", "en": "Edit"},
     "dogum_tarihi_kisa": {"tr": "D.T.", "en": "DOB"},
-    "yeni_cycle_ac": {"tr": "Yeni cycle aç", "en": "Open new cycle"},
+    "yeni_cycle_ac": {"tr": "Yeni tedavi aç", "en": "Open new cycle"},
     "oosit_kucuk": {"tr": "oosit", "en": "oocytes"},
-    "bu_hastada_cycle_yok": {"tr": "Bu hastada henüz cycle yok.",
+    "bu_hastada_cycle_yok": {"tr": "Bu hastada henüz tedavi yok.",
                              "en": "No cycles for this patient yet."},
     "not": {"tr": "Not", "en": "Note"},
     "degisiklik_gecmisi": {"tr": "Değişiklik geçmişi", "en": "Change history"},

@@ -6973,3 +6973,46 @@ tarihli bir kayıt görürse (örnek istiyorum) — o zaman kod değil, o kaydı
 - Test verisi silinip 2 kayda dönünce üç "Tümü" bağlantısı da kayboldu
   (`grep -c "Tümü"` → 0).
 - Deneme oturumu geri alındı, `PRAGMA foreign_key_check` temiz.
+
+# v6.79 — arayüzde "cycle" yerine "tedavi" deniyor
+
+Kullanıcının isteği: "Cycle yerine tedavi demek istiyorum." Program veritabanında
+ve kodda "cycle" terimini kullanmaya devam ediyor (tablo adı, `cycle_id`,
+`/cycle/{id}` rotaları, Python değişkenleri — bunlara dokunmak koca bir iç
+mimari değişikliği olurdu ve hiçbir kullanıcı faydası yok), ama **ekranda
+görünen Türkçe metinlerin hepsinde** "cycle" sözcüğü "tedavi" ile değiştirildi.
+
+## Kapsam
+
+- `metinler.py`: "tr" değerlerinde geçen ~35 "cycle" sözcüğü Türkçe dilbilgisi
+  kurallarına uygun çekimlerle "tedavi"ye çevrildi (`cycle'ı` → `tedaviyi`,
+  `cycle'da` → `tedavide`, `cycle'ların` → `tedavilerin`, vb.). **"en" değerleri
+  değişmedi** — İngilizce çeviri zaten yarım ve askıda (bekleyen iş 8), üstelik
+  "cycle" İngilizce IVF literatüründe zaten kullanılan bir klinik terim; bu
+  değişiklik yalnızca Türkçe arayüzle ilgili.
+- Henüz `metin()`'e taşınmamış beş şablonda (`arsiv_sil.html`, `cycle_sil.html`,
+  `esle.html`, `hasta_sil.html`, `transfer_sil.html` — bekleyen iş 8'deki liste)
+  elle yazılmış "Cycle" metinleri de aynı şekilde değiştirildi.
+- `app.py`'de üç yerde kullanıcıya gösterilen metin vardı: `MODULLER` listesindeki
+  "Hasta ve cycle kaydı" etiketi (yönetici izin ekranı), `/yonetim` panelindeki
+  kayıt sayıları tablosunun "Cycle" satır adı, ve birkaç sunucu hata mesajı
+  ("Cycle no boş bırakılamaz.", "numaralı cycle zaten var" gibi). Bu arada
+  "Cycle no boş bırakılamaz." mesajının aslında `cycle_no` alanının ekrandaki
+  etiketiyle (`lab_kayit_no` → "Lab kayıt no") hiç eşleşmediği fark edildi —
+  düzeltilirken doğru etikete ("Lab kayıt no boş bırakılamaz.") çevrildi.
+- Değişmeyenler: tablo adı `cycle`, kolon adları (`cycle_id`, `cycle_no`,
+  `cycle_tipi`, `hasta_cycle_no`, `thaw_cycle_id`, `tr_cycle_id`,
+  `cycle_sira_no`...), rota yolları (`/cycle/{id}`, `/hasta/{id}/cycle/yeni`),
+  Python değişken/fonksiyon adları, şablon dosya adları (`cycle_detay.html`,
+  `cycle_form.html`, ...), `metin()` **anahtarları** (`"cycle"`, `"cycle_duzenle"`
+  gibi — yalnızca değerleri değişti), SQL sorguları, docstring'ler ve kod
+  yorumları. Bunlar kod tarafının iç ismi; ekranda hiç görünmüyor.
+
+## Test edildi
+
+Sunucu ayağa kaldırıldı, yönetici oturumu açılarak ana ekran, `/hastalar`,
+`/hasta/{id}`, `/cycle/{id}`, `/istatistik`, `/hasta/{id}/sil`, `/cycle/{id}/sil`,
+`/hasta/{id}/cycle/yeni`, `/cycle/{id}/esle`, `/kullanicilar` ve `/yonetim`
+gerçek tarayıcı isteğiyle çekildi; hiçbirinde ekrana basılan "Cycle" sözcüğü
+kalmadığı, "Tedavi" ile değiştiği doğrulandı. Test oturumu silindi,
+`PRAGMA foreign_key_check` temiz.

@@ -315,6 +315,17 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   `{% block govde %}genissayfa menusuzsayfa{% endblock %}`. Yalnız birini
   verirsen bant ile kartlar 1100-1440 arasında ~120px kayar.
 
+**Ekranda "cycle" değil "tedavi" denir** (v6.79, kullanıcının isteği). Kod
+tarafı (tablo adı `cycle`, kolonlar `cycle_id`/`cycle_no`/`cycle_tipi`/...,
+rotalar `/cycle/{id}`, Python değişkenleri, şablon dosya adları
+`cycle_detay.html` gibi, `metin()` **anahtarları**) değişmedi — yalnızca
+kullanıcının gördüğü Türkçe metin. Yeni bir ekranda "cycle" yazmak
+gerekiyorsa `metin("cycle")`/`metin("cycleler")` kullan (zaten "Tedavi"/
+"Tedaviler" basıyor) ya da aynı çekim mantığıyla elle yaz — "cycle'ı" değil
+"tedaviyi", "cycle'da" değil "tedavide". İngilizce ("en") değerlerine
+dokunulmadı: o çeviri zaten yarım ve askıda (bekleyen iş 8), ayrıca "cycle"
+İngilizce IVF literatüründe zaten kullanılan bir terim.
+
 **Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
 ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim
 ekleme.

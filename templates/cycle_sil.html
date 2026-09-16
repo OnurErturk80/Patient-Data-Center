@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block ustbaslik %}Cycle'ı iptal et veya sil{% endblock %}
+{% block ustbaslik %}Tedaviyi iptal et veya sil{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
   <div class="isim">{{ c.ad_soyad }}</div>
-  <div class="alt">{% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. cycle{% endif %}</div>
+  <div class="alt">{% if c.hasta_cycle_no %}{{ c.hasta_cycle_no }}. tedavi{% endif %}</div>
 </div>
 {% endblock %}
 {% block icerik %}
@@ -13,7 +13,7 @@
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
 <div class="kart">
-  <h2>Bu cycle'a bağlı kayıtlar</h2>
+  <h2>Bu tedaviye bağlı kayıtlar</h2>
   <dl style="margin:0">
     <div class="veri"><dt>Oosit / embriyo</dt><dd>{{ s.oosit }}</dd></div>
     <div class="veri"><dt>İşlem kaydı</dt><dd>{{ s.olay }}</dd></div>
@@ -40,7 +40,7 @@
     <div class="ad">{{ t.kaynak_cycle }} · oosit {{ t.cycle_sira_no }}</div>
     <div class="meta">
       {{ t.zaman }}{% if t.transfer_cycle and t.transfer_cycle != t.kaynak_cycle %}
-      · {{ t.transfer_cycle }} cycle'ında transfer{% endif %}
+      · {{ t.transfer_cycle }} tedavisinde transfer{% endif %}
     </div>
   </div>
   {% endfor %}
@@ -56,7 +56,7 @@
       <span class="kutu"></span>
       <span class="bilgi">
         <strong>{{ 'İptalde kalsın' if c.durum == 'iptal' else 'İptal et' }}</strong>
-        <em>Veriler korunur, cycle "iptal" işaretlenir. Lab kayıt numarası
+        <em>Veriler korunur, tedavi "iptal" işaretlenir. Lab kayıt numarası
         başka kayda verilmez. Geri alınabilir.</em>
       </span>
     </label>
@@ -66,7 +66,7 @@
       <span class="kutu"></span>
       <span class="bilgi">
         <strong>Kalıcı olarak sil</strong>
-        <em>Cycle, oositleri, işlem kayıtları, fotoğrafları ve gebelik sonucu
+        <em>Tedavi, oositleri, işlem kayıtları, fotoğrafları ve gebelik sonucu
         silinir. Lab kayıt numarası boşa düşer. Geri alınamaz.</em>
       </span>
     </label>
@@ -79,7 +79,7 @@
       {{ s.oosit }} oosit, {{ s.olay }} işlem kaydı ve {{ s.goruntu }} fotoğraf
       kalıcı olarak silinecek. Arşivdeki dosyalar diskten kaldırılacak.
       {% if s.tasiyici %}
-      Bu cycle'ın embriyolarını tutan {{ s.tasiyici }} taşıyıcı boşalacak ve
+      Bu tedavinin embriyolarını tutan {{ s.tasiyici }} taşıyıcı boşalacak ve
       konumları haritada serbest kalacak.
       {% endif %}
     </div>
