@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "_cyclesatir.html" as cs %}
+{% block ustbaslik %}{{ metin("yapilacaklar") }}{% endblock %}
+{% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
+{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+{# Ana ekranın "Devam Eden Tedaviler" kartı ilk 5'i gösteriyor (v6.78,
+   kullanıcının isteği); buradan hepsine ulaşılır -- kâğıt klasörün tam
+   içeriği. #}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ say("n_devam_eden", liste|length) }}</h2>
+  {% for s in liste %}{{ cs.satir(s) }}
+  {% else %}
+  <div class="bos">{{ metin("yapilacak_yok") }}</div>
+  {% endfor %}
+</div>
+{% endblock %}

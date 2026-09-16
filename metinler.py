@@ -1096,6 +1096,9 @@ METINLER = {
     "yapilacak_yok": {
         "tr": "Laboratuvarda işi süren cycle yok.",
         "en": "No cycles in progress in the lab."},
+    "n_devam_eden": {"tr": "{n} devam eden tedavi", "en": "{n} ongoing treatments"},
+    "n_devam_eden_tekil": {"tr": "{n} devam eden tedavi",
+                           "en": "{n} ongoing treatment"},
     "biten_islemler": {"tr": "Biten işlemler", "en": "Completed"},
     "n_biten": {"tr": "{n} biten işlem", "en": "{n} completed"},
     "n_biten_tekil": {"tr": "{n} biten işlem", "en": "{n} completed"},

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "_cyclesatir.html" as cs %}
+{% block ustbaslik %}{{ metin("yaklasanlar") }}{% endblock %}
+{% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
+{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+{# Ana ekranın "Yaklaşan Tedaviler" kartı ilk 5'i gösteriyor (v6.78,
+   kullanıcının isteği); buradan hepsine ulaşılır. Pencere kartla aynı:
+   önümüzdeki `yaklasan_gun` gün. #}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ say("n_planli_is", liste|length) }}</h2>
+  {% for s in liste %}{{ cs.satir(s, "plan") }}
+  {% else %}
+  <div class="bos">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
+  {% endfor %}
+</div>
+{% endblock %}

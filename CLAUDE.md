@@ -365,6 +365,21 @@ menüyle çarpışmasın diye `calc(100vw - 500px)` ile sınırlı. Yeni bir kar
 eklersen bu üç sütunu şişirme, altına koy; kart basisini büyütürsen aynı
 sığma hesabını (3×basis + 2×16 ≤ 640) tekrar yap.
 
+**Üç kart da en fazla 5 satır gösterir, fazlası "Tümü" ile ayrı ekrana
+gider** (v6.78, kullanıcının isteği). `ana.html` her listeyi `liste[:5]`
+diye kırpıyor ama **rozet sayısı kırpılmıyor** — `liste|length` hep gerçek
+toplamı gösterir, "Tümü" bağlantısı da `liste|length > 5` iken basılır.
+Hedefler: Bugün Biten Tedaviler → `/bitenler` (v6.29'dan beri var, sadece
+görünürlük koşulu eklendi), Devam Eden Tedaviler → yeni `/devam-eden`,
+Yaklaşan Tedaviler → yeni `/yaklasanlar` (`cycle_listesi(yaklasan=
+YAKLASAN_GUN)`'ın kırpılmamış hali, aynı 14 günlük pencere). İkisi de
+`bitenler.html`'in kopyaladığı kalıp: `_cyclesatir.html` `satir()` makrosu,
+`yol_modulu()`'nda özel kural yok (görüntüleme ekranı, middleware
+varsayılanı kapsıyor). **Bu, kaldırılmış `/takvim`'in geri gelmesi değil**
+(v6.65) — ay ızgarası yok, düz liste; "aynı şey gibi görünme" gerekçesi
+burada geçerli değil çünkü kart zaten var, yalnızca taşan kısmı ayrı sayfaya
+alıyor.
+
 > v6.18'de bu ekranda **hasta adı yoktu** (ekrana bakan herkes listeyi
 > görüyordu). Kuralı v6.28'de **kullanıcı kendi isteğiyle gevşetti**: adsız
 > bir liste her sabah bakılan klasörün işini görmüyor. Kendiliğinden geri

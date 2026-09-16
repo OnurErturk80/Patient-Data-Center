@@ -3161,6 +3161,28 @@ def bitenler(request: Request):
     )
 
 
+@uygulama.get("/devam-eden")
+def devam_eden(request: Request):
+    """Devam Eden Tedaviler'in tam listesi — ana ekran ilk 5'i gösterir
+    (v6.78, kullanıcının isteği), "Tümü" oraya 5'ten fazlaysa çıkıyor."""
+    return sablon.TemplateResponse(
+        request, "devam_eden.html",
+        {"kullanici": request.state.kullanici, "liste": cycle_listesi()},
+    )
+
+
+@uygulama.get("/yaklasanlar")
+def yaklasanlar_tumu(request: Request):
+    """Yaklaşan Tedaviler'in tam listesi — ana ekran ilk 5'i gösterir
+    (v6.78, kullanıcının isteği), "Tümü" oraya 5'ten fazlaysa çıkıyor."""
+    return sablon.TemplateResponse(
+        request, "yaklasanlar.html",
+        {"kullanici": request.state.kullanici,
+         "liste": cycle_listesi(yaklasan=YAKLASAN_GUN),
+         "yaklasan_gun": YAKLASAN_GUN},
+    )
+
+
 # ------------------------------------------------------------- Excel çıktısı
 
 # Dosya `.xlsx` olarak **indiriliyor**, tarayıcıda açılmıyor: içinde hasta adı

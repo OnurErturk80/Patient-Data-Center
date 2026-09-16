@@ -34,10 +34,16 @@
 <div class="ucsutun">
 {# Kullanicinin kagit klasoru: laboratuvarda isi suren cycle'lar. v6.18'de bu
    ekranda hasta adi yoktu; v6.28'de kullanici kurali kendi istegiyle gevsetti
-   -- adsiz bir liste her sabah bakilan klasorun isini gormuyor. #}
+   -- adsiz bir liste her sabah bakilan klasorun isini gormuyor.
+   Ana ekran ilk 5'i gosterir (v6.78, kullanicinin istegi) -- kartin uzunlugu
+   sinirli kalsin diye. Rozet TAM sayiyi gosteriyor (liste|length, kirpilmis
+   degil), 5'ten fazlaysa "Tumu" /devam-eden'e gidiyor. #}
 <div class="kart" style="margin-top:16px">
-  <h2>{{ metin("yapilacaklar") }}{% if liste %} <span class="rozet">{{ liste|length }}</span>{% endif %}</h2>
-  {% for s in liste %}{{ cs.satir(s) }}
+  <h2 class="ikili">
+    <span>{{ metin("yapilacaklar") }}{% if liste %} <span class="rozet">{{ liste|length }}</span>{% endif %}</span>
+    {% if liste|length > 5 %}<a href="/devam-eden" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>{% endif %}
+  </h2>
+  {% for s in liste[:5] %}{{ cs.satir(s) }}
   {% else %}
   <div class="bos">{{ metin("yapilacak_yok") }}</div>
   {% endfor %}
@@ -45,13 +51,15 @@
 
 {# Bugun bitenler. Olcu `date('now','localtime')` oldugu icin kart her gece
    kendiliginden bosaliyor -- gun sonunda "bugun neyi kapattim" sorusunun
-   cevabi, kalici bir liste degil. Tamami "Tumu" ile /bitenler'de (v6.29). #}
+   cevabi, kalici bir liste degil. Ayni 5-sinirli/Tumu deseni (v6.78);
+   "Tumu" hala /bitenler'e gidiyor (v6.29'dan beri, tum arsiv) ama artik
+   yalnizca bugun 5'ten fazla bittiyse gorunuyor. #}
 <div class="kart" style="margin-top:16px">
   <h2 class="ikili">
     <span>{{ metin("bugun_bitenler") }}{% if bugun_bitenler %} <span class="rozet">{{ bugun_bitenler|length }}</span>{% endif %}</span>
-    <a href="/bitenler" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>
+    {% if bugun_bitenler|length > 5 %}<a href="/bitenler" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>{% endif %}
   </h2>
-  {% for s in bugun_bitenler %}{{ cs.satir(s, "bitmis") }}
+  {% for s in bugun_bitenler[:5] %}{{ cs.satir(s, "bitmis") }}
   {% else %}
   <div class="bos" style="padding:20px 16px">{{ metin("bugun_biten_yok") }}</div>
   {% endfor %}
@@ -59,11 +67,15 @@
 
 {# Yaklasanlar: planlanan tarihi onumuzdeki iki hafta icinde olan cycle'lar
    (v6.33). Bugun planlananlar burada degil, Yapilacaklar'da -- tarihi gelen
-   is artik "yaklasan" degil. Ayri bir "tumu" ekrani yok (v6.65'te /takvim
-   kaldirildi), kart kendi penceresini gosteriyor. #}
+   is artik "yaklasan" degil. v6.65'te /takvim kaldirilmisti, "Tumu" o zaman
+   gitmiyordu; v6.78'de 5-sinirli/Tumu deseni icin /yaklasanlar eklendi --
+   takvim degil, ayni pencereli (14 gun) duz liste. #}
 <div class="kart" style="margin-top:16px">
-  <h2>{{ metin("yaklasanlar") }}{% if yaklasanlar %} <span class="rozet">{{ yaklasanlar|length }}</span>{% endif %}</h2>
-  {% for s in yaklasanlar %}{{ cs.satir(s, "plan") }}
+  <h2 class="ikili">
+    <span>{{ metin("yaklasanlar") }}{% if yaklasanlar %} <span class="rozet">{{ yaklasanlar|length }}</span>{% endif %}</span>
+    {% if yaklasanlar|length > 5 %}<a href="/yaklasanlar" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>{% endif %}
+  </h2>
+  {% for s in yaklasanlar[:5] %}{{ cs.satir(s, "plan") }}
   {% else %}
   <div class="bos" style="padding:20px 16px">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
   {% endfor %}

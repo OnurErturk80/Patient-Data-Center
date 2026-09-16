@@ -6928,3 +6928,48 @@ etkilenmedi (bit bit aynı çıktı).
 - Zip/XML yapısı yine kontrol edildi: geçerli XML, yinelenen hücre adresi
   yok, `openpyxl` istisnasız açıyor.
 - Deneme oturumu geri alındı, `PRAGMA foreign_key_check` temiz.
+
+# v6.78 — ana ekran kartları 5 ile sınırlandı, "Tümü" bağlantıları eklendi
+
+Kullanıcının isteği: Devam Eden Tedaviler / Bugün Biten Tedaviler / Yaklaşan
+Tedaviler beşten fazla göstermesin; fazlası varsa "Tümü" çıksın. Ayrıca
+"Bugün Biten Tedaviler"in yalnızca bugünkü tarihlileri göstermesi istendi —
+bu zaten `cycle_listesi(bugun=True)`'nin ölçüsüydü
+(`date(c.bitis_zamani) = date('now','localtime')`, v6.29'dan beri); kod
+tekrar okunup doğrulandı, ek bir değişiklik gerekmedi. Kullanıcı hâlâ eski
+tarihli bir kayıt görürse (örnek istiyorum) — o zaman kod değil, o kaydın
+`bitis_zamani`'ı incelenmeli.
+
+## Ne yapıldı
+
+- Üç kartın da `<h2>`'si `class="ikili"` oldu (Bugün Biten Tedaviler'de
+  zaten vardı), satırlar `liste[:5]` şeklinde kırpıldı. **Rozet sayısı
+  kırpılmadı** — `liste|length` hâlâ gerçek toplamı gösteriyor, yalnızca
+  görünen satırlar 5'te kesiliyor.
+- "Tümü" bağlantısı yalnızca `liste|length > 5` iken basılıyor:
+  - Bugün Biten Tedaviler → `/bitenler` (v6.29'dan beri var olan tüm-zamanlı
+    arşiv; sadece görünürlük koşulu eklendi, hedef değişmedi).
+  - Devam Eden Tedaviler → yeni `/devam-eden` (`devam_eden.html`,
+    `cycle_listesi()`'nin tam listesi, `bitenler.html` ile aynı kalıp).
+  - Yaklaşan Tedaviler → yeni `/yaklasanlar` (`yaklasanlar.html`,
+    `cycle_listesi(yaklasan=YAKLASAN_GUN)`'ın tam listesi, aynı 14 günlük
+    pencere). **Takvim değil** — v6.65'te kaldırılan `/takvim` ay ızgarasıydı,
+    bu düz bir liste, aynı "aynı şey gibi" gerekçesi burada geçerli değil.
+- Üç ekran de `yol_modulu()`'nda özel bir kural gerektirmedi — `/bitenler`
+  gibi onlar da görüntüleme ekranı, middleware'in varsayılanı (serbest)
+  zaten kapsıyor.
+- Yeni metin anahtarı yalnızca `n_devam_eden`/`n_devam_eden_tekil`;
+  `/yaklasanlar` mevcut `n_planli_is` (eski takvim özelliğinden kalma,
+  anlamı birebir uyuyor) ve `yaklasan_yok`'u yeniden kullandı.
+
+## Test edildi
+
+- Test verisiyle her üç listeyi 5'in üstüne çıkarttım (9/7/7):
+  ana ekranda üçü de ilk 5'i + "Tümü"yü gösterdi, rozet sayıları gerçek
+  toplamı (9/7/7) korudu.
+- `/devam-eden` ve `/yaklasanlar` tam listeyi (9, 7) doğru başlıkla
+  gösterdi; `/yaklasanlar`'ı boş durumda da kontrol ettim
+  ("planlanmış iş yok" mesajı doğru çıktı).
+- Test verisi silinip 2 kayda dönünce üç "Tümü" bağlantısı da kayboldu
+  (`grep -c "Tümü"` → 0).
+- Deneme oturumu geri alındı, `PRAGMA foreign_key_check` temiz.
