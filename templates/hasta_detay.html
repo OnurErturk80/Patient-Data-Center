@@ -2,10 +2,11 @@
 {% block ustbaslik %}{{ metin("hasta") }}{% endblock %}
 {% block ustsag %}<a href="/hasta/{{ hasta.id }}/duzenle">{{ metin("duzenle") }}</a> · <a href="/hasta/{{ hasta.id }}/sil">{{ metin("sil") }}</a>{% endblock %}
 {% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
-{# Sutun genisliyor; kimlik bandi da onunla hizalanmali. `menusuzsayfa`
-   bandi 940'a baglar -- bu ekranin yan menusu yok (v6.52). #}
-{% block kapsinif %} genis yanmenusuz{% endblock %}
-{% block govde %}genissayfa menusuzsayfa{% endblock %}
+{# Sutun genisliyor; kimlik bandi da onunla hizalanmali. Ana menu artik bu
+   ekranda da soldadir (v6.65), o yuzden `--genis-sutun` (menulu olcu)
+   kullaniliyor -- `menusuzsayfa` DEGIL. #}
+{% block kapsinif %} genis{% endblock %}
+{% block govde %}genissayfa{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ hasta.dosya_no }}</div>

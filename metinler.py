@@ -84,6 +84,12 @@ def yuzde(deger) -> str:
 METINLER = {
     # ---- program ve genel ----
     "program_adi": {"tr": "Patient Data Center", "en": "Patient Data Center"},
+    "giris_aciklama": {
+        "tr": "IVF laboratuvarının hasta, cycle ve oosit kayıtlarını tuttuğu "
+              "program. Klinik içi ağda çalışır, veriler bu cihazın dışına "
+              "çıkmaz.",
+        "en": "Keeps this IVF lab's patient, cycle and oocyte records. Runs "
+              "on the clinic's own network — data never leaves this device."},
     "kaydet": {"tr": "Kaydet", "en": "Save"},
     "iptal": {"tr": "İptal", "en": "Cancel"},
     # Durum rozeti — düğme değil. Ayrıca Türkçe "İptal"i küçültmek
@@ -1025,7 +1031,7 @@ METINLER = {
         "en": "If you both save, one will overwrite the other."},
 
     # ---- yapilacaklar listesi (v6.28): kagit klasorun karsiligi ----
-    "yapilacaklar": {"tr": "Yapılacaklar", "en": "To do"},
+    "yapilacaklar": {"tr": "Devam Eden Tedaviler", "en": "Ongoing Treatments"},
     "bugun_bitenler": {"tr": "Bugün bitenler", "en": "Finished today"},
     "bugun_biten_yok": {"tr": "Bugün biten işlem yok.",
                         "en": "Nothing finished today."},

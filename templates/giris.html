@@ -2,6 +2,11 @@
 {% block ustbaslik %}{{ metin("giris") }}{% endblock %}
 {% block icerik %}
 <div style="height:24px"></div>
+{# Program hakkında kısa bir tanıtım -- kullanıcının isteği (v6.65). Giriş
+   ekranı hiç açıklama içermiyordu. #}
+<div class="ipucu" style="text-align:center;margin-bottom:16px">
+  {{ metin("giris_aciklama") }}
+</div>
 {% if hata %}
 <div class="uyari">{{ metin("giris_hatali") }}</div>
 {% endif %}

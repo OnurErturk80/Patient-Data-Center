@@ -17,27 +17,31 @@
 {% endif %}
 {% endmacro %}
 
-{# Ana ekranin sol menusu. Asama menusuyle ayni gorunumu paylasiyor
-   (`.yanmenu`), ama icerigi bir cycle'a degil programa ait. Dar ekranda
-   yine CSS ile gizleniyor -- telefonda ayni baglantilar ana ekranin dugme
-   yiginidir, o yuzden ikisinin yazilari birebir ayni tutuluyor.
+{# Ana menu -- cycle ekranlari HARIC her ekranda solda (v6.65, kullanicinin
+   istegi). `base.html` bunu global olarak basiyor; cycle ekranlari (opu,
+   androloji, ..., cycle_detay, cycle_thaw) kendi asama menulerini
+   gosterdikleri icin bu bloğu bos birakiyor -- iki `.yanmenu` ust uste
+   binmesin diye. Dar ekranda yine CSS ile gizleniyor -- telefonda ana
+   ekranin dugme yiginidir, o yuzden ikisinin yazilari birebir ayni tutuluyor.
 
    Ust grup ekranlar (hasta kayitlari / cryo / yonetici), alttaki ayri grup
    islemler (yeni hasta, sifre). Izinler burada da kontrol ediliyor ama asil
-   engel middleware'de -- gizlemek tek basina yeterli degil. #}
-{% macro yan_ana(kullanici) %}
+   engel middleware'de -- gizlemek tek basina yeterli degil.
+
+   `aktif` hangi ogenin vurgulanacagini soyluyor -- `base.html` adresten
+   turetiyor. #}
+{% macro yan_ana(kullanici, aktif=None) %}
 <nav class="yanmenu" aria-label="{{ metin('ana_menu') }}">
   <div class="baslik">
     <span class="no">{{ metin("ana_menu") }}</span>
     <span class="ad">{{ kullanici.kisa_kod }}</span>
   </div>
-  <a class="oge" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
-  <a class="oge" href="/takvim">{{ metin("takvim") }}</a>
+  <a class="oge{% if aktif == 'hastalar' %} aktif{% endif %}" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
   {% if yetkim("cryo") %}
-  <a class="oge" href="/cryo">{{ metin("cryo_haritasi") }}</a>
+  <a class="oge{% if aktif == 'cryo' %} aktif{% endif %}" href="/cryo">{{ metin("cryo_haritasi") }}</a>
   {% endif %}
   {% if kullanici.rol == "yonetici" %}
-  <a class="oge" href="/yonetim">{{ metin("yonetim") }}</a>
+  <a class="oge{% if aktif == 'yonetim' %} aktif{% endif %}" href="/yonetim">{{ metin("yonetim") }}</a>
   {% endif %}
   <div class="altgrup">
     {% if yetkim("hasta") %}

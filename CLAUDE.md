@@ -282,9 +282,10 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   bağımsız kartlar mı var, yoksa genişliğe ihtiyacı olan tek bir şey mi?
   İki sütun: `/yonetim`, `/cycle/{id}`, `/kullanicilar`, `/istatistik`,
   `/formlar`, `/hastalar` (v6.63 — ay listesi ile Tüm Hastalar birbirinden
-  bağımsız iki kart). Yalnızca genişleyen (`kap genis yanmenusuz`):
-  `/klasorler`, `/cryo`, `/hasta/{id}`, `/bitenler`, `/takvim` — liste
-  ekranlarını bölme, `_cyclesatir` satırları soldan sağa okunan tek bir akış.
+  bağımsız iki kart). Yalnızca genişleyen (`kap genis`, v6.65'ten beri
+  `yanmenusuz` DEĞİL — menü artık orada da var): `/klasorler`, `/cryo`,
+  `/hasta/{id}`, `/bitenler` — liste ekranlarını bölme, `_cyclesatir`
+  satırları soldan sağa okunan tek bir akış.
   `/hastalar`'ın arşiv modu (`?arsiv=1`) bu kategoride kaldı: orada tek liste
   var, bölünecek ikinci bir kart yok.
   Bilerek dar kalanlar: `/cycle/{id}/bitir` (onay ekranı — dar olması
@@ -596,15 +597,41 @@ giriş yapılmamış ekranlarda basılmaz; koşul `(kullanici or
 request.state.kullanici)` çünkü middleware `request.state`'i açık yollarda
 (`/sifre`) doldurmuyor.
 
-**Ana ekranın menüsü iki yüzeyde, aynı sırayla** (v6.26). Geniş ekranda solda
-`_gezinme.html` `yan_ana()` (aşama menüsüyle aynı `.yanmenu`), telefonda
-`.anadugmeler` düğme yığını; CSS 1100px'te birini gizleyip ötekini gösteriyor.
-Menüye madde eklersen **ikisine birden ekle ve aynı yazıyı kullan** — aynı
-düğmeyi iki isimle öğretmek personeli yanıltır. Sıra: Hasta kayıtları →
-Takvim (v6.33) → Cryo haritası → Yönetici, altında ayrı grupta işlemler
-(Yeni hasta, Şifre değiştir).
+**Ana menü artık `base.html`'de global, cycle ekranları hariç her ekranda
+solda** (v6.65, kullanıcının isteği — önceden yalnızca `/` çağırıyordu).
+`{% block yanmenu %}` `.ust` bandının hemen altında, varsayılanı
+`gz.yan_ana(_yk, _aktif_menu)`. **Cycle ekranları** (OPU, androloji,
+denüdasyon, ICSI, fert, cleavage, blast, vitrifikasyon, çözme, transfer,
+gebelik, `cycle_detay`) bu bloğu **boş bırakıyor**
+(`{% block yanmenu %}{% endblock %}`) — onlar zaten kendi aşama menülerini
+(`gez.cubuk`/`gez.yan`) gösteriyor, ikisi üst üste binmesin diye. **Yeni bir
+cycle ekranı yazarsan bu boş override'ı eklemeyi unutma** — unutursan iki
+`.yanmenu` aynı `position:fixed` konumunda çakışır.
+
+Geniş ekranda `.yanmenu` (aşama menüsüyle aynı görünüm), telefonda
+`.anadugmeler` düğme yığını (**yalnızca ana ekranda**, `ana.html`) — CSS
+1100px'te birini gizleyip ötekini gösteriyor. Ana menüye madde eklersen
+**ikisine birden ekle ve aynı yazıyı kullan** — aynı düğmeyi iki isimle
+öğretmek personeli yanıltır. Sıra: Hasta kayıtları → Cryo haritası →
+Yönetici, altında ayrı grupta işlemler (Yeni hasta, Şifre değiştir).
 Menüdeki izin kontrolü yalnızca bağlantıyı gizler; asıl engel middleware ve
 `yonetici_kontrol()`.
+
+**Menü artık her yerde olduğu için genişleyen ekranlar `yanmenusuz` değil
+`genis` kullanmalı** (`.kap.genis.yanmenusuz` → `.kap.genis`, `--genis-sutun`
+menü payını içeriyor). Yeni bir genişleyen (`kap genis`) ekran yazarsan
+`yanmenusuz` ekleme — o artık yalnızca gerçekten menüsüz kalan bir ekran
+için (bugün öyle bir ekran yok, sınıf CSS'te duruyor ama kullanılmıyor).
+
+**Takvim kaldırıldı** (v6.65). `/takvim` rotası ve `takvim.html` silindi;
+sebep, hasta kayıtları ekranıyla "aynı şey gibi" görünmesiydi (v6.63'ün ilk
+denemesi bunu çözmeye çalışmıştı, kullanıcı sonunda ekranı tamamen
+kaldırmayı seçti). Ana ekrandaki **"Yaklaşanlar" kartı kalıyor** — yalnızca
+artık gitmediği "Tümü" bağlantısı kaldırıldı. `cycle_listesi(plan_ay=...)`
+kod yolu bilerek dokunulmadan bırakıldı (çağıran yok, ama `yaklasan` moduyla
+iç içe geçmiş, ayıklaması riskli) — yeni bir kullanım yazmadan önce hâlâ
+çalıştığını doğrula. `takvim_basligi()` **kalıyor**, `/takvim`'e özel
+değildi — `cycle_detay.html` planlanan tarihi göstermek için kullanıyor.
 
 **Kayıt açıp sonra doldurma varsa, dolduramazsan açtığını geri al.**
 Denüdasyonda `specimen_olustur()` önce, `goruntu_bagla()` sonra çalışıyor;

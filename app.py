@@ -1836,7 +1836,9 @@ BITIS_DURUMU = {"dondurma": "tamamlandi", "transfer": "tamamlandi",
                 "iptal": "iptal"}
 
 # Ana ekrandaki "Yaklaşanlar" kaç gün ileriye baksın (v6.33). İki hafta:
-# "haftaya" diye plan yapılıyor, bir hafta dar kalırdı. Tamamı /takvim'de.
+# "haftaya" diye plan yapılıyor, bir hafta dar kalırdı. Ayrı bir "tümünü
+# gör" ekranı yok (v6.65'te /takvim kaldırıldı) -- kart kendi penceresini
+# gösteriyor.
 YAKLASAN_GUN = 14
 
 
@@ -1877,8 +1879,9 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
       FET'te OPU olmuyor.
     - `yaklasan=14` planlanan tarihi **bugünden sonraki** 14 gün içinde olan
       cycle'lar: ana ekranın "Yaklaşanlar" kartı (v6.33).
-    - `plan_ay="2026-09"` o ayda **planlanmış** cycle'lar: takvim ekranı.
-      Geçmiş de dahil — takvim yapılan planın kaydı.
+    - `plan_ay="2026-09"` o ayda **planlanmış** cycle'lar. **Kullanılmıyor**
+      (v6.65'te takvim ekranı kaldırıldı) — kod bilerek duruyor, geri
+      dönülürse diye; çağıran yok.
 
     Arşivlenmiş hastanın cycle'ı ilk üçünde görünmez (hasta arşivi "bu dosya
     kapandı" demek), ama **ay listesinde görünür**: o iş o ay yapıldı, sonra
@@ -3110,46 +3113,6 @@ def cycle_bitisi_geri_al(request: Request, cycle_id: int):
         else:
             db.yaz("UPDATE cycle SET durum = 'aktif' WHERE id = ?", (cycle_id,))
     return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
-
-
-@uygulama.get("/takvim")
-def takvim(request: Request, yil: int = 0, ay: int = 0):
-    """Planlanan işler, gün gün (v6.33).
-
-    Kullanıcının isteği: "haftaya 14/09/2026 Pazartesi FET olacak" diye kayıt
-    açıp ileri tarihte neler olduğuna bakabilmek. Plan ayrı bir randevu kaydı
-    değil, **cycle'ın kendisi** — cycle bugün açılıyor, planlanan tarihi
-    giriliyor (kullanıcının kararı, 2026-09-11).
-
-    Ay ızgarası değil **gün gün liste**: telefonda okunaklı ve işi olmayan
-    günler hiç yer kaplamıyor. Ay seçici hasta kayıtlarındakiyle aynı.
-    """
-    simdi = _dt.now()
-    yil = yil or simdi.year
-    ay = ay or simdi.month
-    if not 1 <= ay <= 12:
-        ay = simdi.month
-    liste = cycle_listesi(plan_ay=f"{yil:04d}-{ay:02d}")
-
-    # Gün gün grupla. Sorgu zaten planlanan_tarih'e göre sıralı geliyor,
-    # bu yüzden ardışık aynı tarihler tek gruba düşüyor.
-    gunler = []
-    for r in liste:
-        g = str(r["planlanan_tarih"])[:10]
-        if not gunler or gunler[-1]["tarih"] != g:
-            gunler.append({"tarih": g, "satirlar": []})
-        gunler[-1]["satirlar"].append(r)
-
-    return sablon.TemplateResponse(
-        request, "takvim.html",
-        {"kullanici": request.state.kullanici, "gunler": gunler,
-         "toplam": len(liste), "yil": yil, "ay": ay,
-         "bu_ay": (yil == simdi.year and ay == simdi.month),
-         "bugun": simdi.strftime("%Y-%m-%d"),
-         "yillar": _yil_araligi(yil),
-         "onceki": _ay_kaydir(yil, ay, -1), "sonraki": _ay_kaydir(yil, ay, 1),
-         "goc_gerekli": not _planlanan_kolonu_var()},
-    )
 
 
 @uygulama.get("/bitenler")

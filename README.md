@@ -6389,3 +6389,85 @@ dışarıda; kullanıcı yalnızca hasta kartındaki doğum tarihini sordu.
 - `/hasta/{id}`'de doğum tarihi `12.05.1990` olarak görünüyor, eski ISO
   biçimi ekranda yok.
 - Boş/`None`/bozuk değerlerle `gg_aa_yyyy()` çökmedi, olduğu gibi döndü.
+
+---
+
+# v6.65 — ana menü her ekranda solda, giriş ekranına tanıtım, Takvim kaldırıldı
+
+Kullanıcının istekleri, tek istekte dört parça:
+
+1. "Şifre girilen ana ekranda program ile ilgili bir yazı olsun."
+2. "Ana ekranda yapılacaklar yerine Devam Eden Tedaviler yazsın."
+3. "Ana sayfada arama olsun."
+4. "Soldaki menü ... cycle ekranları hariç hep solda olsun. Ayrıca takvim
+   ortadan kalksın."
+
+## Ana menü artık global
+
+**En büyük değişiklik.** `yan_ana()` (Hasta kayıtları / Cryo haritası /
+Yönetici bağlantılarını taşıyan sol menü) eskiden yalnızca `/` (ana ekran)
+tarafından çağrılıyordu — başka hiçbir ekranda görünmüyordu. Kullanıcının
+isteğiyle artık **cycle ekranları hariç her ekranda** solda:
+
+- `base.html`'de yeni `{% block yanmenu %}` — `.ust` bandının hemen altında,
+  varsayılanı `gz.yan_ana(...)`. Bunu **tek yerde** eklemek, her yeni ekranın
+  bunu kendi başına çağırmasına gerek bırakmıyor (tuzak #1'in tersi: burada
+  merkezi durması bilinçli).
+- **Cycle ekranları (OPU, androloji, ..., cycle_detay, cycle_thaw) bu bloğu
+  boş bırakıyor** (`{% block yanmenu %}{% endblock %}`) — onlar zaten kendi
+  aşama menülerini (`gez.cubuk`/`gez.yan`) gösteriyor; ikisi üst üste binmesin
+  diye. 12 şablona tek satır eklendi.
+- **`aktif` vurgusu adresten türetiliyor** (`base.html`'de kaba bir
+  `startswith` eşlemesi: `/hastalar` ve `/hasta/...` → "hastalar", `/cryo` →
+  "cryo", `/yonetim`/`/kullanici...`/`/sifre-istekleri`/`/istatistik`/
+  `/klasorler`/`/dil`/`/formlar` → "yonetim"). Kapsamadığı bir adres varsa
+  yalnızca vurgu kaçar, işlev bozulmaz — riski düşük tutuldu.
+- **Genişleyen ekranlar `yanmenusuz`'dan `genis`'e geçti.** `/hastalar`,
+  `/yonetim`, `/kullanicilar`, `/istatistik`, `/klasorler`, `/cryo`,
+  `/bitenler`, `/hasta/{id}`, `/formlar`, `/baglan`, `/sifre-istekleri` —
+  hepsi eskiden menüsüz olduğu için `--genis-sutun-menusuz` (940px, menü
+  payı yok) kullanıyordu. Menü artık orada da olduğu için `--genis-sutun`
+  (menü payını içeren ölçü) kullanmaları gerekiyordu — yoksa 1100-1440px
+  arası içerik menünün altına girerdi. `/hasta/{id}` ve `/sifre-istekleri`
+  kimlik bandı hizalamasını da aynı sebeple `menusuzsayfa`'dan çıkardı.
+- **Dar (`.kap`, 640px) ekranlara dokunulmadı** — 1100px eşiği zaten
+  `(1100-640)/2 = 230px > 216px` (menünün bittiği yer) ile kurulmuştu, menü
+  hep vardı gibi çalışıyordu.
+- Test edildi: 1400px'te dört ekranın ekran görüntüsü alındı (çakışma yok,
+  doğru öğe vurgulu), 1130px'te (eşiğin hemen üstü) hâlâ çakışma yok, 390px'te
+  menü CSS ile gizli (telefonun kendi düğme yığını hâlâ yalnızca ana ekranda).
+
+## Takvim kaldırıldı
+
+`/takvim` rotası ve `takvim.html` silindi; sol menüdeki ve telefon düğme
+yığınındaki bağlantı kaldırıldı. **"Yaklaşanlar" kartı kalıyor** — kullanıcı
+onu kaldırmadı, yalnızca artık gitmediği "Tümü → Takvim" bağlantısı
+kaldırıldı; kart kendi 14 günlük penceresini gösteriyor.
+
+- `cycle_listesi(plan_ay=...)` kod yolu **bilerek dokunulmadan bırakıldı** —
+  artık çağıran yok ama `yaklasan` moduyla iç içe geçmiş, ayıklaması riskli;
+  ölü kod olduğu docstring'e yazıldı.
+- `takvim_basligi()` **kalıyor** — `/takvim`'e özel değildi, `cycle_detay.html`
+  planlanan tarihi göstermek için hâlâ kullanıyor.
+
+## Ana ekran: "Devam Eden Tedaviler", arama, giriş ekranı tanıtımı
+
+- `"yapilacaklar"` metin anahtarının **değeri** "Yapılacaklar" →
+  "Devam Eden Tedaviler" oldu (anahtar adı aynı kaldı, tek kullanım yeri
+  `ana.html`).
+- Ana ekrana arama kutusu eklendi — **ayrı bir arama mantığı yazılmadı**,
+  form `/hastalar`'a gidiyor ve v6.63'te zaten kurulan Tüm Hastalar/arama
+  sütununu kullanıyor.
+- `/giris` ekranına yeni `giris_aciklama` metniyle kısa bir tanıtım
+  eklendi: "IVF laboratuvarının hasta, cycle ve oosit kayıtlarını tuttuğu
+  program..."
+
+## Test edildi
+
+- 30'a yakın adres tarandı (ana ekran, hasta kayıtları, tüm cycle
+  ekranları, yönetici ekranları, `/takvim` dahil) — `/takvim` 404,
+  gerisi 200/303, günlükte hata yok.
+- Cycle ekranında `.yanmenu` **tek** (aşama menüsü), ana menü orada
+  basılmıyor. Cycle-dışı ekranlarda `.yanmenu` **tek** (ana menü), doğru
+  öğe vurgulu.
+- Deneme oturumu geri alındı.

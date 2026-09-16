@@ -44,6 +44,33 @@
   <h1>{% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}</h1>
   <span class="sag">{% block ustsag %}{% endblock %}</span>
 </div>
+{% import "_gezinme.html" as gz %}
+{# Ana menü, cycle ekranları HARİÇ her ekranda solda (v6.65, kullanıcının
+   isteği). Cycle ekranları (opu, androloji, ..., cycle_detay, cycle_thaw)
+   kendi aşama menülerini gösteriyor; bu blok orada boş bırakılıyor -- iki
+   `.yanmenu` üst üste binmesin diye. Blok olması, her yeni ekranın bunu
+   kendi başına eklemesine gerek kalmadığı anlamına geliyor (tuzak #1'in
+   tersi: burada TEK yerde durması bilinçli).
+
+   `aktif`: adresten türetilen kaba bir eşleme, hangi öğenin vurgulanacağını
+   söylüyor. Kapsamadığı bir adres varsa yalnızca vurgu kaçırılır, işlev
+   bozulmaz. #}
+{% block yanmenu %}
+{% set _yk = kullanici or request.state.kullanici %}
+{% if _yk %}
+{% set _yol = request.url.path %}
+{% if _yol.startswith('/hastalar') or _yol.startswith('/hasta/') %}
+{% set _aktif_menu = 'hastalar' %}
+{% elif _yol.startswith('/cryo') %}
+{% set _aktif_menu = 'cryo' %}
+{% elif _yol.startswith('/yonetim') or _yol.startswith('/kullanici') or _yol.startswith('/sifre-istekleri') or _yol.startswith('/istatistik') or _yol.startswith('/klasorler') or _yol.startswith('/dil') or _yol.startswith('/formlar') or _yol.startswith('/lab-formu') %}
+{% set _aktif_menu = 'yonetim' %}
+{% else %}
+{% set _aktif_menu = None %}
+{% endif %}
+{{ gz.yan_ana(_yk, _aktif_menu) }}
+{% endif %}
+{% endblock %}
 {% block kimlik %}{% endblock %}
 <div class="kap{% block kapsinif %}{% endblock %}">
 {# Ayni kaydi baska biri duzenliyorsa haber (v6.55). Sabit serit degil satir

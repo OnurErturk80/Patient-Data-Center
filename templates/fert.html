@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# Bu bir cycle ekrani: kendi asama menusunu gosteriyor (gez.cubuk/gez.yan asagida), global ana menu burada bos kalmali -- iki `.yanmenu` ust uste binmesin (v6.65). #}
+{% block yanmenu %}{% endblock %}
 {# Ayni kaydi baska biri duzenliyorsa uyari (v6.55): birim ALAN degil
    KAYIT, cunku kaydederken formun tamami yaziliyor. #}
 {% block kayitanahtari %}{% if sp %}cycle:{{ c.id }}:fert:{{ sp.id }}{% endif %}{% endblock %}

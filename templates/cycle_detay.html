@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# Bu bir cycle ekrani: kendi asama menusunu gosteriyor (gez.cubuk/gez.yan asagida), global ana menu burada bos kalmali -- iki `.yanmenu` ust uste binmesin (v6.65). #}
+{% block yanmenu %}{% endblock %}
 {% import "_gezinme.html" as gez %}
 {% import "_bitir.html" as bt %}
 {% block ustbaslik %}{{ metin("cycle") }}{% endblock %}
