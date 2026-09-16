@@ -846,6 +846,18 @@ yok.
   listesini kendi açık renkleriyle çiziyordu — bizim CSS'imiz yalnızca
   kapalı kutuya koyu-tema yazı rengi vermişti, bazı tarayıcılarda liste
   okunmuyordu. Bu satırı kaldırma.
+- **Kart başlıkları (`.kart h2`) `var(--ink)`, büyük ve kalın** (v6.82,
+  kullanıcının isteği — "modül başlıkları küçük görünüyor"). Önceden 13px +
+  `var(--ink-2)` (ikincil/soluk) idi, neredeyse gövde metniyle aynı ağırlıkta
+  görünüyordu. Şimdi 16px + `font-weight:700` + `var(--ink)` (birincil) —
+  **tek kural, uygulamadaki her `<div class="kart"><h2>` bundan besleniyor**,
+  ayrı ayrı büyütmeye gerek yok. `.bilgikart h2` (aşama ekranlarının salt
+  okunur kartı) kendi küçük override'ını taşıyordu, kaldırıldı — artık
+  `.bilgikart` her zaman `.kart` ile birlikte kullanıldığı için (`class="kart
+  bilgikart"`) yeni değerleri miras alıyor. Yeni bir kart başlığı için ayrı
+  font-size/color yazma, bu paylaşılan kuralı boz olarak bırak; yalnızca
+  gerçekten farklı bir vurgu gerekiyorsa (`.snapkart h2`'nin `var(--vurgu)`
+  rengi gibi) küçük bir override ekle.
 
 **Ekran kendini tazeler** (v6.54). Klinikte birkaç telefon aynı anda kayıt
 giriyor; masaüstünde açık duran sayfa elle yenilenene kadar eski kalıyordu.

@@ -7127,3 +7127,41 @@ yolu birbirinden bağımsız. `/goruntu/{id}/sil` onay ekranı PDF için `<embed
 görüntü için `<img>` bastı, "Aşama" alanı "Doktor Notu" gösterdi. Her iki
 kayıt da silindi; veritabanı satırları ve arşivdeki dosyalar birlikte
 kayboldu (diskte kontrol edildi), `PRAGMA foreign_key_check` temiz.
+
+# v6.82 — kart başlıkları çok küçüktü, büyütüldü
+
+Kullanıcının isteği: "Devam Eden Tedaviler / Bugün Biten Tedaviler / Yaklaşan
+Tedaviler gibi Zamanlar Protokol Doktor Notu (1) Zaman çizelgesi gibi modül
+başlıkları küçük görünüyor." Bu tek bir ekranın sorunu değildi — `.kart h2`
+uygulamadaki **her** kartın başlığı için tek, paylaşılan kural
+(`static/style.css`), yani her yerde aynı anda küçüktü: 13px, `var(--ink-2)`
+(ikincil/soluk metin rengi).
+
+## Düzeltme
+
+`.kart h2`: `13px` → `16px`, `font-weight: 600` → `700`, `color: var(--ink-2)`
+→ `var(--ink)` (birincil, koyu temada açık renk). Tek yerde değişti, bütün
+uygulamaya yayıldı — ana ekranın üç kartı, tedavi ekranındaki Zamanlar/
+Protokol/Doktor Notu/Zaman çizelgesi, `/yonetim`, `/kullanicilar`,
+`/istatistik`, aşama ekranlarının bilgi kartları, kısacası her `<div
+class="kart">` içindeki `<h2>`.
+
+`.bilgikart h2` (aşama ekranlarının salt okunur bilgi kartı — `_bilgikart.html`
+`kart()` makrosu) ayrıca `font-size: 14px; color: var(--ink);` ile küçük bir
+override taşıyordu; bu satırlar kaldırıldı, artık `.kart h2`'nin yeni (daha
+büyük) değerlerini miras alıyor — `.bilgikart` her zaman `.kart` ile birlikte
+kullanıldığı için (`class="kart bilgikart"`, dört template'te doğrulandı)
+güvenli.
+
+`.kart h2.gun` (takvim gün başlığı, 15px + `var(--ink)`) dokunulmadan
+bırakıldı — `/takvim` v6.65'te kaldırıldığından beri hiçbir şablon `gun`
+sınıfını basmıyor, ölü CSS; bu değişiklik onu kapsamıyordu.
+
+## Test edildi
+
+Sunucu ayağa kaldırıldı, Playwright ile `/cycle/{id}` (Zamanlar, Protokol,
+Doktor Notu, Oositler, Zaman çizelgesi kartları), `/` (Devam Eden/Bugün
+Biten/Yaklaşan Tedaviler, Durum) ve `/yonetim` (Excel çıktısı, Yedekleme,
+Veritabanı, Bu makinenin klasörleri) ekran görüntüsüyle karşılaştırıldı —
+her kart başlığı artık belirgin şekilde daha büyük ve daha parlak, gövde
+metninden net ayrışıyor.
