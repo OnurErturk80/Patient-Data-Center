@@ -151,6 +151,25 @@ def takvim_basligi(tarih: str) -> str:
 sablon.env.globals["takvim_basligi"] = takvim_basligi
 
 
+def gg_aa_yyyy(tarih) -> str:
+    """'1990-05-12' -> '12.05.1990' (v6.64).
+
+    Doğum tarihi gibi salt gösterim alanları veritabanında ISO (`YYYY-MM-DD`)
+    duruyor -- kaydetme, arama ve sıralama ISO'ya güveniyor, o değişmiyor.
+    Yalnızca ekrana **gün.ay.yıl** sırasıyla basılıyor (kullanıcının isteği).
+    Bozuk/boş değerde olduğu gibi döner — sessizce boş basmak yerine hatayı
+    görünür bırakır.
+    """
+    try:
+        g = _dt.fromisoformat(str(tarih)[:10]).date()
+    except (ValueError, TypeError):
+        return str(tarih or "")
+    return g.strftime("%d.%m.%Y")
+
+
+sablon.env.globals["gg_aa_yyyy"] = gg_aa_yyyy
+
+
 def _islem_yapan_ad(cycle_id, asama):
     """Bir cycle aşamasını fiilen yapan kişinin adı (yoksa boş).
 

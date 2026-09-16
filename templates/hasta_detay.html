@@ -11,7 +11,7 @@
   <div class="dosya">{{ hasta.dosya_no }}</div>
   <div class="isim">{{ hasta.ad_soyad }}{% if hasta.durum == "arsiv" %}<span class="rozet arsiv">{{ metin("arsivde") }}</span>{% endif %}</div>
   <div class="alt">
-    {% if hasta.dogum_tarihi %}{{ metin("dogum_tarihi_kisa") }} {{ hasta.dogum_tarihi }}{% endif %}
+    {% if hasta.dogum_tarihi %}{{ metin("dogum_tarihi_kisa") }} {{ gg_aa_yyyy(hasta.dogum_tarihi) }}{% endif %}
     {% if hasta.es_adi %} · {{ metin("es") }}: {{ hasta.es_adi }}{% endif %}
   </div>
 </div>

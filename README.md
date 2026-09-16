@@ -6361,3 +6361,31 @@ daha iyi anlatıyor. `/hasta/{id}` ekranının kendi başlığı zaten sade
 - `_cyclesatir.html`'in "ay" kipindeki düğme artık "Hasta kartı" yazıyor;
   `/hasta/{id}`'ye gidiyor.
 - Deneme hastaları ve oturum geri alındı; `PRAGMA foreign_key_check` temiz.
+
+---
+
+# v6.64 — hasta kartında doğum tarihi gün.ay.yıl
+
+Kullanıcının isteği: "hasta kartında doğum tarihi gün ay yıl şeklinde
+olsun." `hasta.dogum_tarihi` veritabanında ISO (`YYYY-MM-DD`) duruyor ve
+öyle kalıyor — kaydetme, arama, sıralama hep ISO'ya güveniyor. Ekranda
+`/hasta/{id}` (hasta kartı) tek yerde **ham ISO'yu** basıyordu
+(`hasta_detay.html`), tarih girişleri (`<input type="date">`) zaten
+tarayıcının kendi yerel biçiminde gösteriyor.
+
+Yeni Jinja global `gg_aa_yyyy(tarih)`: `'1990-05-12'` → `'12.05.1990'`.
+`takvim_basligi()`'nin kullandığı `_dt.fromisoformat` deseninin aynısı —
+bozuk/boş değerde olduğu gibi döner, sessizce boş basmaz. `%d.%m.%Y`
+sayısal — `%B`/`%A` gibi işletim sisteminin yerel ayarına bağlı değil,
+projede yasak olan o değil.
+
+Kapsam yalnızca `hasta_detay.html`'deki doğum tarihi satırı — cycle
+listesindeki OPU/işlem tarihleri (`[:10]` ISO) ve Excel çıktısındaki
+`dogum_tarihi` (ISO kalmalı ki Excel kendi tarih hücresi olarak tanısın)
+dışarıda; kullanıcı yalnızca hasta kartındaki doğum tarihini sordu.
+
+## Test edildi
+
+- `/hasta/{id}`'de doğum tarihi `12.05.1990` olarak görünüyor, eski ISO
+  biçimi ekranda yok.
+- Boş/`None`/bozuk değerlerle `gg_aa_yyyy()` çökmedi, olduğu gibi döndü.
