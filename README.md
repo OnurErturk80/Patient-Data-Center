@@ -6739,3 +6739,9 @@ olsun. Açık tema tamamen kaldırıldı.
   kalması gereken ikisi bırakıldı (fotoğraf silme rozeti, `.kagit` yazdırma
   kutusu).
 - Deneme oturumu geri alındı.
+
+# v6.73 — üst başlık amblemi büyütüldü
+
+Kullanıcının isteği: amblem biraz daha büyük olsun. `.ust .amblem`
+24px → 32px (`base.html`'deki `.marka` sarmalayıcısı zaten `align-items:
+center` ile hizalıyor, tek satır değişti).

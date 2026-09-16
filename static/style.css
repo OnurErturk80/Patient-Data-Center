@@ -74,7 +74,7 @@ body {
 }
 .ust h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: .01em; }
 .ust .marka { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ust .amblem { width: 24px; height: 24px; flex: 0 0 auto; }
+.ust .amblem { width: 32px; height: 32px; flex: 0 0 auto; }
 
 /* Ana menüye dönüş: geri okunun yanında, aynı boyda dokunma hedefi. Simge
    çizim (SVG) -- "⌂" karakteri her yazı tipinde yok, telefonda boş kare
