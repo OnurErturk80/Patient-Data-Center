@@ -45,7 +45,19 @@ html {
 
 body {
   margin: 0;
-  background: var(--zemin);
+  /* Arka plan görseli (v6.75, kullanıcının isteği): tüp bebek/embriyoloji
+     temalı -- `static/desen.svg` (sağ üst) + `desen2.svg` (aynı motifin
+     180° çevrilmişi, sol alt) -- amblemle aynı aile: dört hücreli embriyo,
+     zona pellucida halkası, bölünen/tek hücreler. CSS katmanında transform
+     verilemediği için iki ayrı dosya gerekti. `background-size` vw tabanlı:
+     her ekran genişliğinde orantılı kalıyor, sabit piksel telefonda çok
+     büyük/masaüstünde çok küçük kalmazdı. `fixed`: kaydırırken köşelerde
+     sabit duruyor. Yazdırırken (`@media print`) `body { background: #fff }`
+     hepsini temizliyor -- `background` kısayolu diğer katmanları da sıfırlar. */
+  background:
+    url('/static/desen.svg') no-repeat top right / 46vw fixed,
+    url('/static/desen2.svg') no-repeat bottom left / 46vw fixed,
+    var(--zemin);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                "Helvetica Neue", Arial, sans-serif;

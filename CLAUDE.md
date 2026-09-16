@@ -735,6 +735,15 @@ yok.
 - **Resmî form ekranı (`/form/...`) dışarıda** — kâğıt aslı hep beyaz
   basılacak, `.kagit` sınıfı sabit `#fff`/`#000` kullanıyor, koyu temadan
   etkilenmiyor. Yeni bir yazdırma ekranı yazarsan aynı şekilde sabit tut.
+- **Arka planda köşe görseli var** (v6.75, kullanıcının isteği):
+  `static/desen.svg` (sağ üst) + `desen2.svg` (aynısının 180° çevrilmişi,
+  sol alt) — amblemle aynı motif ailesi (dört hücreli embriyo, zona
+  pellucida halkası, bölünen/tek hücreler), `body`'de iki `background`
+  katmanı olarak `vw` tabanlı boyutla bağlı. Kartlar opak olduğu için
+  metnin önüne geçmiyor. **SVG yorumlarında `--` (çift tire) kullanma** —
+  XML'de geçersiz, tarayıcı dosyayı hiç render etmiyor (sessizce boş arka
+  plan kalıyordu, v6.75'te böyle bulundu). `@media print`'teki
+  `body { background: #fff }` bunu da temizliyor, yazdırma etkilenmiyor.
 - **`--ink-2` / `--ink-3` yalnızca METİN için güvenli, zemin/kenarlık için
   değil** (v6.74). İkisi de koyu temada açık renk (ikincil/üçüncül metin).
   `.rozet` (İptal/Arşiv/Tamamlandı etiketi) zemini `var(--ink-2)`

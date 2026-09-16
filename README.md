@@ -6787,3 +6787,44 @@ seçici, kaydırma çubuğu) koyu setiyle çiziyor.
 - `getComputedStyle(document.documentElement).colorScheme` ile `dark`
   döndüğü doğrulandı.
 - Deneme verisi (cycle durumu) geri alındı, `PRAGMA foreign_key_check` temiz.
+
+# v6.75 — arka plana tüp bebek temalı görsel eklendi
+
+Kullanıcının isteği: "Programın background'unda güzel bir görsel istiyorum.
+Tüp bebek ile ilgili bu renk tonlarına uygun."
+
+## Ne yapıldı
+
+- İki yeni statik SVG: `static/desen.svg` (sağ üst köşe) ve `static/desen2.svg`
+  (aynı motifin 180° çevrilmişi, sol alt köşe — CSS background katmanlarında
+  tek tek `transform` verilemediği için iki dosya gerekti). Motif amblemle
+  (`base.html`'deki halka + dört nokta) **aynı aile**: dört hücreli embriyo
+  kümesi, zona pellucida halkası, ikiye bölünen hücre, dağılmış tek hücreler
+  — hepsi `--vurgu` (pembe) ve biraz `--ink-3` tonunda mavi ile, yumuşak bir
+  radial gradient üstünde. Köşede yoğun, merkeze doğru soluyor.
+- `body`'de iki katmanlı arka plan: `background: url(desen.svg) no-repeat
+  top right / 46vw fixed, url(desen2.svg) no-repeat bottom left / 46vw fixed,
+  var(--zemin);`. **`vw` tabanlı boyut** — sabit piksel olsaydı telefonda
+  fazla büyük ya da masaüstünde fazla küçük kalırdı, oranlı kalıyor.
+  **`fixed`**: kaydırırken köşelerde sabit duruyor, kartlarla kaymıyor.
+  **Kartların üstüne binmiyor** çünkü `.kart` zaten opak (`--yuzey`) — desen
+  yalnızca kartlar arasındaki/köşelerdeki boşluklarda görünüyor, metnin
+  önüne geçmiyor.
+- **Yazdırma etkilenmedi**: `@media print`'teki `body { background: #fff }`
+  `background` kısayolu olduğu için görsel katmanları da sıfırlıyor,
+  resmî formlar hâlâ düz beyaz basılıyor.
+- **Bir hata bulundu ve düzeltildi**: ilk yazışta SVG yorumlarında Türkçe
+  metin içinde `--` (çift tire) kullanılmıştı — XML yorumlarında bu geçersiz,
+  tarayıcı SVG'yi hiç render etmiyor, hata sayfası gösteriyordu (arka plan
+  sessizce boş kalıyordu). Yorumlardaki `--` kaldırıldı.
+
+## Test edildi
+
+- SVG dosyaları doğrudan tarayıcıda açılıp XML hatası olmadığı doğrulandı
+  (ilk denemede "Double hyphen within comment" hatası tam burada yakalandı).
+- Playwright ile `getComputedStyle` üzerinden `background-image`,
+  `background-position` (`100% 0%, 0% 100%`), `background-size` (46vw) ve
+  `background-attachment` (`fixed, fixed`) değerleri doğrulandı.
+- Giriş, ana ekran (dar + geniş) ekran görüntüsüyle görsel kontrol edildi —
+  desen görünüyor, kartların içeriği hâlâ tam okunaklı.
+- Deneme oturumu geri alındı.
