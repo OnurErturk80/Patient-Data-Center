@@ -6648,3 +6648,43 @@ ekran artık `ana.html`'in de yaptığı gibi `program_adi`'yi açıkça yazıyo
 
 - `curl` ile `/giris`'in `<h1>`'i "Patient Data Center" döndürdüğü
   doğrulandı, telefon genişliğinde (390px) ekran görüntüsüyle de görüldü.
+
+# v6.71 — koyu tema DENEMESİ + üst başlıkta amblem (henüz kesinleşmedi)
+
+Kullanıcı bir mockup gönderdi: koyu zemin, pembe/magenta vurgu rengi, üst
+başlıkta halka + dört nokta amblemi. "Böyle olsa nasıl olur, dene" dedi.
+**Bu sürüm bir denemedir, kullanıcı henüz karar vermedi** — kalıcı olacaksa,
+tek tema mı yoksa sistem tercihine bağlı mı kalacağı da sonra netleşecek.
+
+## Ne yapıldı
+
+- Bütün tasarım zaten `:root` CSS değişkenleri üzerinden kuruluydu
+  (`--ink`, `--yuzey`, `--vurgu`, ...), o yüzden tek tek şablon değiştirmek
+  yerine bu değişkenler `@media (prefers-color-scheme: dark)` içinde
+  yeniden tanımlandı. Sistemi koyu temaya ayarlı kullanıcıda program
+  otomatik koyu açılıyor; ayarlı değilse **hiçbir şey değişmiyor** — açık
+  tema hâlâ eskisiyle birebir aynı.
+- Yeni değişken **`--ust-bg`**: üst bant, kimlik bandı, aktif sekme gibi
+  öğeler `--ink`'i arka plan (kasa rengi) olarak kullanıyordu; koyu temada
+  `--ink` metin rengine (açık) dönüşünce bu öğeler yanlışlıkla beyaza
+  dönerdi. `--ust-bg` bu öğeler için ayrı tutuldu, açık temada `var(--ink)`
+  ile aynı değeri alıyor (görünüm değişmedi), koyu temada sabit koyu lacivert.
+- **Amblem PNG değil, satır içi SVG** (`base.html`, `.ust` içinde,
+  `<h1>`'in yanında). `simge_uret.py`'nin çizdiği "zona halkası + dört
+  hücre" fikrinin aynısı ama dört nokta `fill="var(--vurgu)"` kullanıyor —
+  tema değişince amblem de kendiliğinden renk değiştiriyor, ayrı bir dosya
+  üretmeye gerek yok.
+- **Dokunulmayanlar (bilerek)**: birkaç durum rozeti (iptal/tamamlandı gibi)
+  ve uyarı rengi hâlâ sabit açık-tema tonları kullanıyor — koyu temada hafif
+  uyumsuz kalabilirler, düzeltilmedi. Resmî form ekranı (`/form/...`)
+  hiç dokunulmadı, o hep beyaz kâğıda basacak. Favicon/PWA ikon dosyaları
+  (`static/ikon_*.png`) da **değiştirilmedi** — yalnızca ayrı bir örnek
+  üretilip kullanıcıya gösterildi, `simge_uret.py`'nin kendisi güncellenmedi.
+
+## Test edildi
+
+- Playwright ile `color_scheme='dark'` ve `'light'` bağlamlarında giriş,
+  ana ekran ve bir cycle ekranı (`/cycle/1`) ekran görüntüsü alındı,
+  kullanıcıya gönderildi. Açık temada yalnızca amblemin eklendiği,
+  başka hiçbir şeyin değişmediği doğrulandı.
+- Deneme oturumu geri alındı.

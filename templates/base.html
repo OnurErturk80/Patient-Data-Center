@@ -41,7 +41,21 @@
     </svg>
   </a>
   {% endif %}
-  <h1>{% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}</h1>
+  {# Marka amblemi DENEMESI (v6.71, kullanıcının gönderdiği ekran görüntüsüne
+     göre) -- `simge_uret.py`'nin çizdiği "zona halkası + dört hücre" fikrinin
+     satır içi SVG hali. PNG değil ki `var(--vurgu)` rengini kullansın: koyu
+     tema denemesinde amblem kendiliğinden pembeye dönüyor, ayrı bir dosya
+     üretmeye gerek yok. #}
+  <span class="marka">
+    <svg class="amblem" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="7.3" fill="none" stroke="#fff" stroke-width="1.6"/>
+      <circle cx="8.6" cy="8.6" r="2.15" fill="var(--vurgu)"/>
+      <circle cx="15.4" cy="8.6" r="2.15" fill="var(--vurgu)"/>
+      <circle cx="8.6" cy="15.4" r="2.15" fill="var(--vurgu)"/>
+      <circle cx="15.4" cy="15.4" r="2.15" fill="var(--vurgu)"/>
+    </svg>
+    <h1>{% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}</h1>
+  </span>
   <span class="sag">{% block ustsag %}{% endblock %}</span>
 </div>
 {% import "_gezinme.html" as gz %}

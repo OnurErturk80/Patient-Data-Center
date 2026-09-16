@@ -9,6 +9,12 @@
   --vurgu-ac: #f3e3e7;
   --uyari:    #b4530e;
   --uyari-ac: #fbeee2;
+  /* Ust bant, kimlik bandi, aktif sekme gibi "hep koyu kalan" ogeler
+     `--ink`'i arka plan olarak kullaniyor (bu ekranda metin degil, kasa
+     rengi). Aciktan koyu temaya geciste `--ink` metin rengine donusunce
+     bu ogeler beyaza donmesin diye ayri bir degisken (v6.71 denemesi,
+     README v6.71). Acik temada `--ink` ile ayni deger, gorunum degismiyor. */
+  --ust-bg:   var(--ink);
   --r: 6px;
   /* Genis ekranda icerik sutunu. Yan menu solda 200px yer kapliyor,
      500px pay onunla carpismayi onluyor. Formul TEK yerde: kimlik bandinin
@@ -18,6 +24,31 @@
      kalir. Hem `.kap.genis.yanmenusuz` hem kimlik bandinin hizasi bunu
      kullaniyor -- iki ayri sayi olsaydi band ile kartlar kayardi. */
   --genis-sutun-menusuz: 940px;
+}
+
+/* Koyu tema DENEMESI (v6.71) -- kullanicinin gonderdigi ekran goruntusune
+   gore. Sistem tercihine bagli (`prefers-color-scheme`): kimse elle bir
+   sey secmiyor, degistirmiyor da -- acik temadaki hicbir sey bundan
+   etkilenmiyor. Yalnizca bu degiskenler degisiyor, geri kalan CSS'in
+   TAMAMI onlari kullandigi icin kartlar/butonlar/kenarliklar kendiliginden
+   uyum sagliyor. Kapsam disi kalanlar (bilerek, README v6.71'de yazili):
+   birkac sabit renk kullanan durum rozeti (iptal/tamamlandi gibi) ve resmi
+   form sayfasi (`form.html` -- o zaten hep beyaz kagit basacak, kalibi
+   degistirmiyoruz). Bu tema kalici mi olacak kullaniciya sorulacak. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink:      #e9eef3;
+    --ink-2:    #9fb0bc;
+    --ink-3:    #67788a;
+    --line:     #263341;
+    --yuzey:    #172230;
+    --zemin:    #0e1620;
+    --vurgu:    #e0356f;
+    --vurgu-ac: #3a1f2c;
+    --uyari:    #e2924a;
+    --uyari-ac: #3a2a17;
+    --ust-bg:   #111a25;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -47,7 +78,7 @@ body {
 
 /* --- üst çubuk --- */
 .ust {
-  background: var(--ink);
+  background: var(--ust-bg);
   color: #fff;
   padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
   display: flex;
@@ -65,6 +96,8 @@ body {
   margin-left: -8px;
 }
 .ust h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: .01em; }
+.ust .marka { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ust .amblem { width: 24px; height: 24px; flex: 0 0 auto; }
 
 /* Ana menüye dönüş: geri okunun yanında, aynı boyda dokunma hedefi. Simge
    çizim (SVG) -- "⌂" karakteri her yazı tipinde yok, telefonda boş kare
@@ -81,7 +114,7 @@ body {
 
 /* --- hasta kimlik bandı: ekranın en görünür öğesi --- */
 .kimlik {
-  background: var(--ink);
+  background: var(--ust-bg);
   color: #fff;
   padding: 18px 16px 20px;
   /* Sira SABLONDA degil burada: ad -> dosya no -> alt bilgi. 31 sablonun
@@ -254,7 +287,7 @@ body {
   z-index: 50;
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 12px 14px;
-  background: var(--ink);
+  background: var(--ust-bg);
   color: #fff;
   border-radius: var(--r);
   box-shadow: 0 6px 24px rgba(0,0,0,.25);
@@ -892,7 +925,7 @@ body.kilitli { overflow: hidden; }
   background: var(--yuzey); color: var(--ink-2); text-decoration: none; font-size: 15px;
 }
 .gunsec a.aktif {
-  background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600;
+  background: var(--ust-bg); color: #fff; border-color: var(--ust-bg); font-weight: 600;
 }
 
 .secenek.dar .sec { flex: 0 0 calc(25% - 6px); min-width: 0; }
@@ -1012,7 +1045,7 @@ body.kilitli { overflow: hidden; }
 .gezinme .gez.bos { visibility: hidden; }
 .gezinme .gez .ok { font-size: 20px; color: var(--ink-3); line-height: 1; }
 .gezinme .gez.orta {
-  flex: 0 0 88px; background: var(--ink); color: #fff; border-color: var(--ink);
+  flex: 0 0 88px; background: var(--ust-bg); color: #fff; border-color: var(--ust-bg);
   flex-direction: column; gap: 2px; font-weight: 600;
 }
 .gezinme .gez.orta .sayac { font-size: 11px; opacity: .65; font-weight: 400; }
@@ -1045,7 +1078,7 @@ body.kilitli { overflow: hidden; }
   .yanmenu .baslik {
     display: block;
     padding: 10px 12px;
-    background: var(--ink);
+    background: var(--ust-bg);
     color: #fff;
     text-decoration: none;
   }
