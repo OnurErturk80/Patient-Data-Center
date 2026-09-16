@@ -163,7 +163,11 @@
 {% set gosterilecek = hastalar if ara else tum_hastalar %}
 {% if gosterilecek or not ornekler %}
 <div class="kart" style="margin-top:12px">
-  <h2>{% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("tum_hastalar") }}{% endif %}</h2>
+  <h2>
+    {% if ara %}{{ metin("arama_sonucu") }}
+    {% else %}{{ metin("tum_hastalar") }}{% if tum_hastalar_sayisi %} ({{ tum_hastalar_sayisi }}){% endif %}
+    {% endif %}
+  </h2>
   {% for h in gosterilecek %}
   <a class="satir hasta" href="/hasta/{{ h.id }}">
     <div class="no">{{ h.dosya_no }}</div>
@@ -178,6 +182,23 @@
   </div>
   {% endfor %}
 </div>
+
+{# Tüm Hastalar sayfalanır (v6.87) — arama sonucu sayfalanmıyor, zaten
+   süzülmüş küçük bir liste. Ay/yıl gizli alanlarda taşınıyor ki sayfa
+   değiştirince sol sütundaki ay seçimi kaybolmasın. #}
+{% if not ara and tum_hastalar_sayfa_toplam > 1 %}
+<nav class="aygezgin" style="margin-top:8px" aria-label="{{ metin('sayfalar') }}">
+  {% if sayfa > 1 %}
+  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&sayfa={{ sayfa - 1 }}"
+     aria-label="{{ metin('onceki_sayfa') }}" title="{{ metin('onceki_sayfa') }}">&#8249;</a>
+  {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+  <span class="sayfabilgi">{{ metin("sayfa_x_y").format(x=sayfa, y=tum_hastalar_sayfa_toplam) }}</span>
+  {% if sayfa < tum_hastalar_sayfa_toplam %}
+  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&sayfa={{ sayfa + 1 }}"
+     aria-label="{{ metin('sonraki_sayfa') }}" title="{{ metin('sonraki_sayfa') }}">&#8250;</a>
+  {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+</nav>
+{% endif %}
 {% endif %}
 
 {% if arsiv_sayisi %}

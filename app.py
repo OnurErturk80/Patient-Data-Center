@@ -2092,9 +2092,12 @@ def ornek_kodu_ara(ara: str) -> list:
     )
 
 
+TUM_HASTALAR_SAYFA_BOYU = 50
+
+
 @uygulama.get("/hastalar")
 def hastalar(request: Request, ara: str = "", arsiv: int = 0,
-             yil: int = 0, ay: int = 0):
+             yil: int = 0, ay: int = 0, sayfa: int = 1):
     """Hasta kayıtları: ay ay işlem listesi + Tüm Hastalar + arama (v6.63).
 
     Tek ekran, üç parça — v6.29'dan farklı olarak artık **birlikte**
@@ -2113,6 +2116,12 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
       aranmazdı, o yüzden bu sütun ay süzgecinden bağımsız.
     - **`?arsiv=1`** eskisi gibi ayrı, tam genişlik bir mod: arşivlenmiş
       hastaların listesi, ay/Tüm Hastalar yok.
+
+    **Tüm Hastalar sayfalanır** (v6.87, kullanıcının isteği — "binlerce
+    hasta olunca yavaşlar mı" sorusunun yanıtı). Arama boşken bu liste artık
+    tamamı değil, `TUM_HASTALAR_SAYFA_BOYU` (50) kadar geliyor; `?sayfa=`
+    ile ilerleniyor. Arama sonucu (`kayitlar`/`hastalar`) sayfalanmıyor —
+    zaten süzülmüş, küçük bir liste.
     """
     bugun = _dt.now()
     yil = yil or bugun.year
@@ -2144,14 +2153,27 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
                 (db.LAB_ID, durum))
 
     # Ay listesi ve Tüm Hastalar arşiv modunda basılmıyor, gereksiz sorgu
-    # atılmasın diye hesaplanmıyor da.
+    # atılmasın diye hesaplanmıyor da. Tüm Hastalar de ara doluyken şablonda
+    # hiç gösterilmiyor (o zaman `kayitlar` gösteriliyor) — aynı gerekçeyle
+    # onda da hesaplanmıyor.
     liste, tum_hastalar = [], []
+    tum_hastalar_sayisi = 0
+    tum_hastalar_sayfa_toplam = 1
     if not arsiv:
         liste = cycle_listesi(ay=f"{yil:04d}-{ay:02d}")
-        tum_hastalar = db.sorgu(
-            "SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
-            "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = 'aktif' "
-            "ORDER BY h.ad_soyad", (db.LAB_ID,))
+        if not ara.strip():
+            tum_hastalar_sayisi = db.tek(
+                "SELECT COUNT(*) k FROM hasta WHERE lab_id=? AND durum='aktif'",
+                (db.LAB_ID,))["k"]
+            tum_hastalar_sayfa_toplam = max(
+                1, -(-tum_hastalar_sayisi // TUM_HASTALAR_SAYFA_BOYU))  # tavana yuvarla
+            sayfa = min(max(sayfa, 1), tum_hastalar_sayfa_toplam)
+            tum_hastalar = db.sorgu(
+                "SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
+                "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = 'aktif' "
+                "ORDER BY h.ad_soyad LIMIT ? OFFSET ?",
+                (db.LAB_ID, TUM_HASTALAR_SAYFA_BOYU,
+                 (sayfa - 1) * TUM_HASTALAR_SAYFA_BOYU))
 
     onceki = _ay_kaydir(yil, ay, -1)
     sonraki = _ay_kaydir(yil, ay, 1)
@@ -2166,6 +2188,8 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
          "yil": yil, "ay": ay, "bu_ay": bu_ay,
          "yillar": _yil_araligi(yil),
          "onceki": onceki, "sonraki": sonraki,
+         "sayfa": sayfa, "tum_hastalar_sayfa_toplam": tum_hastalar_sayfa_toplam,
+         "tum_hastalar_sayisi": tum_hastalar_sayisi,
          "arsiv_sayisi": arsiv_sayisi, "kullanici": request.state.kullanici,
          "yedek": yedek_durumu()},
     )

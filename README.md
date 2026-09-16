@@ -7533,3 +7533,45 @@ değişmiyor** (`sperm_dondurma.hasta_id` hep erkek hastada kalıyor), yalnızca
   ekranı görüntülendi — telefon genişliğinde düzgün akıyor.
 - Test verisi (sperm dondurma kayıtları, taşıyıcılar, konumlar, test
   hastaları/tedavileri, test oturumu) temizlendi.
+
+# v6.87 — Tüm Hastalar sayfalandı
+
+Kullanıcının sorusu: "binlerce hasta olunca yavaşlar mı" — cevapta
+`/hastalar`'daki "Tüm Hastalar" kartının hiçbir sınır (`LIMIT`) olmadan
+aktif hastaların **tamamını** tek seferde bastığını, bunun asıl sorunun
+SQL sorgusunun yavaşlığı değil, hasta sayısı arttıkça telefonun o kadar
+satırı ekrana basarken zorlanması olduğunu söyledim. Kullanıcı "şimdiden
+ekle" dedi.
+
+## Ne değişti
+
+- **`hastalar()` (`app.py`)**: yeni `sayfa` parametresi, `TUM_HASTALAR_
+  SAYFA_BOYU = 50`. Arama **boşken** "Tüm Hastalar" artık `LIMIT ? OFFSET
+  ?` ile 50'şer 50'şer geliyor; toplam sayfa sayısı ayrı bir `COUNT(*)`
+  ile hesaplanıp `sayfa` o aralığa **sunucuda** sabitleniyor (`min(max(sayfa,
+  1), toplam_sayfa)`) — adresten `?sayfa=9999` gibi bir değer gelirse son
+  sayfaya düşer, hataya değil.
+- **Arama sonucu sayfalanmadı.** Zaten süzülmüş, küçük bir liste —
+  gereksiz karmaşıklık olurdu. `ara` doluyken "Tüm Hastalar" sorgusu artık
+  **hiç çalışmıyor** (`gereksiz sorgu atılmasın diye` — arşiv modunun zaten
+  uyduğu kurala Tüm Hastalar da uydu).
+- **Ay/yıl gizli alanlarda korunuyor**: sayfa değiştirince sol sütundaki
+  ay seçimi kaybolmasın diye Önceki/Sonraki bağlantıları `yil`/`ay`'i de
+  taşıyor. Ay veya arama değişince `sayfa` adresten düşer, kendiliğinden
+  1'e döner — ayrı bir sıfırlama kodu yazmaya gerek kalmadı.
+- **Görünüm**: `/hastalar`'daki ay gezgininin (`‹ Eylül 2026 ›`) aynı
+  kutusu (`.aygezgin`) yeniden kullanıldı, ortada seçici yerine düz
+  "Sayfa 3 / 42" metni (`.sayfabilgi`, yeni bir küçük CSS kuralı). Sayfa 1
+  ya da son sayfadayken ilgili ok `<span>` olarak basılıp gizli kalıyor —
+  aynı kutunun genişliği bozulmasın diye boş bir `<a>` değil.
+- Başlığa sayı da eklendi: "Tüm Hastalar (121)" — kaç aktif hasta olduğu
+  sayfalar arasında gezmeden görünsün diye.
+
+## Test edildi
+
+120 test hastası eklendi (121 aktif hasta oldu, 3 sayfa): sayfa 1/2/3
+doğru 50'şer/50'şer/21 kayıt gösterdi, `?sayfa=99` gibi aralık dışı bir
+değer son sayfaya (3) sabitlendi, arama doluyken sayfalama hiç görünmedi.
+Playwright ile sayfa gezgini görüntülendi — ay gezginiyle aynı görünümde,
+telefon genişliğinde düzgün. Test hastaları temizlendi,
+`PRAGMA foreign_key_check` temiz.

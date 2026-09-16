@@ -359,6 +359,12 @@ body.seritli .kap { padding-bottom: 160px; }
 .aygezgin select:focus-visible { outline: 2px solid var(--vurgu); outline-offset: -2px; }
 .aygezgin select[name="yil"] { flex: 0 0 auto; }
 .aygezgin .goster { font-size: 15px; }
+/* Tüm Hastalar sayfa gezgini (v6.87) -- aygezgin'in aynı kutusu, ortada
+   seçici yerine düz "3 / 42" metni. */
+.aygezgin .sayfabilgi {
+  flex: 1 1 0; text-align: center;
+  font-size: 14px; font-weight: 700; color: var(--ink);
+}
 .dugme.buay { margin-top: 10px; }
 
 /* Ay listesi satiri: solda o ayki tedavi, sagda hastanin tum kaydi (v6.31).

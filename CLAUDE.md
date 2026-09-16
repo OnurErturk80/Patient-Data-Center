@@ -675,9 +675,15 @@ etkilemiyor.
   için ikisi kardeş, `.satirikili` yan yana diziyor — satıra bir bağlantı
   daha eklersen aynı yolu izle. Metin anahtarı hâlâ `hasta_kaydi` — yalnızca
   görünen metin değişti, anahtarı değiştirme.
-- **Tüm Hastalar** (`durum='aktif'`, `ORDER BY ad_soyad`, sınırsız) aynı
-  satır tasarımını kullanıyor, isme tıklamak `/hasta/{id}`'yi (aynı ekran)
-  açıyor.
+- **Tüm Hastalar** (`durum='aktif'`, `ORDER BY ad_soyad`) aynı satır
+  tasarımını kullanıyor, isme tıklamak `/hasta/{id}`'yi (aynı ekran) açıyor.
+  **Arama boşken sayfalanır** (v6.87, `TUM_HASTALAR_SAYFA_BOYU`=50,
+  `?sayfa=`) — hasta sayısı bini geçince telefonun tek seferde binlerce
+  satır basması yavaşlığa yol açardı. `sayfa` sunucuda `[1, toplam_sayfa]`
+  aralığına sabitleniyor, aralık dışı bir değer hataya değil son sayfaya
+  düşer. **Arama sonucu sayfalanmıyor** — zaten süzülmüş küçük bir liste,
+  arama doluyken bu sorgu hiç çalışmıyor bile (gereksiz sorgu atılmasın
+  diye, arşiv modundaki gerekçenin aynısı).
 - **Ay ile arama birbirini silmiyor**: `aygezgin` formu gizli `ara` alanı,
   arama formu gizli `yil`/`ay` alanları taşıyor. Biri değişirken öteki
   sıfırlanmasın diye.
