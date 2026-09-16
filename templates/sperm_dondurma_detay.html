@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("sperm_dondurma") }}{% endblock %}
+{% block geri %}<a class="geri" href="/sperm-dondurma">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ sd.dosya_no }}</div>
+  <div class="isim">{{ sd.ad_soyad }}</div>
+  <div class="alt">{{ sd.etiket }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+<div class="kart">
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("tip") }}</dt>
+      <dd>{{ etiketler.get(sd.tip, sd.tip) }}{% if sd.renk %} · {{ etiketler.get(sd.renk, sd.renk) }}{% endif %}</dd></div>
+    <div class="veri"><dt>{{ metin("konum") }}</dt>
+      <dd {% if not sd.tam_yol %}class="yok"{% endif %}>{{ sd.tam_yol or metin("girilmemis") }}</dd></div>
+    <div class="veri"><dt>{{ metin("dondurma_saati") }}</dt>
+      <dd>{{ gg_aa_yyyy_saat(sd.dondurma_zamani) if sd.dondurma_zamani else '—' }}</dd></div>
+  </dl>
+</div>
+
+<div class="kart">
+  <h2>{{ metin("semen_analizi") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("hacim_ml") }}</dt>
+      <dd {% if sd.hacim_ml is none %}class="yok"{% endif %}>{{ sd.hacim_ml if sd.hacim_ml is not none else metin("girilmedi") }}</dd></div>
+    <div class="veri"><dt>{{ metin("konsantrasyon") }}</dt>
+      <dd {% if sd.konsantrasyon_milyon_ml is none %}class="yok"{% endif %}>{{ sd.konsantrasyon_milyon_ml if sd.konsantrasyon_milyon_ml is not none else metin("girilmedi") }}</dd></div>
+    <div class="veri"><dt>{{ metin("total_motilite") }}</dt>
+      <dd {% if sd.total_motil_yuzde is none %}class="yok"{% endif %}>{{ sd.total_motil_yuzde if sd.total_motil_yuzde is not none else metin("girilmedi") }}</dd></div>
+  </dl>
+  {% if sd.notlar %}
+  <div class="alan">{{ sd.notlar }}</div>
+  {% endif %}
+</div>
+
+<a class="dugme ikincil" href="/hasta/{{ sd.hasta_id }}">{{ metin("hasta") }}</a>
+{% if yetkim("silme") %}
+<a class="dugme ikincil tehlike-bag" href="/sperm-dondurma/{{ sd.id }}/sil">{{ metin("kaydi_sil_dugme") }}</a>
+{% endif %}
+<a class="dugme ikincil" href="/sperm-dondurma">{{ metin("sperm_dondurma") }}</a>
+{% endblock %}

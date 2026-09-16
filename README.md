@@ -7201,3 +7201,128 @@ Playwright ile `/cycle/{id}` ve `/` ekran görüntüsü alındı: "Zamanlar",
 gövde metninden (beyaz) ayrı, yumuşak pembe bir tonda ve düğmelerin canlı
 pembesinden görsel olarak ayrışıyor. Test oturumu silindi,
 `PRAGMA foreign_key_check` temiz.
+
+# v6.84 — Yumurta Dondurma yeniden adlandırma + Sperm Dondurma modülü
+
+Kullanıcının isteği: "Tedavilere Yumurta Dondurma tedavisi de ekle. Ayrıca
+Cryo Harita bölümüne Sperm Dondurma ekleyelim. Şuan ki Tank başlığını
+Embriyo Dondurma olarak değiştir. Bu modülün yanına Sperm Dondurma ekle."
+Üç ayrı soru soruldu, üçü de netleştirdi:
+
+1. **"Oosit dondurma" yeni bir tip mi, yeniden adlandırma mı?** Klinik yol
+   aynı (OPU → Denüdasyon → Vitrifikasyon → Çözme), kullanıcı yeniden
+   adlandırmayı seçti — yeni bir `cycle_tipi` kodu açılmadı.
+2. **Embriyo Dondurma / Sperm Dondurma nasıl ayrılsın?** Kullanıcı "iki ayrı
+   menü bağlantısı, iki ayrı ekran" seçti (aynı ekranda sekme değil).
+3. **Sperm Dondurma hangi veriyi tutsun?** Kullanıcı yalnızca "dondurma
+   öncesi semen analizi (hacim, konsantrasyon, motilite)" seçti — çözme/
+   kullanım takibi bilerek kapsam dışı bırakıldı.
+
+## "Oosit dondurma" → "Yumurta Dondurma" (`goc_032`)
+
+Yalnızca `liste_degeri.etiket` güncellendi — v6.79'daki cycle→tedavi
+deseninin aynısı: `kod` ("oosit_cryo"), `TIP_KODLARI`, `TIP_ASAMALARI` ve
+mevcut cycle kayıtları hiç değişmedi, yalnızca ekranda görünen ad değişti.
+Yeni bir cycle tipi açmak (yeni kod, yeni `TIP_ASAMALARI` girişi, göç ile
+mevcut kayıtları taşıma) burada haksız bir karmaşıklık olurdu — klinik yol
+zaten var ve birebir aynı.
+
+## Embriyo Dondurma / Sperm Dondurma ayrımı
+
+Mevcut "Cryo haritası" ekranı (`/cryo`, `cryo.html`) artık ekranda "Embriyo
+Dondurma" yazıyor — yine yalnızca `metin("cryo_haritasi")`'nin görüntülenen
+metni değişti, rota (`/cryo`), tablo adları (`tasiyici`, `konum`) ve iç kod
+aynı kaldı (v6.79 deseni burada da).
+
+Sperm Dondurma **tamamen yeni bir ekran** (`/sperm-dondurma`), ama mevcut
+taşıyıcı/konum altyapısını paylaşıyor:
+
+- **`tasiyici.kategori`** (`goc_033`, yeni kolon, varsayılan `'embriyo'`) —
+  embriyo ve sperm taşıyıcıları aynı `tasiyici` tablosunda (ikisi de etiket/
+  tip/renk/konum aynı fikir), ama Embriyo Dondurma ekranı yalnızca kendi
+  taşıyıcılarını görmeli. `cryo_harita()`'daki üç sorgu (`tasiyicilar` iki
+  dal + `tanklar`) `t.kategori='embriyo'` süzgeci aldı; `/disari/cryo`
+  (Excel) dokunulmadan kaldı çünkü o zaten `olay.tip='vitrifikasyon'`
+  üzerinden geliyor, sperm taşıyıcıları hiç `olay` satırı üretmiyor.
+- **`sperm_dondurma`** (`goc_033`, yeni tablo) — `sperm_analiz` ile aynı
+  kolon adlarıyla (`hacim_ml`, `konsantrasyon_milyon_ml`,
+  `total_motil_yuzde`) dondurma öncesi semen analizini tutuyor,
+  `tasiyici_id` ile taşıyıcı/konuma bağlanıyor. `hasta_id`'ye doğrudan
+  bağlı — bir cycle'a değil, çünkü uzun süreli saklama belirli bir tedaviye
+  ait olmayabilir (`sperm_ornek` gibi `cycle_id NOT NULL` olsaydı aynı
+  günkü ICSI hazırlığı için tasarlanmış tabloyu yanlış amaçla kullanmış
+  olurduk). **Bir kayıt = bir taşıyıcı** — embriyoda olduğu gibi birden çok
+  örnek aynı taşıyıcıyı paylaşmıyor, bu yüzden silmede "kardeş var mı"
+  kontrolüne gerek yok, taşıyıcı her zaman tek başına serbest kalıyor.
+  `iptal_mi`/`iptal_kullanici_id`/`iptal_zamani`/`iptal_sebep` deseni
+  `olay`'daki ile birebir aynı (CLAUDE.md "Silme = iptal işaretleme") —
+  normal silme taşıyıcıyı ve konumu `vit_sil()`'deki gibi serbest bırakıyor
+  (`durum='bosaltildi'`/`'bos'`), fiziksel silme yalnızca hasta kalıcı
+  silinirken oluyor.
+- **İzin: ayrı bir modül açılmadı.** Yeni bir modül CLAUDE.md'nin
+  belgelediği üç yerlik törenle geliyor (`app.py` `MODULLER`, `goc_026.py`
+  `MODULLER`, `kullanici.py` `MODULLER`, sonra `goc_026`'yı tekrar
+  çalıştırmak) — Sperm Dondurma aynı personel grubunun işi olduğu için
+  mevcut `"cryo"` izni yeniden kullanıldı (`yol_modulu()`'na
+  `/sperm-dondurma*` ve `/hasta/{id}/sperm-dondurma/*` için `"cryo"`
+  dönen iki dal eklendi). `MODULLER`'daki etiket "Cryo haritası (Embriyo /
+  Sperm Dondurma)" olarak güncellendi ki yönetici kime bu izni verdiğini
+  bilsin. **Kullanıcı ayrı bir izin isterse** bu ayrıma dönüp yeni bir
+  modül açmak gerekir — bu, kullanıcıya sorulmadan alınmış bir tasarım
+  kararı, bilerek buraya not edildi.
+- **Silme rotası** `/sperm-dondurma/{id}/sil` — `sil` ile bittiği için
+  `yol_modulu()` onu otomatik olarak `"silme"` modülüne bağlıyor, özel bir
+  kural yazmaya gerek kalmadı.
+- **Hasta kalıcı silindiğinde** (`hasta_sil()`, `eylem="sil"`) artık o
+  hastanın `sperm_dondurma` kayıtları ve kendi taşıyıcıları da temizleniyor
+  — `cycle_tamamen_sil()`'in taşıyıcı serbest bırakma adımının basiti
+  (kardeş kontrolü yok, çünkü ilişki zaten 1:1). Bu eklenmeseydi tuzak
+  #4'ün aynısı olurdu: `sperm_dondurma.hasta_id` FOREIGN KEY hatası verip
+  hasta hiç silinemezdi.
+- **`veri_damgasi()`'nin `DEGISIM_EK`'i** `sperm_dondurma` için de
+  `olay`'daki gibi `COALESCE(SUM(iptal_mi), 0)` aldı — iptal işareti
+  yerinde değiştiği için satır sayısı/`MAX(rowid)` onu yakalamıyor,
+  `olay`'daki gerekçenin aynısı.
+- **`/disari/tumu`** (yönetici, tam döküm) `TUM_TABLOLAR`'a `sperm_dondurma`
+  eklendi — klinik bir kayıt, dökümde eksik kalmamalı.
+- Menü: `_gezinme.html` `yan_ana()` ve `ana.html` `.anadugmeler`'e "Sperm
+  Dondurma" bağlantısı Embriyo Dondurma'nın hemen altına eklendi (ikisi de
+  `yetkim("cryo")` ile), CLAUDE.md'nin "ikisine birden ekle, aynı yazıyı
+  kullan" kuralına uyarak. `base.html`'in `_aktif_menu` türetmesine
+  `/sperm-dondurma` dalı eklendi. `hasta_detay.html`'e "Yeni Sperm
+  Dondurma" düğmesi ("Yeni tedavi aç"ın altında).
+
+## Yeni ekranlar
+
+- `sperm_dondurma.html` — ana ekran, `cryo.html`'in basitleştirilmiş hali
+  (arama + düz taşıyıcı listesi, tank özeti kartı yok — kapsam kullanıcının
+  isteğiyle zaten sade tutuldu).
+- `sperm_dondurma_form.html` — oluşturma formu, `vitrifikasyon.html`'in
+  taşıyıcı/konum/zaman bloklarının aynısı + semen analizi kartı (mevcut
+  `hacim_ml`/`konsantrasyon`/`total_motilite` `metin()` anahtarları
+  `androloji.html`'den yeniden kullanıldı).
+- `sperm_dondurma_detay.html` — salt okunur detay, `tasiyici.html`'in
+  deseni.
+- `sperm_dondurma_sil.html` — silme onayı, `vit_sil.html`'in deseni (SIL
+  yazma zorunluluğu yok, bu kalıcı silme değil — normal iptal işaretleme).
+
+## Test edildi
+
+Sunucu ayağa kaldırıldı, gerçek bir sperm dondurma kaydı oluşturuldu (etiket,
+tip, renk, konum, hacim/konsantrasyon/motilite, elle girilen saat) ve:
+- `/sperm-dondurma`'da listelendi, `/cryo`'da (Embriyo Dondurma) **hiç
+  görünmedi** (`kategori` süzgeci doğrulandı).
+- Detay ekranında bütün alanlar doğru okundu.
+- Aynı etikette ikinci kayıt denendi, "etiketli bir taşıyıcı zaten var"
+  hatası döndü.
+- Silme ekranından silindi: `iptal_mi=1`, taşıyıcı `durum='bosaltildi'`,
+  konum `durum='bos'` oldu; `/sperm-dondurma` listesi tekrar boşaldı.
+- Ayrı bir test hastasına yeni bir sperm dondurma kaydı açılıp hasta kalıcı
+  silme akışından (`/hasta/{id}/sil`, dosya no + `SIL` onayıyla) geçirildi:
+  `sperm_dondurma` satırı ve taşıyıcısı silindi, `PRAGMA foreign_key_check`
+  temiz çıktı.
+- Playwright ile hem telefon hem geniş ekran görüntüsü alındı: mobil menü
+  ve masaüstü yan menüde "Embriyo Dondurma" ve "Sperm Dondurma" art arda,
+  aktif sayfa doğru vurgulanıyor; form telefon genişliğinde düzgün akıyor.
+- `goc_032` ve `goc_033` iki kez çalıştırılıp idempotent olduğu doğrulandı.
+- Test verisi (kayıt, taşıyıcı, konum, test hastası, test oturumu) temizlendi.

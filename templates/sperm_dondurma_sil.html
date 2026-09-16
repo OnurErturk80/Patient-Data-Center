@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("sperm_dondurma_kaydini_sil") }}{% endblock %}
+{% block geri %}<a class="geri" href="/sperm-dondurma/{{ sd.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ sd.dosya_no }}</div>
+  <div class="isim">{{ sd.ad_soyad }}</div>
+  <div class="alt">{{ sd.etiket }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+<div class="tehlike">{{ metin("sperm_dondurma_silinecek") }}</div>
+
+<div class="kart">
+  <h2>{{ metin("silinecek_kayit") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("tasiyici") }}</dt><dd>{{ sd.etiket }}</dd></div>
+    <div class="veri"><dt>{{ metin("konum") }}</dt>
+      <dd {% if not sd.tam_yol %}class="yok"{% endif %}>{{ sd.tam_yol or metin("girilmemis") }}</dd></div>
+    <div class="veri"><dt>{{ metin("dondurma_saati") }}</dt>
+      <dd style="font-size:13px">{{ gg_aa_yyyy_saat(sd.dondurma_zamani) if sd.dondurma_zamani else '—' }}</dd></div>
+  </dl>
+</div>
+
+<form method="post" action="/sperm-dondurma/{{ sd.id }}/sil">
+  <button class="dugme tehlikeli" type="submit">{{ metin("kaydi_sil_dugme") }}</button>
+</form>
+<a class="dugme ikincil" href="/sperm-dondurma/{{ sd.id }}">{{ metin("vazgec") }}</a>
+{% endblock %}

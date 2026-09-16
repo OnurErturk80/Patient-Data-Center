@@ -209,6 +209,30 @@ METINLER = {
     "henuz_dondurulmus_yok": {"tr": "Henüz dondurulmuş embriyo yok.",
                               "en": "No frozen embryos yet."},
 
+    # ---- sperm dondurma (v6.84) ----
+    "sperm_dondurma": {"tr": "Sperm Dondurma", "en": "Sperm Freezing"},
+    "yeni_sperm_dondurma": {"tr": "Yeni Sperm Dondurma", "en": "New Sperm Freezing"},
+    "sperm_dondurma_ara_ipucu": {
+        "tr": "Etiket, konum, dosya no veya hasta adı",
+        "en": "Label, location, file no or patient name"},
+    "dondurulmus_sperm_yok": {"tr": "Henüz dondurulmuş sperm yok.",
+                              "en": "No frozen sperm yet."},
+    "aramaya_uyan_sperm_yok": {"tr": "Bu aramaya uyan sperm kaydı yok.",
+                               "en": "No sperm records match this search."},
+    "dondurma_saati": {"tr": "Dondurma saati", "en": "Freeze time"},
+    "sperm_dondurmayi_kaydet": {"tr": "Sperm dondurmayı kaydet",
+                                "en": "Save sperm freezing"},
+    "sperm_dondurma_kaydini_sil": {"tr": "Sperm dondurma kaydını sil",
+                                   "en": "Delete sperm freezing record"},
+    "sperm_kaydi_yok": {"tr": "Bu kayıt bulunamadı.",
+                        "en": "This record was not found."},
+    "sperm_dondurma_silinecek": {
+        "tr": "Bu kayıt ve bağlı olduğu taşıyıcı kalıcı olarak silinecek.",
+        "en": "This record and its carrier will be permanently deleted."},
+    "kaydi_sil_dugme": {"tr": "Kaydı sil", "en": "Delete record"},
+    "semen_analizi": {"tr": "Dondurma öncesi semen analizi",
+                      "en": "Pre-freeze semen analysis"},
+
     # ---- cycle formu ----
     "cycle_duzenle": {"tr": "Tedaviyi düzenle", "en": "Edit cycle"},
     "yeni_cycle": {"tr": "Yeni tedavi", "en": "New cycle"},
@@ -1520,7 +1544,12 @@ METINLER = {
     "aktif_hastalara_don": {"tr": "Aktif hastalara dön",
                             "en": "Back to active patients"},
     "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},
-    "cryo_haritasi": {"tr": "Cryo haritası", "en": "Cryo map"},
+    # Anahtar "cryo_haritasi" kaldı (v6.79'daki cycle->tedavi deseni: kod
+    # tarafı degismiyor, yalnizca goruntulen metin) ama ekrandaki adi
+    # kullanicinin istegiyle "Embriyo Dondurma" oldu (v6.84) -- Sperm
+    # Dondurma ayri bir ekrana ayrildigi icin "Cryo" artik yalnizca
+    # embriyo taşıyıcılarını anlatıyor.
+    "cryo_haritasi": {"tr": "Embriyo Dondurma", "en": "Embryo Freezing"},
     "yonetim": {"tr": "Yönetici", "en": "Administrator"},
     "arsiv": {"tr": "Arşiv", "en": "Archive"},
     "arsivde": {"tr": "arşivde", "en": "archived"},

@@ -114,7 +114,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..031.py   veritabanı göçleri (sırayla)
+  goc_002..033.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -1178,6 +1178,31 @@ Bu kararı gevşetme (README v6.11).
 (`asama='opu'`). `UNIQUE(cycle_id, asama)` aşama başına tek kişi demek; ikinci
 bir kişi gerekiyorsa onu bu kısıtı gevşeterek değil, cycle verisi olarak ekle
 (README v6.9).
+
+**Embriyo Dondurma ve Sperm Dondurma aynı taşıyıcı/konum altyapısını
+paylaşır, `tasiyici.kategori` ile ayrılır** (v6.84, `goc_033`). `/cryo`
+ekranı artık kullanıcıya "Embriyo Dondurma" görünüyor (yalnızca
+`metin("cryo_haritasi")`'nin görüntülenen metni — rota, tablo adları hâlâ
+`cryo`/`tasiyici`, v6.79 deseni). Sperm Dondurma ayrı bir ekran
+(`/sperm-dondurma`), kendi tablosu (`sperm_dondurma`: dondurma öncesi
+semen analizi, `sperm_analiz` ile aynı kolon adları) ama **aynı** `tasiyici`/
+`konum` tablolarını kullanıyor. `tasiyici.kategori` (`'embriyo'`/`'sperm'`)
+ayırıyor — **Embriyo Dondurma'nın `tasiyici` sorgularına yeni bir yerden
+dokunursan `t.kategori='embriyo'` süzgecini de ekle**, yoksa sperm
+taşıyıcıları oraya sızar. `/disari/cryo` bu süzgece ihtiyaç duymuyor çünkü
+zaten `olay.tip='vitrifikasyon'` üzerinden geliyor, sperm taşıyıcıları hiç
+`olay` satırı üretmiyor.
+- **Bir sperm dondurma kaydı = bir taşıyıcı** (embriyoda olduğu gibi birden
+  çok örnek aynı taşıyıcıyı paylaşmıyor) — silmede "kardeş var mı" kontrolü
+  yok, taşıyıcı her zaman tek başına serbest kalır.
+- **İzin ayrı bir modül değil, mevcut `"cryo"`.** Yeni modül açmanın
+  bedeli (üç dosyada `MODULLER` + `goc_026`'yı tekrar çalıştırmak) burada
+  ödenmedi — aynı personel grubu varsayıldı, kullanıcıya sorulmadan alınmış
+  bir tasarım kararı. Kullanıcı ayrı izin isterse bu ayrıma dönülmeli.
+- Yeni bir cycle tipi **değil**: "Oosit dondurma" `goc_032` ile "Yumurta
+  Dondurma"ya yeniden adlandırıldı (`kod`, `TIP_KODLARI`, `TIP_ASAMALARI`
+  aynen duruyor) — aynı desen, yeni bir tip açmadan önce mevcut
+  `liste_degeri.etiket`'in yeniden adlandırılabilir olup olmadığını düşün.
 
 ---
 

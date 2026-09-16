@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("sperm_dondurma") }}{% endblock %}
+{% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+
+<form class="arama" method="get" action="/sperm-dondurma">
+  <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
+         placeholder="{{ metin('sperm_dondurma_ara_ipucu') }}">
+</form>
+
+<div class="kart">
+  <h2>{% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("dolu_tasiyicilar") }}{% endif %}
+      ({{ kayitlar|length }})</h2>
+  {% for k in kayitlar %}
+  <a class="satir" href="/sperm-dondurma/{{ k.id }}">
+    <div class="no">{{ k.etiket }}</div>
+    <div class="meta">
+      {{ k.dosya_no }} · {{ k.ad_soyad }}
+      {% if k.tip %} · {{ etiketler.get(k.tip, k.tip) }}{% endif %}
+      {% if k.renk %} · {{ etiketler.get(k.renk, k.renk) }}{% endif %}
+    </div>
+    <div class="meta">
+      {% if k.tam_yol %}{{ k.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
+    </div>
+  </a>
+  {% else %}
+  <div class="bos">
+    {% if ara %}{{ metin("aramaya_uyan_sperm_yok") }}{% else %}{{ metin("dondurulmus_sperm_yok") }}{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

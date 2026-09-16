@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("yeni_sperm_dondurma") }}{% endblock %}
+{% block geri %}<a class="geri" href="/hasta/{{ h.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ h.dosya_no }}</div>
+  <div class="isim">{{ h.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+<form method="post" action="/hasta/{{ h.id }}/sperm-dondurma/yeni" id="spermform">
+
+  <div class="kart">
+    <h2>{{ metin("tasiyici") }}</h2>
+    <div class="alan">
+      <label for="etiket">{{ metin("etiket") }}</label>
+      <input id="etiket" name="etiket" type="text" required autocomplete="off"
+             value="{{ onerilen }}">
+      <div class="ipucu">{{ metin("etiket_benzersiz") }}</div>
+    </div>
+    <div class="alan ikili">
+      <div>
+        <label for="tip">{{ metin("tip") }}</label>
+        <select id="tip" name="tip">
+          {% for t in tipler %}<option value="{{ t.kod }}" {% if t.kod == "straw" %}selected{% endif %}>{{ t.etiket }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="renk">{{ metin("renk") }}</label>
+        <select id="renk" name="renk">
+          <option value="">—</option>
+          {% for r in renkler %}<option value="{{ r.kod }}">{{ r.etiket }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>{{ metin("konum") }}</h2>
+    {% for s in sema %}
+    <div class="alan">
+      <label for="seviye{{ s.seviye_sirasi }}">{{ s.seviye_adi }}</label>
+      <input id="seviye{{ s.seviye_sirasi }}" name="seviye{{ s.seviye_sirasi }}"
+             type="text" autocomplete="off">
+    </div>
+    {% endfor %}
+    <div class="alan" style="border:0;padding-top:0">
+      <div class="ipucu">{{ metin("konum_ipucu") }}</div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <h2>{{ metin("semen_analizi") }}</h2>
+    <div class="alan">
+      <label for="hacim_ml">{{ metin("hacim_ml") }}</label>
+      <input id="hacim_ml" name="hacim_ml" type="text" inputmode="decimal" autocomplete="off">
+    </div>
+    <div class="alan">
+      <label for="konsantrasyon">{{ metin("konsantrasyon") }}</label>
+      <input id="konsantrasyon" name="konsantrasyon" type="text" inputmode="decimal" autocomplete="off">
+    </div>
+    <div class="alan">
+      <label for="total_motilite">{{ metin("total_motilite") }}</label>
+      <input id="total_motilite" name="total_motilite" type="text" inputmode="decimal" autocomplete="off">
+    </div>
+    <div class="alan">
+      <label for="notlar">{{ metin("not") }}</label>
+      <textarea id="notlar" name="notlar" rows="2"></textarea>
+    </div>
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="islem_zamani">{{ metin("dondurma_saati") }}</label>
+      <input id="islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ simdi }}">
+    </div>
+  </div>
+
+  <button class="dugme" type="submit">{{ metin("sperm_dondurmayi_kaydet") }}</button>
+</form>
+
+<a class="dugme ikincil" href="/sperm-dondurma">{{ metin("sperm_dondurma") }}</a>
+{% endblock %}

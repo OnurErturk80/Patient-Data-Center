@@ -19,6 +19,7 @@
 {% endblock %}
 {% block icerik %}
 {% if yetkim("hasta") %}<a class="dugme" href="/hasta/{{ hasta.id }}/cycle/yeni">{{ metin("yeni_cycle_ac") }}</a>{% endif %}
+{% if yetkim("cryo") %}<a class="dugme ikincil" href="/hasta/{{ hasta.id }}/sperm-dondurma/yeni">{{ metin("yeni_sperm_dondurma") }}</a>{% endif %}
 
 <div class="kart">
   <h2>{{ metin("cycleler") }}</h2>

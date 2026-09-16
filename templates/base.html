@@ -73,7 +73,9 @@
 {% set _yk = kullanici or request.state.kullanici %}
 {% if _yk %}
 {% set _yol = request.url.path %}
-{% if _yol.startswith('/hastalar') or _yol.startswith('/hasta/') %}
+{% if _yol.startswith('/sperm-dondurma') or '/sperm-dondurma' in _yol %}
+{% set _aktif_menu = 'sperm_dondurma' %}
+{% elif _yol.startswith('/hastalar') or _yol.startswith('/hasta/') %}
 {% set _aktif_menu = 'hastalar' %}
 {% elif _yol.startswith('/cryo') %}
 {% set _aktif_menu = 'cryo' %}
