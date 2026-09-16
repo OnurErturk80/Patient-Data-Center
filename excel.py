@@ -281,10 +281,6 @@ def _yerlesim_xml(y: dict, taban: int = 0) -> str:
             p.append(f'<mergeCell ref="{aralik.upper()}"/>')
         p.append("</mergeCells>")
 
-    if y.get("gorseller"):
-        # Çizim parçası sayfanın ilişkilerinde rId1; parçaları kitap() yazıyor.
-        p.append('<drawing r:id="rId1"/>')
-
     kenar = yaz.get("kenar", 0.3)
     p.append(f'<pageMargins left="{kenar}" right="{kenar}" top="{kenar}" '
              f'bottom="{kenar}" header="0" footer="0"/>')
@@ -292,6 +288,14 @@ def _yerlesim_xml(y: dict, taban: int = 0) -> str:
     sig = ' fitToWidth="1" fitToHeight="1"' if yaz.get("sigdir", True) else ""
     # paperSize 9 = A4.
     p.append(f'<pageSetup paperSize="9" orientation="{yon}"{sig}/>')
+
+    if y.get("gorseller"):
+        # Çizim parçası sayfanın ilişkilerinde rId1; parçaları kitap() yazıyor.
+        # `drawing` CT_Worksheet şemasında pageSetup'tan SONRA gelmeli --
+        # önce yazılınca Excel dosyayı "onarılması gerekiyor" diye açıyordu
+        # (v6.76'da bulundu, amblem taşıyan iki form da etkileniyordu).
+        p.append('<drawing r:id="rId1"/>')
+
     p.append("</worksheet>")
     return "".join(p)
 

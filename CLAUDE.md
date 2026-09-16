@@ -479,6 +479,14 @@ kalıptan**: `form_kalip.json`.
 - `excel.py`'nin **yerleşim sayfası** bunun için var. Taban stillerin sırası
   dosyaya sayı olarak yazılıyor — `_TABAN_XF`/`STILLER`'e **araya değil sona**
   ekle. Kalıbın kendi stilleri `styles.xml`'in sonuna, sayfa başına ekleniyor.
+- **`worksheet` içindeki etiket sırası OOXML şemasında sabit** (v6.76).
+  `<drawing>` (amblem) `<pageMargins>`/`<pageSetup>`'tan **önce** yazılmıştı
+  — şema bunun tam tersini istiyor (`mergeCells → ... → pageMargins →
+  pageSetup → ... → drawing`). Excel dosyayı "bir kısmı onarılmalı" diye
+  açıyor, amblemi düşürüyordu. `excel.py`'de `_sayfa_xml()`'e yeni bir
+  `<...>` eklersen sırayı ECMA-376 `CT_Worksheet` sırasıyla karşılaştır,
+  tahminle ekleme — `openpyxl`'in istisna vermemesi yetmez (o sırayı sıkı
+  denetlemiyor), gerçek Excel'de açıp dener gibi düşün.
 - Form **iki dilde de Türkçe** basılır: kurum belgesi, arayüz metni değil.
 
 **Laboratuvar kendi formunu yükleyebilir** (v6.40, `goc_029`). Gömülü iki form

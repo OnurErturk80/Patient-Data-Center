@@ -6828,3 +6828,43 @@ Tüp bebek ile ilgili bu renk tonlarına uygun."
 - Giriş, ana ekran (dar + geniş) ekran görüntüsüyle görsel kontrol edildi —
   desen görünüyor, kartların içeriği hâlâ tam okunaklı.
 - Deneme oturumu geri alındı.
+
+# v6.76 — form Excel çıktısı "içerikte sorun var" hatası veriyordu
+
+Kullanıcı: "Form Excele aktar dediğimde Excel uygulaması bazı öğelerde bir
+sorunla karşılaştık şeklinde hata veriyor." (Excel'in klasik "bu dosyanın
+bir kısmında okunamayan içerik var, onarmak ister misiniz" uyarısı.)
+
+## Sebep
+
+`excel.py`'deki sayfa XML'i amblem varsa `<drawing r:id="rId1"/>` etiketini
+`<pageMargins>`/`<pageSetup>`'tan **önce** yazıyordu. OOXML'in
+`CT_Worksheet` şeması sıkı bir sırayla çalışıyor (`xsd:sequence`) —
+`drawing` **`pageSetup`'tan sonra** gelmek zorunda. Excel bu sırayı
+bozan dosyayı "bir kısmı onarılabilir içerik" diye açıyor, resim taşıyan
+elemanı (amblem) genelde tam da bu yüzden düşürüyor — kullanıcının
+"bazı öğelerde" dediği şey büyük ihtimalle amblemdi.
+- Etkilenen: amblem taşıyan **her** Excel çıktısı — gömülü iki resmî form
+  (`/disari/form/ozet/{id}`, `/disari/form/artlab/{id}`) ve laboratuvarın
+  kendi yüklediği form (`/disari/form/lab/{id}/{id}`). Üçü de aynı paylaşılan
+  `excel.kitap()`/`_sayfa_xml()` fonksiyonunu kullanıyor, tek yerden düzeldi.
+- Amblemsiz Excel çıktıları (ay listesi, cryo, istatistik, tüm döküm)
+  etkilenmiyordu — onlarda `<drawing>` hiç yok.
+
+## Düzeltme
+
+`<drawing r:id="rId1"/>` satırı `<pageSetup>`'tan **sonra**, `</worksheet>`
+kapanışından hemen önceye taşındı. Sıra artık: `mergeCells → pageMargins →
+pageSetup → drawing` — şemanın istediği sıra.
+
+## Test edildi
+
+- Her iki gömülü form için (`ozet`, `artlab`) test verisiyle Excel çıktısı
+  üretildi, `.xlsx` açılıp `xl/worksheets/sheet1.xml` elle incelendi:
+  `drawing` artık `pageSetup`'tan sonra.
+- `openpyxl` (yalnızca bu test için geçici kuruldu, projenin bağımlılığı
+  **değil** — `excel.py`'nin "kütüphanesiz" kuralı bozulmadı) ile hem eski
+  hem yeni dosyalar açıldı: ikisi de istisna vermiyor (openpyxl sıra
+  hatasına o kadar sıkı bakmıyor), ama yeni dosyada resim, sayfa boyutu ve
+  birleşik hücreler doğru okundu.
+- Deneme oturumu geri alındı.
