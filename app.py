@@ -2171,11 +2171,26 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     )
 
 
+def _hasta_sonrasi_yol(hasta_id: int, amac: str) -> str:
+    """Hasta kaydından sonra nereye gidilir.
+
+    `amac` adresten geliyor, **beyaz liste** ile karşılaştırılıyor (tuzak
+    #9) — doğrudan bir yol değil, tek geçerli değeri `"sperm"`; yolu burada
+    kendimiz kuruyoruz. Cryo Harita > Sperm Dondurma'dan "Yeni hasta kaydı"
+    ile gelen kayıt, IVF tedavisi olmayan hastalar için de (örn. onkoloji
+    hastası) doğrudan sperm dondurma formuna düşsün diye (v6.85).
+    """
+    if amac == "sperm":
+        return f"/hasta/{hasta_id}/sperm-dondurma/yeni"
+    return f"/hasta/{hasta_id}"
+
+
 @uygulama.get("/hasta/yeni")
-def hasta_yeni(request: Request, dosya_no: str = ""):
+def hasta_yeni(request: Request, dosya_no: str = "", amac: str = ""):
     # `v` hata dönüşünde yazılanları taşır; boş formda da tanımlı olmalı.
     return sablon.TemplateResponse(
-        request, "hasta_form.html", {"dosya_no": dosya_no, "v": {}})
+        request, "hasta_form.html",
+        {"dosya_no": dosya_no, "v": {}, "amac": amac if amac == "sperm" else ""})
 
 
 @uygulama.post("/hasta/yeni")
@@ -2187,13 +2202,15 @@ def hasta_kaydet(
     es_adi: str = Form(""),
     es_dogum_tarihi: str = Form(""),
     notlar: str = Form(""),
+    amac: str = Form(""),
 ):
+    amac = amac if amac == "sperm" else ""
     mevcut = db.tek(
         "SELECT id FROM hasta WHERE lab_id = ? AND dosya_no = ?",
         (db.LAB_ID, int(dosya_no)),
     )
     if mevcut:
-        return RedirectResponse(f"/hasta/{mevcut['id']}", status_code=303)
+        return RedirectResponse(_hasta_sonrasi_yol(mevcut["id"], amac), status_code=303)
 
     try:
         dt = zaman(dogum_tarihi, "Doğum tarihi")
@@ -2203,7 +2220,7 @@ def hasta_kaydet(
         # gösterip formu boşaltmak kullanıcıya ne yazdığını unutturur.
         return sablon.TemplateResponse(
             request, "hasta_form.html",
-            {"dosya_no": dosya_no, "hata": str(e),
+            {"dosya_no": dosya_no, "hata": str(e), "amac": amac,
              "v": {"ad_soyad": ad_soyad, "dogum_tarihi": dogum_tarihi,
                    "es_adi": es_adi, "es_dogum_tarihi": es_dogum_tarihi,
                    "notlar": notlar}},
@@ -2215,7 +2232,7 @@ def hasta_kaydet(
         (db.LAB_ID, int(dosya_no), ad_soyad.strip(), dt,
          bos_ise_none(es_adi), edt, bos_ise_none(notlar)),
     )
-    return RedirectResponse(f"/hasta/{yeni_id}", status_code=303)
+    return RedirectResponse(_hasta_sonrasi_yol(yeni_id, amac), status_code=303)
 
 
 @uygulama.get("/hasta/kontrol")
@@ -4950,29 +4967,16 @@ def cryo_harita(request: Request, ara: str = ""):
         "WHERE k.lab_id=? AND k.seviye1 IS NOT NULL "
         "GROUP BY k.seviye1 ORDER BY k.seviye1", (db.LAB_ID,))
 
-    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
-        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
-    return sablon.TemplateResponse(
-        request, "cryo.html",
-        {"tasiyicilar": tasiyicilar, "tanklar": tanklar, "ara": ara,
-         "etiketler": etiketler, "kullanici": request.state.kullanici})
-
-
-# ----------------------------------------------------------- sperm dondurma
-#
-# Embriyo Dondurma (yukarısı) ile aynı taşıyıcı/konum altyapısını paylaşıyor
-# (`tasiyici`, `konum`, `tasiyici_tipi`/`tasiyici_renk` liste_degeri) ama ayrı
-# bir ekran: taşıyıcı `kategori='sperm'` ile işaretleniyor, kendi tablosu
-# `sperm_dondurma` (dondurma öncesi semen analizi -- kullanıcının isteği,
-# çözme/kullanım takibi bilerek yok). Bir kayıt = bir taşıyıcı (embriyoda
-# olduğu gibi birden çok örnek aynı taşıyıcıyı paylaşmıyor), bu yüzden
-# silmede "kardeş var mı" kontrolüne gerek yok -- taşıyıcı hep tek başına
-# serbest kalıyor. İzin modülü ayrı açılmadı, "cryo" ile aynı
-# (`yol_modulu()`).
-
-@uygulama.get("/sperm-dondurma")
-def sperm_dondurma_harita(request: Request, ara: str = ""):
-    taban = (
+    # ----------------------------------------------------------- sperm dondurma
+    #
+    # Embriyo Dondurma ile aynı taşıyıcı/konum altyapısını paylaşıyor
+    # (`tasiyici`, `konum`, `tasiyici_tipi`/`tasiyici_renk` liste_degeri) ama
+    # `kategori='sperm'` ile işaretleniyor, kendi tablosu `sperm_dondurma`
+    # (dondurma öncesi semen analizi -- çözme/kullanım takibi bilerek yok).
+    # v6.85'ten beri bu ekranın **içinde**, ayrı bir sayfa değil (kullanıcının
+    # isteği: "Cryo Harita başlığı altına toplansın, ikisinin modülü yan yana
+    # olsun") -- arama kutusu tek, aynı `ara` her iki modülü de süzüyor.
+    sperm_taban = (
         "SELECT sd.id, sd.dondurma_zamani, sd.hacim_ml, "
         "  sd.konsantrasyon_milyon_ml, sd.total_motil_yuzde, "
         "  t.etiket, t.tip, t.renk, k.tam_yol, "
@@ -4983,19 +4987,31 @@ def sperm_dondurma_harita(request: Request, ara: str = ""):
         "JOIN hasta h ON h.id = sd.hasta_id "
         "WHERE sd.lab_id=? AND sd.iptal_mi=0")
     if ara.strip():
-        kayitlar = db.sorgu(
-            taban + " AND (t.etiket LIKE ? OR k.tam_yol LIKE ? "
+        sperm_kayitlari = db.sorgu(
+            sperm_taban + " AND (t.etiket LIKE ? OR k.tam_yol LIKE ? "
             "OR CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?) "
             "ORDER BY k.tam_yol, t.etiket",
             (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{ara}%"))
     else:
-        kayitlar = db.sorgu(taban + " ORDER BY k.tam_yol, t.etiket", (db.LAB_ID,))
+        sperm_kayitlari = db.sorgu(
+            sperm_taban + " ORDER BY k.tam_yol, t.etiket", (db.LAB_ID,))
 
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
-        request, "sperm_dondurma.html",
-        {"kayitlar": kayitlar, "ara": ara, "etiketler": etiketler})
+        request, "cryo.html",
+        {"tasiyicilar": tasiyicilar, "tanklar": tanklar, "ara": ara,
+         "sperm_kayitlari": sperm_kayitlari,
+         "etiketler": etiketler, "kullanici": request.state.kullanici})
+
+
+@uygulama.get("/sperm-dondurma")
+def sperm_dondurma_harita_eski(request: Request, ara: str = ""):
+    # v6.85: ayrı ekran kaldırıldı, Sperm Dondurma artık /cryo'nun içinde
+    # (yan yana iki modülden biri). Eski bağlantılar/yer imleri için yönlendirme.
+    from urllib.parse import urlencode
+    return RedirectResponse(
+        "/cryo" + (f"?{urlencode({'ara': ara})}" if ara else ""), status_code=303)
 
 
 @uygulama.get("/hasta/{hasta_id}/sperm-dondurma/yeni")
@@ -5059,7 +5075,7 @@ async def sperm_dondurma_kaydet(request: Request, hasta_id: int):
         (db.LAB_ID, hasta_id, tid, simdi, hacim, konsantrasyon, motilite,
          bos_ise_none(f.get("notlar")), kid))
 
-    return RedirectResponse("/sperm-dondurma", status_code=303)
+    return RedirectResponse("/cryo", status_code=303)
 
 
 @uygulama.get("/sperm-dondurma/{sperm_dondurma_id}")
@@ -5073,7 +5089,7 @@ def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int):
         "JOIN hasta h ON h.id = sd.hasta_id "
         "WHERE sd.id=? AND sd.lab_id=?", (sperm_dondurma_id, db.LAB_ID))
     if not sd or sd["iptal_mi"]:
-        return RedirectResponse("/sperm-dondurma", status_code=303)
+        return RedirectResponse("/cryo", status_code=303)
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
@@ -5090,7 +5106,7 @@ def sperm_dondurma_sil_ekran(request: Request, sperm_dondurma_id: int):
         "WHERE sd.id=? AND sd.lab_id=? AND sd.iptal_mi=0",
         (sperm_dondurma_id, db.LAB_ID))
     if not sd:
-        return RedirectResponse("/sperm-dondurma", status_code=303)
+        return RedirectResponse("/cryo", status_code=303)
     return sablon.TemplateResponse(request, "sperm_dondurma_sil.html", {"sd": sd})
 
 
@@ -5100,7 +5116,7 @@ def sperm_dondurma_sil(request: Request, sperm_dondurma_id: int):
     sd = db.tek("SELECT * FROM sperm_dondurma WHERE id=? AND lab_id=?",
                (sperm_dondurma_id, db.LAB_ID))
     if not sd:
-        return RedirectResponse("/sperm-dondurma", status_code=303)
+        return RedirectResponse("/cryo", status_code=303)
     kid = request.state.kullanici["id"]
     simdi = _d.now().isoformat(" ", "seconds")
     db.yaz("UPDATE sperm_dondurma SET iptal_mi=1, iptal_kullanici_id=?, "
@@ -5110,7 +5126,7 @@ def sperm_dondurma_sil(request: Request, sperm_dondurma_id: int):
     db.yaz("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?", (sd["tasiyici_id"],))
     if t and t["konum_id"]:
         db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
-    return RedirectResponse("/sperm-dondurma", status_code=303)
+    return RedirectResponse("/cryo", status_code=303)
 
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}")

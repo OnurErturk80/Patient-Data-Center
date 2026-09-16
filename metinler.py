@@ -232,6 +232,15 @@ METINLER = {
     "kaydi_sil_dugme": {"tr": "Kaydı sil", "en": "Delete record"},
     "semen_analizi": {"tr": "Dondurma öncesi semen analizi",
                       "en": "Pre-freeze semen analysis"},
+    "yeni_sperm_hasta": {"tr": "Yeni hasta kaydı (Sperm Dondurma)",
+                         "en": "New patient (Sperm Freezing)"},
+    "sperm_icin_yeni_hasta_ipucu": {
+        "tr": "Bu hasta yalnızca sperm dondurma için kaydediliyor olabilir "
+              "— tüp bebek tedavisi görmeyen hastalar da (örn. onkoloji "
+              "tedavisi öncesi) burada kaydedilebilir.",
+        "en": "This patient may be registered for sperm freezing only — "
+              "patients who are not receiving IVF treatment (e.g. before "
+              "oncology treatment) can also be registered here."},
 
     # ---- cycle formu ----
     "cycle_duzenle": {"tr": "Tedaviyi düzenle", "en": "Edit cycle"},
@@ -1544,12 +1553,13 @@ METINLER = {
     "aktif_hastalara_don": {"tr": "Aktif hastalara dön",
                             "en": "Back to active patients"},
     "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},
-    # Anahtar "cryo_haritasi" kaldı (v6.79'daki cycle->tedavi deseni: kod
-    # tarafı degismiyor, yalnizca goruntulen metin) ama ekrandaki adi
-    # kullanicinin istegiyle "Embriyo Dondurma" oldu (v6.84) -- Sperm
-    # Dondurma ayri bir ekrana ayrildigi icin "Cryo" artik yalnizca
-    # embriyo taşıyıcılarını anlatıyor.
-    "cryo_haritasi": {"tr": "Embriyo Dondurma", "en": "Embryo Freezing"},
+    # v6.84'te "Embriyo Dondurma" oldu, v6.85'te kullanıcının isteğiyle
+    # tekrar "Cryo Haritası" oldu -- Embriyo Dondurma ve Sperm Dondurma artık
+    # aynı ekranda yan yana iki modül, ekranın kendisi ikisinin ortak
+    # başlığı. Modül başlıkları ayrı anahtarlarda: "embriyo_dondurma",
+    # "sperm_dondurma".
+    "cryo_haritasi": {"tr": "Cryo Haritası", "en": "Cryo Map"},
+    "embriyo_dondurma": {"tr": "Embriyo Dondurma", "en": "Embryo Freezing"},
     "yonetim": {"tr": "Yönetici", "en": "Administrator"},
     "arsiv": {"tr": "Arşiv", "en": "Archive"},
     "arsivde": {"tr": "arşivde", "en": "archived"},

@@ -39,7 +39,6 @@
   <a class="oge{% if aktif == 'hastalar' %} aktif{% endif %}" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
   {% if yetkim("cryo") %}
   <a class="oge{% if aktif == 'cryo' %} aktif{% endif %}" href="/cryo">{{ metin("cryo_haritasi") }}</a>
-  <a class="oge{% if aktif == 'sperm_dondurma' %} aktif{% endif %}" href="/sperm-dondurma">{{ metin("sperm_dondurma") }}</a>
   {% endif %}
   {% if kullanici.rol == "yonetici" %}
   <a class="oge{% if aktif == 'yonetim' %} aktif{% endif %}" href="/yonetim">{{ metin("yonetim") }}</a>

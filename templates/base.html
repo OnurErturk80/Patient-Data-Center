@@ -73,12 +73,10 @@
 {% set _yk = kullanici or request.state.kullanici %}
 {% if _yk %}
 {% set _yol = request.url.path %}
-{% if _yol.startswith('/sperm-dondurma') or '/sperm-dondurma' in _yol %}
-{% set _aktif_menu = 'sperm_dondurma' %}
+{% if _yol.startswith('/cryo') or '/sperm-dondurma' in _yol %}
+{% set _aktif_menu = 'cryo' %}
 {% elif _yol.startswith('/hastalar') or _yol.startswith('/hasta/') %}
 {% set _aktif_menu = 'hastalar' %}
-{% elif _yol.startswith('/cryo') %}
-{% set _aktif_menu = 'cryo' %}
 {% elif _yol.startswith('/yonetim') or _yol.startswith('/kullanici') or _yol.startswith('/sifre-istekleri') or _yol.startswith('/istatistik') or _yol.startswith('/klasorler') or _yol.startswith('/dil') or _yol.startswith('/formlar') or _yol.startswith('/lab-formu') %}
 {% set _aktif_menu = 'yonetim' %}
 {% else %}

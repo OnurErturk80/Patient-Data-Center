@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("yeni_hasta") }}{% endblock %}
-{% block geri %}<a class="geri" href="/hastalar">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="{{ '/cryo' if amac == 'sperm' else '/hastalar' }}">&#8249;</a>{% endblock %}
 {% block icerik %}
 <div class="uyari" id="mukerrer" hidden></div>
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+{% if amac == "sperm" %}<div class="ipucu">{{ metin("sperm_icin_yeni_hasta_ipucu") }}</div>{% endif %}
 
 <form method="post" action="/hasta/yeni">
+  <input type="hidden" name="amac" value="{{ amac }}">
   <div class="kart">
     <div class="alan">
       <label for="dosya_no">{{ metin("dosya_no") }}</label>
@@ -53,8 +55,10 @@ alan.addEventListener('input', () => {
     const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(alan.value));
     const s = await y.json();
     if (s.var) {
+      const hedef = {{ (amac == "sperm")|tojson }}
+        ? '/hasta/' + s.id + '/sperm-dondurma/yeni' : '/hasta/' + s.id;
       kutu.innerHTML = {{ metin("mukerrer_dosya_no")|tojson }} + ' <strong>' +
-        s.ad_soyad + '</strong> &mdash; <a href="/hasta/' + s.id + '">' +
+        s.ad_soyad + '</strong> &mdash; <a href="' + hedef + '">' +
         {{ metin("kaydi_ac")|tojson }} + '</a>';
       kutu.hidden = false;
     } else { kutu.hidden = true; }

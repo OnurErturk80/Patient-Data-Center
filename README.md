@@ -7326,3 +7326,97 @@ tip, renk, konum, hacim/konsantrasyon/motilite, elle girilen saat) ve:
   aktif sayfa doğru vurgulanıyor; form telefon genişliğinde düzgün akıyor.
 - `goc_032` ve `goc_033` iki kez çalıştırılıp idempotent olduğu doğrulandı.
 - Test verisi (kayıt, taşıyıcı, konum, test hastası, test oturumu) temizlendi.
+
+# v6.85 — Cryo Haritası: Embriyo ve Sperm Dondurma tek ekranda, sperm için yeni hasta girişi
+
+Kullanıcının isteği, v6.84'ün hemen ardından: "Sperm Dondurma ile Embriyo
+Dondurma Cryo Harita başlığı altına toplansın. Cryo Harita içinde ikisinin
+modülü yan yana olsun. Bir de Sperm Dondurma sadece tüp bebek tedavisi olan
+hastalara yapılmıyor. Bazı durumlarda onkoloji tedavisi görecek erkek
+hastalara da sperm donduruyoruz. O yüzden Cryo Harita içinden Sperm Dondurma
+başlığından hasta kaydı yapılsın."
+
+İki ayrı düzeltme:
+
+## 1. Tek ekran, yan yana iki modül
+
+v6.84'te Embriyo Dondurma ve Sperm Dondurma **iki ayrı ekrandı** (`/cryo` ve
+`/sperm-dondurma`), ana menüde de iki ayrı bağlantı. Kullanıcı bunun yerine
+tek bir "Cryo Haritası" başlığı altında ikisini yan yana istedi.
+
+- **`cryo_haritasi` metni tekrar "Cryo Haritası" oldu** (v6.84'te "Embriyo
+  Dondurma" idi) — artık ekranın kendisi ikisinin ortak başlığı, modül
+  adları ayrı: yeni anahtar **`embriyo_dondurma`**, `sperm_dondurma`
+  zaten vardı.
+- **`cryo_harita()` (`/cryo`) artık sperm sorgusunu da çalıştırıyor** ve
+  `cryo.html`'e ikisini birden veriyor. Şablon `.sutunlar` > iki `.sutun`
+  kullanıyor (CLAUDE.md'nin "İki sütun" ölçüsü tam burada geçerli: iki
+  bağımsız modül). Bölme noktası kaynak sırasında (embriyo sütunu önce) —
+  telefonda alt alta dizilince sıra bozulmuyor.
+- **Arama kutusu tek.** Aynı `ara` iki modülü de süzüyor — ayrı ayrı arama
+  kutuları da düşünüldü ama dosya no/hasta adı araması çoğu zaman ikisi
+  için de aynı arama, iki kutu gereksiz tekrar olurdu.
+- **`GET /sperm-dondurma` artık `/cryo`'ya yönlendiriyor**, sayfayı basmıyor
+  — eski bağlantı/yer imi kırılmasın diye rota duruyor ama içi boşaldı.
+  `sperm_dondurma.html` şablonu silindi (içeriği `cryo.html`'e taşındı).
+  Detay/oluşturma/silme rotaları (`/sperm-dondurma/{id}`,
+  `/hasta/{id}/sperm-dondurma/yeni`, `/sperm-dondurma/{id}/sil`) dokunulmadı
+  — onların "başarılı" yönlendirmeleri de `/sperm-dondurma` yerine doğrudan
+  `/cryo`'ya güncellendi (gereksiz ekstra bir yönlendirme adımı olmasın diye).
+- **Menü tek bağlantıya indi**: `_gezinme.html` `yan_ana()` ve `ana.html`
+  `.anadugmeler`'den ayrı "Sperm Dondurma" satırı kaldırıldı, yalnızca
+  "Cryo Haritası" kaldı. `base.html`'in `_aktif_menu` türetmesi `/cryo` ile
+  başlayan ya da içinde `/sperm-dondurma` geçen (örn.
+  `/hasta/3/sperm-dondurma/yeni`) her yolu artık **tek** `'cryo'` kimliğine
+  eşliyor — ayrı bir `sperm_dondurma` menü kimliği kalmadı.
+- CLAUDE.md'nin "İki sütun her ekranın çözümü değil" listesindeki `/cryo`
+  girdisi "yalnızca genişleyen" kategorisinden "iki sütun" kategorisine
+  taşındı.
+
+## 2. Sperm Dondurma için tüp bebek hastası olmayan yeni hasta kaydı
+
+Kullanıcının klinik gerekçesi: sperm dondurma yalnızca IVF/ICSI hastalarının
+eşlerine değil, bazen onkoloji tedavisi öncesi erkek hastalara da yapılıyor
+— bu hastaların bir IVF cycle'ı hiç olmayabilir.
+
+- **`hasta` kaydı zaten cycle'dan bağımsız var olabiliyordu** (0 cycle'lı
+  hasta desteklenen bir durum, `hasta_detay.html`'in "Bu hastada henüz
+  tedavi yok" boş durumu buna kanıt) — eksik olan yalnızca giriş noktasıydı.
+  Yeni bir tablo ya da form gerekmedi, mevcut `/hasta/yeni` formuna bir
+  **"nereye git" parametresi** eklendi.
+- **Cryo Haritası'nın Sperm Dondurma sütununa "Yeni hasta kaydı (Sperm
+  Dondurma)" düğmesi eklendi** → `/hasta/yeni?amac=sperm`.
+- **`amac` beyaz listeden geçiyor** (tuzak #9, `?geri=<yol>` yasağının aynı
+  gerekçesi): tek geçerli değer `"sperm"`, her yerde (`GET`/`POST`
+  `/hasta/yeni`, hata dönüşü, mükerrer dosya no uyarısının JS'i) doğrudan
+  karşılaştırılıyor — adresten/formdan gelen metin hiçbir yerde doğrudan
+  `href`'e ya da `RedirectResponse`'a yazılmıyor. Yeni fonksiyon
+  `_hasta_sonrasi_yol(hasta_id, amac)` yolu **kendi kuruyor**:
+  `amac == "sperm"` ise `/hasta/{id}/sperm-dondurma/yeni`, değilse eskisi
+  gibi `/hasta/{id}`.
+- **Kayıt başarılı olunca (ya da dosya no zaten varsa) doğrudan sperm
+  dondurma formuna düşülüyor** — oncology hastası için ayrı bir "şimdi
+  sperm dondurma ekranına git" tıklaması gerekmiyor.
+- `hasta_form.html`'e `amac == "sperm"` iken küçük bir bilgi notu eklendi
+  ("Bu hasta yalnızca sperm dondurma için kaydediliyor olabilir...") —
+  personel neden bu formun IVF dışı bir hasta için açıldığını anlasın diye.
+  Geri oku da `amac`'e göre değişiyor (`/cryo` ↔ `/hastalar`).
+
+## Test edildi
+
+Sunucu ayağa kaldırıldı:
+- `/cryo` iki sütunlu açıldı, Embriyo Dondurma ve Sperm Dondurma yan yana
+  görüldü (Playwright, hem 1400px hem 420px genişlikte — telefonda embriyo
+  sütunu üstte, sperm altta, sıra bozulmadı).
+- `GET /sperm-dondurma` → `303` → `/cryo` doğrulandı.
+- `/hasta/yeni?amac=sperm` formu bilgi notuyla açıldı, gizli `amac` alanı
+  doğru taşındı (Playwright ekran görüntüsü).
+- Yeni bir "oncology" test hastası `amac=sperm` ile oluşturuldu: yönlendirme
+  doğrudan `/hasta/{id}/sperm-dondurma/yeni`'ye gitti (hasta ekranına
+  **uğramadan**). Bir sperm dondurma kaydı girildi, `/cryo`'nun sperm
+  sütununda listelendi, embriyo sütununda **hiç görünmedi**.
+- `amac` alanına `javascript:alert(1)` gibi rastgele bir değer denendi:
+  beyaz listeden geçmediği için normal `/hasta/{id}` yönlendirmesine
+  düştü — enjeksiyon riski doğrulanarak kapatıldı.
+- Test verisi (sperm dondurma kaydı, taşıyıcı, konum, iki test hastası, test
+  oturumu) temizlendi, `PRAGMA foreign_key_check` temiz.

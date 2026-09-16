@@ -282,10 +282,11 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   bağımsız kartlar mı var, yoksa genişliğe ihtiyacı olan tek bir şey mi?
   İki sütun: `/yonetim`, `/cycle/{id}`, `/kullanicilar`, `/istatistik`,
   `/formlar`, `/hastalar` (v6.63 — ay listesi ile Tüm Hastalar birbirinden
-  bağımsız iki kart). Yalnızca genişleyen (`kap genis`, v6.65'ten beri
-  `yanmenusuz` DEĞİL — menü artık orada da var): `/klasorler`, `/cryo`,
-  `/hasta/{id}`, `/bitenler` — liste ekranlarını bölme, `_cyclesatir`
-  satırları soldan sağa okunan tek bir akış.
+  bağımsız iki kart), `/cryo` (v6.85 — Embriyo Dondurma ve Sperm Dondurma
+  birbirinden bağımsız iki modül). Yalnızca genişleyen (`kap genis`,
+  v6.65'ten beri `yanmenusuz` DEĞİL — menü artık orada da var):
+  `/klasorler`, `/hasta/{id}`, `/bitenler` — liste ekranlarını bölme,
+  `_cyclesatir` satırları soldan sağa okunan tek bir akış.
   `/hastalar`'ın arşiv modu (`?arsiv=1`) bu kategoride kaldı: orada tek liste
   var, bölünecek ikinci bir kart yok.
   Bilerek dar kalanlar: `/cycle/{id}/bitir` (onay ekranı — dar olması
@@ -1179,19 +1180,27 @@ Bu kararı gevşetme (README v6.11).
 bir kişi gerekiyorsa onu bu kısıtı gevşeterek değil, cycle verisi olarak ekle
 (README v6.9).
 
-**Embriyo Dondurma ve Sperm Dondurma aynı taşıyıcı/konum altyapısını
-paylaşır, `tasiyici.kategori` ile ayrılır** (v6.84, `goc_033`). `/cryo`
-ekranı artık kullanıcıya "Embriyo Dondurma" görünüyor (yalnızca
-`metin("cryo_haritasi")`'nin görüntülenen metni — rota, tablo adları hâlâ
-`cryo`/`tasiyici`, v6.79 deseni). Sperm Dondurma ayrı bir ekran
-(`/sperm-dondurma`), kendi tablosu (`sperm_dondurma`: dondurma öncesi
-semen analizi, `sperm_analiz` ile aynı kolon adları) ama **aynı** `tasiyici`/
-`konum` tablolarını kullanıyor. `tasiyici.kategori` (`'embriyo'`/`'sperm'`)
-ayırıyor — **Embriyo Dondurma'nın `tasiyici` sorgularına yeni bir yerden
-dokunursan `t.kategori='embriyo'` süzgecini de ekle**, yoksa sperm
-taşıyıcıları oraya sızar. `/disari/cryo` bu süzgece ihtiyaç duymuyor çünkü
-zaten `olay.tip='vitrifikasyon'` üzerinden geliyor, sperm taşıyıcıları hiç
-`olay` satırı üretmiyor.
+**Embriyo Dondurma ve Sperm Dondurma tek ekranda, yan yana iki bağımsız
+modül** (`/cryo`, "Cryo Haritası" — v6.84'te ayrı bir ekrandı, v6.85'te
+kullanıcının isteğiyle birleştirildi: "Cryo Harita başlığı altına toplansın,
+ikisinin modülü yan yana olsun"). CLAUDE.md'nin "İki sütun" ölçüsü tam
+burada geçerli — iki bağımsız kart, `.sutunlar` > iki `.sutun`. Arama kutusu
+**tek**, aynı `ara` iki modülü de süzüyor (ayrı arama kutuları değil — dosya
+no/hasta adı araması çoğu zaman ikisi için de aynı arama).
+`GET /sperm-dondurma` artık `/cryo`'ya **yönlendiriyor** (eski
+bağlantılar/yer imleri kırılmasın diye) — sayfa kendisi yok, şablonu
+silindi. Detay/oluşturma/silme rotaları (`/sperm-dondurma/{id}`,
+`/hasta/{id}/sperm-dondurma/yeni`, `/sperm-dondurma/{id}/sil`) aynen duruyor.
+
+Aynı taşıyıcı/konum altyapısını paylaşırlar, `tasiyici.kategori` ile
+ayrılır (v6.84, `goc_033`) — `sperm_dondurma` (dondurma öncesi semen
+analizi, `sperm_analiz` ile aynı kolon adları) `tasiyici_id` ile taşıyıcı/
+konuma bağlanıyor. `tasiyici.kategori` (`'embriyo'`/`'sperm'`) **Embriyo
+Dondurma'nın `tasiyici` sorgularına yeni bir yerden dokunursan
+`t.kategori='embriyo'` süzgecini de ekle**, yoksa sperm taşıyıcıları oraya
+sızar. `/disari/cryo` bu süzgece ihtiyaç duymuyor çünkü zaten
+`olay.tip='vitrifikasyon'` üzerinden geliyor, sperm taşıyıcıları hiç `olay`
+satırı üretmiyor.
 - **Bir sperm dondurma kaydı = bir taşıyıcı** (embriyoda olduğu gibi birden
   çok örnek aynı taşıyıcıyı paylaşmıyor) — silmede "kardeş var mı" kontrolü
   yok, taşıyıcı her zaman tek başına serbest kalır.
@@ -1203,6 +1212,24 @@ zaten `olay.tip='vitrifikasyon'` üzerinden geliyor, sperm taşıyıcıları hi�
   Dondurma"ya yeniden adlandırıldı (`kod`, `TIP_KODLARI`, `TIP_ASAMALARI`
   aynen duruyor) — aynı desen, yeni bir tip açmadan önce mevcut
   `liste_degeri.etiket`'in yeniden adlandırılabilir olup olmadığını düşün.
+
+**Sperm dondurma tüp bebek tedavisi olmayan hastalar için de yapılabilir**
+(v6.85, kullanıcının isteği — "onkoloji tedavisi görecek erkek hastalara da
+sperm donduruyoruz"). `hasta` kaydı zaten cycle'dan bağımsız var olabiliyordu
+(0 cycle'lı hasta desteklenmiş bir durum), eksik olan yalnızca giriş
+noktasıydı: `/hasta/yeni` normalde `/hastalar` üzerinden, IVF hastası
+kaydetme akışının içinden açılıyordu. Cryo Haritası'nın Sperm Dondurma
+sütununa **"Yeni hasta kaydı (Sperm Dondurma)"** düğmesi eklendi
+(`/hasta/yeni?amac=sperm`).
+- **`amac` beyaz listeden geçiyor** (tuzak #9) — tek geçerli değeri
+  `"sperm"`, sunucu (`_hasta_sonrasi_yol()`) yalnızca bu değeri tanıyor ve
+  yolu **kendi kuruyor**; adresten gelen metin doğrudan `href`'e/redirect'e
+  yazılmıyor (`?geri=<yol>` kalıbının yasak olma gerekçesinin aynısı). Kayıt
+  başarılı olunca (ya da dosya no zaten varsa) hasta ekranına değil doğrudan
+  `/hasta/{id}/sperm-dondurma/yeni`'ye düşülüyor — oncology hastası için
+  fazladan tıklama gerekmesin diye.
+- Yeni bir "kayıttan sonra nereye git" ihtiyacı doğarsa `_hasta_sonrasi_yol()`
+  kullan, adresten gelen bir yolu doğrudan yazma.
 
 ---
 

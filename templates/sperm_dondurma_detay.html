@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("sperm_dondurma") }}{% endblock %}
-{% block geri %}<a class="geri" href="/sperm-dondurma">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ sd.dosya_no }}</div>
@@ -40,5 +40,5 @@
 {% if yetkim("silme") %}
 <a class="dugme ikincil tehlike-bag" href="/sperm-dondurma/{{ sd.id }}/sil">{{ metin("kaydi_sil_dugme") }}</a>
 {% endif %}
-<a class="dugme ikincil" href="/sperm-dondurma">{{ metin("sperm_dondurma") }}</a>
+<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 {% endblock %}

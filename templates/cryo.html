@@ -4,10 +4,21 @@
 {% block kapsinif %} genis{% endblock %}
 {% block icerik %}
 
+{# v6.85: Embriyo Dondurma ve Sperm Dondurma kullanıcının isteğiyle tek
+   ekranda, yan yana iki bağımsız modül (CLAUDE.md "İki sütun" ölçüsü:
+   birbirinden bağımsız kartlar). Arama kutusu tek -- aynı `ara` her iki
+   modülü de süzüyor, tüpün üstündeki dosya no/hasta adı çoğu zaman ikisi
+   için de aynı arama olduğundan. Bölme noktası kaynak sırasında (embriyo
+   sütunu önce), `column-count` değil -- telefonda alt alta dizilince sıra
+   bozulmasın diye. #}
+
 <form class="arama" method="get" action="/cryo">
   <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
          placeholder="{{ metin('cryo_ara_ipucu') }}">
 </form>
+
+<div class="sutunlar">
+<div class="sutun">
 
 {% if tanklar and not ara %}
 <div class="kart">
@@ -22,8 +33,11 @@
 {% endif %}
 
 <div class="kart">
-  <h2>{% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("dolu_tasiyicilar") }}{% endif %}
-      ({{ tasiyicilar|length }})</h2>
+  <h2>{{ metin("embriyo_dondurma") }}</h2>
+  <div class="ipucu" style="margin:-6px 0 10px">
+    {% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("dolu_tasiyicilar") }}{% endif %}
+    ({{ tasiyicilar|length }})
+  </div>
   {% for t in tasiyicilar %}
   <a class="satir" href="/cryo/tasiyici/{{ t.id }}">
     <div class="no">{{ t.etiket }}</div>
@@ -45,4 +59,40 @@
 {# Dolabın dökümü: sayım ve envanter için. Arama süzgecini uygulamaz --
    çıktı her zaman dolabın tamamı, Excel'de süzmek zaten kolay. #}
 <a class="dugme ikincil" href="/disari/cryo">{{ metin("excel_cryo") }}</a>
+
+</div><div class="sutun">
+
+<div class="kart">
+  <h2>{{ metin("sperm_dondurma") }}</h2>
+  <div class="ipucu" style="margin:-6px 0 10px">
+    {% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("dolu_tasiyicilar") }}{% endif %}
+    ({{ sperm_kayitlari|length }})
+  </div>
+  {% for k in sperm_kayitlari %}
+  <a class="satir" href="/sperm-dondurma/{{ k.id }}">
+    <div class="no">{{ k.etiket }}</div>
+    <div class="meta">
+      {{ k.dosya_no }} · {{ k.ad_soyad }}
+      {% if k.tip %} · {{ etiketler.get(k.tip, k.tip) }}{% endif %}
+      {% if k.renk %} · {{ etiketler.get(k.renk, k.renk) }}{% endif %}
+    </div>
+    <div class="meta">
+      {% if k.tam_yol %}{{ k.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
+    </div>
+  </a>
+  {% else %}
+  <div class="bos">
+    {% if ara %}{{ metin("aramaya_uyan_sperm_yok") }}{% else %}{{ metin("dondurulmus_sperm_yok") }}{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{# Sperm dondurma yalnızca tüp bebek hastalarına değil -- örn. onkoloji
+   tedavisi öncesi erkek hastalara da yapılıyor. Mevcut hastanın kartından
+   "Yeni Sperm Dondurma" ile de girilebiliyor (hasta_detay.html); bu
+   düğme IVF tedavisi hiç açılmamış, yeni bir hasta dosyası gerektiğinde. #}
+<a class="dugme ikincil" href="/hasta/yeni?amac=sperm">{{ metin("yeni_sperm_hasta") }}</a>
+
+</div>
+</div>{# sutunlar #}
 {% endblock %}
