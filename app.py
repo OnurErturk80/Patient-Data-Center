@@ -2225,7 +2225,7 @@ def hasta_detay(request: Request, hasta_id: int):
     hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
     cycles = db.sorgu(
         "SELECT * FROM cycle WHERE hasta_id = ? "
-        "ORDER BY COALESCE(opu_zamani, hcg_zamani) DESC", (hasta_id,)
+        "ORDER BY hasta_cycle_no DESC, id DESC", (hasta_id,)
     )
     return sablon.TemplateResponse(
         request, "hasta_detay.html", {"hasta": hasta, "cycles": cycles}

@@ -7016,3 +7016,39 @@ Sunucu ayağa kaldırıldı, yönetici oturumu açılarak ana ekran, `/hastalar`
 gerçek tarayıcı isteğiyle çekildi; hiçbirinde ekrana basılan "Cycle" sözcüğü
 kalmadığı, "Tedavi" ile değiştiği doğrulandı. Test oturumu silindi,
 `PRAGMA foreign_key_check` temiz.
+
+# v6.80 — hasta kartında tedaviler yanlış sırada duruyordu
+
+Kullanıcının isteği: "Hasta kartında en üstte en son tedavi olsun, en altında
+ilk tedavi olsun." Sıralama zaten en yeniyi üste koymaya çalışıyordu
+(`ORDER BY COALESCE(opu_zamani, hcg_zamani) DESC`) ama ölçü yanlıştı.
+
+## Sebep
+
+`fet` ve `fet_kultur` tipi tedavilerde OPU hiç yapılmıyor (embriyo başka bir
+cycle'dan geliyor) — bu yüzden hem `opu_zamani` hem `hcg_zamani` bu tedavilerde
+her zaman NULL. SQLite `DESC` sıralamada NULL'ları **en sona** koyuyor; sonuç
+olarak bir hastanın en son açtığı tedavi FET ise, tarihi ne olursa olsun listenin
+en altına düşüyordu — IVF/ICSI tedavisi ondan önce açılmış olsa bile üstte
+kalıyordu. Test verisiyle doğrulandı: hasta 1'in 1. tedavisi (ivf_icsi,
+opu_zamani dolu) ile 2. tedavisi (fet, ikisi de NULL) — düzeltmeden önce 1.
+tedavi üstte çıkıyordu, halbuki 2. tedavi daha sonra açılmıştı.
+
+## Düzeltme
+
+`app.py`'de `hasta_detay()` sorgusu `ORDER BY hasta_cycle_no DESC, id DESC`
+oldu. `hasta_cycle_no` ("Kaçıncı tedavi") her tedavi tipinde atanıyor
+(`sonraki_hasta_cycle_no()` ile otomatik öneriliyor) ve tedavi tipinden
+bağımsız, hep artan bir sıra numarası — klinik tarih alanlarının aksine NULL
+kalma ihtimali pratikte yok. Aynı desen zaten `/cycle/{id}/vitrifikasyon`
+ekranının taşıyıcı/kaynak tedavi seçicisinde kullanılıyordu
+(`ORDER BY hasta_cycle_no DESC, id DESC`, app.py satır ~4996) — yeni sıralama
+onunla tutarlı.
+
+## Test edildi
+
+Sunucu ayağa kaldırıldı, test hastasının (2 tedavi: 1. ivf_icsi/OPU'lu,
+2. fet/OPU'suz) `/hasta/1` ekranı çekildi: düzeltmeden önce "1. tedavi"
+üstte çıkıyordu, düzeltmeden sonra "2. tedavi" (daha sonra açılan) üstte,
+"1. tedavi" altta — istenen sıra. Test oturumu silindi,
+`PRAGMA foreign_key_check` temiz.

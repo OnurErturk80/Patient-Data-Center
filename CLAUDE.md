@@ -326,6 +326,16 @@ gerekiyorsa `metin("cycle")`/`metin("cycleler")` kullan (zaten "Tedavi"/
 dokunulmadı: o çeviri zaten yarım ve askıda (bekleyen iş 8), ayrıca "cycle"
 İngilizce IVF literatüründe zaten kullanılan bir terim.
 
+**Hasta kartında tedaviler `hasta_cycle_no DESC` ile sıralanır, klinik tarih
+alanıyla DEĞİL** (v6.80). `hasta_detay()` önce `COALESCE(opu_zamani,
+hcg_zamani) DESC` kullanıyordu; `fet`/`fet_kultur` tiplerinde OPU hiç
+yapılmadığı için bu iki alan da hep NULL, SQLite `DESC`'te NULL'ları en sona
+attığı için en son açılan tedavi FET ise listenin dibine düşüyordu (kullanıcı
+fark etti). `hasta_cycle_no` ("Kaçıncı tedavi") tedavi tipinden bağımsız her
+zaman atanıyor — yeni bir hasta-tedavi listesi sıralaması yazarsan klinik
+tarih alanına değil, bu artan sıra numarasına güven (aynı desen
+`/cycle/{id}/vitrifikasyon`'un kaynak tedavi seçicisinde de var).
+
 **Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
 ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim
 ekleme.
