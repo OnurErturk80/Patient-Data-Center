@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("dondurulmus_sperm_bagla") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}/androloji">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+<div class="ipucu">{{ metin("sperm_baglama_ipucu") }}</div>
+
+<form class="arama" method="get" action="/cycle/{{ c.id }}/androloji/sperm-baglama">
+  <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
+         placeholder="{{ metin('sperm_dondurma_ara_ipucu') }}">
+</form>
+
+<div class="kart">
+  {% for k in kayitlar %}
+  <div class="satir" style="display:block">
+    <div class="no">{{ k.etiket }}</div>
+    <div class="meta">{{ k.dosya_no }} · {{ k.ad_soyad }}</div>
+    <div class="meta">
+      {{ gg_aa_yyyy(k.dondurma_zamani) if k.dondurma_zamani else '—' }}
+      {%- if k.sebep %} · {{ k.sebep }}{% endif %}
+    </div>
+    <form method="post"
+          action="/cycle/{{ c.id }}/androloji/sperm-baglama/{{ k.id }}"
+          style="margin-top:8px">
+      <button class="dugme" type="submit">{{ metin("bagla") }}</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="bos">
+    {% if ara %}{{ metin("aramaya_uyan_sperm_yok") }}{% else %}{{ metin("dondurulmus_sperm_yok") }}{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/androloji">{{ metin("vazgec") }}</a>
+{% endblock %}

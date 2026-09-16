@@ -79,6 +79,11 @@
     <div class="meta">
       {% if k.tam_yol %}{{ k.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
     </div>
+    {% if k.kul_cycle_id %}
+    <div class="meta" style="color:var(--ink-2)">
+      {{ metin("kullanildigi_tedavi") }}: {{ k.kul_dosya_no }} · {{ k.kul_ad_soyad }} · {{ k.kul_cycle_no }}
+    </div>
+    {% endif %}
   </a>
   {% else %}
   <div class="bos">
@@ -90,8 +95,10 @@
 {# Sperm dondurma yalnızca tüp bebek hastalarına değil -- örn. onkoloji
    tedavisi öncesi erkek hastalara da yapılıyor. Mevcut hastanın kartından
    "Yeni Sperm Dondurma" ile de girilebiliyor (hasta_detay.html); bu
-   düğme IVF tedavisi hiç açılmamış, yeni bir hasta dosyası gerektiğinde. #}
-<a class="dugme ikincil" href="/hasta/yeni?amac=sperm">{{ metin("yeni_sperm_hasta") }}</a>
+   düğme IVF tedavisi hiç açılmamış, yeni bir hasta dosyası gerektiğinde
+   (v6.86: tek ekranda hasta + dondurma kaydı, `hasta_form.html`'in eş
+   alanları yok). #}
+<a class="dugme ikincil" href="/sperm-dondurma/yeni-hasta">{{ metin("yeni_sperm_hasta") }}</a>
 
 </div>
 </div>{# sutunlar #}

@@ -7420,3 +7420,116 @@ Sunucu ayağa kaldırıldı:
   düştü — enjeksiyon riski doğrulanarak kapatıldı.
 - Test verisi (sperm dondurma kaydı, taşıyıcı, konum, iki test hastası, test
   oturumu) temizlendi, `PRAGMA foreign_key_check` temiz.
+
+# v6.86 — Sperm Dondurma: erkek hasta formu, dondurma sebebi, eşin tedavisine bağlama
+
+Kullanıcının isteği: "Cryo Harita içindeki Yeni hasta kaydı (Sperm Dondurma)
+da sadece erkek hasta bilgileri olsun. Dondurma sebebi olsun ve
+.../hasta/1/sperm-dondurma/yeni sayfasındaki veri girilecek alanlar olsun.
+Bu hasta ileride evlenir ve tüp bebek yaparsa eşine yeni hasta olarak kayıt
+açılırsa bu dondurmayı o tedaviye bağlayabileyim ve orada sperm dondurma
+tedavisi olarak görünsün."
+
+Üç parça:
+
+## 1. Tek ekranda erkek hasta + dondurma kaydı
+
+v6.85'teki "Yeni hasta kaydı (Sperm Dondurma)" düğmesi genel `/hasta/yeni`
+formuna gidiyordu (eş alanları dahil), sonra ayrı bir adımda sperm dondurma
+formuna geçiliyordu. Artık **tek ekran**: `/sperm-dondurma/yeni-hasta`.
+
+- **`hasta_form.html`'in eş alanları (eş adı/doğum tarihi) yok** — bu hasta
+  bir IVF tedavisi görmüyor olabilir (onkoloji öncesi sperm dondurma gibi),
+  eş sorması yanlış varsayım olurdu.
+- Hasta alanları (dosya no, ad soyad, doğum tarihi) + dondurma sebebi +
+  `/hasta/{id}/sperm-dondurma/yeni`'deki bütün alanlar (taşıyıcı, konum,
+  semen analizi, dondurma saati) **tek formda**, tek POST'ta.
+- **Doğrulama yazmadan önce bitiyor, hata dönüşü formu boşaltmıyor**
+  (v6.21 kuralı) — bu form uzun olduğu için (4 kart) kaybı özellikle can
+  sıkıcı olurdu; önceki `/hasta/yeni?amac=sperm` denemesi (v6.85) bunu
+  atlamıştı, bu sürümde düzeltildi.
+- **Kayıt açıp doldurma kuralı** (CLAUDE.md, denüdasyonun `specimen`+
+  `goruntu` deseninin aynısı): önce `hasta` yazılıyor, sonra taşıyıcı +
+  `sperm_dondurma`. İkincisi doğrulama hatasıyla patlarsa (örn. mükerrer
+  etiket) **az önce açılan boş hasta kaydı geri alınıyor** — yoksa lab
+  hiçbir kaydı olmayan ıssız hasta dosyalarıyla dolar. Test edildi: mükerrer
+  etiketle deneme yapıldı, hasta sayısı değişmedi.
+- Ortak yazma mantığı yeni bir yardımcıya çıkarıldı:
+  `_sperm_dondurma_olustur(hasta_id, f, kid)` — hem mevcut hastanın kendi
+  "Yeni Sperm Dondurma"su hem bu yeni akış onu çağırıyor, iki kopya
+  birbirinden ayrı düşmesin diye.
+- `/hasta/yeni?amac=sperm` (v6.85) kaldırıldı — artık gereksiz, kod
+  sadeleşti.
+
+## 2. Dondurma sebebi
+
+`sperm_dondurma.sebep` (`goc_034`, yeni kolon) — **serbest metin**, sabit
+bir `liste_degeri` açılmadı. Gerekçe: hangi klinik kategorilerin
+("onkoloji", "elektif" gibi) olacağı kullanıcıyla birlikte belirlenmesi
+gereken bir karar (CLAUDE.md "klinik bir varsayım yapman gerekiyorsa
+yapma"), serbest metin bu kararı ileriye erteliyor ve `notlar` alanlarıyla
+aynı, zaten tanıdık bir desen. Hem yeni-hasta formunda hem mevcut hastanın
+"Yeni Sperm Dondurma" formunda (`sperm_dondurma_form.html`) var; detay
+ekranında (`sperm_dondurma_detay.html`) ve androloji ekranındaki bağlantı
+kartında da gösteriliyor.
+
+## 3. Dondurulmuş spermi eşin tedavisine bağlama
+
+`sperm_dondurma.kullanim_cycle_id` (`goc_034`, yeni kolon, `cycle(id)`'ye
+FK) — embriyo tarafındaki `olay.thaw_cycle_id` deseninin aynısı: **sahiplik
+değişmiyor** (`sperm_dondurma.hasta_id` hep erkek hastada kalıyor), yalnızca
+"hangi tedavi için kullanıldı" sorusu ayrı bir alanda yanıtlanıyor.
+
+- **Bağlama yeri: Androloji ekranı** (`/cycle/{id}/androloji`, yalnızca
+  `ivf_icsi` tedavilerinde var). Taze örnekten (`sperm_ornek`+
+  `sperm_analiz`) tamamen bağımsız yeni bir kart: "Sperm Dondurma". Boşsa
+  "Dondurulmuş sperm bağla" düğmesi `/cycle/{id}/androloji/sperm-baglama`'ya
+  gidiyor — **bütün laboratuvardaki**, henüz hiçbir tedaviye bağlanmamış
+  dondurulmuş sperm kayıtlarını arayıp listeleyen bir ekran (dosya no/ad
+  soyad/etiket ile). "Bağla" düğmesi `sperm_dondurma.kullanim_cycle_id`'yi
+  bu tedaviye yazıyor ve taşıyıcının `durum`'unu `'kullanildi'` yapıyor
+  (yeni bir üçüncü durum — `'dolu'`/`'bosaltildi'`'nin yanına: "dolapta" ile
+  "boşaltıldı" arasında, "bir tedavide kullanıldı" ayrı bir bilgi).
+  Bağlıyken kart bağlı kaydı gösteriyor, "Bağlantıyı kaldır" düğmesiyle geri
+  alınabiliyor (taşıyıcı `'dolu'`ya döner).
+- **Neden Androloji, Tedavi ekranı değil**: androloji zaten "bu tedavide
+  hangi sperm örneği kullanıldı" sorusunun sorulduğu yer, `ivf_icsi` dışı
+  tedavilerde (FET, oosit dondurma) zaten hiç görünmüyor — sperm dondurma
+  bağlantısı da klinik olarak yalnızca ICSI yapılan tedavilerde anlamlı.
+- **`/cryo`'nun Sperm Dondurma sütunu ve `/sperm-dondurma/{id}` detay
+  ekranı** bağlı olduğu tedaviyi de gösteriyor ("Kullanıldığı tedavi: dosya
+  no · ad soyad · cycle no") — hem taşıyıcıyı arayan embriyoloğa hem kaydın
+  kendisine bakan birine "bu nerede kullanıldı" sorusunu yanıtlıyor.
+- **Tuzak #4'ün aynısı, yeni bir cycle_id alanı için.** `cycle_tamamen_sil()`
+  şimdi bu tedaviye bağlı `sperm_dondurma` kayıtlarının bağını koparıyor
+  (`kullanim_cycle_id=NULL`, taşıyıcı `'dolu'`ya döner) — eklenmeseydi eşin
+  tedavisi kalıcı silindiğinde (kendi hastası ya da eşininki üzerinden)
+  `sperm_dondurma` kırık bir `cycle_id`ye işaret ederdi. `teshis_silme.py`'ye
+  de aynı tarama + geri alma adımı eklendi (bu araç yalnızca **dener**, hiçbir
+  şey silmez — CLAUDE.md'nin "aynısını teshis_silme.py'ye de ekle" kuralı).
+  Test edildi: eşin hastası + tedavisi açıldı, kocanın (başka hasta) sperm
+  dondurması o tedaviye bağlandı, eşin hastası **kalıcı** silindi — kocanın
+  sperm dondurma kaydı korundu, yalnızca bağlantısı koptu, taşıyıcı `'dolu'`ya
+  döndü, `PRAGMA foreign_key_check` temiz çıktı.
+
+## Test edildi
+
+- Yeni-hasta formu: erkek hasta + dondurma kaydı tek POST'ta oluşturuldu,
+  `/sperm-dondurma/{id}` detayına yönlendirildi.
+- Doğrulama hatası (boş alan, mükerrer etiket) formu **yazılanları koruyarak**
+  yeniden bastı; mükerrer etiket denemesinde az önce açılan hasta kaydı geri
+  alındığı doğrulandı (hasta sayısı değişmedi).
+- Mükerrer dosya no ile deneme "zaten var" hatası verdi.
+- Androloji ekranında "Sperm Dondurma" kartı boş durumda "bağlı yok" gösterdi;
+  bağlama ekranı kaydı listeledi; "Bağla" sonrası kart bağlı kaydı gösterdi,
+  `/cryo` ve detay ekranı "Kullanıldığı tedavi"yi doğru gösterdi, taşıyıcı
+  `durum='kullanildi'` oldu; "Bağlantıyı kaldır" sonrası hepsi eski haline
+  döndü (`durum='dolu'`).
+- Kalıcı silme kaskadı: eşin hastası + tedavisi silindiğinde kocanın (başka
+  hastaya ait) sperm dondurma kaydı korundu, yalnızca bağlantısı koptu;
+  `PRAGMA foreign_key_check` temiz.
+- `goc_034` iki kez çalıştırılıp idempotent olduğu doğrulandı.
+- Playwright ile yeni-hasta formu, androloji kartı, bağlama ekranı ve detay
+  ekranı görüntülendi — telefon genişliğinde düzgün akıyor.
+- Test verisi (sperm dondurma kayıtları, taşıyıcılar, konumlar, test
+  hastaları/tedavileri, test oturumu) temizlendi.

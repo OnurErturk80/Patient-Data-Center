@@ -62,6 +62,9 @@ if cycles:
         ("olay.thaw_cycle_id (baska cycle'dan)",
          f"SELECT COUNT(*) FROM olay WHERE thaw_cycle_id IN ({q}) AND cycle_id NOT IN ({q})",
          cycles + cycles),
+        ("sperm_dondurma.kullanim_cycle_id (baska hastadan)",
+         f"SELECT COUNT(*) FROM sperm_dondurma WHERE kullanim_cycle_id IN ({q}) "
+         f"AND hasta_id<>?", cycles + [h["id"]]),
         ("goruntu.cycle_id", f"SELECT COUNT(*) FROM goruntu WHERE cycle_id IN ({q})", cycles),
         ("sperm_ornek.cycle_id", f"SELECT COUNT(*) FROM sperm_ornek WHERE cycle_id IN ({q})", cycles),
         ("gebelik_sonucu.cycle_id", f"SELECT COUNT(*) FROM gebelik_sonucu WHERE cycle_id IN ({q})", cycles),
@@ -92,6 +95,9 @@ for cid in cycles:
         (f"cycle {cid}: cozme baglarini kopar",
          "UPDATE olay SET thaw_cycle_id=NULL WHERE thaw_cycle_id=? AND cycle_id<>?",
          (cid, cid)),
+        (f"cycle {cid}: sperm_dondurma baglarini kopar",
+         "UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE kullanim_cycle_id=?",
+         (cid,)),
         (f"cycle {cid}: kaynak_dosya (cycle goruntuleri)",
          "DELETE FROM kaynak_dosya WHERE goruntu_id IN "
          "(SELECT id FROM goruntu WHERE cycle_id=?)", (cid,)),

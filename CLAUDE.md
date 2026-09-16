@@ -114,7 +114,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..033.py   veritabanı göçleri (sırayla)
+  goc_002..034.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -1213,23 +1213,56 @@ satırı üretmiyor.
   aynen duruyor) — aynı desen, yeni bir tip açmadan önce mevcut
   `liste_degeri.etiket`'in yeniden adlandırılabilir olup olmadığını düşün.
 
-**Sperm dondurma tüp bebek tedavisi olmayan hastalar için de yapılabilir**
-(v6.85, kullanıcının isteği — "onkoloji tedavisi görecek erkek hastalara da
-sperm donduruyoruz"). `hasta` kaydı zaten cycle'dan bağımsız var olabiliyordu
-(0 cycle'lı hasta desteklenmiş bir durum), eksik olan yalnızca giriş
-noktasıydı: `/hasta/yeni` normalde `/hastalar` üzerinden, IVF hastası
-kaydetme akışının içinden açılıyordu. Cryo Haritası'nın Sperm Dondurma
-sütununa **"Yeni hasta kaydı (Sperm Dondurma)"** düğmesi eklendi
-(`/hasta/yeni?amac=sperm`).
-- **`amac` beyaz listeden geçiyor** (tuzak #9) — tek geçerli değeri
-  `"sperm"`, sunucu (`_hasta_sonrasi_yol()`) yalnızca bu değeri tanıyor ve
-  yolu **kendi kuruyor**; adresten gelen metin doğrudan `href`'e/redirect'e
-  yazılmıyor (`?geri=<yol>` kalıbının yasak olma gerekçesinin aynısı). Kayıt
-  başarılı olunca (ya da dosya no zaten varsa) hasta ekranına değil doğrudan
-  `/hasta/{id}/sperm-dondurma/yeni`'ye düşülüyor — oncology hastası için
-  fazladan tıklama gerekmesin diye.
-- Yeni bir "kayıttan sonra nereye git" ihtiyacı doğarsa `_hasta_sonrasi_yol()`
-  kullan, adresten gelen bir yolu doğrudan yazma.
+**Sperm dondurma tüp bebek tedavisi olmayan hastalar için de yapılabilir,
+tek ekranda kaydediliyor** (v6.85'te başladı, v6.86'da bugünkü haline geldi
+— kullanıcının isteği: "onkoloji tedavisi görecek erkek hastalara da sperm
+donduruyoruz"). `hasta` kaydı zaten cycle'dan bağımsız var olabiliyordu (0
+cycle'lı hasta desteklenmiş bir durum). Cryo Haritası'nın Sperm Dondurma
+sütunundaki **"Yeni hasta kaydı (Sperm Dondurma)"** düğmesi
+`/sperm-dondurma/yeni-hasta`'ya gidiyor — **tek formda** hasta (yalnızca
+erkek hasta alanları, `hasta_form.html`'in eş alanları yok) + dondurma
+sebebi + taşıyıcı/konum/semen analizi, tek POST'ta hem `hasta` hem
+`tasiyici` hem `sperm_dondurma` yazılıyor.
+- **Ortak yazma mantığı `_sperm_dondurma_olustur(hasta_id, f, kid)`'de** —
+  hem bu akış hem mevcut hastanın kendi `/hasta/{id}/sperm-dondurma/yeni`si
+  onu çağırıyor. Doğrulama **yazmadan önce** bitiyor (fonksiyon içinde
+  `FormHatasi` fırlatılıyor, hiçbir INSERT'ten önce).
+- **Kayıt açıp doldurma kuralı burada da geçerli**: önce `hasta` yazılıyor,
+  `_sperm_dondurma_olustur()` patlarsa (örn. mükerrer etiket) az önce açılan
+  **boş hasta kaydı geri alınıyor** — yoksa lab ıssız hasta dosyalarıyla
+  dolar. Yeni bir "önce ana kaydı aç, sonra bağımlı kaydı doldur" akışı
+  yazarsan aynı geri alma adımını ekle.
+- **Hata dönüşü formu boşaltmıyor** (v6.21 kuralı) — şablona doğrudan
+  `TemplateResponse` ile `v=dict(f)` geçiliyor, redirect değil (v6.85'teki
+  `/hasta/yeni?amac=sperm` denemesi bunu atlamıştı, kaldırıldı).
+
+**Dondurulmuş sperm başka bir hastanın (eşin) tedavisine bağlanabilir**
+(v6.86, `goc_034`). `sperm_dondurma.sebep` (dondurma sebebi, serbest metin —
+sabit bir liste açılmadı, kategoriler kullanıcıyla birlikte belirlenmeli) ve
+`sperm_dondurma.kullanim_cycle_id` (`cycle(id)`'ye FK) eklendi.
+`kullanim_cycle_id` `olay.thaw_cycle_id`'nin aynı deseni: **sahiplik
+değişmiyor** (`sperm_dondurma.hasta_id` hep dondurmayı yaptıran erkek
+hastada kalır), yalnızca "hangi tedavi için kullanıldı" ayrı bir alanda
+yanıtlanıyor.
+- **Bağlama yeri Androloji ekranı** (`/cycle/{id}/androloji`, yalnızca
+  `ivf_icsi`'de var — androloji zaten "bu tedavide hangi sperm kullanıldı"
+  sorusunun yeri). Taze örnekten (`sperm_ornek`) bağımsız ayrı bir kart.
+  `/cycle/{id}/androloji/sperm-baglama` **bütün laboratuvardaki**, henüz
+  bağlanmamış (`kullanim_cycle_id IS NULL`) kayıtları arıyor — hastaya göre
+  süzülmüyor, çünkü kayıt bilerek başka bir hastaya ait.
+- **Taşıyıcı `durum`'una üçüncü bir değer eklendi: `'kullanildi'`**
+  (`'dolu'`/`'bosaltildi'`'nin yanına) — bağlanınca yazılıyor, bağlantı
+  kaldırılınca `'dolu'`ya dönüyor. `/cryo`'nun taşıyıcı sorguları buna göre
+  süzmüyor (geçmiş kayıt olarak görünmeye devam ediyor), yalnızca "Kullanıldığı
+  tedavi" rozeti ekleniyor.
+- **Tuzak #4'ün aynısı, yeni bir cycle_id alanı için**: `cycle_tamamen_sil()`
+  artık silinen cycle'a bağlı `sperm_dondurma` kayıtlarının bağını koparıyor
+  (`kullanim_cycle_id=NULL`, taşıyıcı `'dolu'`ya döner) — bu olmasaydı eşin
+  tedavisi kalıcı silindiğinde kocanın (başka hastanın) kaydı kırık bir
+  `cycle_id`ye işaret ederdi. **`teshis_silme.py`'ye de aynı tarama + geri
+  alma adımı eklendi** (CLAUDE.md'nin "aynısını teshis_silme.py'ye de ekle"
+  kuralı, tuzak #4). Yeni bir `cycle_id`-referanslı tablo eklersen ikisini de
+  güncelle, `cycle_tamamen_sil()` tek başına yetmiyor.
 
 ---
 

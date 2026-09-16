@@ -234,13 +234,27 @@ METINLER = {
                       "en": "Pre-freeze semen analysis"},
     "yeni_sperm_hasta": {"tr": "Yeni hasta kaydı (Sperm Dondurma)",
                          "en": "New patient (Sperm Freezing)"},
-    "sperm_icin_yeni_hasta_ipucu": {
-        "tr": "Bu hasta yalnızca sperm dondurma için kaydediliyor olabilir "
-              "— tüp bebek tedavisi görmeyen hastalar da (örn. onkoloji "
-              "tedavisi öncesi) burada kaydedilebilir.",
-        "en": "This patient may be registered for sperm freezing only — "
-              "patients who are not receiving IVF treatment (e.g. before "
-              "oncology treatment) can also be registered here."},
+    "hasta_ve_sperm_dondurmayi_kaydet": {
+        "tr": "Hastayı ve sperm dondurmayı kaydet",
+        "en": "Save patient and sperm freezing"},
+    "dondurma_sebebi": {"tr": "Dondurma sebebi", "en": "Freeze reason"},
+    "dondurma_sebebi_ipucu": {
+        "tr": "Örn. onkoloji tedavisi öncesi, elektif",
+        "en": "E.g. before oncology treatment, elective"},
+    "kullanildigi_tedavi": {"tr": "Kullanıldığı tedavi", "en": "Used in treatment"},
+    "dondurulmus_sperm_bagla": {"tr": "Dondurulmuş sperm bağla",
+                                "en": "Link frozen sperm"},
+    "sperm_bagli_yok": {"tr": "Bu tedaviye bağlı dondurulmuş sperm yok.",
+                        "en": "No frozen sperm linked to this treatment."},
+    "sperm_baglantisini_kaldir": {"tr": "Bağlantıyı kaldır", "en": "Remove link"},
+    "sperm_baglama_ipucu": {
+        "tr": "Başka bir hastaya ait, daha önce dondurulmuş bir sperm "
+              "örneğini bu tedaviyle ilişkilendir — örn. eşi için "
+              "onkoloji tedavisi öncesi dondurma yaptırmış bir hasta.",
+        "en": "Link a previously frozen sperm sample belonging to another "
+              "patient to this treatment — e.g. a patient who froze sperm "
+              "before oncology treatment, for his spouse's IVF cycle."},
+    "bagla": {"tr": "Bağla", "en": "Link"},
 
     # ---- cycle formu ----
     "cycle_duzenle": {"tr": "Tedaviyi düzenle", "en": "Edit cycle"},

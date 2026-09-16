@@ -51,6 +51,33 @@
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
+{# Bu tedavide kullanılan, başka bir hastaya (örn. eşe) ait dondurulmuş
+   sperm var mı (v6.86) -- taze örnekten (aşağısı, sperm_ornek) tamamen
+   bağımsız bir kart; ikisi aynı anda da var olabilir (klinik karar
+   embriyoloğa ait, program yalnızca kaydı tutuyor). #}
+<div class="kart">
+  <h2>{{ metin("sperm_dondurma") }}</h2>
+  {% if sd_baglanti %}
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("hasta") }}</dt>
+      <dd>{{ sd_baglanti.dosya_no }} · {{ sd_baglanti.ad_soyad }}</dd></div>
+    <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
+      <dd><a href="/sperm-dondurma/{{ sd_baglanti.id }}">{{ sd_baglanti.etiket }}</a></dd></div>
+    {% if sd_baglanti.sebep %}
+    <div class="veri"><dt>{{ metin("dondurma_sebebi") }}</dt><dd>{{ sd_baglanti.sebep }}</dd></div>
+    {% endif %}
+  </dl>
+  <form method="post"
+        action="/cycle/{{ c.id }}/androloji/sperm-baglanti-kaldir/{{ sd_baglanti.id }}"
+        style="margin-top:8px">
+    <button class="dugme ikincil" type="submit">{{ metin("sperm_baglantisini_kaldir") }}</button>
+  </form>
+  {% else %}
+  <div class="bos">{{ metin("sperm_bagli_yok") }}</div>
+  <a class="dugme ikincil" href="/cycle/{{ c.id }}/androloji/sperm-baglama">{{ metin("dondurulmus_sperm_bagla") }}</a>
+  {% endif %}
+</div>
+
 {% if ornekler %}
 <div class="alan" style="border:0;padding-bottom:0">
   <label>{{ metin("sperm_ornegi") }}</label>

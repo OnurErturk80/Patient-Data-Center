@@ -2171,26 +2171,11 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     )
 
 
-def _hasta_sonrasi_yol(hasta_id: int, amac: str) -> str:
-    """Hasta kaydından sonra nereye gidilir.
-
-    `amac` adresten geliyor, **beyaz liste** ile karşılaştırılıyor (tuzak
-    #9) — doğrudan bir yol değil, tek geçerli değeri `"sperm"`; yolu burada
-    kendimiz kuruyoruz. Cryo Harita > Sperm Dondurma'dan "Yeni hasta kaydı"
-    ile gelen kayıt, IVF tedavisi olmayan hastalar için de (örn. onkoloji
-    hastası) doğrudan sperm dondurma formuna düşsün diye (v6.85).
-    """
-    if amac == "sperm":
-        return f"/hasta/{hasta_id}/sperm-dondurma/yeni"
-    return f"/hasta/{hasta_id}"
-
-
 @uygulama.get("/hasta/yeni")
-def hasta_yeni(request: Request, dosya_no: str = "", amac: str = ""):
+def hasta_yeni(request: Request, dosya_no: str = ""):
     # `v` hata dönüşünde yazılanları taşır; boş formda da tanımlı olmalı.
     return sablon.TemplateResponse(
-        request, "hasta_form.html",
-        {"dosya_no": dosya_no, "v": {}, "amac": amac if amac == "sperm" else ""})
+        request, "hasta_form.html", {"dosya_no": dosya_no, "v": {}})
 
 
 @uygulama.post("/hasta/yeni")
@@ -2202,15 +2187,13 @@ def hasta_kaydet(
     es_adi: str = Form(""),
     es_dogum_tarihi: str = Form(""),
     notlar: str = Form(""),
-    amac: str = Form(""),
 ):
-    amac = amac if amac == "sperm" else ""
     mevcut = db.tek(
         "SELECT id FROM hasta WHERE lab_id = ? AND dosya_no = ?",
         (db.LAB_ID, int(dosya_no)),
     )
     if mevcut:
-        return RedirectResponse(_hasta_sonrasi_yol(mevcut["id"], amac), status_code=303)
+        return RedirectResponse(f"/hasta/{mevcut['id']}", status_code=303)
 
     try:
         dt = zaman(dogum_tarihi, "Doğum tarihi")
@@ -2220,7 +2203,7 @@ def hasta_kaydet(
         # gösterip formu boşaltmak kullanıcıya ne yazdığını unutturur.
         return sablon.TemplateResponse(
             request, "hasta_form.html",
-            {"dosya_no": dosya_no, "hata": str(e), "amac": amac,
+            {"dosya_no": dosya_no, "hata": str(e),
              "v": {"ad_soyad": ad_soyad, "dogum_tarihi": dogum_tarihi,
                    "es_adi": es_adi, "es_dogum_tarihi": es_dogum_tarihi,
                    "notlar": notlar}},
@@ -2232,7 +2215,7 @@ def hasta_kaydet(
         (db.LAB_ID, int(dosya_no), ad_soyad.strip(), dt,
          bos_ise_none(es_adi), edt, bos_ise_none(notlar)),
     )
-    return RedirectResponse(_hasta_sonrasi_yol(yeni_id, amac), status_code=303)
+    return RedirectResponse(f"/hasta/{yeni_id}", status_code=303)
 
 
 @uygulama.get("/hasta/kontrol")
@@ -2786,6 +2769,15 @@ def androloji(request: Request, cycle_id: int, ornek: str = "",
                           (secili["id"],)):
             analizler[r["asama"]] = r
 
+    # Bu tedavide kullanılan, başka bir hastaya (eşe) ait dondurulmuş sperm
+    # var mı (v6.86) -- taze örnekten (sperm_ornek) tamamen bağımsız, aynı
+    # ekranda ayrı bir kart olarak gösteriliyor.
+    sd_baglanti = db.tek(
+        "SELECT sd.*, t.etiket, h.dosya_no, h.ad_soyad FROM sperm_dondurma sd "
+        "JOIN tasiyici t ON t.id = sd.tasiyici_id "
+        "JOIN hasta h ON h.id = sd.hasta_id "
+        "WHERE sd.kullanim_cycle_id=? AND sd.iptal_mi=0", (cycle_id,))
+
     return sablon.TemplateResponse(
         request, "androloji.html",
         {
@@ -2802,9 +2794,68 @@ def androloji(request: Request, cycle_id: int, ornek: str = "",
             "gorunumler": db.liste("sperm_gorunum"),
             "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
             "hata": hata, "duzenle": duzenle,
+            "sd_baglanti": sd_baglanti,
             "gezinme": asama_gezinme(cycle_id, "androloji"),
         },
     )
+
+
+@uygulama.get("/cycle/{cycle_id}/androloji/sperm-baglama")
+def androloji_sperm_baglama_ekran(request: Request, cycle_id: int, ara: str = ""):
+    """Başka bir hastaya ait, henüz hiçbir tedavide kullanılmamış dondurulmuş
+    sperm kayıtlarını arayıp bu tedaviye bağlama ekranı (v6.86).
+    """
+    c = db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    taban = (
+        "SELECT sd.id, sd.dondurma_zamani, sd.sebep, t.etiket, "
+        "  h.dosya_no, h.ad_soyad "
+        "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+        "JOIN hasta h ON h.id = sd.hasta_id "
+        "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL")
+    if ara.strip():
+        kayitlar = db.sorgu(
+            taban + " AND (t.etiket LIKE ? OR CAST(h.dosya_no AS TEXT) LIKE ? "
+            "OR h.ad_soyad LIKE ?) ORDER BY sd.dondurma_zamani DESC",
+            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%"))
+    else:
+        kayitlar = db.sorgu(
+            taban + " ORDER BY sd.dondurma_zamani DESC", (db.LAB_ID,))
+
+    return sablon.TemplateResponse(
+        request, "androloji_sperm_baglama.html",
+        {"c": c, "ara": ara, "kayitlar": kayitlar})
+
+
+@uygulama.post("/cycle/{cycle_id}/androloji/sperm-baglama/{sperm_dondurma_id}")
+def androloji_sperm_bagla(request: Request, cycle_id: int, sperm_dondurma_id: int):
+    c = db.tek("SELECT id FROM cycle WHERE id=?", (cycle_id,))
+    sd = db.tek(
+        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND lab_id=? "
+        "AND iptal_mi=0 AND kullanim_cycle_id IS NULL",
+        (sperm_dondurma_id, db.LAB_ID))
+    if c and sd:
+        db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=? WHERE id=?",
+               (cycle_id, sperm_dondurma_id))
+        db.yaz("UPDATE tasiyici SET durum='kullanildi' WHERE id=?",
+               (sd["tasiyici_id"],))
+    return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
+
+
+@uygulama.post("/cycle/{cycle_id}/androloji/sperm-baglanti-kaldir/{sperm_dondurma_id}")
+def androloji_sperm_baglanti_kaldir(request: Request, cycle_id: int, sperm_dondurma_id: int):
+    sd = db.tek(
+        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND kullanim_cycle_id=?",
+        (sperm_dondurma_id, cycle_id))
+    if sd:
+        db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE id=?",
+               (sperm_dondurma_id,))
+        db.yaz("UPDATE tasiyici SET durum='dolu' WHERE id=?", (sd["tasiyici_id"],))
+    return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
 
 
 @uygulama.post("/cycle/{cycle_id}/androloji")
@@ -4977,14 +5028,20 @@ def cryo_harita(request: Request, ara: str = ""):
     # isteği: "Cryo Harita başlığı altına toplansın, ikisinin modülü yan yana
     # olsun") -- arama kutusu tek, aynı `ara` her iki modülü de süzüyor.
     sperm_taban = (
-        "SELECT sd.id, sd.dondurma_zamani, sd.hacim_ml, "
+        "SELECT sd.id, sd.dondurma_zamani, sd.hacim_ml, sd.sebep, "
         "  sd.konsantrasyon_milyon_ml, sd.total_motil_yuzde, "
         "  t.etiket, t.tip, t.renk, k.tam_yol, "
-        "  h.id AS hasta_id, h.dosya_no, h.ad_soyad "
+        "  h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
+        # Bu dondurma başka bir hastanın (eşin) tedavisinde kullanıldıysa
+        # (v6.86, androloji ekranından bağlanıyor) burada da görünsün.
+        "  uh.dosya_no AS kul_dosya_no, uh.ad_soyad AS kul_ad_soyad, "
+        "  uc.cycle_no AS kul_cycle_no, uc.id AS kul_cycle_id "
         "FROM sperm_dondurma sd "
         "JOIN tasiyici t ON t.id = sd.tasiyici_id "
         "LEFT JOIN konum k ON k.id = t.konum_id "
         "JOIN hasta h ON h.id = sd.hasta_id "
+        "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
+        "LEFT JOIN hasta uh ON uh.id = uc.hasta_id "
         "WHERE sd.lab_id=? AND sd.iptal_mi=0")
     if ara.strip():
         sperm_kayitlari = db.sorgu(
@@ -5014,6 +5071,46 @@ def sperm_dondurma_harita_eski(request: Request, ara: str = ""):
         "/cryo" + (f"?{urlencode({'ara': ara})}" if ara else ""), status_code=303)
 
 
+def _sperm_dondurma_olustur(hasta_id, f, kid):
+    """Taşıyıcı + `sperm_dondurma` satırını birlikte yazar.
+
+    Hem mevcut hastanın kendi "Yeni Sperm Dondurma"sında hem yeni-hasta
+    (`/sperm-dondurma/yeni-hasta`) akışında kullanılıyor — iki kopya
+    olsaydı biri güncellenip öteki unutulurdu. Doğrulama **yazmadan önce**
+    bitiyor: yeni-hasta akışı hata durumunda az önce açtığı boş hasta
+    kaydını geri alabilsin diye (CLAUDE.md "kayıt açıp doldurma" kuralı).
+    """
+    etiket = (f.get("etiket") or "").strip()
+    if not etiket:
+        raise FormHatasi("Taşıyıcı etiketi boş bırakılamaz.")
+    if db.tek("SELECT id FROM tasiyici WHERE lab_id=? AND etiket=?", (db.LAB_ID, etiket)):
+        raise FormHatasi(f"'{etiket}' etiketli bir taşıyıcı zaten var.")
+
+    hacim = sayi(f.get("hacim_ml"), "Hacim")
+    konsantrasyon = sayi(f.get("konsantrasyon"), "Konsantrasyon")
+    motilite = sayi(f.get("total_motilite"), "Total motilite")
+
+    seviyeler = [f.get(f"seviye{i}") for i in (1, 2, 3, 4)]
+    konum_id = konum_bul_veya_olustur(seviyeler)
+    simdi = islem_zamani(f.get("islem_zamani"))
+
+    tid = db.yaz(
+        "INSERT INTO tasiyici (lab_id, tip, etiket, renk, konum_id, "
+        "vitrifikasyon_zamani, kullanici_id, durum, kategori) "
+        "VALUES (?,?,?,?,?,?,?,'dolu','sperm')",
+        (db.LAB_ID, f.get("tip") or "straw", etiket, f.get("renk") or None,
+         konum_id, simdi, kid))
+    if konum_id:
+        db.yaz("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+
+    return db.yaz(
+        "INSERT INTO sperm_dondurma (lab_id, hasta_id, tasiyici_id, "
+        "dondurma_zamani, hacim_ml, konsantrasyon_milyon_ml, total_motil_yuzde, "
+        "sebep, notlar, kullanici_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (db.LAB_ID, hasta_id, tid, simdi, hacim, konsantrasyon, motilite,
+         bos_ise_none(f.get("sebep")), bos_ise_none(f.get("notlar")), kid))
+
+
 @uygulama.get("/hasta/{hasta_id}/sperm-dondurma/yeni")
 def sperm_dondurma_form(request: Request, hasta_id: int, hata: str = ""):
     h = db.tek("SELECT * FROM hasta WHERE id=?", (hasta_id,))
@@ -5036,57 +5133,92 @@ async def sperm_dondurma_kaydet(request: Request, hasta_id: int):
     if not h:
         return RedirectResponse("/hastalar", status_code=303)
 
-    def hata(m):
-        return RedirectResponse(
-            f"/hasta/{hasta_id}/sperm-dondurma/yeni?hata=" + quote(m), status_code=303)
-
-    etiket = (f.get("etiket") or "").strip()
-    if not etiket:
-        return hata("Taşıyıcı etiketi boş bırakılamaz.")
-    if db.tek("SELECT id FROM tasiyici WHERE lab_id=? AND etiket=?", (db.LAB_ID, etiket)):
-        return hata(f"'{etiket}' etiketli bir taşıyıcı zaten var.")
-
-    try:
-        hacim = sayi(f.get("hacim_ml"), "Hacim")
-        konsantrasyon = sayi(f.get("konsantrasyon"), "Konsantrasyon")
-        motilite = sayi(f.get("total_motilite"), "Total motilite")
-    except FormHatasi as e:
-        return hata(str(e))
-
-    seviyeler = [f.get(f"seviye{i}") for i in (1, 2, 3, 4)]
-    konum_id = konum_bul_veya_olustur(seviyeler)
-
     kid = request.state.kullanici["id"]
-    simdi = islem_zamani(f.get("islem_zamani"))
-
-    tid = db.yaz(
-        "INSERT INTO tasiyici (lab_id, tip, etiket, renk, konum_id, "
-        "vitrifikasyon_zamani, kullanici_id, durum, kategori) "
-        "VALUES (?,?,?,?,?,?,?,'dolu','sperm')",
-        (db.LAB_ID, f.get("tip") or "straw", etiket, f.get("renk") or None,
-         konum_id, simdi, kid))
-    if konum_id:
-        db.yaz("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
-
-    db.yaz(
-        "INSERT INTO sperm_dondurma (lab_id, hasta_id, tasiyici_id, "
-        "dondurma_zamani, hacim_ml, konsantrasyon_milyon_ml, total_motil_yuzde, "
-        "notlar, kullanici_id) VALUES (?,?,?,?,?,?,?,?,?)",
-        (db.LAB_ID, hasta_id, tid, simdi, hacim, konsantrasyon, motilite,
-         bos_ise_none(f.get("notlar")), kid))
+    try:
+        _sperm_dondurma_olustur(hasta_id, f, kid)
+    except FormHatasi as e:
+        return RedirectResponse(
+            f"/hasta/{hasta_id}/sperm-dondurma/yeni?hata=" + quote(str(e)),
+            status_code=303)
 
     return RedirectResponse("/cryo", status_code=303)
+
+
+@uygulama.get("/sperm-dondurma/yeni-hasta")
+def sperm_dondurma_yeni_hasta_form(request: Request, hata: str = ""):
+    """Cryo Haritası > Sperm Dondurma'dan tek ekranda yeni erkek hasta +
+    dondurma kaydı (v6.86). `hasta_form.html`'in eş alanları burada yok —
+    bu hasta tüp bebek tedavisi görmüyor olabilir (örn. onkoloji öncesi).
+    """
+    from datetime import datetime as _d
+    return sablon.TemplateResponse(
+        request, "sperm_dondurma_yeni_hasta.html",
+        {"v": {}, "hata": hata, "sema": konum_semasi(),
+         "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
+         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
+
+
+@uygulama.post("/sperm-dondurma/yeni-hasta")
+async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
+    f = await request.form()
+
+    def yeniden(m):
+        # Hata formu kapatmaz, yazılanlarla yeniden basılır (v6.21 kuralı) —
+        # bu form uzun olduğu için (hasta + taşıyıcı + konum + semen analizi)
+        # kaybı özellikle can sıkıcı olurdu.
+        return sablon.TemplateResponse(
+            request, "sperm_dondurma_yeni_hasta.html",
+            {"v": dict(f), "hata": m, "sema": konum_semasi(),
+             "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
+             "simdi": f.get("islem_zamani") or _dt.now().strftime("%Y-%m-%dT%H:%M")})
+
+    dosya_no = (f.get("dosya_no") or "").strip()
+    ad_soyad = (f.get("ad_soyad") or "").strip()
+    if not dosya_no or not ad_soyad:
+        return yeniden("Dosya no ve ad soyad boş bırakılamaz.")
+    if not dosya_no.isdigit():
+        return yeniden("Dosya no sayı olmalı.")
+    if db.tek("SELECT id FROM hasta WHERE lab_id=? AND dosya_no=?",
+              (db.LAB_ID, int(dosya_no))):
+        return yeniden(
+            f"'{dosya_no}' dosya no'lu bir hasta zaten var. Sperm dondurmayı "
+            "o hastanın kendi sayfasından (“Yeni Sperm Dondurma”) ekleyin.")
+
+    try:
+        dt = zaman(f.get("dogum_tarihi"), "Doğum tarihi")
+    except FormHatasi as e:
+        return yeniden(str(e))
+
+    kid = request.state.kullanici["id"]
+    hasta_id = db.yaz(
+        "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, dogum_tarihi) "
+        "VALUES (?,?,?,?)", (db.LAB_ID, int(dosya_no), ad_soyad, dt))
+
+    try:
+        sd_id = _sperm_dondurma_olustur(hasta_id, f, kid)
+    except FormHatasi as e:
+        # Dolduramadik: boş kalan hasta kaydı geri alınıyor (specimen'i
+        # geri alan `bos_specimen_sil()` ile aynı gerekçe) — yoksa lab
+        # boş, ıssız hasta dosyalarıyla dolar.
+        db.yaz("DELETE FROM hasta WHERE id=?", (hasta_id,))
+        return yeniden(str(e))
+
+    return RedirectResponse(f"/sperm-dondurma/{sd_id}", status_code=303)
 
 
 @uygulama.get("/sperm-dondurma/{sperm_dondurma_id}")
 def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int):
     sd = db.tek(
         "SELECT sd.*, t.etiket, t.tip, t.renk, t.durum AS tasiyici_durum, "
-        "  k.tam_yol, h.id AS hasta_id, h.dosya_no, h.ad_soyad "
+        "  k.tam_yol, h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
+        "  uh.dosya_no AS kul_dosya_no, uh.ad_soyad AS kul_ad_soyad, "
+        "  uc.cycle_no AS kul_cycle_no "
         "FROM sperm_dondurma sd "
         "JOIN tasiyici t ON t.id = sd.tasiyici_id "
         "LEFT JOIN konum k ON k.id = t.konum_id "
         "JOIN hasta h ON h.id = sd.hasta_id "
+        "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
+        "LEFT JOIN hasta uh ON uh.id = uc.hasta_id "
         "WHERE sd.id=? AND sd.lab_id=?", (sperm_dondurma_id, db.LAB_ID))
     if not sd or sd["iptal_mi"]:
         return RedirectResponse("/cryo", status_code=303)
@@ -5768,6 +5900,17 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
     # çözmelerin bağı kopar (kayıt kalır, hangi tedavi için olduğu bilinmez)
     db.yaz("UPDATE olay SET thaw_cycle_id=NULL "
            "WHERE thaw_cycle_id=? AND cycle_id<>?", (cycle_id, cycle_id))
+
+    # Başka bir hastaya (eşe) ait, bu tedaviye bağlanmış dondurulmuş sperm
+    # varsa bağı kopar (v6.86, tuzak #4'ün aynısı: yeni bir cycle_id alanı
+    # eklendi, kalıcı silmede temizlenmesi şart) -- kayıt kalır, taşıyıcı
+    # tekrar 'dolu' olur, sahibi hastanın dolabında kalmaya devam eder.
+    for r in db.sorgu(
+            "SELECT id, tasiyici_id FROM sperm_dondurma WHERE kullanim_cycle_id=?",
+            (cycle_id,)):
+        db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE id=?",
+               (r["id"],))
+        db.yaz("UPDATE tasiyici SET durum='dolu' WHERE id=?", (r["tasiyici_id"],))
 
     # 3. Bu cycle'ın embriyolarının kullandığı taşıyıcılar
     tasiyicilar = [r["vit_tasiyici_id"] for r in db.sorgu(

@@ -18,8 +18,21 @@
       <dd {% if not sd.tam_yol %}class="yok"{% endif %}>{{ sd.tam_yol or metin("girilmemis") }}</dd></div>
     <div class="veri"><dt>{{ metin("dondurma_saati") }}</dt>
       <dd>{{ gg_aa_yyyy_saat(sd.dondurma_zamani) if sd.dondurma_zamani else '—' }}</dd></div>
+    <div class="veri"><dt>{{ metin("dondurma_sebebi") }}</dt>
+      <dd {% if not sd.sebep %}class="yok"{% endif %}>{{ sd.sebep or metin("girilmedi") }}</dd></div>
   </dl>
 </div>
+
+{% if sd.kul_cycle_no %}
+<div class="kart">
+  <h2>{{ metin("kullanildigi_tedavi") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("hasta") }}</dt>
+      <dd>{{ sd.kul_dosya_no }} · {{ sd.kul_ad_soyad }}</dd></div>
+    <div class="veri"><dt>{{ metin("cycle") }}</dt><dd>{{ sd.kul_cycle_no }}</dd></div>
+  </dl>
+</div>
+{% endif %}
 
 <div class="kart">
   <h2>{{ metin("semen_analizi") }}</h2>
