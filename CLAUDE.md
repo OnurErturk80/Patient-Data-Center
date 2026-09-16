@@ -114,7 +114,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..030.py   veritabanı göçleri (sırayla)
+  goc_002..031.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -140,12 +140,47 @@ Patient Data Center/
 
 Tedavi tipine göre hangi aşamaların görüneceği değişir:
 - `ivf_icsi` → 11 aşamanın hepsi (OPU ve androloji dahil)
-- `fet` → çözme, transfer, gebelik (**OPU yok** — oosit toplanmaz)
+- `fet` → çözme, transfer, gebelik (**OPU yok** — oosit toplanmaz, embriyo
+  başka bir cycle'dan gelir, aynı gün transfer edilir)
+- `fet_kultur` → çözme, **blastokist**, transfer, gebelik (v6.62, `goc_031`).
+  "FET (3→5 kültür)" — gün 2/3 embriyosu çözülüp gün 5'e kadar kültürlenip
+  öyle transfer ediliyor; `fet`'ten farkı yalnızca araya giren blastokist
+  değerlendirmesi. **Sıra `ivf_icsi`'nin tersi**: orada blastokist
+  dondurmadan (vitrifikasyon) önce gelir, burada çözme blastokistten önce
+  gelir — embriyo zaten dondurulmuş halde geliyor.
 - `oosit_cryo` → OPU, denüdasyon, vitrifikasyon, çözme
 
 Aşama sırası ve tip-aşama eşlemesi `app.py` içinde `ASAMA_SIRASI` ve
 `TIP_ASAMALARI`. Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
 hazırlık sonrası) yalnızca `ivf_icsi`'de. Şema/listeler: README v6.2, `goc_019`.
+
+**`fet` ve `fet_kultur`'da embriyo BU cycle'dan gelmez** — `FET_TIPLERI`
+sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)` bunu tek yerden kontrol
+ediyor (v6.62). Taşıyıcı/embriyo listeleri `specimen.cycle_id` ile değil,
+`olay.thaw_cycle_id` ("hangi tedavi için çözüldü") ile aranıyor —
+`specimen.cycle_id` embriyonun **ilk** (OPU/ICSI) cycle'ı, hiç değişmez
+(README v6.7). Yeni bir `FET_TIPLERI` üyesi eklersen `cycle_thaw_listesi()`,
+`_blast_kosul()` ve `cycle_thaw.html`'deki vitrifikasyon-bağlantısı koşulu
+otomatik kapsar — `fet_tipi_mi()` kullanmayan yeni bir `== "fet"` kontrolü
+yazma.
+
+**Blastokist ekranında seçim `specimen.id` ile, `cycle_sira_no` ile DEĞİL**
+(v6.62, yalnızca bu ekranda). `fet_kultur`'da birden çok cycle'ın embriyoları
+aynı listede olabiliyor ve `cycle_sira_no` yalnızca **kendi** cycle'ı içinde
+tekil (`UNIQUE(cycle_id, cycle_sira_no)`) — iki cycle'da da "1. embriyo"
+olabilir. ICSI/fert/cleavage buna dokunmadı, onlar hiç birden fazla cycle'ın
+embriyosunu aynı ekranda göstermiyor; oradaki `?oosit=<cycle_sira_no>`
+deseni (README v6.35) hâlâ güvenli.
+
+**`olay.cycle_id` her zaman specimen'in KENDİ cycle'ı, ekranın cycle'ı
+değil** — `thaw` ve `transfer` olaylarının zaten yaptığı şey
+(`e["cycle_id"]` / `sp["cycle_id"]`), `blastokist_degerlendirme` de artık
+aynısını yapıyor. "Hangi tedavi için" sorusu ayrı bir alanda (`thaw_cycle_id`,
+`tr_cycle_id`) yanıtlanıyor. Fotoğraf ekleme de aynı kuralı izliyor:
+embriyonun **kendi** cycle'ının arşiv klasörüne gidiyor
+(`/cycle/{{ sp.cycle_id }}/foto-ekle`, `thaw.html`'in zaten yaptığı gibi),
+görüntülenen ekranın cycle'ına değil — iki klasöre bölünmüş bir embriyo
+geçmişi olmasın diye.
 
 Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, transfer yok).
 

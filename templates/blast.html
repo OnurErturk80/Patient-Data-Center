@@ -35,7 +35,7 @@
 
 <div class="serit">
   {% for o in oositler %}
-  <a href="/cycle/{{ c.id }}/blast?gun={{ gun }}&oosit={{ o.cycle_sira_no }}"
+  <a href="/cycle/{{ c.id }}/blast?gun={{ gun }}&oosit={{ o.id }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kayit_id %}dolu{% endif %}
             {% if o.gen == 'arrest' %}deg{% endif %}">
     <b>{{ o.cycle_sira_no }}</b>{% if o.skor %}<i>-{{ o.skor }}</i>{% endif %}
@@ -52,26 +52,26 @@
 <div class="uyari">{{ metin("fert_kontrolunde_npn").format(n=sp.pn) }}</div>
 {% endif %}
 
-{{ snap.blok(sp, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no, bekleyen) }}
+{{ snap.blok(sp, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.id, bekleyen) }}
 
 {% if sp.goruntu %}
 <div class="foto">
   <img src="/dosya/{{ sp.goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
   <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
 </div>
-{{ kr.serit(kareler, sp, c, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no) }}
+{{ kr.serit(kareler, sp, c, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.id) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
+  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.id }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.id }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
 {{ kr.yer(ornek_adi('blast', c.cycle_tipi), sp,
-          '/cycle/' ~ c.id ~ '/foto-ekle?specimen_id=' ~ sp.id
+          '/cycle/' ~ sp.cycle_id ~ '/foto-ekle?specimen_id=' ~ sp.id
           ~ '&asama=gun' ~ gun ~ '&geri=/cycle/' ~ c.id ~ '/blast%3Fgun%3D' ~ gun
-          ~ '%26oosit%3D' ~ sp.cycle_sira_no) }}
+          ~ '%26oosit%3D' ~ sp.id) }}
 {% endif %}
 
-{% set geri_yol = '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no %}
+{% set geri_yol = '/cycle/' ~ c.id ~ '/blast?gun=' ~ gun ~ '&oosit=' ~ sp.id %}
 {% if kayit and not duzenle %}
 {{ bk.kart(
      ornek_adi('blast', c.cycle_tipi) ~ ' ' ~ sp.cycle_sira_no
@@ -88,10 +88,10 @@
      metin("kaydedildi_rozet")) }}
 
 <a class="dugme ikincil" style="margin-top:12px"
-   href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">
+   href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/blast%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.id }}">
   {{ metin("fotograf_ekle") }}</a>
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
+   href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}&cycle={{ c.id }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
 
 {% else %}
 <form method="post" action="/cycle/{{ c.id }}/blast" id="blform">
@@ -195,7 +195,7 @@
    href="{{ geri_yol }}">{{ metin("vazgec_duzenleme") if duzenle else metin("secimleri_geri_al") }}</a>
 {% if kayit %}
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
+   href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}&cycle={{ c.id }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
 {% endif %}
 {% endif %}
 

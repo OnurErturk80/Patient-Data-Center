@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("blast_kaydini_sil") }}{% endblock %}
-{% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ hedef_cycle }}/blast?gun={{ gun }}&oosit={{ sp.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
@@ -12,7 +12,7 @@
 
 {% if not kayit %}
 <div class="kart"><div class="bos">{{ metin("blast_kaydi_bulunamadi").format(n=gun) }}</div></div>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">{{ metin("geri_don") }}</a>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/blast?gun={{ gun }}&oosit={{ sp.id }}">{{ metin("geri_don") }}</a>
 {% else %}
 
 <div class="tehlike">
@@ -38,8 +38,9 @@
 
 <form method="post" action="/specimen/{{ sp.id }}/blast-sil">
   <input type="hidden" name="gun" value="{{ gun }}">
+  <input type="hidden" name="cycle" value="{{ hedef_cycle }}">
   <button class="dugme tehlikeli" type="submit">{{ metin("gun_n_kaydini_sil_baslik").format(n=gun) }}</button>
 </form>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/blast?gun={{ gun }}&oosit={{ sp.cycle_sira_no }}">{{ metin("vazgec") }}</a>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/blast?gun={{ gun }}&oosit={{ sp.id }}">{{ metin("vazgec") }}</a>
 {% endif %}
 {% endblock %}

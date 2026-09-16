@@ -220,9 +220,14 @@ METINLER = {
     "tedavi_tipi": {"tr": "Tedavi tipi", "en": "Treatment type"},
     "fet_ipucu": {
         "tr": "FET seçilirse laboratuvar aşamaları gösterilmez; doğrudan "
-              "çözme ve transferle başlanır.",
+              "çözme ve transferle başlanır. FET (3→5) seçilirse çözme ile "
+              "transfer arasına blastokist değerlendirmesi eklenir — gün 2/3 "
+              "embriyosu çözülüp gün 5'e kadar kültürlenir.",
         "en": "If FET is selected the laboratory stages are hidden; the cycle "
-              "starts directly with thaw and transfer."},
+              "starts directly with thaw and transfer. If FET (D3→5) is "
+              "selected, a blastocyst assessment stage is added between thaw "
+              "and transfer — a day 2/3 embryo is thawed and cultured to "
+              "day 5."},
     "endikasyon": {"tr": "Endikasyon", "en": "Indication"},
     "klinik_protokol": {"tr": "Klinik protokol", "en": "Clinical protocol"},
     "gonadotropin": {"tr": "Gonadotropin", "en": "Gonadotropin"},
@@ -947,6 +952,7 @@ METINLER = {
     # ---- tedavi tipi (app.py TIP_KISA) ----
     "tip_ivf_icsi": {"tr": "IVF/ICSI", "en": "IVF/ICSI"},
     "tip_fet": {"tr": "FET", "en": "FET"},
+    "tip_fet_kultur": {"tr": "FET (3→5)", "en": "FET (D3→5)"},
     "tip_oosit_cryo": {"tr": "Oosit cryo", "en": "Oocyte cryo"},
     "tip_taze": {"tr": "IVF/ICSI", "en": "IVF/ICSI"},
 

@@ -88,12 +88,24 @@ ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre",
                 "/manifest.json", "/ekle"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
-TIP_KODLARI = ("ivf_icsi", "fet", "oosit_cryo", "taze")   # taze: eski kod
+TIP_KODLARI = ("ivf_icsi", "fet", "fet_kultur", "oosit_cryo", "taze")   # taze: eski kod
+
+# Bu tiplerde embriyo BAŞKA bir cycle'dan gelir (OPU bu cycle'da olmaz) --
+# taşıyıcı/embriyo listeleri specimen.cycle_id ile değil, çözüldüğü tedaviyi
+# tutan thaw_cycle_id ile aranır (v6.62, goc_031). "fet" doğrudan transfer
+# ediyor, "fet_kultur" araya gün 5'e kadar kültür + blastokist değerlendirmesi
+# koyuyor -- ikisinde de embriyonun kendi cycle'ı bu cycle DEĞİL.
+FET_TIPLERI = ("fet", "fet_kultur")
 
 
 def tip_kisa(kod):
     """Tedavi tipinin ekranda görünen kısa adı, geçerli dilde."""
     return metinler.t("tip_" + kod) if kod in TIP_KODLARI else (kod or "")
+
+
+def fet_tipi_mi(cycle_tipi) -> bool:
+    """Bu cycle'da embriyo başka bir cycle'dan mı geliyor (OPU yok)."""
+    return cycle_tipi in FET_TIPLERI
 
 
 def asama_adi(kod):
@@ -106,6 +118,7 @@ def asama_adi(kod):
 
 
 sablon.env.globals["tip_kisa"] = tip_kisa
+sablon.env.globals["fet_tipi_mi"] = fet_tipi_mi
 sablon.env.globals["asama_adi"] = asama_adi
 
 
@@ -4366,7 +4379,22 @@ BLAST_KISA = {"erken_morula": "EM", "morula": "M",
               "kavitasyon": "KAV", "arrest": "ARR"}
 
 
-def blast_durum(cycle_id: int, gun: int):
+def _blast_kosul(cycle_tipi):
+    """Blast ekranında "bu cycle'ın embriyoları" hangi sorguyla bulunur.
+
+    fet_kultur'da embriyo ÖNCEKİ bir cycle'dan gelir (specimen.cycle_id hâlâ
+    o eski cycle'ı gösterir, hiç değişmez); burada aranan "hangi embriyolar
+    BU tedavi için çözüldü" sorusu, thaw olayının thaw_cycle_id'siyle
+    yanıtlanıyor — `/cycle/{id}/thaw` ekranının aynı mantığı (v6.62).
+    """
+    if cycle_tipi in FET_TIPLERI:
+        return ("s.id IN (SELECT o.specimen_id FROM olay o "
+                "WHERE o.tip='thaw' AND o.iptal_mi=0 AND o.thaw_cycle_id=?)")
+    return "s.cycle_id = ?"
+
+
+def blast_durum(cycle_id: int, gun: int, cycle_tipi=None):
+    kosul = _blast_kosul(cycle_tipi)
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  COALESCE( "
@@ -4388,7 +4416,7 @@ def blast_durum(cycle_id: int, gun: int):
         "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='blastokist_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
         "   ORDER BY o.id DESC LIMIT 1) AS kayit_id "
-        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        f"FROM specimen s WHERE {kosul} ORDER BY s.cycle_sira_no",
         (f"gun{gun}", f"gun{gun}", gun, gun, gun, cycle_id),
     )
 
@@ -4416,7 +4444,7 @@ def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = "",
         return RedirectResponse("/hastalar", status_code=303)
 
     from datetime import datetime as _d
-    oositler = blast_durum(cycle_id, gun)
+    oositler = blast_durum(cycle_id, gun, c["cycle_tipi"])
 
     dereceler = db.liste("bl_derece")
     if not dereceler:                       # göç çalıştırılmamış olabilir
@@ -4447,9 +4475,15 @@ def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = "",
         return sablon.TemplateResponse(
             request, "blast.html", {**ortak, "sp": None, "kayit": None, "kareler": []})
 
+    # Seçim specimen.id ile -- cycle_sira_no ile DEĞİL (v6.62). Ötekilerde
+    # (ICSI/fert/cleavage) o alan tek cycle içinde tekil, ama fet_kultur'da
+    # birden çok cycle'ın embriyoları aynı listede olabiliyor; cycle_sira_no
+    # yalnız KENDİ cycle'ı içinde tekil (UNIQUE(cycle_id, cycle_sira_no)) --
+    # iki cycle'da da "1." embriyo olabilir, o alanla eşleşmek yanlış
+    # embriyoyu seçebilirdi (bu işin en pahalı hatası).
     sp = None
     if oosit:
-        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
+        sp = next((o for o in oositler if str(o["id"]) == oosit), None)
     if sp is None:
         sp = oositler[0]                    # v6.35 -- bkz. ICSI ekranı
 
@@ -4470,11 +4504,12 @@ async def blast_kaydet(request: Request, cycle_id: int):
     sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
     if not sp:
         return RedirectResponse(f"/cycle/{cycle_id}/blast?gun={gun}", status_code=303)
+    c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
 
     genisleme = f.get("bl_genisleme") or None
     if not genisleme:
         return RedirectResponse(
-            f"/cycle/{cycle_id}/blast?gun={gun}&oosit={sp['cycle_sira_no']}",
+            f"/cycle/{cycle_id}/blast?gun={gun}&oosit={sp['id']}",
             status_code=303)
 
     icm = f.get("bl_icm") or None
@@ -4494,7 +4529,11 @@ async def blast_kaydet(request: Request, cycle_id: int):
 
     kid = request.state.kullanici["id"]
     simdi = islem_zamani(f.get("islem_zamani"))
-    _gun_olay_kaydet(specimen_id, cycle_id, "blastokist_degerlendirme", gun,
+    # olay.cycle_id specimen'in KENDİ cycle'ı (route'un cycle_id'si değil) --
+    # thaw ve transfer olaylarının da yaptığı gibi (v6.62): fet_kultur'da bu
+    # ekranın cycle'ı ile specimen'in cycle'ı farklı, "hangi tedavi için"
+    # sorusunu zaten thaw_cycle_id yanıtlıyor.
+    _gun_olay_kaydet(specimen_id, sp["cycle_id"], "blastokist_degerlendirme", gun,
                      {"bl_genisleme": genisleme, "bl_icm": icm, "bl_te": te,
                       "bl_derece": derece, "bl_skor": skor,
                       "bl_skor_kaynagi": kaynak}, kid, simdi)
@@ -4509,21 +4548,23 @@ async def blast_kaydet(request: Request, cycle_id: int):
         durum = "blastokist"
     db.yaz("UPDATE specimen SET durum=? WHERE id=?", (durum, specimen_id))
 
-    sonraki = db.tek(
-        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
-        "AND s.cycle_sira_no > ? AND NOT EXISTS "
-        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
-        " AND o.tip='blastokist_degerlendirme' AND o.gun=? AND o.iptal_mi=0) "
-        "ORDER BY s.cycle_sira_no LIMIT 1",
-        (cycle_id, sp["cycle_sira_no"], gun))
+    # "Kaydet -> sıradaki" burada blast_durum()'un DÖNDÜRDÜĞÜ sırayı izliyor
+    # (v6.62) -- cycle_sira_no üzerinden karşılaştırma DEĞİL: fet_kultur'da
+    # o alan yalnız kendi cycle'ı içinde tekil, iki cycle'da da "1." embriyo
+    # olabilir ve ham karşılaştırma yanlış sırayı/embriyoyu bulabilirdi.
+    sonraki = None
+    oositler = blast_durum(cycle_id, gun, c["cycle_tipi"] if c else None)
+    idx = next((i for i, o in enumerate(oositler) if o["id"] == specimen_id), None)
+    if idx is not None:
+        sonraki = next((o for o in oositler[idx + 1:] if not o["kayit_id"]), None)
     hedef = f"/cycle/{cycle_id}/blast?gun={gun}"
     if sonraki:
-        hedef += f"&oosit={sonraki['n']}"
+        hedef += f"&oosit={sonraki['id']}"
     return RedirectResponse(hedef, status_code=303)
 
 
 @uygulama.get("/specimen/{specimen_id}/blast-sil")
-def blast_sil_ekran(request: Request, specimen_id: str, gun: int = 5):
+def blast_sil_ekran(request: Request, specimen_id: str, gun: int = 5, cycle: int = 0):
     sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
                 "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
                 "WHERE s.id = ?", (specimen_id,))
@@ -4531,9 +4572,16 @@ def blast_sil_ekran(request: Request, specimen_id: str, gun: int = 5):
         return RedirectResponse("/hastalar", status_code=303)
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    # fet_kultur'da bu ekran embriyonun KENDİ cycle'ından değil, çözüldüğü
+    # fet_kultur cycle'ından açılıyor olabilir (specimen.cycle_id hiç
+    # değişmez) -- iki yerden gelinen ekranın geri oku sabit olamaz kuralı
+    # (taşıyıcı ekranındaki `?cycle=` desenin aynısı, v6.62). Adres bir şey
+    # söylemiyorsa specimen'in kendi cycle'ına dönülür (ivf_icsi'de zaten
+    # aynı cycle).
+    hedef_cycle = cycle or sp["cycle_id"]
     return sablon.TemplateResponse(
         request, "blast_sil.html",
-        {"sp": sp, "gun": gun,
+        {"sp": sp, "gun": gun, "hedef_cycle": hedef_cycle,
          "kayit": _gun_olay(specimen_id, "blastokist_degerlendirme", gun),
          "etiketler": etiketler})
 
@@ -4545,6 +4593,10 @@ async def blast_sil(request: Request, specimen_id: str):
     sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
     if not sp:
         return RedirectResponse("/hastalar", status_code=303)
+    try:
+        hedef_cycle = int(f.get("cycle") or 0) or sp["cycle_id"]
+    except ValueError:
+        hedef_cycle = sp["cycle_id"]
     from datetime import datetime as _d
     k = _gun_olay(specimen_id, "blastokist_degerlendirme", gun)
     if k:
@@ -4554,7 +4606,7 @@ async def blast_sil(request: Request, specimen_id: str):
                 _d.now().isoformat(" ", "seconds"),
                 f"Gun {gun} blastokist kaydi temizlendi", k["id"]))
     return RedirectResponse(
-        f"/cycle/{sp['cycle_id']}/blast?gun={gun}&oosit={sp['cycle_sira_no']}",
+        f"/cycle/{hedef_cycle}/blast?gun={gun}&oosit={sp['id']}",
         status_code=303)
 
 
@@ -5053,8 +5105,9 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         return RedirectResponse("/hastalar", status_code=303)
 
     # FET cycle'inda hastanin tum cycle'larindaki tasiyicilar listelenir;
-    # dondurulan embriyo baska bir cycle'dan gelir.
-    if c["cycle_tipi"] == "fet":
+    # dondurulan embriyo baska bir cycle'dan gelir. fet_kultur'da da ayni
+    # (gun 5'e kadar kulturlenecek embriyo da baska bir cycle'dan geliyor).
+    if fet_tipi_mi(c["cycle_tipi"]):
         kosul = "c2.hasta_id = ?"
         par = (c["hasta_id"],)
     else:
@@ -5550,6 +5603,13 @@ TIP_ASAMALARI = {
                  "blast", "vitrifikasyon", "thaw", "transfer", "gebelik"],
     # FET'te oosit toplanmaz — embriyo baska bir cycle'dan gelir
     "fet": ["thaw", "transfer", "gebelik"],
+    # FET (3->5 kultur, v6.62, goc_031): gun 2/3 embriyosu cozulup gun 5'e
+    # kadar kulturleniyor, sonra transfer ediliyor -- araya "blast" giriyor.
+    # SIRA BURADA thaw'i blast'tan ONCE koyuyor; ivf_icsi'de tam tersi (blast
+    # sonra dondurma). Ikisi de ayni ASAMA_SIRASI'ndan besleniyor ama
+    # gosterim sirasi buradaki liste sirasindan geliyor (asagida
+    # cycle_asamalari), yoksa fet_kultur'da blast thaw'dan once cikardi.
+    "fet_kultur": ["thaw", "blast", "transfer", "gebelik"],
     "oosit_cryo": ["opu", "denudasyon", "vitrifikasyon", "thaw"],
 }
 
@@ -5560,9 +5620,16 @@ def cycle_asamalari(cycle_tipi: str):
     Gezinme çubuğu ve cycle detaydaki düğmeler buradan besleniyor; süzme tek
     yerde olunca ikisi birden doğru davranıyor. İzni olmayan bir aşama listeden
     çıkar, "3/8" sayacı da kullanıcının kendi adımlarını sayar (v6.14).
+
+    Gösterim sırası **buradaki listenin kendi sırası** (v6.62) —
+    `ASAMA_SIRASI`'nın sırası değil. İkisi ivf_icsi/fet/oosit_cryo'da zaten
+    aynıydı; fet_kultur'da farklı: thaw blast'tan ÖNCE gelmeli (embriyo
+    ÖNCE çözülüyor, SONRA gün 5'e kültürleniyor), ama ASAMA_SIRASI'nda blast
+    dondurmadan önce durur (ivf_icsi akışında blast önce, sonra dondurma).
     """
     kodlar = TIP_ASAMALARI.get(cycle_tipi, TIP_ASAMALARI["ivf_icsi"])
-    return [a for a in ASAMA_SIRASI if a[0] in kodlar and yetkim(a[0])]
+    sozluk = {a[0]: a for a in ASAMA_SIRASI}
+    return [sozluk[k] for k in kodlar if k in sozluk and yetkim(k)]
 
 
 def asama_gezinme(cycle_id: int, anahtar: str):

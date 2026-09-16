@@ -6128,3 +6128,153 @@ için. Aynı tarama düzeltmeden sonra tekrar çalıştırıldı: **kapanan dü�
   dolgu 160px, forma yazılan değer **yerinde duruyor**, JS hatası yok.
 - Göç açılışta kendiliğinden uygulandı (`GOC: 1 goc uygulandi (goc_030)`).
   Deneme kullanıcıları ve istekleri geri alındı.
+
+---
+
+# v6.62 — yeni tedavi tipi: FET (3→5 kültür)
+
+Kullanıcının isteği (2026-09-12): "FET tedavilerinde bazen 2 veya 3. gün
+embriyosu çözülüp 5. güne kadar kültür edilip 5. gün transfer yapılıyor.
+Bazen de 2 veya 3. gün çözülen embriyo aynı gün transfer ediliyor." Mevcut
+`fet` tipi ikinci senaryoyu (doğrudan transfer) karşılıyordu; birincisi için
+araya blastokist değerlendirmesi giren ayrı bir tip gerekti: **`fet_kultur`**.
+Seçildiğinde sol menüde **Çözme → Blastokist → Transfer → Gebelik sonucu**
+görünür.
+
+## Şema ve seçim listesi
+
+`cycle.cycle_tipi` kolonundaki CHECK kısıtı yalnızca `ivf_icsi`/`fet`/
+`oosit_cryo` kabul ediyordu. `goc_031` bunu goc_016/017'deki aynı yöntemle
+genişletti (SQLite CHECK değiştirilemiyor, tablo yeniden kuruldu) ve
+`liste_degeri`'ne `fet_kultur` satırını ekledi. **Kod değiştirmeden** yeni
+tip seçilebilir oldu — `/hasta/{id}/cycle/yeni` dropdown'ı `db.liste
+("cycle_tipi")`'den besleniyor.
+
+## Aşama sırası ASAMA_SIRASI'nın sırası değil, TIP_ASAMALARI'nın kendi sırası
+
+Bu, bu sürümün en can alıcı kararı. `cycle_asamalari()` eskiden
+`ASAMA_SIRASI`'nı **filtreleyip** o listenin sırasını kullanıyordu; her tipin
+kendi listesi (`TIP_ASAMALARI[tip]`) sadece "hangileri" sorusunu
+yanıtlıyordu, sırayı değil. `ivf_icsi`/`fet`/`oosit_cryo`'da bu ikisi zaten
+aynı sonucu veriyordu ama `fet_kultur`'da vermiyor: `ASAMA_SIRASI`'nda
+`blast` dondurmadan (`vitrifikasyon`/`thaw`) **önce** duruyor -- çünkü
+`ivf_icsi` akışında blastokist önce değerlendirilir, sonra dondurulur.
+`fet_kultur`'da ise embriyo **önce** çözülüyor, **sonra** gün 5'e
+kültürleniyor -- sıra ters. Eski koddan gitseydi ekranda Blastokist, Çözme'den
+**önce** çıkardı; klinik akışın tam tersi.
+
+Çözüm: `cycle_asamalari()` artık `TIP_ASAMALARI[tip]` listesinin **kendi
+sırasını** kullanıyor, `ASAMA_SIRASI` yalnızca "bu kod neye karşılık geliyor"
+sözlüğü olarak kalıyor. Üç eski tip için sonuç bire bir aynı (listeleri
+zaten `ASAMA_SIRASI` sırasıyla yazılmıştı); değişen yalnızca `fet_kultur`.
+
+## Embriyo başka bir cycle'dan geliyor -- `FET_TIPLERI`
+
+`fet`'in kendi kuralı ("dondurulan embriyo başka bir cycle'dan gelir,
+taşıyıcılar hastanın tüm cycle'larından listelenir") `fet_kultur`'a da
+uygulandı. Tek tek `== "fet"` yerine artık **`FET_TIPLERI = ("fet",
+"fet_kultur")`** ve Jinja'ya açılan `fet_tipi_mi(cycle_tipi)`:
+
+- `/cycle/{id}/thaw` -- taşıyıcı listesi ve ipucu metinleri.
+- `cycle_thaw.html` -- "Vitrifikasyon ekranı" bağlantısı gizleniyor (bu
+  cycle'da dondurma yok, embriyo zaten başka yerde dondurulmuş).
+
+## Blastokist ekranı: embriyo BU cycle'a değil, thaw_cycle_id'ye göre bulunuyor
+
+`blast_durum()` eskiden `specimen.cycle_id = ?` ile arıyordu -- ivf_icsi'de
+doğru (embriyo hep kendi cycle'ında), ama `fet_kultur`'da **hiçbir zaman**
+doğru değil: `specimen.cycle_id` hâlâ embriyonun **ilk** (OPU/ICSI) cycle'ını
+gösterir, hiç değişmez (README v6.7, v6.35 -- "embriyo cycle değiştirmez").
+Ekran bomboş görünürdü.
+
+Yeni `_blast_kosul(cycle_tipi)`: `FET_TIPLERI`'nde ise embriyoyu **hangi
+tedavi için çözüldüğünü tutan `olay.thaw_cycle_id`** ile buluyor -- `/thaw`
+ekranının zaten kullandığı mantığın aynısı. `blast_ekran` ve `blast_kaydet`
+artık `c["cycle_tipi"]`'yi bu sorguya geçiyor.
+
+## Bu işin en pahalı hatası: `cycle_sira_no` iki cycle'da da "1." olabilir
+
+Blastokist, ICSI, fert, cleavage ekranlarının hepsi seçimi adresten
+`?oosit=<cycle_sira_no>` ile yapıyor (README v6.35) -- bu güvenli, **çünkü**
+o alan `UNIQUE(cycle_id, cycle_sira_no)`: tek cycle içinde tekil.
+`fet_kultur`'da blastokist ekranı **birden fazla cycle'ın** embriyolarını
+aynı listede gösterebiliyor (biri Cycle #3'ün "1. embriyo"su, öteki Cycle
+#5'in "1. embriyo"su) ve `cycle_sira_no` orada tekil DEĞİL. Eski koddan
+gitseydi ikinci embriyonun linkine basmak **ilk eşleşeni** (yanlış embriyoyu)
+seçerdi -- bu işin en pahalı hatası, sessizce.
+
+Test edildi: aynı sırayla (`cycle_sira_no=1`) iki ayrı cycle'dan iki embriyo
+aynı `fet_kultur` cycle'ına çözüldü; blastokist ekranında ikisi de doğru
+kodlarıyla (`527078-2026-0001-01` / `527078-2026-0003-01`) ayrı ayrı
+seçilebiliyor.
+
+Düzeltme **blastokist ekranına özel**: seçim artık `specimen.id`
+(globalde tekil) ile yapılıyor, `cycle_sira_no` ile **değil**. Değişen dört
+yer: sayı şeridinin linki, "kaydet → sıradaki" yönlendirmesi, fotoğraf
+ekleme/silme dönüşleri, blast-sil ekranı. Görünen numara (`o.cycle_sira_no`,
+şeritteki küçük etiket) **değişmedi** -- o klinik bir gösterim, seçim
+mekanizması değil. ICSI/fert/cleavage'a dokunulmadı: onlar hiçbir zaman
+birden fazla cycle'ın embriyosunu aynı ekranda göstermiyor.
+
+`blast_kaydet`'teki "kaydet → sıradaki oosit" sorgusu da aynı sebeple
+yeniden yazıldı: `cycle_sira_no > ?` karşılaştırması yerine `blast_durum()`
+listesinde şimdiki embriyonun **konumundan** ilerleyip kaydı olmayan
+sıradakini buluyor -- iki cycle'ın numaraları çakışsa da doğru ilerliyor.
+
+## `olay.cycle_id` her zaman specimen'in KENDİ cycle'ı, ekranın cycle'ı değil
+
+Blastokist kaydı artık `_gun_olay_kaydet(specimen_id, sp["cycle_id"], ...)`
+ile yazılıyor -- ekranın `cycle_id`'siyle **değil**. Bu, `thaw` ve `transfer`
+olaylarının zaten yaptığı şeyin aynısı (`e["cycle_id"]` / `sp["cycle_id"]`):
+"hangi tedavi için" sorusu ayrı bir alanda tutulur (`thaw_cycle_id`,
+`tr_cycle_id`), `olay.cycle_id` hep embriyonun kendi kökenini gösterir. İki
+kod yolunu birbirinden farklı davransın diye ayırmak yerine tek kurala
+uyduruldu -- ivf_icsi'de ikisi zaten aynı olduğu için görünürde bir şey
+değişmedi.
+
+## Fotoğraf ekleme de embriyonun KENDİ cycle'ına arşivleniyor
+
+`blast.html`'deki "Fotoğraf ekle" bağlantısı `/cycle/{{ c.id }}/foto-ekle`
+yerine `/cycle/{{ sp.cycle_id }}/foto-ekle` oldu -- `thaw.html`'in ve
+`snapshot_al()`'ın (kamera kuyruğu) zaten izlediği kural: görüntü
+`arsiv/<dosya_no>/<cycle_no>/` altına, embriyonun **tüm** fotoğraflarının
+zaten durduğu klasöre gidiyor; `fet_kultur` cycle'ının kendi klasörüne değil.
+İki klasöre bölünmüş bir embriyo geçmişi olmasın diye. Geri dönüş adresi
+(`geri=`) hâlâ görüntülenen `fet_kultur` ekranına -- o ayrı bir soru.
+
+## İki yerden gelinen ekranın geri oku: blast-sil
+
+`/specimen/{id}/blast-sil` her zaman `sp.cycle_id`'ye (embriyonun kendi
+cycle'ı) dönüyordu. `fet_kultur`'da bu **yanlış** cycle'a dönmek demek --
+kullanıcı `fet_kultur` cycle'ının blastokist ekranındayken silme yapıp
+embriyonun **ilk** cycle'ına (görmek istemediği, tümüyle başka bir ekrana)
+fırlatılırdı. `?cycle=` deseni eklendi (taşıyıcı ekranındaki
+aynı desen, README v6.32): adres ve gizli form alanı hangi ekrandan
+gelindiğini taşıyor, adres bir şey söylemezse embriyonun kendi cycle'ına
+dönülüyor (ivf_icsi'de zaten aynı).
+
+## Test edildi
+
+- Dropdown'da "FET (3→5 kültür)" görünüyor, seçilince kayıt geçiyor.
+- Yeni cycle'ın menüsü: Çözme → Blastokist → Transfer → Gebelik sonucu (bu
+  sırayla, kaynak kodda da bu sırayla).
+- `ivf_icsi` cycle'ın menüsü **değişmedi** (11 aşama, aynı sıra).
+- İki farklı `ivf_icsi` cycle'dan (her ikisinde de "1. embriyo") dondurulmuş
+  embriyolar aynı `fet_kultur` cycle'ına çözüldü:
+  - `/cycle/{id}/thaw` ikisinin taşıyıcısını da hastanın tüm cycle'larından
+    listeledi; "Vitrifikasyon ekranı" bağlantısı yok.
+  - `/cycle/{id}/blast` ikisini de gösterdi, ikisi de **doğru** örnek koduyla
+    ayrı ayrı seçilebildi (`cycle_sira_no` çakışmasına rağmen).
+  - Birini kaydettikten sonra "kaydet" ötekine **doğru** ilerledi.
+  - `olay.blastokist_degerlendirme.cycle_id` her ikisinde de embriyonun
+    **kendi** cycle'ı (fet_kultur cycle'ı değil).
+  - `/specimen/{id}/blast-sil?cycle=<fet_kultur>` doğru cycle'a geri döndü.
+  - `/cycle/{id}/transfer` ikisini de aday olarak gösterdi, transfer
+    kaydedildi; `tr_cycle_id` fet_kultur cycle'ı, `cycle_id` embriyonun
+    kendisi.
+  - `/cycle/{id}/gebelik` ikisini de "Bu cycle'da transfer edilen" altında
+    listeledi, kaynak cycle numarasıyla ayırt edilebilir durumda.
+- 17 adres tarandı, hepsi 200; günlükte hata yok.
+- Deneme cycle'ları, taşıyıcıları, oturumu ve bir eski deneme oturumundan
+  kalmış kırık `kaynak_dosya` referansı geri alındı; `PRAGMA
+  foreign_key_check` temiz.

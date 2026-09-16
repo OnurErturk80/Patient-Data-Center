@@ -23,7 +23,7 @@
 
 <div class="kart">
   <h2>{{ metin("tankta_duran_tasiyicilar") }} ({{ dolu|length }})</h2>
-  {% if c.cycle_tipi == "fet" %}<div class="ipucu" style="padding:0 14px 8px">{{ metin("fet_tum_tasiyicilar") }}</div>{% endif %}
+  {% if fet_tipi_mi(c.cycle_tipi) %}<div class="ipucu" style="padding:0 14px 8px">{{ metin("fet_tum_tasiyicilar") }}</div>{% endif %}
   {% for t in dolu %}
   <div class="fsatir">
     <div class="bilgi">
@@ -46,7 +46,7 @@
   </div>
   {% else %}
   <div class="bos">
-    {% if c.cycle_tipi == "fet" %}{{ metin("fet_tasiyici_yok") }}
+    {% if fet_tipi_mi(c.cycle_tipi) %}{{ metin("fet_tasiyici_yok") }}
     {% else %}{{ metin("cycle_tasiyici_yok") }}{% endif %}
   </div>
   {% endfor %}
@@ -107,7 +107,7 @@
 </div>
 {% endif %}
 
-{% if c.cycle_tipi != "fet" %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("vitrifikasyon_ekrani") }}</a>{% endif %}
+{% if not fet_tipi_mi(c.cycle_tipi) %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("vitrifikasyon_ekrani") }}</a>{% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 {{ ok.baglama() }}
 {{ iy.kutu(c.id, "thaw") }}
