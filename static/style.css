@@ -1,20 +1,22 @@
+/* Koyu tema kalıcı ve TEK tema oldu (v6.72, kullanıcının kararı --
+   v6.71'de sistem tercihine bağlı bir deneme olarak eklenmişti, README
+   v6.71 ve v6.72'de gerekçe). Sistem açık temalı olsa da olmasa da program
+   hep bu renklerle açılıyor -- ayrı bir açık tema kalmadı. */
 :root {
-  --ink:      #17222b;
-  --ink-2:    #5a6b77;
-  --ink-3:    #8b9aa4;
-  --line:     #d6dee3;
-  --yuzey:    #ffffff;
-  --zemin:    #eef2f4;
-  --vurgu:    #a8324f;
-  --vurgu-ac: #f3e3e7;
-  --uyari:    #b4530e;
-  --uyari-ac: #fbeee2;
-  /* Ust bant, kimlik bandi, aktif sekme gibi "hep koyu kalan" ogeler
-     `--ink`'i arka plan olarak kullaniyor (bu ekranda metin degil, kasa
-     rengi). Aciktan koyu temaya geciste `--ink` metin rengine donusunce
-     bu ogeler beyaza donmesin diye ayri bir degisken (v6.71 denemesi,
-     README v6.71). Acik temada `--ink` ile ayni deger, gorunum degismiyor. */
-  --ust-bg:   var(--ink);
+  --ink:      #e9eef3;
+  --ink-2:    #9fb0bc;
+  --ink-3:    #67788a;
+  --line:     #263341;
+  --yuzey:    #172230;
+  --zemin:    #0e1620;
+  --vurgu:    #e0356f;
+  --vurgu-ac: #3a1f2c;
+  --uyari:    #e2924a;
+  --uyari-ac: #3a2a17;
+  /* Ust bant, kimlik bandi, aktif sekme gibi ogeler `--ink`'i degil bunu
+     kullaniyor (v6.71) -- kasa hep ayni koyu lacivert kalsin, `--ink`
+     (artik acik renk) metin icin ayri tutuluyor. */
+  --ust-bg:   #111a25;
   --r: 6px;
   /* Genis ekranda icerik sutunu. Yan menu solda 200px yer kapliyor,
      500px pay onunla carpismayi onluyor. Formul TEK yerde: kimlik bandinin
@@ -24,31 +26,6 @@
      kalir. Hem `.kap.genis.yanmenusuz` hem kimlik bandinin hizasi bunu
      kullaniyor -- iki ayri sayi olsaydi band ile kartlar kayardi. */
   --genis-sutun-menusuz: 940px;
-}
-
-/* Koyu tema DENEMESI (v6.71) -- kullanicinin gonderdigi ekran goruntusune
-   gore. Sistem tercihine bagli (`prefers-color-scheme`): kimse elle bir
-   sey secmiyor, degistirmiyor da -- acik temadaki hicbir sey bundan
-   etkilenmiyor. Yalnizca bu degiskenler degisiyor, geri kalan CSS'in
-   TAMAMI onlari kullandigi icin kartlar/butonlar/kenarliklar kendiliginden
-   uyum sagliyor. Kapsam disi kalanlar (bilerek, README v6.71'de yazili):
-   birkac sabit renk kullanan durum rozeti (iptal/tamamlandi gibi) ve resmi
-   form sayfasi (`form.html` -- o zaten hep beyaz kagit basacak, kalibi
-   degistirmiyoruz). Bu tema kalici mi olacak kullaniciya sorulacak. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink:      #e9eef3;
-    --ink-2:    #9fb0bc;
-    --ink-3:    #67788a;
-    --line:     #263341;
-    --yuzey:    #172230;
-    --zemin:    #0e1620;
-    --vurgu:    #e0356f;
-    --vurgu-ac: #3a1f2c;
-    --uyari:    #e2924a;
-    --uyari-ac: #3a2a17;
-    --ust-bg:   #111a25;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -210,7 +187,7 @@ body {
    Sinif acikca veriliyor; `:has()` eski Safari'de yok, telefonda baslik
    bozulmasin. */
 .kart h2.ikili { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.kart h2.ikili .rozet { background: #e4eae7; color: #2c5545; border-radius: 3px;
+.kart h2.ikili .rozet { background: #17342a; color: #8fe3b8; border-radius: 3px;
   padding: 2px 7px; font-size: 11px; font-weight: 600; }
 
 /* Takvimde gun basligi. Kart basliklarindan daha koyu ve buyuk: listeye
@@ -271,11 +248,11 @@ body {
    orasi sari, bu turuncu -- "bilgi" ile "dikkat" birbirine benzemesin.
    Satir ici, sabit degil: gecici bir olay degil sayfanin o anki durumu. */
 .uyari.birlikte {
-  border-color: #e4a33a;
-  background: #fdf3e3;
-  color: #6b4a12;
+  border-color: #5a4020;
+  background: #3a2a17;
+  color: #f0c98a;
 }
-.uyari.birlikte b { color: #8a4b00; }
+.uyari.birlikte b { color: #f4d9a8; }
 
 /* Baska bir cihazdan kayit girildiginde cikan serit (v6.54). Sayfa
    kendiliginden yenilenmiyor cunku kullanici bir seye yaziyor -- serit
@@ -300,7 +277,10 @@ body {
 .tazelekutu a {
   flex: 0 0 auto;
   padding: 8px 16px;
-  background: #fff; color: var(--ink);
+  /* Zemin sabit beyaz -- yazi rengi `var(--ink)` OLMAMALI: koyu temada
+     --ink acik renge donunce beyaz zemin uzerinde okunmaz olurdu (v6.72'de
+     yakalandi). Sabit koyu deger, temadan bagimsiz. */
+  background: #fff; color: #17222b;
   border-radius: var(--r); text-decoration: none; font-weight: 600;
 }
 @media (min-width: 640px) {
@@ -510,7 +490,7 @@ form { margin: 0; }
 /* --- uyarı --- */
 .uyari {
   background: var(--uyari-ac);
-  border: 1px solid #e6c4a3;
+  border: 1px solid #5a4020;
   border-radius: var(--r);
   padding: 12px 14px;
   font-size: 14px;
@@ -701,7 +681,7 @@ body.kilitli { overflow: hidden; }
   background: none; border: 0; color: var(--ink-2); cursor: pointer;
 }
 .bilgikart .rozet {
-  background: #e4eae7; color: #2c5545; border-radius: 3px;
+  background: #17342a; color: #8fe3b8; border-radius: 3px;
   padding: 2px 7px; font-size: 11px; font-weight: 600;
 }
 
@@ -744,11 +724,11 @@ body.kilitli { overflow: hidden; }
 
 /* --- silme / arsiv --- */
 .tehlike {
-  background: #fbe9e9; border: 1px solid #e0b4b4; border-radius: var(--r);
-  padding: 12px 14px; font-size: 14px; margin-top: 12px; color: #7a2020;
+  background: #3a1c1c; border: 1px solid #5c2a2a; border-radius: var(--r);
+  padding: 12px 14px; font-size: 14px; margin-top: 12px; color: #ff9b9b;
 }
-.dugme.tehlikeli { background: #a11f1f; }
-.dugme.ikincil.tehlike-bag { color: #a11f1f; }
+.dugme.tehlikeli { background: #c62f2f; }
+.dugme.ikincil.tehlike-bag { color: #ff9b9b; }
 /* Kucuk dugmenin ikincil hali: "Sil" ile "Pasif yap" ayni agirlikta gorunmesin,
    pasif yapmak normal yol (v6.11). */
 .minidugme.ikincil {
@@ -756,7 +736,7 @@ body.kilitli { overflow: hidden; }
   color: var(--ink);
   border: 1px solid var(--line);
 }
-.minidugme.ikincil.tehlike-bag { color: #a11f1f; }
+.minidugme.ikincil.tehlike-bag { color: #ff9b9b; }
 /* Rozetin ortak bicimi. Onceden yalnizca `.kimlik` ve `.bilgikart` icinde
    tanimliydi; liste satirlarindaki `.rozet.arsiv` yalin metin gibi cikiyor,
    koyu zemine koyu yazi biniyordu (v6.28'de goruldu). Ozel yerlerin kendi
@@ -783,7 +763,7 @@ body.kilitli { overflow: hidden; }
   display: flex; justify-content: center; gap: 20px; padding: 12px 8px;
 }
 .bilgikart .sfalt a {
-  color: #a11f1f; font-size: 13px; text-decoration: underline;
+  color: #ff9b9b; font-size: 13px; text-decoration: underline;
 }
 .bilgikart .sfalt a[hidden] { display: none; }
 
@@ -803,8 +783,8 @@ body.kilitli { overflow: hidden; }
 .serit.sade .sn { cursor: default; }
 .serit.sade .sn i { margin-left: 5px; }
 
-.serit .sn.dolu { background: #e4eae7; color: var(--ink); border-color: #b9c9c2; }
-.serit .sn.deg  { background: #f3e0e0; color: #7a2020; border-color: #ddb9b9; }
+.serit .sn.dolu { background: #17342a; color: #8fe3b8; border-color: #2c5641; }
+.serit .sn.deg  { background: #3a1c1c; color: #ff9b9b; border-color: #5c2a2a; }
 .serit .sn.aktif { outline: 3px solid var(--vurgu); outline-offset: -1px;
                    font-weight: 700; color: var(--ink); }
 
@@ -912,11 +892,11 @@ body.kilitli { overflow: hidden; }
   padding: 10px 14px; font-size: 14px; margin-bottom: 10px; color: var(--ink-2);
 }
 .zaman strong { color: var(--ink); }
-.zaman.sapma { background: var(--uyari-ac); border-color: #e6c4a3; color: #7a4410; }
+.zaman.sapma { background: var(--uyari-ac); border-color: #5a4020; color: #f0c98a; }
 
 .fotoalt { display: flex; justify-content: center; gap: 20px; padding: 8px 0 2px; }
 .fotoalt a { font-size: 13px; text-decoration: underline; color: var(--ink-2); }
-.fotoalt a:first-child { color: #a11f1f; }
+.fotoalt a:first-child { color: #ff9b9b; }
 
 .gunsec { display: flex; gap: 8px; padding: 12px 0 4px; }
 .gunsec a {
@@ -1148,7 +1128,7 @@ body.kilitli { overflow: hidden; }
 }
 .onum b { font-weight: 600; }
 .onum i { font-style: normal; font-size: 11px; color: var(--ink-2); margin-top: 1px; }
-.onum.dolu { background: #e4eae7; border-color: #b9c9c2; }
+.onum.dolu { background: #17342a; border-color: #2c5641; }
 .onum.hedef { outline: 3px solid var(--vurgu); outline-offset: -1px; font-weight: 700; }
 .onum:active { background: var(--zemin); }
 

@@ -704,6 +704,38 @@ kullanıcıdan her güncellemede "sert yenile" hatırlamasını istemek kırılg
 **Yeni bir statik dosya (ikinci bir `.css`/`.js`) eklersen aynı deseni kullan**
 — sabit adresle bağlama, tuzak listesine eklenecek kadar ucuz bir hata.
 
+**Tasarım koyu tema, tek tema** (v6.71'de sistem tercihine bağlı bir deneme
+olarak başladı, v6.72'de kullanıcının kararıyla kalıcı ve tek tema oldu —
+gerekçe README v6.71–72). Açık tema artık **yok**; `:root`'taki renkler
+doğrudan koyu değerler, ayrıca bir `@media (prefers-color-scheme)` bloğu da
+yok.
+- **Bütün tasarım CSS değişkenleri üzerinden kurulu** (`--ink`, `--yuzey`,
+  `--vurgu`, ...) — yeni bir bileşen yazarken renk sabit yazma, hep bu
+  değişkenleri kullan. Sabit yazılan her renk koyu temada iki türlü patlar:
+  ya kendisi yanlış görünür ya da bir komşu değişkenle (`var(--ink)` gibi)
+  eşleşmesi gereken bir varsayımı sessizce kırar.
+- **`--ink` metin rengi, `--ust-bg` kasa rengi — ikisini karıştırma.** Üst
+  bant, kimlik bandı, aktif sekme gibi öğeler hep koyu kalması gereken
+  "kasa" — onlar `var(--ust-bg)` kullanıyor. `--ink` **metin** için: koyu
+  temada açık renk. Yeni bir "hep koyu duracak" öge yazarsan `--ink` değil
+  `--ust-bg` kullan, yoksa metin rengiyle aynı değişkeni paylaşınca öge
+  temayla birlikte (yanlışlıkla) rengini değiştirir.
+- **Zemin sabit bir renkse (`background: #fff` gibi, `.tazelekutu a` veya
+  `.kagit` — resmî form kâğıdı bilerek beyaz kalıyor), üzerindeki yazı rengi
+  de sabit olmalı, `var(--ink)` OLMAMALI.** v6.72'de tam bunun tersi
+  bulundu: `.tazelekutu a` zemini sabit beyazdı ama yazısı `var(--ink)`
+  kullanıyordu — koyu tema gelince yazı da açık renge dönüp beyaz zemin
+  üzerinde okunmaz oldu. Yeni bir bileşen yazarken zemin sabitse yazı da
+  sabit olsun.
+- **Amblem (üst banttaki halka + dört nokta) PNG değil, satır içi SVG**
+  (`base.html`, `.ust` içinde) — dört nokta `fill="var(--vurgu)"` kullanıyor,
+  ayrı bir dosya üretmeye gerek yok. `simge_uret.py`'nin çizdiği favicon/PWA
+  ikonları (`static/ikon_*.png`) PNG olduğu için tema değişemiyor — onlar
+  koyu zeminle sabitlendi, tasarım değişirse ikisini birlikte güncelle.
+- **Resmî form ekranı (`/form/...`) dışarıda** — kâğıt aslı hep beyaz
+  basılacak, `.kagit` sınıfı sabit `#fff`/`#000` kullanıyor, koyu temadan
+  etkilenmiyor. Yeni bir yazdırma ekranı yazarsan aynı şekilde sabit tut.
+
 **Ekran kendini tazeler** (v6.54). Klinikte birkaç telefon aynı anda kayıt
 giriyor; masaüstünde açık duran sayfa elle yenilenene kadar eski kalıyordu.
 Veri hep anında kaydoluyordu — eski olan sayfaydı. `base.html`'deki

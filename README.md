@@ -6688,3 +6688,54 @@ tek tema mı yoksa sistem tercihine bağlı mı kalacağı da sonra netleşecek.
   kullanıcıya gönderildi. Açık temada yalnızca amblemin eklendiği,
   başka hiçbir şeyin değişmediği doğrulandı.
 - Deneme oturumu geri alındı.
+
+# v6.72 — koyu tema kalıcı ve tek tema oldu
+
+Kullanıcı v6.71'deki denemeyi (ekran görüntüleriyle) inceledi, karar
+**"2"**: koyu tema sistem tercihine bağlı kalmasın, **varsayılan/tek tema**
+olsun. Açık tema tamamen kaldırıldı.
+
+## Ne yapıldı
+
+- `@media (prefers-color-scheme: dark)` bloğu kaldırıldı, içindeki değerler
+  doğrudan `:root`'a taşındı. Artık tek bir renk seti var.
+- **Kalan sabit-renkli parçalar temizlendi.** v6.71'de "deneme" olduğu için
+  bilerek dokunulmamış ~15 sabit renk vardı — artık kalıcı olduğu için hepsi
+  koyu temaya uyacak şekilde güncellendi:
+  - Yeşil "dolu/kaydedildi" rozetleri (`.kart h2.ikili .rozet`,
+    `.bilgikart .rozet`, `.serit .sn.dolu`, `.onum.dolu`) — kullanıcının
+    kendi gönderdiği ekran görüntüsündeki "Kaydediidi" etiketinin tam
+    karşılığı, en görünür olanlardı.
+  - Kırmızı "dikkat/tehlike" renkleri (`.serit .sn.deg`, `.tehlike`,
+    `.dugme.tehlikeli`, `.tehlike-bag` bağlantıları, `.sfalt`/`.fotoalt`
+    silme bağlantıları) — koyu kart üzerinde eski soluk kırmızı okunmuyordu.
+  - Turuncu uyarı renkleri (`.uyari.birlikte`, `.zaman.sapma`, `.uyari`
+    kenarlığı) — metin koyu kahverengiydi, koyu zeminde neredeyse görünmüyordu.
+  - Hepsi tek tek elle seçildi (sabit değerler, değişken değil) çünkü her
+    biri farklı bir "durum" rengi (yeşil/kırmızı/turuncu) taşıyor — tek bir
+    `--vurgu`'ya indirgemek anlamlarını birbirine karıştırırdı.
+- **Gerçek bir hata bulundu ve düzeltildi**: `.tazelekutu a` (başka bir
+  cihazdan kayıt girildiğinde çıkan şeritteki bağlantı) zemini sabit beyazdı
+  ama yazı rengi `var(--ink)` kullanıyordu. v6.71'de --ink açık renge
+  dönünce bu buton **beyaz zemin üzerinde beyaza yakın yazı** olurdu —
+  okunmaz. Yazı rengi şimdi sabit koyu (`#17222b`). Ekranda hiç tetiklenmedi
+  (eş zamanlı düzenleme gerektiriyor), kod taranarak bulundu.
+- `simge_uret.py`'deki `ZEMIN`/`ZONA`/`HUCRE` değerleri yeni palete
+  güncellendi, favicon/PWA ikonları (`static/ikon_180/192/512.png`)
+  yeniden üretildi — artık koyu zemin + beyaz halka + pembe dört nokta.
+- `CLAUDE.md`'ye kalıcı kural olarak yazıldı: yeni bileşen yazarken renk
+  sabitleme, `--ink`/`--ust-bg` ayrımına dikkat et, sabit zeminde sabit yazı
+  kullan (bu sürümde tam bunun tersi bir hata bulunduğu için özellikle).
+
+## Test edildi
+
+- Playwright ile (artık `color_scheme` zorlamaya gerek yok, tek tema)
+  ana ekran (dar + geniş), denüdasyon ekranı (numara şeridi, "Kaydedildi"
+  rozeti — kullanıcının orijinal ekran görüntüsüyle karşılaştırıldı) ve
+  hasta silme ekranı (tehlike kutusu) görüldü — hepsi okunaklı, renkler
+  tutarlı.
+- Kod tarandı: önceki tüm sabit açık-tema renkleri (`#e4eae7`, `#a11f1f`,
+  `#fdf3e3` vb.) style.css'te aratıldı, geriye yalnızca temadan bağımsız
+  kalması gereken ikisi bırakıldı (fotoğraf silme rozeti, `.kagit` yazdırma
+  kutusu).
+- Deneme oturumu geri alındı.

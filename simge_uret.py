@@ -18,9 +18,9 @@ dosya hem normal hem maskable olarak kullanılabiliyor.
 """
 from PIL import Image, ImageDraw
 
-ZEMIN = (23, 34, 43)        # --ink
-ZONA = (242, 246, 248)
-HUCRE = (168, 50, 79)       # --vurgu
+ZEMIN = (14, 22, 32)         # --zemin (v6.72'de koyu tema kalici oldu)
+ZONA = (255, 255, 255)
+HUCRE = (224, 53, 111)       # --vurgu
 KAT = 4                     # once buyuk ciz, sonra kucult: kenarlar puruzsuz
 
 
