@@ -5,6 +5,10 @@
 {% endblock %}
 {% block icerik %}
 
+{# Program adı burada da görünsün -- kullanıcının isteği (v6.66). Ekran
+   girişten de açılabildiği için kullanıcı hangi programda olduğunu görsün. #}
+<div class="ipucu" style="text-align:center;margin-bottom:12px">{{ metin("program_adi") }}</div>
+
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
 {% if onay %}<div class="uyari">{{ metin("sifre_onay_bekliyor")|safe }}</div>{% endif %}
 

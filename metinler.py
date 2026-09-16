@@ -1032,7 +1032,7 @@ METINLER = {
 
     # ---- yapilacaklar listesi (v6.28): kagit klasorun karsiligi ----
     "yapilacaklar": {"tr": "Devam Eden Tedaviler", "en": "Ongoing Treatments"},
-    "bugun_bitenler": {"tr": "Bugün bitenler", "en": "Finished today"},
+    "bugun_bitenler": {"tr": "Bugün Biten Tedaviler", "en": "Treatments Completed Today"},
     "bugun_biten_yok": {"tr": "Bugün biten işlem yok.",
                         "en": "Nothing finished today."},
     "tumu": {"tr": "Tümü", "en": "All"},
@@ -1043,7 +1043,7 @@ METINLER = {
 
     # ---- takvim (v6.33) ----
     "takvim": {"tr": "Takvim", "en": "Calendar"},
-    "yaklasanlar": {"tr": "Yaklaşanlar", "en": "Coming up"},
+    "yaklasanlar": {"tr": "Yaklaşan Tedaviler", "en": "Upcoming Treatments"},
     "yaklasan_yok": {"tr": "Önümüzdeki {n} günde planlanmış iş yok.",
                      "en": "Nothing planned in the next {n} days."},
     "planlanan_tarih": {"tr": "Planlanan tarih", "en": "Planned date"},

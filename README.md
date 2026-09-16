@@ -6471,3 +6471,28 @@ kaldırıldı; kart kendi 14 günlük penceresini gösteriyor.
   basılmıyor. Cycle-dışı ekranlarda `.yanmenu` **tek** (ana menü), doğru
   öğe vurgulu.
 - Deneme oturumu geri alındı.
+
+# v6.66 — ana ekran kart başlıkları, şifre ekranında program adı
+
+Kullanıcının isteği: ana ekrandaki iki kart başlığı daha açık olsun, ve
+`/sifre` ekranı hangi programda olunduğunu göstersin.
+
+- `"bugun_bitenler"` metin anahtarının **değeri** "Bugün bitenler" →
+  "Bugün Biten Tedaviler" oldu.
+- `"yaklasanlar"` metin anahtarının **değeri** "Yaklaşanlar" →
+  "Yaklaşan Tedaviler" oldu.
+  İkisinde de yalnızca değer değişti, anahtar adı aynı kaldı — `"yapilacaklar"`
+  (v6.65) ile aynı desen. Tek kullanım yerleri `ana.html`, grep ile doğrulandı.
+- `/sifre` ekranına, `/giris`'teki tanıtım metninin üstüne konduğu yere
+  benzer şekilde (v6.65), `{{ metin("program_adi") }}` eklendi — "Patient
+  Data Center". Yeni bir metin anahtarı gerekmedi, `program_adi` zaten bu
+  değeri taşıyordu (başlıkta ve manifest'te kullanılan aynı anahtar).
+  Ekran hem giriş yapılmadan (`/giris` üzerinden) hem giriş yapılmış halde
+  (`/sifre-degistir` bağlantısından) açıldığı için metin ikisinde de basılıyor.
+
+## Test edildi
+
+- Ana ekranda iki başlık, `/sifre` ekranında (giriş yapılmış ve yapılmamış
+  halde) "Patient Data Center" metni doğrulandı — hem `curl` ile hem
+  telefon genişliğinde (390px) ekran görüntüsüyle.
+- Deneme oturumu geri alındı.
