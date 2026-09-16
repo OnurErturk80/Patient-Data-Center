@@ -936,6 +936,12 @@ METINLER = {
                            "en": "Photos not linked to an oocyte."},
     "arsivi_temizle": {"tr": "arşivi temizle", "en": "clear archive"},
     "fotograf_ekle": {"tr": "Fotoğraf ekle", "en": "Add photo"},
+    "doktor_notu": {"tr": "Doktor Notu", "en": "Doctor's Note"},
+    "doktor_notu_yok": {"tr": "Henüz doktor notu eklenmedi.",
+                        "en": "No doctor's note added yet."},
+    "doktor_notu_ipucu": {
+        "tr": "Fotoğraf veya PDF ekleyebilirsin (rapor, konsültasyon yazısı gibi).",
+        "en": "You can add a photo or PDF (a report, a consult letter, etc.)."},
     "iptali_geri_al": {"tr": "İptali geri al", "en": "Undo cancellation"},
     "iptal_et_veya_sil": {"tr": "İptal et veya sil", "en": "Cancel or delete"},
 

@@ -7052,3 +7052,78 @@ Sunucu ayağa kaldırıldı, test hastasının (2 tedavi: 1. ivf_icsi/OPU'lu,
 üstte çıkıyordu, düzeltmeden sonra "2. tedavi" (daha sonra açılan) üstte,
 "1. tedavi" altta — istenen sıra. Test oturumu silindi,
 `PRAGMA foreign_key_check` temiz.
+
+# v6.81 — tedavi ekranına "Doktor Notu" eklendi (foto/PDF, önizleme, tam ekran)
+
+Kullanıcının isteği: tedavi kaydına Doktor Notu bölümü — fotoğraf veya PDF
+eklenebilsin, küçük önizlemesi görünsün, üstüne basınca tam ekran açılsın.
+
+## Neden bu kadar kolay oldu
+
+Program zaten "cycle arşivi" diye bir şey biliyordu: bir örneğe (oosit/embriyo)
+bağlı olmayan, doğrudan tedaviye bağlı fotoğraflar (`goruntu.specimen_id IS
+NULL`). Doktor Notu'nu bunun **yeni bir `asama` değeri** olarak kurdum
+(`"doktor_notu"`) — `goruntu.asama` serbest metin, CHECK kısıtı yok, yeni bir
+tablo ya da göç gerekmedi. Asıl iş iki yerde:
+- `goruntuler.elle_ekle()` yalnızca görüntü uzantılarını kabul ediyordu
+  (`UZANTILAR`); Doktor Notu PDF de kabul etmeli. Fonksiyona `izin_uzantilari`
+  parametresi eklendi (varsayılan hâlâ `UZANTILAR`, eski çağıranlar
+  etkilenmedi), yeni `DOKTOR_NOTU_UZANTILARI = UZANTILAR | {".pdf"}` sabiti
+  yalnızca yeni rotadan geçiyor.
+- Önizleme/tam ekran: görüntüler için zaten var olan `_buyutec.html` fullscreen
+  görüntüleyicisi kullanıldı (aynı desen: `.kfoto` düğme + `data-idler` +
+  `buyutecAc()`). PDF için `_buyutec` işe yaramaz (o yalnızca `<img>` basıyor);
+  PDF kutusu tıklanınca `/dosya/{id}`'yi yeni sekmede açıyor — tarayıcının
+  kendi PDF görüntüleyicisi zaten neredeyse tam ekran, ek kütüphane gerekmedi
+  (`excel.py`/`karekod.py` ile aynı "kütüphanesiz" gerekçe).
+
+## "Cycle ekranı klinik özettir, fotoğraf yoktur" kuralıyla çelişmiyor mu?
+
+v6.20'deki kural embriyoloji fotoğrafları içindi: onlar aşama ekranlarında
+tek tek büyük bakılacak, cycle ekranı özet kalsın diye oraya küçük resim
+konmuyordu. Doktor Notu farklı bir kavram — rapor/konsültasyon yazısı gibi bir
+**belge eki**, embriyo fotoğrafı değil; klinik özetin parçası, protokol notu
+kartının hemen yanında durması doğru. Kullanıcı ekran görüntüsü göstererek
+tam olarak bu ekranı işaret etti. `cycle_detay.html`'deki yorum bunu netleştirecek
+şekilde güncellendi, kural embriyoloji fotoğrafları için hâlâ geçerli.
+
+## Ne değişti
+
+- `goruntuler.py`: `DOKTOR_NOTU_UZANTILARI` sabiti, `elle_ekle()`'ye
+  `izin_uzantilari` parametresi.
+- `app.py`: `cycle_detay()` artık `arsiv`'i `asama != 'doktor_notu'` ile
+  süzüyor (iki bölüm karışmasın), ayrıca `doktor_notlari` (her satırda
+  `pdf_mi` bayrağı) ve `doktor_notu_resim_ids` (yalnızca görüntülerin id
+  listesi, `_buyutec` gezinmesi için) hesaplıyor; `hata` parametresi eklendi.
+  Yeni rota `POST /cycle/{id}/doktor-notu-ekle` — `foto-ekle`'nin
+  kopyası, yalnızca `asama` sabit "doktor_notu" ve izin listesi PDF içeriyor.
+  `yol_modulu()`'nda `doktor-notu-ekle` de `foto-ekle`/`esle` gibi `foto`
+  modülüne bağlandı. `/goruntu/{id}/sil` **değişmeden** yeniden kullanıldı —
+  zaten `son == "sil"` kuralıyla `silme` modülüne bağlı, genel bir silme
+  ekranı; yalnızca "Aşama" etiketi `doktor_notu` için `metin("doktor_notu")`
+  gösterecek, `<img>` yerine `<embed type="application/pdf">` basacak şekilde
+  küçük bir dallanma eklendi (`goruntu_sil_ekran()`'da `pdf_mi` hesaplanıp
+  şablona geçiyor).
+- `templates/cycle_detay.html`: yeni "Doktor Notu" kartı (protokol notu
+  kartının hemen altında, `id="doktor-notu"` çapa), `_buyutec.html` include +
+  `.notfoto` tıklama kablolaması (her `_buyutec` kullanan ekranın kendi
+  betiğini yazması gerekiyor, bu ekranda daha önce hiç yoktu). Yükleme
+  formundan dönen hata `#doktor-notu`'ya işaret ediyor, sayfanın tepesinde
+  `{% if hata %}` bandıyla gösteriliyor.
+- `static/style.css`: `.kfoto.pdf` — `.kfoto.yok`'un ("henüz yok, tıklanamaz")
+  aksine gerçek bir bağlantı, düz koyu zemin (`#3d4f63`, v6.74'teki sabit ton)
+  ve `cursor` mirasıyla tıklanabilir görünüyor.
+- `metinler.py`: `doktor_notu`, `doktor_notu_yok`, `doktor_notu_ipucu`.
+
+## Test edildi
+
+Sunucu ayağa kaldırıldı; PDF + PNG birlikte yüklendi (`multipart/form-data`,
+gerçek dosya baytlarıyla) — PDF "PDF" etiketli kutu olarak, PNG küçük resim
+olarak doğru render edildi. `/dosya/{id}` PDF için `content-type:
+application/pdf` döndürdü. Desteklenmeyen uzantı (`.docx`) doğru hata mesajını
+(PDF dahil izin listesiyle) verdi. Genel "Fotoğraf ekle" ekranına aynı PDF
+yüklenmeye çalışıldığında **hâlâ reddedildi** — regresyon yok, iki yükleme
+yolu birbirinden bağımsız. `/goruntu/{id}/sil` onay ekranı PDF için `<embed>`,
+görüntü için `<img>` bastı, "Aşama" alanı "Doktor Notu" gösterdi. Her iki
+kayıt da silindi; veritabanı satırları ve arşivdeki dosyalar birlikte
+kayboldu (diskte kontrol edildi), `PRAGMA foreign_key_check` temiz.

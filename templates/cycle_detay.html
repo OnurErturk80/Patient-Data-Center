@@ -18,6 +18,7 @@
 {% block kapsinif %} genis{% endblock %}
 {% block govde %}genissayfa{% endblock %}
 {% block icerik %}
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 {# Genis ekranda iki sutun (v6.42): solda cycle'in kendi verisi (sayilar,
    saatler, protokol), sagda ornekler ve islem dugmeleri. Bolme noktasi
    kaynak sirasinda oldugu icin telefonda sira aynen korunuyor. #}
@@ -83,8 +84,48 @@
 </div>
 {% endif %}
 
-{# Cycle ekrani klinik ozet: fotograf yok. Oosit resimleri kendi asama
-   ekranlarinda, buyuk ve tek tek bakilacak yerde duruyor. #}
+{# Doktor Notu: kullanicinin istegi (v6.81), foto/PDF eki -- oosit/embriyo
+   fotograflarindan AYRI bir kavram. "Cycle ekrani klinik ozet, fotograf
+   yok" kurali (v6.20) embriyoloji fotograflari icindir (onlar asama
+   ekranlarinda buyuk bakilir); doktor notu bir belge eki, klinik ozetin
+   parcasi -- bu yuzden burada, kucuk onizlemeyle. #}
+<div class="kart" id="doktor-notu">
+  <h2>{{ metin("doktor_notu") }}{% if doktor_notlari %} ({{ doktor_notlari|length }}){% endif %}</h2>
+  {% if doktor_notlari %}
+  <div class="fkareler" style="padding:12px">
+    {% for d in doktor_notlari %}
+    <div class="fkare">
+      {% if d.pdf_mi %}
+      <a class="kfoto pdf" href="/dosya/{{ d.id }}" target="_blank" rel="noopener"
+         title="{{ d.orijinal_dosya_adi }}">PDF</a>
+      {% else %}
+      <button type="button" class="kfoto notfoto"
+              data-idler="{{ doktor_notu_resim_ids|join(',') }}"
+              data-baslangic="{{ doktor_notu_resim_ids.index(d.id) }}"
+              data-no="{{ metin('doktor_notu') }}">
+        <img src="/dosya/{{ d.id }}" alt="{{ metin('doktor_notu') }}">
+      </button>
+      {% endif %}
+      <a class="fsil" href="/goruntu/{{ d.id }}/sil?geri={{ ('/cycle/' ~ c.id)|urlencode }}"
+         aria-label="{{ metin('sil') }}" title="{{ metin('sil') }}">&times;</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ipucu" style="padding:0 14px 8px">{{ metin("doktor_notu_yok") }}</div>
+  {% endif %}
+  {% if yetkim("foto") %}
+  <form method="post" action="/cycle/{{ c.id }}/doktor-notu-ekle"
+        enctype="multipart/form-data" style="padding:12px 14px;border-top:1px solid var(--line)">
+    <input type="file" name="dosyalar" multiple accept="image/*,application/pdf">
+    <div class="ipucu" style="padding:6px 0 0">{{ metin("doktor_notu_ipucu") }}</div>
+    <button class="dugme" type="submit" style="margin-top:8px">{{ metin("yukle") }}</button>
+  </form>
+  {% endif %}
+</div>
+
+{# Oosit/embriyo fotograflari cycle ekranina eklenmez (v6.20) -- onlar
+   asama ekranlarinda, buyuk ve tek tek bakilacak yerde duruyor. #}
 </div>
 
 <div class="sutun">
@@ -206,6 +247,18 @@
 
 </div>
 </div>
+
+{% set buyutec_ad = metin("doktor_notu") %}
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.notfoto').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
+  });
+});
+</script>
 
 {{ gez.yan(c, gezinme) }}
 {% endblock %}

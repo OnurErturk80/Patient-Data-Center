@@ -338,7 +338,37 @@ tarih alanına değil, bu artan sıra numarasına güven (aynı desen
 
 **Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
 ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim
-ekleme.
+ekleme. **İstisna: Doktor Notu** (v6.81, kullanıcının isteği) — bu kural
+embriyoloji/oosit fotoğrafları içindir; Doktor Notu bir **belge eki** (rapor,
+konsültasyon yazısı — foto ya da PDF), embriyo fotoğrafı değil, klinik özetin
+parçası. `cycle_detay.html`'de protokol notu kartının hemen altında küçük
+önizlemeyle duruyor. Yeni bir "belge eki" kavramı daha eklersen aynı ayrımı
+yap: embriyoloji fotoğrafı → asama ekranı, klinik belge → cycle ekranı.
+- Depolama: yeni tablo yok, mevcut `goruntu` mekanizması (`elle_ekle()`,
+  `specimen_id IS NULL`) yeni bir `asama="doktor_notu"` değeriyle yeniden
+  kullanıldı. `goruntu.asama` serbest metin (CHECK yok) olduğu için göç
+  gerekmedi. **`goruntu_asama` liste_degeri'ne EKLENMEDİ** — o liste
+  `/cycle/{id}/foto-ekle`'nin embriyoloji-aşaması seçicisi, Doktor Notu oradan
+  seçilebilir bir şey değil, sabit kod.
+- **PDF yalnızca Doktor Notu'nda kabul edilir.** `goruntuler.elle_ekle()`'ye
+  `izin_uzantilari` parametresi eklendi (varsayılan hâlâ görüntü-only
+  `UZANTILAR`); `DOKTOR_NOTU_UZANTILARI = UZANTILAR | {".pdf"}` yalnızca
+  `/cycle/{id}/doktor-notu-ekle` rotasından geçiyor. Genel "Fotoğraf ekle"
+  (`/cycle/{id}/foto-ekle`) hâlâ PDF reddediyor — oosit/embriyo fotoğrafında
+  PDF anlamsız, bu ayrımı bozma.
+- **PDF'in "tam ekranı" `_buyutec.html` değil, yeni sekme.** `_buyutec`
+  yalnızca `<img>` basıyor, PDF'i gösteremez. PDF kutusu `<a target="_blank"
+  href="/dosya/{id}">` — tarayıcının kendi PDF görüntüleyicisi zaten neredeyse
+  tam ekran, `excel.py`/`karekod.py`'deki "kütüphanesiz" gerekçenin aynısı
+  (PDF.js gibi bir kütüphane eklemeye gerek yok). `/goruntu/{id}/sil` onay
+  ekranında da aynı ayrım: PDF için `<embed type="application/pdf">`, görüntü
+  için `<img>` (`goruntu_sil_ekran()`'da hesaplanan `pdf_mi` bayrağıyla).
+- **`_buyutec.html` include eden her ekran kendi tıklama betiğini yazar**
+  (paylaşılan bir global yok) — `cycle_detay.html`'e yeni eklenirken bu ilk
+  kez oraya girdi, `.notfoto` sınıfı ve kablolaması diğer ekranlardaki
+  `.stripkare`/`.arsivfoto` desenlerinin birebir kopyası.
+- Silme ayrı bir rota istemedi: `/goruntu/{id}/sil` zaten genel
+  (`yol_modulu()`'nda `son == "sil"` → `silme` modülü, asama'dan bağımsız).
 
 **Kodu değil etiketi göster.** `mii`, `2pn`, `z1` gibi değerler
 `liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda

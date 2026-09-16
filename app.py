@@ -476,7 +476,7 @@ def yol_modulu(yol: str):
         return "cryo" if len(p) >= 2 and p[1] == "cryo" else None
     if p[0] == "cycle" and len(p) >= 3:
         a = p[2]
-        if a in ("foto-ekle", "esle"):
+        if a in ("foto-ekle", "esle", "doktor-notu-ekle"):
             return "foto"
         if a == "duzenle":
             return "hasta"
@@ -2411,7 +2411,7 @@ async def cycle_kaydet(request: Request, hasta_id: int):
 
 
 @uygulama.get("/cycle/{cycle_id}")
-def cycle_detay(request: Request, cycle_id: int):
+def cycle_detay(request: Request, cycle_id: int, hata: str = ""):
     cycle = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad, h.es_adi, h.dogum_tarihi "
         "FROM cycle c JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -2430,9 +2430,22 @@ def cycle_detay(request: Request, cycle_id: int):
         for r in db.sorgu("SELECT kod, etiket FROM liste_degeri WHERE lab_id = ?",
                           (db.LAB_ID,))
     }
+    # Örneğe bağlı olmayan görüntüler iki ayrı kart: genel cycle arşivi
+    # (embriyoloji fotoğrafları) ve doktor notu ekleri (v6.81) -- ikisi
+    # karışmasın diye `asama` ile ayrılıyor.
     arsiv = db.sorgu(
         "SELECT id, asama, zaman, orijinal_dosya_adi FROM goruntu "
-        "WHERE cycle_id = ? AND specimen_id IS NULL ORDER BY id", (cycle_id,))
+        "WHERE cycle_id = ? AND specimen_id IS NULL AND asama != 'doktor_notu' "
+        "ORDER BY id", (cycle_id,))
+    doktor_notu_satirlari = db.sorgu(
+        "SELECT id, zaman, orijinal_dosya_adi FROM goruntu "
+        "WHERE cycle_id = ? AND specimen_id IS NULL AND asama = 'doktor_notu' "
+        "ORDER BY id", (cycle_id,))
+    doktor_notlari = [
+        {**dict(r), "pdf_mi": (r["orijinal_dosya_adi"] or "").lower().endswith(".pdf")}
+        for r in doktor_notu_satirlari
+    ]
+    doktor_notu_resim_ids = [d["id"] for d in doktor_notlari if not d["pdf_mi"]]
     taraf_sayilari = db.tek(
         "SELECT SUM(CASE WHEN taraf='sag' THEN 1 ELSE 0 END) AS sag, "
         "       SUM(CASE WHEN taraf='sol' THEN 1 ELSE 0 END) AS sol, "
@@ -2442,6 +2455,9 @@ def cycle_detay(request: Request, cycle_id: int):
         request, "cycle_detay.html",
         {"c": cycle, "specimenler": specimenler, "etiketler": etiketler,
          "arsiv": arsiv, "taraf": taraf_sayilari,
+         "doktor_notlari": doktor_notlari,
+         "doktor_notu_resim_ids": doktor_notu_resim_ids,
+         "hata": hata,
          # Aşamalar arasında geçen süre (v6.37). Ayrı kayıt yok: aşama
          # ekranlarında elle girilen saatlerden hesaplanıyor.
          "cizelge": formlar.zaman_cizelgesi(cycle_id),
@@ -3565,10 +3581,11 @@ def goruntu_sil_ekran(request: Request, goruntu_id: int, geri: str = ""):
     if not g:
         return RedirectResponse("/hastalar", status_code=303)
     etiketler = {r["kod"]: r["etiket"] for r in db.liste("goruntu_asama")}
+    pdf_mi = (g["orijinal_dosya_adi"] or "").lower().endswith(".pdf")
     return sablon.TemplateResponse(
         request, "goruntu_sil.html",
         {"g": g, "asama_etiketi": etiketler.get(g["asama"], g["asama"]),
-         "geri": geri or f"/cycle/{g['cycle_id']}"},
+         "pdf_mi": pdf_mi, "geri": geri or f"/cycle/{g['cycle_id']}"},
     )
 
 
@@ -3665,6 +3682,50 @@ async def foto_ekle(request: Request, cycle_id: int):
             status_code=303,
         )
     return RedirectResponse(geri, status_code=303)
+
+
+@uygulama.post("/cycle/{cycle_id}/doktor-notu-ekle")
+async def doktor_notu_ekle(request: Request, cycle_id: int):
+    """Cycle'a doktor notu eki: fotoğraf veya PDF, oosite bağlanmaz (v6.81).
+
+    `foto-ekle` ile aynı `goruntuler.elle_ekle()`'yi çağırır, yalnızca
+    `asama="doktor_notu"` sabit ve izin verilen uzantılar PDF'i de içeriyor.
+    """
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    form = await request.form()
+    dosyalar = form.getlist("dosyalar")
+    kid = request.state.kullanici["id"]
+
+    hatalar, eklenen = [], 0
+    for d in dosyalar:
+        ad = getattr(d, "filename", "") or ""
+        if not ad:
+            continue
+        icerik = await d.read()
+        mesaj = goruntuler.elle_ekle(
+            icerik, ad, cycle_id, c["cycle_no"], None, "doktor_notu", kid,
+            izin_uzantilari=goruntuler.DOKTOR_NOTU_UZANTILARI,
+        )
+        if mesaj:
+            hatalar.append(mesaj)
+        else:
+            eklenen += 1
+
+    from urllib.parse import quote
+    if hatalar:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}?hata=" + quote(" ".join(hatalar)) + "#doktor-notu",
+            status_code=303,
+        )
+    if eklenen == 0:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}?hata=" + quote("Dosya secilmedi.") + "#doktor-notu",
+            status_code=303,
+        )
+    return RedirectResponse(f"/cycle/{cycle_id}#doktor-notu", status_code=303)
 
 
 # ----------------------------------------------------------------- oosit silme

@@ -9,6 +9,11 @@ import db
 
 UZANTILAR = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
 
+# Doktor notu eki: fotoğrafların yanında PDF de kabul eder (rapor, konsültasyon
+# yazısı taranmış olabilir). Kamera kuyruğu ve oosit/embriyo fotoğrafları hâlâ
+# yalnızca `UZANTILAR` kullanır -- PDF onlarda anlamsız.
+DOKTOR_NOTU_UZANTILARI = UZANTILAR | {".pdf"}
+
 
 ayar = db.ayar          # yerel_ayar.json önceliklidir
 
@@ -340,16 +345,20 @@ MAKS_BOYUT = 25 * 1024 * 1024      # 25 MB
 
 
 def elle_ekle(icerik: bytes, orijinal_ad: str, cycle_id: int, cycle_no: str,
-              specimen_id, asama: str, kullanici_id: int):
-    """Dışarıdan yüklenen bir görüntüyü arşive yazar ve kaydeder.
+              specimen_id, asama: str, kullanici_id: int,
+              izin_uzantilari: set = UZANTILAR):
+    """Dışarıdan yüklenen bir görüntüyü (ya da doktor notu PDF'ini) arşive
+    yazar ve kaydeder.
 
     specimen_id None ise görüntü cycle'a bağlı kalır (oosite bağlanmaz).
+    `izin_uzantilari` çağıranın izin verdiği uzantı kümesi -- varsayılan
+    yalnızca görüntü, doktor notu ekranı `DOKTOR_NOTU_UZANTILARI` geçiyor.
     Hata durumunda açıklama metni döndürür, başarılıysa None.
     """
     uzanti = Path(orijinal_ad).suffix.lower()
-    if uzanti not in UZANTILAR:
+    if uzanti not in izin_uzantilari:
         return (f"'{orijinal_ad}' desteklenmeyen bir dosya türü. "
-                f"İzin verilenler: {', '.join(sorted(UZANTILAR))}")
+                f"İzin verilenler: {', '.join(sorted(izin_uzantilari))}")
     if len(icerik) > MAKS_BOYUT:
         return f"'{orijinal_ad}' çok büyük (en fazla {MAKS_BOYUT // 1024 // 1024} MB)."
     if not icerik:

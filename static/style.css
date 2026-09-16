@@ -991,6 +991,12 @@ body.kilitli { overflow: hidden; }
   display: flex; align-items: center; justify-content: center;
   color: var(--ink-3); font-size: 14px;
 }
+/* PDF eki (Doktor Notu, v6.81): .yok'un aksine gerçekten tıklanabilir --
+   düz zemin ve zoom-in imleci .kfoto'dan geliyor, "boş" izlenimi vermesin. */
+.kfoto.pdf {
+  background: #3d4f63; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 700; text-decoration: none;
+}
 .kfoto:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 2px; }
 .secsatir .kfoto { flex: 0 0 52px; width: 52px; height: 52px; }
 
