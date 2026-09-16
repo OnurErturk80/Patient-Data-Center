@@ -693,6 +693,17 @@ sessizce yanlış duruyor (bir cycle'ın OPU tarihi aylarca böyleydi). Kontrol
   bilerek `"onceden"` yazıyor — tarih değil, işaret; ayrıca o tabloyu
   düzenlemek göçün yeniden çalışmasına ya da atlanmasına yol açar.
 
+**`style.css` sürüm numarasıyla bağlanır** (v6.69). `base.html`'deki bağlantı
+`/static/style.css?v={{ statik_surum() }}` — `statik_surum()` dosyanın
+`st_mtime`'ını döndürüyor. Gerçekten başa geldi: kullanıcı doğru commit'i
+çalıştırıyordu ama tarayıcı `style.css`'i eski haliyle önbellekten okumaya
+devam ediyordu (HTML güncel, CSS değil — `view-source` ile HTML'de yeni
+sınıf görünüyordu, `/static/style.css`'i doğrudan açınca görünmüyordu).
+Adres sabit kaldığı sürece tarayıcının yeniden indirmesi için sebep yok;
+kullanıcıdan her güncellemede "sert yenile" hatırlamasını istemek kırılgan.
+**Yeni bir statik dosya (ikinci bir `.css`/`.js`) eklersen aynı deseni kullan**
+— sabit adresle bağlama, tuzak listesine eklenecek kadar ucuz bir hata.
+
 **Ekran kendini tazeler** (v6.54). Klinikte birkaç telefon aynı anda kayıt
 giriyor; masaüstünde açık duran sayfa elle yenilenene kadar eski kalıyordu.
 Veri hep anında kaydoluyordu — eski olan sayfaydı. `base.html`'deki

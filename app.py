@@ -187,6 +187,25 @@ def gg_aa_yyyy_saat(zaman) -> str:
 sablon.env.globals["gg_aa_yyyy_saat"] = gg_aa_yyyy_saat
 
 
+def statik_surum() -> str:
+    """`style.css`'in son değişim zamanı -- tarayıcı önbelleğini kırmak için (v6.69).
+
+    Dosya adı hep aynı olduğu için tarayıcı sürüm farkını göremiyor, program
+    güncellendikten sonra da eski CSS'i göstermeye devam edebiliyor (gerçekten
+    başa geldi: kullanıcı v6.68'i çalıştırıyordu ama üç sütun hâlâ eski
+    tek-sütun CSS'iyle basılıyordu). Bağlantıya `?v=<mtime>` eklemek her
+    değişiklikte adresi değiştirip önbelleği kendiliğinden geçersiz kılıyor --
+    kullanıcıdan "sert yenile" istemeye gerek kalmıyor.
+    """
+    try:
+        return str(int((KOK / "static" / "style.css").stat().st_mtime))
+    except OSError:
+        return "0"
+
+
+sablon.env.globals["statik_surum"] = statik_surum
+
+
 def _islem_yapan_ad(cycle_id, asama):
     """Bir cycle aşamasını fiilen yapan kişinin adı (yoksa boş).
 

@@ -7,7 +7,7 @@
    mavi alti cizili yaziyordu. Bu ekranlarda oyle bir baglanti yok. #}
 <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
 <title>{% block baslik %}{{ metin("program_adi") }}{% endblock %}</title>
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/style.css?v={{ statik_surum() }}">
 
 {# Ana ekrana eklenince uygulama gibi acilsin (v6.45). iOS manifest'in
    `display` alanini yeni surumlerde okuyor, eskilerde `apple-...-capable`

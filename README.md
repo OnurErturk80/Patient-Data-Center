@@ -6593,3 +6593,43 @@ Sebep hesap hatasıydı, hemen bulundu.
   Biten Tedaviler" başlığı iki satıra sarıyor ama sütun düzeni bozulmuyor.
   v6.67'nin testinde atlanan tam bu ara genişlik aralığı hedeflendi.
 - Deneme oturumu geri alındı.
+
+# v6.69 — style.css tarayıcı önbelleğinde takılı kalıyordu
+
+Kullanıcı v6.68'i **doğru makinede, doğru commit'te** çalıştırıyordu
+(`git log` ile doğrulandı) ama üç sütun hâlâ görünmüyordu. Teşhis iki adımda:
+`/static/style.css`'i doğrudan açtırdım — içinde `ucsutun` **yoktu** — ama
+sayfanın kaynağında (View Page Source) **vardı**. Yani sunucu güncel HTML'i
+basıyordu, tarayıcı ise `style.css`'i eski haliyle önbellekten okuyordu.
+
+- **Sebep**: `base.html` `style.css`'i hep aynı adresten çağırıyordu
+  (`/static/style.css`, sürüm numarasız). Dosya güncellendiğinde adres
+  değişmediği için tarayıcının "bunu yeniden indirmem gerekir" diye
+  düşünmesi için hiçbir sebep yok — normal yenileme (F5) sırasında CSS'i
+  önbellekten kullanmaya devam ediyordu. Sert yenile (Ctrl+Shift+R) bunu
+  düzeltirdi ama **kullanıcıdan her güncellemede bunu hatırlamasını
+  istemek** kırılgan bir çözüm; 22 yıllık embriyolog, tarayıcı önbelleği
+  kavramıyla uğraşmak istemiyor.
+- **Çözüm**: yeni Jinja global `statik_surum()` — `style.css`'in dosya
+  sistemindeki **son değişim zamanını** (`st_mtime`) okuyup döndürüyor.
+  `base.html`'deki bağlantı artık `/static/style.css?v={{ statik_surum() }}`.
+  Dosya her değiştiğinde `?v=...` değeri de değişiyor, tarayıcı bunu **farklı
+  bir adres** sanıp yeniden indiriyor — sert yenile gerekmiyor, kullanıcı
+  hiçbir şey yapmadan otomatik düzeliyor.
+- **`db.PROGRAM_KOK` üzerinden okunuyor** (`KOK / "static" / "style.css"`),
+  diğer statik-yol kurallarıyla aynı (tuzak #8). Dosya bulunamazsa (olmayacak
+  ama) `"0"` döner, sayfa hâlâ açılır — sürüm numarası eksik olsun, CSS hiç
+  yüklenmesin daha kötü.
+- Yalnızca `style.css` kapsandı; `apple-touch-icon` gibi nadiren değişen
+  statikler dokunulmadı — bu tur bir sorun onlarda hiç görülmedi, kapsamı
+  büyütmeye gerek yok.
+
+## Test edildi
+
+- Sunucu başlatıldı, ana sayfa `curl` ile çekildi: bağlantı
+  `style.css?v=1789550130` gibi bir sürüm numarasıyla geliyor. O adresten
+  doğrudan `style.css` istendi, içinde `ucsutun` kuralının geldiği
+  doğrulandı (200, 2 eşleşme).
+- Kullanıcının kendi makinesinde de aynı teşhis (CSS'te `ucsutun` yok, HTML'de
+  var) doğrulanarak bu sürümün gerçek sebebi bulundu — tahminle değil.
+- Deneme oturumu geri alındı.
