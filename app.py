@@ -2027,20 +2027,24 @@ def ornek_kodu_ara(ara: str) -> list:
 @uygulama.get("/hastalar")
 def hastalar(request: Request, ara: str = "", arsiv: int = 0,
              yil: int = 0, ay: int = 0):
-    """Hasta kayıtları: ay ay işlem listesi + her yeri tarayan arama (v6.29).
+    """Hasta kayıtları: ay ay işlem listesi + Tüm Hastalar + arama (v6.63).
 
-    İki ayrı iş, tek ekran:
+    Tek ekran, üç parça — v6.29'dan farklı olarak artık **birlikte**
+    görünüyorlar, birbirini değiştirmiyorlar (kullanıcının isteği,
+    2026-09-16: "hasta kayıtları ve takvim aynı şey gibi" şikâyetinin
+    yanıtı bu ekranı belirginleştirmekti):
 
-    - **Arama boşken** o ayın cycle'ları, yani "bu ay hangi vakaları yaptık".
-      Ölçü OPU tarihi (yoksa cycle'ın açıldığı tarih — FET'te OPU olmuyor);
-      kullanıcının seçimi. Satır cycle başına: aynı hastanın Mart ve
-      Temmuz'daki iki cycle'ı iki ayrı satır, çünkü soru "kim kayıtlı" değil
-      "ne zaman ne yapıldı".
-    - **Arama doluyken** ay süzgeci yok sayılır ve **hasta** satırları döner.
-      Dosya no ya da ad aranıyorsa amaç hastayı bulmaktır; hangi ayda olduğu
-      bilinseydi zaten aranmazdı.
-
-    `?arsiv=1` eskisi gibi: arşivlenmiş hastaların listesi, ay yok.
+    - **Sol sütun — o ayın cycle'ları**, yani "bu ay hangi vakaları yaptık".
+      Ölçü OPU tarihi (yoksa cycle'ın açıldığı tarih — FET'te OPU olmuyor).
+      Satır cycle başına: aynı hastanın Mart ve Temmuz'daki iki cycle'ı iki
+      ayrı satır, çünkü soru "kim kayıtlı" değil "ne zaman ne yapıldı".
+      **`ara` ile değişmez** — arama artık ay görünümünü kapatmıyor.
+    - **Sağ sütun — Tüm Hastalar**: arama boşken aktif hastaların tamamı,
+      alfabetik. Arama doluyken aynı sütun **arama sonucuna** dönüşür (dosya
+      no / ad soyad / örnek kodu). Amaç hastayı bulmak; ay bilinseydi zaten
+      aranmazdı, o yüzden bu sütun ay süzgecinden bağımsız.
+    - **`?arsiv=1`** eskisi gibi ayrı, tam genişlik bir mod: arşivlenmiş
+      hastaların listesi, ay/Tüm Hastalar yok.
     """
     bugun = _dt.now()
     yil = yil or bugun.year
@@ -2049,9 +2053,9 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
         ay = bugun.month
     bu_ay = (yil == bugun.year and ay == bugun.month)
 
-    kayitlar, liste, ornekler = [], [], []
-    if ara.strip() or arsiv:
-        durum = "arsiv" if arsiv else "aktif"
+    kayitlar, ornekler = [], []
+    durum = "arsiv" if arsiv else ("aktif" if ara.strip() else None)
+    if durum:
         ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
                  "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
         if ara.strip():
@@ -2066,11 +2070,20 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
             if "-" in ara:
                 ornekler = ornek_kodu_ara(ara.strip())
         else:
+            # Yalnızca arsiv=1 ve arama boş: son 50 arşiv kaydı.
             kayitlar = db.sorgu(
                 ortak + " ORDER BY h.olusturma_zamani DESC LIMIT 50",
                 (db.LAB_ID, durum))
-    else:
+
+    # Ay listesi ve Tüm Hastalar arşiv modunda basılmıyor, gereksiz sorgu
+    # atılmasın diye hesaplanmıyor da.
+    liste, tum_hastalar = [], []
+    if not arsiv:
         liste = cycle_listesi(ay=f"{yil:04d}-{ay:02d}")
+        tum_hastalar = db.sorgu(
+            "SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
+            "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = 'aktif' "
+            "ORDER BY h.ad_soyad", (db.LAB_ID,))
 
     onceki = _ay_kaydir(yil, ay, -1)
     sonraki = _ay_kaydir(yil, ay, 1)
@@ -2079,7 +2092,8 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     )["k"]
     return sablon.TemplateResponse(
         request, "hastalar.html",
-        {"hastalar": kayitlar, "liste": liste, "ornekler": ornekler,
+        {"hastalar": kayitlar, "liste": liste, "tum_hastalar": tum_hastalar,
+         "ornekler": ornekler,
          "ara": ara, "arsiv": arsiv,
          "yil": yil, "ay": ay, "bu_ay": bu_ay,
          "yillar": _yil_araligi(yil),

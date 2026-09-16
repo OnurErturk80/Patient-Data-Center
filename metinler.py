@@ -1125,7 +1125,7 @@ METINLER = {
     "bitis_sebebi": {"tr": "Nasıl bitti?", "en": "How did it end?"},
     "bitis_saati": {"tr": "Bitiş saati", "en": "Finish time"},
     "secili_rozet": {"tr": "Seçili", "en": "Current"},
-    "hasta_kaydi": {"tr": "Hasta kaydı", "en": "Patient file"},
+    "hasta_kaydi": {"tr": "Hasta kartı", "en": "Patient card"},
     "bitis_dondurma": {"tr": "Dondurma tamamlandı", "en": "Freezing completed"},
     "bitis_dondurma_ipucu": {
         "tr": "Embriyolar / oositler donduruldu, taze transfer yok.",
@@ -1510,6 +1510,7 @@ METINLER = {
     "arsiv": {"tr": "Arşiv", "en": "Archive"},
     "arsivde": {"tr": "arşivde", "en": "archived"},
     "arama_sonucu": {"tr": "Arama sonucu", "en": "Search results"},
+    "tum_hastalar": {"tr": "Tüm hastalar", "en": "All patients"},
     "son_kayitlar": {"tr": "Son kayıtlar", "en": "Recent records"},
     "es": {"tr": "Eş", "en": "Partner"},
     "n_cycle": {"tr": "{n} cycle", "en": "{n} cycles"},

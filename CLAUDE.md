@@ -281,9 +281,12 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
 - **İki sütun her ekranın çözümü değil** (v6.52). Ölçü: ekranda birbirinden
   bağımsız kartlar mı var, yoksa genişliğe ihtiyacı olan tek bir şey mi?
   İki sütun: `/yonetim`, `/cycle/{id}`, `/kullanicilar`, `/istatistik`,
-  `/formlar`. Yalnızca genişleyen (`kap genis yanmenusuz`): `/klasorler`,
-  `/cryo`, `/hasta/{id}`, `/hastalar`, `/bitenler`, `/takvim` — liste
+  `/formlar`, `/hastalar` (v6.63 — ay listesi ile Tüm Hastalar birbirinden
+  bağımsız iki kart). Yalnızca genişleyen (`kap genis yanmenusuz`):
+  `/klasorler`, `/cryo`, `/hasta/{id}`, `/bitenler`, `/takvim` — liste
   ekranlarını bölme, `_cyclesatir` satırları soldan sağa okunan tek bir akış.
+  `/hastalar`'ın arşiv modu (`?arsiv=1`) bu kategoride kaldı: orada tek liste
+  var, bölünecek ikinci bir kart yok.
   Bilerek dar kalanlar: `/cycle/{id}/bitir` (onay ekranı — dar olması
   yanlışlıkla basmayı zorlaştırıyor), `/dil` ve form ekranları (alan
   genişledikçe etiketle değer birbirinden uzaklaşır).
@@ -538,19 +541,38 @@ birleştirilip aranıyor, yani tam kod da kuyruğu da (`0001-03`) buluyor.
 - Örnek araması **hastanın arşivlenmiş olmasına bakmaz**; dolaptaki bir
   örneğin dosyası kapanmış olabilir. (Hasta araması eskisi gibi süzer.)
 
-**Hasta kayıtları ay ay, arama ayı yok sayar** (v6.29). `/hastalar` iki iş
-yapıyor: arama boşken **o ayın cycle'ları** (satır cycle başına), arama
-doluyken **hasta satırları** ve ay süzgeci devre dışı — dosya no ya da ad
-aranıyorsa hangi ayda olduğu zaten bilinmiyordur.
+**Hasta kayıtları ay ay + Tüm Hastalar, birlikte** (v6.29, v6.63'te
+genişledi). `/hastalar` **iki sütun**: solda o ayın cycle'ları (satır cycle
+başına), sağda **Tüm Hastalar** — arama boşken aktif hastaların tamamı
+alfabetik, doluyken arama sonucu. **v6.63'e kadar arama ay görünümünün
+YERİNE geçiyordu** (iki ayrı mod, hiç birlikte görünmezlerdi); kullanıcının
+isteğiyle (2026-09-16, "hasta kayıtları ve takvim aynı şey gibi"
+gözleminin yanıtı) artık **ikisi aynı anda** ekranda. Yeni bir davranış
+eklersen bu ayrımın kaldırıldığını unutma — `ara` artık `liste`'yi
+etkilemiyor.
 - **Ayın ölçüsü OPU tarihi**, yoksa cycle'ın açıldığı tarih (FET'te OPU
   olmuyor). Kullanıcının kararı: soru "kim kayıtlı" değil, "bu ay kaç vaka
   yaptık". Bunu hasta kaydının tarihine çevirme.
 - Arşivlenmiş hastanın cycle'ı **ay listesinde görünür** (o iş o ay yapıldı),
   yapılacaklarda görünmez. Satırda "Arşiv" rozeti var.
-- Satırın sağındaki **"Hasta kaydı"** düğmesi hastanın tüm geçmişine gider,
-  satırın kendisi o ayki cycle'a (v6.31). İç içe `<a>` olamayacağı için ikisi
-  kardeş, `.satirikili` yan yana diziyor — satıra bir bağlantı daha eklersen
-  aynı yolu izle.
+- Satırın sağındaki **"Hasta kartı"** düğmesi (v6.63'te "Hasta kaydı"ndan
+  yeniden adlandırıldı — sayfanın adı zaten "hasta kaydı", düğmede aynı
+  kelime neyin nereye gittiğini belirsizleştiriyordu) hastanın tüm geçmişine
+  gider, satırın kendisi o ayki cycle'a (v6.31). İç içe `<a>` olamayacağı
+  için ikisi kardeş, `.satirikili` yan yana diziyor — satıra bir bağlantı
+  daha eklersen aynı yolu izle. Metin anahtarı hâlâ `hasta_kaydi` — yalnızca
+  görünen metin değişti, anahtarı değiştirme.
+- **Tüm Hastalar** (`durum='aktif'`, `ORDER BY ad_soyad`, sınırsız) aynı
+  satır tasarımını kullanıyor, isme tıklamak `/hasta/{id}`'yi (aynı ekran)
+  açıyor.
+- **Ay ile arama birbirini silmiyor**: `aygezgin` formu gizli `ara` alanı,
+  arama formu gizli `yil`/`ay` alanları taşıyor. Biri değişirken öteki
+  sıfırlanmasın diye.
+- **Arşiv hâlâ ayrı, tam genişlik bir mod** — iki sütuna girmiyor: "bu
+  dosya kapandı" demek, günlük ay/Tüm Hastalar akışının parçası değil.
+- `/hastalar` artık **iki sütun** kategorisinde (aşağıdaki "İki sütun her
+  ekranın çözümü değil" listesine bak) — ay listesi ile Tüm Hastalar
+  birbirinden bağımsız iki kart, `_cyclesatir` satırlarını bölmüyor.
 - Ay adları `metinler.py`'de (`ay_1`…`ay_12`), ekrana `ay_adi(yil, ay)`
   basıyor. `strftime("%B")` **kullanma** — işletim sisteminin yerel ayarına
   bağlı, Windows mini PC'de İngilizce çıkar.

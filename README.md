@@ -6278,3 +6278,86 @@ dönülüyor (ivf_icsi'de zaten aynı).
 - Deneme cycle'ları, taşıyıcıları, oturumu ve bir eski deneme oturumundan
   kalmış kırık `kaynak_dosya` referansı geri alındı; `PRAGMA
   foreign_key_check` temiz.
+
+---
+
+# v6.63 — Hasta kayıtları: Tüm Hastalar sütunu, "Hasta kartı"
+
+Kullanıcının gözlemi (2026-09-16): **"hasta kayıtları ve takvim sanki aynı
+şey gibi."** İkisi de aynı ay/yıl gezinme kutusunu ve aynı satır tasarımını
+kullanıyordu (bilerek — v6.30'da "aynı düzeni iki ekranda iki türlü öğretmek
+personeli yorar" diye) ve bir cycle'ın hem OPU tarihi hem planlanan tarihi
+aynı aya denk gelirse **aynı cycle iki ekranda birden** görünebiliyordu.
+
+Soruldu, kullanıcı takvime dokunmadı; bunun yerine hasta kayıtları
+ekranının kendisini netleştirdi: **"Şöyle yapalım hasta kayıtları bölümü
+olsun bir tek. Orada ay ay hastalar görünsün. Ayrıca orada sayfaya
+sığacak şekilde yan tarafında tüm hastalar diye bir modül olsun... Hasta
+ismine tıklandığında hasta kartı açılsın... hasta kaydı yazan butonunun
+ismi hasta kartı olarak değişsin."**
+
+## Arama artık ay görünümünü kapatmıyor
+
+**Bu, v6.29'dan beri süregelen bir davranışın tersine çevrilmesi.** Eskiden
+`/hastalar` iki **ayrı mod**du: arama boşken ay listesi, doluyken **onun
+yerine** hasta arama sonuçları — ikisi asla birlikte görünmezdi. Kullanıcının
+isteği bu ayrımı kaldırdı: şimdi ay listesi **solda**, hep görünür; sağda
+**Tüm Hastalar** — arama boşken aktif hastaların tamamı alfabetik, doluyken
+aynı sütun arama sonucuna dönüşür. İkisi **aynı anda** ekranda.
+
+- **İki sütun, `.sutunlar`/`.sutun`** (v6.42'nin deseni). `/hastalar`
+  CLAUDE.md'de "yalnızca genişleyen" (bölünmeyen) ekranlar arasında
+  sayılıyordu — o kural `_cyclesatir` satırlarının soldan sağa okunan **tek
+  bir akış** olduğu, bölmenin o akışı kestiği durumlar için. Burada
+  bölünen şey bir liste değil: ay listesi ile Tüm Hastalar **birbirinden
+  bağımsız iki kart** — v6.52'nin ölçüsü ("ekranda birbirinden bağımsız
+  kartlar mı var") tam bunu destekliyor. `/hastalar` artık iki sütun
+  kategorisinde.
+- **Ay/yıl seçimi ve arama terimi birbirini geçirmiyor.** Ay değiştirirken
+  arama terimi (`aygezgin` formunda gizli `ara` alanı ve ok linklerinde
+  `&ara=...`) korunuyor; arama yaparken görüntülenen ay (`arama` formunda
+  gizli `yil`/`ay` alanları) korunuyor. Biri ötekini sıfırlamasın diye.
+- **Arşiv hâlâ ayrı, tam genişlik bir mod** — dokunulmadı. "Bu dosya
+  kapandı" demek, günlük ay/Tüm Hastalar akışının parçası değil.
+- **Geri oku basitleşti**: artık yalnızca arşiv ayrı bir "nereden geldim"
+  sorusu soruyor (`arsiv ise /hastalar, değilse /`). Arama tam sayfa mod
+  olmaktan çıkınca "arama sonucundan çıkma" diye ayrı bir geri hedefi
+  gerekmedi.
+
+## Tüm Hastalar
+
+Yeni sorgu: `durum='aktif'` hastaların tamamı, `ORDER BY ad_soyad` —
+alfabetik. Sınırsız (var olan "son 50" sınırı yalnızca arşiv-arama-boş
+durumunda kalıyor, kullanıcı açıkça "tüm hastalar" istedi). Satır tasarımı
+arama sonucuyla aynı (dosya no, ad, eş, cycle sayısı) — aynı bilgiyi iki
+farklı görünümde iki türlü göstermemek için.
+
+**İsme tıklamak `/hasta/{id}`'yi açıyor** — zaten var olan sayfa,
+değişmedi. Değişen, oraya giden ikinci bir yol: eskiden yalnızca ay
+listesindeki "Hasta kaydı" düğmesinden ya da arama sonucundan gidilirdi,
+şimdi Tüm Hastalar'daki her satır da doğrudan oraya gidiyor.
+
+## "Hasta kaydı" → "Hasta kartı"
+
+Tek bir metin anahtarı (`hasta_kaydi`), tek kullanım yeri
+(`_cyclesatir.html`'in "ay" kipindeki düğme). Kullanıcının kararı: sayfanın
+adı zaten "hasta kaydı" — aynı kelimeyi bir de düğmede kullanmak neyin
+nereye gittiğini belirsizleştiriyordu. "Hasta kartı" o kişinin **tüm
+geçmişine** giden, tek bir kaydı değil bütün dosyayı temsil eden sayfayı
+daha iyi anlatıyor. `/hasta/{id}` ekranının kendi başlığı zaten sade
+"Hasta" — çakışma yok.
+
+## Test edildi
+
+- Geniş ekran ve 390px'te ekran görüntüsü alındı: sol ay listesi, sağ Tüm
+  Hastalar (alfabetik: Ahmet Yıldız, Merve Kaya, Test Hasta, Zeynep
+  Aydın), arama kutusu üstte. Telefonda kaynak sırasıyla alt alta diziliyor.
+- Arama ("Ahmet") → sağ sütun sonuca döndü, **sol sütun (ay listesi)
+  değişmedi**. "Aramayı temizle" görüntülenen ayı koruyarak döndü.
+- Örnek kodu araması (`527078-2026-0001-01`) → doğru satırı buldu; eşleşen
+  hasta yoksa "Arama sonucu" kartı basılmadı (mevcut "gölgeleme" davranışı
+  korundu).
+- Arşiv modu (`?arsiv=1`) tam genişlikte, tek sütun, değişmeden çalışıyor.
+- `_cyclesatir.html`'in "ay" kipindeki düğme artık "Hasta kartı" yazıyor;
+  `/hasta/{id}`'ye gidiyor.
+- Deneme hastaları ve oturum geri alındı; `PRAGMA foreign_key_check` temiz.
