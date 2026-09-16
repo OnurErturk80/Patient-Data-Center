@@ -846,18 +846,27 @@ yok.
   listesini kendi açık renkleriyle çiziyordu — bizim CSS'imiz yalnızca
   kapalı kutuya koyu-tema yazı rengi vermişti, bazı tarayıcılarda liste
   okunmuyordu. Bu satırı kaldırma.
-- **Kart başlıkları (`.kart h2`) `var(--ink)`, büyük ve kalın** (v6.82,
-  kullanıcının isteği — "modül başlıkları küçük görünüyor"). Önceden 13px +
-  `var(--ink-2)` (ikincil/soluk) idi, neredeyse gövde metniyle aynı ağırlıkta
-  görünüyordu. Şimdi 16px + `font-weight:700` + `var(--ink)` (birincil) —
-  **tek kural, uygulamadaki her `<div class="kart"><h2>` bundan besleniyor**,
-  ayrı ayrı büyütmeye gerek yok. `.bilgikart h2` (aşama ekranlarının salt
-  okunur kartı) kendi küçük override'ını taşıyordu, kaldırıldı — artık
-  `.bilgikart` her zaman `.kart` ile birlikte kullanıldığı için (`class="kart
-  bilgikart"`) yeni değerleri miras alıyor. Yeni bir kart başlığı için ayrı
-  font-size/color yazma, bu paylaşılan kuralı boz olarak bırak; yalnızca
-  gerçekten farklı bir vurgu gerekiyorsa (`.snapkart h2`'nin `var(--vurgu)`
-  rengi gibi) küçük bir override ekle.
+- **Kart başlıkları (`.kart h2`) büyük, kalın ve kendi rengi `--baslik`**
+  (v6.82: 13px + `var(--ink-2)` → 16px + `font-weight:700`; v6.83: rengi de
+  `var(--ink)`'ten `var(--baslik)`'e — kullanıcı "başka bir renk, ama
+  okunabilir" istedi). **Tek kural, uygulamadaki her `<div class="kart">
+  <h2>` bundan besleniyor**, ayrı ayrı büyütmeye/renklendirmeye gerek yok.
+  `.bilgikart h2` (aşama ekranlarının salt okunur kartı) kendi küçük
+  override'ını taşıyordu, kaldırıldı — `.bilgikart` her zaman `.kart` ile
+  birlikte kullanıldığı için (`class="kart bilgikart"`) yeni değerleri
+  miras alıyor.
+  - **`--baslik` (#e76491) `--vurgu`'nun (#e0356f) AÇIK tonu, aynısı değil.**
+    Düz `--vurgu` kart zemini `--yuzey` üzerinde yalnızca ~3.75:1 kontrast
+    veriyor — WCAG'in normal metin için istediği 4.5:1'in altında.
+    `--vurgu`'nun HSL açıklığını (~54%→65%) yükseltip hue/doygunluğu
+    (~340°/73%) koruyarak `--baslik` (~5:1 kontrast) türetildi — hem
+    markanın pembesiyle aynı aile hem WCAG AA'yı geçiyor. **Yeni bir vurgu
+    rengi gerekiyorsa böyle türet** (hue sabit, açıklığı `--yuzey`/`--zemin`
+    kontrastına göre ayarla), rastgele bir hex yazma.
+  - Yeni bir kart başlığı için ayrı font-size/color yazma, bu paylaşılan
+    kuralı boz olarak bırak; yalnızca gerçekten farklı bir vurgu gerekiyorsa
+    (`.snapkart h2`'nin düz `var(--vurgu)` rengi gibi — kendi bilinçli
+    vurgusu, dokunulmadı) küçük bir override ekle.
 
 **Ekran kendini tazeler** (v6.54). Klinikte birkaç telefon aynı anda kayıt
 giriyor; masaüstünde açık duran sayfa elle yenilenene kadar eski kalıyordu.

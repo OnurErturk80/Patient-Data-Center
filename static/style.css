@@ -13,6 +13,12 @@
   --vurgu-ac: #3a1f2c;
   --uyari:    #e2924a;
   --uyari-ac: #3a2a17;
+  /* `--vurgu`nun acik tonu: kart basliklari icin (v6.82). Duz `--vurgu`
+     `--yuzey` uzerinde ~3.75:1 kontrast veriyor -- WCAG'in metin icin
+     istedigi 4.5:1'in altinda. Bu ton (~5:1) hem "farkli renk" hem
+     okunabilir; dugmeler/aktif rozet hala duz `--vurgu` kullaniyor,
+     bu yalnizca baslik metni icin. */
+  --baslik:   #e76491;
   /* Ust bant, kimlik bandi, aktif sekme gibi ogeler `--ink`'i degil bunu
      kullaniyor (v6.71) -- kasa hep ayni koyu lacivert kalsin, `--ink`
      (artik acik renk) metin icin ayri tutuluyor. */
@@ -176,7 +182,7 @@ body {
 .kart h2 {
   font-size: 16px;
   font-weight: 700;
-  color: var(--ink);
+  color: var(--baslik);
   margin: 0;
   padding: 12px 14px 8px;
   border-bottom: 1px solid var(--line);

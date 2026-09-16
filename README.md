@@ -7165,3 +7165,39 @@ Biten/Yaklaşan Tedaviler, Durum) ve `/yonetim` (Excel çıktısı, Yedekleme,
 Veritabanı, Bu makinenin klasörleri) ekran görüntüsüyle karşılaştırıldı —
 her kart başlığı artık belirgin şekilde daha büyük ve daha parlak, gövde
 metninden net ayrışıyor.
+
+# v6.83 — kart başlıkları ayrı bir renk aldı
+
+Kullanıcının isteği: "Bu başlıklar başka renkte olsa. Programın arka rengini
+düşünerek okunabilir bir renk yap." v6.82'de kart başlıkları büyütülmüş ama
+rengi gövde metniyle aynı bırakılmıştı (`var(--ink)`) — kullanıcı bunları
+görsel olarak ayrı bir renkte görmek istedi.
+
+## Renk seçimi
+
+Doğrudan `var(--vurgu)` (düğmelerin pembesi) denendi ama hesaplandı: kart
+zemini `--yuzey` (#172230) üzerinde `--vurgu` (#e0356f) yalnızca **~3.75:1**
+kontrast veriyor — WCAG'in normal boyuttaki metin için istediği 4.5:1'in
+altında, "okunabilir" isteğiyle çelişirdi. Aynı ton hue/saturation'da
+tutulup (HSL ~340°/73%) yalnızca **açıklık** kademeli yükseltilerek kontrast
+hesaplandı; %65 açıklıkta (`#e76491`) kontrast **~5.07:1**'e çıkıyor — hem
+markanın pembe rengiyle aynı aile hem WCAG AA'yı geçiyor. Yeni bir CSS
+değişkeni **`--baslik`** olarak eklendi (`--vurgu`'nun düğmeler/aktif
+rozetlerdeki kullanımına dokunmadan, yalnızca kart başlıkları için).
+
+## Ne değişti
+
+- `static/style.css`: `:root`'a `--baslik: #e76491;` eklendi. `.kart h2`
+  `color: var(--ink)` → `color: var(--baslik)`.
+- `.kart h2.gun` (kullanılmayan takvim kalıntısı, README v6.65) ve
+  `.snapkart h2` (`var(--vurgu)`, kendi bilinçli vurgusu) dokunulmadan
+  bırakıldı — kapsam yalnızca genel kart başlığı kuralı.
+
+## Test edildi
+
+Playwright ile `/cycle/{id}` ve `/` ekran görüntüsü alındı: "Zamanlar",
+"Protokol", "Doktor Notu", "Zaman çizelgesi", "Devam Eden Tedaviler",
+"Bugün Biten Tedaviler", "Yaklaşan Tedaviler", "Durum" başlıkları artık
+gövde metninden (beyaz) ayrı, yumuşak pembe bir tonda ve düğmelerin canlı
+pembesinden görsel olarak ayrışıyor. Test oturumu silindi,
+`PRAGMA foreign_key_check` temiz.
