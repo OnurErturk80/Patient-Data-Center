@@ -185,15 +185,21 @@ body {
 .kart h2.gun { font-size: 15px; color: var(--ink); }
 
 /* Ana ekranda uc kart yan yana (v6.67, kullanicinin istegi -- v6.34'te iki
-   kart yan yana, ucuncusu altindaydi). Medya sorgusu yok, sarma var:
-   `flex: 1 1 260px` her karta en az 260px istiyor, sigan kadari ayni satirda
-   duruyor, gerisi alt satira sariyor (CLAUDE.md'deki sutunlu kart deseniyle
-   ayni -- sabit bir kirilma noktasi her genislikte doğru olmuyordu).
-   `align-items: flex-start`: bos bir kart otekinin boyuna uzamasin. */
+   kart yan yana, ucuncusu altindaydi). Medya sorgusu yok, sarma var.
+   `align-items: flex-start`: bos bir kart otekinin boyuna uzamasin.
+
+   Kart basisi 190px (v6.68'de 260'tan dusuruldu) -- `--genis-sutun` yan
+   menuye pay ayirdigi icin 640px'e kadar daralabiliyor (bkz. asagidaki
+   "Iki sutun her ekranin cozumu degil"), 640-1350px arasindaki ekran
+   genisliklerinde (bircok masaustu monitorde/pencere boyutunda gercek bir
+   aralik) 3x260+2x16=812px sigmiyor, kartlar sariyordu -- yalnizca ~1440px+
+   pencerede yan yana duruyorlardi, kullanici 24" ekranda yan yana GORMEDI.
+   190px ile taban ihtiyac 3x190+2x16=602px, guvenceli en dar --genis-sutun
+   (640px) icinde bile sigar -- ucu de artik HER genis ekranda yan yana. */
 .ucsutun {
   display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px;
 }
-.ucsutun > .kart { flex: 1 1 260px; min-width: 0; }
+.ucsutun > .kart { flex: 1 1 190px; min-width: 0; }
 
 /* Kart yiginini iki sutuna ayirir (v6.42). Genis ekranda tek sutun 640px'te
    kaliyordu: iki yanda ~400'er piksel bos duruyor, sayfa bosuna uzuyordu.

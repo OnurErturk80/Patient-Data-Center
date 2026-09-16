@@ -6561,3 +6561,35 @@ Tedaviler) yan yana sığsın — v6.34'te ilk ikisi yan yana, üçüncüsü alt
 - Androloji ve cycle ekranı 200 döndü (sperm örneği/taşıyıcı test verisi
   yoktu, şablon hatası olup olmadığı bu şekilde kontrol edildi).
 - `PRAGMA foreign_key_check` temiz. Deneme oturumu geri alındı.
+
+# v6.68 — üç sütun 24" ekranda yan yana durmuyordu (v6.67'nin düzeltmesi)
+
+Kullanıcı v6.67'nin üç sütununu 24" ekranında test etti: **yan yana durmadılar**.
+Sebep hesap hatasıydı, hemen bulundu.
+
+- Ana ekranın genişliği `--genis-sutun` ile veriliyor:
+  `max(640px, min(940px, calc(100vw - 500px)))` — yan menüye pay ayırdığı için
+  **640px'e kadar daralabiliyor**, yalnızca `100vw ≥ 1440px` olunca 940px'lik
+  tavana çıkıyor (v6.42'den beri böyle, `.kap.genis` ve kimlik bandı hep bunu
+  kullanıyor).
+- v6.67'de kartlara verilen `flex: 1 1 260px` en az `3×260 + 2×16 = 812px`
+  istiyordu. **812px, 640-1350px arası viewport genişliklerinin hiçbirine
+  sığmıyordu** — yani tarayıcı penceresi ~1100-1350px olan (çoğu 24" monitörde
+  gerçekçi bir pencere/ölçekleme durumu) her kullanıcıda kartlar sarıp alt
+  satıra düşüyordu. Yalnızca pencere ~1440px'i geçince (tam ekran geniş
+  monitör) yan yana duruyorlardı — v6.67'de test ederken kullanılan genişlikler
+  (1400, 900, 700, 390) bu dar-orta aralığı hiç yoklamamıştı, kusur öyle
+  kaçtı.
+- **Düzeltme**: kart basisi 260px → **190px**. Taban ihtiyaç artık
+  `3×190 + 2×16 = 602px` — `--genis-sutun`'un garantili **en dar** hali olan
+  640px'in bile içinde kalıyor, yani üç kart artık **her** genişlikte
+  (≥1100px, yan menünün göründüğü eşik) yan yana duruyor; pencere daraldıkça
+  yalnızca kart içindeki metinler sarıyor, sütun sayısı değişmiyor.
+
+## Test edildi
+
+- 1100, 1200, 1280, 1366, 1536, 1920px genişliklerinde ekran görüntüsü —
+  hepsinde üç kart yan yana. 1100px'te (en dar "geniş ekran" eşiği) "Bugün
+  Biten Tedaviler" başlığı iki satıra sarıyor ama sütun düzeni bozulmuyor.
+  v6.67'nin testinde atlanan tam bu ara genişlik aralığı hedeflendi.
+- Deneme oturumu geri alındı.

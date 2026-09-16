@@ -350,14 +350,20 @@ Sonra sayı özeti, en altta menü.
 Düzen (v6.34'te iki kart, v6.67'de kullanıcının isteğiyle üçe çıktı):
 **Devam Eden Tedaviler, Bugün Biten Tedaviler ve Yaklaşan Tedaviler üçü de
 yan yana.** `.ucsutun` **medya sorgusu kullanmıyor** — her kart `flex: 1 1
-260px` istiyor, sığan kadarı aynı satırda duruyor, gerisi sarıp alt satıra
+190px` istiyor, sığan kadarı aynı satırda duruyor, gerisi sarıp alt satıra
 iniyor (aşama ekranlarındaki "sabit kırılma noktası yerine sarma" deseninin
 aynısı, aşağıdaki "İki sütun her ekranın çözümü değil" bölümüne bak). Sıra
-HTML sırasıyla aynı, telefonda kendiliğinden tek sütuna düşüyor (260px çoğu
-telefon genişliğine sığmıyor). Ana ekran `kap genis` sınıfını alıyor, sütunu
-940px'e kadar genişliyor ama yan menüyle çarpışmasın diye
-`calc(100vw - 500px)` ile sınırlı. Yeni bir kart eklersen bu üç sütunu
-şişirme, altına koy.
+HTML sırasıyla aynı, telefonda kendiliğinden tek sütuna düşüyor. **Basis
+190px, 260 değil** (v6.68'de düşürüldü) — `--genis-sutun` yan menüye pay
+ayırdığı için 640px'e kadar daralabiliyor, 260'ta taban ihtiyaç
+(3×260+2×16=812px) 640-1350px arası viewport'ların hiçbirine sığmıyordu;
+kullanıcı 24" ekranında kartların yan yana durmadığını bildirdi. 190'da
+taban ihtiyaç (602px) garantili en dar `--genis-sutun`'un (640px) bile
+içinde — **her** genişlikte (≥1100px) üçü yan yana kalıyor. Ana ekran
+`kap genis` sınıfını alıyor, sütunu 940px'e kadar genişliyor ama yan
+menüyle çarpışmasın diye `calc(100vw - 500px)` ile sınırlı. Yeni bir kart
+eklersen bu üç sütunu şişirme, altına koy; kart basisini büyütürsen aynı
+sığma hesabını (3×basis + 2×16 ≤ 640) tekrar yap.
 
 > v6.18'de bu ekranda **hasta adı yoktu** (ekrana bakan herkes listeyi
 > görüyordu). Kuralı v6.28'de **kullanıcı kendi isteğiyle gevşetti**: adsız
