@@ -6633,3 +6633,18 @@ basıyordu, tarayıcı ise `style.css`'i eski haliyle önbellekten okuyordu.
 - Kullanıcının kendi makinesinde de aynı teşhis (CSS'te `ucsutun` yok, HTML'de
   var) doğrulanarak bu sürümün gerçek sebebi bulundu — tahminle değil.
 - Deneme oturumu geri alındı.
+
+# v6.70 — giriş ekranının üst başlığı program adı
+
+Kullanıcının isteği: `/giris` ekranının en üstünde (koyu bant) "Patient Data
+Center" yazsın. Üst bant zaten `base.html`'de tek yerden basılıyor
+(`{% block ustbaslik %}`, varsayılanı `metin("program_adi")`) — `giris.html`
+bunu kendi başlığıyla (`metin("giris")`, "Giriş") eziyordu. Override kaldırıldı,
+ekran artık `ana.html`'in de yaptığı gibi `program_adi`'yi açıkça yazıyor.
+`metin("giris")` anahtarı artık hiçbir şablonda kullanılmıyor; kaldırılmadı
+— çevrilmiş bir metin, ileride yine lazım olabilir, tutmanın maliyeti yok.
+
+## Test edildi
+
+- `curl` ile `/giris`'in `<h1>`'i "Patient Data Center" döndürdüğü
+  doğrulandı, telefon genişliğinde (390px) ekran görüntüsüyle de görüldü.
