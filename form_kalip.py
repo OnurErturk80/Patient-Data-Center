@@ -200,6 +200,20 @@ def izgara_kur(ncol: int, nsatir: int, birlesmeler, oku):
                 continue
             rs, cs = yayilim.get((r, c), (1, 1))
             metin, stil = oku(r, c)
+            if rs > 1 or cs > 1:
+                # Birleşmiş kutunun sağ/alt kenarı ANCHOR'da değil, kutunun
+                # en sağ/en alt hücresinin KENDİ kenarlığında duruyor --
+                # Excel birleşmiş hücrelerde bile her hücrenin kendi
+                # kenarlığını tutuyor, birleştirme onu devretmiyor. `kapali`
+                # bu hücreleri atladığı için bilgi hiç okunmuyordu (v6.77'de
+                # kullanıcının Excel çıktısıyla bulundu: kutuların sağ
+                # tarafı kesikti). Aynı fikir aşağıdaki colspan-katılma
+                # dalında zaten vardı (bkz. `_katilir`), gerçek birleşmeler
+                # için de uygulanıyor.
+                _, sag_stil = oku(r, c + cs - 1)
+                _, alt_stil = oku(r + rs - 1, c)
+                ust, alt, sol, sag = stil[5]
+                stil = stil[:5] + ((ust, alt_stil[5][1], sol, sag_stil[5][3]),)
 
             onceki = hucreler[-1] if hucreler and not bos else None
             onc_stil = satir_stilleri[-1] if onceki else None
@@ -346,6 +360,18 @@ def yerlesim(kaynak, sayfa_adi: str, deger=None, ek=None, alan=None) -> dict:
                 stil_no)
             if rs > 1 or cs > 1:
                 birlesik.append(f"{adres}:{_adres(r + rs - 1, c + cs - 1)}")
+                # Excel kenarlığı HÜCRE bazında çiziyor, birleştirme onu
+                # devretmiyor -- yalnızca sol üstteki (anchor) hücreye stil
+                # verilince kutunun sağ ve alt kenarı hiç çizilmiyordu
+                # (v6.77'de kullanıcının ekran görüntüsüyle bulundu: "hücreler
+                # sağ tarafları kesik"). Kapladığı hücrelerin hepsine aynı
+                # stili ver -- metin boş kalsın, anchor zaten yazıyı taşıyor.
+                # İç kenarlar merge içinde görünmez, tekrar çizilmeleri zararsız.
+                for rr in range(r, r + rs):
+                    for cc in range(c, c + cs):
+                        if rr == r and cc == c:
+                            continue
+                        hucreler[_adres(rr, cc)] = ("", stil_no)
 
     gorseller = []
     for g in k.get("gorseller", []):

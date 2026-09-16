@@ -487,6 +487,17 @@ kalıptan**: `form_kalip.json`.
   `<...>` eklersen sırayı ECMA-376 `CT_Worksheet` sırasıyla karşılaştır,
   tahminle ekleme — `openpyxl`'in istisna vermemesi yetmez (o sırayı sıkı
   denetlemiyor), gerçek Excel'de açıp dener gibi düşün.
+- **Birleşmiş bir kutunun sağ/alt kenarlığı ANCHOR'da değil, kutunun en
+  sağ/en alt hücresinin KENDİ kenarlığında** (v6.77). Excel birleştirmede
+  her hücrenin kendi sınırını korur, devretmez — `form_kalip.izgara_kur()`
+  birleşmenin kapladığı hücreleri (anchor hariç) atlıyordu, bu yüzden Excel
+  çıktısında kutuların sağ tarafı kesik görünüyordu (kullanıcı fark etti).
+  Düzeltme `izgara_kur()`'da, hem `kalip_uret.py` hem `xlsx_oku.py`'yi
+  kapsıyor — ayrı bir kopya yazma. **`form_kalip.json` türetilmiş bir
+  dosya**: kenarlık/ızgara mantığında yeni bir hata bulursan `izgara_kur()`'u
+  düzelt, sonra `python3 formlar_asil/kalip_uret.py <ozet.xls> <artlab.xls>`
+  ile kalıbı yeniden üret — JSON'ı elle düzenleme, bu "kalıba dokunma"
+  kuralını çiğnemez çünkü değişen kâğıt değil, aracın kendi hatası.
 - Form **iki dilde de Türkçe** basılır: kurum belgesi, arayüz metni değil.
 
 **Laboratuvar kendi formunu yükleyebilir** (v6.40, `goc_029`). Gömülü iki form

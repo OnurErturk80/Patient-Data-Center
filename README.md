@@ -6868,3 +6868,63 @@ pageSetup → drawing` — şemanın istediği sıra.
   hatasına o kadar sıkı bakmıyor), ama yeni dosyada resim, sayfa boyutu ve
   birleşik hücreler doğru okundu.
 - Deneme oturumu geri alındı.
+
+# v6.77 — Excel'deki form kutularının sağ/alt kenarı eksikti
+
+Kullanıcı v6.76'yı denedi: hata penceresi gitmişti ama "formlar orijinaline
+tam anlamıyla benzemiyor, Excel hücreleri sağ tarafları kesik" dedi.
+
+## Sebep
+
+Kâğıttaki her kutu (örn. "Dosya No" kutusu) Excel'de birden çok hücrenin
+**birleştirilmesiyle** kuruluyor (`form_kalip.izgara_kur()`). Birleşmiş bir
+kutunun görünen kenarlığı Excel'de **anchor** (sol üst) hücrenin değil,
+kutunun en sağındaki/en alttaki hücrenin **kendi** kenarlık bilgisinde
+duruyor — Excel birleştirmede her hücrenin kendi sınırını korur, devretmez.
+`izgara_kur()` birleşmenin **kapladığı** hücreleri (anchor hariç) hiç
+okumuyordu (`kapali` listesindeydi, atlanıyordu) — yani kutunun sağ/alt
+kenar bilgisi kalıba hiç girmemişti. v6.76'nın düzeltmesi (kapladığı
+hücrelere de anchor'ın stilini vermek) bunu çözmüyordu, çünkü anchor'ın
+kendi stili zaten "sağ" bilgisini hiç taşımıyordu — o bilgi hep en sağdaki
+hücrenin kendi `xf.border`'ındaydı.
+
+Kod tabanında aynı fikrin **zaten** bir örneği vardı: boş hücreler soldakine
+"colspan" ile katılırken (`_katilir`) kod son katılan hücrenin sağ kenarını
+alıyordu (`stil[5][3]`). Gerçek birleşmeler (`birlesmeler`, Excel'in kendi
+`MergedCells`'i) için aynı şey yapılmıyordu.
+
+## Düzeltme
+
+`izgara_kur()`'da bir hücre birleşmenin anchor'ıysa (`rs>1 veya cs>1`),
+kutunun en sağ hücresinin **kendi** sağ kenarını ve en alt hücresinin
+**kendi** alt kenarını okuyup anchor'ın kenar bilgisiyle birleştiriyor.
+Bu, hem `kalip_uret.py` (orijinal `.xls`'ten) hem `xlsx_oku.py` (yüklenen
+`.xlsx`'ten) tarafından paylaşılan **tek** fonksiyonda olduğu için ikisi de
+düzeldi, ikinci bir kopya yazılmadı.
+
+**`form_kalip.json` yeniden üretildi** — bu bir çalışma zamanı hesabı değil,
+önceden çıkarılmış statik bir dosya (`kalip_uret.py`nin ürettiği). Düzeltme
+yalnızca ARACIN mantığını değiştirdiği için, aracı `formlar_asil/`'deki
+orijinal iki `.xls` üstünde tekrar çalıştırıp kalıbı yeniden ürettim
+(`python3 formlar_asil/kalip_uret.py ...`) — CLAUDE.md'nin kuralı zaten bu:
+"kalıp elle yazılmadı... değişirse aracı tekrar çalıştır." Amblem PNG'si
+etkilenmedi (bit bit aynı çıktı).
+
+## Test edildi
+
+- `openpyxl` (yalnızca test için, projeye eklenmedi) ile birleşmiş
+  hücrelerin *hem* anchor *hem* en sağ/en alt köşesinin kenarlık bilgisi
+  karşılaştırıldı: düzeltmeden önce köşe hücrede `R=None`/`B=None`,
+  sonrasında kâğıttaki çizgiyle eşleşen stil (`thin`/`dashed`) görünüyor.
+  Birkaç kutunun köşesi hâlâ kenarlıksız çıktı — kâğıt aslında da o
+  alanların kutusu yok, bu doğru davranış.
+  - LibreOffice ile görsel karşılaştırma **denendi ama bu ortamda
+    çalışmadı** — headless LibreOffice bu sandbox'ta hiçbir `.xlsx`'i (hatta
+    `openpyxl`'in kendi ürettiği basit bir dosyayı bile) açamadı; bu ortamın
+    kendi eksikliği, üretilen dosyanın bozukluğu değil (ayrıca doğrulandı).
+  - Ekrandaki/yazdırılabilir sürüm (`/form/ozet/{id}`) `izgara_kur()`'u
+    paylaştığı için ekran görüntüsüyle ayrıca kontrol edildi — hâlâ doğru
+    görünüyor, bu değişiklik yalnızca Excel'in kenarlık hesabını etkiliyor.
+- Zip/XML yapısı yine kontrol edildi: geçerli XML, yinelenen hücre adresi
+  yok, `openpyxl` istisnasız açıyor.
+- Deneme oturumu geri alındı, `PRAGMA foreign_key_check` temiz.
