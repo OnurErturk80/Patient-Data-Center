@@ -2676,6 +2676,22 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
         if oosit:
             sp = next((o for o in kayitli if str(o["cycle_sira_no"]) == oosit), None)
         sp = sp or kayitli[0]
+
+    # Yumurta Dondurma'da (oosit_cryo) ICSI aşaması hiç yok, o yüzden
+    # maturasyon/bulgu değerlendirmesi burada, dondurmadan önce yapılıyor
+    # (kullanıcının isteği). ivf_icsi'de bu ekranda gösterilmiyor -- o
+    # değerlendirme zaten ICSI ekranında, iki yerde aynı soruyu sormamak için.
+    mat, secili_bulgular = None, set()
+    if sp and c["cycle_tipi"] == "oosit_cryo":
+        mat = db.tek(
+            "SELECT * FROM olay WHERE specimen_id=? AND tip='maturasyon_kontrolu' "
+            "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sp["id"],)
+        )
+        secili_bulgular = {r["bulgu_kodu"] for r in db.sorgu(
+            "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='denudasyon'",
+            (sp["id"],)
+        )}
+
     return sablon.TemplateResponse(
         request, "denudasyon.html",
         {
@@ -2693,6 +2709,10 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
          "klasor": str(goruntuler.kaynak_klasor()),
             "klasor_var": goruntuler.kaynak_klasor().is_dir(),
             "bos_dosyalar": goruntuler.bos_dosyalar(),
+            "mat": mat, "secili_bulgular": secili_bulgular,
+            "maturasyonlar": db.liste("maturasyon"),
+            "bulgular": db.liste("bulgu_icsi"),
+            "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
         },
     )
 
@@ -6304,6 +6324,50 @@ async def specimen_taraf(request: Request, specimen_id: str):
     db.yaz("UPDATE specimen SET taraf=? WHERE id=?", (yeni, specimen_id))
     return RedirectResponse(f.get("geri") or f"/cycle/{sp['cycle_id']}", status_code=303)
 
+
+@uygulama.post("/specimen/{specimen_id}/oosit-degerlendirme")
+async def oosit_degerlendirme_kaydet(request: Request, specimen_id: str):
+    """Yumurta Dondurma'da (oosit_cryo) dondurmadan önce maturasyon/bulgu.
+
+    ICSI ekranındaki `maturasyon_kontrolu` olayı ve `specimen_bulgu` ile
+    aynı mekanizma -- yalnızca `asama='denudasyon'` ile ayrılıyor ki ICSI'nin
+    kendi bulgularıyla karışmasın (bu ekran zaten yalnızca oosit_cryo'da
+    kullanılıyor, ivf_icsi'de aynı soru ICSI ekranında soruluyor).
+    """
+    f = await request.form()
+    sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+
+    kid = request.state.kullanici["id"]
+    simdi = islem_zamani(f.get("islem_zamani"))
+
+    mat = f.get("mat_deger") or None
+    if mat:
+        olay_kaydet_veya_guncelle(
+            specimen_id, sp["cycle_id"], "maturasyon_kontrolu",
+            {"mat_deger": mat}, kid, simdi,
+        )
+
+    yeni_bulgular = set(f.getlist("bulgu"))
+    eski_bulgular = {r["bulgu_kodu"] for r in db.sorgu(
+        "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='denudasyon'",
+        (specimen_id,))}
+    if yeni_bulgular != eski_bulgular:
+        guvenlik.degisiklikleri_yaz(
+            "specimen_bulgu", specimen_id,
+            {"bulgu": ", ".join(sorted(eski_bulgular))},
+            {"bulgu": ", ".join(sorted(yeni_bulgular))}, kid,
+        )
+        db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? AND asama='denudasyon'",
+               (specimen_id,))
+        for b in sorted(yeni_bulgular):
+            db.yaz("INSERT INTO specimen_bulgu (specimen_id, asama, bulgu_kodu, "
+                   "zaman, kullanici_id) VALUES (?,'denudasyon',?,?,?)",
+                   (specimen_id, b, simdi, kid))
+
+    return RedirectResponse(f.get("geri") or f"/cycle/{sp['cycle_id']}/denudasyon",
+                            status_code=303)
 
 
 # ----------------------------------------------------------------- gebelik sonucu

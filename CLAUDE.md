@@ -154,6 +154,19 @@ Aşama sırası ve tip-aşama eşlemesi `app.py` içinde `ASAMA_SIRASI` ve
 `TIP_ASAMALARI`. Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
 hazırlık sonrası) yalnızca `ivf_icsi`'de. Şema/listeler: README v6.2, `goc_019`.
 
+**`oosit_cryo`'da maturasyon/bulgu değerlendirmesi denüdasyon ekranında
+yapılır** (v6.96, kullanıcının isteği). `ivf_icsi`'de bu soru ICSI
+ekranında soruluyor; `oosit_cryo`'da ICSI aşaması hiç yok, dondurmadan
+önce sorulacak başka yer olmadığı için denüdasyona kondu — kullanıcıya
+soruldu, "denüdasyon ekranı" dedi. Aynı mekanizma: `olay.tip=
+'maturasyon_kontrolu'` + `specimen_bulgu` (`bulgu_icsi` listesi, ICSI'ye
+özel değil — oositin kendi morfolojisi), yalnızca
+`specimen_bulgu.asama='denudasyon'` ile ICSI'ninkinden (`asama='icsi'`)
+ayrılıyor. Denüdasyon ekranı bu bölümü yalnızca `c.cycle_tipi ==
+'oosit_cryo'` iken basıyor — `ivf_icsi`'de aynı soru iki yerde
+sorulmasın diye. Yeni bir `FET_TIPLERI` dışı cycle tipi eklersen ve o
+tipte de ICSI aşaması yoksa aynı ihtiyaç doğar, aynı deseni kullan.
+
 **`fet` ve `fet_kultur`'da embriyo BU cycle'dan gelmez** — `FET_TIPLERI`
 sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)` bunu tek yerden kontrol
 ediyor (v6.62). Taşıyıcı/embriyo listeleri `specimen.cycle_id` ile değil,

@@ -7945,3 +7945,51 @@ telefonlu bir erkek hasta + sperm dondurma kaydı tek seferde açılıp
 `hasta.telefon`'un doğru yazıldığı veritabanından kontrol edildi. Tüm
 şablonlar hatasız derlendi. Test hastaları, taşıyıcı kaydı ve oturum
 jetonu temizlendi.
+
+# v6.96 — Yumurta Dondurma'da dondurmadan önce maturasyon/bulgu
+
+Kullanıcının isteği: "Yumurta dondurmada yumurtanın maturasyonu ve
+bulguları girilecek yerler olsun. Dondurmadan önce bu bilgileri
+girebileyim." Nereye ekleneceği soruldu, kullanıcı **denüdasyon
+ekranını** seçti — ICSI'deki değerlendirmeyle aynı klinik an, sadece
+`oosit_cryo`'da ICSI aşaması hiç olmadığı için o soru hiç sorulmuyordu.
+
+## Ne değişti
+
+- **Yeni kod yolu değil, ICSI'nin kullandığı mekanizmanın aynısı**:
+  `olay.tip='maturasyon_kontrolu'` (MII/MI/GV/Dejenere/Atretik) ve
+  `specimen_bulgu` (aynı `bulgu_icsi` listesi — zona/sitoplazma/polar
+  cisim gibi morfolojik bulgular, ICSI'ye özel değil, oositin kendisine
+  ait). Yalnızca `specimen_bulgu.asama='denudasyon'` ile ayrılıyor ki
+  ICSI'nin kendi bulgularıyla (asama='icsi') hiç karışmasın.
+- **Yalnızca `oosit_cryo`'da görünür.** `ivf_icsi`'de bu soru zaten ICSI
+  ekranında soruluyor — iki yerde aynı soruyu sormamak için denüdasyon
+  ekranı `c.cycle_tipi == 'oosit_cryo'` dışında bu bölümü hiç basmıyor.
+- **`app.py`**: `denudasyon()` GET'i artık seçili oosit için `mat` ve
+  `secili_bulgular`'ı da yüklüyor (yalnızca oosit_cryo'da anlamlı, ötekinde
+  hesaplansa da şablon basmıyor). Yeni rota
+  **`POST /specimen/{id}/oosit-degerlendirme`** — `icsi_kaydet()`'in
+  maturasyon/bulgu kaydetme kısmının aynısı, enjeksiyon bölümü olmadan.
+- **`denudasyon.html`**: çalışma kipinde "Toplandığı over" kartının hemen
+  altına yeni bir "Oosit değerlendirmesi" kartı geldi — maturasyon
+  düğmeleri (ICSI'deki `.secenek` düğmeleriyle birebir aynı görünüm) ve
+  bulgular için alt sayfa (bottom sheet) modalı, ICSI'nin
+  `#bulguAc`/`#bulguTabaka` desenin bire bir kopyası. Salt okunur görünümde
+  (`bk.kart()`) de aynı iki satır ekleniyor, `bk.bulgu_metni()` makrosuyla.
+  **İşlem saatleri elle girilebilir** kuralı burada da geçerli, saat alanı
+  var. Yeni JS bloğu tuzak #10'a uyuyor:
+  `if (!document.getElementById('oositdegform')) return;`.
+
+## Test edildi
+
+Test amaçlı bir `oosit_cryo` cycle (2 oosit) açılıp denüdasyonun çalışma
+kipinde "Oosit değerlendirmesi" kartının yalnızca bu tedavi tipinde
+göründüğü, `ivf_icsi` cycle'da hiç basılmadığı doğrulandı. Maturasyon
+"MII" + iki bulgu ("Vakuol", "Geniş PVS") kaydedilip veritabanında
+`olay.tip='maturasyon_kontrolu'` ve `specimen_bulgu.asama='denudasyon'`
+satırlarının doğru yazıldığı kontrol edildi; salt okunur görünümde
+"Maturasyon: MII" ve "Oosit bulguları: Vakuol, Geniş PVS" doğru çıktı;
+çalışma kipine dönüldüğünde radyo düğmesi ve bulgu çipleri önceden
+doğru işaretli geldi. Playwright ile hem çalışma hem görüntüleme kipi
+hem bulgu modalı ekran görüntüsüyle doğrulandı. Test cycle'ı, oositleri,
+arşiv klasörü ve oturum jetonu temizlendi.

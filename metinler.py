@@ -512,6 +512,8 @@ METINLER = {
     "maturasyon": {"tr": "Maturasyon", "en": "Maturation"},
     "oosit_bulgulari": {"tr": "Oosit bulguları", "en": "Oocyte findings"},
     "bulgu_yok": {"tr": "Bulgu yok", "en": "No findings"},
+    "oosit_degerlendirmesi": {"tr": "Oosit değerlendirmesi",
+                              "en": "Oocyte assessment"},
     "temizle": {"tr": "Temizle", "en": "Clear"},
     "tamam": {"tr": "Tamam", "en": "Done"},
     "enjeksiyon": {"tr": "Enjeksiyon", "en": "Injection"},

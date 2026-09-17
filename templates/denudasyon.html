@@ -223,6 +223,72 @@
     </div>
   </form>
 </div>
+
+{% if c.cycle_tipi == 'oosit_cryo' %}
+{# Yumurta Dondurma'da ICSI aşaması yok; maturasyon/bulgu değerlendirmesi
+   dondurmadan önce burada yapılıyor (kullanıcının isteği). ivf_icsi'de
+   aynı soru ICSI ekranında sorulduğu için burada hiç gösterilmiyor. #}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("oosit_degerlendirmesi") }}</h2>
+  <form method="post" action="/specimen/{{ sp.id }}/oosit-degerlendirme" id="oositdegform">
+    <input type="hidden" name="geri" value="{{ bu_yol }}">
+    <div class="alan">
+      <label>{{ metin("maturasyon") }}</label>
+      <div class="secenek" role="group">
+        {% for m in maturasyonlar %}
+        <label class="sec {% if mat and mat.mat_deger == m.kod %}secili{% endif %}">
+          <input type="radio" name="mat_deger" value="{{ m.kod }}"
+                 {% if mat and mat.mat_deger == m.kod %}checked{% endif %}>
+          <span>{{ m.etiket }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="alan" style="border-top:1px solid var(--line)">
+      <label for="bulguAc">{{ metin("oosit_bulgulari") }}</label>
+      <button type="button" class="acici" id="bulguAc">
+        <span id="bulguOzet">{{ metin("bulgu_yok") }}</span>
+      </button>
+    </div>
+
+    <div class="tabaka" id="bulguTabaka" hidden>
+      <div class="tperde" data-kapat></div>
+      <div class="tsayfa" role="dialog" aria-modal="true" aria-labelledby="tbaslik">
+        <div class="tust">
+          <span id="tbaslik">{{ metin("oosit_bulgulari") }}</span>
+          <button type="button" class="tkapat" data-kapat aria-label="{{ metin('kapat') }}">&times;</button>
+        </div>
+        <div class="tgovde">
+          <div class="cipler">
+            {% for b in bulgular %}
+            <label class="cip {% if b.kod in secili_bulgular %}secili{% endif %}">
+              <input type="checkbox" name="bulgu" value="{{ b.kod }}"
+                     {% if b.kod in secili_bulgular %}checked{% endif %}>
+              <span>{{ b.etiket }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="talt">
+          <button type="button" class="dugme ikincil" id="bulguTemizle">{{ metin("temizle") }}</button>
+          <button type="button" class="dugme" data-kapat>{{ metin("tamam") }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="alan" style="border-top:1px solid var(--line)">
+      <label for="mat_islem_zamani">{{ metin("islem_saati") }}</label>
+      {% set kz = mat.zaman if mat else None %}
+      <input id="mat_islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local"
+             value="{{ kz[:16]|replace(' ','T') if kz else simdi }}">
+    </div>
+
+    <button class="dugme" type="submit" style="margin-top:0">{{ metin("kaydet") }}</button>
+  </form>
+</div>
+{% endif %}
+
 <a class="dugme ikincil tehlike-bag" href="/specimen/{{ sp.id }}/sil">{{ metin("oositi_sil") }}</a>
 <a class="dugme" href="{{ kok }}?oosit={{ sp.cycle_sira_no }}"
    style="margin-top:16px">{{ metin("bitir") }}</a>
@@ -237,7 +303,10 @@
         if sp.taraf else None),
        (metin("kare_sayisi"), sp.kare),
        (metin("ornek_kodu_baslik"), ornek_kodu(sp.id)),
-     ],
+     ] + ([
+       (metin("maturasyon"), liste_etiket('maturasyon', mat.mat_deger) if mat else None),
+       (metin("oosit_bulgulari"), bk.bulgu_metni(bulgular, secili_bulgular)),
+     ] if c.cycle_tipi == 'oosit_cryo' else []),
      kok ~ '?duzenle=oosit&oosit=' ~ sp.cycle_sira_no,
      metin("kaydedildi_rozet")) }}
 {% endif %}
@@ -253,6 +322,60 @@ document.querySelectorAll('.stripkare').forEach(function (b) {
     if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
   });
 });
+</script>
+
+<script>
+(function () {
+  // Yalnızca oosit_cryo'nun çalışma kipinde basılıyor -- yoksa alttaki
+  // getElementById(...) null döner, addEventListener patlar (tuzak #10).
+  if (!document.getElementById('oositdegform')) return;
+  document.querySelectorAll('#oositdegform .secenek').forEach(function (grup) {
+    grup.addEventListener('change', function () {
+      grup.querySelectorAll('.sec').forEach(function (l) {
+        l.classList.toggle('secili', l.querySelector('input').checked);
+      });
+    });
+  });
+  var tabaka = document.getElementById('bulguTabaka');
+  var ozet = document.getElementById('bulguOzet');
+
+  function ozetGuncelle() {
+    var secili = Array.prototype.slice
+      .call(tabaka.querySelectorAll('.cip input:checked'))
+      .map(function (i) { return i.parentNode.querySelector('span').textContent; });
+    if (!secili.length) {
+      ozet.textContent = {{ metin("bulgu_yok")|tojson }};
+      ozet.classList.remove('dolu');
+    } else {
+      ozet.textContent = secili.join(', ');
+      ozet.classList.add('dolu');
+    }
+  }
+  tabaka.querySelectorAll('.cip input').forEach(function (i) {
+    i.addEventListener('change', function () {
+      i.closest('.cip').classList.toggle('secili', i.checked);
+      ozetGuncelle();
+    });
+  });
+  ozetGuncelle();
+
+  function tabakaAc() { tabaka.hidden = false; document.body.classList.add('kilitli'); }
+  function tabakaKapat() { tabaka.hidden = true; document.body.classList.remove('kilitli'); }
+  document.getElementById('bulguAc').addEventListener('click', tabakaAc);
+  tabaka.querySelectorAll('[data-kapat]').forEach(function (e) {
+    e.addEventListener('click', tabakaKapat);
+  });
+  document.getElementById('bulguTemizle').addEventListener('click', function () {
+    tabaka.querySelectorAll('.cip input:checked').forEach(function (i) {
+      i.checked = false;
+      i.closest('.cip').classList.remove('secili');
+    });
+    ozetGuncelle();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !tabaka.hidden) tabakaKapat();
+  });
+})();
 </script>
 
 {{ iy.kutu(c.id, "denudasyon") }}
