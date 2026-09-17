@@ -28,6 +28,12 @@
 {% set secim_oneki = kok ~ ('?duzenle=oosit&oosit=' if calisma else '?oosit=') %}
 {% set bu_yol = kok ~ ('?duzenle=oosit' if calisma else '')
                 ~ (('&' if calisma else '?') ~ 'oosit=' ~ sp.cycle_sira_no if sp else '') %}
+{# OPU'da toplanan oosit sayısı kadar, henüz oluşturulmamış oositleri
+   fotoğrafsız açan toplu düğme (kullanıcının isteği) -- her birini tek tek
+   "Fotoğrafsız oosit ekle" ile açmak yerine 1..N hepsi hazır, fotoğraf
+   sonra tek tek eklenir. #}
+{% set opu_toplam = (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) %}
+{% set eksik = opu_toplam - kayitli|length %}
 
 {% if hata %}<div class="uyari">{{ metin(hata) }}</div>{% endif %}
 
@@ -45,19 +51,6 @@
   {{ metin("kopyalama_yarim") }}
 </div>
 {% endif %}
-
-{# --- OPU'da toplanan oosit: denüdasyondan önce girilen sayı, burada
-     başlık/bilgi olarak görünsün diye (kullanıcının isteği). Salt okunur --
-     düzenle_yolu verilmiyor, değiştirmek OPU ekranının işi. #}
-{{ bk.kart(
-     metin("opu_ozet_baslik"),
-     [
-       (metin("sag_overden_oosit"), c.opu_sag_oosit),
-       (metin("sol_overden_oosit"), c.opu_sol_oosit),
-       (metin("toplanan_oosit"),
-        (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0)
-        if c.opu_sag_oosit is not none or c.opu_sol_oosit is not none else None),
-     ]) }}
 
 {# --- Denüdasyon saati --- #}
 {% if c.denudasyon_zamani and duzenle != "saat" %}
@@ -152,6 +145,15 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
+
+{# --- OPU sayısınca oosit hazırla: toplu, fotoğrafsız --- #}
+{% if eksik > 0 %}
+<form method="post" action="/cycle/{{ c.id }}/denudasyon" style="margin-top:16px">
+  <input type="hidden" name="eylem" value="hepsi">
+  <button class="dugme" type="submit">{{ say("n_oosit_hazirla", eksik) }}</button>
+  <div class="ipucu">{{ metin("oosit_hazirla_ipucu") }}</div>
+</form>
 {% endif %}
 
 {# --- Kaydedilen oositler: iki kipte de görünür --- #}

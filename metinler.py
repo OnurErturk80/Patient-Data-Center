@@ -954,11 +954,18 @@ METINLER = {
     "kaydedilen_oositler": {"tr": "Kaydedilen oositler", "en": "Recorded oocytes"},
     "henuz_oosit_kaydedilmedi": {"tr": "Henüz oosit kaydedilmedi.",
                                  "en": "No oocytes recorded yet."},
+    "n_oosit_hazirla": {"tr": "{n} oosit için kayıt hazırla",
+                        "en": "Prepare {n} oocyte records"},
+    "n_oosit_hazirla_tekil": {"tr": "{n} oosit için kayıt hazırla",
+                              "en": "Prepare {n} oocyte record"},
+    "oosit_hazirla_ipucu": {
+        "tr": "OPU'da toplanan sayı kadar, fotoğrafsız oosit kaydı açar "
+              "(Oosit 1, Oosit 2, ...). Fotoğrafı sonra tek tek ekleyebilirsin.",
+        "en": "Opens as many photo-less oocyte records as OPU collected "
+              "(Oocyte 1, Oocyte 2, ...). You can add photos to each one later."},
 
     # ---- cycle detay ----
     "toplanan_oosit": {"tr": "Toplanan oosit", "en": "Oocytes collected"},
-    "opu_ozet_baslik": {"tr": "OPU'da toplanan oosit",
-                         "en": "Oocytes collected at OPU"},
     "sag": {"tr": "sağ", "en": "right"},
     # Rozet/etiket biçimi: cümle başı gibi büyük harfle. `sag`/`sol` küçük
     # harfli, cümle içinde geçtiği için ("sağ 5 · sol 4").

@@ -7687,3 +7687,53 @@ oosit 9" gösterdi. Hem salt görüntüleme hem `?duzenle=oosit` çalışma
 kipinde Playwright ile telefon genişliğinde ekran görüntülendi, kart doğru
 yerde ve doğru sayılarla çıktı. Test oturum jetonu temizlendi, hiçbir
 veri değişmedi (yalnızca okuma).
+
+# v6.91 — Denüdasyonda OPU sayısınca oosit kaydı hazır dursun
+
+Kullanıcı v6.90'ı **reddetti**: "Hayır denüdasyona oosit1 oosit2 şeklinde
+dizilsin. Hazır olsun daha sonra resim ekleyebilirim." İstenen salt bilgi
+kartı değilmiş — OPU'da kaç oosit toplandıysa o kadar **gerçek oosit kaydı**
+(numara şeridinde 1, 2, 3...) fotoğrafsız hazır dursun, fotoğraf her birine
+sonra tek tek eklensin. v6.90'ın kartı bu yüzden kaldırıldı.
+
+## Ne değişti
+
+- **`templates/denudasyon.html`**: v6.90'daki salt okunur OPU kartı
+  kaldırıldı. Yerine, `kayıtlı oosit sayısı < OPU'da toplanan sayı` olduğu
+  sürece görünen tek bir düğme geldi: "N oosit için kayıt hazırla". Basınca
+  eksik kadar oosit **fotoğrafsız** açılıyor (`kr.yer()` zaten "fotoğrafsız
+  örnek boş alan bırakmaz" kuralını uyguluyor — CLAUDE.md), her biri
+  numara şeridinde kendi yerinde, "Fotoğraf ekle" bağlantısıyla hazır.
+  Düğme hem görüntüleme hem `?duzenle=oosit` çalışma kipinde aynı yerde,
+  kamera akışının hemen üstünde.
+- **`app.py`'de yeni `eylem="hepsi"`** (`denudasyon_islem`): OPU toplamı
+  (`opu_sag_oosit + opu_sol_oosit`) ile mevcut specimen sayısını karşılaştırıp
+  yalnızca **eksik** kadarını `goruntuler.specimen_olustur()` ile açıyor —
+  düğmeye ikinci kez basmak fazladan oosit açmaz, zaten var olanları
+  saymadan üstüne eklemez. Numaralandırma ve `denudasyon_zamani` otomatik
+  doldurma zaten `specimen_olustur()`'ün içinde, buraya yeni bir mantık
+  yazılmadı.
+- **`taraf` (sağ/sol over) bilerek atanmadı.** OPU yalnızca toplam sayıyı
+  veriyor, hangi oositin hangi overden geldiğini sıra numarasından çıkarmak
+  klinik bir varsayım olurdu — CLAUDE.md'nin "klinik bir varsayım yapman
+  gerekiyorsa yapma" kuralı. Taraf, var olan akışla (`?duzenle=oosit`
+  içindeki Sağ/Sol/Belirtme düğmeleri) embriyolog tarafından elle giriliyor.
+- **"Hepsi" kamera akışının parçası değil** — kayıttan sonra `?duzenle=oosit`
+  yerine salt görüntülemeye dönüyor (`RedirectResponse` özel durumu), çünkü
+  amaç kamera kuyruğuyla fotoğraf eklemek değil, boş kayıtları açmak;
+  fotoğraflar sonra her oosit için ayrı ayrı "Fotoğraf ekle" ile ekleniyor.
+- v6.90'ın `opu_ozet_baslik` metin anahtarı kaldırıldı (kullanılmıyor);
+  yerine `n_oosit_hazirla` / `n_oosit_hazirla_tekil` / `oosit_hazirla_ipucu`
+  eklendi.
+
+## Test edildi
+
+Test cycle'ında (OPU: 5 sağ + 4 sol = 9, 1 oosit zaten elle kaydedilmişti)
+düğme doğru "8 oosit için kayıt hazırla" yazdı; basınca `2026-0001-02`
+… `-09` sırayla açıldı, toplam 9 specimen, hepsi fotoğrafsız ve `taraf`
+boş. Ardından numara şeridi 1-9 gösterdi, her biri "Oosit N" yer
+tutucusuyla ve "Fotoğraf ekle" bağlantısıyla hazır; oosit 5 seçilip
+kaydın doğru geldiği ayrıca kontrol edildi. Düğme, tüm oositler açıldıktan
+sonra (eksik=0) ekrandan kayboldu. Playwright ile telefon genişliğinde
+ekran görüntülendi. Test verisi (fazladan 8 specimen, oturum jetonu)
+temizlendi.

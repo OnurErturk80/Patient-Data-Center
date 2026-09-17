@@ -2700,7 +2700,10 @@ async def denudasyon_islem(request: Request, cycle_id: int):
     eylem = f.get("eylem")
     im = f.get("imza") or ""
     kid = request.state.kullanici["id"]
-    c = db.tek("SELECT id, cycle_no FROM cycle WHERE id = ?", (cycle_id,))
+    c = db.tek(
+        "SELECT id, cycle_no, opu_sag_oosit, opu_sol_oosit FROM cycle WHERE id = ?",
+        (cycle_id,),
+    )
 
     taraf = f.get("taraf") or None
 
@@ -2751,9 +2754,27 @@ async def denudasyon_islem(request: Request, cycle_id: int):
     elif eylem == "geri":
         goruntuler.geri_al(int(f.get("goruntu_id")))
 
+    elif eylem == "hepsi":
+        # OPU'da toplanan sayı kadar oosit kaydını fotoğrafsız açar
+        # (kullanıcının isteği): "Oosit 1", "Oosit 2" ... hazır dursun,
+        # fotoğraf her birine sonra tek tek eklensin. Zaten oluşturulmuş
+        # olanlar sayılıp yalnızca **eksik** kadarı ekleniyor -- düğmeye
+        # ikinci kez basmak fazladan oosit açmaz.
+        toplam = (c["opu_sag_oosit"] or 0) + (c["opu_sol_oosit"] or 0)
+        mevcut = db.tek(
+            "SELECT COUNT(*) n FROM specimen WHERE cycle_id=?", (cycle_id,)
+        )["n"]
+        for _ in range(max(0, toplam - mevcut)):
+            goruntuler.specimen_olustur(cycle_id, c["cycle_no"])
+
     # Kare eklemek çalışma kipinde yapılıyor; kayıttan sonra orada kal
     # (v6.24). Yoksa her kayıtta özet ekranına düşüp tekrar Düzenle demek
-    # gerekirdi -- 20 oositlik bir cycle'da 20 fazladan dokunuş.
+    # gerekirdi -- 20 oositlik bir cycle'da 20 fazladan dokunuş. "Hepsi"
+    # kamera akışının parçası değil, fotoğrafsız açılan oositlerin listesini
+    # görmek için salt görüntülemeye dönüyor.
+    if eylem == "hepsi":
+        return RedirectResponse(f"/cycle/{cycle_id}/denudasyon", status_code=303)
+
     yol = f"/cycle/{cycle_id}/denudasyon?duzenle=oosit"
     if secili:
         yol += f"&oosit={secili}"
