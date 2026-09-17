@@ -242,6 +242,35 @@ def _islem_yapan_ad(cycle_id, asama):
 sablon.env.globals["islem_yapan_ad"] = _islem_yapan_ad
 
 
+def _guncel_kullanici_ad():
+    """Şu an giriş yapmış kullanıcının adı (varsa) — şifresiyle giren kişi.
+
+    `_islem_yapan` kutusunun seçicisinde varsayılan seçim için: aşama henüz
+    kaydedilmemişse kutu boş durmasın, giriş yapan kişi zaten önceden
+    seçili gelsin (v6.99, kullanıcının isteği) — ama değiştirilebilir,
+    "Kaydet" hâlâ elle onay ister, otomatik yazmıyor.
+    """
+    k = _GIRIS_KULLANICI.get()
+    return k["ad_soyad"] if k else ""
+
+
+sablon.env.globals["guncel_kullanici_ad"] = _guncel_kullanici_ad
+
+
+def _personel_listesi():
+    """Şifresi olan (aktif hesabı olan) personelin adları, alfabetik.
+
+    `_islem_yapan` kutusundaki seçiciyi dolduruyor — "işlemi yapan" artık
+    serbest metinle yazılmıyor, bu listeden seçiliyor (v6.99).
+    """
+    return [r["ad_soyad"] for r in db.sorgu(
+        "SELECT ad_soyad FROM kullanici WHERE lab_id=? AND aktif_mi=1 "
+        "ORDER BY ad_soyad", (db.LAB_ID,))]
+
+
+sablon.env.globals["personel_listesi"] = _personel_listesi
+
+
 # ------------------------------------------------------- örnek kodu ve aşama adı
 
 # Aşamaya göre örneğin o anki adı. Oosit → zigot → embriyo aynı örnektir
@@ -471,6 +500,10 @@ _ASAMA_MODULLERI = {"opu", "androloji", "denudasyon", "icsi", "fert", "cleavage"
 # yapıyoruz: ~50 rotanın her birine kontrol eklemek tuzak #1'in tarifi.
 # `asama_gezinme` gibi request almayan fonksiyonlar da buradan okur.
 _YETKILER = contextvars.ContextVar("yetkiler", default=None)
+
+# Şu an giriş yapmış kullanıcı — `_guncel_kullanici_ad()` buradan okur
+# (`_YETKILER`'in aynı deseni: request almayan Jinja global'lar için).
+_GIRIS_KULLANICI = contextvars.ContextVar("giris_kullanici", default=None)
 
 
 def yol_modulu(yol: str):
@@ -780,6 +813,7 @@ async def oturum_kontrolu(request: Request, sonraki):
         yetkiler = kullanici_yetkileri(kullanici)
         request.state.yetkiler = yetkiler
         jeton = _YETKILER.set(yetkiler)
+        k_jeton = _GIRIS_KULLANICI.set(kullanici)
         try:
             modul = yol_modulu(yol)
             if modul and modul not in yetkiler:
@@ -790,6 +824,7 @@ async def oturum_kontrolu(request: Request, sonraki):
             return await sonraki(request)
         finally:
             _YETKILER.reset(jeton)
+            _GIRIS_KULLANICI.reset(k_jeton)
     finally:
         metinler.dil_sifirla(dil_jetonu)
 

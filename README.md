@@ -8096,3 +8096,47 @@ dondurma eklendi — bu hasta Tüm Hastalar'da rozetsiz görünmeye devam
 etti. Ay listesi zaten cycle bazlı olduğu için hiçbir senaryoda sperm
 dondurma hastası orada görünmedi. Test hastası, taşıyıcı kayıtları,
 sperm dondurma kayıtları ve oturum jetonu temizlendi.
+
+# v6.99 — "İşlemi yapan" artık seçiliyor, yazılmıyor
+
+Kullanıcının isteği: "İşlem yapanlar kısmında isim girilen kısımda
+şifresiyle giren kişinin adı otomatik çıksın. Diğer şifresi olanlar da
+seçilebilir olsun. Yazmadan seçilerek işlemi yapan kişi girilsin."
+
+## Ne değişti
+
+- **Göç yok.** `islem_yapan.yapan_ad` kolonu aynı kaldı (hâlâ metin), yalnızca
+  *nasıl doldurulduğu* değişti — serbest yazma yerine seçim. `kullanici_id`
+  (kaydı giren) zaten ayrı bir alandı, ona dokunulmadı.
+- **`_islem_yapan.html`**: `<input type="text">` yerine `<select>`. Seçenekler
+  `personel_listesi()` (yeni Jinja global — şifresi olan/aktif kullanıcıların
+  adları, alfabetik). Kayıt henüz yoksa varsayılan seçim
+  `guncel_kullanici_ad()` (yeni Jinja global — şifresiyle giriş yapmış
+  kişi); kayıt varsa o değer seçili gelir, değiştirilebilir. "Kaydet"
+  düğmesi duruyor — seçmek otomatik kaydetmiyor, "işlem saatleri elle
+  girilebilir" ile aynı gerekçe: varsayılan bir öneri, dayatma değil.
+- **Tuzak #6'ya uyuldu**: kayıtlı `yapan_ad` aktif personel listesinde yoksa
+  (hesap sonradan pasif yapıldı ya da v6.99 öncesi serbest metinle
+  yazılmış bir ad listede hiç yoksa) o değer listeye kendi seçeneği olarak
+  ekleniyor — yoksa tarayıcı ilk ismi seçili gösterir ve "Kaydet"e
+  basılınca kayıt sessizce değişirdi.
+- **İki yeni Jinja global, ikisi de `contextvars` üzerinden** —
+  `_YETKILER`'in kullandığı desenin aynısı: `_GIRIS_KULLANICI`
+  middleware'de `request.state.kullanici` ile birlikte set ediliyor,
+  `guncel_kullanici_ad()` oradan okuyor. Böylece `hasta_detay()` gibi
+  "kullanici" bağlamını context'e hiç eklemeyen rotalarda bile makro
+  doğru çalışıyor — ~50 rotanın hepsine `"kullanici": request.state.
+  kullanici` eklemek gerekmedi.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp bir cycle'ın denüdasyon ekranında İşlemi Yapan
+seçicisi kontrol edildi: kayıt hiç yokken giriş yapan kullanıcının adı
+("Test Kullanici") önceden seçili geldi, listede diğer aktif kullanıcılar
+("Ayse Demir", "Test Androlog") da alfabetik sırada göründü. Başka bir
+kullanıcı ("Ayse Demir") seçilip kaydedildi; sayfa yeniden yüklendiğinde
+o isim seçili kaldı (giriş yapan kişi hâlâ "Test Kullanici" olsa da).
+Veritabanında `yapan_ad` doğrudan "Eski Personel Adi" gibi aktif personel
+listesinde olmayan bir değere değiştirilip sayfa yenilendi — seçici o
+değeri listeye ekleyip seçili gösterdi, ilk isme kaymadı. Test verileri
+(oturum jetonu, test amaçlı `islem_yapan` satırı) temizlendi.

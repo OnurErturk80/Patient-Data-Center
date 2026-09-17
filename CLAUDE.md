@@ -1039,13 +1039,25 @@ tarayıcıdan mini PC'ye bağlanır. `arsiv/` ağa taşınabilir (`yerel_kur.py`
 **Otomatik skorlar kaynak işaretler.** Elle skor girilirse
 `cl_skor_kaynagi='elle'` yazılır, otomatik hesap onu ezmez.
 
-**"İşlemi yapan" her aşama ekranının altında.** Serbest metin, aşama başına tek
-(`islem_yapan` tablosu, `UNIQUE(cycle_id, asama)`). Kaydı giren `kullanici_id`
-ile karıştırma — biri "kim yaptı", diğeri "kim girdi". Paylaşılan parça
-`_islem_yapan.html`; değer Jinja global `islem_yapan_ad()` ile okunur. Yeni bir
-aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna `{{ iy.kutu(c.id, "<asama>") }}`
-ekle — gerisi otomatik (README v6.3). Makro isteğe bağlı `etiket`/`ipucu` alır;
-varsayılanı değiştirme, sadece belirsizlik olan ekranda ver (v6.9).
+**"İşlemi yapan" her aşama ekranının altında.** Aşama başına tek değer
+(`islem_yapan` tablosu, `UNIQUE(cycle_id, asama)`), sütun adı hâlâ
+`yapan_ad` ama **v6.99'dan beri serbest metin değil** — şifresi olan
+(aktif) personelden seçiliyor, `personel_listesi()` Jinja global'ı
+dolduruyor. Kaydı giren `kullanici_id` ile karıştırma — biri "kim yaptı",
+diğeri "kim girdi", bu ayrım değişmedi. Paylaşılan parça
+`_islem_yapan.html`; değer Jinja global `islem_yapan_ad()` ile okunur,
+varsayılan seçim (kayıt yoksa) `guncel_kullanici_ad()` — şifresiyle giren
+kişi. **İkisi de `_GIRIS_KULLANICI`/`_YETKILER` gibi bir `contextvars`
+üzerinden çalışıyor**, request'i elden ele taşımadan — yeni bir "şu an
+giriş yapmış kim" ihtiyacı doğarsa aynı deseni kullan, her rotaya
+`"kullanici": request.state.kullanici` eklemeye kalkma. **Kayıtlı değer
+personel listesinde yoksa** (hesap pasif yapıldı ya da v6.99 öncesi
+serbest metinle yazılmış eski bir ad) tuzak #6: `_islem_yapan.html` o
+değeri listeye kendi seçeneği olarak ekliyor, yoksa seçici sessizce ilk
+isme kayar. Yeni bir aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna
+`{{ iy.kutu(c.id, "<asama>") }}` ekle — gerisi otomatik (README v6.3).
+Makro isteğe bağlı `etiket`/`ipucu` alır; varsayılanı değiştirme, sadece
+belirsizlik olan ekranda ver (v6.9).
 
 **Modül izinleri tek noktada kontrol edilir: middleware.** `yol_modulu(yol)`
 yolu bir modüle eşler, middleware izni yoksa `/hastalar`'a döndürür. ~50 rotanın
