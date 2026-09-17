@@ -7652,3 +7652,38 @@ doğru yaş (36) göründüğü doğrulandı; doğum tarihi boşken satırın hi
 `en` ve `tr` dillerinde elle çağrılıp doğrulandı. Playwright ile telefon
 genişliğinde ekran görüntülendi. Test verisi (doğum tarihi, oturum jetonu)
 temizlendi.
+
+# v6.90 — Denüdasyonda OPU'da toplanan oosit başlık olarak görünür
+
+Kullanıcının isteği: denüdasyon öncesi OPU kaydında girilen oosit sayıları,
+denüdasyon ekranında başlık/bilgi olarak görünsün — embriyolog oosit
+girerken kaçının toplandığını yeniden OPU ekranına gitmeden görebilsin.
+
+## Ne değişti
+
+- **`templates/denudasyon.html`**: ekranın en üstüne, hasta kimliğinin hemen
+  altına salt okunur bir kart eklendi — "OPU'da toplanan oosit" başlığıyla
+  sağ/sol over sayıları ve toplam. Rota değişmedi: `c` zaten `SELECT c.*`
+  ile geliyor, `opu_sag_oosit`/`opu_sol_oosit` hazır duruyordu.
+- **Kart `_bilgikart.html`'in mevcut `kart()` makrosuyla** basılıyor,
+  `duzenle_yolu` verilmeden — CLAUDE.md'nin "androloji gibi bölüm kartları"
+  deseni: salt bilgi, düğmesiz. Sayıları **değiştirmek burada değil**, OPU
+  ekranında oluyor; denüdasyon yalnızca referans veriyor.
+  Değerler boşsa `kart()`'ın kendi "girilmedi" davranışı devreye giriyor —
+  OPU henüz doldurulmamışsa embriyolog bunu burada da görüyor.
+- **Kart hem görüntüleme hem `?duzenle=oosit` çalışma kipinde aynı yerde**
+  duruyor — kamera kuyruğuyla oosit girerken de OPU referansı ekrandan
+  kaybolmuyor.
+- Yeni metin anahtarı: `opu_ozet_baslik` ("OPU'da toplanan oosit" /
+  "Oocytes collected at OPU"); satır etiketleri OPU ekranındaki
+  `sag_overden_oosit`/`sol_overden_oosit`/`toplanan_oosit` anahtarlarının
+  aynısı — aynı sayı iki ekranda farklı adla anılmasın diye.
+
+## Test edildi
+
+Test cycle'ında OPU'ya 5 sağ + 4 sol oosit girilmişti; denüdasyon ekranında
+kart "Sağ overden toplanan oosit 5 / Sol overden toplanan oosit 4 / Toplanan
+oosit 9" gösterdi. Hem salt görüntüleme hem `?duzenle=oosit` çalışma
+kipinde Playwright ile telefon genişliğinde ekran görüntülendi, kart doğru
+yerde ve doğru sayılarla çıktı. Test oturum jetonu temizlendi, hiçbir
+veri değişmedi (yalnızca okuma).

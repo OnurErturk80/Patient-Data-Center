@@ -46,6 +46,19 @@
 </div>
 {% endif %}
 
+{# --- OPU'da toplanan oosit: denüdasyondan önce girilen sayı, burada
+     başlık/bilgi olarak görünsün diye (kullanıcının isteği). Salt okunur --
+     düzenle_yolu verilmiyor, değiştirmek OPU ekranının işi. #}
+{{ bk.kart(
+     metin("opu_ozet_baslik"),
+     [
+       (metin("sag_overden_oosit"), c.opu_sag_oosit),
+       (metin("sol_overden_oosit"), c.opu_sol_oosit),
+       (metin("toplanan_oosit"),
+        (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0)
+        if c.opu_sag_oosit is not none or c.opu_sol_oosit is not none else None),
+     ]) }}
+
 {# --- Denüdasyon saati --- #}
 {% if c.denudasyon_zamani and duzenle != "saat" %}
 {{ bk.kart(metin("denudasyon_zamani"),

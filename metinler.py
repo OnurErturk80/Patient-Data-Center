@@ -957,6 +957,8 @@ METINLER = {
 
     # ---- cycle detay ----
     "toplanan_oosit": {"tr": "Toplanan oosit", "en": "Oocytes collected"},
+    "opu_ozet_baslik": {"tr": "OPU'da toplanan oosit",
+                         "en": "Oocytes collected at OPU"},
     "sag": {"tr": "sağ", "en": "right"},
     # Rozet/etiket biçimi: cümle başı gibi büyük harfle. `sag`/`sol` küçük
     # harfli, cümle içinde geçtiği için ("sağ 5 · sol 4").
