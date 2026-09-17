@@ -7851,3 +7851,59 @@ artık "09.09.2026 08:15" biçiminde basıyor (önceden "2026-09-09 08:15:00").
 Bir test fotoğrafı yüklenip `/goruntu/{id}/sil` ekranında "Zaman" satırının
 "17.09.2026 13:09" gibi doğru biçimde çıktığı doğrulandı. Test fotoğrafı,
 arşiv klasörü ve oturum jetonu temizlendi.
+
+# v6.94 — Resmî formlara aktarılan tarihler de gün.ay.yıl
+
+Kullanıcının isteği: "Formlara aktarım sırasında tarihler ters çıkıyor.
+Gün ay yıl olarak çıksın." v6.93'te ekranlar düzeltilmişti; resmî formlar
+(Embriyoloji Özet, ART Lab. Raporu) ve laboratuvarın kendi yüklediği form
+o taramanın **dışında** bırakılmıştı, çünkü aynı dolgu hem yazdırılan
+sayfaya hem Excel'e gidiyor ve Excel'in ISO tarihi otomatik tarih hücresine
+çevirme mekanizması (v6.36) buna dayanıyor sanılıyordu — bu sefer önce o
+varsayım test edildi.
+
+## Neden güvenli olduğu doğrulandı
+
+`excel.py`'nin `_hucre()`'sindeki ISO algılaması yalnızca hücrenin biçimi
+**`_DUZ` (varsayılan) olduğunda** çalışıyor. Resmî formların "yerleşim"
+sayfasında (`_yerlesim_xml()`) her hücre **kâğıdın kendi kalıp stilini**
+taşıyor (`bicim = taban + stil_no`) — hiçbir zaman `_DUZ` değil. Yani bu
+hücreler zaten hep düz metin (`inlineStr`) olarak yazılıyordu, ISO
+biçiminin "akıllı" tarih algısı buraya hiç uygulanmıyordu. Doğrulama:
+`/disari/form/ozet/1` indirilip `xl/worksheets/sheet1.xml` içinde OPU
+tarihinin hücresi incelendi — `t="inlineStr"` olarak duruyordu, biçim
+`YYYY-MM-DD` iken de `DD.MM.YYYY` iken de fark etmiyor. Değeri
+değiştirmek Excel'in tür algısını **bozmuyor**.
+
+## Ne değişti
+
+- **`formlar.py`'ye iki yeni yerel yardımcı**: `_gg_aa_yyyy()` ve
+  `_gg_aa_yyyy_saat()` — `app.py`'deki aynı adlı globallerin küçük bir
+  kopyası (döngüsel import olmasın diye; `formlar.py` `app.py`'den
+  bağımsız bir modül). `_zaman_coz()` üzerinden kuruluyor, bozuk/boş
+  tarihte `None` dönüyor.
+- **`ozet_verisi()`**: `opu_tarihi`, `transfer_tarihi` artık
+  `_gg_aa_yyyy(...)` ile geliyor (`(zaman or "")[:10]` yerine).
+- **`artlab_dolgu()`**: "İşlem / Tarih / Sa." bloğundaki tarih hücresi
+  (`_ISLEM_TARIH`) `_gg_aa_yyyy(z)` kullanıyor; saat hücresi (`_ISLEM_SAAT`,
+  yalnızca `HH:MM`) sıra değişmediği için dokunulmadı.
+- **`alanlar()`** (laboratuvarın kendi yüklediği forma aktarılan değerler,
+  v6.40): `bugun` ve `saat_<asama>` alanları (OPU/denüdasyon/ICSI/fert/
+  vitrifikasyon/thaw/transfer tarihi ve saati) aynı şekilde düzeltildi.
+  `opu_tarihi`/`transfer_tarihi` zaten `ozet_verisi()`'nden miras aldığı
+  için ayrıca dokunmaya gerek kalmadı.
+- Aynı dolgu hem `/form/{ad}/{id}` (yazdırma) hem `/disari/form/{ad}/{id}`
+  (Excel) tarafından kullanıldığı için **tek noktadan** düzeldi.
+
+## Test edildi
+
+`/form/ozet/1` ve `/form/artlab/1` yazdırma ekranları açılıp basılan tüm
+tarihlerde ISO (`\d{4}-\d{2}-\d{2}`) kalıp kalmadığı, veri alanlarının
+"09.09.2026" biçiminde çıktığı doğrulandı (kalıptaki sabit "Yayın Tarihi"/
+"Revizyon Tarihi" etiketleri zaten kâğıttan geldiği için hep doğru
+biçimdeydi, onlara dokunulmadı). Her iki formun `.xlsx` çıktısı indirilip
+hem ham XML'de (`t="inlineStr"`, biçim bozulmamış) hem `openpyxl` ile
+açılıp hücre değeri "09.09.2026" olarak doğrulandı — dosya bozulmadı,
+tarih hücresi hâlâ düz metin. `formlar.alanlar()` çıktısı da elle
+çağrılıp `bugun` ve `saat_opu`/`saat_denudasyon` alanlarının doğru
+biçimde geldiği kontrol edildi. Test oturum jetonu temizlendi.

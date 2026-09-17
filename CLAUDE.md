@@ -485,6 +485,17 @@ yok" kuralı bunun için var. `excel.kitap([(ad, başlıklar, satırlar), ...])`
 bayt döndürür; hücrenin türü değerden anlaşılır (ISO metin tarih olur).
 Yılı 1900'den küçük tarih **metin** yazılır: bozuk `0026-09-04` kaydı
 (bekleyen iş 6) dosyayı bozmasın diye.
+- **Bu ISO-tarih algılaması yalnızca `_DUZ` (varsayılan) biçimli hücrelerde
+  çalışır** (v6.94'te doğrulandı). Resmî formların "yerleşim" sayfasında
+  (`form_kalip.yerlesim()` → `excel._yerlesim_xml()`) her hücre kalıbın
+  kendi stilini taşıyor, hiçbir zaman `_DUZ` değil — o yüzden oradaki
+  tarihler zaten hep düz metin (`inlineStr`) yazılıyor, ISO biçimine
+  bağlı değil. `formlar.py`'deki tarih alanlarını (`opu_tarihi`,
+  `saat_<asama>` gibi) gün.ay.yıl'a çevirmek bu yüzden Excel çıktısını
+  bozmadı (v6.94, `_gg_aa_yyyy()`/`_gg_aa_yyyy_saat()`). Bu ayrımı
+  karıştırma: **tablo sayfalarındaki** (ay listesi, `/disari/tumu` gibi)
+  tarihler hâlâ ISO kalmalı, resmî formların yerleşim hücreleri artık
+  gün.ay.yıl.
 
 **Excel çıktısının izni ekranın iznidir** (v6.36). Dört çıktı var:
 `/disari/ay`, `/disari/cycle/{id}` (ikisi görüntüleme gibi serbest),

@@ -59,6 +59,27 @@ def _saat_farki(a, b):
     return round((a - b).total_seconds() / 3600.0, 1)
 
 
+def _gg_aa_yyyy(tarih):
+    """'2026-09-11' -> '11.09.2026'; boş/okunamıyorsa None.
+
+    Ekrandaki `gg_aa_yyyy()` ile aynı gerekçe (CLAUDE.md: "tarih gün.ay.yıl
+    sırasıyla basılır") -- resmî formlara aktarılan tarihler de aynı kurala
+    uyar. `app.py`'den import edilmiyor (formlar.py ondan bağımsız bir modül,
+    döngüsel import olurdu), o yüzden küçük bir kopyası burada duruyor.
+    Excel'e giden hücreler zaten kalıbın kendi stilini taşıyor (`bicim !=
+    _DUZ`), yani `excel.py`'nin ISO tarih algılaması buraya hiç uygulanmıyor
+    -- biçimi değiştirmek Excel çıktısını bozmaz.
+    """
+    d = _zaman_coz(tarih)
+    return d.strftime("%d.%m.%Y") if d else None
+
+
+def _gg_aa_yyyy_saat(zaman):
+    """'2026-09-11 08:15:00' -> '11.09.2026 08:15'; boş/okunamıyorsa None."""
+    d = _zaman_coz(zaman)
+    return d.strftime("%d.%m.%Y %H:%M") if d else None
+
+
 def _etiketler() -> dict:
     return {(r["liste_adi"], r["kod"]): r["etiket"] for r in db.sorgu(
         "SELECT liste_adi, kod, etiket FROM liste_degeri WHERE lab_id = ?",
@@ -352,7 +373,7 @@ def ozet_verisi(cycle_id: int):
                           if c["hasta_cycle_no"] else None),
         "tedavi_protokolu": _et(h, "protokol_tipi", c["protokol_tipi"]),
         # --- oosit ---
-        "opu_tarihi": (c["opu_zamani"] or "")[:10] or None,
+        "opu_tarihi": _gg_aa_yyyy(c["opu_zamani"]),
         "toplanan_oosit": db.tek(
             "SELECT COUNT(*) n FROM specimen WHERE cycle_id=?", (cycle_id,))["n"],
         "matur_mii": mat.get("mii"),
@@ -391,7 +412,7 @@ def ozet_verisi(cycle_id: int):
         "fert_embriyolog": _yapan(cycle_id, "fert") or _yapan(cycle_id, "icsi"),
         # --- transfer ---
         "transfer_asamasi": _asama_ozeti(tr, "bl_genisleme"),
-        "transfer_tarihi": (tr[0]["zaman"] or "")[:10] if tr else None,
+        "transfer_tarihi": _gg_aa_yyyy(tr[0]["zaman"]) if tr else None,
         "transfer_sayisi": len(tr) or None,
         "transfer_klinisyen": None,              # programda tutulmuyor
         "transfer_embriyolog": _yapan(cycle_id, "transfer"),
@@ -710,7 +731,7 @@ def artlab_dolgu(v: dict) -> list:
             for satir, asama in _ARTLAB_ISLEM:
                 z = _cizelge_zamani(cizelge, asama)
                 if z:
-                    d[(satir, _ISLEM_TARIH)] = z[:10]
+                    d[(satir, _ISLEM_TARIH)] = _gg_aa_yyyy(z)
                     d[(satir, _ISLEM_SAAT)] = z[11:16]
 
         sayfalar.append((d, {k: x for k, x in ek.items()
@@ -823,10 +844,10 @@ def alanlar(cycle_id: int):
     v = dict(v)
     v.pop("cycle_id", None)        # iç numara; forma basılacak bir şey değil
     v["ornek_kodu"] = f"{c['dosya_no']}-{c['cycle_no']}" if c else None
-    v["bugun"] = _dt.date.today().isoformat()
+    v["bugun"] = _dt.date.today().strftime("%d.%m.%Y")
     v["laboratuvar"] = (lab["ad"] if lab else None) or None
     for asama in ("opu", "denudasyon", "icsi", "fert", "vitrifikasyon",
                   "thaw", "transfer"):
         z = cizelge.get(asama)
-        v["saat_" + asama] = (z or "")[:16] or None
+        v["saat_" + asama] = _gg_aa_yyyy_saat(z)
     return v
