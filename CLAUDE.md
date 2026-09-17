@@ -677,13 +677,25 @@ etkilemiyor.
   görünen metin değişti, anahtarı değiştirme.
 - **Tüm Hastalar** (`durum='aktif'`, `ORDER BY ad_soyad`) aynı satır
   tasarımını kullanıyor, isme tıklamak `/hasta/{id}`'yi (aynı ekran) açıyor.
-  **Arama boşken sayfalanır** (v6.87, `TUM_HASTALAR_SAYFA_BOYU`=50,
-  `?sayfa=`) — hasta sayısı bini geçince telefonun tek seferde binlerce
-  satır basması yavaşlığa yol açardı. `sayfa` sunucuda `[1, toplam_sayfa]`
-  aralığına sabitleniyor, aralık dışı bir değer hataya değil son sayfaya
-  düşer. **Arama sonucu sayfalanmıyor** — zaten süzülmüş küçük bir liste,
-  arama doluyken bu sorgu hiç çalışmıyor bile (gereksiz sorgu atılmasın
-  diye, arşiv modundaki gerekçenin aynısı).
+- **İki liste de sayfalanır** (Tüm Hastalar v6.87'de, ay listesi v6.88'de
+  aynı gerekçeyle — kullanıcının isteği: "Tüm Hastalar yanındaki aylık
+  tedavilerin olduğu yerde aynı şekilde olsun"), ikisi de `HASTALAR_
+  SAYFA_BOYU` (50) kadar, birbirinden **bağımsız** sayfa numarasıyla: Tüm
+  Hastalar `?sayfa=`, ay listesi `?aysayfa=`. Hasta/tedavi sayısı bini
+  geçince telefonun tek seferde binlerce satır basması yavaşlığa yol
+  açardı. İkisi de sunucuda kendi `[1, toplam_sayfa]` aralığına
+  sabitleniyor, aralık dışı bir değer hataya değil son sayfaya düşer.
+  Sayfa gezginleri `.aygezgin`'in (ay/yıl seçicisiyle aynı) kutusunu
+  yeniden kullanıyor, ortada seçici yerine düz "Sayfa 3 / 42" metni
+  (`.sayfabilgi`). **Arama sonucu sayfalanmıyor** — zaten süzülmüş küçük
+  bir liste; arama doluyken Tüm Hastalar sorgusu hiç çalışmıyor bile
+  (gereksiz sorgu atılmasın diye, arşiv modundaki gerekçenin aynısı). Ay
+  listesi araması etkilemiyor zaten (`ara` ay görünümünü değiştirmiyor).
+  `cycle_listesi()`'ye bu yüzden `limit`/`offset`/`sayisi` eklendi —
+  **yalnızca `ay` çağıranı** (`/hastalar`) bunları veriyor, ötekiler
+  (ana ekran, `/bitenler`, `/yaklasanlar`) vermediği için davranışları
+  değişmedi. Yeni bir `cycle_listesi()` kipini de sayfalamak istersen aynı
+  üç parametreyi kullan, ayrı bir sorgu yazma.
 - **Ay ile arama birbirini silmiyor**: `aygezgin` formu gizli `ara` alanı,
   arama formu gizli `yil`/`ay` alanları taşıyor. Biri değişirken öteki
   sıfırlanmasın diye.

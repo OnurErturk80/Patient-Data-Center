@@ -7575,3 +7575,47 @@ değer son sayfaya (3) sabitlendi, arama doluyken sayfalama hiç görünmedi.
 Playwright ile sayfa gezgini görüntülendi — ay gezginiyle aynı görünümde,
 telefon genişliğinde düzgün. Test hastaları temizlendi,
 `PRAGMA foreign_key_check` temiz.
+
+# v6.88 — Ay listesi de sayfalandı
+
+Kullanıcının isteği, v6.87'nin hemen ardından: "Tüm Hastalar yanındaki
+aylık tedavilerin olduğu yerde aynı şekilde olsun."
+
+## Ne değişti
+
+- **`cycle_listesi()`'ye üç yeni, hepsi isteğe bağlı parametre**: `limit`,
+  `offset`, `sayisi`. `limit` verilmezse (varsayılan `0`) davranış aynen
+  eskisi gibi sınırsız — bu fonksiyonu çağıran 5 yerin (ana ekran,
+  `/bitenler`, `/yaklasanlar`, ikisi daha) hiçbiri bunları vermiyor,
+  dokunulmadılar. `sayisi=True` satırları değil toplam sayıyı döndürüyor
+  (aynı `kosullar` üzerinden — sayfa sayısını hesaplamak için ikinci bir
+  sorgu yazmaya gerek kalmadı). CLAUDE.md'nin "bütün cycle listeleri tek
+  fonksiyon" kuralına uyuldu: ayrı bir sorgu yazmak yerine mevcut
+  fonksiyona kip eklendi.
+- **`hastalar()`**: yeni `aysayfa` parametresi, `TUM_HASTALAR_SAYFA_BOYU`
+  → `HASTALAR_SAYFA_BOYU` olarak yeniden adlandırıldı (artık iki liste de
+  aynı sabiti kullanıyor). Ay listesi `cycle_listesi(ay=..., sayisi=True)`
+  ile toplam sayıyı, `cycle_listesi(ay=..., limit=..., offset=...)` ile o
+  sayfanın satırlarını alıyor. `aysayfa` da Tüm Hastalar'ın `sayfa`'sı gibi
+  sunucuda `[1, toplam_sayfa]`'ya sabitleniyor.
+- **İki sayfa numarası birbirinden bağımsız** (`sayfa` / `aysayfa`) ama
+  gezinme bağlantıları ikisini de taşıyor — bir listede sayfa değiştirmek
+  ötekinin konumunu sıfırlamasın diye (`yil`/`ay` zaten taşınıyordu, aynı
+  gerekçe).
+- **Başlık artık `liste|length` değil `ay_sayisi` kullanıyor**
+  (`say("n_cycle_ayda", ay_sayisi)`) — `liste` artık yalnızca o sayfanın
+  satırlarını taşıyor, uzunluğu toplamı yanlış gösterirdi (örn. 122
+  tedavi varken "50 tedavi" yazardı).
+- Görünüm Tüm Hastalar'ın sayfa gezginiyle birebir aynı: `.aygezgin`
+  kutusu, ortada "Sayfa 2 / 3" metni (`.sayfabilgi`, v6.87'de eklenmiş
+  CSS kuralı yeniden kullanıldı, yeni bir kural gerekmedi).
+
+## Test edildi
+
+Bu ay için 120 test tedavisi eklendi (122 tedavi, 3 sayfa): sayfa 1/2/3
+doğru 50'şer/50'şer/22 kayıt gösterdi, başlık her sayfada doğru "122
+tedavi" yazdı (kırpılmış sayı değil), `?aysayfa=999` gibi aralık dışı bir
+değer son sayfaya sabitlendi. Tüm Hastalar tarafında yalnızca 1 aktif hasta
+olduğu için o listenin sayfa gezgini hiç görünmedi — iki liste birbirinden
+gerçekten bağımsız çalıştığı doğrulandı. Playwright ile geniş ekran
+görüntülendi. Test tedavileri temizlendi, `PRAGMA foreign_key_check` temiz.

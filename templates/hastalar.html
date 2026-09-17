@@ -107,12 +107,29 @@
 {% endif %}
 
 <div class="kart" style="margin-top:14px">
-  <h2>{{ say("n_cycle_ayda", liste|length) }}</h2>
+  <h2>{{ say("n_cycle_ayda", ay_sayisi) }}</h2>
   {% for s in liste %}{{ cs.satir(s, "ay") }}
   {% else %}
   <div class="bos">{{ metin("ayda_islem_yok") }}</div>
   {% endfor %}
 </div>
+
+{# Ay listesi sayfalanır (v6.88) -- Tüm Hastalar'ın aynısı, bağımsız bir
+   sayfa numarasıyla (`aysayfa`). `ara` da taşınıyor: arama doluyken sağ
+   sütun arama sonucuna döner ama bu bağlantılar yine de o terimi korusun. #}
+{% if ay_sayfa_toplam > 1 %}
+<nav class="aygezgin" style="margin-top:8px" aria-label="{{ metin('sayfalar') }}">
+  {% if aysayfa > 1 %}
+  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&aysayfa={{ aysayfa - 1 }}{% if ara %}&ara={{ ara|urlencode }}{% endif %}{% if sayfa and sayfa > 1 %}&sayfa={{ sayfa }}{% endif %}"
+     aria-label="{{ metin('onceki_sayfa') }}" title="{{ metin('onceki_sayfa') }}">&#8249;</a>
+  {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+  <span class="sayfabilgi">{{ metin("sayfa_x_y").format(x=aysayfa, y=ay_sayfa_toplam) }}</span>
+  {% if aysayfa < ay_sayfa_toplam %}
+  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&aysayfa={{ aysayfa + 1 }}{% if ara %}&ara={{ ara|urlencode }}{% endif %}{% if sayfa and sayfa > 1 %}&sayfa={{ sayfa }}{% endif %}"
+     aria-label="{{ metin('sonraki_sayfa') }}" title="{{ metin('sonraki_sayfa') }}">&#8250;</a>
+  {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+</nav>
+{% endif %}
 
 {# Ekranda görünen ayın Excel hali -- satır başına bir cycle, sayılarıyla. #}
 <a class="dugme ikincil" href="/disari/ay?yil={{ yil }}&ay={{ ay }}">{{ metin("excel_ay") }}</a>
@@ -189,12 +206,12 @@
 {% if not ara and tum_hastalar_sayfa_toplam > 1 %}
 <nav class="aygezgin" style="margin-top:8px" aria-label="{{ metin('sayfalar') }}">
   {% if sayfa > 1 %}
-  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&sayfa={{ sayfa - 1 }}"
+  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&sayfa={{ sayfa - 1 }}{% if aysayfa and aysayfa > 1 %}&aysayfa={{ aysayfa }}{% endif %}"
      aria-label="{{ metin('onceki_sayfa') }}" title="{{ metin('onceki_sayfa') }}">&#8249;</a>
   {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
   <span class="sayfabilgi">{{ metin("sayfa_x_y").format(x=sayfa, y=tum_hastalar_sayfa_toplam) }}</span>
   {% if sayfa < tum_hastalar_sayfa_toplam %}
-  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&sayfa={{ sayfa + 1 }}"
+  <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&sayfa={{ sayfa + 1 }}{% if aysayfa and aysayfa > 1 %}&aysayfa={{ aysayfa }}{% endif %}"
      aria-label="{{ metin('sonraki_sayfa') }}" title="{{ metin('sonraki_sayfa') }}">&#8250;</a>
   {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
 </nav>

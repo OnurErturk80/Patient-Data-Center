@@ -1911,7 +1911,8 @@ def _opu_gunu(opu_zamani):
 
 
 def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
-                  yaklasan: int = 0, plan_ay: str = ""):
+                  yaklasan: int = 0, plan_ay: str = "",
+                  limit: int = 0, offset: int = 0, sayisi: bool = False):
     """Cycle listesi — bütün liste ekranları bunu kullanıyor.
 
     - `bitmis=False` laboratuvarda işi süren cycle'lar: ana ekranın
@@ -1928,6 +1929,12 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     - `plan_ay="2026-09"` o ayda **planlanmış** cycle'lar. **Kullanılmıyor**
       (v6.65'te takvim ekranı kaldırıldı) — kod bilerek duruyor, geri
       dönülürse diye; çağıran yok.
+    - `limit`/`offset` sayfalama için (v6.88, yalnızca `ay` modunda
+      kullanılıyor — `/hastalar`). `limit=0` (varsayılan) sınırsız demek,
+      öteki çağıranların hiçbiri bunu vermiyor, davranışları değişmedi.
+    - `sayisi=True` satırları değil, **toplam sayıyı** döndürür (sayfa
+      sayısını hesaplamak için) — aynı `kosullar` üzerinden, ikinci bir
+      sorgu yazmaya gerek kalmadı.
 
     Arşivlenmiş hastanın cycle'ı ilk üçünde görünmez (hasta arşivi "bu dosya
     kapandı" demek), ama **ay listesinde görünür**: o iş o ay yapıldı, sonra
@@ -1972,6 +1979,12 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         kosullar.append("(c.planlanan_tarih IS NULL OR "
                         "date(c.planlanan_tarih) <= date('now','localtime'))")
 
+    if sayisi:
+        satir = db.tek(
+            f"SELECT COUNT(*) k FROM cycle c JOIN hasta h ON h.id = c.hasta_id "
+            f"WHERE {' AND '.join(kosullar)}", parametre)
+        return satir["k"]
+
     bitis = ("c.bitis_sebebi, c.bitis_zamani" if kolon_var
              else "NULL AS bitis_sebebi, NULL AS bitis_zamani")
     plan = "c.planlanan_tarih" if plan_var else "NULL AS planlanan_tarih"
@@ -1983,6 +1996,10 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         sira = "COALESCE(c.bitis_zamani, c.olusturma_zamani) DESC"
     else:
         sira = "COALESCE(c.opu_zamani, c.olusturma_zamani)"
+    sinir = ""
+    if limit:
+        sinir = " LIMIT ? OFFSET ?"
+        parametre = parametre + [limit, offset]
     satirlar = db.sorgu(
         f"""SELECT c.id, c.cycle_no, c.cycle_tipi, c.durum, c.opu_zamani,
                    c.olusturma_zamani, {bitis}, {plan},
@@ -1993,7 +2010,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
                      ORDER BY o.zaman DESC, o.id DESC LIMIT 1) AS son_olay
               FROM cycle c JOIN hasta h ON h.id = c.hasta_id
              WHERE {" AND ".join(kosullar)}
-             ORDER BY {sira}""",
+             ORDER BY {sira}{sinir}""",
         parametre)
     # sqlite3.Row'a alan eklenemiyor; gün hesabı için sözlüğe çevriliyor
     liste = []
@@ -2092,12 +2109,12 @@ def ornek_kodu_ara(ara: str) -> list:
     )
 
 
-TUM_HASTALAR_SAYFA_BOYU = 50
+HASTALAR_SAYFA_BOYU = 50  # /hastalar'daki iki liste de (ay + Tüm Hastalar) bununla sayfalanır
 
 
 @uygulama.get("/hastalar")
 def hastalar(request: Request, ara: str = "", arsiv: int = 0,
-             yil: int = 0, ay: int = 0, sayfa: int = 1):
+             yil: int = 0, ay: int = 0, sayfa: int = 1, aysayfa: int = 1):
     """Hasta kayıtları: ay ay işlem listesi + Tüm Hastalar + arama (v6.63).
 
     Tek ekran, üç parça — v6.29'dan farklı olarak artık **birlikte**
@@ -2117,11 +2134,13 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     - **`?arsiv=1`** eskisi gibi ayrı, tam genişlik bir mod: arşivlenmiş
       hastaların listesi, ay/Tüm Hastalar yok.
 
-    **Tüm Hastalar sayfalanır** (v6.87, kullanıcının isteği — "binlerce
-    hasta olunca yavaşlar mı" sorusunun yanıtı). Arama boşken bu liste artık
-    tamamı değil, `TUM_HASTALAR_SAYFA_BOYU` (50) kadar geliyor; `?sayfa=`
-    ile ilerleniyor. Arama sonucu (`kayitlar`/`hastalar`) sayfalanmıyor —
-    zaten süzülmüş, küçük bir liste.
+    **İki liste de sayfalanır** (Tüm Hastalar v6.87'de, ay listesi v6.88'de
+    aynı gerekçeyle — kullanıcının isteği: "Tüm Hastalar yanındaki aylık
+    tedavilerin olduğu yerde aynı şekilde olsun"). İkisi de `HASTALAR_
+    SAYFA_BOYU` (50) kadar geliyor, birbirinden **bağımsız** sayfa
+    numaralarıyla: Tüm Hastalar `?sayfa=`, ay listesi `?aysayfa=`. Arama
+    sonucu (`kayitlar`/`hastalar`) sayfalanmıyor — zaten süzülmüş, küçük
+    bir liste.
     """
     bugun = _dt.now()
     yil = yil or bugun.year
@@ -2159,21 +2178,28 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     liste, tum_hastalar = [], []
     tum_hastalar_sayisi = 0
     tum_hastalar_sayfa_toplam = 1
+    ay_sayisi = 0
+    ay_sayfa_toplam = 1
     if not arsiv:
-        liste = cycle_listesi(ay=f"{yil:04d}-{ay:02d}")
+        ay_str = f"{yil:04d}-{ay:02d}"
+        ay_sayisi = cycle_listesi(ay=ay_str, sayisi=True)
+        ay_sayfa_toplam = max(1, -(-ay_sayisi // HASTALAR_SAYFA_BOYU))  # tavana yuvarla
+        aysayfa = min(max(aysayfa, 1), ay_sayfa_toplam)
+        liste = cycle_listesi(ay=ay_str, limit=HASTALAR_SAYFA_BOYU,
+                              offset=(aysayfa - 1) * HASTALAR_SAYFA_BOYU)
         if not ara.strip():
             tum_hastalar_sayisi = db.tek(
                 "SELECT COUNT(*) k FROM hasta WHERE lab_id=? AND durum='aktif'",
                 (db.LAB_ID,))["k"]
             tum_hastalar_sayfa_toplam = max(
-                1, -(-tum_hastalar_sayisi // TUM_HASTALAR_SAYFA_BOYU))  # tavana yuvarla
+                1, -(-tum_hastalar_sayisi // HASTALAR_SAYFA_BOYU))  # tavana yuvarla
             sayfa = min(max(sayfa, 1), tum_hastalar_sayfa_toplam)
             tum_hastalar = db.sorgu(
                 "SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
                 "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = 'aktif' "
                 "ORDER BY h.ad_soyad LIMIT ? OFFSET ?",
-                (db.LAB_ID, TUM_HASTALAR_SAYFA_BOYU,
-                 (sayfa - 1) * TUM_HASTALAR_SAYFA_BOYU))
+                (db.LAB_ID, HASTALAR_SAYFA_BOYU,
+                 (sayfa - 1) * HASTALAR_SAYFA_BOYU))
 
     onceki = _ay_kaydir(yil, ay, -1)
     sonraki = _ay_kaydir(yil, ay, 1)
@@ -2190,6 +2216,8 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
          "onceki": onceki, "sonraki": sonraki,
          "sayfa": sayfa, "tum_hastalar_sayfa_toplam": tum_hastalar_sayfa_toplam,
          "tum_hastalar_sayisi": tum_hastalar_sayisi,
+         "aysayfa": aysayfa, "ay_sayfa_toplam": ay_sayfa_toplam,
+         "ay_sayisi": ay_sayisi,
          "arsiv_sayisi": arsiv_sayisi, "kullanici": request.state.kullanici,
          "yedek": yedek_durumu()},
     )
