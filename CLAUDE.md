@@ -1395,6 +1395,21 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
     Yeni bir yerde `<button>`'a görsel bir bileşen sınıfı verirsen aynısını
     yap ve **telefonda aç** (tuzak #5'in mobil hali).
 
+13. **Kimliği URL'e yazılan bir tabloda `INTEGER PRIMARY KEY` yeter değil,
+    `AUTOINCREMENT` de gerekir.** `goruntu.id` `AUTOINCREMENT`'sizdi; SQLite
+    kuralı "yeni id = mevcut en büyük id + 1" olduğu için tablodaki en büyük
+    id'ye sahip satır silinince o numara boşa çıkıyor ve bir sonraki INSERT
+    onu yeniden veriyor. `/dosya/{id}` id'yi doğrudan adrese yazdığı için
+    tarayıcı o adresi daha önce gördüyse önbellekten **eski, silinmiş
+    fotoğrafı** gösterebiliyor — "yüklediğim resim dışında başka bir resim
+    yükleniyor" (v6.92, goc_035) tam olarak buydu, en çok son eklenen
+    fotoğrafın silinip yenisiyle değiştirildiği anda (2./3. oosit gibi)
+    ortaya çıkıyordu. `AUTOINCREMENT` SQLite'a ayrı bir sayaç
+    (`sqlite_sequence`) tutturur, silinen bir id bir daha asla verilmez.
+    Yeni bir tablo açarken kimliği dışarı sızan (URL, dosya adı, bir
+    kullanıcıya gösterilen referans numarası) bir `id INTEGER PRIMARY KEY`
+    kolonu varsa `AUTOINCREMENT` ekle.
+
 ---
 
 ## Bekleyen işler

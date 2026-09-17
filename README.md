@@ -7737,3 +7737,57 @@ kaydın doğru geldiği ayrıca kontrol edildi. Düğme, tüm oositler açıldı
 sonra (eksik=0) ekrandan kayboldu. Playwright ile telefon genişliğinde
 ekran görüntülendi. Test verisi (fazladan 8 specimen, oturum jetonu)
 temizlendi.
+
+# v6.92 — Fotoğraf yanlış eşleşmesi: goruntu.id yeniden kullanılıyordu
+
+Kullanıcının bildirdiği hata: "Denüdasyon ve ICSI'de oosit resmi
+yüklediğim zaman yüklediğim resim dışında başka bir resim yükleniyor. 2.
+ve 3. oositlerde oluyor."
+
+## Sebep
+
+`goruntu.id` (her fotoğrafın kimliği, `/dosya/{id}` adresinde doğrudan
+kullanılıyor) `INTEGER PRIMARY KEY` olarak tanımlıydı, `AUTOINCREMENT`
+**değil**. SQLite'ın standart kuralı: yeni satırın id'si "tablodaki en
+büyük id + 1"dir. Tablodaki en büyük id'ye sahip satır silinirse, o
+numara **boşa çıkar** ve bir sonraki INSERT onu yeniden kullanır.
+
+Elle doğrulandı: bir cycle'da 3 fotoğraf vardı (id 1, 2, 3). id=3
+(`Bu fotoğrafı sil` ile) silindi, ardından farklı bir oosite yeni bir
+fotoğraf yüklendi — yeni kayıt **id=3'ü yeniden aldı**, önceki tamamen
+farklı fotoğrafın kimliğini. Tarayıcı o id'yi daha önce görmüşse
+(`/dosya/3`'ü bir kez açtıysa) önbellekten **eski, silinmiş fotoğrafı**
+gösterebiliyor — kullanıcının gördüğü "yüklediğim resim dışında başka
+bir resim" tam olarak bu. 2. ve 3. oosit gibi üzerinde en son
+çalışılan, dolayısıyla yanlış çekilip silinip yeniden eklenmesi en
+olası kayıtlarda ortaya çıkması da bununla tutarlı — bu tam olarak "son
+eklenen fotoğrafı sil, doğrusunu ekle" anının kendisi.
+
+## Ne değişti
+
+- **`goc_035.py`** (yeni göç): `goruntu` tablosu `id INTEGER PRIMARY KEY
+  AUTOINCREMENT` ile yeniden kuruluyor (goc_016/017/031'deki "SQLite CHECK/
+  kısıt sonradan eklenemez, tablo yeniden oluşturulur" yöntemiyle). Veri ve
+  id'ler **aynen** korunuyor, indeksler (`idx_goruntu_cycle`,
+  `idx_goruntu_specimen`) yeniden kuruluyor. `AUTOINCREMENT` SQLite'a ayrı
+  bir sayaç (`sqlite_sequence`) tutturuyor — bir id silindikten sonra bir
+  daha asla verilmiyor.
+- Kod tarafında değişiklik **yok** — sorun tamamen şema kısıtındaydı,
+  `elle_ekle()`/`goruntu_bagla()`/`/dosya/{id}` hep doğru çalışıyordu, id
+  üretimi yanlıştı.
+- **CLAUDE.md'ye tuzak #13 eklendi**: yeni bir tabloda kimliği doğrudan
+  URL'e yazılan (yani "silinip yeniden verilirse eski içerik önbellekten
+  görünebilir" riski taşıyan) bir `id INTEGER PRIMARY KEY` kolonu açılırsa
+  `AUTOINCREMENT` eklenmesi gerektiği not edildi.
+
+## Test edildi
+
+Göç öncesi hatayı elle üretip doğrulandı (id=3 silinip yeni fotoğraf
+id=3'ü yeniden aldı). `goc_035.py` çalıştırıldı: 3 kayıt, en büyük id 3,
+kırık referans 0. İkinci kez çalıştırılıp idempotent olduğu ("zaten
+AUTOINCREMENT") doğrulandı. Göç sonrası aynı senaryo tekrarlandı: id=3
+silinip yeni fotoğraf yüklendiğinde kayıt artık **id=4** aldı, id=3 bir
+daha hiç verilmedi. Üç farklı renkte (kırmızı/yeşil/mavi) test görüntüsü
+üç oosite yüklenip piksel içerikleri doğrulandı — arka planda başka bir
+karışma olmadığı ayrıca kontrol edildi. Test fotoğrafları, fazladan
+specimen'ler, arşiv klasörü ve oturum jetonları temizlendi.
