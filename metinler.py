@@ -1588,6 +1588,7 @@ METINLER = {
     "n_cycle": {"tr": "{n} tedavi", "en": "{n} cycles"},
     "n_cycle_tekil": {"tr": "{n} tedavi", "en": "{n} cycle"},
     "n_cycle_sirali": {"tr": "{n}. tedavi", "en": "Cycle {n}"},
+    "n_yas": {"tr": "{n} yaşında", "en": "age {n}"},
     "aramaya_uyan_yok": {"tr": "Bu aramaya uyan kayıt yok.",
                          "en": "No records match this search."},
     "henuz_hasta_yok": {"tr": "Henüz hasta kaydı yok.",

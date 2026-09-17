@@ -187,6 +187,28 @@ def gg_aa_yyyy_saat(zaman) -> str:
 sablon.env.globals["gg_aa_yyyy_saat"] = gg_aa_yyyy_saat
 
 
+def tedavi_yasi(dogum_tarihi, tarih):
+    """Hastanın, verilen tedavi tarihinin YILINDA kaç yaşında olduğu.
+
+    Tam yaş değil, yalnızca yıl farkı (`tedavi_yili - dogum_yili`) — ay/gün
+    karşılaştırması gerektirseydi doğum günü öncesi/sonrasına göre aynı yıl
+    içinde iki farklı sayı çıkardı; kullanıcının sorduğu "o yıl kaçındaydı"
+    sorusu bu değil. Tarihlerden biri boşsa ya da okunamıyorsa `None` döner,
+    şablon hiçbir şey basmaz.
+    """
+    if not dogum_tarihi or not tarih:
+        return None
+    try:
+        dogum_yili = _dt.fromisoformat(str(dogum_tarihi)[:10]).year
+        tedavi_yili = _dt.fromisoformat(str(tarih)[:10]).year
+    except (ValueError, TypeError):
+        return None
+    return tedavi_yili - dogum_yili
+
+
+sablon.env.globals["tedavi_yasi"] = tedavi_yasi
+
+
 def statik_surum() -> str:
     """`style.css`'in son değişim zamanı -- tarayıcı önbelleğini kırmak için (v6.69).
 

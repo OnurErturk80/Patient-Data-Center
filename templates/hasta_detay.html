@@ -31,6 +31,8 @@
       {% if c.opu_sag_oosit is not none %}
         · {{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }} {{ metin("oosit_kucuk") }}
       {% endif %}
+      {% set _tyas = tedavi_yasi(hasta.dogum_tarihi, c.opu_zamani or c.olusturma_zamani) %}
+      {% if _tyas is not none %} · {{ say("n_yas", _tyas) }}{% endif %}
     </div>
   </a>
   {% else %}

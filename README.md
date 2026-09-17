@@ -7619,3 +7619,36 @@ değer son sayfaya sabitlendi. Tüm Hastalar tarafında yalnızca 1 aktif hasta
 olduğu için o listenin sayfa gezgini hiç görünmedi — iki liste birbirinden
 gerçekten bağımsız çalıştığı doğrulandı. Playwright ile geniş ekran
 görüntülendi. Test tedavileri temizlendi, `PRAGMA foreign_key_check` temiz.
+
+# v6.89 — Hasta kartında tedavinin yapıldığı yıldaki yaş
+
+Kullanıcının isteği: hasta kartındaki tedavi satırlarında hastanın o
+tedaviyi yaptığı yıldaki yaşı görünsün.
+
+## Ne değişti
+
+- **`app.py`'de yeni Jinja global `tedavi_yasi(dogum_tarihi, tarih)`**:
+  tam yaş değil, yalnızca **yıl farkı** (`tedavi_yili - dogum_yili`).
+  Kullanıcının sorduğu "o yıl kaçındaydı" sorusu doğum günü öncesi/sonrası
+  ay/gün karşılaştırmasını gerektirmiyor — `gg_aa_yyyy()` grubundaki öteki
+  yardımcılar gibi ISO tarihten yıl okuyup çıkarıyor. Tarihlerden biri boş
+  ya da okunamıyorsa `None` döner, şablon o zaman hiçbir şey basmaz (yeni
+  hasta kaydı, doğum tarihi girilmemiş — sessizce çıplak "yaşında" yazmaz).
+- **Tedavi yılı ölçüsü `/hastalar`'ın ay listesindeki ölçüyle aynı**:
+  `c.opu_zamani`, yoksa `c.olusturma_zamani` (FET'te OPU yok). CLAUDE.md'nin
+  "Hasta kartında tedaviler ... klinik tarih alanıyla DEĞİL" kuralı burada
+  geçerli değil — o kural **sıralama** için (`hasta_cycle_no`), bu ise
+  **görüntülenen bir değer**; iki alan farklı amaçlara hizmet ediyor.
+- **`templates/hasta_detay.html`**: her tedavi satırının `meta` bilgisine
+  `· 36 yaşında` ekleniyor (`metinler.py`'de yeni `n_yas` anahtarı, "N
+  yaşında" / "age N", `say()` ile sayı biçimlendiriliyor — projedeki `say()`
+  deseninin aynısı).
+
+## Test edildi
+
+Test hastasına geçici doğum tarihi (1990) verilip iki tedavi satırında
+doğru yaş (36) göründüğü doğrulandı; doğum tarihi boşken satırın hiçbir
+şey basmadığı (boş `·` kalmadığı) ayrıca kontrol edildi. `say()` çıktısı
+`en` ve `tr` dillerinde elle çağrılıp doğrulandı. Playwright ile telefon
+genişliğinde ekran görüntülendi. Test verisi (doğum tarihi, oturum jetonu)
+temizlendi.
