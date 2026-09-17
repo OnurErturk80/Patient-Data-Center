@@ -1906,6 +1906,13 @@ async def kullanici_sil(request: Request, kid: int):
                     "Pasif yap — kayıtlar kime ait olduğunu kaybetmesin.")
 
     db.yaz("DELETE FROM oturum WHERE kullanici_id = ?", (kid,))
+    # `yetki` bir kayıt değil, izin ataması — KULLANICI_KAYITLARI'nda bilerek
+    # yok (silmeyi engellemesin), ama FK'sı var: temizlenmezse her yeni
+    # kullanıcının `tum_yetkileri_ver()` ile aldığı satırlar yüzünden bu
+    # DELETE'in kendisi FOREIGN KEY hatasıyla patlar (v6.100'de bulundu).
+    # `goc_026` çalışmamışsa tablo hiç yok (tuzak #3) — o zaman atla.
+    if yetki_tablosu_var():
+        db.yaz("DELETE FROM yetki WHERE kullanici_id = ?", (kid,))
     db.yaz("DELETE FROM kullanici WHERE id = ?", (kid,))
     return RedirectResponse(
         f"/kullanicilar?bilgi={quote(k['kullanici_adi'] + ' kalıcı olarak silindi.')}",

@@ -8140,3 +8140,43 @@ Veritabanında `yapan_ad` doğrudan "Eski Personel Adi" gibi aktif personel
 listesinde olmayan bir değere değiştirilip sayfa yenilendi — seçici o
 değeri listeye ekleyip seçili gösterdi, ilk isme kaymadı. Test verileri
 (oturum jetonu, test amaçlı `islem_yapan` satırı) temizlendi.
+
+# v6.100 — Test kullanıcı silindi, kullanıcı silme hatası düzeltildi, doğum kilosu öneri menüsü
+
+Kullanıcının isteği: test amaçlı "androlog" hesabını sil; gebelik
+sonucundaki doğum kilosu alanı elle yazılmasın, seçilebilir bir menü olsun.
+
+## Ne değişti
+
+- **`kullanici_sil()`'de gerçek bir hata bulundu ve düzeltildi.** Test
+  hesabını (`kullanici_adi='androlog'`, hiç kaydı yok) kalıcı silmeye
+  çalışırken rota `FOREIGN KEY` hatasıyla patladı — `yetki` tablosu
+  `kullanici_id`'ye bağlı ama `KULLANICI_KAYITLARI`'nda yok (izin ataması,
+  "kayıt" değil, bilerek silmeyi engellemiyor) ve rota onu hiç silmiyordu.
+  Bu **her** kullanıcıyı etkileyen bir hataydı — `tum_yetkileri_ver()`
+  yeni açılan her hesaba `yetki` satırı yazıyor, kayıtsız bile olsa. Düzeltme:
+  `kullanici_sil()` artık `oturum` gibi `yetki`'yi de kullanıcıdan **önce**
+  siliyor (`yetki_tablosu_var()` ile korunarak — `goc_026` çalışmamışsa
+  tablo yok). "androlog" hesabı bu düzeltmeyle gerçek `/kullanici/{id}/sil`
+  rotasından kalıcı olarak silindi.
+- **`gebelik.html`**: bebek başına doğum kilosu artık `<input list=
+  "kilo_secenekleri">` + paylaşılan bir `<datalist>` (0,50–5,00 kg arası,
+  0,1 kg adımlarla, 46 öneri). Dropdown gibi görünüyor ama kutuya **elle de
+  yazılabiliyor** — kapalı bir `<select>` olsaydı gerçek bir tartı
+  sonucunun (örn. 3,245 kg) hassasiyeti kaybolurdu. `sayi()` sunucuda
+  hâlâ aynı, virgüllü ondalığı kabul ediyor.
+- Bu ikisi CLAUDE.md'ye eklendi: "kayıt değil ama FK'sı var" tablo deseni
+  (`yetki`) ve "kategori kesinleşmemiş/sayısal alan → datalist, kapalı
+  `<select>` değil" kuralı — ikincisi bir sonraki sürümde sperm dondurma
+  sebebi alanına da uygulanacak.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp gerçek `/kullanici/{id}/sil` rotasıyla "androlog"
+test hesabı silindi — önce hatayı doğrulamak için düzeltmeden önce
+denendi (FOREIGN KEY hatası doğrulandı), düzeltmeden sonra başarıyla
+silindi; `yetki` ve `oturum` satırlarının da gittiği veritabanından
+kontrol edildi. Gebelik ekranında kilo alanına önce öneri listesinden bir
+değer, sonra elle "3,245" yazılıp kaydedildi — ikisi de tam olarak
+yazıldığı gibi kaydedildi ve sayfa yenilenince aynı değer geri geldi. Test
+verileri (test `dogan_bebek` satırı, oturum jetonu) temizlendi.

@@ -388,6 +388,22 @@ yap: embriyoloji fotoğrafı → asama ekranı, klinik belge → cycle ekranı.
 `liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda
 `liste_etiket(liste_adi, kod)` (Jinja global) kullan, sabit sözlük yazma.
 
+**Kategoriler kesinleşmemişse ya da alan sayısalsa: "öneri menüsü + serbest
+yazı" (`<datalist>`), kapalı `<select>` değil** (v6.100, kullanıcının
+isteği — gebelik'te doğum kilosu ve sperm dondurmada dondurma sebebi).
+`<input list="...">` + `<datalist id="...">` sık kullanılan değerleri
+dropdown gibi önerir ama kutuya elle **başka bir şey de yazılabilir** —
+kapalı bir `<select>` iki yerde yanlış olurdu: sayısal bir alanda (kilo
+gibi) sabit adımlı bir liste hassasiyeti kaybettirir (3,245 kg → en yakın
+seçeneğe yuvarlanır), kategorisi henüz netleşmemiş serbest metin bir
+alanda (`sperm_dondurma.sebep` gibi, v6.86'dan beri bilerek açık) kapalı
+liste kullanıcının aklında olmayan bir sebebi yazmasını engeller. `liste_
+degeri` + `liste_etiket()` deseni hâlâ geçerli — **yalnızca** liste laba
+özgü ama sabit/kapalı olması gereken yerlerde (mii, 2pn, z1 gibi, yönetici
+düzenler ama ekrandaki kişi listenin dışına çıkamaz). Yeni bir alan
+yazarken kendine sor: "listede olmayan bir değer girilmesi gerekebilir
+mi?" — evetse datalist, hayırsa `liste_degeri`/`<select>`.
+
 **Ekranda tarih gün.ay.yıl sırasıyla basılır, ISO değil** (v6.64, v6.67'de
 tüm ekranlara genişledi). Veritabanı ISO (`YYYY-MM-DD[ HH:MM:SS]`) tutmaya
 devam ediyor — kaydetme, arama, sıralama, karşılaştırma (`cycle_detay.html`
@@ -1091,6 +1107,16 @@ adı + `SIL` + tarayıcı onayı ile. **Son aktif yönetici pasif yapılamaz ve
 silinemez** (kilitlenme koruması). Yeni bir tabloya `kullanici_id` eklersen
 `KULLANICI_KAYITLARI` listesine de ekle, yoksa silme FOREIGN KEY hatası verir
 (README v6.11).
+- **`yetki` bu listede yok, ama FK'sı var** (v6.100'de bulundu). `yetki`
+  bir kayıt değil, izin ataması — silmeyi engellemesin diye
+  `KULLANICI_KAYITLARI`'na bilerek eklenmedi, ama tablo `kullanici_id`'ye
+  FK ile bağlı. `kullanici_sil()` bunu `oturum` gibi **önce siliyor**,
+  `kullanici` satırından önce — yoksa her yeni kullanıcının açılışta
+  `tum_yetkileri_ver()` ile aldığı satırlar yüzünden kalıcı silme kendisi
+  FOREIGN KEY hatasıyla patlıyordu (herhangi bir normal kullanıcıda,
+  hiç "kaydı" olmasa bile). Yeni bir "kayıt değil ama FK'sı var" tablo
+  eklersen (izin/atama gibi) aynı deseni kullan: `KULLANICI_KAYITLARI`'na
+  değil, doğrudan silme rotasındaki temizlik listesine ekle.
 
 **Şifre değişince o kullanıcının açık oturumları düşer.** `sifre_yaz()` bunu
 kendisi yapar; ayrı bir yol yazma. Yoksa eski şifreyle açılmış tarayıcı 12 saat
