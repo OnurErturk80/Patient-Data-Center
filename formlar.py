@@ -337,9 +337,14 @@ def ozet_verisi(cycle_id: int):
         "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0",
         (cycle_id,))
     cozulen = db.sorgu(
-        "SELECT o.thaw_sagkalim FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "SELECT o.thaw_sagkalim, o.thaw_notu FROM olay o "
+        "JOIN specimen s ON s.id=o.specimen_id "
         "WHERE o.tip='thaw' AND o.iptal_mi=0 "
         "AND COALESCE(o.thaw_cycle_id, s.cycle_id)=?", (cycle_id,))
+    # Çözme notu (v6.102): taşıyıcıdaki tüm örnekler için aynı değer
+    # yazıldığından (thaw.html'in tek, paylaşılan not alanı) ilk dolu olanı
+    # yeterli. Protokol notunun altına eklenir, üzerine yazmaz.
+    cozme_notu = next((r["thaw_notu"] for r in cozulen if r["thaw_notu"]), None)
 
     def _asama_ozeti(satirlar, alan):
         """Dondurma/transfer aşaması: kayıtlardaki farklı aşamalar, virgülle."""
@@ -427,7 +432,7 @@ def ozet_verisi(cycle_id: int):
         "cozdurme_viabilite": ", ".join(
             sorted({_et(h, "thaw_sagkalim", r["thaw_sagkalim"]) or ""
                     for r in cozulen} - {""})) or None,
-        "notlar": c["protokol_notu"],
+        "notlar": "\n".join(p for p in (c["protokol_notu"], cozme_notu) if p) or None,
         # --- başlık / künye ---
         "cycle_no": c["cycle_no"],
         "cycle_id": cycle_id,
@@ -475,7 +480,12 @@ OZET_KUTULARI = [
 
 # Sol kutu C sütununda, sağ kutu H sütununda (kâğıttaki birleşik hücreler).
 _OZET_SOL, _OZET_SAG = 2, 7
-_OZET_NOTLAR = (70, 2)                      # NOTLAR kutusu (0'dan sayıyor)
+# NOTLAR kutusu (0'dan sayıyor). v6.102'de bulundu: (70, 2) yazıyordu ama
+# kalıpta satır 70 boş (`form_kalip.json`'da `satirlar[70] == []`) -- "NOTLAR"
+# etiketi ve değer kutusu gerçekte satır 71'de (`[[0,2,2,'NOTLAR ',12],
+# [2,1,7,'',14]]`). Bu yüzden protokol notu hiçbir zaman basılmıyordu; kalıba
+# dokunulmadı, yalnızca bu satır numarası düzeltildi.
+_OZET_NOTLAR = (71, 2)
 
 
 def _yaz(v):

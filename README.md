@@ -8250,3 +8250,57 @@ doğrulandı, düzeltmeden sonra `hasta`, `sperm_dondurma`,
 kontrol edildi. Gebelik ekranında kilo alanının düz metin kutusuna
 döndüğü doğrulandı. Test hastası, dosyaları, arşiv klasörü ve oturum
 jetonları temizlendi.
+
+# v6.102 — Yumurta Çözme tedavi tipi, çözme notu, NOTLAR kutusu düzeltildi
+
+Kullanıcının istekleri: "Çözme tedavilerinde (FET, FET 3-5 kültür) Çözme
+bölümüne Not eklenebilsin, bu notlar Embriyoloji Özet formunun NOTLAR
+bölümüne yazılsın. Yumurta Çözme tedavisi de tedavi tiplerine eklensin,
+Çözme bölümü olsun ve viabilite girilebilsin." Kullanıcının seçtiği
+tasarım: not tek/paylaşılan (taşıyıcı başına), NOTLAR kutusunda protokol
+notunun altına eklensin, Yumurta Çözme yalnızca çözme aşamasından oluşsun.
+
+## Ne değişti
+
+- **Yeni tedavi tipi `yumurta_cozme`** (`goc_039`). `oosit_cryo`'da
+  dondurulmuş bir yumurtanın, FET'in embriyo için yaptığı gibi, AYRI bir
+  tedavide çözülmesi — yalnızca **Çözme** aşaması, kullanıcının kararıyla
+  bilinçli olarak minimal (ICSI/fertilizasyon gerekirse ayrı bir tedavi
+  açılır). `FET_TIPLERI`'ne eklendi — taşıyıcı/örnek listeleri
+  `thaw_cycle_id` ile aranıyor, `fet`/`fet_kultur` ile aynı mekanizma
+  (mekanizma zaten embriyo/oosit ayrımı yapmıyor, hiç değişmedi).
+  **`cycle.cycle_tipi`'nin CHECK kısıtı genişletildi** — `goc_031`'in
+  `fet_kultur` için yaptığı tablo-yeniden-kurma tekniğinin aynısı (SQLite
+  ALTER ile CHECK değiştiremiyor). `liste_degeri`'ne "Yumurta Çözme"
+  eklendi (dropdown oradan besleniyor).
+- **Çözme notu**: `thaw.html`'e tek, paylaşılan bir "Not" alanı
+  (`olay.thaw_notu`, `goc_039`) — taşıyıcıdaki tüm örnekler için ortak,
+  `thaw_kontrol_zamani` ile aynı desen. `formlar.ozet_verisi()` bu cycle'a
+  ait bir çözme notu bulursa protokol notunun **altına** ekliyor (üzerine
+  yazmıyor). Cycle tipinden bağımsız çalışıyor — sorgu zaten yalnızca bu
+  cycle'a ait çözmeleri buluyor, `ivf_icsi`/`oosit_cryo`'nun kendi
+  çözmesinde not yazılırsa o da aynı şekilde eklenir.
+- **Gerçek bir hata bulundu ve düzeltildi**: Embriyoloji Özet formunun
+  NOTLAR kutusu **hiçbir zaman** protokol notunu basmıyormuş —
+  `formlar._OZET_NOTLAR = (70, 2)` kalıptaki yanlış satırı gösteriyordu
+  (satır 70 boş, gerçek NOTLAR kutusu satır 71'de). Kimse fark etmemiş
+  çünkü kutu sessizce boş kalıyordu, hata vermiyordu. Düzeltme yalnızca
+  Python sabiti (`(71, 2)`) — kalıba (`form_kalip.json`) dokunulmadı.
+- `metinler.py`'ye `tip_yumurta_cozme`, `cozme_notu`, `cozme_notu_ipucu`
+  anahtarları eklendi; `fet_ipucu` metni Yumurta Çözme'yi de anlatıyor.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp test hastasına bir `oosit_cryo` cycle'ı ve
+vitrifiye bir yumurta (taşıyıcı) oluşturuldu. Yeni cycle formunda "Yumurta
+Çözme" seçeneği göründü, seçilince cycle detayında **yalnızca** "Çözme"
+aşaması listelendi (OPU/ICSI/Transfer gibi diğer düğmeler hiç çıkmadı).
+`/cycle/{id}/thaw` ekranı `oosit_cryo` cycle'ındaki taşıyıcıyı doğru
+listeledi (FET_TIPLERI mekanizmasının oosit için de çalıştığı doğrulandı).
+Çözme kaydedilirken "Test çözme notu" yazıldı, `olay.thaw_notu`'na doğru
+kaydedildiği görüldü. Embriyoloji Özet formu yazdırılıp önce yalnızca
+protokol notunun, sonra yalnızca çözme notunun, sonra **ikisinin birlikte**
+(protokol notu üstte, çözme notu altta, ayrı satırlarda) doğru basıldığı
+doğrulandı — bu sırada `_OZET_NOTLAR` hatası bulunup düzeltildi ve üç
+senaryo da yeniden test edildi. Test cycle'ları, taşıyıcı, specimen ve
+oturum jetonu temizlendi.

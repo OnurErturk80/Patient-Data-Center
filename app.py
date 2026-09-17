@@ -88,14 +88,17 @@ ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre",
                 "/manifest.json", "/ekle"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
-TIP_KODLARI = ("ivf_icsi", "fet", "fet_kultur", "oosit_cryo", "taze")   # taze: eski kod
+TIP_KODLARI = ("ivf_icsi", "fet", "fet_kultur", "oosit_cryo", "yumurta_cozme", "taze")   # taze: eski kod
 
-# Bu tiplerde embriyo BAŞKA bir cycle'dan gelir (OPU bu cycle'da olmaz) --
-# taşıyıcı/embriyo listeleri specimen.cycle_id ile değil, çözüldüğü tedaviyi
-# tutan thaw_cycle_id ile aranır (v6.62, goc_031). "fet" doğrudan transfer
-# ediyor, "fet_kultur" araya gün 5'e kadar kültür + blastokist değerlendirmesi
-# koyuyor -- ikisinde de embriyonun kendi cycle'ı bu cycle DEĞİL.
-FET_TIPLERI = ("fet", "fet_kultur")
+# Bu tiplerde dondurulan örnek (embriyo ya da oosit) BAŞKA bir cycle'dan
+# gelir (OPU bu cycle'da olmaz) -- taşıyıcı/örnek listeleri specimen.cycle_id
+# ile değil, çözüldüğü tedaviyi tutan thaw_cycle_id ile aranır (v6.62,
+# goc_031). "fet" doğrudan transfer ediyor, "fet_kultur" araya gün 5'e kadar
+# kültür + blastokist değerlendirmesi koyuyor. "yumurta_cozme" (v6.102,
+# goc_039) yalnızca çözme aşamasından oluşuyor -- oosit_cryo'da dondurulmuş
+# bir yumurtanın AYRI bir tedavide çözülmesi, FET'in embriyo için yaptığının
+# aynısı. Üçünde de dondurulan örneğin kendi cycle'ı bu cycle DEĞİL.
+FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")
 
 
 def tip_kisa(kod):
@@ -5765,6 +5768,7 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
             status_code=303)
 
     kontrol_zamani = zaman(f.get("kontrol_zamani"))
+    thaw_notu = bos_ise_none(f.get("thaw_notu"))
 
     # Çözme hangi tedavi için yapıldı. Formdaki değer aynı hastanın bir cycle'ı
     # olmalı; değilse embriyonun kendi cycle'ına yazılır (eski davranış).
@@ -5791,7 +5795,8 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
 
         alanlar = {"thaw_sagkalim": sagkalim, "thaw_canlilik": canlilik,
                    "thaw_re_expansion": re_exp,
-                   "thaw_kontrol_zamani": kontrol_zamani}
+                   "thaw_kontrol_zamani": kontrol_zamani,
+                   "thaw_notu": thaw_notu}
         if thaw_cycle_var():
             alanlar["thaw_cycle_id"] = secili_cycle or e["cycle_id"]
         olay_kaydet_veya_guncelle(e["id"], e["cycle_id"], "thaw",
@@ -6379,6 +6384,11 @@ TIP_ASAMALARI = {
     # cycle_asamalari), yoksa fet_kultur'da blast thaw'dan once cikardi.
     "fet_kultur": ["thaw", "blast", "transfer", "gebelik"],
     "oosit_cryo": ["opu", "denudasyon", "vitrifikasyon", "thaw"],
+    # Yumurta Çözme (v6.102, goc_039): oosit_cryo'da dondurulmuş bir
+    # yumurtanın AYRI bir tedavide çözülmesi -- yalnızca çözme aşaması,
+    # kullanıcının kararı (ICSI/fertilizasyon gerekiyorsa ayrı bir tedavi
+    # açılır, bu tedavi genişletilmez).
+    "yumurta_cozme": ["thaw"],
 }
 
 

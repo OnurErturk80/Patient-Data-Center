@@ -49,6 +49,15 @@
              value="{{ ilk.thaw_kontrol_zamani[:16]|replace(' ','T') if ilk and ilk.thaw_kontrol_zamani else '' }}">
       <div class="ipucu">{{ metin("ikinci_kontrol_ipucu") }}</div>
     </div>
+    {# Tek, paylaşılan not (v6.102, kullanıcının isteği) — taşıyıcıdaki tüm
+       örnekler için ortak, kontrol_zamani ile aynı desen. FET/FET (3→5
+       kültür)/Yumurta Çözme'de Embriyoloji Özet formunun NOTLAR kutusuna
+       (protokol notunun altına) ekleniyor. #}
+    <div class="alan" style="border:0;padding-top:0">
+      <label for="thaw_notu">{{ metin("cozme_notu") }}</label>
+      <textarea id="thaw_notu" name="thaw_notu">{{ ilk.thaw_notu if ilk and ilk.thaw_notu else '' }}</textarea>
+      <div class="ipucu">{{ metin("cozme_notu_ipucu") }}</div>
+    </div>
   </div>
   {% endif %}
 

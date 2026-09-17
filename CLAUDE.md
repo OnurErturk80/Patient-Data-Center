@@ -149,6 +149,14 @@ Tedavi tipine göre hangi aşamaların görüneceği değişir:
   dondurmadan (vitrifikasyon) önce gelir, burada çözme blastokistten önce
   gelir — embriyo zaten dondurulmuş halde geliyor.
 - `oosit_cryo` → OPU, denüdasyon, vitrifikasyon, çözme
+- `yumurta_cozme` → yalnızca **çözme** (v6.102, `goc_039`, kullanıcının
+  isteği). `oosit_cryo`'da dondurulmuş bir yumurtanın, FET'in embriyo için
+  yaptığı gibi, AYRI bir tedavide çözülmesi — **OPU yok, çözülen örnek bu
+  tedavide toplanmadı**. `FET_TIPLERI`'ne eklendi (aşağıya bak): taşıyıcı/
+  örnek listeleri `specimen.cycle_id` ile değil `olay.thaw_cycle_id` ile
+  aranıyor, `fet`/`fet_kultur` ile aynı mekanizma. Kullanıcının kararı:
+  çözmeden sonra ICSI/fertilizasyon gerekiyorsa ayrı bir tedavi açılır, bu
+  tedavi genişletilmez — bilinçli olarak minimal tutuldu.
 
 Aşama sırası ve tip-aşama eşlemesi `app.py` içinde `ASAMA_SIRASI` ve
 `TIP_ASAMALARI`. Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
@@ -167,12 +175,15 @@ ayrılıyor. Denüdasyon ekranı bu bölümü yalnızca `c.cycle_tipi ==
 sorulmasın diye. Yeni bir `FET_TIPLERI` dışı cycle tipi eklersen ve o
 tipte de ICSI aşaması yoksa aynı ihtiyaç doğar, aynı deseni kullan.
 
-**`fet` ve `fet_kultur`'da embriyo BU cycle'dan gelmez** — `FET_TIPLERI`
-sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)` bunu tek yerden kontrol
-ediyor (v6.62). Taşıyıcı/embriyo listeleri `specimen.cycle_id` ile değil,
-`olay.thaw_cycle_id` ("hangi tedavi için çözüldü") ile aranıyor —
-`specimen.cycle_id` embriyonun **ilk** (OPU/ICSI) cycle'ı, hiç değişmez
-(README v6.7). Yeni bir `FET_TIPLERI` üyesi eklersen `cycle_thaw_listesi()`,
+**`fet`, `fet_kultur` ve `yumurta_cozme`'de dondurulan örnek BU cycle'dan
+gelmez** — `FET_TIPLERI` sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)`
+bunu tek yerden kontrol ediyor (v6.62, `yumurta_cozme` v6.102'de eklendi).
+Taşıyıcı/örnek listeleri `specimen.cycle_id` ile değil, `olay.thaw_cycle_id`
+("hangi tedavi için çözüldü") ile aranıyor — `specimen.cycle_id` örneğin
+**ilk** (OPU/ICSI) cycle'ı, hiç değişmez (README v6.7). `FET_TIPLERI` adı
+"embriyo" diyor ama mekanizma tamamen genel: `cycle_thaw_listesi()`'nin
+taşıyıcı sorgusu embriyo/oosit ayrımı yapmıyor, `yumurta_cozme` eklenirken
+hiç değişmedi. Yeni bir `FET_TIPLERI` üyesi eklersen `cycle_thaw_listesi()`,
 `_blast_kosul()` ve `cycle_thaw.html`'deki vitrifikasyon-bağlantısı koşulu
 otomatik kapsar — `fet_tipi_mi()` kullanmayan yeni bir `== "fet"` kontrolü
 yazma.
@@ -608,6 +619,29 @@ kalıptan**: `form_kalip.json`.
   ile kalıbı yeniden üret — JSON'ı elle düzenleme, bu "kalıba dokunma"
   kuralını çiğnemez çünkü değişen kâğıt değil, aracın kendi hatası.
 - Form **iki dilde de Türkçe** basılır: kurum belgesi, arayüz metni değil.
+- **`formlar.py`'deki bir hücre koordinatı kalıptaki gerçek satırla eşleşmeyebilir
+  — kalıba değil, o sabite bak.** `_OZET_NOTLAR = (70, 2)` NOTLAR kutusunu hiç
+  bulamıyordu (v6.102'de bulundu): kalıpta satır 70 (0'dan sayarak) boş,
+  "NOTLAR" etiketi ve değer kutusu gerçekte satır 71'de. Yani **protokol notu
+  hiçbir zaman basılmamıştı**, kimse fark etmemişti çünkü kutu sessizce boş
+  kalıyordu (hatasız, sayfa yine düzgün görünüyordu). Düzeltme `(71, 2)`,
+  yalnızca Python sabiti — kalıba dokunulmadı. `OZET_KUTULARI`/`ARTLAB_IZGARA`
+  gibi listelerde yeni bir satır numarası kullanırsan `form_kalip.json`'daki
+  gerçek `satirlar[N]` içeriğiyle karşılaştır (`python3 -c "import json;
+  print(json.load(open('form_kalip.json'))['ozet']['satirlar'][N])"` gibi),
+  yorum satırındaki kâğıt numarasına güvenme.
+
+**Çözme notu Embriyoloji Özet'in NOTLAR kutusuna eklenir** (v6.102,
+kullanıcının isteği). `thaw.html`'deki tek, paylaşılan `thaw_notu` alanı
+(taşıyıcıdaki tüm örnekler için aynı değer, `thaw_kontrol_zamani` ile aynı
+desen) `olay.thaw_notu`'na yazılıyor. `formlar.ozet_verisi()` bu cycle'a ait
+(`COALESCE(thaw_cycle_id, specimen.cycle_id) = cycle_id`) bir çözme notu
+bulursa, protokol notunun **altına** ekliyor (`"\n".join`, üzerine yazmıyor)
+— kutunun kendisi zaten `white-space: pre` (`.kalip td`), newline satır
+atlıyor, ek bir CSS gerekmedi. Cycle tipinden bağımsız: `ivf_icsi`/
+`oosit_cryo`'nun kendi thaw'ında not yazılırsa o da aynı şekilde eklenir,
+ayrı bir `fet_tipi_mi()` süzgeci yok — sorgu zaten yalnızca **bu cycle'a
+ait** çözmeleri buluyor.
 
 **Laboratuvar kendi formunu yükleyebilir** (v6.40, `goc_029`). Gömülü iki form
 bu laboratuvarın; başka bir laboratuvar `/formlar`'dan kendi `.xlsx` formunu
@@ -1294,6 +1328,14 @@ satırı üretmiyor.
   Dondurma"ya yeniden adlandırıldı (`kod`, `TIP_KODLARI`, `TIP_ASAMALARI`
   aynen duruyor) — aynı desen, yeni bir tip açmadan önce mevcut
   `liste_degeri.etiket`'in yeniden adlandırılabilir olup olmadığını düşün.
+- **Gerçekten yeni bir tip açıyorsan `cycle.cycle_tipi`'nin CHECK kısıtına
+  da eklemen gerekir** — `TIP_KODLARI`/`TIP_ASAMALARI`'na eklemek yetmez,
+  DB kendi kodu kabul etmez. SQLite CHECK kısıtını ALTER ile değiştiremiyor;
+  tablo yeniden kurulur (`goc_031`'in `fet_kultur` için yaptığı, `goc_039`
+  `yumurta_cozme` için tekrarladı — aynı regex/rename dansı, kopyala). Dört
+  adım: (1) CHECK'i genişlet (tablo yeniden kurma), (2) `liste_degeri`'ne
+  `sira=MAX+1` ile ekle (dropdown oradan besleniyor), (3) `TIP_KODLARI` +
+  `TIP_ASAMALARI`, (4) `metinler.py`'ye `tip_<kod>` anahtarı.
 
 **Sperm dondurma tüp bebek tedavisi olmayan hastalar için de yapılabilir,
 tek ekranda kaydediliyor** (v6.85'te başladı, v6.86'da bugünkü haline geldi

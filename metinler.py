@@ -287,12 +287,15 @@ METINLER = {
         "tr": "FET seçilirse laboratuvar aşamaları gösterilmez; doğrudan "
               "çözme ve transferle başlanır. FET (3→5) seçilirse çözme ile "
               "transfer arasına blastokist değerlendirmesi eklenir — gün 2/3 "
-              "embriyosu çözülüp gün 5'e kadar kültürlenir.",
+              "embriyosu çözülüp gün 5'e kadar kültürlenir. Yumurta Çözme "
+              "seçilirse yalnızca çözme aşaması gösterilir — daha önce "
+              "dondurulmuş bir yumurtanın bu tedavide çözülmesi.",
         "en": "If FET is selected the laboratory stages are hidden; the cycle "
               "starts directly with thaw and transfer. If FET (D3→5) is "
               "selected, a blastocyst assessment stage is added between thaw "
               "and transfer — a day 2/3 embryo is thawed and cultured to "
-              "day 5."},
+              "day 5. If Egg Thaw is selected, only the thaw stage is shown "
+              "— a previously frozen egg is thawed in this treatment."},
     "endikasyon": {"tr": "Endikasyon", "en": "Indication"},
     "klinik_protokol": {"tr": "Klinik protokol", "en": "Clinical protocol"},
     "gonadotropin": {"tr": "Gonadotropin", "en": "Gonadotropin"},
@@ -451,6 +454,12 @@ METINLER = {
               "yapılmadıysa boş bırak, sonra doldur.",
         "en": "The time the re-expansion assessment was made. Leave it empty "
               "if it has not been done yet and fill it in later."},
+    "cozme_notu": {"tr": "Not", "en": "Note"},
+    "cozme_notu_ipucu": {
+        "tr": "Embriyoloji Özet formunun NOTLAR kutusuna, protokol notunun "
+              "altına eklenir.",
+        "en": "Added to the Embryology Summary form's NOTES box, below the "
+              "protocol note."},
     "cozme_sonrasi": {"tr": "Çözme sonrası", "en": "After thaw"},
     "ikinci_kontrol": {"tr": "İkinci kontrol", "en": "Second check"},
     "fotograf_n": {"tr": "fotoğraf {n}", "en": "photo {n}"},
@@ -1042,6 +1051,7 @@ METINLER = {
     "tip_fet": {"tr": "FET", "en": "FET"},
     "tip_fet_kultur": {"tr": "FET (3→5)", "en": "FET (D3→5)"},
     "tip_oosit_cryo": {"tr": "Oosit cryo", "en": "Oocyte cryo"},
+    "tip_yumurta_cozme": {"tr": "Yumurta Çözme", "en": "Egg Thaw"},
     "tip_taze": {"tr": "IVF/ICSI", "en": "IVF/ICSI"},
 
     # ---- işlemi yapan (paylaşılan parça) ----
