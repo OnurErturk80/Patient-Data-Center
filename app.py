@@ -6054,6 +6054,7 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
     # Kuyruk isaretleri: "atla" denen kareler goruntuye bagli degil, cycle'a bagli
     db.yaz("DELETE FROM kaynak_dosya WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM beta_hcg WHERE cycle_id=?", (cycle_id,))
+    db.yaz("DELETE FROM dogan_bebek WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM gebelik_sonucu WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM sperm_analiz WHERE sperm_ornek_id IN "
            "(SELECT id FROM sperm_ornek WHERE cycle_id=?)", (cycle_id,))
@@ -6383,6 +6384,13 @@ def gebelik_ekran(request: Request, cycle_id: int, hata: str = ""):
     kayit = db.tek("SELECT * FROM gebelik_sonucu WHERE cycle_id=?", (cycle_id,))
     betalar = db.sorgu("SELECT * FROM beta_hcg WHERE cycle_id=? ORDER BY zaman, id",
                        (cycle_id,))
+    bebekler = db.sorgu("SELECT * FROM dogan_bebek WHERE cycle_id=? ORDER BY sira",
+                        (cycle_id,))
+    bebek_kayitli = {b["sira"]: b for b in bebekler}
+    # Bebek sayısı henüz girilmemişse bile en az 1 satır gösterilsin --
+    # çoğu doğum tekil, kullanıcı önce "Bebek sayısı"nı doldurmak zorunda kalmasın.
+    bebek_siralari = range(1, max(kayit["bebek_sayisi"] if kayit and kayit["bebek_sayisi"] else 1,
+                                  max(bebek_kayitli, default=0)) + 1)
 
     transferler = db.sorgu(
         "SELECT s.cycle_sira_no, s.id, o.zaman, o.tr_tipi, c2.cycle_no AS kaynak, "
@@ -6413,6 +6421,7 @@ def gebelik_ekran(request: Request, cycle_id: int, hata: str = ""):
         {"c": c, "k": kayit, "betalar": betalar, "artis": artis,
          "transferler": transferler, "hata": hata,
          "sonlanmalar": db.liste("sonlanma"),
+         "bebek_siralari": bebek_siralari, "bebek_kayitli": bebek_kayitli,
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
          "gezinme": asama_gezinme(cycle_id, "gebelik")})
 
@@ -6454,6 +6463,7 @@ async def gebelik_kaydet(request: Request, cycle_id: int):
     try:
         kese = tam(f.get("gebelik_kesesi_sayisi"), "Gebelik kesesi sayısı")
         bebek = tam(f.get("bebek_sayisi"), "Bebek sayısı")
+        hafta = tam(f.get("dogum_haftasi"), "Doğum haftası")
     except FormHatasi as e:
         return hata(str(e))
 
@@ -6465,6 +6475,7 @@ async def gebelik_kaydet(request: Request, cycle_id: int):
         "sonlanma": bos_ise_none(f.get("sonlanma")),
         "dogum_zamani": zaman(f.get("dogum_zamani")),
         "bebek_sayisi": bebek,
+        "dogum_haftasi": hafta,
         "guncelleme_zamani": _d.now().isoformat(" ", "seconds"),
     }
 
@@ -6479,4 +6490,40 @@ async def gebelik_kaydet(request: Request, cycle_id: int):
                ", ".join(yeni) + ") VALUES (?,?," +
                ", ".join("?" * len(yeni)) + ")",
                (db.LAB_ID, cycle_id, *yeni.values()))
+    return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)
+
+
+@uygulama.post("/cycle/{cycle_id}/gebelik/bebek")
+async def gebelik_bebek_kaydet(request: Request, cycle_id: int):
+    """Doğan bebeklerden birinin cinsiyeti/kilosu — bebek sayısı kadar,
+    ayrı satır (kullanıcının isteği: ikiz/üçüzde her bebek kendi kaydı).
+    `beta_hcg` gibi doğrudan cycle_id'ye bağlı, `gebelik_sonucu`'na değil.
+    """
+    from urllib.parse import quote
+    f = await request.form()
+
+    def hata(m):
+        return RedirectResponse(f"/cycle/{cycle_id}/gebelik?hata={quote(m)}",
+                                status_code=303)
+
+    try:
+        sira = tam(f.get("sira"), "Sıra")
+        kilo = sayi(f.get("kilo_kg"), "Kilo")
+    except FormHatasi as e:
+        return hata(str(e))
+    if not sira:
+        return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)
+
+    cinsiyet = f.get("cinsiyet") or None
+    if cinsiyet not in ("kiz", "erkek", None):
+        cinsiyet = None
+
+    mevcut = db.tek("SELECT id FROM dogan_bebek WHERE cycle_id=? AND sira=?",
+                    (cycle_id, sira))
+    if mevcut:
+        db.yaz("UPDATE dogan_bebek SET cinsiyet=?, kilo_kg=? WHERE id=?",
+               (cinsiyet, kilo, mevcut["id"]))
+    else:
+        db.yaz("INSERT INTO dogan_bebek (lab_id, cycle_id, sira, cinsiyet, kilo_kg) "
+               "VALUES (?,?,?,?,?)", (db.LAB_ID, cycle_id, sira, cinsiyet, kilo))
     return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)

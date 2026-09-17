@@ -69,6 +69,7 @@ if cycles:
         ("sperm_ornek.cycle_id", f"SELECT COUNT(*) FROM sperm_ornek WHERE cycle_id IN ({q})", cycles),
         ("gebelik_sonucu.cycle_id", f"SELECT COUNT(*) FROM gebelik_sonucu WHERE cycle_id IN ({q})", cycles),
         ("beta_hcg.cycle_id", f"SELECT COUNT(*) FROM beta_hcg WHERE cycle_id IN ({q})", cycles),
+        ("dogan_bebek.cycle_id", f"SELECT COUNT(*) FROM dogan_bebek WHERE cycle_id IN ({q})", cycles),
         ("kaynak_dosya.cycle_id (atlanan kareler)",
          f"SELECT COUNT(*) FROM kaynak_dosya WHERE cycle_id IN ({q})", cycles),
         ("islem_yapan.cycle_id",
@@ -121,6 +122,7 @@ for cid in cycles:
         (f"cycle {cid}: kaynak_dosya (cycle)",
          "DELETE FROM kaynak_dosya WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: beta_hcg", "DELETE FROM beta_hcg WHERE cycle_id=?", (cid,)),
+        (f"cycle {cid}: dogan_bebek", "DELETE FROM dogan_bebek WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: gebelik_sonucu", "DELETE FROM gebelik_sonucu WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: sperm_analiz",
          "DELETE FROM sperm_analiz WHERE sperm_ornek_id IN "

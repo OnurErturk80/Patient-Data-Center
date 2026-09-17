@@ -146,10 +146,55 @@
                value="{{ k.bebek_sayisi if k and k.bebek_sayisi is not none else '' }}">
       </div>
     </div>
+    <div class="alan">
+      <label for="dogum_haftasi">{{ metin("dogum_haftasi") }}</label>
+      <input id="dogum_haftasi" name="dogum_haftasi" type="number" inputmode="numeric" min="0"
+             value="{{ k.dogum_haftasi if k and k.dogum_haftasi is not none else '' }}">
+    </div>
   </div>
 
   <button class="dugme" type="submit">{{ metin("sonucu_kaydet") }}</button>
 </form>
+
+{% if bebek_siralari %}
+<div class="kart">
+  <h2>{{ metin("bebekler") }}</h2>
+  {% for sira in bebek_siralari %}
+  {% set bebek = bebek_kayitli.get(sira) %}
+  <form method="post" action="/cycle/{{ c.id }}/gebelik/bebek" class="alan"
+        {% if not loop.first %}style="border-top:1px solid var(--line)"{% endif %}>
+    <input type="hidden" name="sira" value="{{ sira }}">
+    <label>{{ say("n_bebek", sira) }}</label>
+    <div class="secenek">
+      <label class="sec {% if bebek and bebek.cinsiyet == 'kiz' %}secili{% endif %}">
+        <input type="radio" name="cinsiyet" value="kiz"
+               {% if bebek and bebek.cinsiyet == 'kiz' %}checked{% endif %}>
+        <span>{{ metin("kiz") }}</span>
+      </label>
+      <label class="sec {% if bebek and bebek.cinsiyet == 'erkek' %}secili{% endif %}">
+        <input type="radio" name="cinsiyet" value="erkek"
+               {% if bebek and bebek.cinsiyet == 'erkek' %}checked{% endif %}>
+        <span>{{ metin("erkek") }}</span>
+      </label>
+      <label class="sec {% if not bebek or not bebek.cinsiyet %}secili{% endif %}">
+        <input type="radio" name="cinsiyet" value=""
+               {% if not bebek or not bebek.cinsiyet %}checked{% endif %}>
+        <span>{{ metin("belirtme") }}</span>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-top:10px">
+      <div style="flex:1">
+        <label for="kilo_{{ sira }}">{{ metin("dogum_kilosu") }}</label>
+        <input id="kilo_{{ sira }}" name="kilo_kg" type="text" inputmode="decimal"
+               autocomplete="off"
+               value="{{ bebek.kilo_kg if bebek and bebek.kilo_kg is not none else '' }}">
+      </div>
+      <button class="minidugme" type="submit" style="min-width:88px">{{ metin("kaydet") }}</button>
+    </div>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if k and k.guncelleme_zamani %}
 <div class="ipucu" style="text-align:center;margin-top:10px">

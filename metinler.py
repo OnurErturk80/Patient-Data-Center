@@ -739,8 +739,14 @@ METINLER = {
               "out right."},
     "dogum_zamani": {"tr": "Doğum zamanı", "en": "Delivery time"},
     "bebek_sayisi": {"tr": "Bebek sayısı", "en": "Number of babies"},
+    "dogum_haftasi": {"tr": "Doğum haftası", "en": "Gestational week"},
     "sonucu_kaydet": {"tr": "Sonucu kaydet", "en": "Save outcome"},
     "son_guncelleme": {"tr": "Son güncelleme:", "en": "Last updated:"},
+    "bebekler": {"tr": "Bebekler", "en": "Babies"},
+    "n_bebek": {"tr": "{n}. bebek", "en": "Baby {n}"},
+    "kiz": {"tr": "Kız", "en": "Girl"},
+    "erkek": {"tr": "Erkek", "en": "Boy"},
+    "dogum_kilosu": {"tr": "Doğum kilosu (kg)", "en": "Birth weight (kg)"},
 
     # ---- fotoğraf ekleme / görüntü silme ----
     "hangi_oosite": {"tr": "Hangi oosite", "en": "To which oocyte"},

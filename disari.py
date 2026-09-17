@@ -412,7 +412,7 @@ def cryo_sayfalari():
 TUM_TABLOLAR = [
     "hasta", "cycle", "specimen", "olay", "goruntu", "specimen_bulgu",
     "sperm_ornek", "sperm_analiz", "sperm_dondurma", "islem_yapan", "gebelik_sonucu",
-    "beta_hcg", "pgt_sonuc", "tasiyici", "konum", "konum_semasi",
+    "beta_hcg", "dogan_bebek", "pgt_sonuc", "tasiyici", "konum", "konum_semasi",
     "liste_degeri", "degisiklik_log",
 ]
 

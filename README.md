@@ -7993,3 +7993,62 @@ satırlarının doğru yazıldığı kontrol edildi; salt okunur görünümde
 doğru işaretli geldi. Playwright ile hem çalışma hem görüntüleme kipi
 hem bulgu modalı ekran görüntüsüyle doğrulandı. Test cycle'ı, oositleri,
 arşiv klasörü ve oturum jetonu temizlendi.
+
+# v6.97 — Gebelik sonucunda doğum haftası ve bebek başına cinsiyet/kilo
+
+Kullanıcının isteği: "Gebelik bölümünde doğum olduğunda kız mı erkek mi
+olduğu kaç kilo ve kaçıncı hafta doğum olduğu bölümleri olsun." Birden
+fazla bebek (ikiz/üçüz) olduğunda cinsiyet ve kiloyu nasıl gireceği
+soruldu — kullanıcı **her bebek için ayrı satır**'ı seçti (tek satıra
+serbest metin değil).
+
+## Ne değişti
+
+- **`goc_037.py`** (yeni göç): `gebelik_sonucu.dogum_haftasi INTEGER`
+  eklendi (doğum tek bir haftada olur, ikizde de aynı) ve yeni tablo
+  **`dogan_bebek`** (`id`, `lab_id`, `cycle_id`, `sira`, `cinsiyet`,
+  `kilo_kg`, `UNIQUE(cycle_id, sira)`). `beta_hcg` ile aynı desen: satır
+  doğrudan `cycle_id`'ye bağlı, `gebelik_sonucu.id`'ye değil — `beta_hcg`
+  zaten bunu yapıyordu, mimari tutarlılık için aynısı tekrarlandı.
+  `dogan_bebek.id` URL'e hiç sızmıyor (tuzak #13), `AUTOINCREMENT`
+  gerekmedi.
+- **`gebelik.html`**: "Sonlanma" kartına `dogum_haftasi` sayısal alanı
+  eklendi. Ana formdan (`#gform`) **sonra**, ayrı bir "Bebekler" kartı:
+  `bebek_sayisi` kadar (en az 1) satır, her biri **kendi `<form>`'unda**
+  (HTML formları iç içe olamaz) `/cycle/{id}/gebelik/bebek`'e POST ediyor.
+  Cinsiyet radyo düğmesiyle (ICSI/denüdasyon'daki `.secenek` görünümü,
+  sayfadaki genel toggle scripti zaten her `.secenek` grubunu kapsıyor,
+  yeni JS gerekmedi), kilo serbest metin (`sayi()` virgüllü ondalığı
+  kabul ediyor). **Radyo bilerek self-submit buton değil** — "Kaydet"e
+  basıldığında cinsiyet yeniden işaretlenmemişse önceki değeri `NULL`'a
+  düşürmesin diye, seçili durum forma gömülü kalıyor.
+- **`app.py`**: `gebelik_ekran()` artık `dogan_bebek` satırlarını okuyup
+  `bebek_siralari` (1'den `max(bebek_sayisi, kayıtlı en yüksek sıra)`'ya
+  kadar) ve `bebek_kayitli` (sıra → satır) hesaplıyor — `bebek_sayisi`
+  girilmeden önce de en az 1 satır görünsün, sonradan azaltılsa bile
+  kayıtlı üst sıralar kaybolmasın diye. `gebelik_kaydet()`'e
+  `dogum_haftasi` (`tam()` ile) eklendi. Yeni rota
+  **`POST /cycle/{cycle_id}/gebelik/bebek`**: `sira`+`kilo_kg`'ı doğrulayıp
+  `dogan_bebek`'e upsert yapıyor, hata dönüşü `?hata=`'ya, formu kapatmıyor.
+- **Tuzak #4 (cascade delete)**: `cycle_tamamen_sil()`'e `dogan_bebek`
+  silme satırı eklendi (`beta_hcg` ile `gebelik_sonucu` arasına — aynı
+  konum, aynı desen). **`teshis_silme.py`'ye de** aynı tarama + silme adımı
+  eklendi — CLAUDE.md'nin "aynısını teshis_silme.py'ye de ekle" kuralı.
+- **`disari.py`**: `dogan_bebek` `TUM_TABLOLAR`'a eklendi, `/disari/tumu`
+  dökümünde kendiliğinden çıkacak (kolonlar `PRAGMA table_info()` ile
+  dinamik okunuyor).
+- **`metinler.py`**: `dogum_haftasi`, `bebekler`, `n_bebek`, `kiz`,
+  `erkek`, `dogum_kilosu` anahtarları eklendi.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp bir cycle'ın gebelik ekranında `dogum_haftasi=38`
+ve `bebek_sayisi=2` kaydedildi; "Bebekler" kartının 1 satırdan 2 satıra
+çıktığı doğrulandı. 1. bebek "Kız" + 3,2 kg, 2. bebek "Erkek" + 2,95 kg
+ayrı formlarla kaydedildi; `sayi()`'nin virgüllü ondalığı doğru çevirdiği
+(`2,95` → `2.95`) veritabanından kontrol edildi. Sayfa yeniden yüklenince
+her iki bebeğin cinsiyet radyosu (`checked`) ve kilo alanı (`value`)
+doğru önceden dolu geldi. `dogum_haftasi` alanı da (`38`) doğru
+round-trip etti. Tüm şablonlar hatasız derlendi. Test `dogan_bebek`
+satırları, `gebelik_sonucu`'na yazılan test değerleri ve oturum jetonu
+temizlendi.
