@@ -2131,6 +2131,29 @@ def ornek_kodu_ara(ara: str) -> list:
     )
 
 
+def _sadece_sperm_kosulu(alias: str = "h") -> str:
+    """Yalnızca sperm dondurma amacıyla açılmış hasta koşulu (v6.98).
+
+    Hiç cycle'ı olmayan ve en az bir iptal edilmemiş `sperm_dondurma`
+    kaydı olan hasta — "Yeni hasta kaydı (Sperm Dondurma)" akışından
+    (v6.86) açılmış, IVF tedavisi görmeyen hasta demek. Ayrı bir işaret
+    tutulmuyor (v6.38'deki "istatistikler türetilmiştir" gerekçesinin
+    aynısı): sonradan kendi cycle'ı açılırsa (nadir ama mümkün) koşul
+    kendiliğinden düşer, elle bir şey güncellemeye gerek kalmaz.
+
+    Kullanıcının isteği (2026-09-17): mevcut bir IVF hastasına sperm
+    dondurma eklenebilmesi (örn. eşinden alınan sperm) kalsın, ama bu
+    şekilde açılan hastalar Tüm Hastalar listesinde IVF hastalarıyla
+    karışmasın; arandıklarında ise (arama hedefli bir sorgu, bu listenin
+    aksine) bulunabilsinler, yalnızca rozetle ayırt edilsinler.
+    """
+    return (
+        f"(SELECT COUNT(*) FROM cycle WHERE hasta_id = {alias}.id) = 0 "
+        f"AND EXISTS (SELECT 1 FROM sperm_dondurma sd "
+        f"WHERE sd.hasta_id = {alias}.id AND sd.iptal_mi = 0)"
+    )
+
+
 HASTALAR_SAYFA_BOYU = 50  # /hastalar'daki iki liste de (ay + Tüm Hastalar) bununla sayfalanır
 
 
@@ -2175,7 +2198,8 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     durum = "arsiv" if arsiv else ("aktif" if ara.strip() else None)
     if durum:
         ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
-                 "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
+                 f"AS cycle_sayisi, ({_sadece_sperm_kosulu()}) AS sperm_hastasi "
+                 "FROM hasta h WHERE h.lab_id = ? AND h.durum = ?")
         if ara.strip():
             kayitlar = db.sorgu(
                 ortak + " AND (CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?)"
@@ -2210,8 +2234,12 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
         liste = cycle_listesi(ay=ay_str, limit=HASTALAR_SAYFA_BOYU,
                               offset=(aysayfa - 1) * HASTALAR_SAYFA_BOYU)
         if not ara.strip():
+            # Yalnızca sperm dondurma amacıyla açılmış hastalar (v6.98)
+            # Tüm Hastalar'dan çıkarılıyor — onlar IVF tedavi hastası değil.
+            # Arandıklarında (yukarıdaki `kayitlar`) hâlâ bulunabiliyorlar.
             tum_hastalar_sayisi = db.tek(
-                "SELECT COUNT(*) k FROM hasta WHERE lab_id=? AND durum='aktif'",
+                "SELECT COUNT(*) k FROM hasta h WHERE h.lab_id=? AND h.durum='aktif' "
+                f"AND NOT ({_sadece_sperm_kosulu()})",
                 (db.LAB_ID,))["k"]
             tum_hastalar_sayfa_toplam = max(
                 1, -(-tum_hastalar_sayisi // HASTALAR_SAYFA_BOYU))  # tavana yuvarla
@@ -2219,6 +2247,7 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
             tum_hastalar = db.sorgu(
                 "SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
                 "AS cycle_sayisi FROM hasta h WHERE h.lab_id = ? AND h.durum = 'aktif' "
+                f"AND NOT ({_sadece_sperm_kosulu()}) "
                 "ORDER BY h.ad_soyad LIMIT ? OFFSET ?",
                 (db.LAB_ID, HASTALAR_SAYFA_BOYU,
                  (sayfa - 1) * HASTALAR_SAYFA_BOYU))
@@ -2309,7 +2338,9 @@ def hasta_kontrol(dosya_no: str = ""):
 
 @uygulama.get("/hasta/{hasta_id}")
 def hasta_detay(request: Request, hasta_id: int):
-    hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    hasta = db.tek(
+        f"SELECT h.*, ({_sadece_sperm_kosulu()}) AS sperm_hastasi "
+        "FROM hasta h WHERE h.id = ?", (hasta_id,))
     cycles = db.sorgu(
         "SELECT * FROM cycle WHERE hasta_id = ? "
         "ORDER BY hasta_cycle_no DESC, id DESC", (hasta_id,)

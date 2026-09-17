@@ -214,6 +214,7 @@ METINLER = {
     # ---- sperm dondurma (v6.84) ----
     "sperm_dondurma": {"tr": "Sperm Dondurma", "en": "Sperm Freezing"},
     "yeni_sperm_dondurma": {"tr": "Yeni Sperm Dondurma", "en": "New Sperm Freezing"},
+    "sperm_dondurma_hastasi": {"tr": "Sperm Dondurma", "en": "Sperm Freezing"},
     "sperm_dondurma_ara_ipucu": {
         "tr": "Etiket, konum, dosya no veya hasta adı",
         "en": "Label, location, file no or patient name"},

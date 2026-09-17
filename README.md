@@ -8052,3 +8052,47 @@ doğru önceden dolu geldi. `dogum_haftasi` alanı da (`38`) doğru
 round-trip etti. Tüm şablonlar hatasız derlendi. Test `dogan_bebek`
 satırları, `gebelik_sonucu`'na yazılan test değerleri ve oturum jetonu
 temizlendi.
+
+# v6.98 — Sperm dondurma hastaları Tüm Hastalar'dan ayrıldı
+
+Kullanıcının isteği: "Sperm dondurma işlemleri ayrı hasta kaydı olarak
+tutulsun. Aylık tedavilerin gösterildiği yerde de sperm dondurma
+kayıtları gösterilmesin." Ne demek istediği soruldu: mevcut bir IVF
+hastasına sperm dondurma eklenebilmesi (örn. eşinden alınan sperm)
+kalsın, ama yalnızca sperm dondurma amacıyla açılmış hastalar (v6.86'nın
+"Yeni hasta kaydı (Sperm Dondurma)" akışı) `/hastalar`'daki Tüm Hastalar
+listesinde IVF hastalarıyla karışmasın; arandıklarında yine bulunabilsinler.
+
+## Ne değişti
+
+- **Göç yok — ölçü tamamen türetilmiş.** `app.py`'ye yeni bir yardımcı
+  `_sadece_sperm_kosulu()` eklendi: hiç `cycle`'ı olmayan ve en az bir
+  iptal edilmemiş `sperm_dondurma` kaydı olan hasta. `/hastalar` ay
+  listesi zaten `cycle` tablosundan okuyor ve sperm dondurma hiç `cycle`
+  satırı açmıyor, o yüzden orada ek bir değişikliğe gerek yoktu.
+- **`hastalar()` rotası**: Tüm Hastalar'ın hem sayımı hem satırları artık
+  `NOT (_sadece_sperm_kosulu())` ile bu hastaları çıkarıyor. Arama sonucu
+  ve arşiv listesi (aynı `ortak` sorgu) etkilenmedi — bunlar hedefli
+  sorgular, personel belirli birini arıyorsa bulabilmeli. Onun yerine
+  oradaki satırlara ve `/hasta/{id}` sayfasının kimlik bandına
+  `sperm_hastasi` bayrağıyla "Sperm Dondurma" rozeti eklendi
+  (`.rozet` — sabit koyu zemin, v6.74'ün "zemin sabitse yazı da sabit"
+  kuralına uygun, yeni CSS gerekmedi).
+- **Mevcut bir IVF hastasına sperm dondurma eklemek hâlâ mümkün**
+  (`/hasta/{id}/sperm-dondurma/yeni`) — o hastanın kendi cycle'ı olduğu
+  için koşul hiç tutmuyor, Tüm Hastalar'dan düşmüyor, rozet de
+  basılmıyor. Kullanıcı bunu açıkça istedi.
+- **`metinler.py`**: `sperm_dondurma_hastasi` anahtarı eklendi.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp üç senaryo denendi: (1) `/sperm-dondurma/yeni-hasta`
+ile yeni bir sperm dondurma hastası açıldı — Tüm Hastalar sayısı
+değişmedi, hasta o listede hiç görünmedi; (2) aynı hasta adıyla arandığında
+arama sonucunda "Sperm Dondurma" rozetiyle bulundu, kendi `/hasta/{id}`
+sayfasında da aynı rozet kimlik bandında çıktı; (3) mevcut bir IVF
+hastasına (`cycle`'ı olan) `/hasta/{id}/sperm-dondurma/yeni` ile sperm
+dondurma eklendi — bu hasta Tüm Hastalar'da rozetsiz görünmeye devam
+etti. Ay listesi zaten cycle bazlı olduğu için hiçbir senaryoda sperm
+dondurma hastası orada görünmedi. Test hastası, taşıyıcı kayıtları,
+sperm dondurma kayıtları ve oturum jetonu temizlendi.

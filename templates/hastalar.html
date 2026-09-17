@@ -45,7 +45,7 @@
   {% for h in hastalar %}
   <a class="satir hasta" href="/hasta/{{ h.id }}">
     <div class="no">{{ h.dosya_no }}</div>
-    <div class="ad">{{ h.ad_soyad }}</div>
+    <div class="ad">{{ h.ad_soyad }}{% if h.sperm_hastasi %} <span class="rozet">{{ metin("sperm_dondurma_hastasi") }}</span>{% endif %}</div>
     <div class="meta">
       {% if h.es_adi %}{{ metin("es") }}: {{ h.es_adi }} · {% endif %}{{ say("n_cycle", h.cycle_sayisi) }}
     </div>
@@ -188,7 +188,7 @@
   {% for h in gosterilecek %}
   <a class="satir hasta" href="/hasta/{{ h.id }}">
     <div class="no">{{ h.dosya_no }}</div>
-    <div class="ad">{{ h.ad_soyad }}</div>
+    <div class="ad">{{ h.ad_soyad }}{% if h.sperm_hastasi %} <span class="rozet">{{ metin("sperm_dondurma_hastasi") }}</span>{% endif %}</div>
     <div class="meta">
       {% if h.es_adi %}{{ metin("es") }}: {{ h.es_adi }} · {% endif %}{{ say("n_cycle", h.cycle_sayisi) }}
     </div>

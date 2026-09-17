@@ -1306,6 +1306,33 @@ yanıtlanıyor.
   kuralı, tuzak #4). Yeni bir `cycle_id`-referanslı tablo eklersen ikisini de
   güncelle, `cycle_tamamen_sil()` tek başına yetmiyor.
 
+**Yalnızca sperm dondurma amacıyla açılmış hasta Tüm Hastalar'da
+görünmez, aranınca görünür** (v6.98, kullanıcının isteği). Ölçü **türetilmiş**
+— `_sadece_sperm_kosulu()` (`app.py`): hiç `cycle`'ı olmayan ve en az bir
+iptal edilmemiş `sperm_dondurma` kaydı olan hasta. Ayrı bir işaret
+(`hasta.tur` gibi bir kolon) tutulmuyor — v6.38'deki "istatistikler
+türetilmiştir" gerekçesinin aynısı: sonradan bu hastanın kendi cycle'ı
+açılırsa (nadir ama mümkün) koşul kendiliğinden düşer, elle bir şey
+güncellemeye gerek kalmaz.
+- **Mevcut bir IVF hastasına sperm dondurma eklenebilmesi bilerek
+  kaldırılmadı** (örn. eşinden alınan sperm, `/hasta/{id}/sperm-dondurma/
+  yeni`) — o hastanın zaten kendi cycle'ı olduğu için koşul hiç
+  tutmuyor, Tüm Hastalar'dan düşmüyor. Bu davranışı bozma.
+- **`/hastalar`'ın Tüm Hastalar listesinden** (hem sayım hem satırlar)
+  çıkarılıyor — `hastalar()` rotasında `NOT ({_sadece_sperm_kosulu()})`.
+  **Arama sonuçlarından ve `/hasta/{id}` sayfasından çıkarılmadı**: arama
+  hedefli bir sorgu (personel belirli birini arıyor), onu gizlemek erişimi
+  kısıtlardı. Onun yerine oralarda `sperm_hastasi` bayrağıyla "Sperm
+  Dondurma" rozeti basılıyor (`.rozet`, `hastalar.html` + `hasta_detay.html`)
+  — böylece karışmıyor ama bulunabiliyor.
+- **Ay listesi zaten etkilenmiyor**: `cycle_listesi()` `cycle` tablosundan
+  okuyor, sperm dondurma hiç `cycle` satırı açmıyor (yeni bir cycle tipi
+  değil). Ekstra bir süzgece gerek yok, koşulsuz doğru.
+- Yeni bir "bütün hastalar" sorgusu yazarsan (istatistik, döküm, arama
+  dışı bir liste) aynı soruyu sor: bu ekran IVF tedavi hastalarını mı
+  sayıyor, yoksa gerçekten her hastayı mı? İlkiyse `_sadece_sperm_kosulu()`
+  ile aynı süzgeci uygula.
+
 ---
 
 ## İki makine
