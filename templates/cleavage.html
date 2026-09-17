@@ -78,7 +78,7 @@
        (metin("simetri"), liste_etiket('simetri', kayit.cl_simetri)),
        (metin("bulgular"), bk.bulgu_metni(bulgular, secili_bulgular)),
        (metin("skor"), kayit.cl_skor),
-       (metin("islem_saati"), kayit.zaman),
+       (metin("islem_saati"), gg_aa_yyyy_saat(kayit.zaman)),
      ],
      geri_yol ~ '&duzenle=1',
      metin("kaydedildi_rozet")) }}

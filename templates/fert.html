@@ -84,7 +84,7 @@
        (metin("pronukleus_sayisi"), liste_etiket('pn_sayisi', kayit.fert_pn_sayisi)),
        (metin("pn_skoru_z"), liste_etiket('pn_skoru', kayit.fert_pn_skoru)),
        (metin("zigot_bulgulari"), bk.bulgu_metni(bulgular, secili_bulgular)),
-       (metin("islem_saati"), kayit.zaman),
+       (metin("islem_saati"), gg_aa_yyyy_saat(kayit.zaman)),
      ],
      geri_yol ~ '&duzenle=1',
      metin("kaydedildi_rozet")) }}

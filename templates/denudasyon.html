@@ -55,7 +55,7 @@
 {# --- Denüdasyon saati --- #}
 {% if c.denudasyon_zamani and duzenle != "saat" %}
 {{ bk.kart(metin("denudasyon_zamani"),
-           [(metin("saat"), c.denudasyon_zamani)],
+           [(metin("saat"), gg_aa_yyyy_saat(c.denudasyon_zamani))],
            kok ~ '?duzenle=saat',
            metin("kaydedildi_rozet")) }}
 {% else %}

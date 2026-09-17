@@ -34,7 +34,7 @@
 {{ bk.kart(
      metin("asama_opu"),
      [
-       (metin("opu_zamani"), c.opu_zamani),
+       (metin("opu_zamani"), gg_aa_yyyy_saat(c.opu_zamani)),
        (metin("sag_overden_oosit"), c.opu_sag_oosit),
        (metin("sol_overden_oosit"), c.opu_sol_oosit),
        (metin("toplanan_oosit"), (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0)),

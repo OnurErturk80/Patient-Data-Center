@@ -74,7 +74,7 @@
        (metin("enjeksiyon_sonucu"),
         metin("dejenere") if ic.icsi_sonuc == 'degenere' else metin("basarili")),
      ] if ic else []) + [
-       (metin("islem_saati"), (ic.zaman if ic else mat.zaman)),
+       (metin("islem_saati"), gg_aa_yyyy_saat(ic.zaman if ic else mat.zaman)),
      ],
      geri_yol ~ '&duzenle=1',
      metin("kaydedildi_rozet")) }}

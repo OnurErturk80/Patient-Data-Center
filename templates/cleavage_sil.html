@@ -40,7 +40,7 @@
     <div class="veri"><dt>{{ metin("bulgular") }}</dt>
       <dd {% if not bulgular %}class="yok"{% endif %}>{{ bulgular|join(", ") if bulgular else metin("yok_kucuk") }}</dd></div>
     {% if kayit %}
-    <div class="veri"><dt>{{ metin("kaydedilme") }}</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("kaydedilme") }}</dt><dd style="font-size:13px">{{ gg_aa_yyyy_saat(kayit.zaman) }}</dd></div>
     {% endif %}
   </dl>
 </div>

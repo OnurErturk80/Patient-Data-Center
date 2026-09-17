@@ -7791,3 +7791,63 @@ daha hiç verilmedi. Üç farklı renkte (kırmızı/yeşil/mavi) test görünt�
 üç oosite yüklenip piksel içerikleri doğrulandı — arka planda başka bir
 karışma olmadığı ayrıca kontrol edildi. Test fotoğrafları, fazladan
 specimen'ler, arşiv klasörü ve oturum jetonları temizlendi.
+
+# v6.93 — Kaçırılan ISO tarih/saat gösterimleri düzeltildi
+
+Kullanıcının isteği: "Tarih yazan her yeri gün ay yıl olarak değiştir."
+v6.64/v6.67'de ekranların büyük çoğunluğu `gg_aa_yyyy()` /
+`gg_aa_yyyy_saat()`'e geçirilmişti; tüm şablonlar tek tek tarandığında o
+taramanın kaçırdığı **22 dosyada 25 yer** bulundu — hepsi ham ISO
+(`2026-09-09 08:15:00` gibi) ya da elle `[:16]` dilimlenmiş biçimde
+basıyordu.
+
+## Ne değişti
+
+Hepsi `{{ alan }}` → `{{ gg_aa_yyyy_saat(alan) }}` (saat taşıyanlar) şeklinde
+düzeltildi, davranış değişmedi — yalnızca gösterim:
+- **Silme onay ekranları** (kayıt zamanını gösteren `dt/dd` satırı):
+  `arsiv_sil`, `blast_sil`, `cleavage_sil`, `fert_sil`, `icsi_sil`,
+  `thaw_sil`, `transfer_sil`, `vit_sil`, `goruntu_sil`.
+- **"Transfer kaydı olan silinemez" uyarı listesi**: `cycle_sil`,
+  `hasta_sil` (`t.zaman`).
+- **Aşama bilgi kartları** (`bk.kart()` satırları): `opu.html` (OPU zamanı),
+  `denudasyon.html` (denüdasyon saati), `blast.html`/`cleavage.html`/
+  `fert.html`/`icsi.html` (işlem saati), `androloji.html` (alınma/
+  likefaksiyon/hazırlama zamanı + bazal ve hazırlık-sonrası analiz zamanı —
+  5 ayrı satır).
+- **`cycle_detay.html`**: "Zamanlar" kartındaki hCG/OPU/Denüdasyon satırları
+  (önceden `c.opu_zamani or 'girilmedi'` gibi ham ISO basıyordu) ve zaman
+  çizelgesi tablosundaki `z.zaman[:16]`.
+- **`cycle_thaw.html`** (çözme kaydı bilgi kartı) ve **`transfer.html`**
+  (transfer saati) — `e.zaman[:16]` / `e.zaman`.
+- **`gebelik.html`**: transfer listesindeki ve beta hCG satırlarındaki zaman.
+- **`istatistik.html`**: "Son kayıtlar" listesindeki `k.z[:16]`.
+
+## Dokunulmayanlar (bilinçli)
+
+- **`type="date"`/`type="datetime-local"` form alanlarının `value`'su** —
+  CLAUDE.md'nin istisnası: tarayıcı zaten kendi yerel biçiminde gösteriyor,
+  `value` ISO kalmalı. `dt()`/`dz()` macroları, `kz[:16]|replace(' ','T')`
+  kalıpları hep form değeriydi, dokunulmadı.
+- **ISO karşılaştırmalar** (`c.planlanan_tarih[:10] > bugun`,
+  `{% if c.denudasyon_zamani %}` gibi) — görüntüleme değil, mantık.
+- **Resmî formlar (`/form/...`) ve Excel çıktıları.** `formlar.py`'deki
+  `opu_tarihi`/`transfer_tarihi`/`saat_<asama>` gibi alanlar hem yazdırılan
+  HTML'e hem Excel hücresine **aynı** ham ISO değerle gidiyor —
+  `excel.py`'nin hücre türünü ISO metinden çıkarma mekanizması (v6.36) buna
+  dayanıyor. Bu değeri gün.ay.yıl'a çevirmek Excel çıktısındaki tarih
+  hücrelerinin **tür algısını bozar**. Kullanıcıya sorulmadan bu ayrımı
+  bozmadım — yalnızca yazdırma ekranındaki görünümü değiştirmek istenirse
+  (Excel'e dokunmadan) ayrı bir iş: `form_kalip.satirlar()`'ın HTML yolu
+  Excel'e giden değerden ayrılmalı. **Ona sormadan yapılmadı**, ayrı bir
+  istek gerekir.
+
+## Test edildi
+
+Bütün şablonlar (`env.get_template()` ile 71 dosya) değişiklik sonrası
+hatasız derlendi. Sunucu ayağa kaldırılıp gerçek verilerle kontrol edildi:
+`/cycle/1` "Zamanlar" kartı ve OPU/Denüdasyon ekranlarındaki bilgi kartları
+artık "09.09.2026 08:15" biçiminde basıyor (önceden "2026-09-09 08:15:00").
+Bir test fotoğrafı yüklenip `/goruntu/{id}/sil` ekranında "Zaman" satırının
+"17.09.2026 13:09" gibi doğru biçimde çıktığı doğrulandı. Test fotoğrafı,
+arşiv klasörü ve oturum jetonu temizlendi.

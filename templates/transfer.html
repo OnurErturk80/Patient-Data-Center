@@ -36,7 +36,7 @@
           ({{ say("n_cycle_sirali", e.hasta_cycle_no) }}){% endif %}</dd></div>
     <div class="veri"><dt>{{ metin("tip") }}</dt>
       <dd>{{ metin("donmus") if e.tr_tipi == "donmus" else metin("taze") }}</dd></div>
-    <div class="veri"><dt>{{ metin("transfer_saati") }}</dt><dd>{{ e.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("transfer_saati") }}</dt><dd>{{ gg_aa_yyyy_saat(e.zaman) }}</dd></div>
   </dl>
   <div class="sfalt">
     <a href="/specimen/{{ e.id }}/transfer-sil">{{ metin("kaydi_geri_al") }}</a>

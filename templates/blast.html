@@ -84,7 +84,7 @@
        (metin("icm"), liste_etiket('bl_icm', kayit.bl_icm)),
        (metin("trofektoderm"), liste_etiket('bl_te', kayit.bl_te)),
        (metin("skor"), kayit.bl_skor),
-       (metin("islem_saati"), kayit.zaman),
+       (metin("islem_saati"), gg_aa_yyyy_saat(kayit.zaman)),
      ],
      geri_yol ~ '&duzenle=1',
      metin("kaydedildi_rozet")) }}

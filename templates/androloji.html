@@ -102,12 +102,12 @@
 {# --- kaydedilmis: bolum bolum bilgi kartlari, en altta tek Duzenle --- #}
 {{ bk.kart(metin("ornek_bilgisi"),
      [
-       (metin("alinma_zamani"), secili.alinma_zamani),
+       (metin("alinma_zamani"), gg_aa_yyyy_saat(secili.alinma_zamani)),
        (metin("abstinans_gun"), secili.abstinans_gun),
        (metin("alinma_yontemi"), liste_etiket('sperm_alinma', secili.alinma_yontemi)),
-       (metin("likefaksiyon_zamani"), secili.likefaksiyon_zamani),
+       (metin("likefaksiyon_zamani"), gg_aa_yyyy_saat(secili.likefaksiyon_zamani)),
        (metin("hazirlama_yontemi"), liste_etiket('sperm_hazirlama', secili.hazirlama_yontemi)),
-       (metin("hazirlama_zamani"), secili.hazirlama_zamani),
+       (metin("hazirlama_zamani"), gg_aa_yyyy_saat(secili.hazirlama_zamani)),
        (metin("ornek_notu"), secili.notlar),
      ], None, metin("kaydedildi_rozet")) }}
 
@@ -121,7 +121,7 @@
 
 {{ bk.kart(metin("bazal_analiz"),
      [
-       (metin("analiz_zamani"), bazal.zaman if bazal else None),
+       (metin("analiz_zamani"), gg_aa_yyyy_saat(bazal.zaman) if bazal else None),
        (metin("konsantrasyon"), bazal.konsantrasyon_milyon_ml if bazal else None),
        (metin("total_motilite"), bazal.total_motil_yuzde if bazal else None),
        (metin("ilerleyen_pr"), bazal.pr_yuzde if bazal else None),
@@ -139,7 +139,7 @@
 
 {{ bk.kart(metin("hazirlik_sonrasi_analiz"),
      [
-       (metin("analiz_zamani"), sonrasi.zaman if sonrasi else None),
+       (metin("analiz_zamani"), gg_aa_yyyy_saat(sonrasi.zaman) if sonrasi else None),
        (metin("hazirlik_hacmi"), sonrasi.hacim_ml if sonrasi else None),
        (metin("konsantrasyon"), sonrasi.konsantrasyon_milyon_ml if sonrasi else None),
        (metin("ilerleyen_pr"), sonrasi.pr_yuzde if sonrasi else None),

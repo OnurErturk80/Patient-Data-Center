@@ -57,9 +57,9 @@
     <div class="veri"><dt>{{ metin("planlanan_tarih") }}</dt>
       <dd>{{ takvim_basligi(c.planlanan_tarih) }}</dd></div>
     {% endif %}
-    <div class="veri"><dt>hCG</dt><dd {% if not c.hcg_zamani %}class="yok"{% endif %}>{{ c.hcg_zamani or 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>OPU</dt><dd {% if not c.opu_zamani %}class="yok"{% endif %}>{{ c.opu_zamani or 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>{{ metin("asama_denudasyon") }}</dt><dd {% if not c.denudasyon_zamani %}class="yok"{% endif %}>{{ c.denudasyon_zamani or 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>hCG</dt><dd {% if not c.hcg_zamani %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(c.hcg_zamani) if c.hcg_zamani else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>OPU</dt><dd {% if not c.opu_zamani %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(c.opu_zamani) if c.opu_zamani else 'girilmedi' }}</dd></div>
+    <div class="veri"><dt>{{ metin("asama_denudasyon") }}</dt><dd {% if not c.denudasyon_zamani %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(c.denudasyon_zamani) if c.denudasyon_zamani else 'girilmedi' }}</dd></div>
   </dl>
 </div>
 
@@ -214,7 +214,7 @@
     {% for z in cizelge %}
     <tr>
       <td class="ad">{{ z.ad }}</td>
-      <td>{{ z.zaman[:16] }}</td>
+      <td>{{ gg_aa_yyyy_saat(z.zaman) }}</td>
       <td>{{ say("n_saat", z.onceki_saat) if z.onceki_saat is not none else "" }}</td>
       <td>{{ say("n_saat", z.opu_saat) if z.opu_saat is not none else "" }}</td>
     </tr>

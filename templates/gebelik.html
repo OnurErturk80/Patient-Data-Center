@@ -28,7 +28,7 @@
     <div class="ad"><strong>{{ ornek_adi('transfer', c.cycle_tipi) }} {{ t.cycle_sira_no }}</strong>
       {% if t.skor %} · {{ t.skor }}{% endif %}</div>
     <div class="meta">
-      {{ t.kaynak }} · {{ metin("donmus") if t.tr_tipi == "donmus" else metin("taze") }} · {{ t.zaman }}
+      {{ t.kaynak }} · {{ metin("donmus") if t.tr_tipi == "donmus" else metin("taze") }} · {{ gg_aa_yyyy_saat(t.zaman) }}
     </div>
   </div>
   {% endfor %}
@@ -45,7 +45,7 @@
   <div class="fsatir">
     <div class="bilgi">
       <div class="no">{{ b.deger }}</div>
-      <div class="meta">{{ b.zaman }}
+      <div class="meta">{{ gg_aa_yyyy_saat(b.zaman) }}
         {% for a in artis %}{% if a.i == loop.index0 + 1 %}{% endif %}{% endfor %}
       </div>
       {% for a in artis %}{% if a.i == loop.index %}

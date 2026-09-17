@@ -30,7 +30,7 @@
       <dd>{{ metin("doktor_notu") if g.asama == "doktor_notu" else asama_etiketi }}</dd></div>
     <div class="veri"><dt>{{ metin("kaynak_alan") }}</dt>
       <dd>{{ metin("mikroskop_kamerasi") if g.kaynak == "kamera" else metin("elle_yuklendi") }}</dd></div>
-    <div class="veri"><dt>{{ metin("zaman") }}</dt><dd>{{ g.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("zaman") }}</dt><dd>{{ gg_aa_yyyy_saat(g.zaman) }}</dd></div>
   </dl>
 </div>
 

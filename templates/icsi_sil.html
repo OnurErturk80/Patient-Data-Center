@@ -40,7 +40,7 @@
       <dd {% if not ic %}class="yok"{% endif %}>
         {{ etiketler.get(ic.icsi_sonuc, ic.icsi_sonuc) if ic else metin("yok_kucuk") }}</dd></div>
     {% if ic %}
-    <div class="veri"><dt>{{ metin("kaydedilme") }}</dt><dd style="font-size:13px">{{ ic.zaman }}</dd></div>
+    <div class="veri"><dt>{{ metin("kaydedilme") }}</dt><dd style="font-size:13px">{{ gg_aa_yyyy_saat(ic.zaman) }}</dd></div>
     {% endif %}
   </dl>
 </div>

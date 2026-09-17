@@ -87,7 +87,7 @@
     <div class="no">{{ k.dosya_no }}{% if k.cycle_no %} · {{ k.cycle_no }}{% endif %}</div>
     <div class="meta">
       {{ metin("kayit_" ~ k.tur) }}{% if k.ad %} · {{ k.ad }}{% endif %}
-      · {{ k.z[:16] if k.z else "" }}
+      · {{ gg_aa_yyyy_saat(k.z) if k.z else "" }}
     </div>
   </a>
   {% else %}

@@ -32,7 +32,7 @@
       <dd {% if kayit.thaw_re_expansion is none %}class="yok"{% endif %}>
         {{ (kayit.thaw_re_expansion ~ '%') if kayit.thaw_re_expansion is not none else 'girilmedi' }}</dd></div>
     <div class="veri"><dt>Taşıyıcı</dt><dd>{{ vit.etiket if vit else '—' }}</dd></div>
-    <div class="veri"><dt>Zaman</dt><dd style="font-size:13px">{{ kayit.zaman }}</dd></div>
+    <div class="veri"><dt>Zaman</dt><dd style="font-size:13px">{{ gg_aa_yyyy_saat(kayit.zaman) }}</dd></div>
   </dl>
 </div>
 

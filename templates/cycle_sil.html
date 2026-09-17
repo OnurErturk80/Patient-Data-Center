@@ -39,7 +39,7 @@
   <div class="satir" style="cursor:default">
     <div class="ad">{{ t.kaynak_cycle }} · oosit {{ t.cycle_sira_no }}</div>
     <div class="meta">
-      {{ t.zaman }}{% if t.transfer_cycle and t.transfer_cycle != t.kaynak_cycle %}
+      {{ gg_aa_yyyy_saat(t.zaman) }}{% if t.transfer_cycle and t.transfer_cycle != t.kaynak_cycle %}
       · {{ t.transfer_cycle }} tedavisinde transfer{% endif %}
     </div>
   </div>

@@ -80,7 +80,7 @@
         {{ yuzde(e.thaw_re_expansion|round|int) if e.thaw_re_expansion is not none
            else metin("girilmedi") }}</dd></div>
     <div class="veri"><dt>{{ metin("cozme_saati_kisa") }}</dt>
-      <dd>{{ e.zaman[:16] }}</dd></div>
+      <dd>{{ gg_aa_yyyy_saat(e.zaman) }}</dd></div>
     <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
       <dd {% if not e.tasiyici_etiket %}class="yok"{% endif %}>
         {{ e.tasiyici_etiket if e.tasiyici_etiket else metin("girilmedi") }}</dd></div>
