@@ -36,8 +36,9 @@
     </div>
     <div class="alan">
       <label for="sebep">{{ metin("dondurma_sebebi") }}</label>
-      <input id="sebep" name="sebep" type="text" autocomplete="off"
-             value="{{ v.sebep or '' }}" placeholder="{{ metin('dondurma_sebebi_ipucu') }}">
+      <input id="sebep" name="sebep" type="text" autocomplete="off" list="sebep_secenekleri"
+             value="{{ v.sebep or '' }}">
+      <div class="ipucu">{{ metin("dondurma_sebebi_ipucu") }}</div>
     </div>
   </div>
 
@@ -113,6 +114,10 @@
 
   <button class="dugme" type="submit">{{ metin("hasta_ve_sperm_dondurmayi_kaydet") }}</button>
 </form>
+
+<datalist id="sebep_secenekleri">
+  {% for s in sperm_dondurma_sebepleri() %}<option value="{{ s }}">{% endfor %}
+</datalist>
 
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 

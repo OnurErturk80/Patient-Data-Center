@@ -47,6 +47,12 @@ print("=" * 62)
 cycles = [r["id"] for r in b.execute("SELECT id FROM cycle WHERE hasta_id=?", (h["id"],))]
 print(f"Cycle id'leri: {cycles or 'yok'}")
 
+# Sperm dondurma cycle'a değil doğrudan hastaya bağlı (v6.85) — 0 cycle'lı
+# bir hastanın da sperm dondurma kaydı olabilir, `cycles` bunu kapsamaz.
+sperm_dondurmalar = [r["id"] for r in b.execute(
+    "SELECT id FROM sperm_dondurma WHERE hasta_id=?", (h["id"],))]
+print(f"Sperm dondurma id'leri: {sperm_dondurmalar or 'yok'}")
+
 # --------------------------------------------------------------- referans taramasi
 print("\nBU HASTAYA/CYCLE'A REFERANS VEREN KAYITLAR")
 print("-" * 62)
@@ -80,6 +86,14 @@ if cycles:
         if n:
             bulundu = True
             print(f"  {ad:36} {n}")
+if sperm_dondurmalar:
+    qs = ",".join("?" * len(sperm_dondurmalar))
+    n = b.execute(
+        f"SELECT COUNT(*) FROM sperm_dondurma_dosya WHERE sperm_dondurma_id IN ({qs})",
+        sperm_dondurmalar).fetchone()[0]
+    if n:
+        bulundu = True
+        print(f"  {'sperm_dondurma_dosya.sperm_dondurma_id':36} {n}")
 if not bulundu:
     print("  (hicbiri — temiz gorunuyor)")
 
@@ -131,6 +145,15 @@ for cid in cycles:
         (f"cycle {cid}: islem_yapan", "DELETE FROM islem_yapan WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: specimen", "DELETE FROM specimen WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: CYCLE", "DELETE FROM cycle WHERE id=?", (cid,)),
+    ]
+for sdid in sperm_dondurmalar:
+    tid = b.execute("SELECT tasiyici_id FROM sperm_dondurma WHERE id=?",
+                     (sdid,)).fetchone()["tasiyici_id"]
+    ADIMLAR += [
+        (f"sperm_dondurma {sdid}: onam dosyalari",
+         "DELETE FROM sperm_dondurma_dosya WHERE sperm_dondurma_id=?", (sdid,)),
+        (f"sperm_dondurma {sdid}: kayit", "DELETE FROM sperm_dondurma WHERE id=?", (sdid,)),
+        (f"sperm_dondurma {sdid}: tasiyici", "DELETE FROM tasiyici WHERE id=?", (tid,)),
     ]
 ADIMLAR.append(("HASTA", "DELETE FROM hasta WHERE id=?", (h["id"],)))
 

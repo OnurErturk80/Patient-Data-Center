@@ -8180,3 +8180,73 @@ kontrol edildi. Gebelik ekranında kilo alanına önce öneri listesinden bir
 değer, sonra elle "3,245" yazılıp kaydedildi — ikisi de tam olarak
 yazıldığı gibi kaydedildi ve sayfa yenilenince aynı değer geri geldi. Test
 verileri (test `dogan_bebek` satırı, oturum jetonu) temizlendi.
+
+# v6.101 — Sperm dondurmada dondurma sebebi önerisi, İşlemi Yapan, Onamlar
+
+Kullanıcının istekleri: "Sperm Dondurma sebeplerine Tedavi Öncesi Koruma,
+Onkolojik, TESE, TESA, PESA olsun. Sperm dondurma işlemini yapan kaydı
+olsun... Ayrıca sperm dondurma bölümüne dosya kaydedebileyim. Onamlar
+diye bir bölüm olsun, buraya PDF ve Fotoğraf kaydedebileyim. Ayrıca
+gebelik kilosunun girme ekranını eskiye çevir, beğenmedim."
+
+## Ne değişti
+
+- **Gebelik doğum kilosu v6.100 öncesine döndürüldü** — `<datalist>`
+  önerisi kaldırıldı, düz `<input type="text" inputmode="decimal">`'e
+  geri dönüldü. Kullanıcı denedi, istemedi.
+- **Dondurma sebebi artık öneri menüsü**: aynı `<datalist>` deseni (v6.100'de
+  tanımlandı) sperm dondurma formlarına (`sperm_dondurma_form.html`,
+  `sperm_dondurma_yeni_hasta.html`) uygulandı. Beş öneri — Tedavi Öncesi
+  Koruma, Onkolojik, TESE, TESA, PESA — `app.py`'de tek yerde
+  (`SPERM_DONDURMA_SEBEPLERI`, Jinja global `sperm_dondurma_sebepleri()`),
+  iki form da oradan okuyor. `sperm_dondurma.sebep` hâlâ serbest metin;
+  listede olmayan bir sebep de yazılabiliyor.
+- **Sperm dondurmanın kendi "İşlemi Yapan" kutusu** (`goc_038`:
+  `sperm_dondurma.yapan_ad`). Aşama ekranlarındaki kutunun (v6.99) aynı
+  deseni — şifresi olan personelden seçiliyor, varsayılan giriş yapan
+  kişi — ama `islem_yapan` tablosu kullanılamadı (`cycle_id` istiyor,
+  sperm dondurmanın cycle'ı olmayabilir). `sperm_dondurma_detay.html`'de
+  kendi kutusu, `POST /sperm-dondurma/{id}/islem-yapan`.
+- **Onamlar bölümü**: PDF/fotoğraf eki, `sperm_dondurma_detay.html`'e yeni
+  bir kart. Yeni tablo **`sperm_dondurma_dosya`** (`goc_038`,
+  `AUTOINCREMENT` — tuzak #13, id adrese yazılıyor) — Doktor Notu'nun
+  (v6.81) `goruntu` mekanizması kullanılamadı çünkü `goruntu.cycle_id`
+  NOT NULL, sperm dondurmanın cycle'ı olmayan bir hastada (onkoloji
+  öncesi gibi) hiç yazılamazdı. `goruntuler.sperm_onam_ekle()`/
+  `sperm_onam_sil()` yeni fonksiyonlar, `arsiv/<dosya no>/sperm-dondurma/
+  <id>/` klasörüne yazıyor. Fotoğraf da PDF gibi **yeni sekmede** açılıyor
+  — paylaşılan `_buyutec.html` lightbox'ı `/dosya/` adresine sabit
+  yazıldığı için kullanılamadı, ayrıca bunlar embriyo fotoğrafı değil
+  belge eki, yakınlaştırma gerekmiyor.
+- **Gerçek bir hata bulundu ve düzeltildi**: `hasta_sil()`'in kalıcı silme
+  dalı zaten hastanın `sperm_dondurma` kayıtlarını siliyordu; test
+  edilirken yeni `sperm_dondurma_dosya` FK'sı yüzünden bu satır FOREIGN
+  KEY hatasıyla patladı. Düzeltme: o hastanın sperm dondurma kayıtlarının
+  onam ekleri önce siliniyor. **`teshis_silme.py`'ye de eklendi** — o araç
+  hastanın kendi `sperm_dondurma` kayıtlarını hiç simüle etmiyordu
+  (yalnızca `kullanim_cycle_id` bağlarını kontrol ediyordu), bu eksik de
+  kapatıldı.
+- `disari.TUM_TABLOLAR`'a `sperm_dondurma_dosya` eklendi (`goruntu` gibi).
+- `metinler.py`'ye `onamlar`, `onam_yok`, `onam_ipucu`, `onam_sil`,
+  `onam_kalici_silinecek` anahtarları eklendi; `dondurma_sebebi_ipucu`
+  metni artık öneri menüsünü anlatıyor.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp yeni bir sperm dondurma hastası açıldı, sebep
+alanında öneri listesi doğru göründü ("Onkolojik" seçildi). Kayıt
+sayfasında İşlemi Yapan kutusu giriş yapan kullanıcıyı önceden seçili
+gösterdi, başka bir kullanıcı seçilip kaydedildi ve doğru kaldığı
+doğrulandı. Onamlar bölümüne bir PDF ve bir JPG yüklendi — ikisi de
+listelendi (PDF rozetli, JPG küçük resimli), `/sperm-onam/{id}`'den bayt
+bayt aynı şekilde indirildiği doğrulandı, biri silinip hem veritabanından
+hem diskten gittiği, öteki kalanın etkilenmediği kontrol edildi.
+`teshis_silme.py <dosya_no>` bu test hastası için çalıştırılıp yeni
+`sperm_dondurma_dosya` taramasının ve silme adımlarının doğru çalıştığı
+görüldü; ardından gerçek `/hasta/{id}/sil` (kalıcı silme) rotasıyla aynı
+hasta silindi — düzeltmeden önce FOREIGN KEY hatasıyla patladığı
+doğrulandı, düzeltmeden sonra `hasta`, `sperm_dondurma`,
+`sperm_dondurma_dosya` ve `tasiyici` satırlarının hepsinin gittiği
+kontrol edildi. Gebelik ekranında kilo alanının düz metin kutusuna
+döndüğü doğrulandı. Test hastası, dosyaları, arşiv klasörü ve oturum
+jetonları temizlendi.

@@ -10,6 +10,8 @@
 {% endblock %}
 {% block icerik %}
 
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
 <div class="kart">
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("tip") }}</dt>
@@ -46,6 +48,72 @@
   </dl>
   {% if sd.notlar %}
   <div class="alan">{{ sd.notlar }}</div>
+  {% endif %}
+</div>
+
+{# İşlemi Yapan — aşama ekranlarındaki kutunun aynı deseni (v6.99), ama
+   sperm dondurmanın cycle'ı yok, `_islem_yapan.html` makrosu cycle_id/asama
+   ister; doğrudan `sperm_dondurma.yapan_ad`'a yazan kendi kutusu (v6.101). #}
+<div class="kart">
+  <h2>{{ metin("islem_yapan") }}</h2>
+  <form method="post" action="/sperm-dondurma/{{ sd.id }}/islem-yapan">
+    <div class="alan" style="border:0">
+      {% set secenekler = personel_listesi() %}
+      {% set secili = sd.yapan_ad or guncel_kullanici_ad() %}
+      <div style="display:flex;gap:8px">
+        <select name="yapan_ad" style="flex:1">
+          <option value="">—</option>
+          {% if sd.yapan_ad and sd.yapan_ad not in secenekler %}
+          <option value="{{ sd.yapan_ad }}" selected>{{ sd.yapan_ad }}</option>
+          {% endif %}
+          {% for ad in secenekler %}
+          <option value="{{ ad }}" {% if ad == secili %}selected{% endif %}>{{ ad }}</option>
+          {% endfor %}
+        </select>
+        <button class="minidugme" type="submit" style="min-width:88px">{{ metin("kaydet") }}</button>
+      </div>
+      <div class="ipucu">{{ metin("islem_yapan_ipucu") }}</div>
+    </div>
+  </form>
+</div>
+
+{# Onamlar (v6.101, kullanıcının isteği): PDF/fotoğraf eki, `goruntu`
+   tablosuna değil `sperm_dondurma_dosya`'ya yazılıyor (sperm dondurmanın
+   cycle'ı olmayabilir, `goruntu.cycle_id` NOT NULL). Fotoğraf da PDF gibi
+   yeni sekmede açılıyor -- paylaşılan `_buyutec.html` `/dosya/`'ya sabit,
+   burada kullanılmıyor; bunlar embriyo fotoğrafı değil belge eki, pixel
+   pixel yakınlaştırma gerekmiyor (Doktor Notu'nun PDF'i için zaten
+   kullanılan "yeni sekme" gerekçesinin aynısı). #}
+<div class="kart">
+  <h2>{{ metin("onamlar") }}{% if onamlar %} ({{ onamlar|length }}){% endif %}</h2>
+  {% if onamlar %}
+  <div class="fkareler" style="padding:12px">
+    {% for o in onamlar %}
+    <div class="fkare">
+      {% if o.pdf_mi %}
+      <a class="kfoto pdf" href="/sperm-onam/{{ o.id }}" target="_blank" rel="noopener"
+         title="{{ o.orijinal_dosya_adi }}">PDF</a>
+      {% else %}
+      <a class="kfoto" href="/sperm-onam/{{ o.id }}" target="_blank" rel="noopener"
+         title="{{ o.orijinal_dosya_adi }}">
+        <img src="/sperm-onam/{{ o.id }}" alt="{{ metin('onamlar') }}">
+      </a>
+      {% endif %}
+      <a class="fsil" href="/sperm-onam/{{ o.id }}/sil"
+         aria-label="{{ metin('sil') }}" title="{{ metin('sil') }}">&times;</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ipucu" style="padding:0 14px 8px">{{ metin("onam_yok") }}</div>
+  {% endif %}
+  {% if yetkim("cryo") %}
+  <form method="post" action="/sperm-dondurma/{{ sd.id }}/onam-ekle"
+        enctype="multipart/form-data" style="padding:12px 14px;border-top:1px solid var(--line)">
+    <input type="file" name="dosyalar" multiple accept="image/*,application/pdf">
+    <div class="ipucu" style="padding:6px 0 0">{{ metin("onam_ipucu") }}</div>
+    <button class="dugme" type="submit" style="margin-top:8px">{{ metin("yukle") }}</button>
+  </form>
   {% endif %}
 </div>
 

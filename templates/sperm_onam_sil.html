@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("onam_sil") }}{% endblock %}
+{% block geri %}<a class="geri" href="/sperm-dondurma/{{ d.sperm_dondurma_id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik tekli">
+  <div class="dosya">{{ d.dosya_no }}</div>
+  <div class="isim">{{ d.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+<div class="tehlike">{{ metin("onam_kalici_silinecek") }}</div>
+
+<div class="kart">
+  {% if pdf_mi %}
+  <embed src="/sperm-onam/{{ d.id }}" type="application/pdf"
+         style="display:block;width:100%;height:360px;background:#0d1419">
+  {% else %}
+  <img src="/sperm-onam/{{ d.id }}" alt="{{ metin('silinecek_goruntu') }}"
+       style="display:block;width:100%;background:#0d1419">
+  {% endif %}
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("zaman") }}</dt><dd>{{ gg_aa_yyyy_saat(d.olusturma_zamani) }}</dd></div>
+  </dl>
+</div>
+
+<form method="post" action="/sperm-onam/{{ d.id }}/sil">
+  <button class="dugme tehlikeli" type="submit">{{ metin("onam_sil") }}</button>
+</form>
+<a class="dugme ikincil" href="/sperm-dondurma/{{ d.sperm_dondurma_id }}">{{ metin("vazgec") }}</a>
+{% endblock %}

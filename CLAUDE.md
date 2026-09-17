@@ -388,16 +388,18 @@ yap: embriyoloji fotoğrafı → asama ekranı, klinik belge → cycle ekranı.
 `liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda
 `liste_etiket(liste_adi, kod)` (Jinja global) kullan, sabit sözlük yazma.
 
-**Kategoriler kesinleşmemişse ya da alan sayısalsa: "öneri menüsü + serbest
-yazı" (`<datalist>`), kapalı `<select>` değil** (v6.100, kullanıcının
-isteği — gebelik'te doğum kilosu ve sperm dondurmada dondurma sebebi).
+**Kategoriler kesinleşmemişse: "öneri menüsü + serbest yazı" (`<datalist>`),
+kapalı `<select>` değil** (v6.100'de doğum kilosuyla denendi, kullanıcı
+istemedi — v6.101'de sperm dondurma sebebine uygulandı, orada kaldı).
 `<input list="...">` + `<datalist id="...">` sık kullanılan değerleri
 dropdown gibi önerir ama kutuya elle **başka bir şey de yazılabilir** —
-kapalı bir `<select>` iki yerde yanlış olurdu: sayısal bir alanda (kilo
-gibi) sabit adımlı bir liste hassasiyeti kaybettirir (3,245 kg → en yakın
-seçeneğe yuvarlanır), kategorisi henüz netleşmemiş serbest metin bir
-alanda (`sperm_dondurma.sebep` gibi, v6.86'dan beri bilerek açık) kapalı
-liste kullanıcının aklında olmayan bir sebebi yazmasını engeller. `liste_
+kategorisi henüz netleşmemiş serbest metin bir alanda (`sperm_dondurma.
+sebep` gibi, v6.86'dan beri bilerek açık) kapalı bir liste kullanıcının
+aklında olmayan bir sebebi yazmasını engeller. **Sayısal alanlarda
+(kilo gibi) denenmedi kalmalı** — v6.100'de gebelik'teki doğum kilosuna
+uygulandı (0,50–5,00 kg arası öneri), kullanıcı v6.101'de "eskiye çevir,
+beğenmedim" dedi; sebep sorulmadı, düz `<input type="text" inputmode=
+"decimal">`'e geri dönüldü. Tekrar denemeden önce kullanıcıya sor. `liste_
 degeri` + `liste_etiket()` deseni hâlâ geçerli — **yalnızca** liste laba
 özgü ama sabit/kapalı olması gereken yerlerde (mii, 2pn, z1 gibi, yönetici
 düzenler ama ekrandaki kişi listenin dışına çıkamaz). Yeni bir alan
@@ -1370,6 +1372,48 @@ güncellemeye gerek kalmaz.
   dışı bir liste) aynı soruyu sor: bu ekran IVF tedavi hastalarını mı
   sayıyor, yoksa gerçekten her hastayı mı? İlkiyse `_sadece_sperm_kosulu()`
   ile aynı süzgeci uygula.
+
+**Sperm dondurmanın kendi "İşlemi Yapan"ı ve "Onamlar" eki var** (v6.101,
+kullanıcının isteği). İkisi de sperm dondurmanın **cycle'ı olmayabileceği**
+gerçeğinden (v6.85) dolayı mevcut mekanizmaları doğrudan kullanamıyor,
+paralel ama ayrı birer yol açıldı.
+- **İşlemi Yapan**: aşama ekranlarındaki kutunun (v6.99) aynı deseni —
+  şifresi olan personelden seçiliyor, varsayılan giriş yapan kişi — ama
+  `islem_yapan` tablosu `cycle_id` istediği için kullanılamadı. Doğrudan
+  `sperm_dondurma.yapan_ad` kolonuna yazılıyor, `sperm_dondurma_detay.html`
+  içinde kendi küçük kutusu var (`_islem_yapan.html` makrosu **değil** —
+  o makro cycle_id/asama'ya kilitli). `personel_listesi()`/
+  `guncel_kullanici_ad()` global'ları zaten genel amaçlıydı, değişmedi.
+- **Onamlar**: PDF/fotoğraf eki, Doktor Notu'nun (v6.81) aynı ihtiyacı ama
+  `goruntu` tablosu kullanılamadı — `goruntu.cycle_id` **NOT NULL**, sperm
+  dondurmanın cycle'ı olmayan bir hastada (onkoloji öncesi gibi) hiç
+  yazılamazdı. Yeni tablo **`sperm_dondurma_dosya`** (`goc_038`) —
+  `goruntu`'nun küçük bir kopyası, `cycle_id` yerine `sperm_dondurma_id`.
+  `id` **`AUTOINCREMENT`** (tuzak #13 — `/sperm-onam/{id}` adrese yazılıyor).
+  Yazma/silme `goruntuler.sperm_onam_ekle()`/`sperm_onam_sil()`,
+  `elle_ekle()`/`goruntu_sil()`'in aynısı ama ayrı klasör fonksiyonuyla
+  (`sperm_onam_klasoru()` — `hedef_klasor()` cycle_id istiyor, kullanılamadı):
+  `arsiv/<dosya no>/sperm-dondurma/<sperm_dondurma_id>/`.
+  - **Fotoğraf da PDF gibi yeni sekmede açılıyor**, paylaşılan
+    `_buyutec.html` lightbox'ı kullanılmadı — o JS `/dosya/` adresine sabit
+    yazılmış (`img.src = '/dosya/' + id`), `sperm_dondurma_dosya` ayrı bir
+    tablo/rota (`/sperm-onam/{id}`) olduğu için oraya takılamaz. Onamlar
+    zaten embriyo fotoğrafı değil belge eki, pixel pixel yakınlaştırma
+    gerekmiyor — Doktor Notu'nun PDF'i için zaten kullanılan "yeni sekme"
+    gerekçesi fotoğrafa da genişletildi.
+  - **Tuzak #4'ün aynısı**: `hasta_sil()`'in kalıcı silme dalı zaten
+    `sperm_dondurma`'yı hastaya göre siliyordu (v6.85); bu göç test
+    edilirken **gerçekten patladı** — `sperm_dondurma_dosya` FK'sı
+    yüzünden `DELETE FROM sperm_dondurma` FOREIGN KEY hatası verdi. Önce
+    o hastanın sperm dondurma kayıtlarının onam eklerini silmek gerekiyor.
+    `teshis_silme.py`'ye de aynı tarama + adım eklendi — o araç hastanın
+    kendi `sperm_dondurma` kayıtlarını hiç simüle etmiyordu (yalnızca
+    `kullanim_cycle_id` bağlarını kontrol ediyordu), bu eksik de kapatıldı.
+    Yeni bir `sperm_dondurma_id`-referanslı tablo eklersen üçünü de
+    (`hasta_sil()`, `teshis_silme.py`, ileride bir `sperm_dondurma_sil()`
+    kalıcı silme yolu açılırsa onu da) güncelle.
+  - `disari.TUM_TABLOLAR`'a eklendi (`goruntu` gibi — `lab_formu` gibi
+    büyük blob içermiyor, dökümden çıkarılmasına gerek yok).
 
 ---
 

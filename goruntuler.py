@@ -404,3 +404,67 @@ def goruntu_sil(goruntu_id: int):
     db.yaz("DELETE FROM kaynak_dosya WHERE goruntu_id=?", (goruntu_id,))
     db.yaz("DELETE FROM goruntu WHERE id=?", (goruntu_id,))
     return g
+
+
+def sperm_onam_klasoru(hasta_id: int, sperm_dondurma_id: int) -> Path:
+    """Bir sperm dondurma kaydının onam eklerinin yazılacağı arşiv klasörü.
+
+    `arsiv/<hasta dosya no>/sperm-dondurma/<id>/` — `hedef_klasor()`
+    kullanılamaz, o `cycle_id` istiyor; sperm dondurmanın hiç cycle'ı
+    olmayan bir hastada da (v6.85) kaydı olabilir.
+    """
+    r = db.tek("SELECT dosya_no FROM hasta WHERE id = ?", (hasta_id,))
+    ad = guvenli_ad(r["dosya_no"] if r else "", f"hasta{hasta_id}")
+    return arsiv_klasor() / ad / "sperm-dondurma" / str(sperm_dondurma_id)
+
+
+def sperm_onam_ekle(icerik: bytes, orijinal_ad: str, hasta_id: int,
+                    sperm_dondurma_id: int, kullanici_id: int,
+                    izin_uzantilari: set = DOKTOR_NOTU_UZANTILARI):
+    """Sperm dondurma kaydına onam eki (PDF/fotoğraf) yazar (v6.101).
+
+    `elle_ekle()`'nin aynısı ama `goruntu`'ya değil `sperm_dondurma_dosya`'ya
+    yazıyor — `goruntu.cycle_id` NOT NULL, sperm dondurmanın cycle'ı
+    olmayabilir. Hata durumunda açıklama metni döndürür, başarılıysa None.
+    """
+    uzanti = Path(orijinal_ad).suffix.lower()
+    if uzanti not in izin_uzantilari:
+        return (f"'{orijinal_ad}' desteklenmeyen bir dosya türü. "
+                f"İzin verilenler: {', '.join(sorted(izin_uzantilari))}")
+    if len(icerik) > MAKS_BOYUT:
+        return f"'{orijinal_ad}' çok büyük (en fazla {MAKS_BOYUT // 1024 // 1024} MB)."
+    if not icerik:
+        return f"'{orijinal_ad}' boş."
+
+    ts = datetime.now()
+    klasor = sperm_onam_klasoru(hasta_id, sperm_dondurma_id)
+    klasor.mkdir(parents=True, exist_ok=True)
+
+    ad = guvenli_ad(f"onam_{ts.strftime('%Y%m%d-%H%M%S')}") + uzanti
+    hedef = klasor / ad
+    sayac = 1
+    while hedef.exists():
+        hedef = klasor / f"{hedef.stem}-{sayac}{uzanti}"
+        sayac += 1
+
+    hedef.write_bytes(icerik)
+
+    db.yaz(
+        "INSERT INTO sperm_dondurma_dosya (lab_id, sperm_dondurma_id, "
+        "dosya_yolu, orijinal_dosya_adi, kullanici_id) VALUES (?,?,?,?,?)",
+        (db.LAB_ID, sperm_dondurma_id, goreli_yap(hedef), orijinal_ad, kullanici_id),
+    )
+    return None
+
+
+def sperm_onam_sil(dosya_id: int):
+    """Onam ekini siler. Arşivdeki kopya da gider."""
+    d = db.tek("SELECT * FROM sperm_dondurma_dosya WHERE id=?", (dosya_id,))
+    if not d:
+        return None
+    try:
+        tam_yol(d["dosya_yolu"]).unlink(missing_ok=True)
+    except OSError:
+        pass
+    db.yaz("DELETE FROM sperm_dondurma_dosya WHERE id=?", (dosya_id,))
+    return d

@@ -16,8 +16,8 @@
   <div class="kart">
     <div class="alan">
       <label for="sebep">{{ metin("dondurma_sebebi") }}</label>
-      <input id="sebep" name="sebep" type="text" autocomplete="off"
-             placeholder="{{ metin('dondurma_sebebi_ipucu') }}">
+      <input id="sebep" name="sebep" type="text" autocomplete="off" list="sebep_secenekleri">
+      <div class="ipucu">{{ metin("dondurma_sebebi_ipucu") }}</div>
     </div>
   </div>
 
@@ -89,6 +89,12 @@
 
   <button class="dugme" type="submit">{{ metin("sperm_dondurmayi_kaydet") }}</button>
 </form>
+
+{# Öneri menüsü + serbest yazı (v6.101, aynı desen v6.100'de tanımlandı):
+   dropdown gibi görünür ama listede olmayan bir sebep de yazılabilir. #}
+<datalist id="sebep_secenekleri">
+  {% for s in sperm_dondurma_sebepleri() %}<option value="{{ s }}">{% endfor %}
+</datalist>
 
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 {% endblock %}

@@ -186,19 +186,13 @@
       <div style="flex:1">
         <label for="kilo_{{ sira }}">{{ metin("dogum_kilosu") }}</label>
         <input id="kilo_{{ sira }}" name="kilo_kg" type="text" inputmode="decimal"
-               autocomplete="off" list="kilo_secenekleri"
+               autocomplete="off"
                value="{{ bebek.kilo_kg if bebek and bebek.kilo_kg is not none else '' }}">
       </div>
       <button class="minidugme" type="submit" style="min-width:88px">{{ metin("kaydet") }}</button>
     </div>
   </form>
   {% endfor %}
-  {# Öneri menüsü + serbest yazı (v6.100, kullanıcının isteği): dropdown gibi
-     sık kullanılan değerler görünür ama tam sayı da yazılabilir, hassasiyet
-     kaybı olmaz. Tek `<datalist>`, bütün bebek satırları paylaşıyor. #}
-  <datalist id="kilo_secenekleri">
-    {% for k in range(50, 501, 10) %}<option value="{{ "%.1f"|format(k / 100) }}">{% endfor %}
-  </datalist>
 </div>
 {% endif %}
 

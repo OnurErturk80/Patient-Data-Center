@@ -411,7 +411,8 @@ def cryo_sayfalari():
 # bu dosya klinik dışına çıkabilir, şifre özeti ve oturum anahtarı çıkmamalı.
 TUM_TABLOLAR = [
     "hasta", "cycle", "specimen", "olay", "goruntu", "specimen_bulgu",
-    "sperm_ornek", "sperm_analiz", "sperm_dondurma", "islem_yapan", "gebelik_sonucu",
+    "sperm_ornek", "sperm_analiz", "sperm_dondurma", "sperm_dondurma_dosya",
+    "islem_yapan", "gebelik_sonucu",
     "beta_hcg", "dogan_bebek", "pgt_sonuc", "tasiyici", "konum", "konum_semasi",
     "liste_degeri", "degisiklik_log",
 ]

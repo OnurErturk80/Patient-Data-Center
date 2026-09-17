@@ -270,6 +270,17 @@ def _personel_listesi():
 
 sablon.env.globals["personel_listesi"] = _personel_listesi
 
+# Sperm dondurma sebebi — öneri menüsü (v6.101, kullanıcının verdiği liste).
+# `sperm_dondurma.sebep` hâlâ serbest metin (v6.86'dan beri bilerek açık,
+# kategoriler kesinleşmedi) — bu yalnızca `<datalist>` önerisi, kapalı bir
+# liste değil, listede olmayan bir sebep de yazılabilir. Tek yerde dursun
+# diye Jinja global: iki form da (`sperm_dondurma_form.html`,
+# `sperm_dondurma_yeni_hasta.html`) aynısını kullanıyor.
+SPERM_DONDURMA_SEBEPLERI = (
+    "Tedavi Öncesi Koruma", "Onkolojik", "TESE", "TESA", "PESA",
+)
+sablon.env.globals["sperm_dondurma_sebepleri"] = lambda: SPERM_DONDURMA_SEBEPLERI
+
 
 # ------------------------------------------------------- örnek kodu ve aşama adı
 
@@ -3258,6 +3269,13 @@ async def hasta_sil(request: Request, hasta_id: int):
             # gerekmiyor -- cycle_tamamen_sil'in 5. adımının basiti.
             sd_tasiyicilar = [r["tasiyici_id"] for r in db.sorgu(
                 "SELECT tasiyici_id FROM sperm_dondurma WHERE hasta_id=?", (hasta_id,))]
+            # Onam ekleri `sperm_dondurma`'ya FK ile bağlı (v6.101) — önce
+            # onlar silinmezse bir sonraki satır FOREIGN KEY hatası verir
+            # (tuzak #4'ün aynısı, test edilirken gerçekten böyle patladı).
+            for r in db.sorgu(
+                "SELECT id FROM sperm_dondurma_dosya WHERE sperm_dondurma_id IN "
+                "(SELECT id FROM sperm_dondurma WHERE hasta_id=?)", (hasta_id,)):
+                goruntuler.sperm_onam_sil(r["id"])
             db.yaz("DELETE FROM sperm_dondurma WHERE hasta_id=?", (hasta_id,))
             for tid in sd_tasiyicilar:
                 t = db.tek("SELECT konum_id FROM tasiyici WHERE id=?", (tid,))
@@ -5405,7 +5423,7 @@ async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
 
 
 @uygulama.get("/sperm-dondurma/{sperm_dondurma_id}")
-def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int):
+def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int, hata: str = ""):
     sd = db.tek(
         "SELECT sd.*, t.etiket, t.tip, t.renk, t.durum AS tasiyici_durum, "
         "  k.tam_yol, h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
@@ -5422,8 +5440,104 @@ def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int):
         return RedirectResponse("/cryo", status_code=303)
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    onamlar = [
+        {**dict(r), "pdf_mi": (r["orijinal_dosya_adi"] or "").lower().endswith(".pdf")}
+        for r in db.sorgu(
+            "SELECT * FROM sperm_dondurma_dosya WHERE sperm_dondurma_id=? "
+            "ORDER BY id", (sperm_dondurma_id,))
+    ]
     return sablon.TemplateResponse(
-        request, "sperm_dondurma_detay.html", {"sd": sd, "etiketler": etiketler})
+        request, "sperm_dondurma_detay.html",
+        {"sd": sd, "etiketler": etiketler, "onamlar": onamlar, "hata": hata})
+
+
+@uygulama.post("/sperm-dondurma/{sperm_dondurma_id}/islem-yapan")
+async def sperm_dondurma_islem_yapan_kaydet(request: Request, sperm_dondurma_id: int):
+    """Sperm dondurmayı fiilen yapan kişi — aşama ekranlarındaki İşlemi
+    Yapan kutusunun aynı deseni (v6.99), ama `islem_yapan` tablosu `cycle_id`
+    istediği için sperm dondurmada doğrudan `sperm_dondurma.yapan_ad`'a yazılıyor.
+    """
+    f = dict(await request.form())
+    yapan = bos_ise_none(f.get("yapan_ad"))
+    sd = db.tek("SELECT id FROM sperm_dondurma WHERE id=? AND lab_id=?",
+                (sperm_dondurma_id, db.LAB_ID))
+    if sd:
+        db.yaz("UPDATE sperm_dondurma SET yapan_ad=? WHERE id=?",
+               (yapan, sperm_dondurma_id))
+    return RedirectResponse(f"/sperm-dondurma/{sperm_dondurma_id}", status_code=303)
+
+
+@uygulama.post("/sperm-dondurma/{sperm_dondurma_id}/onam-ekle")
+async def sperm_dondurma_onam_ekle(request: Request, sperm_dondurma_id: int):
+    """Onamlar: sperm dondurma kaydına PDF/fotoğraf eki (v6.101).
+
+    `doktor_notu_ekle()` ile aynı desen, `goruntuler.sperm_onam_ekle()`
+    çağırıyor — `goruntu` tablosuna değil, `sperm_dondurma_dosya`'ya yazıyor
+    (sperm dondurmanın cycle'ı olmayabilir, `goruntu.cycle_id` NOT NULL).
+    """
+    from urllib.parse import quote
+    sd = db.tek("SELECT hasta_id FROM sperm_dondurma WHERE id=? AND lab_id=?",
+                (sperm_dondurma_id, db.LAB_ID))
+    if not sd:
+        return RedirectResponse("/cryo", status_code=303)
+
+    form = await request.form()
+    dosyalar = form.getlist("dosyalar")
+    kid = request.state.kullanici["id"]
+
+    hatalar = 0
+    for d in dosyalar:
+        ad = getattr(d, "filename", "") or ""
+        if not ad:
+            continue
+        icerik = await d.read()
+        mesaj = goruntuler.sperm_onam_ekle(
+            icerik, ad, sd["hasta_id"], sperm_dondurma_id, kid)
+        if mesaj:
+            hatalar += 1
+
+    if hatalar:
+        return RedirectResponse(
+            f"/sperm-dondurma/{sperm_dondurma_id}?hata="
+            + quote("Bazı dosyalar eklenemedi (desteklenmeyen tür ya da boyut)."),
+            status_code=303)
+    return RedirectResponse(f"/sperm-dondurma/{sperm_dondurma_id}", status_code=303)
+
+
+@uygulama.get("/sperm-onam/{dosya_id}")
+def sperm_onam_dosya(dosya_id: int):
+    d = db.tek("SELECT dosya_yolu FROM sperm_dondurma_dosya WHERE id = ?", (dosya_id,))
+    if not d:
+        return Response(status_code=404)
+    p = goruntuler.tam_yol(d["dosya_yolu"])
+    if not p.is_file():
+        return Response(status_code=404)
+    return FileResponse(p)
+
+
+@uygulama.get("/sperm-onam/{dosya_id}/sil")
+def sperm_onam_sil_ekran(request: Request, dosya_id: int):
+    d = db.tek(
+        "SELECT sd.*, h.dosya_no, h.ad_soyad "
+        "FROM sperm_dondurma_dosya sd "
+        "JOIN sperm_dondurma s ON s.id = sd.sperm_dondurma_id "
+        "JOIN hasta h ON h.id = s.hasta_id "
+        "WHERE sd.id=?", (dosya_id,))
+    if not d:
+        return RedirectResponse("/cryo", status_code=303)
+    pdf_mi = (d["orijinal_dosya_adi"] or "").lower().endswith(".pdf")
+    return sablon.TemplateResponse(
+        request, "sperm_onam_sil.html", {"d": d, "pdf_mi": pdf_mi})
+
+
+@uygulama.post("/sperm-onam/{dosya_id}/sil")
+def sperm_onam_dosya_sil(request: Request, dosya_id: int):
+    d = db.tek("SELECT sperm_dondurma_id FROM sperm_dondurma_dosya WHERE id=?",
+               (dosya_id,))
+    if not d:
+        return RedirectResponse("/cryo", status_code=303)
+    goruntuler.sperm_onam_sil(dosya_id)
+    return RedirectResponse(f"/sperm-dondurma/{d['sperm_dondurma_id']}", status_code=303)
 
 
 @uygulama.get("/sperm-dondurma/{sperm_dondurma_id}/sil")

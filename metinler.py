@@ -240,10 +240,19 @@ METINLER = {
     "hasta_ve_sperm_dondurmayi_kaydet": {
         "tr": "Hastayı ve sperm dondurmayı kaydet",
         "en": "Save patient and sperm freezing"},
+    "onamlar": {"tr": "Onamlar", "en": "Consent forms"},
+    "onam_yok": {"tr": "Henüz onam eklenmedi.", "en": "No consent form added yet."},
+    "onam_ipucu": {
+        "tr": "Fotoğraf veya PDF ekleyebilirsin (imzalı onam formu gibi).",
+        "en": "You can add a photo or PDF (a signed consent form, etc.)."},
+    "onam_sil": {"tr": "Onamı sil", "en": "Delete consent form"},
+    "onam_kalici_silinecek": {
+        "tr": "Bu onam eki kalıcı olarak silinecek.",
+        "en": "This consent form attachment will be permanently deleted."},
     "dondurma_sebebi": {"tr": "Dondurma sebebi", "en": "Freeze reason"},
     "dondurma_sebebi_ipucu": {
-        "tr": "Örn. onkoloji tedavisi öncesi, elektif",
-        "en": "E.g. before oncology treatment, elective"},
+        "tr": "Listeden seçebilir ya da kendi sebebinizi yazabilirsiniz.",
+        "en": "Pick from the list or type your own reason."},
     "kullanildigi_tedavi": {"tr": "Kullanıldığı tedavi", "en": "Used in treatment"},
     "dondurulmus_sperm_bagla": {"tr": "Dondurulmuş sperm bağla",
                                 "en": "Link frozen sperm"},
