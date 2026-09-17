@@ -172,8 +172,10 @@ METINLER = {
     "yas_hesaplanir": {"tr": "Yaş bundan hesaplanır, ayrıca girilmez.",
                        "en": "Age is calculated from this; do not enter it "
                              "separately."},
+    "telefon": {"tr": "Telefon", "en": "Phone"},
     "es_adi": {"tr": "Eş adı", "en": "Partner name"},
     "es_dogum_tarihi": {"tr": "Eş doğum tarihi", "en": "Partner date of birth"},
+    "es_telefon": {"tr": "Eş telefonu", "en": "Partner phone"},
     "hastayi_kaydet": {"tr": "Hastayı kaydet", "en": "Save patient"},
     "mukerrer_dosya_no": {"tr": "Bu dosya no zaten kayıtlı:",
                           "en": "This file no is already registered:"},

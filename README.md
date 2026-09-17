@@ -7907,3 +7907,41 @@ açılıp hücre değeri "09.09.2026" olarak doğrulandı — dosya bozulmadı,
 tarih hücresi hâlâ düz metin. `formlar.alanlar()` çıktısı da elle
 çağrılıp `bugun` ve `saat_opu`/`saat_denudasyon` alanlarının doğru
 biçimde geldiği kontrol edildi. Test oturum jetonu temizlendi.
+
+# v6.95 — Hasta ve eş telefon numarası
+
+Kullanıcının isteği: hasta kaydederken hastanın ve eşinin telefon numarası
+da tutulsun.
+
+## Ne değişti
+
+- **`goc_036.py`** (yeni göç): `hasta` tablosuna `telefon` ve `es_telefon`
+  (ikisi de `TEXT`, serbest metin — format kısıtı yok, klinikte 0 ile
+  başlayan/tireli/boşluklu yazımların hepsi geçerli olsun diye) eklendi.
+  Basit `ALTER TABLE ADD COLUMN`, tablo yeniden kurulmadı (CHECK kısıtı
+  gibi bir engel yok).
+- **`/hasta/yeni`, `/hasta/{id}/duzenle`**: form ve kayıt/güncelleme
+  rotalarına `telefon` (hastanın kendi) ve `es_telefon` eklendi — `es_adi`
+  ile aynı desende: boşsa `NULL`, hata dönüşünde yazılanlar korunur (v6.21
+  kuralı).
+- **`/sperm-dondurma/yeni-hasta`** (v6.86'nın eş alanları olmayan erkek
+  hasta formu): yalnızca `telefon` eklendi — bu ekranda zaten "eş" kavramı
+  yok, `es_telefon` burada anlamsız.
+- **`hasta_detay.html`**: kimlik bandının alt satırına doğum tarihinin
+  yanına "Telefon: ..." ve "Eş: Ad Soyad (telefon)" eklendi — `es_adi`
+  zaten oradaydı, aynı satıra doğal ek.
+- `/disari/tumu` dökümüne dokunulmadı: o tablo kolonlarını
+  `PRAGMA table_info()` ile **dinamik** okuyor (`disari.py`), yeni kolonlar
+  kendiliğinden dökümde görünür.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp üç akış da uçtan uca denendi: `/hasta/yeni`'den
+telefon + eş telefonuyla yeni hasta açıldı, `/hasta/{id}` kimlik bandında
+"Telefon: 05551112233" ve "Eş: Es Test (05559998877)" doğru göründü;
+`/hasta/{id}/duzenle`'de alanlar doğru önceden dolduruldu, değiştirilip
+kaydedilince güncellendiği doğrulandı; `/sperm-dondurma/yeni-hasta`'dan
+telefonlu bir erkek hasta + sperm dondurma kaydı tek seferde açılıp
+`hasta.telefon`'un doğru yazıldığı veritabanından kontrol edildi. Tüm
+şablonlar hatasız derlendi. Test hastaları, taşıyıcı kaydı ve oturum
+jetonu temizlendi.

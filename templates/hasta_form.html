@@ -19,6 +19,11 @@
              value="{{ v.ad_soyad or '' }}">
     </div>
     <div class="alan">
+      <label for="telefon">{{ metin("telefon") }}</label>
+      <input id="telefon" name="telefon" type="tel" autocomplete="off"
+             value="{{ v.telefon or '' }}">
+    </div>
+    <div class="alan">
       <label for="dogum_tarihi">{{ metin("dogum_tarihi") }}</label>
       <input id="dogum_tarihi" name="dogum_tarihi" type="date"
              min="1900-01-01" value="{{ v.dogum_tarihi or '' }}">
@@ -28,6 +33,11 @@
       <label for="es_adi">{{ metin("es_adi") }}</label>
       <input id="es_adi" name="es_adi" type="text" autocomplete="off"
              value="{{ v.es_adi or '' }}">
+    </div>
+    <div class="alan">
+      <label for="es_telefon">{{ metin("es_telefon") }}</label>
+      <input id="es_telefon" name="es_telefon" type="tel" autocomplete="off"
+             value="{{ v.es_telefon or '' }}">
     </div>
     <div class="alan">
       <label for="es_dogum_tarihi">{{ metin("es_dogum_tarihi") }}</label>

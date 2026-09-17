@@ -24,12 +24,20 @@
       <input id="ad_soyad" name="ad_soyad" type="text" required value="{{ h.ad_soyad }}">
     </div>
     <div class="alan">
+      <label for="telefon">{{ metin("telefon") }}</label>
+      <input id="telefon" name="telefon" type="tel" value="{{ h.telefon or '' }}">
+    </div>
+    <div class="alan">
       <label for="dogum_tarihi">{{ metin("dogum_tarihi") }}</label>
       <input id="dogum_tarihi" name="dogum_tarihi" type="date" min="1900-01-01" value="{{ h.dogum_tarihi or '' }}">
     </div>
     <div class="alan">
       <label for="es_adi">{{ metin("es_adi") }}</label>
       <input id="es_adi" name="es_adi" type="text" value="{{ h.es_adi or '' }}">
+    </div>
+    <div class="alan">
+      <label for="es_telefon">{{ metin("es_telefon") }}</label>
+      <input id="es_telefon" name="es_telefon" type="tel" value="{{ h.es_telefon or '' }}">
     </div>
     <div class="alan">
       <label for="es_dogum_tarihi">{{ metin("es_dogum_tarihi") }}</label>

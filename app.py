@@ -2257,8 +2257,10 @@ def hasta_kaydet(
     request: Request,
     dosya_no: str = Form(...),
     ad_soyad: str = Form(...),
+    telefon: str = Form(""),
     dogum_tarihi: str = Form(""),
     es_adi: str = Form(""),
+    es_telefon: str = Form(""),
     es_dogum_tarihi: str = Form(""),
     notlar: str = Form(""),
 ):
@@ -2278,16 +2280,18 @@ def hasta_kaydet(
         return sablon.TemplateResponse(
             request, "hasta_form.html",
             {"dosya_no": dosya_no, "hata": str(e),
-             "v": {"ad_soyad": ad_soyad, "dogum_tarihi": dogum_tarihi,
-                   "es_adi": es_adi, "es_dogum_tarihi": es_dogum_tarihi,
+             "v": {"ad_soyad": ad_soyad, "telefon": telefon,
+                   "dogum_tarihi": dogum_tarihi,
+                   "es_adi": es_adi, "es_telefon": es_telefon,
+                   "es_dogum_tarihi": es_dogum_tarihi,
                    "notlar": notlar}},
         )
 
     yeni_id = db.yaz(
-        "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, dogum_tarihi, es_adi, "
-        "es_dogum_tarihi, notlar) VALUES (?,?,?,?,?,?,?)",
-        (db.LAB_ID, int(dosya_no), ad_soyad.strip(), dt,
-         bos_ise_none(es_adi), edt, bos_ise_none(notlar)),
+        "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, telefon, dogum_tarihi, "
+        "es_adi, es_telefon, es_dogum_tarihi, notlar) VALUES (?,?,?,?,?,?,?,?,?)",
+        (db.LAB_ID, int(dosya_no), ad_soyad.strip(), bos_ise_none(telefon), dt,
+         bos_ise_none(es_adi), bos_ise_none(es_telefon), edt, bos_ise_none(notlar)),
     )
     return RedirectResponse(f"/hasta/{yeni_id}", status_code=303)
 
@@ -2326,8 +2330,10 @@ def hasta_guncelle(
     request: Request,
     hasta_id: int,
     ad_soyad: str = Form(...),
+    telefon: str = Form(""),
     dogum_tarihi: str = Form(""),
     es_adi: str = Form(""),
+    es_telefon: str = Form(""),
     es_dogum_tarihi: str = Form(""),
     notlar: str = Form(""),
 ):
@@ -2335,8 +2341,10 @@ def hasta_guncelle(
     try:
         yeni = {
             "ad_soyad": ad_soyad.strip(),
+            "telefon": bos_ise_none(telefon),
             "dogum_tarihi": zaman(dogum_tarihi, "Doğum tarihi"),
             "es_adi": bos_ise_none(es_adi),
+            "es_telefon": bos_ise_none(es_telefon),
             "es_dogum_tarihi": zaman(es_dogum_tarihi, "Eş doğum tarihi"),
             "notlar": bos_ise_none(notlar),
         }
@@ -2344,14 +2352,15 @@ def hasta_guncelle(
         # Şablon `h`'ye sözlükle de erişiyor; yazılanlar ekranda kalsın.
         return sablon.TemplateResponse(
             request, "hasta_duzenle.html",
-            {"h": {**dict(eski), "ad_soyad": ad_soyad,
+            {"h": {**dict(eski), "ad_soyad": ad_soyad, "telefon": telefon,
                    "dogum_tarihi": dogum_tarihi, "es_adi": es_adi,
+                   "es_telefon": es_telefon,
                    "es_dogum_tarihi": es_dogum_tarihi, "notlar": notlar},
              "hata": str(e)},
         )
     db.yaz(
-        "UPDATE hasta SET ad_soyad=?, dogum_tarihi=?, es_adi=?, es_dogum_tarihi=?, "
-        "notlar=? WHERE id=?",
+        "UPDATE hasta SET ad_soyad=?, telefon=?, dogum_tarihi=?, es_adi=?, "
+        "es_telefon=?, es_dogum_tarihi=?, notlar=? WHERE id=?",
         (*yeni.values(), hasta_id),
     )
     guvenlik.degisiklikleri_yaz(
@@ -5286,8 +5295,9 @@ async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
 
     kid = request.state.kullanici["id"]
     hasta_id = db.yaz(
-        "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, dogum_tarihi) "
-        "VALUES (?,?,?,?)", (db.LAB_ID, int(dosya_no), ad_soyad, dt))
+        "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, telefon, dogum_tarihi) "
+        "VALUES (?,?,?,?,?)",
+        (db.LAB_ID, int(dosya_no), ad_soyad, bos_ise_none(f.get("telefon")), dt))
 
     try:
         sd_id = _sperm_dondurma_olustur(hasta_id, f, kid)
