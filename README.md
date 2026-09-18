@@ -8744,3 +8744,59 @@ ekran görüntüsüyle düğmenin diğer ikincil düğmelerle (Değişiklik geç
 İşlemi bitir, Excel'e aktar) aynı görünümde, aşama düğmelerinin hemen
 altında durduğu görsel olarak da onaylandı. Test hasta/cycle kayıtları ve
 oturum jetonu temizlendi, sunucu kapatıldı.
+
+# v6.112 — İki özet kutusu tek kutuda birleşti
+
+Kullanıcının isteği: "Tedavi ana sayfasının en üstünde şuanda toplanan
+oosit kayıtlı Folikül var. Bir de toplanan oosit M2 (olgun) Döllenen
+(2PN) cleavage Blastokist var. Bu ikisi birleşsin sayfanın en üstünde
+Folikül Sayısı, Toplanan Yumurta Sayısı, M2(Olgun) Yumurta Sayısı,
+Döllenen Yumurta (2PN) Sayısı, Cleavage Sayısı, Blastokist Sayısı
+Şeklinde bilgilendirme alanı olsun."
+
+v6.110'da eklenen "Embriyoloji özeti" kutusu ile ekranın en üstünde zaten
+duran Folikül/Toplanan Oosit/Kayıtlı kutusu ayrı ayrı duruyordu. Bu ikisi
+birleştirilirken bir tutarsızlık da ortaya çıktı: v6.110'un "Toplanan"
+sayısı yanlışlıkla specimen kaydı sayısını (üstteki kutunun "Kayıtlı"sıyla
+aynı şey) kullanıyordu, üstteki kutunun kendi "Toplanan Oosit"i ise OPU'da
+elle girilen sayıydı — iki kutu ayrı dururken fark edilmemişti, tek kutuda
+yan yana durunca görünür olurdu.
+
+## Ne değişti
+
+- `app.py` `cycle_ozet(cycle, kodlar)` artık `cycle_id` yerine **tüm cycle
+  satırını** alıyor (Folikül ve OPU sağ/sol sayıları için) ve altı satır
+  döndürüyor: Folikül (koşulsuz, cycle seviyesinde), Toplanan (yalnızca
+  `opu` aşaması varsa — artık `opu_sag_oosit + opu_sol_oosit`, specimen
+  `COUNT(*)` değil), M2, Döllenen, Cleavage, Blastokist (her biri kendi
+  aşaması varsa).
+- `templates/cycle_detay.html`: sol sütunun ilk kartı (eski Folikül/
+  Toplanan/Kayıtlı) ile sağ sütundaki "Embriyoloji özeti" kartı **tek
+  karta** birleşti, sayfanın en üstünde. "Kayıtlı" satırı kullanıcının
+  verdiği listede olmadığı için düşürüldü.
+- `metinler.py`'ye `ozet_folikul`, `ozet_toplanan`, `ozet_cleavage`,
+  `ozet_blastokist` eklendi (`ozet_m2`/`ozet_dollenen` v6.110'dan kalanlar,
+  metni güncellendi); `cleavage_ad`/`blastokist_ad` bilerek yeniden
+  kullanılmadı çünkü onlar başka ekranlarda (`cleavage_sil.html` gibi)
+  farklı bir cümlenin parçası.
+- `cycle_detay()` rotasındaki artık kullanılmayan `specimenler` (üç alt
+  sorgulu) ve `taraf_sayilari` sorguları kaldırıldı — kaldırılan kartla
+  birlikte hiçbir yerde okunmuyorlardı.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp Folikül=15, sağ 4/sol 2 OPU girilen bir test
+tedavisi açıldı; 6 specimen, 4 M2, 3 döllenen, 3 cleavage, 2 blastokist
+kaydı eklendi. `/cycle/{id}` çekilip tek kutuda altı sayının da doğru
+(15/6/4/3/3/2) ve sağ/sol kırılımının ("sağ 4 · sol 2") Toplanan'ın altında
+göründüğü doğrulandı; "Kayıtlı" ya da ayrı bir "Embriyoloji özeti"
+başlığının ekranda **ikinci kez** basılmadığı (`grep -c` ile tek eşleşme)
+kontrol edildi. Bir `fet` test tedavisinde kutunun yalnızca "Folikül
+sayısı: —" satırıyla, tek satır olarak göründüğü doğrulandı. Playwright
+ile mobil (390px, 3+3 sarma) ve masaüstü (1280px, 4+2 sarma) ekran
+görüntüsü alınıp görsel olarak onaylandı. Etkilenen diğer ekranlar (ICSI,
+Fert, Cleavage, Blastokist, hasta kartı, ana ekran, `/istatistik`) 200
+döndürdü. `opu.html`'in kendisinin ayrı `toplanan_oosit`/`folikul`
+etiketlerinin (bu değişiklikten etkilenmemesi gereken) dokunulmadan
+kaldığı doğrulandı. Test hasta/cycle/specimen/olay kayıtları ve oturum
+jetonu temizlendi, sunucu kapatıldı.

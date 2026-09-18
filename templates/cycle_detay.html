@@ -25,28 +25,22 @@
 <div class="sutunlar">
 <div class="sutun">
 
+{# Tek özet kutusu (v6.110, v6.112'de birleşti): eskiden Folikül/Toplanan/
+   Kayıtlı ayrı bir kutuda, M2/Döllenen/Cleavage/Blastokist sağ sütunda
+   ayrı bir kutuda duruyordu -- kullanıcı "bu ikisi birleşsin, sayfanın en
+   üstünde tek bilgilendirme alanı olsun" dedi. "Kayıtlı" (specimen kaydı
+   sayısı) bilerek düşürüldü, listede yok -- kullanıcının verdiği liste
+   yalnızca bu altısı: Folikül, Toplanan, M2, Döllenen, Cleavage,
+   Blastokist. Sayılar `app.py` `cycle_ozet()`'ten geliyor, türetilmiş. #}
 <div class="kart">
-  <div class="ozet">
-    <div>
-      <div class="sayi">{{ (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) }}</div>
-      <div class="etiket">{{ metin("toplanan_oosit") }}</div>
-      {% if c.opu_sag_oosit is not none or c.opu_sol_oosit is not none %}
-      <div class="kirilim">{{ metin("sag") }} {{ c.opu_sag_oosit or 0 }} · {{ metin("sol") }} {{ c.opu_sol_oosit or 0 }}</div>
-      {% endif %}
+  <h2>{{ metin("embriyoloji_ozeti") }}</h2>
+  <div class="ozet ozetsar">
+    {% for o in ozet %}
+    <div><div class="sayi">{{ o.sayi }}</div>
+      <div class="etiket">{{ metin(o.anahtar) }}</div>
+      {% if o.kirilim %}<div class="kirilim">{{ o.kirilim }}</div>{% endif %}
     </div>
-    <div>
-      <div class="sayi">{{ specimenler|length }}</div>
-      <div class="etiket">{{ metin("kayitli") }}</div>
-      {% if taraf and (taraf.sag or taraf.sol) %}
-      <div class="kirilim">
-        {{ metin("sag") }} {{ taraf.sag or 0 }} · {{ metin("sol") }} {{ taraf.sol or 0 }}{% if taraf.belirsiz %} · ? {{ taraf.belirsiz }}{% endif %}
-      </div>
-      {% endif %}
-    </div>
-    <div>
-      <div class="sayi">{{ c.folikul_sayisi if c.folikul_sayisi is not none else '—' }}</div>
-      <div class="etiket">{{ metin("folikul") }}</div>
-    </div>
+    {% endfor %}
   </div>
 </div>
 
@@ -131,21 +125,10 @@
 <div class="sutun">
 
 {# "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi kaldırıldı
-   (v6.110, kullanıcının isteği) -- yerine türetilmiş bir embriyoloji
-   özeti geldi. Fotoğraf eklemek hâlâ mümkün, yalnızca artık buradan değil:
-   her aşama ekranının kendi "Fotoğraf ekle" düğmesinden (v6.20'nin zaten
-   söylediği yerden). #}
-{% if ozet %}
-<div class="kart">
-  <h2>{{ metin("embriyoloji_ozeti") }}</h2>
-  <div class="ozet ozetsar">
-    {% for anahtar, sayi in ozet %}
-    <div><div class="sayi">{{ sayi }}</div>
-      <div class="etiket">{{ metin(anahtar) }}</div></div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
+   (v6.110, kullanıcının isteği) -- yerine türetilmiş bir embriyoloji özeti
+   geldi, v6.112'de sayfanın en üstündeki tek kutuya taşındı. Fotoğraf
+   eklemek hâlâ mümkün, yalnızca artık buradan değil: her aşama ekranının
+   kendi "Fotoğraf ekle" düğmesinden (v6.20'nin zaten söylediği yerden). #}
 
 {% if arsiv %}
 <div class="kart">

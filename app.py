@@ -2666,15 +2666,6 @@ def cycle_detay(request: Request, cycle_id: int, hata: str = ""):
         "SELECT c.*, h.dosya_no, h.ad_soyad, h.es_adi, h.dogum_tarihi "
         "FROM cycle c JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
     )
-    specimenler = db.sorgu(
-        "SELECT s.*, "
-        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id) AS kare, "
-        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
-        "   ORDER BY g.id LIMIT 1) AS ilk_goruntu, "
-        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id = s.id) "
-        "  AS goruntu_idler "
-        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no", (cycle_id,)
-    )
     etiketler = {
         r["kod"]: r["etiket"]
         for r in db.sorgu("SELECT kod, etiket FROM liste_degeri WHERE lab_id = ?",
@@ -2696,15 +2687,10 @@ def cycle_detay(request: Request, cycle_id: int, hata: str = ""):
         for r in doktor_notu_satirlari
     ]
     doktor_notu_resim_ids = [d["id"] for d in doktor_notlari if not d["pdf_mi"]]
-    taraf_sayilari = db.tek(
-        "SELECT SUM(CASE WHEN taraf='sag' THEN 1 ELSE 0 END) AS sag, "
-        "       SUM(CASE WHEN taraf='sol' THEN 1 ELSE 0 END) AS sol, "
-        "       SUM(CASE WHEN taraf IS NULL THEN 1 ELSE 0 END) AS belirsiz "
-        "FROM specimen WHERE cycle_id = ?", (cycle_id,))
     return sablon.TemplateResponse(
         request, "cycle_detay.html",
-        {"c": cycle, "specimenler": specimenler, "etiketler": etiketler,
-         "arsiv": arsiv, "taraf": taraf_sayilari,
+        {"c": cycle, "etiketler": etiketler,
+         "arsiv": arsiv,
          "doktor_notlari": doktor_notlari,
          "doktor_notu_resim_ids": doktor_notu_resim_ids,
          "hata": hata,
@@ -2719,10 +2705,10 @@ def cycle_detay(request: Request, cycle_id: int, hata: str = ""):
          "asamalar": (asamalar := cycle_asamalari(cycle["cycle_tipi"])),
          # yan menü aşama ekranlarındakiyle aynı listeden beslensin
          "gezinme": asama_gezinme(cycle_id, ""),
-         # Embriyoloji özeti (v6.110): "Oositler" listesinin yerine geçti,
-         # aynı `asamalar` listesinden (kullanıcının modül izniyle süzülmüş)
+         # Tek özet kutusu (v6.110, v6.112'de tek kutuya birleşti), aynı
+         # `asamalar` listesinden (kullanıcının modül izniyle süzülmüş)
          # hangi sayıların bu tedavi tipinde anlamlı olduğunu çıkarıyor.
-         "ozet": cycle_ozet(cycle_id, {a[0] for a in asamalar})},
+         "ozet": cycle_ozet(cycle, {a[0] for a in asamalar})},
     )
 
 
@@ -6530,10 +6516,14 @@ def cycle_asamalari(cycle_tipi: str):
     return [sozluk[k] for k in kodlar if k in sozluk and yetkim(k)]
 
 
-def cycle_ozet(cycle_id: int, kodlar: set) -> list:
-    """Tedavi ekranındaki kısa embriyoloji özeti — türetilmiş, saklanmaz
+def cycle_ozet(cycle: dict, kodlar: set) -> list:
+    """Tedavi ekranının en üstündeki tek özet kutusu — türetilmiş, saklanmaz
     (v6.110, kullanıcının isteği: "Oositler listesini kaldır, kısa bir
-    özet olsun: kaç yumurta, M2, döllenen, cleavage, blastokist").
+    özet olsun: kaç yumurta, M2, döllenen, cleavage, blastokist"; v6.112'de
+    genişletildi — kullanıcı eskiden ayrı duran Folikül/Toplanan kutusuyla
+    bu özeti **tek** kutuda istedi: "Folikül Sayısı, Toplanan Yumurta
+    Sayısı, M2 (Olgun) Yumurta Sayısı, Döllenen Yumurta (2PN) Sayısı,
+    Cleavage Sayısı, Blastokist Sayısı").
 
     `disari.istatistikler()`'deki lab-geneli `_olay()` sayımının tek-cycle
     hali — aynı "sayaç tutma, ekrana her açılışta türet" gerekçesi (v6.38):
@@ -6542,36 +6532,58 @@ def cycle_ozet(cycle_id: int, kodlar: set) -> list:
     zaten hesapladığı `cycle_asamalari()` sonucudur (kullanıcının modül
     izniyle de süzülmüş) — burada tekrar hesaplanmıyor.
 
+    **Toplanan yumurta OPU'da elle girilen sayıdır** (`opu_sag_oosit` +
+    `opu_sol_oosit`), specimen kaydı sayısı değil — v6.110'da yanlışlıkla
+    specimen `COUNT(*)`'ı kullanılmıştı (eskiden ayrı duran "Kayıtlı"
+    kutusunun sayısıyla aynı şeydi, üstteki kutunun "Toplanan Oosit"'inden
+    FARKLI bir anlam taşıyordu — iki kutu birleşince bu tutarsızlık ortaya
+    çıkardı). Tek kutuda tek "Toplanan" olacağı için OPU'nun kendi sayısı
+    kazandı: klinik olarak "kaç yumurta alındı" sorusunun cevabı o, oositin
+    ne zaman ayrı bir kayda (specimen) döküldüğünden bağımsız.
+
     Yalnızca bu cycle tipinde **gerçekten var olan** aşamalar için bir satır
-    döner: `fet` gibi OPU/ICSI'siz bir tipte "0 M2" basmak yanlış bilgi
-    verir (hiç ölçülmedi, sıfır değil) — bu yüzden "0" değil, satır hiç
-    yok. Boş liste dönerse şablon kartı hiç basmaz.
+    döner (Folikül hariç — o her tipte cycle seviyesinde girilebiliyor,
+    `opu.html`'de de koşulsuz basılıyor): `fet` gibi OPU/ICSI'siz bir tipte
+    "0 M2" basmak yanlış bilgi verir (hiç ölçülmedi, sıfır değil) — bu
+    yüzden "0" değil, satır hiç yok.
     """
     def _olay(tip, ek=""):
         return db.tek(
             "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
             "JOIN specimen s ON s.id = o.specimen_id "
             f"WHERE s.cycle_id = ? AND o.tip = ? AND o.iptal_mi = 0 {ek}",
-            (cycle_id, tip),
+            (cycle["id"], tip),
         )["n"]
 
-    satirlar = []
+    satirlar = [{
+        "anahtar": "ozet_folikul",
+        "sayi": cycle["folikul_sayisi"] if cycle["folikul_sayisi"] is not None else "—",
+    }]
     if "opu" in kodlar:
-        toplanan = db.tek(
-            "SELECT COUNT(*) n FROM specimen WHERE cycle_id = ?", (cycle_id,)
-        )["n"]
-        satirlar.append(("toplanan_oosit", toplanan))
+        sag, sol = cycle["opu_sag_oosit"], cycle["opu_sol_oosit"]
+        satir = {"anahtar": "ozet_toplanan", "sayi": (sag or 0) + (sol or 0)}
+        if sag is not None or sol is not None:
+            satir["kirilim"] = (
+                f'{metinler.t("sag")} {sag or 0} · {metinler.t("sol")} {sol or 0}'
+            )
+        satirlar.append(satir)
     # oosit_cryo'da maturasyon denüdasyonda, ivf_icsi'de ICSI ekranında
     # soruluyor (v6.96) ama ikisi de aynı olay.tip='maturasyon_kontrolu'yu
     # yazıyor — "denudasyon" aşaması ikisinde de var, tek koşul yeter.
     if "denudasyon" in kodlar:
-        satirlar.append(("ozet_m2", _olay("maturasyon_kontrolu", "AND o.mat_deger='mii'")))
+        satirlar.append({
+            "anahtar": "ozet_m2",
+            "sayi": _olay("maturasyon_kontrolu", "AND o.mat_deger='mii'"),
+        })
     if "fert" in kodlar:
-        satirlar.append(("ozet_dollenen", _olay("fertilizasyon_kontrolu", "AND o.fert_pn_sayisi='2'")))
+        satirlar.append({
+            "anahtar": "ozet_dollenen",
+            "sayi": _olay("fertilizasyon_kontrolu", "AND o.fert_pn_sayisi='2'"),
+        })
     if "cleavage" in kodlar:
-        satirlar.append(("cleavage_ad", _olay("cleavage_degerlendirme")))
+        satirlar.append({"anahtar": "ozet_cleavage", "sayi": _olay("cleavage_degerlendirme")})
     if "blast" in kodlar:
-        satirlar.append(("blastokist_ad", _olay("blastokist_degerlendirme")))
+        satirlar.append({"anahtar": "ozet_blastokist", "sayi": _olay("blastokist_degerlendirme")})
     return satirlar
 
 

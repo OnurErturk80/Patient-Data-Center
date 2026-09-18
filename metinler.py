@@ -1016,10 +1016,16 @@ METINLER = {
     "stim_gun": {"tr": "Stim. gün", "en": "Stim. days"},
     "e2_hcg_gunu": {"tr": "E2 (hCG günü)", "en": "E2 (hCG day)"},
     "endometrium": {"tr": "Endometrium", "en": "Endometrium"},
-    # v6.110: "Oositler" listesinin yerini alan embriyoloji özeti.
+    # v6.110: "Oositler" listesinin yerini alan embriyoloji özeti; v6.112'de
+    # üstteki Folikül/Toplanan kutusuyla birleşti, tek kutu oldu.
     "embriyoloji_ozeti": {"tr": "Embriyoloji özeti", "en": "Embryology summary"},
-    "ozet_m2": {"tr": "M2 (olgun)", "en": "M2 (mature)"},
-    "ozet_dollenen": {"tr": "Döllenen (2PN)", "en": "Fertilized (2PN)"},
+    "ozet_folikul": {"tr": "Folikül sayısı", "en": "Follicle count"},
+    "ozet_toplanan": {"tr": "Toplanan yumurta sayısı", "en": "Oocytes collected"},
+    "ozet_m2": {"tr": "M2 (olgun) yumurta sayısı", "en": "M2 (mature) oocyte count"},
+    "ozet_dollenen": {"tr": "Döllenen yumurta (2PN) sayısı",
+                      "en": "Fertilized oocytes (2PN) count"},
+    "ozet_cleavage": {"tr": "Cleavage sayısı", "en": "Cleavage count"},
+    "ozet_blastokist": {"tr": "Blastokist sayısı", "en": "Blastocyst count"},
     "cycle_arsivi": {"tr": "Tedavi arşivi", "en": "Cycle archive"},
     "oosite_baglanmamis": {"tr": "Oosite bağlanmamış fotoğraflar.",
                            "en": "Photos not linked to an oocyte."},

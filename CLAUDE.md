@@ -456,6 +456,46 @@ ekranındaki "türetilmiş sayı" gerekçesinin aynısı.
   Kaldırılan yalnızca `cycle_detay.html`'deki **parametresiz** bağlantıydı —
   o zaten "cycle ekranında fotoğraf olmaz" kuralının (v6.20) sessiz bir
   istisnasıydı, hemen üstündeki yorum bile bunu söylüyordu.
+- **v6.112'de bu özet, sayfanın en üstündeki eski Folikül/Toplanan/Kayıtlı
+  kutusuyla BİRLEŞTİ — tek kutu.** Kullanıcının isteği: "Bu ikisi
+  birleşsin, sayfanın en üstünde Folikül Sayısı, Toplanan Yumurta Sayısı,
+  M2 (Olgun) Yumurta Sayısı, Döllenen Yumurta (2PN) Sayısı, Cleavage
+  Sayısı, Blastokist Sayısı şeklinde bilgilendirme alanı olsun." `cycle_
+  ozet(cycle, kodlar)` artık `cycle_id` değil **`cycle` satırının tamamını**
+  alıyor (Folikül ve OPU sağ/sol sayıları için) — sol sütunun ilk kartı
+  oldu, sağ sütundaki ayrı kart kaldırıldı.
+  - **"Kayıtlı" (specimen kaydı sayısı) bilerek düşürüldü** — kullanıcının
+    verdiği liste yalnızca altı kalem, "Kayıtlı" onda yok. Örnekler hâlâ
+    aşama ekranlarından erişilebiliyor, yalnızca bu özet kutusunda ayrı
+    bir satırı kalmadı.
+  - **"Toplanan" artık specimen `COUNT(*)` değil, OPU'da elle girilen sayı**
+    (`opu_sag_oosit` + `opu_sol_oosit`) — v6.110'da yanlışlıkla specimen
+    sayısı kullanılmıştı ve bu, üstteki (o zaman ayrı duran) kutunun aynı
+    adı taşıyan ama **farklı bir şey ölçen** "Toplanan Oosit"'iyle
+    çakışıyordu (biri OPU'nun kendi girdisi, öbürü sonradan açılan kayıt
+    sayısı). İki kutu birleşince bu çakışma görünür hale geldi ve
+    düzeltildi: tek "Toplanan" kaldı, OPU'nun kendi sayısı kazandı —
+    "kaç yumurta alındı" sorusunun klinik cevabı o, oositin ne zaman ayrı
+    bir specimen kaydına döküldüğünden bağımsız. **Yeni bir "toplanan"
+    türü sayı eklersen bu ayrımı hatırla**: OPU girdisi mi, yoksa
+    sonradan oluşan kayıt sayısı mı — ikisi aynı şey değil, aynı adı
+    paylaşmamalı.
+  - **Folikül tek satır, koşulsuz** (diğer beşi gibi `kodlar`'a bakmıyor)
+    — cycle seviyesinde bir alan, `opu.html`'de de koşulsuz basılıyor;
+    `fet` gibi hiçbir embriyoloji aşaması olmayan bir tipte bile tek
+    başına gösteriliyor (değeri girilmemişse `—`).
+  - Yeni metin anahtarları: `ozet_folikul`, `ozet_toplanan`,
+    `ozet_cleavage`, `ozet_blastokist` (`cleavage_ad`/`blastokist_ad`
+    **bilerek kullanılmadı** — onlar `cleavage_sil.html`/`blast_sil.html`
+    gibi başka ekranlarda "aşama adı" olarak geçiyor, metnini "Cleavage
+    Sayısı" yaparsan oralardaki cümle bozulur). `toplanan_oosit`/`folikul`/
+    `kayitli` eski anahtarları **dokunulmadan** kaldı — `opu.html`'in kendi
+    salt okunur kartı hâlâ onları kullanıyor, cycle_detay'in bu özetle
+    ilgisi yok.
+  - `specimenler`/`taraf` context değişkenleri `cycle_detay()` rotasından
+    kaldırıldı — o kartın kaldırılmasıyla birlikte hem şablonda hem
+    sorguda **hiçbir yerde** kullanılmıyorlardı (üç alt sorgulu `specimen`
+    sorgusu dahil), gereksiz sorgu koşusun diye tutmaya gerek yoktu.
 
 **Kodu değil etiketi göster.** `mii`, `2pn`, `z1` gibi değerler
 `liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda
