@@ -45,6 +45,17 @@
       <div class="ipucu secenekaciklama">{{ metin("bitis_" ~ kod ~ "_ipucu") }}</div>
       {% endfor %}
     </div>
+    {# İptalin ayrıntılı sebepleri (v6.103) — genel "İptal"in altında, aynı
+       "iptal" durumuna yazıyor, yalnızca hangi aşamada durduğunu ayırt
+       ediyor. Genel İptal listede olmayan bir sebep için hâlâ duruyor. #}
+    <div class="alan" style="border-top:1px solid var(--line)">
+      <div class="ipucu" style="padding-bottom:6px">{{ metin("iptal_detay_baslik") }}</div>
+      {% for kod in iptal_detay_sebepleri %}
+      <button class="dugme ikincil" type="submit"
+              name="sebep" value="{{ kod }}">{{ metin("bitis_" ~ kod) }}
+        {%- if duzenle and c.bitis_sebebi == kod %} <span class="rozet">{{ metin("secili_rozet") }}</span>{% endif %}</button>
+      {% endfor %}
+    </div>
   </div>
 </form>
 

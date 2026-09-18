@@ -1956,8 +1956,18 @@ def yedek_durumu():
 # embriyolar donduruldu, transfer yapıldı, tedavi iptal oldu (v6.28).
 # Dondurma ve transfer `durum='tamamlandi'` yapar; iptal, silme ekranından
 # beri var olan `durum='iptal'` değerini kullanır — "Geri al" akışı aynı kalsın.
+#
+# İptalin altı ayrıntılı sebebi (v6.103, kullanıcının isteği) — hepsi aynı
+# şekilde `durum='iptal'` yapıyor, yalnızca hangi aşamada durduğunu
+# ayırt ediyor. Genel "İptal" seçeneği **kaldırılmadı**: listede olmayan
+# bir sebep için hâlâ kullanılabilir (kullanıcının kararı).
+IPTAL_DETAY_SEBEPLERI = (
+    "yumurta_cikmadi", "immatur_yumurta", "fert_olmadi",
+    "pn_arrest", "cleavage_arrest", "gun5_arrest",
+)
 BITIS_DURUMU = {"dondurma": "tamamlandi", "transfer": "tamamlandi",
-                "iptal": "iptal"}
+                "iptal": "iptal",
+                **{k: "iptal" for k in IPTAL_DETAY_SEBEPLERI}}
 
 # Ana ekrandaki "Yaklaşanlar" kaç gün ileriye baksın (v6.33). İki hafta:
 # "haftaya" diye plan yapılıyor, bir hafta dar kalırdı. Ayrı bir "tümünü
@@ -3421,6 +3431,7 @@ def cycle_bitir_ekrani(request: Request, cycle_id: int, hata: str = "",
         {"kullanici": request.state.kullanici, "c": c, "duzenle": duzenle,
          "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
          "goc_gerekli": not _bitis_kolonu_var(),
+         "iptal_detay_sebepleri": IPTAL_DETAY_SEBEPLERI,
          "hata": metinler.t(hata) if hata in BITIS_HATALARI else ""},
     )
 

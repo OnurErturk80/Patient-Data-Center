@@ -8304,3 +8304,44 @@ protokol notunun, sonra yalnızca çözme notunun, sonra **ikisinin birlikte**
 doğrulandı — bu sırada `_OZET_NOTLAR` hatası bulunup düzeltildi ve üç
 senaryo da yeniden test edildi. Test cycle'ları, taşıyıcı, specimen ve
 oturum jetonu temizlendi.
+
+# v6.103 — İşlemi bitir: altı ayrıntılı iptal sebebi
+
+Kullanıcının isteği: "İşlem bitir de seçeneklere Yumurta Çıkmadı İptal,
+İmmatür Yumurta İptal, Fertilizasyon Olmadı İptal, PN Arrest İptal,
+Cleavage Arrest İptal, 5. Gün Arrest İptal seçenekleri ekle." Mevcut genel
+"İptal" seçeneğiyle çakışma sorulduğunda kullanıcının kararı: genel İptal
+kalsın, altısı ek olarak eklensin.
+
+## Ne değişti
+
+- **`/cycle/{id}/bitir` ekranına altı yeni düğme.** Genel üç seçeneğin
+  (Dondurma tamamlandı / Transfer yapıldı / İptal) altında ayrı bir grupta:
+  Yumurta Çıkmadı İptal, İmmatür Yumurta İptal, Fertilizasyon Olmadı İptal,
+  PN Arrest İptal, Cleavage Arrest İptal, 5. Gün Arrest İptal. Hepsi genel
+  İptal ile aynı şekilde `durum='iptal'` yapıyor — yalnızca hangi aşamada
+  durduğunu ayırt ediyorlar, `cycle_detay.html`/`_cyclesatir.html`'de
+  (Bugün Bitenler, /bitenler) doğru etiketle görünüyorlar.
+- **Şema değişmedi.** `cycle.bitis_sebebi` zaten CHECK kısıtı olmayan
+  serbest bir metin kolon; yeni sebep kodları (`yumurta_cikmadi`,
+  `immatur_yumurta`, `fert_olmadi`, `pn_arrest`, `cleavage_arrest`,
+  `gun5_arrest`) doğrudan yazılabildi, göç gerekmedi. `BITIS_DURUMU`
+  sözlüğü (`app.py`) yeni bir `IPTAL_DETAY_SEBEPLERI` tuple'ından
+  kendiliğinden kuruluyor.
+- **Genel "İptal" kaldırılmadı** — kullanıcının kararı: listede olmayan
+  bir sebep için hâlâ kullanılabiliyor.
+- `metinler.py`'ye `bitis_yumurta_cikmadi`, `bitis_immatur_yumurta`,
+  `bitis_fert_olmadi`, `bitis_pn_arrest`, `bitis_cleavage_arrest`,
+  `bitis_gun5_arrest` ve `iptal_detay_baslik` anahtarları eklendi —
+  isimlendirme mevcut `"bitis_" ~ kod` deseniyle aynı, `_cyclesatir.html`
+  ve `cycle_detay.html` hiç değişmeden yeni sebepleri de doğru gösteriyor.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp `/cycle/{id}/bitir` ekranında dokuz düğmenin de
+(üç genel + altı ayrıntılı) doğru metinle göründüğü doğrulandı. Test
+cycle'ı "PN Arrest İptal" ile bitirildi; cycle detayının başlığında ve
+`/bitenler` listesinde "PN Arrest İptal" doğru göründü. `?duzenle=1`
+kipinde doğru düğmenin "Seçili" rozetiyle işaretlendiği kontrol edildi.
+"Listeye geri al" ile cycle'ın tamamen eski (aktif, sebep/saat boş)
+haline döndüğü doğrulandı. Oturum jetonu temizlendi.

@@ -502,6 +502,19 @@ bittiği yer çoğu zaman son iki aşama (v6.29). Üçü de `_bitir.html`
   birleştirme.
 - Biten cycle'lar `/bitenler`'de; kayıt silinmiyor, hasta ekranında da
   rozetiyle duruyor.
+- **İptalin altı ayrıntılı sebebi var** (v6.103, kullanıcının isteği):
+  Yumurta Çıkmadı, İmmatür Yumurta, Fertilizasyon Olmadı, PN Arrest,
+  Cleavage Arrest, 5. Gün Arrest — `IPTAL_DETAY_SEBEPLERI`, hepsi
+  `BITIS_DURUMU`'nda `"iptal"`e eşleniyor (`durum='iptal'`, genel İptal'le
+  aynı). **Genel "İptal" düğmesi kaldırılmadı** — kullanıcının kararı:
+  listede olmayan bir sebep için hâlâ kullanılabiliyor. `cycle_bitir.html`
+  bu altısını genel üç seçeneğin altında ayrı bir grupta gösteriyor; `metin()`
+  anahtarı yine `"bitis_" ~ kod` deseninde (`_cyclesatir.html` ve
+  `cycle_detay.html`'in `bitis_sebebi` gösterimiyle aynı kalsın diye) —
+  yeni bir ayrıntılı sebep eklersen kodu `IPTAL_DETAY_SEBEPLERI`'na ekle,
+  `metinler.py`'ye `bitis_<kod>` anahtarını yaz, `BITIS_DURUMU` kendiliğinden
+  kapsar (`**{k: "iptal" for k in IPTAL_DETAY_SEBEPLERI}` ile kuruluyor).
+  Şema değişmedi — `bitis_sebebi` zaten CHECK'siz serbest metin.
 
 **İleri tarihli iş cycle'ın kendisidir** (v6.33, `goc_028`). Ayrı bir randevu
 tablosu yok: cycle bugün açılıyor, `planlanan_tarih` (gün, saat yok)
