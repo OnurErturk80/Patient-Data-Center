@@ -1261,8 +1261,16 @@ body.kilitli { overflow: hidden; }
    BÜTÜN olarak `transform: scale()` ile küçültüyor (v6.107, kullanıcının
    isteği -- "formlar sığmıyor"). `overflow: hidden` betik ölçeği
    uyguladıktan sonra taşan bir piksel kalmasın diye; normalde oran tam
-   sığacak şekilde hesaplandığı için hiç kırpma olmaz. */
+   sığacak şekilde hesaplandığı için hiç kırpma olmaz.
+   **`transform-origin: top left` ŞART** (v6.109) -- CSS'in varsayılanı
+   `center center`, yani küçültme ORTAYA doğru büzülür; `.kalipolcek`'in
+   yüksekliği betikte KÜÇÜLTÜLMÜŞ boy kadar (sol-üstten sayarak) ayrılıyor,
+   ikisi uyuşmayınca kâğıdın üstünde boş bir alan kalıp, asıl içerik alttan
+   kesik görünüyordu (kullanıcı ekran görüntüsüyle bildirdi -- kartın üst
+   yarısı bomboştu, form en altta yarım gözüküyordu). Sol-üst köşeden
+   küçültünce ölçeklenmiş kutu tam betiğin ayırdığı alanı dolduruyor. */
 .kalipolcek { overflow: hidden; }
+.kalipkap { transform-origin: top left; }
 
 .kalip {
   width: 100%; border-collapse: collapse; table-layout: fixed;

@@ -8605,3 +8605,54 @@ kalmadığı doğrulandı. Yazdırma medyası tekrar emüle edilip `.kalipkap`'�
 `transform: none`'a döndüğü, `.kalipolcek`'in doğal yüksekliğe geri
 döndüğü ve PDF çıktısının öncekiyle birebir aynı boyutta kaldığı yeniden
 doğrulandı. Test oturum jetonu temizlendi.
+
+# v6.109 — `transform-origin` eksikti: ölçek ortaya doğru büzülüyordu
+
+Kullanıcı bir ekran görüntüsü gönderdi: mobilde formun kartı büyük bir
+boşlukla başlıyor, içerik alt kenarda kesik ve sıkışık görünüyordu. Mesajı:
+"Mobilde böyle gözüküyor. Masaüstünde de kesik tam ekran değil."
+
+v6.107/v6.108'in ölçek hesabı doğruydu ama `.kalipkap`'a hiçbir zaman
+`transform-origin` yazılmamıştı — CSS'in varsayılanı `center center`.
+`transform: scale(oran)` bu yüzden kâğıdı **sol üst köşeden değil ortadan**
+küçültüyordu; `.kalipolcek` sarmalayıcının yüksekliği betikte "küçültülmüş
+boy" kadar (sol-üstten sayarak) ayrıldığı için ikisi uyuşmuyordu — içeriğin
+üst yarısı sarmalayıcının üstüne taşıp görünmez oluyor (`overflow: hidden`),
+alt yarısı da sarmalayıcının dışına taşıp kırpılıyordu. Ekranda kalan tek
+şey ortadaki dar bir şerit — tam olarak ekran görüntüsündeki görünüm.
+
+## Ne değişti
+
+- `static/style.css`'e tek kural: `.kalipkap { transform-origin: top left;
+  }`. Artık küçültme sol-üst köşeden başlıyor, `.kalipolcek`'in ayırdığı
+  alanla (`dogalYukseklik * oran`, sol-üstten sayarak hesaplanmıştı) birebir
+  örtüşüyor.
+- `form.html`'e ve CLAUDE.md'ye bu hatanın nedenini ve dersini açıklayan bir
+  not eklendi: `transform: scale()` kullanılan her yeni yerde
+  `transform-origin` açıkça yazılmalı, varsayılana güvenilmemeli.
+
+## Neden v6.107/v6.108'in testleri bu hatayı yakalayamadı
+
+O testler yalnızca `.kalipolcek` sarmalayıcının **kendi**
+`getBoundingClientRect()`'ine bakıyordu (`scrollWidth`, `clientWidth`,
+`bottom <= innerHeight`) — bunlar sarmalayıcının içindeki `.kalipkap`'ın
+GÖRSEL olarak nereye render edildiğinden tamamen bağımsız, `transform-
+origin` ne olursa olsun hep doğru çıkıyordu. Hatayı yalnızca bir ekran
+görüntüsü (ya da içerideki `.kalip` tablosunun sarmalayıcıya göre kendi
+konumunu ölçmek) ortaya çıkarabilirdi.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp Playwright ile önce içerideki `.kalip` tablosunun
+`.kalipolcek` sarmalayıcıya göre üst kenar farkı (`gap_above`) ölçüldü:
+düzeltmeden önce bu fark sıfır değildi (içerik sarmalayıcının içinde
+ortalanmış duruyordu), düzeltmeden sonra mobil (390x844) ve masaüstü
+(1280x900) viewport'larında, hem Embriyoloji Özet hem ART Lab formunda
+`gap_above: 0` çıktı — yani ölçeklenmiş içerik artık tam sarmalayıcının
+sol-üst köşesinden başlıyor. Dört kombinasyonun ekran görüntüsü alınıp
+görsel olarak da doğrulandı: form artık baştan sona, boşluksuz ve kesiksiz
+görünüyor. Yazdırma medyası yeniden emüle edildi — `.kalipkap`'ın
+`transform: none`'a döndüğü ve PDF çıktısının boyutunun (Özet 106081 bayt,
+ART Lab 63578 bayt) düzeltmeden önceki ile birebir aynı kaldığı doğrulandı;
+bu değişiklik ekranı etkiliyor, yazdırmayı hiç etkilemiyor. Test oturum
+jetonu ve sunucu süreci temizlendi.

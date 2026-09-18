@@ -662,6 +662,29 @@ kalıptan**: `form_kalip.json`.
   hiçbirinde ne yatay ne dikey taşıyor (`scrollWidth == clientWidth` VE
   `getBoundingClientRect().bottom <= innerHeight`), yazdırma çıktısı (PDF)
   öncesi/sonrası birebir aynı boyutta kaldı.
+  - **`transform-origin: top left` ŞART, yoksa küçültme ORTAYA doğru büzülür**
+    (v6.109). v6.107/v6.108'in ölçeği doğru hesaplıyordu ama `.kalipkap`'a
+    `transform-origin` hiç yazılmamıştı — CSS varsayılanı `center center`.
+    `.kalipolcek` sarmalayıcının yüksekliği betikte küçültülmüş boy kadar
+    (sol-üstten sayarak) ayrılıyordu; `.kalipkap` ortadan küçülünce içeriğin
+    yarısı sarmalayıcının **üstüne** taşıyordu (kırpılmıyordu, `overflow:
+    hidden` onu görünmez yaptı) ve alt yarısı da sarmalayıcının dışına, aşağı
+    taşıp yine kırpılıyordu — ekranda kalan tek şey ortadaki dar bir şerit.
+    Kullanıcı ekran görüntüsüyle bildirdi: kartın üst yarısı bomboştu, form
+    yalnızca en altta yarım görünüyordu ("Mobilde böyle gözüküyor. Masaüstünde
+    de kesik tam ekran değil"). Düzeltme tek satır: `.kalipkap { transform-
+    origin: top left; }` — artık küçültme sol-üst köşeden başlıyor, sarmalayıcının
+    ayırdığı alanla birebir örtüşüyor. **Bu hata v6.107/v6.108'in Playwright
+    testlerinde yakalanamadı** çünkü testler yalnızca `.kalipolcek`
+    sarmalayıcının **kendi** `getBoundingClientRect()`'ine bakıyordu —
+    sarmalayıcının boyutu içindeki `.kalipkap`'ın nereye render edildiğinden
+    bağımsız, hep doğru çıkıyordu. Gerçek hatayı yalnızca ekran görüntüsü (ya
+    da içerideki `.kalip` tablosunun sarmalayıcıya göre konumunu ölçmek)
+    ortaya çıkardı. **Ders**: `transform: scale()` kullanan her yeni yerde
+    `transform-origin`'i açıkça yaz, varsayılana güvenme; test yazarken de
+    yalnızca dış kabın ölçüsüne değil, içindeki asıl içeriğin göründüğü yere
+    bak (bir ekran görüntüsü, sarmalayıcı geometrisinin kaçırdığı hatayı
+    yakalar).
 - **Kalıp elle yazılmadı, kâğıttan çıkarıldı.** `formlar_asil/` altındaki iki
   orijinal `.xls` dosyası `kalip_uret.py` ile okundu; satır yükseklikleri,
   sütun genişlikleri, birleşik hücreler, puntolar ve dört kenarın çizgi tipi
