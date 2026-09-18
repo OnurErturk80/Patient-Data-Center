@@ -630,27 +630,38 @@ formları: Embriyoloji Özet (DH.FR.91, dikey) ve ART Lab. Raporu (DH.FR.107,
 yatay). Her biri iki çıktı veriyor — yazdırılabilir sayfa
 (`/form/{ad}/{id}`, Ctrl+P) ve Excel (`/disari/form/{ad}/{id}`) — ve **tek
 kalıptan**: `form_kalip.json`.
-- **Ekrana sığma, A4'e sığmadan AYRI bir sorun** (v6.107, kullanıcının
-  isteği — "formlar sığmıyor"). `.kalipkap` kâğıdın **doğal** genişliğinde
-  kalmak zorunda (660px dikey/Özet, 980px yatay/ART Lab —
-  `static/style.css`'teki min-width, amblemin yüzdeyle hesaplanan yeri buna
-  göre, bkz. yukarıdaki yorum); telefon ekranı bundan dar olunca yatay
-  kaydırma gerekiyordu, kullanıcı bunu "sığmıyor" diye bildirdi. Çözüm
-  `form.html`'de `.kalipolcek` sarmalayıcı + küçük bir betik
+- **Ekrana sığma, A4'e sığmadan AYRI bir sorun** (v6.107, v6.108,
+  kullanıcının isteği — "formlar sığmıyor", sonra "kesik gözüküyor").
+  `.kalipkap` kâğıdın **doğal** boyutunda kalmak zorunda (660x1040 dikey/
+  Özet, 980x713 yatay/ART Lab — `static/style.css`'teki min-width, amblemin
+  yüzdeyle hesaplanan yeri buna göre, bkz. yukarıdaki yorum); dar bir
+  telefon ekranında yatay kaydırma gerekiyordu (v6.107), geniş bir
+  masaüstü/mini PC ekranında genişlik zaten sığdığı için hiç
+  ölçeklenmiyordu ama dikey Özet formu (1040px doğal boy) ekran
+  yüksekliğinden taşıp kesik görünüyordu — kullanıcı v6.108'de bunu
+  bildirdi. Çözüm `form.html`'de `.kalipolcek` sarmalayıcı + küçük bir betik
   (`formlariSigdir()`): `.kalipkap`'ı **bütün olarak**
-  (`transform: scale(oran)`) mevcut ekran genişliğine küçültüyor — punto,
-  sütun, amblem hepsi birlikte küçülür, oranlar bozulmaz, kâğıdın kendisi
+  (`transform: scale(oran)`) hem mevcut genişliğe HEM YÜKSEKLİĞE
+  (`window.innerHeight` eksi sarmalayıcının üstteki başlangıç konumu)
+  sığdırıyor, **ikisinden küçük olan** oranı kullanıyor — tıpkı bir yazıcı
+  önizlemesi gibi kâğıdın tamamı tek ekranda görünüyor. Punto, sütun, amblem
+  hepsi birlikte küçülür, oranlar bozulmaz, kâğıdın kendisi
   (`form_kalip.json`, "kalıba dokunma" kuralı) hiç değişmez. `resize` ve
   `orientationchange`'de yeniden hesaplanıyor; `<img class="kalipgorsel">`
   (amblem) geç yüklenip doğal boyu değiştirebildiği için `load` olayında da
-  tekrar çalışıyor. **Yazdırmaya karışmaz**: `@media print` bu ölçeği
-  `!important` ile `transform: none` yapıp iptal ediyor (satır içi `style`
-  ile yazıldığı için normal öncelik yetmez) — çıktı her zaman kâğıdın
-  gerçek boyutunda, A4'e sığdırma (`s.olcek`, server-side, ayrı bir mekanizma)
-  hiç etkilenmiyor. Playwright ile üç genişlikte (375/390/1280px) doğrulandı:
-  `.kagit` artık hiçbir genişlikte yatay kaydırma istemiyor
-  (`scrollWidth == clientWidth`), yazdırma çıktısı (PDF) öncesi/sonrası
-  birebir aynı boyutta kaldı.
+  tekrar çalışıyor. **Yükseklik hesabı `getBoundingClientRect().top`'a
+  dayanıyor** — bu, sarmalayıcının SAYFA YÜKLENDİĞİNDEKİ konumu; kaydırma
+  pozisyonuna göre yeniden hesaplanmıyor (yalnızca `resize`/
+  `orientationchange`'de tetikleniyor), yoksa kullanıcı sayfayı kaydırdıkça
+  ölçek anlamsızca değişirdi. **Yazdırmaya karışmaz**: `@media print` bu
+  ölçeği `!important` ile `transform: none` yapıp iptal ediyor (satır içi
+  `style` ile yazıldığı için normal öncelik yetmez) — çıktı her zaman
+  kâğıdın gerçek boyutunda, A4'e sığdırma (`s.olcek`, server-side, ayrı bir
+  mekanizma) hiç etkilenmiyor. Playwright ile dört ekran boyutunda
+  (375x812, 390x844, 1280x900, 1920x1080) doğrulandı: `.kalipolcek` artık
+  hiçbirinde ne yatay ne dikey taşıyor (`scrollWidth == clientWidth` VE
+  `getBoundingClientRect().bottom <= innerHeight`), yazdırma çıktısı (PDF)
+  öncesi/sonrası birebir aynı boyutta kaldı.
 - **Kalıp elle yazılmadı, kâğıttan çıkarıldı.** `formlar_asil/` altındaki iki
   orijinal `.xls` dosyası `kalip_uret.py` ile okundu; satır yükseklikleri,
   sütun genişlikleri, birleşik hücreler, puntolar ve dört kenarın çizgi tipi

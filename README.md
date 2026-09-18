@@ -8562,3 +8562,46 @@ doğal (ölçeklenmemiş) yüksekliğe geri döndüğü ve iki formun da PDF ola
 sorunsuz basıldığı (`page.pdf()`) doğrulandı — ekran ölçeği yazdırmaya hiç
 karışmıyor. "Yazdır" düğmesinin her denemede `window.print()`'i doğru
 çağırdığı ayrıca doğrulandı. Test oturum jetonu temizlendi.
+
+# v6.108 — Ekrana sığdırma: yükseklik de hesaba katıldı
+
+Kullanıcının izleyen mesajı: "Formları basıyor sıkıntı yok. Fakat basmadan
+önce formlara baktığım ekranda formun tamamını göstermiyor ekranda kesik
+gözüküyor. Tam görünsün. Önizlenim gibi basmadan önce kontrol edeyim."
+
+v6.107'de yazdırma düğmesinin çalıştığı doğrulanmış, ekrana sığdırma da
+eklenmişti — ama yalnızca **genişlik** hesaba katılmıştı. Playwright ile
+ölçüldü: dar bir telefon ekranında (390px) genişlik zaten kısıtlayıcı
+olduğu için form küçülüyor ve dikeyde de sığıyordu, ama **geniş bir
+masaüstü/mini PC ekranında** (1280px) genişlik hiç kısıtlamıyor (form
+zaten dar), ölçek 1 kalıyor ve dikey Özet formu (doğal 1040px boy) 900px'lik
+ekrandan 153px taşıp kesik görünüyordu — kullanıcının "kesik gözüküyor"
+bildirdiği tam olarak buydu.
+
+## Ne değişti
+
+- `templates/form.html`'deki `formlariSigdir()` betiği artık **hem
+  genişliğe hem yüksekliğe** sığdırıyor: `window.innerHeight` eksi
+  sarmalayıcının sayfa üstündeki başlangıç konumu (`getBoundingClientRect
+  ().top`) kadar dikey alan hesaplanıyor, genişlik ve yükseklik oranlarının
+  **küçük olanı** kullanılıyor — tıpkı bir yazıcı önizlemesinin "sayfaya
+  sığdır" görünümü gibi, kâğıdın **tamamı** her zaman tek ekranda görünüyor.
+- Yükseklik hesabı yalnızca sayfa yüklendiğinde ve `resize`/
+  `orientationchange`'de yapılıyor, kaydırma pozisyonuna göre değil —
+  yoksa kullanıcı sayfayı kaydırdıkça ölçek anlamsızca değişirdi.
+- Yazdırma yine etkilenmedi (`@media print`'teki `transform: none
+  !important` sıfırlaması zaten hem genişlik hem yükseklik ölçeğini
+  kapsıyordu, ek bir değişiklik gerekmedi).
+
+## Test edildi
+
+Playwright ile dört ekran boyutunda (375x812, 390x844 — telefon; 1280x900,
+1920x1080 — masaüstü) hem Embriyoloji Özet hem ART Lab formu açıldı.
+Düzeltmeden önce 1280x900'de Özet formu 153px taşıyordu
+(`getBoundingClientRect().bottom > innerHeight`); düzeltmeden sonra
+**dördünde de** hem yatay (`.kagit`'in `scrollWidth == clientWidth`) hem
+dikey (`.kalipolcek`'in alt kenarı `innerHeight`'in içinde) taşma
+kalmadığı doğrulandı. Yazdırma medyası tekrar emüle edilip `.kalipkap`'ın
+`transform: none`'a döndüğü, `.kalipolcek`'in doğal yüksekliğe geri
+döndüğü ve PDF çıktısının öncekiyle birebir aynı boyutta kaldığı yeniden
+doğrulandı. Test oturum jetonu temizlendi.

@@ -17,14 +17,19 @@
    sınıfları (p7..p14) ona göre `em` ile ölçekleniyor — oranlar bozulmuyor.
 
    Bu, kâğıdın kendi A4 ölçeği -- ekrana **sığması** ayrı bir sorun (v6.107,
-   kullanıcının isteği). `.kalipkap` sabit bir doğal genişlikte kalmak
-   zorunda (660px dikey, 980px yatay -- amblemin yüzdeyle hesaplanan yeri
-   buna göre), telefon ekranı bundan dar olunca yatay kaydırma gerekiyordu.
-   `.kalipolcek` sarmalayıcı + aşağıdaki betik `.kalipkap`'ı **bütün
-   olarak** (`transform: scale`) mevcut genişliğe sığdırıyor -- oranlar
-   (punto/sütun/amblem hepsi birlikte) bozulmadan küçülüyor, kâğıdın kendisi
-   değişmiyor. Yazdırırken bu ölçek devre dışı kalır (bkz. `@media print`),
-   çıktı her zaman kâğıdın gerçek boyutunda basılır. #}
+   v6.108, kullanıcının isteği). `.kalipkap` sabit bir doğal boyutta kalmak
+   zorunda (660x1040 dikey, 980x713 yatay -- amblemin yüzdeyle hesaplanan
+   yeri buna göre), dar bir telefon ekranında yatay kaydırma, geniş bir
+   masaüstü ekranında (genişlik zaten sığdığı için ölçeklenmeden) dikey
+   kesilme gerekiyordu -- kullanıcı ikincisini "basmadan önce kontrol
+   ettiğim ekranda kesik gözüküyor" diye bildirdi (v6.108). `.kalipolcek`
+   sarmalayıcı + aşağıdaki betik `.kalipkap`'ı **bütün olarak**
+   (`transform: scale`) hem genişliğe HEM YÜKSEKLİĞE (ekranın kalan
+   kısmına, `window.innerHeight`) sığdırıyor, ikisinden **küçük** olan oranı
+   kullanıyor -- tıpkı bir yazıcı önizlemesi gibi kâğıdın tamamı tek ekranda
+   görünür. Oranlar (punto/sütun/amblem hepsi birlikte) bozulmadan küçülüyor,
+   kâğıdın kendisi değişmiyor. Yazdırırken bu ölçek devre dışı kalır (bkz.
+   `@media print`), çıktı her zaman kâğıdın gerçek boyutunda basılır. #}
 
 <div class="yazdirmadugmeleri">
   <button class="dugme" type="button" onclick="window.print()">{{ metin("yazdir") }}</button>
@@ -72,7 +77,14 @@
 (function () {
   // .kalipkap sabit doğal genişlikte kalıyor (kâğıdın kendi ölçüsü); burada
   // yalnızca GÖRSEL olarak mevcut ekrana sığdırılıyor -- oranlar (punto,
-  // sütun, amblem) birlikte küçülüyor, kâğıt aslı değişmiyor (v6.107).
+  // sütun, amblem) birlikte küçülüyor, kâğıt aslı değişmiyor (v6.107, v6.108).
+  // v6.108: yalnızca genişlik değil YÜKSEKLİK de hesaba katılıyor -- dar
+  // telefonda genişlik zaten kısıtlayıcıydı ama geniş ekranda (masaüstü,
+  // mini PC) genişlik sığıyor, dikey Özet formu (1040px doğal boy) ekran
+  // yüksekliğinden taşıp kesik görünüyordu (kullanıcı bildirdi: "basmadan
+  // önce kontrol ettiğim ekranda kesik gözüküyor"). Artık "sayfaya sığdır"
+  // önizlemesi gibi ikisinden KÜÇÜK olan oran kullanılıyor, kâğıdın tamamı
+  // tek ekranda görünüyor.
   function formlariSigdir() {
     document.querySelectorAll('.kalipolcek').forEach(function (sarmalayici) {
       var kap = sarmalayici.querySelector('.kalipkap');
@@ -80,9 +92,18 @@
       kap.style.transform = 'none';
       var dogalGenislik = kap.scrollWidth;
       var dogalYukseklik = kap.scrollHeight;
+      if (!dogalGenislik || !dogalYukseklik) return;
       var mevcutGenislik = sarmalayici.clientWidth;
-      var oran = (dogalGenislik && mevcutGenislik < dogalGenislik)
+      // Sayfanın bu kâğıttan önceki kısmı (üst bant, düğmeler, önceki
+      // kâğıtlar) ne kadar yer kaplıyorsa geri kalan ekran yüksekliği o
+      // kadar -- altta birkaç piksel boşluk bırakılıyor.
+      var tepe = sarmalayici.getBoundingClientRect().top;
+      var mevcutYukseklik = window.innerHeight - tepe - 16;
+      var genOran = mevcutGenislik < dogalGenislik
         ? mevcutGenislik / dogalGenislik : 1;
+      var yukOran = (mevcutYukseklik > 0 && mevcutYukseklik < dogalYukseklik)
+        ? mevcutYukseklik / dogalYukseklik : 1;
+      var oran = Math.min(genOran, yukOran);
       kap.style.transform = 'scale(' + oran + ')';
       sarmalayici.style.height = Math.ceil(dogalYukseklik * oran) + 'px';
     });
