@@ -422,6 +422,41 @@ yap: embriyoloji fotoğrafı → asama ekranı, klinik belge → cycle ekranı.
 - Silme ayrı bir rota istemedi: `/goruntu/{id}/sil` zaten genel
   (`yol_modulu()`'nda `son == "sil"` → `silme` modülü, asama'dan bağımsız).
 
+**Cycle ekranında "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi
+yerini türetilmiş bir embriyoloji özetine bıraktı** (v6.110, kullanıcının
+isteği: "Oositler ve Fotoğraf ekleyi kaldır, kısa bir özet olsun: kaç
+yumurta, M2, döllenen, cleavage, blastokist"). `app.py` `cycle_ozet()` —
+`disari.istatistikler()`'deki lab-geneli `_olay()` sayımının **tek-cycle**
+hali, aynı "sayaç tutma, her açılışta türet" gerekçesi (v6.38): oosit
+toplanan sayısı `specimen` tablosundan, M2 `olay.tip='maturasyon_kontrolu'
+AND mat_deger='mii'`den, döllenen `olay.tip='fertilizasyon_kontrolu' AND
+fert_pn_sayisi='2'`den, cleavage/blastokist ise ilgili
+`*_degerlendirme` olaylarının **DISTINCT specimen_id** sayısından geliyor
+(bir örnek gün 2 VE gün 3'te değerlendirilmişse iki kez sayılmasın diye).
+Ayrı bir sayaç sütunu yok — aşama ekranlarından biri düzeltilir/iptal
+edilirse özet otomatik doğru kalır, cryo haritası ve istatistik
+ekranındaki "türetilmiş sayı" gerekçesinin aynısı.
+- **Hangi satırın gösterileceği cycle tipine göre değişir.** `cycle_ozet()`
+  çağırana `cycle_asamalari()`'nin zaten hesapladığı kod kümesini alıyor
+  (kendi başına tekrar hesaplamıyor) — "Toplanan" yalnızca `opu` aşaması
+  varsa, "M2" yalnızca `denudasyon` varsa (ICSI ekranında mı yoksa
+  `oosit_cryo`'da denüdasyon ekranında mı sorulduğu fark etmez, ikisi de
+  aynı `olay.tip` yazıyor — v6.96), "Döllenen" yalnızca `fert`, "Cleavage"
+  yalnızca `cleavage`, "Blastokist" yalnızca `blast` aşaması varsa. `fet`/
+  `yumurta_cozme` gibi bu aşamaların HİÇBİRİ olmayan bir tipte özet listesi
+  tamamen boş döner ve kart hiç basılmaz — "0 M2" yazmak "ölçülmedi"
+  ile "sıfır çıktı"yı karıştırırdı, bu yanlış bilgi olurdu. Yeni bir cycle
+  tipi eklersen (bkz. "Embriyo Dondurma ve Sperm Dondurma" bölümündeki dört
+  adım) bu koşulları elden geçirmene gerek yok — `TIP_ASAMALARI`'na
+  eklediğin kod kümesi otomatik doğru satırları seçer.
+- **Fotoğraf eklemek kaldırılmadı, yalnızca cycle ekranındaki genel giriş
+  noktası kaldırıldı.** `/cycle/{id}/foto-ekle` rotası aynen duruyor — her
+  aşama ekranının kendi "Fotoğraf ekle" düğmesi (`specimen_id` ve `asama`
+  parametreleriyle, v6.20'nin zaten söylediği yerden) hâlâ oraya gidiyor.
+  Kaldırılan yalnızca `cycle_detay.html`'deki **parametresiz** bağlantıydı —
+  o zaten "cycle ekranında fotoğraf olmaz" kuralının (v6.20) sessiz bir
+  istisnasıydı, hemen üstündeki yorum bile bunu söylüyordu.
+
 **Kodu değil etiketi göster.** `mii`, `2pn`, `z1` gibi değerler
 `liste_degeri`'nde ve laba özgü — yönetici düzenleyebiliyor. Ekranda
 `liste_etiket(liste_adi, kod)` (Jinja global) kullan, sabit sözlük yazma.

@@ -2716,9 +2716,13 @@ def cycle_detay(request: Request, cycle_id: int, hata: str = ""):
          "gomulu_formlar": gomulu_formlar(),
          "lab_formlari": lab_formlari(),
          "bugun": _dt.now().strftime("%Y-%m-%d"),
-         "asamalar": cycle_asamalari(cycle["cycle_tipi"]),
+         "asamalar": (asamalar := cycle_asamalari(cycle["cycle_tipi"])),
          # yan menü aşama ekranlarındakiyle aynı listeden beslensin
-         "gezinme": asama_gezinme(cycle_id, "")},
+         "gezinme": asama_gezinme(cycle_id, ""),
+         # Embriyoloji özeti (v6.110): "Oositler" listesinin yerine geçti,
+         # aynı `asamalar` listesinden (kullanıcının modül izniyle süzülmüş)
+         # hangi sayıların bu tedavi tipinde anlamlı olduğunu çıkarıyor.
+         "ozet": cycle_ozet(cycle_id, {a[0] for a in asamalar})},
     )
 
 
@@ -6524,6 +6528,51 @@ def cycle_asamalari(cycle_tipi: str):
     kodlar = TIP_ASAMALARI.get(cycle_tipi, TIP_ASAMALARI["ivf_icsi"])
     sozluk = {a[0]: a for a in ASAMA_SIRASI}
     return [sozluk[k] for k in kodlar if k in sozluk and yetkim(k)]
+
+
+def cycle_ozet(cycle_id: int, kodlar: set) -> list:
+    """Tedavi ekranındaki kısa embriyoloji özeti — türetilmiş, saklanmaz
+    (v6.110, kullanıcının isteği: "Oositler listesini kaldır, kısa bir
+    özet olsun: kaç yumurta, M2, döllenen, cleavage, blastokist").
+
+    `disari.istatistikler()`'deki lab-geneli `_olay()` sayımının tek-cycle
+    hali — aynı "sayaç tutma, ekrana her açılışta türet" gerekçesi (v6.38):
+    ayrı bir sayı sütunu tutmak, bir kayıt silinince ya da düzeltilince
+    özetin gerçek veriden ayrı düşmesi demek olurdu. `kodlar` çağıranın
+    zaten hesapladığı `cycle_asamalari()` sonucudur (kullanıcının modül
+    izniyle de süzülmüş) — burada tekrar hesaplanmıyor.
+
+    Yalnızca bu cycle tipinde **gerçekten var olan** aşamalar için bir satır
+    döner: `fet` gibi OPU/ICSI'siz bir tipte "0 M2" basmak yanlış bilgi
+    verir (hiç ölçülmedi, sıfır değil) — bu yüzden "0" değil, satır hiç
+    yok. Boş liste dönerse şablon kartı hiç basmaz.
+    """
+    def _olay(tip, ek=""):
+        return db.tek(
+            "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
+            "JOIN specimen s ON s.id = o.specimen_id "
+            f"WHERE s.cycle_id = ? AND o.tip = ? AND o.iptal_mi = 0 {ek}",
+            (cycle_id, tip),
+        )["n"]
+
+    satirlar = []
+    if "opu" in kodlar:
+        toplanan = db.tek(
+            "SELECT COUNT(*) n FROM specimen WHERE cycle_id = ?", (cycle_id,)
+        )["n"]
+        satirlar.append(("toplanan_oosit", toplanan))
+    # oosit_cryo'da maturasyon denüdasyonda, ivf_icsi'de ICSI ekranında
+    # soruluyor (v6.96) ama ikisi de aynı olay.tip='maturasyon_kontrolu'yu
+    # yazıyor — "denudasyon" aşaması ikisinde de var, tek koşul yeter.
+    if "denudasyon" in kodlar:
+        satirlar.append(("ozet_m2", _olay("maturasyon_kontrolu", "AND o.mat_deger='mii'")))
+    if "fert" in kodlar:
+        satirlar.append(("ozet_dollenen", _olay("fertilizasyon_kontrolu", "AND o.fert_pn_sayisi='2'")))
+    if "cleavage" in kodlar:
+        satirlar.append(("cleavage_ad", _olay("cleavage_degerlendirme")))
+    if "blast" in kodlar:
+        satirlar.append(("blastokist_ad", _olay("blastokist_degerlendirme")))
+    return satirlar
 
 
 def asama_gezinme(cycle_id: int, anahtar: str):

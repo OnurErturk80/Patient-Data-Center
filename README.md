@@ -8656,3 +8656,63 @@ görünüyor. Yazdırma medyası yeniden emüle edildi — `.kalipkap`'ın
 ART Lab 63578 bayt) düzeltmeden önceki ile birebir aynı kaldığı doğrulandı;
 bu değişiklik ekranı etkiliyor, yazdırmayı hiç etkilemiyor. Test oturum
 jetonu ve sunucu süreci temizlendi.
+
+# v6.110 — Cycle ekranına türetilmiş embriyoloji özeti
+
+Kullanıcının isteği: "Hasta tedavi ekranından Oositler ve Fotoğraf ekleyi
+kaldır. Kısa bir özet kısmı olsun. Kaç yumurta alındı m2 kaç döllenen kaç
+cleavage kaç Blastokist kaç gibi. Diğer ekranlarda ilgili bilgi girildikçe
+bu özete eklensin."
+
+Cycle ekranındaki "Oositler" numara şeridi (her oositi tek tek listeleyen,
+kendi başına pek bilgi vermeyen bir kart) ve genel amaçlı "Fotoğraf ekle"
+düğmesi (parametresiz, `/cycle/{id}/foto-ekle`'ye giden — CLAUDE.md'nin
+"cycle ekranında fotoğraf olmaz" kuralının, v6.20, sessiz bir istisnasıydı)
+kaldırıldı. Yerine embriyoloji ilerlemesini tek bakışta özetleyen bir kart
+geldi: Toplanan oosit, M2 (olgun), Döllenen (2PN), Cleavage, Blastokist.
+
+## Ne değişti
+
+- `app.py`'de yeni `cycle_ozet(cycle_id, kodlar)` fonksiyonu —
+  `disari.istatistikler()`'deki lab-geneli sayımların (v6.38, "sayaç
+  tutma, her açılışta türet") tek-cycle hali. Ayrı bir sayaç tutulmuyor:
+  sayılar her sayfa yüklemesinde `specimen` ve `olay` tablolarından anlık
+  hesaplanıyor, bu yüzden bir kayıt düzeltilir ya da iptal edilirse özet
+  otomatik doğru kalır.
+- `cycle_detay()` rotası artık `cycle_asamalari()`'nin zaten hesapladığı
+  aşama kodlarını `cycle_ozet()`'e veriyor — özet yalnızca **bu cycle
+  tipinde gerçekten var olan** aşamalar için bir satır gösteriyor
+  (`fet` gibi OPU/ICSI'siz bir tipte kart hiç basılmıyor, `oosit_cryo`'da
+  yalnızca Toplanan + M2 görünüyor). "0" ile "ölçülmedi" farklı şeyler —
+  ilgisiz bir sayı için satır hiç yok, kart tamamen kayboluyor.
+- `templates/cycle_detay.html`: "Oositler" kartı ve parametresiz "Fotoğraf
+  ekle" düğmesi kaldırıldı, yerine `istatistik.html`'deki `.ozet.ozetsar`
+  ızgarasının aynısını kullanan "Embriyoloji özeti" kartı eklendi.
+- `metinler.py`'ye `embriyoloji_ozeti`, `ozet_m2`, `ozet_dollenen`
+  anahtarları eklendi (mevcut `cleavage_ad`/`blastokist_ad`/
+  `toplanan_oosit` yeniden kullanıldı); yalnızca bu ekranda kullanılan
+  `oositler`/`henuz_oosit_yok`/`denudasyondan_ekle` anahtarları kaldırıldı.
+- **Fotoğraf eklemek kaldırılmadı** — yalnızca cycle ekranındaki genel
+  giriş noktası kaldırıldı. `/cycle/{id}/foto-ekle` rotası aynen duruyor,
+  her aşama ekranının kendi "Fotoğraf ekle" düğmesi (denüdasyon, ICSI,
+  fertilizasyon, cleavage, blastokist, çözme) değişmedi.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp gerçek bir `ivf_icsi` test tedavisi açıldı: önce 6
+oosit toplandı (özet "6 / 0 / 0 / 0 / 0" gösterdi), sonra sırayla 4'ü
+olgun (M2) işaretlendi, 3'ü 2PN döllendi, 3'ü cleavage (bilerek gün 2 VE
+gün 3'te iki ayrı kayıtla — DISTINCT specimen sayımının çift saymadığı
+doğrulandı) ve 2'si blastokist değerlendirildi. Her adımdan sonra
+`/cycle/{id}` yeniden çekilip özetin sırasıyla 6/0/0/0/0 → 6/4/0/0/0 →
+6/4/3/0/0 → 6/4/3/3/2 olarak **anında** güncellendiğini gösterdi — ayrı bir
+kayıt olmadığı için hiçbir ek adım gerekmedi. Ayrıca bir `fet` test
+tedavisinde özet kartının hiç basılmadığı, bir `oosit_cryo` test
+tedavisinde yalnızca Toplanan + M2 satırlarının göründüğü doğrulandı.
+Playwright ile mobil (390px) ve masaüstü (1280px) ekran görüntüsü alınıp
+`.ozetsar` ızgarasının 5 öğeyi düzgün sardığı (mobilde 3+2, masaüstünde
+4+1) görsel olarak da doğrulandı. Etkilenen diğer ekranlar (ICSI, Fert,
+Cleavage, Blastokist, hasta kartı, ana ekran, aşama ekranlarındaki kendi
+"Fotoğraf ekle" düğmeleri) 200 döndürüp hatasız yüklendi. Test hasta/
+cycle/specimen/olay kayıtları ve oturum jetonu temizlendi, sunucu
+kapatıldı.

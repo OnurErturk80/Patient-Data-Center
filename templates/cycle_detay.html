@@ -130,21 +130,22 @@
 
 <div class="sutun">
 
+{# "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi kaldırıldı
+   (v6.110, kullanıcının isteği) -- yerine türetilmiş bir embriyoloji
+   özeti geldi. Fotoğraf eklemek hâlâ mümkün, yalnızca artık buradan değil:
+   her aşama ekranının kendi "Fotoğraf ekle" düğmesinden (v6.20'nin zaten
+   söylediği yerden). #}
+{% if ozet %}
 <div class="kart">
-  <h2>{{ metin("oositler") }} ({{ specimenler|length }})</h2>
-  {% if specimenler %}
-  <div class="serit sade">
-    {% for s in specimenler %}
-    <span class="sn">
-      <b>{{ s.cycle_sira_no }}</b>
-      {% if s.taraf %}<i>{{ metin("sag_rozet") if s.taraf == "sag" else metin("sol_rozet") }}</i>{% endif %}
-    </span>
+  <h2>{{ metin("embriyoloji_ozeti") }}</h2>
+  <div class="ozet ozetsar">
+    {% for anahtar, sayi in ozet %}
+    <div><div class="sayi">{{ sayi }}</div>
+      <div class="etiket">{{ metin(anahtar) }}</div></div>
     {% endfor %}
   </div>
-  {% else %}
-  <div class="bos">{{ metin("henuz_oosit_yok") }}<br>{{ metin("denudasyondan_ekle") }}</div>
-  {% endif %}
 </div>
+{% endif %}
 
 {% if arsiv %}
 <div class="kart">
@@ -161,9 +162,6 @@
 <a class="dugme" href="{{ a[2]|replace('{id}', c.id) }}">{{ asama_adi(a[0]) }}</a>
 {% endfor %}
 </div>
-{% if yetkim("foto") %}
-<a class="dugme ikincil" href="/cycle/{{ c.id }}/foto-ekle">{{ metin("fotograf_ekle") }}</a>
-{% endif %}
 <a class="dugme ikincil" href="/gecmis/cycle/{{ c.id }}">{{ metin("degisiklik_gecmisi") }}</a>
 
 {# Laboratuvar isi bitti: cycle yapilacaklar listesinden duser (v6.28).
