@@ -31,8 +31,8 @@
   <a href="/cycle/{{ c.id }}/fert?oosit={{ o.cycle_sira_no }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %}
             {% if o.fert %}dolu{% endif %}
-            {% if o.fert == 'degenere' or o.fert == 'kayip' %}deg{% endif %}">
-    <b>{{ o.cycle_sira_no }}</b>{% if o.pn %}<i>-{{ o.pn }}PN</i>{% elif o.fert %}<i>-—</i>{% endif %}
+            {% if o.fert == 'degenere' or o.fert == 'kayip' or o.icsi_yapilmadi %}deg{% endif %}">
+    <b>{{ o.cycle_sira_no }}</b>{% if o.pn %}<i>-{{ o.pn }}PN</i>{% elif o.fert %}<i>-—</i>{% elif o.icsi_yapilmadi %}<i>-∅</i>{% endif %}
   </a>
   {% endfor %}
 </div>
@@ -48,7 +48,14 @@
 </div>
 {% endif %}
 
-{% if sp.icsi != 'basarili' %}
+{% if sp.icsi_yapilmadi %}
+{# ICSI ekranında enjekte edilmedi işaretlenmiş -- fert kaydı girilmez,
+   yalnızca durum gösterilir (v6.105, kullanıcının isteği). #}
+<div class="uyari">
+  {{ metin("icsi_yapilmadi") }}
+  {%- if sp.mat %} ({{ metin("maturasyon_kucuk") }}: {{ sp.mat|upper }}){% endif %}.
+</div>
+{% elif sp.icsi != 'basarili' %}
 <div class="uyari">
   {{ metin("icsi_kaydi_yok") }}
   {%- if sp.mat %} ({{ metin("maturasyon_kucuk") }}: {{ sp.mat|upper }}){% endif %}.
@@ -94,6 +101,14 @@
   {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
 <a class="dugme ikincil tehlike-bag"
    href="/specimen/{{ sp.id }}/fert-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
+
+{% elif sp.icsi_yapilmadi and not kayit %}
+{# ICSI hiç yapılmadıysa fertilizasyon formu basılmaz -- girilecek bir
+   sonuç yok, üstteki uyarı zaten durumu söylüyor (v6.105). Bu özellikten
+   önce girilmiş eski bir kayıt varsa (`kayit`) bu dala hiç düşmez, normal
+   düzenleme akışı (yukarıdaki `kayit and not duzenle` / aşağıdaki form)
+   bozulmaz. #}
+<div class="kart"><div class="bos">{{ metin("icsi_yapilmadi_fert_form_yok") }}</div></div>
 
 {% else %}
 <form method="post" action="/cycle/{{ c.id }}/fert" id="fertform">

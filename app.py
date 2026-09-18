@@ -4116,6 +4116,26 @@ def specimen_sil(request: Request, specimen_id: str):
 
 # ----------------------------------------------------------------- ICSI
 
+# ICSI ekranında "enjekte edilmedi" işaretlenen örnek -- immatür ya da
+# dejenere oosit, `icsi_kaydet()`'in "enjekte" kutusu hayır iken yazdığı
+# durum (v6.105, kullanıcının isteği). Maturasyon değerlendirildi (ICSI
+# ekranı doldurulmuştu, `mat_deger` var) ama aktif bir `icsi` olayı yoksa
+# enjekte=hayır seçilmiş demektir. **`specimen.durum == 'degenere'`e
+# bakılmıyor** -- enjekte edilip SONRA dejenere olan örnek de aynı durumu
+# yazar ama onun kendi `icsi` olayı vardır, bu ikisi karıştırılmamalı: biri
+# "denenmedi", öteki "denendi, olmadı". `oosit_cryo`'da maturasyon
+# denüdasyonda değerlendirildiği (v6.96) ve ICSI aşaması hiç olmadığı için
+# bu koşul orada HER örnek için doğru çıkar -- yalnızca ICSI'nin gerçekten
+# var olduğu ekranlarda (fert/cleavage/blast, vitrifikasyon'da yalnızca
+# `ivf_icsi` iken) kullan.
+_ICSI_YAPILMADI = (
+    "EXISTS (SELECT 1 FROM olay m WHERE m.specimen_id = s.id "
+    "AND m.tip = 'maturasyon_kontrolu' AND m.iptal_mi = 0) "
+    "AND NOT EXISTS (SELECT 1 FROM olay i WHERE i.specimen_id = s.id "
+    "AND i.tip = 'icsi' AND i.iptal_mi = 0)"
+)
+
+
 def asama_goruntuleri(specimen_id, asama):
     """Bir oositin belirli bir aşamadaki tüm kareleri."""
     if not specimen_id:
@@ -4405,7 +4425,8 @@ def fert_durum(cycle_id: int):
         "   ORDER BY o.id DESC LIMIT 1) AS pn, "
         "  (SELECT o.fert_sonuc FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0 "
-        "   ORDER BY o.id DESC LIMIT 1) AS fert "
+        "   ORDER BY o.id DESC LIMIT 1) AS fert, "
+        f"  CASE WHEN {_ICSI_YAPILMADI} THEN 1 ELSE 0 END AS icsi_yapilmadi "
         "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
         (cycle_id,),
     )
@@ -4614,7 +4635,8 @@ def cleavage_durum(cycle_id: int, gun: int):
         "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='cleavage_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
         "   ORDER BY o.id DESC LIMIT 1) AS kayit_id "
-        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        f"FROM specimen s WHERE s.cycle_id = ? AND NOT ({_ICSI_YAPILMADI}) "
+        "ORDER BY s.cycle_sira_no",
         (f"gun{gun}", f"gun{gun}", gun, gun, cycle_id),
     )
 
@@ -4866,7 +4888,8 @@ def blast_durum(cycle_id: int, gun: int, cycle_tipi=None):
         "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='blastokist_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
         "   ORDER BY o.id DESC LIMIT 1) AS kayit_id "
-        f"FROM specimen s WHERE {kosul} ORDER BY s.cycle_sira_no",
+        f"FROM specimen s WHERE {kosul} AND NOT ({_ICSI_YAPILMADI}) "
+        "ORDER BY s.cycle_sira_no",
         (f"gun{gun}", f"gun{gun}", gun, gun, gun, cycle_id),
     )
 
@@ -5119,6 +5142,13 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
         return RedirectResponse("/hastalar", status_code=303)
 
     from datetime import datetime as _d
+    # ICSI yapılmadı işaretlenen örnek burada hiç görünmesin (v6.105) --
+    # yalnızca ivf_icsi'de: oosit_cryo'da maturasyon denüdasyonda
+    # değerlendirilir (v6.96) ve ICSI aşaması hiç yoktur, o cycle_tipi'nde
+    # _ICSI_YAPILMADI HER örnek için doğru çıkar (yanlışlıkla hepsini
+    # süzerdi) -- bkz. _ICSI_YAPILMADI'nin belgesi.
+    kosul = ("s.cycle_id=? AND NOT (" + _ICSI_YAPILMADI + ")"
+             if c["cycle_tipi"] == "ivf_icsi" else "s.cycle_id=?")
     embriyolar = db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
@@ -5143,7 +5173,7 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
         "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
         "  AS goruntu_idler, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
-        "FROM specimen s WHERE s.cycle_id=? ORDER BY s.cycle_sira_no", (cycle_id,))
+        f"FROM specimen s WHERE {kosul} ORDER BY s.cycle_sira_no", (cycle_id,))
 
     return sablon.TemplateResponse(
         request, "vitrifikasyon.html",

@@ -8397,3 +8397,51 @@ açılıyor. Cycle aktif duruma alınıp "dondurma" ile bitirildiğinde notun
 **basılmadığı**, genel "İptal" ile bitirildiğinde "İptal" etiketinin
 doğru çıktığı da ayrıca doğrulandı. Test hasta/cycle/oturum kayıtları
 temizlendi.
+
+# v6.105 — ICSI'de "yapılmadı" işaretli oosit sonraki aşamalarda
+
+Kullanıcının isteği: "ICSI bölümünde yapılmadı işaretlenen oositler diğer
+bölümlere fertilizasyon bölümüne yapılmadı işaretlensin, cleavage blastokist
+ve vitrifikasyon bölümlerinde hiç görünmesin."
+
+## Ne değişti
+
+- **`app.py`'ye `_ICSI_YAPILMADI` SQL parçası eklendi.** ICSI ekranında
+  "Enjekte edildi mi?" hayır seçilince (`icsi_kaydet()`) hiçbir `icsi` olayı
+  yazılmıyor; bu koşul maturasyonun değerlendirildiğini (ICSI ekranı
+  doldurulmuş) ama aktif bir `icsi` olayının olmadığını arıyor.
+  **`specimen.durum`'a bakmıyor** — enjekte edilip ICSI'den sonra dejenere
+  olan oosit de `durum='degenere'` yazıyor ama onun kendi `icsi` olayı var;
+  ikisi karıştırılmasın diye ölçü olay tablosu.
+- **Fertilizasyon ekranı (`fert_durum()`):** yeni `icsi_yapilmadi` bayrağı.
+  Oosit hâlâ numara şeridinde görünüyor (görsel olarak dejenere/kayıp gibi
+  soluk), ama seçildiğinde form yerine "ICSI yapılmadığı için bu oosite
+  fertilizasyon kaydı girilmiyor" bilgi kartı basılıyor — daha önce girilmiş
+  bir kayıt varsa (özellik öncesi) o kayda dokunulmadı, düzenleme/silme yolu
+  bozulmadı.
+- **Cleavage (`cleavage_durum()`) ve blastokist (`blast_durum()`):** sorguya
+  `AND NOT (_ICSI_YAPILMADI)` eklendi, bu oositler listede **hiç** çıkmıyor.
+- **Vitrifikasyon (`vit_ekran()`):** aynı süzgeç eklendi ama **yalnızca
+  `ivf_icsi`'de** — o ekran `oosit_cryo` ile de paylaşılıyor ve orada
+  maturasyon denüdasyonda değerlendirildiği (v6.96) için ICSI aşaması hiç
+  yok; süzgeç şartsız uygulansaydı `oosit_cryo`'nun **her** oositini
+  filtreleyip ekranı boş bırakırdı.
+- `metinler.py`'ye `icsi_yapilmadi` ve `icsi_yapilmadi_fert_form_yok`
+  anahtarları eklendi.
+
+## Test edildi
+
+Test hasta + `ivf_icsi` cycle'ında üç oosit açıldı: biri ICSI'de enjekte
+edilip başarılı, biri enjekte edilip dejenere, biri enjekte edilmedi
+(immatür — "yapılmadı"). Fertilizasyon ekranında: başarılı oosit normal
+formu gösterdi; enjekte-edilip-dejenere olan oosit **hâlâ** formu gösterdi
+(ICSI gerçekten denenmiş, yalnızca sonucu kötü — bu ekrandan
+filtrelenmemesi gerekiyordu, doğrulandı); "yapılmadı" oosit form yerine
+bilgi kartını gösterdi. Cleavage ve blastokist ekranlarının numara
+şeritlerinde yalnızca ilk iki oositin (enjekte edilenlerin) göründüğü,
+"yapılmadı" oositin şeritte hiç çıkmadığı doğrulandı. Vitrifikasyon
+ekranında da aynısı doğrulandı. Ayrıca ayrı bir `oosit_cryo` cycle'ında
+denüdasyonda immatür işaretlenmiş bir oositin vitrifikasyon ekranında
+**hâlâ** göründüğü doğrulandı — `ivf_icsi` dışı süzgecin yanlışlıkla
+uygulanmadığı böyle kanıtlandı. Test hasta/cycle/specimen/oturum kayıtları
+temizlendi.

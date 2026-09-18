@@ -162,6 +162,33 @@ Aşama sırası ve tip-aşama eşlemesi `app.py` içinde `ASAMA_SIRASI` ve
 `TIP_ASAMALARI`. Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
 hazırlık sonrası) yalnızca `ivf_icsi`'de. Şema/listeler: README v6.2, `goc_019`.
 
+**ICSI'de "enjekte edilmedi" işaretlenen oosit sonraki aşamalara sızmaz**
+(v6.105, kullanıcının isteği). ICSI ekranının "Enjekte edildi mi?" kutusu
+hayır iken (`icsi_kaydet()`) hiçbir `icsi` olayı yazılmıyor, `specimen.durum`
+`immatur`/`degenere` oluyor — `app.py`'deki `_ICSI_YAPILMADI` SQL parçası bu
+durumu **`specimen.durum`'a değil `olay` tablosuna bakarak** yakalıyor:
+maturasyon değerlendirildi (ICSI ekranı dolduruldu) AMA aktif bir `icsi`
+olayı yok. Bu ayrım şart — enjekte edilip **sonra** dejenere olan oositin
+`durum`'u da `degenere` yazar ama onun kendi `icsi` olayı vardır, ikisi aynı
+`durum` değerini paylaşır.
+- **Fertilizasyon ekranında hâlâ görünür, ama salt "yapılmadı" bilgisiyle** —
+  `fert_durum()`'a eklenen `icsi_yapilmadi` bayrağı doğruysa (ve o oosite
+  daha önce girilmiş bir kayıt yoksa) form hiç basılmıyor, `metin(
+  "icsi_yapilmadi_fert_form_yok")` ile salt bilgi kartı çıkıyor — embriyolog
+  hiç denenmemiş bir işlem için fertilizasyon sonucu uydurmuyor.
+- **Cleavage, blastokist ve vitrifikasyonda hiç görünmez.** `cleavage_durum()`
+  ve `blast_durum()`'un `WHERE`'ine `AND NOT (_ICSI_YAPILMADI)` eklendi;
+  ikisi de zaten yalnızca `ivf_icsi`'de (ya da `fet_kultur` gibi ondan gelen
+  embriyolarla) çalışıyor, güvenli.
+- **Vitrifikasyon ekranı `oosit_cryo` ile de paylaşılıyor — orada bu süzgeç
+  UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
+  (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**
+  oosit için doğru çıkardı (hiçbirinin `icsi` olayı olamaz) ve ekranı
+  bomboş bırakırdı. `vit_ekran()` bu yüzden süzgeci yalnızca
+  `c["cycle_tipi"] == "ivf_icsi"` iken ekliyor. Yeni bir yerde
+  `_ICSI_YAPILMADI` kullanırsan aynı soruyu sor: bu ekran yalnızca
+  `ivf_icsi`'de mi çalışıyor, yoksa ICSI'siz bir tip de mi paylaşıyor?
+
 **`oosit_cryo`'da maturasyon/bulgu değerlendirmesi denüdasyon ekranında
 yapılır** (v6.96, kullanıcının isteği). `ivf_icsi`'de bu soru ICSI
 ekranında soruluyor; `oosit_cryo`'da ICSI aşaması hiç yok, dondurmadan

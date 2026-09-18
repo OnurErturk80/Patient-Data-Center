@@ -586,6 +586,11 @@ METINLER = {
         "en": "<strong>{n} hour</strong> since ICSI · target {h} hours"},
     "icsi_kaydi_yok": {"tr": "Bu oosite ICSI kaydı yok",
                        "en": "There is no ICSI record for this oocyte"},
+    "icsi_yapilmadi": {"tr": "ICSI yapılmadı", "en": "ICSI was not performed"},
+    "icsi_yapilmadi_fert_form_yok": {
+        "tr": "ICSI yapılmadığı için bu oosite fertilizasyon kaydı girilmiyor.",
+        "en": "No fertilization record is entered for this oocyte because "
+              "ICSI was not performed."},
     "maturasyon_kucuk": {"tr": "maturasyon", "en": "maturation"},
     "yine_de_fert_girilebilir": {
         "tr": "Yine de fertilizasyon kaydı girebilirsin.",
