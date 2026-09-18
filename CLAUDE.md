@@ -1221,6 +1221,35 @@ silinemez** (kilitlenme koruması). Yeni bir tabloya `kullanici_id` eklersen
   eklersen (izin/atama gibi) aynı deseni kullan: `KULLANICI_KAYITLARI`'na
   değil, doğrudan silme rotasındaki temizlik listesine ekle.
 
+**Var olan kullanıcının adı ve kullanıcı adı değiştirilebilir** (v6.106,
+kullanıcının isteği). `/kullanici/{id}/duzenle`, `kullanici_yeni()`'deki aynı
+doğrulama (boş olamaz, kullanıcı adı yalnızca harf/rakam/nokta/alt çizgi,
+`kullanici_adi` **lab'dan bağımsız UNIQUE** olduğu için `sqlite3.
+IntegrityError` de yakalanıyor — `kullanici_yeni()`'deki tuzağın aynısı).
+**Ad değişirse hasta kayıtlarındaki "İşlemi Yapan" da otomatik güncellenir**:
+`islem_yapan.yapan_ad` ve `sperm_dondurma.yapan_ad` kullaniciyi FK ile değil
+o anki adın **metin kopyasıyla** tutuyor (v6.99/v6.101'in bilinçli kararı,
+"personel_listesi() zaten genel amaçlıydı" gerekçesiyle) — ad değişince eski
+metin kendiliğinden değişmez, `kullanici_duzenle()` bu yüzden eski adı
+taşıyan satırları (`WHERE lab_id=? AND yapan_ad=<eski ad>`) elle güncelliyor.
+Yeni bir "adı `personel_listesi()`'nden seçilen, metin olarak saklanan" alan
+eklersen (bir sonraki `_islem_yapan`/`sperm_dondurma.yapan_ad` benzeri) aynı
+listeye ekle, yoksa o alan rename'den sonra sessizce eski adda kalır.
+**`kullanici_adi` (giriş adı) hiçbir hasta kaydına yazılmaz** — yalnızca
+kimlik doğrulamada kullanılıyor, cascade gerektirmiyor.
+
+**Kullanıcıya verilmiş şifreler yönetici ekranında görüntülenmez, görüntülenemez.**
+Bekletilen şey hash (bkz. "Şifre değişikliği yönetici onayı ister"), düz
+şifre hiçbir yerde durmuyor — var olan bir kullanıcının şifresini **geri
+almak teknik olarak mümkün değil** (hash tek yönlü). Yönetici yalnızca yeni
+bir şifre **belirleyebilir** (`/kullanici/{id}/sifre`, zaten kendisi yazdığı
+için görmesine gerek yok) ya da personelin `/sifre`'den gönderdiği isteği
+onaylayabilir (o zaman da yalnızca hash geçiyor, düz metin yöneticiye hiç
+uğramıyor). Şifreleri geri okunabilir/şifre çözülebilir bir biçimde tutmak
+bu mimariyi tersine çevirir ve `lab.db`'nin USB ile taşındığı, HTTPS
+olmadığı bir ortamda ciddi bir güvenlik açığı olur — kullanıcı sormadan bu
+yönde bir değişiklik yapma.
+
 **Şifre değişince o kullanıcının açık oturumları düşer.** `sifre_yaz()` bunu
 kendisi yapar; ayrı bir yol yazma. Yoksa eski şifreyle açılmış tarayıcı 12 saat
 daha çalışır.

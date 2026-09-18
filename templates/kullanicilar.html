@@ -49,6 +49,22 @@
     </div>
 
     <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:14px">Adını / kullanıcı adını değiştir</summary>
+      <form method="post" action="/kullanici/{{ k.id }}/duzenle" style="margin-top:8px">
+        <input name="ad_soyad" type="text" required value="{{ k.ad_soyad }}"
+               placeholder="Ad soyad" autocomplete="off" style="margin-bottom:6px">
+        <input name="kullanici_adi" type="text" required value="{{ k.kullanici_adi }}"
+               placeholder="Kullanıcı adı" autocomplete="off" autocapitalize="none"
+               spellcheck="false" style="margin-bottom:6px">
+        <div class="ipucu" style="margin-bottom:6px">
+          Ad değişirse hasta kayıtlarındaki "İşlemi Yapan" girişleri de
+          otomatik güncellenir.
+        </div>
+        <button class="minidugme" type="submit">Kaydet</button>
+      </form>
+    </details>
+
+    <details style="margin-top:10px">
       <summary style="cursor:pointer;font-size:14px">Şifresini değiştir</summary>
       <form method="post" action="/kullanici/{{ k.id }}/sifre" style="margin-top:8px">
         <input name="sifre" type="password" required minlength="{{ min_sifre }}"

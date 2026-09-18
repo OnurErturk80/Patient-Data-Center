@@ -1724,6 +1724,67 @@ async def kullanici_yeni(request: Request):
         f"/kullanicilar?bilgi={quote(kadi + ' eklendi.')}", status_code=303)
 
 
+@uygulama.post("/kullanici/{kid}/duzenle")
+async def kullanici_duzenle(request: Request, kid: int):
+    """Var olan kullanıcının adını ve kullanıcı adını değiştirir (v6.106).
+
+    Doğrulama kuralları `kullanici_yeni()` ile aynı -- ayrı bir kopya değil,
+    aynı satırlar burada da geçerli olduğu için tekrarlandı.
+    """
+    from urllib.parse import quote
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = dict(await request.form())
+    k = db.tek("SELECT * FROM kullanici WHERE lab_id = ? AND id = ?",
+               (db.LAB_ID, kid))
+    if not k:
+        return RedirectResponse("/kullanicilar", status_code=303)
+
+    def hata(m):
+        return RedirectResponse(f"/kullanicilar?hata={quote(m)}", status_code=303)
+
+    ad = (f.get("ad_soyad") or "").strip()
+    kadi = (f.get("kullanici_adi") or "").strip().lower()
+    if not ad:
+        return hata("Ad soyad boş olamaz.")
+    if not kadi:
+        return hata("Kullanıcı adı boş olamaz.")
+    if not kadi.isascii() or not kadi.replace(".", "").replace("_", "").isalnum():
+        return hata("Kullanıcı adı sadece harf, rakam, nokta ve alt çizgi "
+                    "içerebilir (Türkçe karakter kullanma).")
+    if kadi != k["kullanici_adi"] and db.tek(
+            "SELECT 1 FROM kullanici WHERE lab_id = ? AND kullanici_adi = ? "
+            "AND id != ?", (db.LAB_ID, kadi, kid)):
+        return hata(f"'{kadi}' zaten kullanılıyor.")
+
+    eski_ad = k["ad_soyad"]
+    try:
+        db.yaz("UPDATE kullanici SET ad_soyad = ?, kullanici_adi = ? WHERE id = ?",
+               (ad, kadi, kid))
+    except sqlite3.IntegrityError:
+        # `kullanici_adi` şemada LAB'DAN BAĞIMSIZ UNIQUE (kullanici_yeni()'deki
+        # tuzak burada da geçerli) -- yukarıdaki kontrol yalnızca bu lab'a
+        # bakıyor, iki lab satırı olan bir veritabanında yine de çarpışabilir.
+        return hata(f"'{kadi}' bu veritabanında zaten var.")
+
+    # Ad değiştiyse hasta kayıtlarındaki "İşlemi Yapan" da güncellensin
+    # (kullanıcının isteği): `islem_yapan.yapan_ad` ve `sperm_dondurma.
+    # yapan_ad` kullaniciyi FK ile değil, o anki adın metin kopyasıyla
+    # tutuyor (v6.99/v6.101'in bilinçli kararı) -- ad değişince eski
+    # metin kendiliğinden güncellenmez, elle taşınması gerekiyor.
+    if ad != eski_ad:
+        db.yaz("UPDATE islem_yapan SET yapan_ad = ? WHERE lab_id = ? "
+               "AND yapan_ad = ?", (ad, db.LAB_ID, eski_ad))
+        db.yaz("UPDATE sperm_dondurma SET yapan_ad = ? WHERE lab_id = ? "
+               "AND yapan_ad = ?", (ad, db.LAB_ID, eski_ad))
+
+    _gunluk.info("kullanici duzenlendi: id=%s ad='%s' kadi='%s'", kid, ad, kadi)
+    return RedirectResponse(
+        f"/kullanicilar?bilgi={quote(kadi + ': ad ve kullanıcı adı güncellendi.')}",
+        status_code=303)
+
+
 @uygulama.post("/kullanici/{kid}/sifre")
 async def kullanici_sifre_sifirla(request: Request, kid: int):
     from urllib.parse import quote

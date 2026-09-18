@@ -8445,3 +8445,64 @@ denüdasyonda immatür işaretlenmiş bir oositin vitrifikasyon ekranında
 **hâlâ** göründüğü doğrulandı — `ivf_icsi` dışı süzgecin yanlışlıkla
 uygulanmadığı böyle kanıtlandı. Test hasta/cycle/specimen/oturum kayıtları
 temizlendi.
+
+# v6.106 — Kullanıcı adı/kullanıcı adı düzenleme, hasta kayıtlarına yansıması
+
+Kullanıcının isteği: "Yönetici ekranında kullanıcılara verilen şifreleri
+yönetici görsün. Var olan kullanıcının Adını ve kullanıcı adını
+değiştirebilsin. Hasta kaydı var ise oralardaki Adı da değişsin."
+
+Üç istekten ikisi (ad/kullanıcı adı düzenleme ve hasta kayıtlarına yayılma)
+bu sürümde yapıldı. Şifre görüntüleme **yapılmadı** — mimari buna izin
+vermiyor, kullanıcıya ayrıca soruldu (aşağıya bak).
+
+## Ne değişti
+
+- **`POST /kullanici/{id}/duzenle`** (yeni rota, `app.py`) — var olan bir
+  kullanıcının `ad_soyad` ve `kullanici_adi`'sini değiştirir.
+  Doğrulama `kullanici_yeni()` ile birebir aynı: boş olamaz, kullanıcı adı
+  yalnızca harf/rakam/nokta/alt çizgi (Türkçe karakter yok), aynı laptaki
+  başka bir kullanıcıyla çakışamaz. `kullanici_adi` şemada **lab'dan
+  bağımsız UNIQUE** olduğu için `kullanici_yeni()`'deki gibi
+  `sqlite3.IntegrityError` de ayrıca yakalanıyor.
+- **Ad değişirse hasta kayıtlarındaki "İşlemi Yapan" da otomatik güncellenir.**
+  `islem_yapan.yapan_ad` ve `sperm_dondurma.yapan_ad` kullaniciyi FK ile
+  değil, o anki adın metin kopyasıyla tutuyor (v6.99/v6.101'in bilinçli
+  kararı) — `kullanici_duzenle()` eski adı taşıyan bütün satırları
+  (`lab_id` + eski `yapan_ad` eşleşmesiyle) yeni adla güncelliyor.
+  `kullanici_adi` (giriş adı) hiçbir hasta kaydına yazılmadığı için onun
+  değişmesi bir cascade gerektirmiyor.
+- **`templates/kullanicilar.html`**: her kullanıcı satırına "Şifresini
+  değiştir"in yanına "Adını / kullanıcı adını değiştir" açılır formu
+  eklendi, ad/kullanıcı adı alanları mevcut değerle geliyor.
+
+## Neden şifre görüntüleme yapılmadı
+
+Şifreler `sifre_hash` kolonunda **tek yönlü** hash olarak tutuluyor (bkz.
+CLAUDE.md "Kullanıcıya verilmiş şifreler yönetici ekranında görüntülenmez").
+Var olan bir kullanıcının şifresini geri okumak teknik olarak imkânsız —
+hash'ten düz metne dönüş yok. Bunu "görülebilir" yapmanın tek yolu şifreleri
+geri döndürülebilir bir biçimde (düz metin ya da şifre çözülebilir) tutmak,
+ki bu README v6.11/v6.61'de bilinçli olarak reddedilen mimariyi tersine
+çevirir ve `lab.db`'nin USB ile taşındığı, HTTPS olmadığı bu ortamda ciddi
+bir güvenlik açığı olur. Yönetici zaten yeni bir şifre **belirleyebiliyor**
+(`/kullanici/{id}/sifre` — kendisi yazdığı için görmesine gerek yok) ve
+personelin kendi `/sifre` isteğini onaylayabiliyor (v6.61) — düz metin o
+akışta da yöneticiye hiç uğramıyor, yalnızca hash geçiyor. Kullanıcıya bu
+kısıtlama ve mevcut alternatifler anlatılıp nasıl ilerlemek istediği
+soruldu.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp test hasta + `ivf_icsi` cycle açıldı, cycle'ın OPU
+aşamasına "İşlemi Yapan" olarak "Ayse Demir" yazıldı, ayrı bir test
+`sperm_dondurma` kaydı da aynı adla oluşturuldu. `ayse` kullanıcısı
+`/kullanici/2/duzenle` ile "Ayse Yilmaz" / `ayse2` yapıldı: hem
+`islem_yapan.yapan_ad` hem `sperm_dondurma.yapan_ad` satırlarının otomatik
+"Ayse Yilmaz"a güncellendiği doğrulandı. Doğrulama hataları (boş ad, başka
+bir kullanıcıyla çakışan kullanıcı adı, Türkçe karakter içeren kullanıcı
+adı) ayrı ayrı denendi, hepsi doğru hata mesajıyla döndü; aynı kullanıcı
+adını değiştirmeden yeniden gönderme de sorunsuz kabul edildi. Ekranın
+yeni "Adını / kullanıcı adını değiştir" bölümünün bastığı doğrulandı.
+Kullanıcı ve hasta kayıtları eski haline döndürüldü, test verileri
+(hasta/cycle/specimen/sperm_dondurma/tasiyici/oturum) temizlendi.
