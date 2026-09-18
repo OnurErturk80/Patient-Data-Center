@@ -8506,3 +8506,59 @@ adını değiştirmeden yeniden gönderme de sorunsuz kabul edildi. Ekranın
 yeni "Adını / kullanıcı adını değiştir" bölümünün bastığı doğrulandı.
 Kullanıcı ve hasta kayıtları eski haline döndürüldü, test verileri
 (hasta/cycle/specimen/sperm_dondurma/tasiyici/oturum) temizlendi.
+
+# v6.107 — Resmî form ekranı: ekrana sığdırma
+
+Kullanıcının isteği: "Embriyoloji özet formu ve ART lab raporu çıktısı
+yapılacak yapılan ekrana formlar sığmıyor. Daha düzgün tam görünür olsun.
+Bir de yazdır butonu çalışmıyor. Printer bağlantısı çıksın."
+
+## Ne değişti
+
+- **Formlar artık ekrana sığıyor.** `.kalipkap` (form ızgarasının kendisi)
+  kâğıdın doğal genişliğinde kalmak zorundaydı (660px Özet, 980px ART Lab
+  — amblemin yeri buna göre yüzdeyle hesaplanıyor), dar bir telefon
+  ekranında bu, yatay kaydırma gerektiriyordu — kullanıcının bildirdiği
+  "sığmıyor" tam olarak buydu. Ölçüldü: Playwright ile 375/390px
+  genişliklerde `.kagit` içinde ~300-620px'lik bir taşma vardı.
+  `templates/form.html`'e yeni bir `.kalipolcek` sarmalayıcı ve küçük bir
+  betik eklendi: `.kalipkap`'ı **bütün olarak** (`transform: scale`) mevcut
+  ekran genişliğine küçültüyor. Punto, sütun genişlikleri, amblemin yeri
+  hepsi aynı oranda küçüldüğü için hiçbir şey bozulmuyor — sadece küçük bir
+  kâğıt görüyormuş gibi. `form_kalip.json`'a dokunulmadı, "kalıba dokunma"
+  kuralı bozulmadı; bu tamamen ekrandaki bir görüntüleme meselesi.
+- **Yazdırma etkilenmedi.** `@media print` bu yeni ölçeği `transform: none
+  !important` ile devre dışı bırakıyor (satır içi `style` yazıldığı için
+  `!important` şart) — çıktı her zaman kâğıdın A4'e sığdırılmış gerçek
+  boyutunda. Bunun ayrı bir mekanizma olduğunu unutma: A4'e sığdırma
+  (`s.olcek`) sunucuda hesaplanıyor ve yazdırırken geçerli, ekrana sığdırma
+  (`oran`) tarayıcıda hesaplanıyor ve yalnızca görüntülemede geçerli —
+  ikisi birbirinin yerine geçmiyor, ikisi de gerekli.
+- **"Yazdır" düğmesi test edildi, kod tarafında çalıştığı doğrulandı.**
+  Playwright ile `window.print` üzerine bir gözlemci konup düğmeye
+  tıklandı: her iki formda da, üç farklı ekran genişliğinde çağrıldığı
+  doğrulandı. Yazdırma medyası emüle edilip PDF üretildi, iki form da
+  sorunsuz bastı (`page.pdf()` ile), konsolda yeni bir hata görülmedi.
+  Bu ortamda "yazdır çalışmıyor" hatası **tekrarlanamadı** — kod düzeyinde
+  bir bug bulunamadı. En olası açıklama: kullanıcı bildirmeden önce ekran
+  sığmıyordu, düğmeye ulaşmak/görmek zor olabiliyordu ya da yazdırma
+  önizlemesi taşan/bozuk görünüyordu; sığma düzeltmesi bunu dolaylı olarak
+  çözmüş olabilir. Sorun devam ederse kullanıcıdan tam olarak ne olduğu
+  (hiçbir şey mi olmuyor, önizleme mi bozuk çıkıyor, hangi cihaz/tarayıcı)
+  istendi — `window.print()` bir web sayfasının yazıcı bağlantısını açması
+  için tek standart yol, bunun ötesinde JS'ten yapılabilecek başka bir şey
+  yok.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp Playwright ile üç viewport genişliğinde (375, 390,
+1280px) hem Embriyoloji Özet hem ART Lab formu açıldı. Düzeltmeden önce
+`.kagit`'in `scrollWidth`'i `clientWidth`'ten büyüktü (taşma vardı);
+düzeltmeden sonra üçünde de eşit çıktı (taşma yok). `transform` matrisinin
+gerçekten uygulandığı (`getComputedStyle`) ve `.kalipolcek`'in yüksekliğinin
+ölçeklenmiş içeriğe göre doğru ayarlandığı doğrulandı. Yazdırma medyası
+emüle edilip `.kalipkap`'ın `transform: none`'a döndüğü, `.kalipolcek`'in
+doğal (ölçeklenmemiş) yüksekliğe geri döndüğü ve iki formun da PDF olarak
+sorunsuz basıldığı (`page.pdf()`) doğrulandı — ekran ölçeği yazdırmaya hiç
+karışmıyor. "Yazdır" düğmesinin her denemede `window.print()`'i doğru
+çağırdığı ayrıca doğrulandı. Test oturum jetonu temizlendi.

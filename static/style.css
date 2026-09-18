@@ -1256,6 +1256,14 @@ body.kilitli { overflow: hidden; }
 .kagit.yatay .kalipkap { min-width: 980px; }
 .kalipgorsel { position: absolute; object-fit: fill; }
 
+/* `.kalipkap` kâğıdın doğal genişliğinde kalıyor (yukarıdaki min-width);
+   dar bir ekranda sığması için `.kalipolcek` + form.html'deki betik onu
+   BÜTÜN olarak `transform: scale()` ile küçültüyor (v6.107, kullanıcının
+   isteği -- "formlar sığmıyor"). `overflow: hidden` betik ölçeği
+   uyguladıktan sonra taşan bir piksel kalmasın diye; normalde oran tam
+   sığacak şekilde hesaplandığı için hiç kırpma olmaz. */
+.kalipolcek { overflow: hidden; }
+
 .kalip {
   width: 100%; border-collapse: collapse; table-layout: fixed;
   font-family: Arial, Helvetica, sans-serif; color: #000;
@@ -1326,6 +1334,12 @@ body.kilitli { overflow: hidden; }
   .kap, .kap.genis { max-width: none; padding: 0; margin: 0; }
   .kagit { border: 0; border-radius: 0; padding: 0; overflow: visible; }
   .kalipkap, .kagit.yatay .kalipkap { min-width: 0; }
+  /* Ekrana sığdırma ölçeği (v6.107) yazdırmaya karışmasın -- çıktı hep
+     kâğıdın gerçek boyutunda. `!important` şart: betik satır içi `style`
+     ile height/transform yazıyor, o normal @media print kuralından daha
+     spesifik. */
+  .kalipolcek { height: auto !important; overflow: visible !important; }
+  .kalipkap { transform: none !important; }
   .kagit + .kagit { margin-top: 0; page-break-before: always; }
   .kalip td {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;

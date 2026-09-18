@@ -14,7 +14,17 @@
 
    Ölçek: kâğıdın kendi puntoları A4'e sığmıyor (Excel de "sayfaya sığdır" ile
    basıyor). Tablonun taban puntosu tek katsayıyla küçültülüyor, hücre
-   sınıfları (p7..p14) ona göre `em` ile ölçekleniyor — oranlar bozulmuyor. #}
+   sınıfları (p7..p14) ona göre `em` ile ölçekleniyor — oranlar bozulmuyor.
+
+   Bu, kâğıdın kendi A4 ölçeği -- ekrana **sığması** ayrı bir sorun (v6.107,
+   kullanıcının isteği). `.kalipkap` sabit bir doğal genişlikte kalmak
+   zorunda (660px dikey, 980px yatay -- amblemin yüzdeyle hesaplanan yeri
+   buna göre), telefon ekranı bundan dar olunca yatay kaydırma gerekiyordu.
+   `.kalipolcek` sarmalayıcı + aşağıdaki betik `.kalipkap`'ı **bütün
+   olarak** (`transform: scale`) mevcut genişliğe sığdırıyor -- oranlar
+   (punto/sütun/amblem hepsi birlikte) bozulmadan küçülüyor, kâğıdın kendisi
+   değişmiyor. Yazdırırken bu ölçek devre dışı kalır (bkz. `@media print`),
+   çıktı her zaman kâğıdın gerçek boyutunda basılır. #}
 
 <div class="yazdirmadugmeleri">
   <button class="dugme" type="button" onclick="window.print()">{{ metin("yazdir") }}</button>
@@ -23,6 +33,7 @@
 
 {% for s in sayfalar %}
 <div class="kagit{% if yon == 'yatay' %} yatay{% endif %}">
+  <div class="kalipolcek">
   <div class="kalipkap">
   {#- Amblem tablonun üstüne biniyor: yeri kâğıttaki sabitleyiciden
       (Excel'in client anchor'ı) hesaplandı, satırlarla aynı ölçekte. -#}
@@ -53,6 +64,37 @@
   <div class="formiptalnotu">{{ iptal_notu }}</div>
   {%- endif %}
   </div>
+  </div>
 </div>
 {% endfor %}
+
+<script>
+(function () {
+  // .kalipkap sabit doğal genişlikte kalıyor (kâğıdın kendi ölçüsü); burada
+  // yalnızca GÖRSEL olarak mevcut ekrana sığdırılıyor -- oranlar (punto,
+  // sütun, amblem) birlikte küçülüyor, kâğıt aslı değişmiyor (v6.107).
+  function formlariSigdir() {
+    document.querySelectorAll('.kalipolcek').forEach(function (sarmalayici) {
+      var kap = sarmalayici.querySelector('.kalipkap');
+      if (!kap) return;
+      kap.style.transform = 'none';
+      var dogalGenislik = kap.scrollWidth;
+      var dogalYukseklik = kap.scrollHeight;
+      var mevcutGenislik = sarmalayici.clientWidth;
+      var oran = (dogalGenislik && mevcutGenislik < dogalGenislik)
+        ? mevcutGenislik / dogalGenislik : 1;
+      kap.style.transform = 'scale(' + oran + ')';
+      sarmalayici.style.height = Math.ceil(dogalYukseklik * oran) + 'px';
+    });
+  }
+  window.addEventListener('resize', formlariSigdir);
+  window.addEventListener('orientationchange', formlariSigdir);
+  formlariSigdir();
+  // Amblem gibi görseller geç yüklenip doğal boyu değiştirebilir; yüklenince
+  // bir kez daha ölç.
+  document.querySelectorAll('.kalipgorsel').forEach(function (g) {
+    g.addEventListener('load', formlariSigdir);
+  });
+})();
+</script>
 {% endblock %}

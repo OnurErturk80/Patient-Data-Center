@@ -630,6 +630,27 @@ formları: Embriyoloji Özet (DH.FR.91, dikey) ve ART Lab. Raporu (DH.FR.107,
 yatay). Her biri iki çıktı veriyor — yazdırılabilir sayfa
 (`/form/{ad}/{id}`, Ctrl+P) ve Excel (`/disari/form/{ad}/{id}`) — ve **tek
 kalıptan**: `form_kalip.json`.
+- **Ekrana sığma, A4'e sığmadan AYRI bir sorun** (v6.107, kullanıcının
+  isteği — "formlar sığmıyor"). `.kalipkap` kâğıdın **doğal** genişliğinde
+  kalmak zorunda (660px dikey/Özet, 980px yatay/ART Lab —
+  `static/style.css`'teki min-width, amblemin yüzdeyle hesaplanan yeri buna
+  göre, bkz. yukarıdaki yorum); telefon ekranı bundan dar olunca yatay
+  kaydırma gerekiyordu, kullanıcı bunu "sığmıyor" diye bildirdi. Çözüm
+  `form.html`'de `.kalipolcek` sarmalayıcı + küçük bir betik
+  (`formlariSigdir()`): `.kalipkap`'ı **bütün olarak**
+  (`transform: scale(oran)`) mevcut ekran genişliğine küçültüyor — punto,
+  sütun, amblem hepsi birlikte küçülür, oranlar bozulmaz, kâğıdın kendisi
+  (`form_kalip.json`, "kalıba dokunma" kuralı) hiç değişmez. `resize` ve
+  `orientationchange`'de yeniden hesaplanıyor; `<img class="kalipgorsel">`
+  (amblem) geç yüklenip doğal boyu değiştirebildiği için `load` olayında da
+  tekrar çalışıyor. **Yazdırmaya karışmaz**: `@media print` bu ölçeği
+  `!important` ile `transform: none` yapıp iptal ediyor (satır içi `style`
+  ile yazıldığı için normal öncelik yetmez) — çıktı her zaman kâğıdın
+  gerçek boyutunda, A4'e sığdırma (`s.olcek`, server-side, ayrı bir mekanizma)
+  hiç etkilenmiyor. Playwright ile üç genişlikte (375/390/1280px) doğrulandı:
+  `.kagit` artık hiçbir genişlikte yatay kaydırma istemiyor
+  (`scrollWidth == clientWidth`), yazdırma çıktısı (PDF) öncesi/sonrası
+  birebir aynı boyutta kaldı.
 - **Kalıp elle yazılmadı, kâğıttan çıkarıldı.** `formlar_asil/` altındaki iki
   orijinal `.xls` dosyası `kalip_uret.py` ile okundu; satır yükseklikleri,
   sütun genişlikleri, birleşik hücreler, puntolar ve dört kenarın çizgi tipi
