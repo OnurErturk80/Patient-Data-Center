@@ -515,6 +515,33 @@ bittiği yer çoğu zaman son iki aşama (v6.29). Üçü de `_bitir.html`
   `metinler.py`'ye `bitis_<kod>` anahtarını yaz, `BITIS_DURUMU` kendiliğinden
   kapsar (`**{k: "iptal" for k in IPTAL_DETAY_SEBEPLERI}` ile kuruluyor).
   Şema değişmedi — `bitis_sebebi` zaten CHECK'siz serbest metin.
+- **Seçilen iptal sebebi resmî formlara da yansır** (v6.104, kullanıcının
+  isteği). `formlar._iptal_notu(c)`: `c["durum"]=="iptal"` ise seçilen
+  sebebin ekran etiketini döndürür (`metin("bitis_"+bitis_sebebi)`) — bu
+  çağrı `metin()`'e adresten gelen bir anahtar vermiyor, `bitis_sebebi`
+  zaten `cycle_bitir()`'in `BITIS_DURUMU` ile doğruladığı bir kod (tuzak #9
+  burada geçerli değil). **Embriyoloji Özet'te** mevcut NOTLAR kutusuna,
+  protokol notu ve çözme notunun (v6.102) altına üçüncü satır olarak
+  eklenir — kutunun kendi puntosunu kullanır, ayrı bir vurgu yok.
+  **ART Lab'da NOTLAR gibi bir kutu yoktur** — kullanıcının isteği "alt
+  kısmında tam ortada, büyük punto" olduğu için kalıbın **dışına**, son
+  sayfanın hemen altına yeni bir şerit ekleniyor:
+  - Ekranda `form.html`'de `{% if iptal_notu and loop.last %}` ile
+    `.formiptalnotu` (`static/style.css`) — sabit siyah/beyaz (kâğıt aslı
+    gibi), `.kalip`'in p7..p14 ölçeğinden bağımsız sabit 15pt kalın ortalı.
+  - Excel'de `app.py` `form_excel()`, `ad=="artlab"` iken son sayfanın
+    `hucreler`/`birlesik`/`yukseklikler` sözlüklerine elle bir satır ekliyor
+    — `form_kalip.olcu(kalip)` kalıbın satır/sütun sayısını, `hucre_adresi()`
+    Excel adresini veriyor (`_adres()`'in genel hali). Stil hazır adlı
+    `"formadi"` (`excel.STILLER`, 14pt kalın ortalı) — kalıbın **kendi**
+    stil listesine (`k["stiller"]`, paylaşılan/önbellekli) dokunmadan,
+    `excel._yerlesim_xml()` string stil adını doğrudan `STILLER`'den
+    çözüyor. **`form_kalip.py`'nin kendisi (kalıp/JSON) değişmedi** — "kalıba
+    dokunma" kuralı bu satır için de geçerli, o yüzden ekleme kalıbın
+    ürettiği ızgaranın bittiği yerden, tamamen dışarıdan yapılıyor.
+  - Yalnızca `ad=="artlab"` iken devreye giriyor — Özet zaten NOTLAR'a
+    yazıyor, ikinci kez basılmasın diye `iptal_notu` context'i Özet'e hiç
+    verilmiyor.
 
 **İleri tarihli iş cycle'ın kendisidir** (v6.33, `goc_028`). Ayrı bir randevu
 tablosu yok: cycle bugün açılıyor, `planlanan_tarih` (gün, saat yok)

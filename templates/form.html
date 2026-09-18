@@ -46,6 +46,12 @@
       {%- endfor %}
     </tbody>
   </table>
+  {#- İptal notu kalıbın DIŞINDA -- resmî formun bir parçası değil, kullanıcının
+      isteğiyle eklendi (v6.104). Yalnızca cycle iptal edildiyse ve yalnızca
+      son sayfada basılır (ART Lab'ın özet bloğu gibi, tek yerde yeter). #}
+  {%- if iptal_notu and loop.last %}
+  <div class="formiptalnotu">{{ iptal_notu }}</div>
+  {%- endif %}
   </div>
 </div>
 {% endfor %}

@@ -98,6 +98,19 @@ def _yapan(cycle_id, asama):
     return r["yapan_ad"] if r else None
 
 
+def _iptal_notu(c):
+    """Cycle iptal edildiyse seçilen sebebin ekran etiketi, değilse None.
+
+    `c["bitis_sebebi"]` yalnızca `BITIS_DURUMU`'ndaki (app.py) doğrulanmış
+    kodlardan biri olabiliyor -- `cycle_bitir()` başka bir değeri reddediyor
+    -- o yüzden `metin()` burada doğrudan çağrılabiliyor; adresten gelen
+    serbest bir anahtar değil (tuzak #9'daki gibi değil).
+    """
+    if c["durum"] != "iptal" or not c["bitis_sebebi"]:
+        return None
+    return metinler.t("bitis_" + c["bitis_sebebi"])
+
+
 def _yas(dogum, tarih):
     """`tarih` günündeki yaş. Tedavi anındaki yaş istendiği için bugünün
     yaşı değil, OPU günündeki yaş yazılıyor."""
@@ -345,6 +358,9 @@ def ozet_verisi(cycle_id: int):
     # yazıldığından (thaw.html'in tek, paylaşılan not alanı) ilk dolu olanı
     # yeterli. Protokol notunun altına eklenir, üzerine yazmaz.
     cozme_notu = next((r["thaw_notu"] for r in cozulen if r["thaw_notu"]), None)
+    # İptal sebebi de aynı kutuya, en altta eklenir (v6.104, kullanıcının
+    # isteği) -- cycle iptal edilmediyse None, kutuya bir şey eklemiyor.
+    iptal_notu = _iptal_notu(c)
 
     def _asama_ozeti(satirlar, alan):
         """Dondurma/transfer aşaması: kayıtlardaki farklı aşamalar, virgülle."""
@@ -432,7 +448,8 @@ def ozet_verisi(cycle_id: int):
         "cozdurme_viabilite": ", ".join(
             sorted({_et(h, "thaw_sagkalim", r["thaw_sagkalim"]) or ""
                     for r in cozulen} - {""})) or None,
-        "notlar": "\n".join(p for p in (c["protokol_notu"], cozme_notu) if p) or None,
+        "notlar": "\n".join(
+            p for p in (c["protokol_notu"], cozme_notu, iptal_notu) if p) or None,
         # --- başlık / künye ---
         "cycle_no": c["cycle_no"],
         "cycle_id": cycle_id,
@@ -659,6 +676,10 @@ def artlab_verisi(cycle_id: int):
         "freeze": donan or None,
         "thaw": cozulen or None,
         "transfer": transfer or None,
+        # ART Lab'da NOTLAR gibi bir kutu yok; iptal sebebi kalıbın dışına,
+        # en alta ayrı bir şerit olarak ekleniyor (v6.104) -- bkz. app.py
+        # form_ekrani()/form_excel(), form_kalip.olcu()/hucre_adresi().
+        "iptal_notu": _iptal_notu(c),
     }
 
 

@@ -1307,6 +1307,17 @@ body.kilitli { overflow: hidden; }
 .kalip .sag5 { border-right: 2pt solid #000; }
 .kalip .sag7 { border-right: .4pt solid #000; }
 
+/* İptal notu (v6.104): kalıbın dışında, ART Lab raporunun altında. Kâğıt
+   aslı hep beyaz basılacağı için (bkz. .kagit) sabit siyah/beyaz, .kalip'in
+   kendi p7..p14 ölçeğinden bağımsız sabit bir punto -- "normal yazılandan
+   büyük" istendiği için formun gövde metninden (8-10pt) bariz büyük. */
+.formiptalnotu {
+  margin-top: 10px; padding: 6px 0; text-align: center;
+  font-family: Arial, Helvetica, sans-serif; font-weight: 700;
+  font-size: 15pt; color: #000;
+  border-top: 1pt solid #000; border-bottom: 1pt solid #000;
+}
+
 @media print {
   /* Kagida yalniz form insin: ust cubuk, menu, dugmeler ekranda kalir. */
   .ust, .yanmenu, .gezinme, .yazdirmadugmeleri,

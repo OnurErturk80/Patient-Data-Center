@@ -92,6 +92,20 @@ def yon(kaynak) -> str:
     return _sayfa_olcusu(kaynak)[0]
 
 
+def olcu(kaynak) -> tuple:
+    """(satır sayısı, sütun sayısı) -- kalıbın **dışına** bir şey eklemek
+    isteyen kod (v6.104, ART Lab'ın alt kısmındaki iptal notu) nereden
+    başlayacağını buradan öğreniyor. Kalıbın kendisine dokunmuyor.
+    """
+    k = _kalip_al(kaynak)
+    return len(k["satirlar"]), len(k["sutun"])
+
+
+def hucre_adresi(satir: int, sutun: int) -> str:
+    """`_adres()`'in dışarıdan da çağrılabilen hali: (0, 0) -> "A1"."""
+    return _adres(satir, sutun)
+
+
 def etiketleri_doldur(metin: str, alan) -> str:
     """`{{dosya_no}}` -> değer. Tanınmayan etiket **olduğu gibi kalır**.
 

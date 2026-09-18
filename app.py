@@ -3679,6 +3679,9 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
         {"sayfalar": sayfalar, "baslik": metinler.t("form_" + ad),
          "cycle_id": cycle_id, "yon": form_kalip.yon(kalip),
          "excel_yolu": f"/disari/form/{ad}/{cycle_id}",
+         # Yalnızca ART Lab'da (v6.104) -- Özet'te aynı bilgi zaten NOTLAR
+         # kutusuna karışıyor (bkz. formlar.ozet_verisi), ikinci kez basılmasın.
+         "iptal_notu": v.get("iptal_notu") if ad == "artlab" else None,
          "kullanici": request.state.kullanici},
     )
 
@@ -3699,6 +3702,17 @@ def form_excel(request: Request, ad: str, cycle_id: int):
             deger, ek)
         for i, (deger, ek) in enumerate(parcalar, start=1)
     ]
+    if ad == "artlab" and v.get("iptal_notu"):
+        # Kalıbın hemen altına, tek satır, tam genişlikte, "formadi" (büyük/
+        # kalın/ortalı) adlı hazır stille -- kalıbın kendi stil listesine
+        # dokunmuyor (v6.104, bkz. form.html'deki .formiptalnotu'nun eşi).
+        satir_n, sutun_n = form_kalip.olcu(kalip)
+        ilk = form_kalip.hucre_adresi(satir_n, 0)
+        son = form_kalip.hucre_adresi(satir_n, sutun_n - 1)
+        y = sayfalar[-1]
+        y["hucreler"][ilk] = (v["iptal_notu"], "formadi")
+        y["birlesik"] = y.get("birlesik", []) + [f"{ilk}:{son}"]
+        y["yukseklikler"] = {**y.get("yukseklikler", {}), satir_n + 1: 22}
     return excel_yaniti(f"{dosya}_{v['dosya_no']}-{v['cycle_no']}", sayfalar)
 
 

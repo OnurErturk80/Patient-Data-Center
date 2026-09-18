@@ -8345,3 +8345,55 @@ cycle'ı "PN Arrest İptal" ile bitirildi; cycle detayının başlığında ve
 kipinde doğru düğmenin "Seçili" rozetiyle işaretlendiği kontrol edildi.
 "Listeye geri al" ile cycle'ın tamamen eski (aktif, sebep/saat boş)
 haline döndüğü doğrulandı. Oturum jetonu temizlendi.
+
+# v6.104 — Seçilen iptal sebebi resmî formlarda da görünsün
+
+Kullanıcının isteği: "Burada seçilen iptal seçeneği Embriyoloji özet
+formunda Notlara yazılsın. Art Lab formunda da alt kısmında tam ortasında
+görünür şekilde çıksın. Puntoları normal yazılandan büyük olsun."
+
+## Ne değişti
+
+- **`formlar._iptal_notu(c)`** — yeni ortak yardımcı: cycle iptal edildiyse
+  (`durum=='iptal'`) seçilen sebebin ekran etiketini döndürür
+  (`metin("bitis_"+bitis_sebebi)`), değilse `None`. `bitis_sebebi` yalnızca
+  `cycle_bitir()`'in `BITIS_DURUMU` ile doğruladığı kodlardan biri olabildiği
+  için `metin()`'e doğrudan verilebildi — tuzak #9'daki "adresten gelen
+  anahtar" durumu burada geçerli değil.
+- **Embriyoloji Özet Formu**: iptal notu mevcut NOTLAR kutusuna, protokol
+  notu ve çözme notunun (v6.102) altına üçüncü satır olarak ekleniyor.
+  Ayrı bir görsel vurgu yok — kutunun kendi puntosunu kullanıyor.
+- **ART Lab. Raporu**: ART Lab'da böyle bir "notlar" kutusu yok, kullanıcı
+  da ayrıca "alt kısmında tam ortada, büyük punto" istedi — bu yüzden
+  kalıbın **dışına**, son sayfanın hemen altına yeni bir şerit eklendi:
+  - Ekranda (`form.html`, `.formiptalnotu`): sabit siyah/beyaz (kâğıt aslı
+    gibi), 15pt kalın ortalı — formun gövde metninden (8-10pt) bariz büyük.
+    Yalnızca son sayfada basılıyor (özet bloğunun yalnızca ilk sayfada
+    basılmasının simetriği).
+  - Excel'de (`app.py` `form_excel()`): kalıbın son satırının hemen altına
+    tam genişlikte birleşik bir hücre ekleniyor, hazır stil adı `"formadi"`
+    (`excel.STILLER`, 14pt kalın ortalı) ile. Bunun için `form_kalip.py`'ye
+    iki küçük yardımcı eklendi: `olcu(kaynak)` (kalıbın satır/sütun sayısı)
+    ve `hucre_adresi(satir, sutun)` (`_adres()`'in dışarıdan çağrılabilir
+    hali). **`form_kalip.json` ve kalıbın kendi stil listesi hiç
+    değişmedi** — "kalıba dokunma" kuralı korundu, ekleme tamamen kalıbın
+    ürettiği ızgaranın dışında/altında yapılıyor. Adlandırılmış `"formadi"`
+    stili kalıba özgü değil (`excel.STILLER`, global) olduğu için kalıbın
+    kendi `stiller` listesine (paylaşılan/önbellekli `KALIPLAR` sözlüğünün
+    parçası) dokunmadan kullanılabildi.
+  - Yalnızca `ad=="artlab"` iken devreye giriyor; Özet'te `iptal_notu`
+    context'i hiç verilmiyor çünkü orada aynı bilgi zaten NOTLAR'a yazıldı.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp test hasta + cycle açıldı. Cycle `pn_arrest`
+sebebiyle bitirildiğinde: Embriyoloji Özet'in NOTLAR kutusunda "PN Arrest
+İptal" (protokol notuyla birlikte doğru sırada, alt alta) ve ART Lab'ın
+ekran çıktısında `.formiptalnotu` şeridinde aynı metin görüldü. Excel
+çıktıları (`openpyxl` ile açılıp) doğrulandı: Özet'in NOTLAR hücresi
+(C72) doğru metni taşıyor, ART Lab'da yeni satır (A39, `A39:AC39`
+birleşik) 14pt kalın ortalı stille doğru basılmış, dosya bozulmadan
+açılıyor. Cycle aktif duruma alınıp "dondurma" ile bitirildiğinde notun
+**basılmadığı**, genel "İptal" ile bitirildiğinde "İptal" etiketinin
+doğru çıktığı da ayrıca doğrulandı. Test hasta/cycle/oturum kayıtları
+temizlendi.
