@@ -8716,3 +8716,31 @@ Cleavage, Blastokist, hasta kartı, ana ekran, aşama ekranlarındaki kendi
 "Fotoğraf ekle" düğmeleri) 200 döndürüp hatasız yüklendi. Test hasta/
 cycle/specimen/olay kayıtları ve oturum jetonu temizlendi, sunucu
 kapatıldı.
+
+# v6.111 — Cycle ekranına "Hasta kartı" bağlantısı
+
+Kullanıcının isteği: "Hasta tedavi ana ekranında Hastanın Hasta Kartına
+gidilebilsin." Cycle ekranından (`/cycle/{id}`) hastanın tüm geçmişine
+(`/hasta/{id}`) açık, etiketli bir bağlantı yoktu — üst çubuktaki geri oku
+teknik olarak oraya gidiyordu ama bu bilinçli bir gezinme değil, "bir
+önceki ekran" konvansiyonunun bir yan etkisiydi ve etiketsizdi.
+
+## Ne değişti
+
+- `templates/cycle_detay.html`'de aşama düğmelerinin hemen altına
+  `<a class="dugme ikincil" href="/hasta/{{ c.hasta_id }}">` eklendi.
+  Metin ve hedef, `_cyclesatir.html`'in ay listesindeki "Hasta kartı"
+  düğmesiyle (v6.31, v6.63'te bugünkü adını aldı) **birebir aynı** —
+  `metin("hasta_kaydi")` yeniden kullanıldı, yeni bir metin anahtarı ya da
+  yeni bir CSS sınıfı gerekmedi (`.dugme.ikincil` zaten var).
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp bir test tedavisi açıldı, `/cycle/{id}` çekilip
+düğmenin doğru metinle (`Hasta kartı`) ve doğru adresle (`/hasta/{hasta_id}`)
+basıldığı doğrulandı. Playwright ile düğmeye gerçekten tıklanıp tarayıcının
+`/hasta/{id}`'ye gittiği ve sayfanın hasta adını içerdiği doğrulandı; mobil
+ekran görüntüsüyle düğmenin diğer ikincil düğmelerle (Değişiklik geçmişi,
+İşlemi bitir, Excel'e aktar) aynı görünümde, aşama düğmelerinin hemen
+altında durduğu görsel olarak da onaylandı. Test hasta/cycle kayıtları ve
+oturum jetonu temizlendi, sunucu kapatıldı.

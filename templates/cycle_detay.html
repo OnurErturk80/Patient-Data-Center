@@ -162,6 +162,12 @@
 <a class="dugme" href="{{ a[2]|replace('{id}', c.id) }}">{{ asama_adi(a[0]) }}</a>
 {% endfor %}
 </div>
+{# Hastanın tüm geçmişine gitmenin tek yolu geri oku değildi -- v6.110'a
+   kadar bu ekranda hasta kartına açık bir bağlantı yoktu (kullanıcının
+   isteği). `hasta_kaydi` metni ve hedefi `_cyclesatir.html`'in ay
+   listesindeki "Hasta kartı" düğmesiyle birebir aynı -- iki yerde aynı
+   kavram iki farklı adla öğretilmesin diye. #}
+<a class="dugme ikincil" href="/hasta/{{ c.hasta_id }}">{{ metin("hasta_kaydi") }}</a>
 <a class="dugme ikincil" href="/gecmis/cycle/{{ c.id }}">{{ metin("degisiklik_gecmisi") }}</a>
 
 {# Laboratuvar isi bitti: cycle yapilacaklar listesinden duser (v6.28).
