@@ -36,6 +36,7 @@
 {# Oranlar: paydası olmayan oran basılmıyor -- "%0" yanıltıcı olurdu. #}
 <div class="kart">
   <h2>{{ metin("oranlar") }}</h2>
+  <div class="cizelgekap">
   <table class="cizelge">
     <tr><td class="ad">{{ metin("oran_mii") }}</td>
       <td>{{ yuzde(g.oran_mii) if g.oran_mii is not none else "—" }}</td>
@@ -52,11 +53,13 @@
       <td>{{ g.gebelik }} / {{ g.transfer_cycle }}</td></tr>
     {% endif %}
   </table>
+  </div>
 </div>
 
 <div class="kart" style="margin-top:14px">
   <h2>{{ metin("aylara_gore") }}</h2>
   {% if aylar %}
+  <div class="cizelgekap">
   <table class="cizelge">
     <tr>
       <th>{{ metin("ay") }}</th><th>{{ metin("cycle") }}</th>
@@ -70,6 +73,7 @@
     </tr>
     {% endfor %}
   </table>
+  </div>
   {% else %}
   <div class="bos">{{ metin("istatistik_bos") }}</div>
   {% endif %}

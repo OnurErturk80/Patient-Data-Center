@@ -898,6 +898,20 @@ OPU'dan bu yana. Kullanıcının isteği — formdaki "24 saat / 40-45 saat /
 - **Sıra zamana göre**, klinik akış sırasına göre değil: aynı gün önce
   transfer edip sonra dondurmak olağan, akış sırası eksi saat gösterirdi.
 - Zamanı girilmemiş aşama çizelgede yok.
+- **`.cizelge` (zaman çizelgesi + `/istatistik`'in iki tablosu) dar telefon
+  ekranında yatay taşabilir — sarmalayıcı `.cizelgekap` bunu kaydırılabilir
+  yapıyor** (v6.113, kullanıcı ekran görüntüsüyle bildirdi: "tablo kesik,
+  tam görünmüyor"). Tablo dört-beş sütun + `nowrap` hücreler (tarih/saat gibi
+  geniş değerler) yüzünden 390px'lik bir ekranda kolayca taşıyor; taşan kısım
+  kartın dışında **sessizce kesik** kalıyordu, kaydırma yoktu. Çözüm
+  `form.html`'in `.kalipolcek`'inin (v6.107) aynı deseni: tabloya değil,
+  onu saran `<div class="cizelgekap">`'e `overflow-x: auto`. Tablonun kendisi
+  hâlâ `nowrap` (README v6.37, sayılar okunaklı kalsın diye bilinçli) —
+  sütunları daraltmadık, sadece taşan kısmı **erişilebilir** yaptık.
+  **Yeni bir `.cizelge` tablosu eklersen** (ya da 3-4'ten fazla sütunlu başka
+  bir tablo yazarsan) aynı `<div class="cizelgekap">` sarmalayıcısını kullan
+  — CSS'te `.cizelge`'ye doğrudan `overflow-x` eklemedik çünkü `<table>`
+  öğesinin kendisinde bu güvenilir çalışmıyor, sarmalayan `<div>` şart.
 
 **`gun_alt()` / `son_alt()` `formlar.py`'de durur**, `disari.py` oradan alır.
 Örnek başına alt sorgu kuran iki küçük parça; iki kopya birbirinden ayrı

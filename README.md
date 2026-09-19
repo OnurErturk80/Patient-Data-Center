@@ -8800,3 +8800,40 @@ döndürdü. `opu.html`'in kendisinin ayrı `toplanan_oosit`/`folikul`
 etiketlerinin (bu değişiklikten etkilenmemesi gereken) dokunulmadan
 kaldığı doğrulandı. Test hasta/cycle/specimen/olay kayıtları ve oturum
 jetonu temizlendi, sunucu kapatıldı.
+
+# v6.113 — Zaman çizelgesi tablosu mobilde kaydırılabilir oldu
+
+Kullanıcı bir ekran görüntüsü gönderdi: tedavi ekranındaki "Zaman
+çizelgesi" tablosunun sağ sütunu ("OPU'dan bu yana") kesik görünüyor,
+değerler ("-1", "2", "3"...) yarım kalıyordu. Mesajı: "Tedavi ana
+sayfasındaki zaman çizergesi tablosu kesik olmuş tablo tam görünmüyor."
+
+Sebep: `.cizelge` tablosu dört sütun ve her hücre `nowrap` (README v6.37 —
+sayılar okunaklı kalsın diye bilinçli bir karar, sütunları daraltmak yanlış
+çözüm olurdu). Dar bir telefon ekranında (390px) tablonun doğal genişliği
+kartın genişliğini aşıyor ve taşan kısım için hiçbir kaydırma mekanizması
+yoktu — taşan sütun sessizce görünmez kalıyordu.
+
+## Ne değişti
+
+- `templates/cycle_detay.html`'deki zaman çizelgesi tablosu ve
+  `templates/istatistik.html`'deki iki `.cizelge` tablosu (Oranlar, Aylara
+  göre) yeni bir `<div class="cizelgekap">` ile sarmalandı.
+- `static/style.css`'e `.cizelgekap { overflow-x: auto; }` eklendi —
+  `form.html`'in `.kalipolcek`'inin (v6.107) kullandığı aynı desen: tabloyu
+  değil, onu saran kutuyu kaydırılabilir yap. Tablonun kendisi hâlâ
+  `nowrap`, sütun genişlikleri değişmedi.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp kullanıcının bildirdiğiyle birebir aynı senaryo
+kuruldu (Fertilizasyon 08:30, OPU 10:20, ICSI 12:35, Denüdasyon 14:03,
+"-1.8 sa" gibi eksi değerler dahil). Playwright ile 390px genişlikte
+ölçüldü: tablonun doğal genişliği (~471px) sarmalayıcının genişliğini
+(~356px) gerçekten aşıyordu (düzeltmeden önceki hatayı doğruluyor);
+düzeltmeden sonra sarmalayıcı kaydırılıp sonuna gidildiğinde
+(`scrollLeft + clientWidth >= scrollWidth`) "OPU'dan bu yana" sütunundaki
+tüm değerlerin ("-1.8 sa", "2.2 sa", "3.7 sa") tam göründüğü hem ölçüm hem
+ekran görüntüsüyle doğrulandı. `/istatistik` ve diğer etkilenen ekranlar
+200 döndürdü. Test hasta/cycle/specimen/olay kayıtları ve oturum jetonu
+temizlendi, sunucu kapatıldı.

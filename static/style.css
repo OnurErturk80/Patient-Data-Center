@@ -1221,6 +1221,14 @@ body.kilitli { overflow: hidden; }
 .cizelge th:first-child, .cizelge td.ad { text-align: left; }
 .cizelge td.ad { font-weight: 600; }
 .cizelge tr:last-child td { border-bottom: 0; }
+/* Dort-bes sutunlu bir `.cizelge` (zaman cizelgesi, istatistik) dar telefon
+   ekraninda hucrelerin `nowrap` kalmasi yuzunden tasabiliyor -- tasan kisim
+   kartin disinda sessizce kesik kaliyordu (v6.113, kullanici ekran
+   goruntusuyle bildirdi: "tablo kesik, tam gorunmuyor"). Sutunlari daraltmak
+   yerine (sayilar okunmaz olurdu) `.kalipolcek`'in (form.html, v6.107)
+   kullandigi ayni desen: tabloyu degil, sarmalayan kutuyu kaydirilabilir
+   yap. Tablonun kendisi `nowrap` kaliyor, degismedi. */
+.cizelgekap { overflow-x: auto; }
 
 /* Etiket listesi (yuklenen formlar icin) bir cizelge ama aciklama sutunu
    uzun; telefonda satira sigmasi icin sarilabiliyor. `.cizelge`nin kendisi

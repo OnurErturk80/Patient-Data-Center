@@ -193,6 +193,13 @@
 {% if cizelge %}
 <div class="kart" style="margin-top:16px">
   <h2>{{ metin("zaman_cizelgesi") }}</h2>
+  {# `.cizelge` dört sütun + tarih/saat gibi geniş hücreler yüzünden dar
+     telefon ekranında taşıyor, taşan kısım kartın dışında kesik kalıyordu
+     (v6.113, kullanıcı ekran görüntüsüyle bildirdi). Tablo kendisi `nowrap`
+     kalmalı (README v6.37'de bilinçli), o yüzden sütun daraltmak yerine
+     `.kalipolcek`'in (form.html) zaten kullandığı desenle sarmalayıcıya
+     yatay kaydırma eklendi. #}
+  <div class="cizelgekap">
   <table class="cizelge">
     <tr>
       <th>{{ metin("asama") }}</th><th>{{ metin("saat") }}</th>
@@ -207,6 +214,7 @@
     </tr>
     {% endfor %}
   </table>
+  </div>
   <div class="ipucu" style="padding:8px 14px">{{ metin("cizelge_ipucu") }}</div>
 </div>
 {% endif %}
