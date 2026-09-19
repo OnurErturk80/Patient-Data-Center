@@ -1255,6 +1255,30 @@ Bu özelliği asla kaldırma.
 **Boş alan NULL kaydedilir**, boş metin değil. "Girilmedi" ile "sıfır/yok"
 ayırt edilebilsin diye.
 
+**Hasta ve eş adı her zaman büyük harfle kaydedilir** (v6.115, kullanıcının
+isteği: "nasıl yazarsam yazayım sonunda büyük harflerle kaydolsun").
+`app.py` `tr_buyuk()` — `hasta_kaydet()`, `hasta_guncelle()` ve
+`sperm_dondurma_yeni_hasta_kaydet()` (üçü de `hasta.ad_soyad`/`es_adi`
+yazan tek yerler) yazmadan önce çağırıyor.
+- **`str.upper()` tek başına yeterli değil — "Turkish I problem".**
+  Python'un varsayılan Unicode kuralı küçük 'i'yi noktasız 'I' yapar,
+  Türkçe kuralı noktalı 'İ' ister ("ışık" → yanlışlıkla "ISIK" değil
+  "IŞIK" olmalı, ama "iyi" → "IYI" değil "İYİ" olmalı). `tr_buyuk()` önce
+  'i'yi 'İ'ye çevirip SONRA `.upper()` çağırıyor — 'ı' zaten doğru
+  çevriliyor (Unicode'da 'ı'.upper() == 'I'), ç/ğ/ö/ş/ü'de hiç sorun yok.
+  Hasta/eş adı için yeni bir yazma yolu açarsan (ya da başka bir kişi adı
+  alanı eklersen) `str.upper()` değil bu fonksiyonu kullan.
+- **Hata dönüşünde büyütülmüş değil, kullanıcının yazdığı gösterilir**
+  (v6.21 kuralı) — form doğrulaması patlarsa (`FormHatasi`) şablona
+  ham `ad_soyad`/`es_adi` geçiyor, `tr_buyuk()` yalnızca gerçek yazma
+  anında (INSERT/UPDATE'ten hemen önce) çağrılıyor.
+- **`goc_040`** daha önce girilmiş kayıtları aynı kurala getirdi (tek
+  seferlik, idempotent) — `tr_buyuk()`'ün birebir kopyası göçün içinde,
+  göç betikleri `app.py`'yi import etmiyor (diğer göçlerin deseni).
+  Kullanıcı adı (`kullanici.ad_soyad`, personel) bu kuralın **dışında** —
+  yalnızca hasta/eş isimleri için, personel isimleri kendi yazdığı gibi
+  kalıyor.
+
 **Silme = iptal işaretleme.** Normal akışta fiziksel silme yok. Kalıcı silme
 ayrı, bilinçli bir yol: dosya no yaz → `SIL` yaz → tarayıcı onayı.
 **Transfer kaydı olan hasta/cycle kalıcı silinemez** — ekranda seçenek

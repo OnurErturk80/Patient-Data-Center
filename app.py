@@ -358,6 +358,22 @@ def bos_ise_none(deger):
     return deger if deger else None
 
 
+def tr_buyuk(deger):
+    """Türkçe büyük harfe çevirir — hasta/eş adları için (v6.115,
+    kullanıcının isteği: "nasıl yazarsam yazayım sonunda büyük harflerle
+    kaydolsun").
+
+    Python'un `str.upper()`'ı Türkçe 'i' harfini yanlış çeviriyor ("Turkish
+    I problem"): varsayılan Unicode kuralı küçük 'i'yi noktasız 'I' yapar,
+    Türkçe kuralı noktalı 'İ' ister. Önce 'i'yi 'İ'ye çevirip SONRA
+    `.upper()` çağırmak bunu düzeltiyor — 'ı' zaten doğru çevriliyor
+    (Unicode'da 'ı'.upper() == 'I'), ç/ğ/ö/ş/ü'de sorun yok.
+    """
+    if deger is None:
+        return None
+    return deger.replace("i", "İ").upper()
+
+
 class FormHatasi(Exception):
     """Kullanıcıya gösterilecek doğrulama hatası."""
 
@@ -2446,8 +2462,8 @@ def hasta_kaydet(
     yeni_id = db.yaz(
         "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, telefon, dogum_tarihi, "
         "es_adi, es_telefon, es_dogum_tarihi, notlar) VALUES (?,?,?,?,?,?,?,?,?)",
-        (db.LAB_ID, int(dosya_no), ad_soyad.strip(), bos_ise_none(telefon), dt,
-         bos_ise_none(es_adi), bos_ise_none(es_telefon), edt, bos_ise_none(notlar)),
+        (db.LAB_ID, int(dosya_no), tr_buyuk(ad_soyad.strip()), bos_ise_none(telefon), dt,
+         tr_buyuk(bos_ise_none(es_adi)), bos_ise_none(es_telefon), edt, bos_ise_none(notlar)),
     )
     return RedirectResponse(f"/hasta/{yeni_id}", status_code=303)
 
@@ -2498,10 +2514,10 @@ def hasta_guncelle(
     eski = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
     try:
         yeni = {
-            "ad_soyad": ad_soyad.strip(),
+            "ad_soyad": tr_buyuk(ad_soyad.strip()),
             "telefon": bos_ise_none(telefon),
             "dogum_tarihi": zaman(dogum_tarihi, "Doğum tarihi"),
-            "es_adi": bos_ise_none(es_adi),
+            "es_adi": tr_buyuk(bos_ise_none(es_adi)),
             "es_telefon": bos_ise_none(es_telefon),
             "es_dogum_tarihi": zaman(es_dogum_tarihi, "Eş doğum tarihi"),
             "notlar": bos_ise_none(notlar),
@@ -5517,7 +5533,7 @@ async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
     hasta_id = db.yaz(
         "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, telefon, dogum_tarihi) "
         "VALUES (?,?,?,?,?)",
-        (db.LAB_ID, int(dosya_no), ad_soyad, bos_ise_none(f.get("telefon")), dt))
+        (db.LAB_ID, int(dosya_no), tr_buyuk(ad_soyad), bos_ise_none(f.get("telefon")), dt))
 
     try:
         sd_id = _sperm_dondurma_olustur(hasta_id, f, kid)

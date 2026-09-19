@@ -8891,3 +8891,45 @@ sütunundaki tüm değerlerin ("-1.8 sa", "2.2 sa", "3.7 sa") kesiksiz
 göründüğü ve diğer düğmelerin dar sütunda kaldığı görsel olarak da
 doğrulandı. Test hasta/cycle/specimen/olay kayıtları ve oturum jetonu
 temizlendi, sunucu kapatıldı.
+
+# v6.115 — Hasta ve eş adı her zaman büyük harfle kaydedilir
+
+Kullanıcının isteği: "Bütün hasta ve eş isimleri büyük harf olsun. Nasıl
+yazarsam yazayım sonunda büyük harflerle kaydolsun."
+
+## Ne değişti
+
+- `app.py`'ye `tr_buyuk()` eklendi — hasta/eş adını her zaman büyük harfe
+  çeviriyor, üç yazma yolunda da (`hasta_kaydet()`, `hasta_guncelle()`,
+  `sperm_dondurma_yeni_hasta_kaydet()`) INSERT/UPDATE'ten hemen önce
+  çağrılıyor.
+- **Python'un `str.upper()`'ı tek başına Türkçe için yanlış** — "Turkish I
+  problem": varsayılan Unicode kuralı küçük 'i'yi noktasız 'I' yapar
+  ("iyi" → "IYI" olurdu, doğrusu "İYİ"). `tr_buyuk()` önce 'i'yi 'İ'ye
+  çevirip sonra `.upper()` çağırıyor — 'ı' zaten Unicode'da doğru
+  çevriliyor ('ı'.upper() == 'I'), ç/ğ/ö/ş/ü'de sorun yok.
+- Hata dönüşünde (form doğrulaması patlarsa) kullanıcı hâlâ **kendi
+  yazdığını** görüyor (v6.21 kuralı) — `tr_buyuk()` yalnızca gerçek
+  yazma anında çağrılıyor, hata şablonuna geçilen değerlere dokunmuyor.
+- **`goc_040`** eklendi: daha önce girilmiş `hasta.ad_soyad`/`es_adi`
+  kayıtlarını aynı kurala getiriyor (idempotent, `tr_buyuk()`'ün göç
+  içindeki birebir kopyasıyla — göç betikleri `app.py`'yi import etmiyor).
+- **Personel adı (`kullanici.ad_soyad`) bu kuralın dışında** — yalnızca
+  hasta ve eş isimleri için, kullanıcı yönetimi ekranındaki isimler
+  değişmedi.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp üç yazma yolu da gerçek rotalar üzerinden
+denendi: `/hasta/yeni`'ye "ışık öztürk çelik" / eş adı "mehmet iyi
+yılmaz" gönderildi → `IŞIK ÖZTÜRK ÇELİK` / `MEHMET İYİ YILMAZ` olarak
+kaydedildiği doğrulandı (Türkçe 'ı'/'i' ayrımı doğru). `/hasta/{id}/
+duzenle`'de "ilker iğdemir" → `İLKER İĞDEMİR`, `/sperm-dondurma/
+yeni-hasta`'da "ibrahim yıldız" → `İBRAHİM YILDIZ` olarak kaydedildiği
+doğrulandı. `goc_040` elle çalıştırılıp önceden lowercase girilmiş bir
+test kaydının ("eski kayıt ışık" / "eş ismi çiğdem") doğru büyük harfe
+çevrildiği (`ESKİ KAYIT IŞIK` / `EŞ İSMİ ÇİĞDEM`), ikinci çalıştırmada
+hiçbir satırın değişmediği (idempotent) doğrulandı. Sunucu yeniden
+başlatılıp göçün açılışta kendiliğinden bulunup `goc_kaydi`'na
+kaydedildiği doğrulandı. Test hasta kayıtları ve oturum jetonu
+temizlendi, sunucu kapatıldı.
