@@ -8837,3 +8837,57 @@ tüm değerlerin ("-1.8 sa", "2.2 sa", "3.7 sa") tam göründüğü hem ölçüm
 ekran görüntüsüyle doğrulandı. `/istatistik` ve diğer etkilenen ekranlar
 200 döndürdü. Test hasta/cycle/specimen/olay kayıtları ve oturum jetonu
 temizlendi, sunucu kapatıldı.
+
+# v6.114 — Zaman çizelgesi kaydırma yerine genişletildi
+
+Kullanıcının izleyen isteği: "yatay kaydırma yerine sadece zaman
+çizergesini uzat. Başka hiçbir yeri uzatmadan. Ne üstündeki işlemi bitir
+butonunu ne de Embriyoloji özet formu butonunu uzat." v6.113'ün
+`.cizelgekap` kaydırma çözümü kullanıcının istediği yön değildi — kaydırma
+yerine kartın kendisinin genişlemesi istendi, ama sadece o kart; aynı
+sütundaki diğer düğmeler (İşlemi bitir, Embriyoloji Özet Formu, ART Lab
+Raporu, Excel'e aktar, Sil) eskisi gibi kalmalı.
+
+## Ne değişti
+
+- `templates/cycle_detay.html`: "Zaman çizelgesi" kartı `.sutunlar`'ın
+  (iki sütunlu bölge) **dışına** taşındı — artık iki sütunun ikisini
+  birden kapsayan tam genişlikte, `.kap.genis`in kendi `--genis-sutun`
+  genişliğinde (geniş masaüstünde ~940px'e kadar) duruyor. `.cizelgekap`
+  kaydırma sarmalayıcısı bu karttan kaldırıldı.
+- Diğer düğmeler (`İşlemi bitir`, `Hasta kartı`, `Değişiklik geçmişi`,
+  form/Excel düğmeleri) hâlâ kendi `.sutun`larının içinde — genişlikleri
+  hiç değişmedi.
+- `/istatistik`'in iki `.cizelge` tablosundaki `.cizelgekap` kaydırma
+  sarmalayıcısına dokunulmadı (kullanıcının isteği yalnızca tedavi
+  ekranıyla ilgiliydi, o ekranı bu değişiklik kapsamıyor).
+
+## Bilinen sınır
+
+Bu çözüm yalnızca **gerçek iki-sütunlu görünümde** (geniş masaüstü)
+işe yarıyor — `.sutunlar` iki 380px'lik sütunu yan yana sığdıramadığı her
+genişlikte (dar telefon dahil, o durumda zaten tek sütuna diziliyor) kart,
+tek sütunla aynı genişlikte kalıyor ve tablo hâlâ taşabilir. Kullanıcının
+orijinal ekran görüntüsü (geniş bir tarayıcı penceresinden, iki sütunlu
+görünümden alınmıştı) bu düzeltmeyle tam çözülüyor; gerçekten dar bir
+telefonda dördüncü sütun yine kesik görünebilir — kaydırma bilerek
+kaldırıldığı için. Kullanıcı bu ödünü bilerek kabul etti.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp aynı test senaryosu (Fertilizasyon/OPU/ICSI/
+Denüdasyon saatleri) dört ekran genişliğinde ölçüldü:
+- **390px (telefon):** `.sutunlar` zaten tek sütuna diziliyor, kart 358px
+  — değişmedi, tablo (470px) hâlâ taşıyor (bilinen sınır, yukarıda).
+- **1280px:** container 748px ama iki 380px sütun + boşluk (776px) hâlâ
+  sığmıyor, `.sutunlar` tek sütuna diziliyor — kart 748px, tablo (746px)
+  **tam sığıyor**.
+- **1440px ve 1920px:** gerçek iki sütun yan yana (`sutun` 446px'er) ama
+  Zaman çizelgesi kartı 908px — tablo (906px) **tam sığıyor**, "İşlemi
+  bitir"/"Excel'e aktar" gibi düğmeler hâlâ 446px'lik kendi sütununda,
+  genişlikleri değişmedi.
+Playwright ile 1440px'de ekran görüntüsü alınıp "OPU'dan bu yana"
+sütunundaki tüm değerlerin ("-1.8 sa", "2.2 sa", "3.7 sa") kesiksiz
+göründüğü ve diğer düğmelerin dar sütunda kaldığı görsel olarak da
+doğrulandı. Test hasta/cycle/specimen/olay kayıtları ve oturum jetonu
+temizlendi, sunucu kapatıldı.

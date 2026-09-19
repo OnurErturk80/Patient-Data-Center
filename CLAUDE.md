@@ -898,20 +898,36 @@ OPU'dan bu yana. Kullanıcının isteği — formdaki "24 saat / 40-45 saat /
 - **Sıra zamana göre**, klinik akış sırasına göre değil: aynı gün önce
   transfer edip sonra dondurmak olağan, akış sırası eksi saat gösterirdi.
 - Zamanı girilmemiş aşama çizelgede yok.
-- **`.cizelge` (zaman çizelgesi + `/istatistik`'in iki tablosu) dar telefon
-  ekranında yatay taşabilir — sarmalayıcı `.cizelgekap` bunu kaydırılabilir
-  yapıyor** (v6.113, kullanıcı ekran görüntüsüyle bildirdi: "tablo kesik,
-  tam görünmüyor"). Tablo dört-beş sütun + `nowrap` hücreler (tarih/saat gibi
-  geniş değerler) yüzünden 390px'lik bir ekranda kolayca taşıyor; taşan kısım
-  kartın dışında **sessizce kesik** kalıyordu, kaydırma yoktu. Çözüm
-  `form.html`'in `.kalipolcek`'inin (v6.107) aynı deseni: tabloya değil,
-  onu saran `<div class="cizelgekap">`'e `overflow-x: auto`. Tablonun kendisi
-  hâlâ `nowrap` (README v6.37, sayılar okunaklı kalsın diye bilinçli) —
-  sütunları daraltmadık, sadece taşan kısmı **erişilebilir** yaptık.
-  **Yeni bir `.cizelge` tablosu eklersen** (ya da 3-4'ten fazla sütunlu başka
-  bir tablo yazarsan) aynı `<div class="cizelgekap">` sarmalayıcısını kullan
-  — CSS'te `.cizelge`'ye doğrudan `overflow-x` eklemedik çünkü `<table>`
-  öğesinin kendisinde bu güvenilir çalışmıyor, sarmalayan `<div>` şart.
+- **`.cizelge` dört-beş sütun + `nowrap` hücreler (tarih/saat gibi geniş
+  değerler) yüzünden tek `.sutun`un genişliğinde kolayca taşıyor** — taşan
+  kısım kartın dışında **sessizce kesik** kalıyordu (v6.113, kullanıcı
+  ekran görüntüsüyle bildirdi: "tablo kesik, tam görünmüyor"). Tablonun
+  kendisi hâlâ `nowrap` (README v6.37, sayılar okunaklı kalsın diye
+  bilinçli) — sütunları daraltmak çözüm değil.
+  - **`/istatistik`'in iki `.cizelge` tablosu**: sarmalayıcı
+    `<div class="cizelgekap">` (CSS'te `overflow-x: auto`) hâlâ duruyor —
+    `form.html`'in `.kalipolcek`'inin (v6.107) aynı deseni, tabloya değil
+    onu saran `<div>`'e uygulanıyor (`<table>`'ın kendisinde `overflow-x`
+    güvenilir çalışmıyor). Yeni bir çok-sütunlu `.cizelge` tablosu
+    eklersen aynı sarmalayıcıyı kullan.
+  - **Cycle ekranının zaman çizelgesi farklı — kaydırma DEĞİL, genişletme**
+    (v6.114, kullanıcının isteği: "yatay kaydırma yerine sadece zaman
+    çizelgesini uzat, başka hiçbir yeri uzatma — ne işlemi bitir butonunu
+    ne de embriyoloji özet formu butonunu"). `cycle_detay.html`'de bu kart
+    artık `.sutunlar`'ın **dışında**, iki sütunun ikisini birden kapsayan
+    tam genişlikte duruyor (`.kap.genis`'in kendi `--genis-sutun`
+    genişliği, ~940px'e kadar) — `.cizelgekap` kaydırma sarmalayıcısı
+    kaldırıldı. **Bu yalnızca gerçek iki-sütunlu (geniş masaüstü,
+    `--genis-sutun` ≳ 800px) görünümde işe yarıyor**: `.sutunlar` iki
+    380px'lik sütunu + 16px boşluğu (776px) sığdıramadığı her genişlikte
+    (dar telefon dahil, iki sütun zaten tek sütuna dizilmiş oluyor) kart
+    sığdığı tek sütunla **aynı genişlikte** kalıyor, tablo hâlâ taşabilir —
+    bu durumda kaydırma da yok, tuzak #5'in ("değiştirdiğin ekranı
+    tarayıcıda gerçek aç") hatırlattığı gibi **gerçekten dar bir telefonda
+    dördüncü sütun ("OPU'dan bu yana") hâlâ kesik görünebilir**. Kullanıcı
+    kaydırmayı bilerek istemedi, bu ödünü bilerek kabul etti — gerçek dar
+    telefon şikâyeti gelirse (genişletme fiziksel olarak yetmiyor) tekrar
+    kaydırmaya dönmeden önce ona sor.
 
 **`gun_alt()` / `son_alt()` `formlar.py`'de durur**, `disari.py` oradan alır.
 Örnek başına alt sorgu kuran iki küçük parça; iki kopya birbirinden ayrı

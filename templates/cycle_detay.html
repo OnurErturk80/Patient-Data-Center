@@ -187,37 +187,6 @@
   <button class="dugme" type="submit">{{ metin("iptali_geri_al") }}</button>
 </form>
 {% endif %}
-{# Aşama saatleri ve aralarında geçen süre (v6.37, kullanıcının isteği).
-   Ayrı bir kayıt tutulmuyor -- saatler zaten aşama ekranlarında elle
-   giriliyor, çizelge onlardan türüyor. Boşsa kart hiç basılmıyor. #}
-{% if cizelge %}
-<div class="kart" style="margin-top:16px">
-  <h2>{{ metin("zaman_cizelgesi") }}</h2>
-  {# `.cizelge` dört sütun + tarih/saat gibi geniş hücreler yüzünden dar
-     telefon ekranında taşıyor, taşan kısım kartın dışında kesik kalıyordu
-     (v6.113, kullanıcı ekran görüntüsüyle bildirdi). Tablo kendisi `nowrap`
-     kalmalı (README v6.37'de bilinçli), o yüzden sütun daraltmak yerine
-     `.kalipolcek`'in (form.html) zaten kullandığı desenle sarmalayıcıya
-     yatay kaydırma eklendi. #}
-  <div class="cizelgekap">
-  <table class="cizelge">
-    <tr>
-      <th>{{ metin("asama") }}</th><th>{{ metin("saat") }}</th>
-      <th>{{ metin("onceki_islemden") }}</th><th>{{ metin("opudan_bu_yana") }}</th>
-    </tr>
-    {% for z in cizelge %}
-    <tr>
-      <td class="ad">{{ z.ad }}</td>
-      <td>{{ gg_aa_yyyy_saat(z.zaman) }}</td>
-      <td>{{ say("n_saat", z.onceki_saat) if z.onceki_saat is not none else "" }}</td>
-      <td>{{ say("n_saat", z.opu_saat) if z.opu_saat is not none else "" }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  </div>
-  <div class="ipucu" style="padding:8px 14px">{{ metin("cizelge_ipucu") }}</div>
-</div>
-{% endif %}
 
 {# Programla gelen formlar, verisi dolu; yazdırılabilir sayfa olarak açılıyor.
    Yönetici bunları /formlar'dan gizleyebiliyor: başka bir laboratuvarda bu
@@ -242,6 +211,42 @@
 
 </div>
 </div>
+
+{# Aşama saatleri ve aralarında geçen süre (v6.37, kullanıcının isteği).
+   Ayrı bir kayıt tutulmuyor -- saatler zaten aşama ekranlarında elle
+   giriliyor, çizelge onlardan türüyor. Boşsa kart hiç basılmıyor.
+
+   Kart bilerek `.sutunlar`'ın DIŞINDA, iki sütunun ikisini de kapsayan tam
+   genişlikte duruyor (v6.114, kullanıcının isteği: "yatay kaydırma yerine
+   sadece zaman çizelgesini uzat, başka hiçbir yeri uzatma" -- v6.113'teki
+   `.cizelgekap` kaydırma denemesi geri alındı). `.cizelge` dört sütun +
+   tarih/saat gibi geniş hücreler yüzünden tek `.sutun`un genişliğine
+   (~380-460px) sığmıyordu; sütun daraltmak README v6.37'nin "sayılar
+   okunaklı kalsın" kararını bozardı. Kart `.sutunlar`'ın dışına, `.kap.
+   genis`in kendi `--genis-sutun` genişliğine (iki sütun toplamı kadar,
+   ~940px'e kadar) çıkarılınca tablo sığıyor -- kaydırmaya gerek kalmadı.
+   Bunu yaparken "İşlemi bitir" (`bt.dugme`) ve "Embriyoloji Özet Formu"
+   gibi düğmeler hâlâ kendi `.sutun`larının içinde, genişlikleri değişmedi. #}
+{% if cizelge %}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ metin("zaman_cizelgesi") }}</h2>
+  <table class="cizelge">
+    <tr>
+      <th>{{ metin("asama") }}</th><th>{{ metin("saat") }}</th>
+      <th>{{ metin("onceki_islemden") }}</th><th>{{ metin("opudan_bu_yana") }}</th>
+    </tr>
+    {% for z in cizelge %}
+    <tr>
+      <td class="ad">{{ z.ad }}</td>
+      <td>{{ gg_aa_yyyy_saat(z.zaman) }}</td>
+      <td>{{ say("n_saat", z.onceki_saat) if z.onceki_saat is not none else "" }}</td>
+      <td>{{ say("n_saat", z.opu_saat) if z.opu_saat is not none else "" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div class="ipucu" style="padding:8px 14px">{{ metin("cizelge_ipucu") }}</div>
+</div>
+{% endif %}
 
 {% set buyutec_ad = metin("doktor_notu") %}
 {% include "_buyutec.html" %}
