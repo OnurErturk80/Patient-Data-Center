@@ -2347,7 +2347,12 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
             kayitlar = db.sorgu(
                 ortak + " AND (CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?)"
                         " ORDER BY h.dosya_no",
-                (db.LAB_ID, durum, f"%{ara.strip()}%", f"%{ara.strip()}%"),
+                # `ad_soyad` her zaman büyük harfle kayıtlı (v6.115); SQLite'ın
+                # LIKE'ı yalnızca ASCII'de büyük/küçük harf ayrımı yapmıyor,
+                # Türkçe ı/İ/ş/Ş/ğ/Ğ/ö/Ö/ü/Ü/ç/Ç'de yapıyor. Arama terimini de
+                # `tr_buyuk()`'ten geçirmezsek küçük harfle Türkçe isim
+                # arayan kimse hiçbir sonuç bulamaz (v6.116, kullanıcı bildirdi).
+                (db.LAB_ID, durum, f"%{ara.strip()}%", f"%{tr_buyuk(ara.strip())}%"),
             )
             # Örnek kodu araması yalnızca tire içeren metinde çalışır: kod
             # `<dosya no>-<yıl>-<cycle>-<sıra>` biçiminde, tiresiz bir şey
@@ -3106,10 +3111,14 @@ def androloji_sperm_baglama_ekran(request: Request, cycle_id: int, ara: str = ""
         "JOIN hasta h ON h.id = sd.hasta_id "
         "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL")
     if ara.strip():
+        # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- SQLite'ın
+        # LIKE'ı Türkçe ı/ş/ğ/ö/ü/ç'de büyük/küçük harf eşitlemiyor, arama
+        # terimi de `tr_buyuk()`'ten geçmeli (v6.116). `t.etiket` bu kurala
+        # tabi değil, kendi yazıldığı gibi aranıyor.
         kayitlar = db.sorgu(
             taban + " AND (t.etiket LIKE ? OR CAST(h.dosya_no AS TEXT) LIKE ? "
             "OR h.ad_soyad LIKE ?) ORDER BY sd.dondurma_zamani DESC",
-            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%"))
+            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{tr_buyuk(ara)}%"))
     else:
         kayitlar = db.sorgu(
             taban + " ORDER BY sd.dondurma_zamani DESC", (db.LAB_ID,))
@@ -5334,7 +5343,10 @@ def cryo_harita(request: Request, ara: str = ""):
             # şey çoğu zaman elde tutulan kodun kendisidir.
             "  OR (CAST(h.dosya_no AS TEXT) || '-' || s.id) LIKE ?) "
             "ORDER BY k.tam_yol, t.etiket",
-            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{ara}%",
+            # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- arama
+            # terimi Türkçe ı/ş/ğ/ö/ü/ç için `tr_buyuk()`'ten geçmeli
+            # (v6.116), yoksa küçük harfle Türkçe isim aranınca sonuç çıkmaz.
+            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{tr_buyuk(ara)}%",
              f"%{ara}%"))
     else:
         tasiyicilar = db.sorgu(
@@ -5384,11 +5396,13 @@ def cryo_harita(request: Request, ara: str = ""):
         "LEFT JOIN hasta uh ON uh.id = uc.hasta_id "
         "WHERE sd.lab_id=? AND sd.iptal_mi=0")
     if ara.strip():
+        # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- arama
+        # terimi Türkçe ı/ş/ğ/ö/ü/ç için `tr_buyuk()`'ten geçmeli (v6.116).
         sperm_kayitlari = db.sorgu(
             sperm_taban + " AND (t.etiket LIKE ? OR k.tam_yol LIKE ? "
             "OR CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ?) "
             "ORDER BY k.tam_yol, t.etiket",
-            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{ara}%"))
+            (db.LAB_ID, f"%{ara}%", f"%{ara}%", f"%{ara}%", f"%{tr_buyuk(ara)}%"))
     else:
         sperm_kayitlari = db.sorgu(
             sperm_taban + " ORDER BY k.tam_yol, t.etiket", (db.LAB_ID,))

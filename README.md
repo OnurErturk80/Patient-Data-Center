@@ -8933,3 +8933,52 @@ hiçbir satırın değişmediği (idempotent) doğrulandı. Sunucu yeniden
 başlatılıp göçün açılışta kendiliğinden bulunup `goc_kaydi`'na
 kaydedildiği doğrulandı. Test hasta kayıtları ve oturum jetonu
 temizlendi, sunucu kapatıldı.
+
+# v6.116 — Küçük harfle Türkçe isim araması sonuç vermiyordu
+
+Kullanıcının bildirdiği hata: "hasta adı veya soyadı ile ararken küçük
+harf ile arama yaparsam hasta çıkmıyor." v6.115'in doğrudan sonucuydu:
+hasta adları artık her zaman büyük harfle kayıtlı, ama arama sorguları
+kullanıcının yazdığı terimi olduğu gibi `LIKE`'a veriyordu.
+
+## Sebep
+
+SQLite'ın `LIKE` operatörü büyük/küçük harf eşitlemesini **yalnızca
+ASCII harflerde** yapıyor — `'ali' LIKE '%ALI%'` eşleşir. Türkçe'ye özgü
+ı/İ, ş/Ş, ğ/Ğ, ö/Ö, ü/Ü, ç/Ç için eşitleme **yapmıyor**: `'ışık' LIKE
+'%IŞIK%'` eşleşmiyor, çünkü küçük 'ı' ve büyük 'I' farklı Unicode
+karakterler ve SQLite bunları Türkçe kuralına göre eşdeğer saymıyor.
+v6.115 öncesinde isimler kullanıcının yazdığı gibi (çoğunlukla karışık
+harfle) duruyordu, isim + arama terimi tesadüfen aynı harf biçimini
+paylaşma ihtimali daha yüksekti. Tüm isimler büyük harfe sabitlenince bu
+gizli sorun görünür oldu: Türkçe harf içeren hemen her isimde küçük
+harfle arama sıfır sonuç veriyordu.
+
+Doğrulama (Python REPL'de SQLite ile):
+```
+'ali'    LIKE '%ALI VELI%' -> eşleşir   (ASCII, sorun yok)
+'ışık'   LIKE '%IŞIK ÖZTÜRK%' -> eşleşmez  (Türkçe ı/İ)
+'öztürk' LIKE '%IŞIK ÖZTÜRK%' -> eşleşmez  (Türkçe ö/ü)
+```
+
+## Ne değişti
+
+`app.py`'de `h.ad_soyad LIKE` içeren dört sorguda (`/hastalar`,
+`/cycle/{id}/androloji/sperm-baglama`, `/cryo`'nun hem embriyo hem sperm
+dondurma aramaları) yalnızca `ad_soyad` karşılaştıran `?` parametresi
+`f"%{tr_buyuk(ara)}%"`'e çevrildi. Aynı sorgudaki **diğer** alanlar
+(dosya no, taşıyıcı etiketi, konum yolu, örnek kodu) dokunulmadan kaldı
+— onlar büyük harfe sabitlenmiş değil, `tr_buyuk()` onlara da
+uygulanırsa küçük harfli bir etiket/yol araması bozulurdu.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp `IŞIK ÖZTÜRK ÇELİK` adlı bir test hastası ve ona
+bağlı embriyo/sperm dondurma taşıyıcıları oluşturuldu. Dört arama
+ekranının hepsinde "ışık", "öztürk", "çelik" (küçük harf) ve "IŞIK"
+(büyük harf) terimleriyle hastanın bulunduğu doğrulandı. Taşıyıcı etiketi
+araması ("tst-1", "emb-tst") ayrı test edilip `tr_buyuk()`'ten
+etkilenmediği (küçük harfle hâlâ çalıştığı) doğrulandı. Diğer ekranlar
+(`/`, `/hastalar`, `/cryo`, `/cycle/{id}`) 200 döndürdü. Test hasta,
+cycle, specimen, olay, taşıyıcı, sperm dondurma kayıtları ve oturum
+jetonu temizlendi, sunucu kapatıldı.

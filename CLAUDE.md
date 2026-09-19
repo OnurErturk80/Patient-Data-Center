@@ -1278,6 +1278,24 @@ yazan tek yerler) yazmadan önce çağırıyor.
   Kullanıcı adı (`kullanici.ad_soyad`, personel) bu kuralın **dışında** —
   yalnızca hasta/eş isimleri için, personel isimleri kendi yazdığı gibi
   kalıyor.
+- **`h.ad_soyad LIKE` arayan her sorgu arama terimini de `tr_buyuk()`'ten
+  geçirmek ZORUNDA** (v6.116, kullanıcı bildirdi: "küçük harf ile arama
+  yaparsam hasta çıkmıyor"). `ad_soyad` her zaman büyük harfle kayıtlı
+  olduğu için sorgu `h.ad_soyad LIKE '%terim%'` şeklinde kalıyor ama SQLite'ın
+  `LIKE`'ı büyük/küçük harf eşitlemeyi **yalnızca ASCII'de** yapıyor
+  (`'ali' LIKE '%ALI%'` eşleşir) — Türkçe ı/İ/ş/Ş/ğ/Ğ/ö/Ö/ü/Ü/ç/Ç'de
+  yapmıyor (`'ışık' LIKE '%IŞIK%'` **eşleşmez**, farklı Unicode karakterler).
+  v6.115 hasta adlarını büyük harfe sabitleyince bu susmuş bir hata haline
+  geldi: Türkçe harf içeren hemen her isim için küçük harfle arama sıfır
+  sonuç veriyordu. Düzeltme dört yerde (`/hastalar`, `/cycle/{id}/androloji/
+  sperm-baglama`, `/cryo`'nun embriyo VE sperm dondurma aramaları) aynı:
+  `ad_soyad` karşılaştıran `?` parametresine `f"%{tr_buyuk(ara)}%"`,
+  **diğer** alanlara (dosya no, `t.etiket`, `k.tam_yol`, örnek kodu) hâlâ
+  ham `ara` — onlar büyük harfe sabitlenmiş değil, `tr_buyuk()` onlara
+  uygulanırsa küçük harfli bir etiket/yol araması bozulurdu. **Yeni bir
+  `ad_soyad`/`es_adi` arama sorgusu yazarsan bu deseni kopyala** — yalnızca
+  isim karşılaştıran parametreye `tr_buyuk()` uygula, aynı sorgudaki diğer
+  `LIKE` parametrelerine dokunma.
 
 **Silme = iptal işaretleme.** Normal akışta fiziksel silme yok. Kalıcı silme
 ayrı, bilinçli bir yol: dosya no yaz → `SIL` yaz → tarayıcı onayı.
