@@ -1551,6 +1551,14 @@ tarihsel arşiv değil **canlı envanter**.
   "tarih" geçen her kolonu tarıyor, bunu da bozuk tarih sanıp düzeltmeye
   davet ediyordu — kâğıdın aslını silmek olurdu. Böyle "ham metni saklayan"
   yeni bir kolon yazarsan sen de oraya ekle.
+- **`/cryo`'daki kart yöneticide KAYIT YOKKEN de basılır.** İlk yazışta
+  koşul `eski_ozet.toplam` idi: içeri alma ekranına giden tek bağlantı
+  oydu, yani Excel'i yüklemek için ancak yükledikten sonra girilebiliyordu
+  (kullanıcı bildirdi). Geliştirmede görülmedi çünkü veri doğrudan
+  Python'dan yüklenmiş, sıfırdan kurulum yolu yürünmemişti. **Bir
+  özelliğin tek giriş noktasını o özelliğin verisine bağlama**; yeni bir
+  akışı test ederken kullanıcının yürüyeceği yoldan yürü (boş kurulum →
+  ekran → yükleme), veriyi kestirmeden kurma.
 - Yükleme yalnızca yönetici (`yonetici_kontrol`), görüntüleme `cryo`
   izninde — ayrı modül açılmadı (sperm dondurmadaki gerekçe). Çıkarma
   rotası **`durum`** diye adlandırıldı, `sil` değil: o ad "silme" modülüne

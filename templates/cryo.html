@@ -108,12 +108,19 @@
    değil — ayrı bir KAYNAK (Excel'den gelen, hastası henüz bağlanmamış
    envanter). Arama doluyken sonuçları burada da gösteriyor, arama kutusu
    tek kalsın diye (v6.85'in gerekçesi). #}
-{% if eski_ozet and eski_ozet.toplam %}
+{# Kart, kayıt YOKKEN de yöneticiye basılır: içeri alma ekranına giden tek
+   bağlantı bu. İlk yazışta koşul `eski_ozet.toplam` idi ve tavuk-yumurta
+   oluyordu — Excel'i yüklemek için girilecek ekrana ancak yükledikten
+   sonra ulaşılabiliyordu (kullanıcı bildirdi). Kaydı olmayan bir labda
+   personele boş kart gösterilmiyor, yalnızca yöneticiye. #}
+{% if eski_ozet and (eski_ozet.toplam or (kullanici and kullanici.rol == "yonetici")) %}
 <div class="kart">
   <h2>{{ metin("eski_cryo") }}</h2>
   <div class="ipucu" style="padding:8px 14px">
+    {% if eski_ozet.toplam %}
     {{ eski_ozet.toplam }} · {{ eski_ozet.embriyo }} embriyo/oosit ·
     {{ eski_ozet.sperm }} sperm · {{ eski_ozet.eslesen }} {{ metin("eski_cryo_eslesen")|lower }}
+    {% else %}{{ metin("eski_cryo_henuz_yok") }}{% endif %}
   </div>
 
   {% for e in eski_kayitlar %}

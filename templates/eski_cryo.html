@@ -44,8 +44,15 @@
   <a class="dugme" href="/eski-cryo/eslestir">
     {{ metin("eski_cryo_eslestir") }} ({{ bekleyen }})</a>
   <div class="ipucu" style="padding:0 14px 10px">{{ metin("eski_cryo_bekleyen").format(n=bekleyen) }} · {{ ozet.eslesen }} {{ metin("eski_cryo_eslesen")|lower }}</div>
-  {% else %}
+  {% elif ozet.toplam %}
   <div class="ipucu" style="padding:0 14px 10px">{{ metin("eski_cryo_bekleyen_yok") }}</div>
+  {% else %}
+  {# Hiç kayıt yok: ekran boş bir kutu gibi görünmesin, ne yapılacağını söylesin.
+     Yönetici değilse yükleme kartı hiç basılmıyor -- kimin yapacağını yaz. #}
+  <div class="ipucu" style="padding:0 14px 10px">
+    {% if kullanici and kullanici.rol == "yonetici" %}{{ metin("eski_cryo_henuz_yok_yonetici") }}
+    {% else %}{{ metin("eski_cryo_henuz_yok_personel") }}{% endif %}
+  </div>
   {% endif %}
 </div>
 

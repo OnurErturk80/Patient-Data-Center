@@ -10109,6 +10109,21 @@ sessizce yutulmadı: yükleme ekranı sayfa sayfa uyarıyor.
   Embriyo/Sperm Dondurma iki bağımsız modüldü; bu üçüncü bir modül değil,
   ayrı bir **kaynak**. Arama kutusu tek kalsın diye (v6.85) aynı `ara` bu
   kartı da süzüyor.
+  - **İlk yazışta bu kart `{% if eski_ozet.toplam %}` ile koşulluydu ve
+    tavuk-yumurta oluyordu**: Excel'i yüklemek için girilecek ekrana ancak
+    yükledikten sonra ulaşılabiliyordu. Kullanıcı bildirdi ("Program Öncesi
+    Cryo Haritası → Excel'den içeri al bende gözükmüyor") — geliştirme
+    sırasında görülmedi çünkü kayıtlar `/cryo` ilk kez açılmadan önce
+    doğrudan Python'dan içeri alınmıştı, yani **sıfırdan kurulum yolu hiç
+    yürünmemişti**. Koşul artık "kayıt var **ya da** kullanıcı yönetici":
+    yönetici ekrana her zaman ulaşıyor, personele boş kart basılmıyor.
+    **Ders**: bir özelliğin tek giriş noktasını o özelliğin verisine bağlama
+    — ve yeni bir akışı test ederken veriyi kestirmeden değil, kullanıcının
+    yürüyeceği yoldan (boş kurulum → ekran → yükleme) kur.
+  - `/eski-cryo` kayıt yokken artık ne yapılacağını yazıyor: yöneticiye
+    "aşağıdaki Excel'den içeri al ile yükleyin", personele "bunu yönetici
+    yükler" — yükleme kartı ona hiç basılmadığı için ekran sessiz bir
+    çıkmaz olmasın diye.
 - **Hasta kartı** — o hastaya **bağlanmış** eski kayıtlar. Bağlama elle
   onaylandığı için buradaki kimlik kesin.
 

@@ -1839,6 +1839,16 @@ METINLER = {
         "en": "Nothing to match right now. When a patient is entered, their "
               "old records appear here automatically."},
     "eski_cryo_bos": {"tr": "Kayıt yok.", "en": "No records."},
+    "eski_cryo_henuz_yok": {"tr": "Henüz içeri alınmadı.",
+                            "en": "Not imported yet."},
+    "eski_cryo_henuz_yok_yonetici": {
+        "tr": "Henüz kayıt yok. Laboratuvarın eski Excel haritasını aşağıdaki "
+              "\u201cExcel'den içeri al\u201d ile yükleyin.",
+        "en": "No records yet. Import the lab's old Excel map with "
+              "\u201cImport from Excel\u201d below."},
+    "eski_cryo_henuz_yok_personel": {
+        "tr": "Henüz kayıt yok. Eski cryo haritasını yönetici yükler.",
+        "en": "No records yet. An administrator imports the old cryo map."},
     "eski_cryo_tarih_yok": {"tr": "tarih girilmemiş", "en": "no date recorded"},
     "eski_cryo_tarih_okunmadi": {"tr": "tarih okunamadı: {x}",
                                  "en": "unreadable date: {x}"},
