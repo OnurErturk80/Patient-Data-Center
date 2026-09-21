@@ -102,4 +102,37 @@
 
 </div>
 </div>{# sutunlar #}
+
+{# Programdan önceki harita (v6.127). `.sutunlar`ın DIŞINDA, tam genişlikte:
+   iki sütun Embriyo/Sperm Dondurma modülleri içindi, bu üçüncü bir modül
+   değil — ayrı bir KAYNAK (Excel'den gelen, hastası henüz bağlanmamış
+   envanter). Arama doluyken sonuçları burada da gösteriyor, arama kutusu
+   tek kalsın diye (v6.85'in gerekçesi). #}
+{% if eski_ozet and eski_ozet.toplam %}
+<div class="kart">
+  <h2>{{ metin("eski_cryo") }}</h2>
+  <div class="ipucu" style="padding:8px 14px">
+    {{ eski_ozet.toplam }} · {{ eski_ozet.embriyo }} embriyo/oosit ·
+    {{ eski_ozet.sperm }} sperm · {{ eski_ozet.eslesen }} {{ metin("eski_cryo_eslesen")|lower }}
+  </div>
+
+  {% for e in eski_kayitlar %}
+  <a class="satir" href="/eski-cryo?ara={{ ara|urlencode }}">
+    <div class="no">{{ e.soyad }} {{ e.ad }}
+      {% if e.es_adi %}<span class="meta">· {{ e.es_adi }}</span>{% endif %}</div>
+    <div class="meta">{{ e.tam_yol or "—" }}{% if e.icerik %} · {{ e.icerik }}{% endif %}
+      {% if e.hasta_id %} · {{ e.dosya_no }}{% endif %}</div>
+  </a>
+  {% endfor %}
+  {% if ara and not eski_kayitlar %}
+  <div class="bos">{{ metin("eski_cryo_bos") }}</div>
+  {% endif %}
+
+  <a class="dugme ikincil" href="/eski-cryo">{{ metin("eski_cryo_uzun") }}</a>
+  {% if eski_bekleyen %}
+  <a class="dugme" href="/eski-cryo/eslestir">
+    {{ metin("eski_cryo_eslestir") }} ({{ eski_bekleyen }})</a>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

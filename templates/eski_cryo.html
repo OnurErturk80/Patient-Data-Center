@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("eski_cryo_uzun") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block govde %}genissayfa{% endblock %}
+{% block icerik %}
+
+{# Liste ekranı: tek geniş sütun, iki sütuna BÖLÜNMÜYOR (CLAUDE.md "İki
+   sütun her ekranın çözümü değil" — satırlar soldan sağa okunan tek bir
+   akış, `/bitenler` ve `/klasorler` ile aynı kategori). Üstteki özet ve
+   yükleme kartları listenin üstünde duruyor. #}
+
+{% if goc_gerekli %}
+<div class="kart">
+  <div class="uyari">{{ metin("eski_cryo_goc_gerekli") }}</div>
+</div>
+{% else %}
+
+<div class="kart">
+  <h2>{{ metin("eski_cryo_uzun") }}</h2>
+  <div class="ipucu" style="padding:8px 14px 0">{{ metin("eski_cryo_aciklama") }}</div>
+
+  {% if hata %}<div class="uyari">{{ metin(hata) }}</div>{% endif %}
+  {% if sonuc %}
+  {% set s = sonuc.split("/") %}
+  <div class="uyari">
+    {{ metin("eski_cryo_sonuc").format(x=s[0], y=s[1] if s|length > 1 else "0",
+                                       z=s[2] if s|length > 2 else "0") }}
+  </div>
+  {% endif %}
+
+  <div class="ozet ozetsar">
+    <div><div class="sayi">{{ ozet.toplam }}</div>
+      <div class="etiket">{{ metin("eski_cryo_toplam") }}</div></div>
+    <div><div class="sayi">{{ ozet.embriyo }}</div>
+      <div class="etiket">{{ metin("embriyo_dondurma") }}</div></div>
+    <div><div class="sayi">{{ ozet.sperm }}</div>
+      <div class="etiket">{{ metin("sperm_dondurma") }}</div></div>
+    <div><div class="sayi">{{ ozet.eslesmeyen }}</div>
+      <div class="etiket">{{ metin("eski_cryo_eslesmeyen") }}</div></div>
+  </div>
+
+  {% if bekleyen %}
+  <a class="dugme" href="/eski-cryo/eslestir">
+    {{ metin("eski_cryo_eslestir") }} ({{ bekleyen }})</a>
+  <div class="ipucu" style="padding:0 14px 10px">{{ metin("eski_cryo_bekleyen").format(n=bekleyen) }} · {{ ozet.eslesen }} {{ metin("eski_cryo_eslesen")|lower }}</div>
+  {% else %}
+  <div class="ipucu" style="padding:0 14px 10px">{{ metin("eski_cryo_bekleyen_yok") }}</div>
+  {% endif %}
+</div>
+
+{% if tanklar %}
+<div class="kart">
+  <h2>{{ metin("tanklar") }}</h2>
+  {% for t in tanklar %}
+  <a class="satir" href="/eski-cryo?ara={{ t.tank|urlencode }}">
+    <div class="no">{{ t.tank }}</div>
+    <div class="meta">{{ t.adet }} · {{ t.embriyo }} embriyo/oosit · {{ t.sperm }} sperm</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# Yükleme yalnızca yöneticide — rotanın kendisi de `yonetici_kontrol()`
+   ile başlıyor; düğmeyi gizlemek tek başına yeterli değil (CLAUDE.md). #}
+{% if kullanici and kullanici.rol == "yonetici" %}
+<div class="kart">
+  <h2>{{ metin("eski_cryo_yukle") }}</h2>
+  <form method="post" action="/eski-cryo/yukle" enctype="multipart/form-data">
+    <div class="alan">
+      <input type="file" name="dosya" accept=".xlsx" required>
+    </div>
+    <div class="ipucu" style="padding:0 14px 10px">{{ metin("eski_cryo_yukle_ipucu") }}</div>
+    <button class="dugme" type="submit">{{ metin("eski_cryo_yukle") }}</button>
+  </form>
+</div>
+{% endif %}
+
+<form class="arama" method="get" action="/eski-cryo">
+  <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
+         placeholder="{{ metin('eski_cryo_ara_ipucu') }}">
+  {% if kategori %}<input type="hidden" name="kategori" value="{{ kategori }}">{% endif %}
+  {% if eslesmeyen %}<input type="hidden" name="eslesmeyen" value="1">{% endif %}
+</form>
+
+<div class="kart">
+  <h2>{{ metin("eski_cryo") }} ({{ toplam }})</h2>
+
+  {# Süzgeçler adreste taşınıyor: biri değişirken öteki sıfırlanmasın
+     (`/hastalar`'ın ay+arama ikilisindeki kural). #}
+  <div class="ipucu" style="padding:8px 14px">
+    <a href="/eski-cryo?{% if ara %}ara={{ ara|urlencode }}&{% endif %}{% if eslesmeyen %}eslesmeyen=1{% endif %}"
+       {% if not kategori %}style="font-weight:700"{% endif %}>{{ metin("eski_cryo_hepsi") }}</a> ·
+    <a href="/eski-cryo?kategori=embriyo{% if ara %}&ara={{ ara|urlencode }}{% endif %}{% if eslesmeyen %}&eslesmeyen=1{% endif %}"
+       {% if kategori == "embriyo" %}style="font-weight:700"{% endif %}>{{ metin("embriyo_dondurma") }}</a> ·
+    <a href="/eski-cryo?kategori=sperm{% if ara %}&ara={{ ara|urlencode }}{% endif %}{% if eslesmeyen %}&eslesmeyen=1{% endif %}"
+       {% if kategori == "sperm" %}style="font-weight:700"{% endif %}>{{ metin("sperm_dondurma") }}</a> ·
+    <a href="/eski-cryo?eslesmeyen={{ 0 if eslesmeyen else 1 }}{% if ara %}&ara={{ ara|urlencode }}{% endif %}{% if kategori %}&kategori={{ kategori }}{% endif %}"
+       {% if eslesmeyen %}style="font-weight:700"{% endif %}>{{ metin("eski_cryo_yalniz_eslesmeyen") }}</a>
+  </div>
+
+  {% if not kayitlar %}
+  <div class="ipucu" style="padding:8px 14px">{{ metin("eski_cryo_bos") }}</div>
+  {% endif %}
+
+  {% for e in kayitlar %}
+  <div class="satir" style="display:block">
+    <div class="no">
+      {{ e.soyad }} {{ e.ad }}
+      {% if e.es_adi %}<span class="meta">· {{ metin("eski_cryo_es") }}: {{ e.es_adi }}</span>{% endif %}
+      {% if e.durum == "cikarildi" %}<span class="rozet">{{ metin("eski_cryo_cikarildi") }}</span>{% endif %}
+    </div>
+    <div class="meta">
+      {{ e.tam_yol or "—" }}
+      {% if e.icerik %} · {{ e.icerik }}{% endif %}
+      {% if e.vial_metni %} · {{ e.vial_metni }}{% endif %}
+    </div>
+    <div class="meta">
+      {% if e.tarih %}{{ gg_aa_yyyy(e.tarih) }}
+      {% elif e.tarih_notu %}{{ metin("eski_cryo_tarih_okunmadi").format(x=e.tarih_notu) }}
+      {% else %}{{ metin("eski_cryo_tarih_yok") }}{% endif %}
+      · {{ metin("eski_cryo_kaynak").format(s=e.kaynak_sayfa, n=e.kaynak_satir) }}
+    </div>
+    <div class="meta">
+      {% if e.hasta_id %}
+        <a href="/hasta/{{ e.hasta_id }}">{{ e.dosya_no }} — {{ e.hasta_adi }}</a>
+        <form method="post" action="/eski-cryo/{{ e.id }}/bagla" style="display:inline">
+          <input type="hidden" name="hasta_id" value="">
+          <input type="hidden" name="donus" value="/eski-cryo">
+          <button class="dugme ikincil" type="submit">{{ metin("eski_cryo_bagi_kopar") }}</button>
+        </form>
+      {% else %}
+        <span class="rozet">{{ metin("eski_cryo_eslesmeyen") }}</span>
+      {% endif %}
+      <form method="post" action="/eski-cryo/{{ e.id }}/durum" style="display:inline">
+        <input type="hidden" name="durum" value="{{ 'dolu' if e.durum == 'cikarildi' else 'cikarildi' }}">
+        <input type="hidden" name="donus" value="/eski-cryo">
+        <button class="dugme ikincil" type="submit">
+          {{ metin("eski_cryo_geri_koy") if e.durum == "cikarildi" else metin("eski_cryo_cikar") }}
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if sayfa_toplam > 1 %}
+  <nav class="aygezgin" style="margin-top:8px" aria-label="{{ metin('sayfalar') }}">
+    {% set kuyruk %}{% if ara %}&ara={{ ara|urlencode }}{% endif %}{% if kategori %}&kategori={{ kategori }}{% endif %}{% if eslesmeyen %}&eslesmeyen=1{% endif %}{% endset %}
+    {% if sayfa > 1 %}
+    <a class="ok" href="/eski-cryo?sayfa={{ sayfa - 1 }}{{ kuyruk }}"
+       aria-label="{{ metin('onceki_sayfa') }}" title="{{ metin('onceki_sayfa') }}">&#8249;</a>
+    {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+    <span class="sayfabilgi">{{ metin("sayfa_x_y").format(x=sayfa, y=sayfa_toplam) }}</span>
+    {% if sayfa < sayfa_toplam %}
+    <a class="ok" href="/eski-cryo?sayfa={{ sayfa + 1 }}{{ kuyruk }}"
+       aria-label="{{ metin('sonraki_sayfa') }}" title="{{ metin('sonraki_sayfa') }}">&#8250;</a>
+    {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+  </nav>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

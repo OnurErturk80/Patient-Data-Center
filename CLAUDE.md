@@ -114,7 +114,9 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..034.py   veritabanı göçleri (sırayla)
+  goc_002..042.py   veritabanı göçleri (sırayla)
+  eski_cryo.py      programdan önceki cryo haritası (v6.127):
+                    Excel'i çözer, içeri alır, hasta adayı önerir
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -1477,6 +1479,82 @@ kur.
 
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
+
+**Programdan önceki cryo haritası ayrı bir tabloda, `konum`u paylaşarak**
+(v6.127, `goc_042`, `eski_cryo.py`). Laboratuvar 2011'den beri haritasını
+Excel'de tutuyordu; 5.415 kayıt / ~2.600 kişi programa alındı. Kullanıcının
+yanıtı belirleyici: **haritadaki her satır hâlâ tankta duran bir örnek**,
+tarihsel arşiv değil **canlı envanter**.
+- **Sahte `cycle`/`specimen`/`olay` satırı AÇMA.** "Her satıra bir
+  vitrifikasyon olayı yazalım, harita kendiliğinden dolsun" akla ilk gelen
+  yol ama `/cryo` ve `/istatistik` türetilmiş ekranlar, ikisi de `olay`'dan
+  sayıyor — 15 yıllık, klinik ayrıntısı olmayan envanteri oraya yazmak
+  M2/fertilizasyon/blastokist oranlarını geri dönülmez biçimde bozardı.
+- **`konum` PAYLAŞILIR** (`eski_cryo.konum_id`), şart: program "bu goblet
+  dolu mu" sorusunu `konum`dan yanıtlıyor. Ayrı bir konum kavramı, 2019'dan
+  kalma bir embriyonun durduğu gobleti **boş** gösterir ve oraya yeni bir
+  vitrifikasyon yerleştirilmesine izin verirdi. `konum_semasi` zaten Excel'in
+  hiyerarşisiyle birebir (Tank / Kanister / Goblet / Pozisyon).
+- **`tasiyici` PAYLAŞILMAZ.** Her eski satıra bir `tasiyici` açmak
+  `/cryo`'nun Embriyo Dondurma listesini (`t.durum='dolu' AND
+  t.kategori='embriyo'`) 3.879 tane içeriği görünmeyen taşıyıcıyla
+  doldururdu — o liste `olay` üzerinden sayıyor. Taşıyıcının tip/renk/adet
+  bilgisi `eski_cryo`'nun kendi kolonlarında; `tasiyici` "programın kendi
+  açtığı taşıyıcı" anlamını koruyor.
+- **`hasta_id` NULL başlar ve isimle OTOMATİK BAĞLANMAZ.** Dosyada dosya
+  numarası yok, yalnızca isim var. Ölçüldü: ad+soyad 1.997 kişiye denk
+  geliyor, eş adı 26 ayrım daha koyuyor ve 17 kişide aynı ad-soyad farklı
+  eş adı taşıyor (13'ü gerçekten farklı isim) — yani **ad-soyad ana
+  anahtar, eş adı hakem**. Sperm satırlarının %98'inde eş adı hiç yok.
+  `aday_hastalar()` aday **önerir** (TAM / ISIM / CELISKILI / KISMI),
+  bağlamayı hep kullanıcı onaylar. v6.125'in "isimle eşleştirme yok"
+  kuralı böylece gevşetilmiş olmuyor. İsim karşılaştırması **kelime
+  kümesiyle** yapılıyor: Excel'de soyad/ad ayrı sütunlarda, programda tek
+  "Ad soyad" kutusu var: "<soyad> <ad>" ile "<ad> <soyad>" aynı kişi.
+- **Eşleştirme listesi türetilmiş**, saklanan bir "yapılacaklar" tablosu
+  yok: sorgu "programda adayı olan, henüz bağlanmamış eski kayıtlar" diye
+  soruyor, yani hasta programa girildiğinde eski kayıtları listeye
+  kendiliğinden düşüyor. Elle yeniden-tarama adımı yazma.
+- **İçeri alma idempotent**: `UNIQUE (lab_id, kaynak_sayfa, kaynak_satir,
+  kaynak_sutun)`. Aynı dosya yeniden yüklenirse satır güncellenir, elle
+  kurulmuş `hasta_id` **korunur** (UPDATE o kolona dokunmuyor). İki aşamalı,
+  bilerek: önce konumlar (`konum_bul_veya_olustur` kendi bağlantısını açar),
+  SONRA satırlar tek `yazma_islemi()` içinde — karıştırılırsa `BEGIN
+  IMMEDIATE` kilidi kendi kendini bekler.
+- **Tuzak #4'ün TERSİ**: `hasta_sil()` kalıcı silme dalında
+  `eski_cryo.hasta_id` NULL'a çekilir, **kayıt silinmez** — hasta dosyası
+  silindi diye tankta duran örnek kaybolmamalı. Aynı adım
+  `teshis_silme.py`'de de var.
+- **`xlsx_oku.izgara()`** genel bir okuyucu (`.xlsx` → `{sayfa: {(satır,
+  sütun): metin}}`), `kalip()` ile **okuma altyapısını paylaşıyor**
+  (`_xml`, `_paylasilan`, `_sutun_no`) — ZIP'i güvenle açan ve
+  `<!DOCTYPE`/`<!ENTITY` denetimi yapan tek yol orada dursun diye. İkinci
+  bir okuyucu yazma. `openpyxl` **sokma** (`excel.py`'nin gerekçesi).
+  Izgara **1'den sayar** (`_adres_coz()` 0'dan sayar, o kalıp içindi):
+  satır numarası kullanıcıya rapor ediliyor, Excel'de gördüğüyle tutmalı.
+  Çözümleme `openpyxl` referansıyla karşılaştırıldı, 5.415 kayıt birebir
+  aynı — okuyucuya dokunursan bu karşılaştırmayı tekrar çalıştır (v6.45'te
+  karekod için yapılanın aynısı).
+- **Kâğıt düzeninin üç tuzağı** (üçü de yanlış sonuç verdi, README v6.127):
+  başlık satırı **dikey olarak da** tekrarlanıyor (blok sayfanın sonuna
+  kadar okunursa 595 satır 10.535 kayıt verir); bazı bloklarda "AD"/"TARİH"
+  başlığı **hiç yazılmamış** (141 kayıt kaybolmuştu, eksik alan SOYAD'a
+  göre kanonik kaymadan ve yalnızca **boştaki** sütuna tamamlanıyor); aynı
+  etiket iki türlü yazılmış ("CANISTER"/"CANİSTER", "NO"/"HARF").
+  `_n()` başlık tanımada 'İ'yi 'I'ya indirir — **hasta adlarına uygulama**,
+  onlar `tr_buyuk()`'ten geçer (v6.115); tank adı da `_n()` kullanmaz.
+- **Kategori satırın kendi `HÜCRE` metninden**, sayfa adından değil: bir
+  sayfada embriyo ve sperm satırları birlikte duruyor.
+- **`eski_cryo.tarih_notu` `tarih_duzelt.py`'nin `ATLA_KOLON`'unda.** O
+  kolon bilerek **okunamayan ham metni** tutuyor (kâğıtta ne yazdığı
+  kaybolmasın diye; kaydın kendi `tarih`'i NULL kalıyor). Araç adında
+  "tarih" geçen her kolonu tarıyor, bunu da bozuk tarih sanıp düzeltmeye
+  davet ediyordu — kâğıdın aslını silmek olurdu. Böyle "ham metni saklayan"
+  yeni bir kolon yazarsan sen de oraya ekle.
+- Yükleme yalnızca yönetici (`yonetici_kontrol`), görüntüleme `cryo`
+  izninde — ayrı modül açılmadı (sperm dondurmadaki gerekçe). Çıkarma
+  rotası **`durum`** diye adlandırıldı, `sil` değil: o ad "silme" modülüne
+  düşerdi ve bu bir silme değil, envanter işareti.
 
 **Embriyo cycle değiştirmez; üç alan üç soruyu yanıtlar.**
 `specimen.cycle_id` nereden geldiği (OPU/ICSI cycle'ı, değişmez),

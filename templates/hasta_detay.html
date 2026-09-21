@@ -52,6 +52,26 @@
 </div>
 {% endif %}
 
+{# Program öncesi cryo haritasından bu hastaya bağlanmış kayıtlar (v6.127).
+   Bağlama isimden ÖNERİLİYOR ama elle onaylanıyor — burada yalnızca
+   onaylanmışlar var, o yüzden hasta kimliği kesin. #}
+{% if yetkim("cryo") and eski_cryo_kayitlari %}
+<div class="kart">
+  <h2>{{ metin("eski_cryo_hasta_karti") }}</h2>
+  {% for e in eski_cryo_kayitlari %}
+  <a class="satir" href="/eski-cryo?ara={{ (e.soyad ~ ' ' ~ e.ad)|trim|urlencode }}">
+    <div class="no">{{ e.icerik or metin("eski_cryo") }}
+      {% if e.durum == "cikarildi" %}<span class="rozet arsiv">{{ metin("eski_cryo_cikarildi") }}</span>{% endif %}</div>
+    <div class="meta">
+      {% if e.tarih %}{{ gg_aa_yyyy(e.tarih) }}{% else %}{{ metin("eski_cryo_tarih_yok") }}{% endif %}
+      {%- if e.tam_yol %} · {{ e.tam_yol }}{% endif %}
+      {%- if e.vial_metni %} · {{ e.vial_metni }}{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="kart">
   <h2>{{ metin("cycleler") }}</h2>
   {% for c in cycles %}

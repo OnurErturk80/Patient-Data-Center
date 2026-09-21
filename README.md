@@ -9909,3 +9909,257 @@ Playwright ile sekiz durum:
 Ayrıca 24 ekran 200 döndü, sunucu günlüğünde hata yok. Betik yazdırma
 ekranlarında da var (`/form/ozet/{id}`, `/baglan`) — `{% block tazeleme %}`'nin
 **dışına** konuldu, o blok oralarda boşaltılıyor.
+
+---
+
+# v6.127 — programdan önceki cryo haritası programa girdi
+
+Kullanıcının isteği: "Bu excelde laboratuvarımdaki cryo harita kayıtları var.
+Bu haritayı programa yerleştirmek istiyorum. Cryo haritası bölümüne
+yerleştirmek istiyorum. Bu harita programdan önce oluşturuldu. O yüzden
+programa nasıl entegre edebileceğimi tam anlamıyla bilemiyorum. Hasta
+kayıtları ile eşleştirmek için cryo haritadaki hastalar ile programdaki
+hastaları nasıl eşleştirebilirim."
+
+Laboratuvar 2011'den beri kriyo haritasını Excel'de tutuyordu: 6 sayfa,
+**5.415 kayıt**, ~2.600 kişi. Program yazıldığında bu kayıtlar dışarıda
+kalmıştı.
+
+## Önce dört soru soruldu, dördü de kullanıcının kararı
+
+Klinik varsayım yapılmadı (CLAUDE.md "Klinik bir varsayım yapman gerekiyorsa
+yapma — kullanıcıya sor"). Yanıtlar:
+
+1. **Haritadaki her satır hâlâ tankta duran bir örnek** — kullanılmış/çözülmüş
+   kayıt listesi değil, **canlı envanter**. (Dosyada üstü çizili tek hücre
+   yok, renkli hücreler dağınık: sistematik bir "kullanıldı" işareti
+   bulunamamıştı, o yüzden soruldu.)
+2. **Hepsi girecek** — yıl sınırı yok.
+3. **Embriyo listesinde eşi geçmeyen erkeklere kendi hasta kayıtları açılacak**
+   (607 sperm kişisinin yalnızca 64'ü embriyo listesindeki bir eşle aynı
+   soyad+ad taşıyor; kalan 543 muhtemelen onkoloji hastası — v6.86'da
+   öngörülen durum).
+4. **Tarihi olmayan satırlar "tarih girilmemiş" diye gösterilecek.**
+
+Birinci yanıt tasarımı değiştirdi: ilk öneri "ayrı, salt okunur tarihsel
+katman"dı; canlı envanter olduğu anlaşılınca **`konum` tablosunun
+paylaşılması** zorunlu hale geldi (aşağıda).
+
+## Eşleştirme sorusunun cevabı: üçlü eşleşir, ama bağlamayı insan onaylar
+
+Dosyada **hasta dosya numarası hiç yok**, yalnızca isim var. Programın tek
+güvendiği kimlik ise `dosya_no` (`UNIQUE (lab_id, dosya_no)`) ve v6.125'te
+kullanıcının kendi kararı "isimle eşleştirme yok, dosya numarası
+üzerinden"di.
+
+Kullanıcı sordu: "Excelde hasta adı soyadı ve eşinin adı var. Bu üç parametre
+ile eşleştirme yapabilir miyiz?" Tahmin edilmedi, **ölçüldü**:
+
+| | |
+|---|---|
+| Benzersiz (soyad + ad) | 1.997 kişi |
+| Benzersiz (soyad + ad + eş) | 2.023 kişi |
+| Eş adının kazandırdığı ek ayrım | 26 |
+| Aynı ad-soyad, 2+ farklı eş adı | 17 kişi (13'ü gerçekten farklı isim) |
+| Eş adı **boş** olan embriyo satırı | 932 (449 kişi) |
+| Eş adı olan sperm satırı | 1.531'in yalnızca 32'si |
+| Türkçe harf/boşluk yüzünden ayrı düşen isim grubu | 4 (13 satır) |
+
+Yani **ad-soyad ana anahtar, eş adı hakem**: 2.000 kişide 13 gerçek
+çakışmayı o ayırıyor — ama tam da o 13 tanesi en tehlikeli olanlar (aynı
+isimli iki farklı kadın). Sperm tarafında üçlü hiç kurulamıyor.
+
+Karar: **isim yalnızca ADAY öneriyor, bağlamayı her zaman insan onaylıyor.**
+Böylece "isimle eşleştirme yok" kuralı gevşetilmiş olmuyor — program
+kendiliğinden hiçbir kaydı bağlamıyor, elimizdeki tek anahtar yine de işe
+yarıyor. Ölçü şu: Excel'in **kendi içinde** tekil olması satırları kişilere
+gruplamaya yeter, ama programa karşı güvenli bir anahtar olmasına yetmez;
+program yıllar içinde yeni hastalarla dolacak ve isim çakışmaları artacak.
+
+## Depolama: `konum` paylaşılıyor, `tasiyici` paylaşılmıyor
+
+Yeni tablo **`eski_cryo`** (`goc_042`). Üç karar:
+
+- **Sahte `cycle`/`specimen`/`olay` satırı açılmadı.** Akla ilk gelen yol
+  "her satır için bir vitrifikasyon olayı yazalım, harita kendiliğinden
+  dolsun"du. Yapılmadı: `/cryo` ve `/istatistik` türetilmiş ekranlar
+  (v6.38'in "sayaç tutma, her açılışta türet" gerekçesi) ve ikisi de `olay`
+  tablosundan sayıyor. 15 yıllık, klinik ayrıntısı olmayan envanteri oraya
+  sahte olay diye yazmak M2/fertilizasyon/blastokist oranlarını geri
+  dönülmez biçimde bozardı — sonra hangi sayının gerçek olduğu bir daha
+  ayrılamazdı.
+
+- **`konum` tablosu PAYLAŞILIYOR** (`eski_cryo.konum_id`). Bu, birinci
+  yanıtın doğrudan sonucu: program "bu goblet dolu mu" sorusunu `konum`dan
+  yanıtlıyor. Eski kayıtlar ayrı bir konum kavramı kullansaydı program
+  2019'dan kalma bir embriyonun durduğu gobleti **boş** gösterir, oraya yeni
+  bir vitrifikasyon yerleştirilmesine izin verirdi. Kabul edilemez.
+  Şemadaki `konum_semasi` zaten Excel'in hiyerarşisiyle birebir: Tank /
+  Kanister / Goblet / Pozisyon.
+
+- **`tasiyici` tablosu paylaşılmıyor**, bilerek. Her eski satır için bir
+  `tasiyici` satırı açmak `/cryo`'nun mevcut Embriyo Dondurma listesini
+  (`WHERE t.durum='dolu' AND t.kategori='embriyo'`) 3.879 tane **içeriği
+  görünmeyen** taşıyıcıyla doldururdu: o liste `olay` üzerinden sayıyor,
+  eski kayıtların `olay` satırı yok. Taşıyıcının bilgisi (tip/renk/adet)
+  bu yüzden `eski_cryo`'nun kendi kolonlarında; `tasiyici` "programın kendi
+  açtığı taşıyıcı" anlamını koruyor. Tarayıcıda doğrulandı: yükleme sonrası
+  `/cryo`'nun Embriyo Dondurma kartı hâlâ "Dolu taşıyıcılar (0)" diyor.
+
+`eski_cryo.id` **`AUTOINCREMENT`** — kimlik adrese yazılıyor
+(`/eski-cryo/{id}/bagla`), tuzak #13.
+
+`UNIQUE (lab_id, kaynak_sayfa, kaynak_satir, kaynak_sutun)`: içeri alma
+**idempotent**. Kullanıcı Excel'i düzeltip yeniden yüklerse aynı hücre
+ikinci bir kayıt açmıyor, mevcut satır güncelleniyor — ve **elle kurulmuş
+`hasta_id` eşleşmesi korunuyor** (UPDATE o kolona dokunmuyor). Ölçüldü: ilk
+yükleme 4,5 sn, ikincisi 0,1 sn.
+
+`liste_degeri.tasiyici_tipi`'ne **Rapid-i** ve **Vitrifit** eklendi — eski
+haritada geçen iki marka (Cryolock/Cryotop/Straw/Vial zaten vardı).
+
+## Excel kütüphanesiz okunuyor — ve referansla birebir doğrulandı
+
+`xlsx_oku.py`'ye yeni bir **`izgara(baytlar)`** fonksiyonu eklendi:
+`.xlsx` → `{sayfa adı: {(satır, sütun): metin}}`. `kalip()` bir form kalıbı
+çıkarıyor (punto, kenarlık, görsel); `izgara()` yalnızca "hangi hücrede ne
+yazıyor" diye soruyor — veri tablosu için gereken bu. **Okuma altyapısı
+ortak** (`_xml`, `_paylasilan`, `_sutun_no`): ZIP'i güvenle açan,
+`<!DOCTYPE`/`<!ENTITY` denetimi yapan tek yol orada dursun diye. İkinci bir
+okuyucu yazılsaydı korumalar ayrı düşerdi.
+
+`openpyxl` **kullanılmadı** (`excel.py`/`karekod.py`'deki gerekçenin aynısı:
+klinikteki Windows mini PC'ye kurulum adımı eklemek yok). Tarih hücreleri
+dosyada gün sayacı olarak duruyor (`43922`); `_tarihli_stiller()` hücrenin
+stilinin tarih biçimi taşıyıp taşımadığını `styles.xml`'den çözüp ISO'ya
+çeviriyor.
+
+**Izgara 1'den sayıyor** (`_adres_coz()` 0'dan sayıyor, o kalıp içindi):
+satır numarası kullanıcıya rapor ediliyor ("Kaynak: TANK 4, satır 461") ve
+Excel'de gördüğü numarayla birebir tutmalı.
+
+**Doğrulama**: çözümleme geliştirme sırasında `openpyxl` ile ayrıca yapıldı
+(yalnızca kum havuzunda, programın bağımlılığı değil) ve iki sonuç
+karşılaştırıldı — kütüphanesiz okuyucu **5.415 kaydın hepsini birebir aynı**
+buluyor. v6.45'te karekod için yapılan karşılaştırmanın aynısı; okuyucuya
+dokunulursa bu karşılaştırma tekrar çalıştırılmalı.
+
+## Kâğıt düzeni: bloklar yan yana VE alt alta
+
+Sayfaların yapısı elle yazılmadı, çözümlendi:
+
+```
+TANK 1                                  <- bant, sayfanın içinde
+CANISTER 1        CANISTER 2      ...   <- yan yana bloklar
+NO SOYAD AD EŞİ TARİH HÜCRE VİAL        <- her bloğun başlığı
+1A ....
+```
+
+Üç tuzak çıktı, üçü de gerçekten yanlış sonuç verdi:
+
+- **Başlık satırı dikey olarak da tekrarlanıyor** (TANK 4'te 10 kez), her
+  tekrar yeni bir kanister. İlk yazışta her blok sayfanın sonuna kadar
+  okunuyordu: 595 satırlık sayfa **10.535 kayıt** verdi. Düzeltme: bir
+  bloğun verisi "başlıktan sonraki satırdan, **aynı sütundaki bir sonraki
+  başlığa** kadar".
+
+- **Başlığı yazılmamış sütunlar var.** `YENİ SPERM`'de bir blokta "AD",
+  başkasında "TARİH" başlığı hiç yok ama veri satırları o sütunları
+  kullanıyor — **141 kayıt** böyle kayboluyordu. Düzeltme: açıkça yazılmış
+  başlıklar okunur, eksik alanlar SOYAD'a göre kanonik kaymadan
+  (`_KANONIK`) tamamlanır, ama **yalnızca boştaki sütuna** — yazılmış bir
+  başlık hiçbir zaman ezilmiyor.
+
+- **Aynı etiket iki türlü yazılmış**: "CANISTER" / "CANİSTER", "NO" / "HARF".
+  `_n()` başlık karşılaştırmasında 'İ'yi 'I'ya indiriyor. Bu **yalnızca
+  başlık tanıma** içindir — hasta adları `tr_buyuk()`'ten geçiyor (v6.115),
+  ikisi karıştırılmamalı. (Tank adı da `_n()` kullanmıyor: "YENİ SPERM"
+  "YENI SPERM" olurdu.)
+
+**Kategori satırın kendi `HÜCRE` metninden** çıkıyor, sayfa adından değil:
+"TANK 4" sayfasında 1.359 embriyo ve 401 sperm satırı birlikte duruyor.
+Metinden anlaşılmayan satır (74 tanesi boş) sayfanın baskın kategorisine
+düşüyor. Yazım hataları da tanınıyor ("EKAKÜLAT", "EJEKÜLAT", "RETROGÜLAT").
+
+**Tarih üç biçimde birden**: gerçek tarih hücresi, `04,11,2019` metni ve bir
+avuç bozuk kayıt (`110052012`, ` 08.02.2024`, metne dönüşmüş gün sayacı).
+Yıl sınırları programın kendi kuralıyla aynı (v6.51/v6.53: 1900 .. bu yıl+5);
+sınır dışında kalan ham metin **nota düşüyor, satır atılmıyor** — tankta
+duran bir örneği tarihi bozuk diye dışarıda bırakmak yanlış olurdu
+(kullanıcının 4. yanıtı). 5.415 satırın 5.238'inin tarihi çözüldü, 8'i not
+olarak saklandı, 99'unda hiç tarih yok.
+
+**İsmi olup tarih/hücre/vial'ı hiç olmayan 28 satır kayıt sayılmadı** ama
+sessizce yutulmadı: yükleme ekranı sayfa sayfa uyarıyor.
+
+## Ekranlar
+
+- **`/eski-cryo`** — özet, tank tank doluluk, arama, süzgeçler
+  (embriyo/sperm/yalnızca bağlanmamış), sayfalanmış liste (50). Her satırda
+  kaynak hücre yazıyor ("Kaynak: TANK 4, satır 461"), böylece bir kayıt
+  Excel'de bulunabiliyor. Liste ekranı olduğu için **tek geniş sütun**, iki
+  sütuna bölünmedi (CLAUDE.md "İki sütun her ekranın çözümü değil").
+- **`/eski-cryo/eslestir`** — eşleştirme listesi. **Türetilmiş**: saklanan
+  bir "yapılacaklar" tablosu yok, sorgu "programda adayı olan, henüz
+  bağlanmamış eski kayıtlar" diye soruyor. Yani bir hasta programa
+  girildiğinde onun eski kayıtları bu listeye **kendiliğinden** düşüyor —
+  elle bir yeniden-tarama adımı yok. 2.600 kişilik ham liste dökmek işe
+  yaramazdı: hastaların çoğu henüz programa girilmedi.
+- **`/cryo`** — `.sutunlar`ın **dışında**, tam genişlikte yeni bir kart.
+  Embriyo/Sperm Dondurma iki bağımsız modüldü; bu üçüncü bir modül değil,
+  ayrı bir **kaynak**. Arama kutusu tek kalsın diye (v6.85) aynı `ara` bu
+  kartı da süzüyor.
+- **Hasta kartı** — o hastaya **bağlanmış** eski kayıtlar. Bağlama elle
+  onaylandığı için buradaki kimlik kesin.
+
+Yükleme **yalnızca yönetici** (`yonetici_kontrol`); görüntülemek `cryo`
+iznine bağlı. Ayrı bir modül açılmadı — sperm dondurmadaki gerekçenin aynısı
+(aynı personel grubu; yeni modül üç dosyada `MODULLER` + `goc_026`'yı tekrar
+çalıştırmak demek). Rota **`durum`** diye adlandırıldı, `sil` değil: o ad
+`yol_modulu()`'nde "silme" modülüne düşerdi ve bu bir silme değil, envanter
+işareti.
+
+## Tuzak #4'ün tersi
+
+`hasta_sil()`'in kalıcı silme dalında `eski_cryo.hasta_id` **NULL'a
+çekiliyor, kayıt silinmiyor**. Alışık olduğumuz tuzak #4 "FOREIGN KEY
+hatası"ydı; burada sorun onun tersi olurdu: hasta dosyası kalıcı silindi
+diye tankta fiziksel olarak duran bir örneğin kaydının **sessizce
+kaybolması**. `teshis_silme.py`'ye de aynı tarama ve adım eklendi.
+
+`disari.TUM_TABLOLAR`'a `eski_cryo` eklendi — klinik kayıt, dökümde olmalı;
+`lab_formu` gibi tek hücreye sığmayan bir blob taşımıyor.
+
+`db.tablo_var(ad)` eklendi: "bu göç çalıştırılmış mı" sorusunun genel hali
+(`app.sifre_istegi_tablosu_var()` aynı işi kendi tablosu için yapıyordu).
+Göç çalıştırılmamışsa program yine açılıyor, yalnızca bu özellik susuyor
+(tuzak #3).
+
+## Doğrulama
+
+Tarayıcıda (Playwright, Chromium) denendi:
+
+- Web formundan yükleme → 5.415 kayıt, ekranda özet; `.md` dosyası
+  reddediliyor ve sebebi yazıyor.
+- Eşleştirme → bağlama çalışıyor, `eslesme_zamani`/`eslesme_kullanici_id`
+  yazılıyor, hasta kartında kart çıkıyor, bağ koparılabiliyor.
+- Tanktan çıkarma / geri koyma çalışıyor.
+- Yönetici olmayan kullanıcı ekranı **görüyor**, yükleme formunu
+  görmüyor ve `POST /eski-cryo/yukle` sunucuda reddedilip `/hastalar`'a
+  düşüyor (ekranda gizlemek tek başına yeterli değil).
+- Türkçe küçük harfle arama sonuç veriyor (v6.116): "çeribaşı", "genç",
+  "ilkyaz" — hepsi büyük harfli aramayla aynı sayıda sonuç.
+- Dört ekran boyutunda (375×812, 390×844, 1280×900, 1920×1080) üç ekranda
+  da yatay taşma yok ve hiçbir öğe kabın dışına taşmıyor. Ekran
+  görüntüleriyle de bakıldı — v6.109'un dersi: dış kabın ölçüsü doğru
+  çıkabilir, içeriğin göründüğü yere ayrıca bakmak gerekir. (İlk turda tam
+  bu şekilde iki hata bulundu: kart içi yazıların yan boşluğu yoktu ve beş
+  kutulu özet 4+1 sarıyordu.)
+- JS hatası yok.
+
+## Yüklenen dosya depoya girmedi
+
+Excel gerçek hasta isimleri taşıyor. Dosya git'e **eklenmedi**, içinden
+çıkarılan hiçbir isim README/CLAUDE.md'ye ya da commit mesajına
+yazılmadı; çözümleme çıktısı yalnızca oturumun geçici klasöründe kaldı.
+Bu sürümdeki bütün sayılar toplam/oran düzeyinde.

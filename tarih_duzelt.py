@@ -43,6 +43,15 @@ ONERISIZ = {"dogum_tarihi", "es_dogum_tarihi", "dogum_zamani"}
 # atlanmasına yol açar. Klinik veri değil, çalıştırıcının kendi kaydı.
 ATLA_TABLO = {"goc_kaydi"}
 
+# Tek tek atlanan kolonlar. `eski_cryo.tarih_notu` (v6.127) bilerek
+# **okunamayan ham metni** tutuyor: eski cryo haritasındaki `110052012`,
+# `02,01,205` gibi değerler tarihe çevrilemedi, kâğıtta ne yazdığı
+# kaybolmasın diye olduğu gibi saklandı (kaydın kendi `tarih` kolonu NULL
+# kaldı). Yani burada "bozuk tarih" bir hata değil, kolonun işi --
+# düzeltmeye davet etmek kâğıdın aslını silmek olurdu. Kaydın gerçek
+# tarihi olan `eski_cryo.tarih` taranmaya devam ediyor.
+ATLA_KOLON = {("eski_cryo", "tarih_notu")}
+
 SEBEP = {
     "yil_kucuk": "yili cok eski",
     "yil_buyuk": "yili cok ileri",
@@ -77,7 +86,8 @@ def _tarih_kolonlari(b):
             continue
         kolonlar = [k["name"] for k in b.execute(f"PRAGMA table_info({t})")
                     if ("tarih" in k["name"] or "zaman" in k["name"])
-                    and "INT" not in (k["type"] or "").upper()]
+                    and "INT" not in (k["type"] or "").upper()
+                    and (t, k["name"]) not in ATLA_KOLON]
         if kolonlar:
             yield t, kolonlar
 

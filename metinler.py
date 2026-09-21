@@ -1789,6 +1789,88 @@ METINLER = {
     # başlığı. Modül başlıkları ayrı anahtarlarda: "embriyo_dondurma",
     # "sperm_dondurma".
     "cryo_haritasi": {"tr": "Cryo Haritası", "en": "Cryo Map"},
+
+    # --- programdan önceki cryo haritası (v6.127) ---
+    # İngilizcesi yazıldı ama çeviri genelinde askıda (bekleyen iş 8);
+    # klinik terimler iki dilde de İngilizce kalıyor.
+    "eski_cryo": {"tr": "Program Öncesi Kayıtlar",
+                  "en": "Pre-Program Records"},
+    "eski_cryo_uzun": {"tr": "Program Öncesi Cryo Haritası",
+                       "en": "Pre-Program Cryo Map"},
+    "eski_cryo_aciklama": {
+        "tr": "Laboratuvarın program yazılmadan önce Excel'de tuttuğu kriyo "
+              "haritası. Bu kayıtların hastası, isim üzerinden ve elle "
+              "onaylanarak bağlanır — dosya numarası eski haritada yok.",
+        "en": "The lab's cryo map, kept in Excel before this program existed. "
+              "Records are linked to patients by name and manual confirmation "
+              "— the old map carries no file number."},
+    "eski_cryo_goc_gerekli": {
+        "tr": "Bu özellik için goc_042 çalıştırılmalı.",
+        "en": "Run goc_042 to enable this feature."},
+    "eski_cryo_yukle": {"tr": "Excel'den içeri al", "en": "Import from Excel"},
+    "eski_cryo_yukle_ipucu": {
+        "tr": "Yalnızca .xlsx kabul edilir. Aynı dosyayı yeniden yüklemek "
+              "kayıtları çoğaltmaz, günceller — elle kurulmuş hasta "
+              "eşleşmeleri korunur.",
+        "en": "Only .xlsx is accepted. Re-uploading the same file updates "
+              "records instead of duplicating them; manual patient links "
+              "are kept."},
+    "eski_cryo_hata_dosya": {"tr": "Yalnızca .xlsx dosyası yüklenebilir.",
+                             "en": "Only .xlsx files can be uploaded."},
+    "eski_cryo_hata_okuma": {"tr": "Dosya okunamadı.",
+                             "en": "The file could not be read."},
+    "eski_cryo_hata_bos": {"tr": "Dosyada okunabilir kayıt bulunamadı.",
+                           "en": "No readable records found in the file."},
+    "eski_cryo_sonuc": {"tr": "İçeri alındı — {x} yeni, {y} güncellendi, "
+                              "{z} yeni konum.",
+                        "en": "Imported — {x} new, {y} updated, {z} new "
+                              "locations."},
+    "eski_cryo_toplam": {"tr": "Kayıt", "en": "Records"},
+    "eski_cryo_eslesen": {"tr": "Hastası bağlı", "en": "Linked to a patient"},
+    "eski_cryo_eslesmeyen": {"tr": "Bağlanmamış", "en": "Not linked"},
+    "eski_cryo_eslestir": {"tr": "Hastalarla eşleştir", "en": "Match patients"},
+    "eski_cryo_bekleyen": {
+        "tr": "{n} eski kaydın programda aday hastası var",
+        "en": "{n} old records have a candidate patient in the program"},
+    "eski_cryo_bekleyen_yok": {
+        "tr": "Şu an eşleştirilecek kayıt yok. Bir hasta programa "
+              "girildiğinde, o hastanın eski kayıtları bu listeye "
+              "kendiliğinden düşer.",
+        "en": "Nothing to match right now. When a patient is entered, their "
+              "old records appear here automatically."},
+    "eski_cryo_bos": {"tr": "Kayıt yok.", "en": "No records."},
+    "eski_cryo_tarih_yok": {"tr": "tarih girilmemiş", "en": "no date recorded"},
+    "eski_cryo_tarih_okunmadi": {"tr": "tarih okunamadı: {x}",
+                                 "en": "unreadable date: {x}"},
+    "eski_cryo_cikarildi": {"tr": "Tanktan çıkarıldı", "en": "Removed"},
+    "eski_cryo_cikar": {"tr": "Tanktan çıkarıldı olarak işaretle",
+                        "en": "Mark as removed"},
+    "eski_cryo_geri_koy": {"tr": "Tanktaki listeye geri al",
+                           "en": "Put back in the tank list"},
+    "eski_cryo_bagla": {"tr": "Bu hastaya bağla", "en": "Link to this patient"},
+    "eski_cryo_bagi_kopar": {"tr": "Bağı kopar", "en": "Unlink"},
+    "eski_cryo_kaynak": {"tr": "Kaynak: {s}, satır {n}",
+                         "en": "Source: {s}, row {n}"},
+    "eski_cryo_ara_ipucu": {"tr": "Ad, soyad, eş adı, tank veya içerik",
+                            "en": "Name, surname, spouse, tank or contents"},
+    "eski_cryo_hasta_karti": {"tr": "Program Öncesi Cryo Kayıtları",
+                              "en": "Pre-Program Cryo Records"},
+    "eski_cryo_es": {"tr": "Eşi", "en": "Spouse"},
+    "eski_cryo_yalniz_eslesmeyen": {"tr": "Yalnızca bağlanmamışlar",
+                                    "en": "Unlinked only"},
+    "eski_cryo_hepsi": {"tr": "Hepsi", "en": "All"},
+    "guc_tam": {"tr": "Ad, soyad ve eş adı tutuyor",
+                "en": "Name, surname and spouse match"},
+    "guc_isim": {"tr": "Ad ve soyad tutuyor (eş adı yok)",
+                 "en": "Name and surname match (no spouse on record)"},
+    "guc_celiskili": {"tr": "Ad ve soyad tutuyor ama EŞ ADI FARKLI",
+                      "en": "Name matches but SPOUSE DIFFERS"},
+    "guc_kismi": {"tr": "Kısmen benziyor", "en": "Partial match"},
+    "eski_cryo_onay_ipucu": {
+        "tr": "Program hiçbir kaydı kendiliğinden bağlamaz. Aşağıdakiler "
+              "yalnızca öneri; doğru hastayı siz seçiyorsunuz.",
+        "en": "The program never links a record on its own. These are "
+              "suggestions only; you choose the right patient."},
     "embriyo_dondurma": {"tr": "Embriyo Dondurma", "en": "Embryo Freezing"},
     "yonetim": {"tr": "Yönetici", "en": "Administrator"},
     "arsiv": {"tr": "Arşiv", "en": "Archive"},

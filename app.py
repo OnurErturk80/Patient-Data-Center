@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 
 import db
 import disari
+import eski_cryo
 import excel
 import form_kalip
 import formlar
@@ -553,6 +554,13 @@ def yol_modulu(yol: str):
     if p[0] == "cryo":
         # /cryo/tasiyici/{id}/thaw gerçek bir çözme işlemi — çözme izni ister
         return "thaw" if son == "thaw" else "cryo"
+    if p[0] == "eski-cryo":
+        # Programdan önceki cryo haritası (v6.127) da Cryo Haritası'nın
+        # parçası — ayrı bir modül açılmadı, sperm dondurmadaki gerekçenin
+        # aynısı (aynı personel grubu; yeni modül üç dosyada `MODULLER` +
+        # `goc_026`'yı tekrar çalıştırmak demek). Yükleme ayrıca
+        # `yonetici_kontrol()` istiyor.
+        return "cryo"
     if p[0] == "sperm-dondurma":
         # Ayrı bir modül açılmadı — aynı personel grubu, aynı "cryo" izni
         # (goc_026'yı tekrar çalıştırma zorunluluğu doğurmadan).
@@ -2678,7 +2686,12 @@ def hasta_detay(request: Request, hasta_id: int):
     return sablon.TemplateResponse(
         request, "hasta_detay.html",
         {"hasta": hasta, "cycles": cycles,
-         "sperm_kayitlari": hastanin_sperm_kayitlari(hasta_id)}
+         "sperm_kayitlari": hastanin_sperm_kayitlari(hasta_id),
+         # Programdan önceki cryo haritasından bu hastaya BAĞLANMIŞ
+         # kayıtlar (v6.127). Bağlama elle onaylanıyor, bu liste yalnızca
+         # onaylanmış olanları gösteriyor.
+         "eski_cryo_kayitlari": (eski_cryo.hastanin_kayitlari(hasta_id)
+                                 if db.tablo_var("eski_cryo") else [])}
     )
 
 
@@ -3567,6 +3580,14 @@ async def hasta_sil(request: Request, hasta_id: int):
                 db.yaz("DELETE FROM tasiyici WHERE id=?", (tid,))
                 if t and t["konum_id"]:
                     db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+            # Program öncesi cryo kayıtları (v6.127): bağ KOPARILIR, kayıt
+            # SİLİNMEZ. `eski_cryo` satırı tankta fiziksel olarak duran bir
+            # örneği anlatıyor; hasta dosyası kalıcı silindi diye örnek
+            # tanktan çıkmıyor. (Tuzak #4'ün tersi: burada sorun FOREIGN KEY
+            # hatası değil, envanterin sessizce kaybolması olurdu.)
+            if db.tablo_var("eski_cryo"):
+                db.yaz("UPDATE eski_cryo SET hasta_id=NULL, eslesme_zamani=NULL, "
+                       "eslesme_kullanici_id=NULL WHERE hasta_id=?", (hasta_id,))
             db.yaz("DELETE FROM hasta WHERE id = ?", (hasta_id,))
         except Exception as e:
             return hata(f"Silme sırasında hata: {type(e).__name__}: {e}")
@@ -5667,10 +5688,18 @@ def cryo_harita(request: Request, ara: str = ""):
 
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    # Programdan önceki harita (v6.127) kendi ekranında; burada yalnızca
+    # özeti ve bağlantısı var — `/cryo`'nun iki modülü (Embriyo/Sperm
+    # Dondurma) programın kendi kayıtları, eski harita ayrı bir kaynak.
+    eski_var = db.tablo_var("eski_cryo")
     return sablon.TemplateResponse(
         request, "cryo.html",
         {"tasiyicilar": tasiyicilar, "tanklar": tanklar, "ara": ara,
          "sperm_kayitlari": sperm_kayitlari,
+         "eski_ozet": eski_cryo.ozet() if eski_var else None,
+         "eski_bekleyen": eski_cryo_bekleyen() if eski_var else 0,
+         "eski_kayitlar": (eski_cryo.kayitlar(ara, limit=20)
+                           if eski_var and ara.strip() else []),
          "etiketler": etiketler, "kullanici": request.state.kullanici})
 
 
@@ -5681,6 +5710,180 @@ def sperm_dondurma_harita_eski(request: Request, ara: str = ""):
     from urllib.parse import urlencode
     return RedirectResponse(
         "/cryo" + (f"?{urlencode({'ara': ara})}" if ara else ""), status_code=303)
+
+
+# ------------------------------------------- programdan önceki cryo haritası
+#
+# Laboratuvarın kriyo haritası program yazılmadan önce Excel'de tutuluyordu
+# (v6.127, kullanıcının isteği). Çözümleme, içeri alma ve eşleştirme mantığı
+# `eski_cryo.py`'de; rotalar -- programın bütün rotaları gibi -- burada.
+#
+# **Eşleştirme listesi türetilmiş**, saklanan bir "yapılacaklar" tablosu yok
+# (aynı gerekçe: CLAUDE.md "İstatistikler türetilmiştir", "Cryo haritası
+# türetilmiştir"). Sorgu "programda adayı olan, henüz bağlanmamış eski
+# kayıtlar" diye soruyor; yani bugün karşılığı olmayan bir kayıt, hastası
+# programa girildiği gün listeye **kendiliğinden** düşüyor. Elle bir
+# yeniden-tarama adımı yok.
+
+ESKI_CRYO_SAYFA_BOYU = 50
+
+# Adayı olan eşleşmemiş kayıtlar. İki taraf da büyük harfle kayıtlı
+# (`hasta.ad_soyad` v6.115'ten beri, eski harita zaten öyle yazılmış), o
+# yüzden LIKE doğrudan çalışıyor -- `tr_buyuk()` burada gerekmiyor, ekrandan
+# gelen bir arama terimi yok (v6.116 kuralı arama kutuları için).
+_ESKI_ADAYI_VAR = (
+    "EXISTS (SELECT 1 FROM hasta h WHERE h.lab_id = e.lab_id "
+    "  AND e.soyad <> '' AND e.ad <> '' "
+    "  AND h.ad_soyad LIKE '%' || e.soyad || '%' "
+    "  AND h.ad_soyad LIKE '%' || e.ad || '%')")
+
+
+def eski_cryo_bekleyen() -> int:
+    """Programda adayı olan, henüz bağlanmamış eski kayıt sayısı."""
+    if not db.tablo_var("eski_cryo"):
+        return 0
+    return db.tek(
+        "SELECT COUNT(*) AS n FROM eski_cryo e "
+        "WHERE e.lab_id = ? AND e.hasta_id IS NULL AND " + _ESKI_ADAYI_VAR,
+        (db.LAB_ID,))["n"]
+
+
+@uygulama.get("/eski-cryo")
+def eski_cryo_ekrani(request: Request, ara: str = "", kategori: str = "",
+                     eslesmeyen: int = 0, sayfa: int = 1, hata: str = "",
+                     sonuc: str = ""):
+    if not db.tablo_var("eski_cryo"):
+        return sablon.TemplateResponse(
+            request, "eski_cryo.html",
+            {"goc_gerekli": True, "kullanici": request.state.kullanici})
+    kategori = kategori if kategori in ("embriyo", "sperm") else ""
+    toplam = eski_cryo.sayisi(ara, kategori, bool(eslesmeyen))
+    sayfa_toplam = max(1, -(-toplam // ESKI_CRYO_SAYFA_BOYU))
+    sayfa = min(max(sayfa, 1), sayfa_toplam)
+    return sablon.TemplateResponse(
+        request, "eski_cryo.html",
+        {"ozet": eski_cryo.ozet(),
+         "tanklar": eski_cryo.tank_ozeti(),
+         "kayitlar": eski_cryo.kayitlar(
+             ara, kategori, bool(eslesmeyen), None, ESKI_CRYO_SAYFA_BOYU,
+             (sayfa - 1) * ESKI_CRYO_SAYFA_BOYU),
+         "toplam": toplam, "sayfa": sayfa, "sayfa_toplam": sayfa_toplam,
+         "ara": ara, "kategori": kategori, "eslesmeyen": eslesmeyen,
+         "bekleyen": eski_cryo_bekleyen(),
+         "hata": ESKI_CRYO_HATALARI.get(hata), "sonuc": sonuc,
+         "etiketler": {r["kod"]: r["etiket"] for r in db.sorgu(
+             "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))},
+         "kullanici": request.state.kullanici})
+
+
+# Adresten gelen hata anahtarı beyaz listeden geçiyor (tuzak #9).
+ESKI_CRYO_HATALARI = {
+    "dosya": "eski_cryo_hata_dosya",
+    "okuma": "eski_cryo_hata_okuma",
+    "bos": "eski_cryo_hata_bos",
+}
+
+
+@uygulama.post("/eski-cryo/yukle")
+async def eski_cryo_yukle(request: Request):
+    """Eski haritanın `.xlsx`'ini içeri alır — yalnızca yönetici.
+
+    `.xls` kabul edilmiyor: onu okumak `xlrd` isterdi ve programın kuralı
+    "çalışma anında ek bağımlılık yok" (`/formlar` yüklemesindeki gerekçenin
+    aynısı). Excel'de bir kez "Farklı Kaydet -> .xlsx" yeterli.
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = await request.form()
+    dosya = f.get("dosya")
+    dosya_adi = getattr(dosya, "filename", "") or ""
+    if not dosya_adi.lower().endswith(".xlsx"):
+        return RedirectResponse("/eski-cryo?hata=dosya", status_code=303)
+    icerik = await dosya.read() if dosya else b""
+    try:
+        cozum = eski_cryo.coz(icerik)
+    except eski_cryo.Hata as e:
+        # Sebebi günlüğe; adrese yalnızca beyaz listedeki anahtar.
+        _gunluk.error("eski cryo yukleme hatasi: %s", e)
+        return RedirectResponse("/eski-cryo?hata=okuma", status_code=303)
+    if not cozum["satirlar"]:
+        return RedirectResponse("/eski-cryo?hata=bos", status_code=303)
+    sayac = eski_cryo.iceri_al(cozum["satirlar"], konum_bul_veya_olustur,
+                               request.state.kullanici["id"])
+    _gunluk.info("eski cryo haritasi alindi: %s", sayac)
+    ozet = f"{sayac['eklenen']}/{sayac['guncellenen']}/{sayac['yeni_konum']}"
+    return RedirectResponse(f"/eski-cryo?sonuc={ozet}", status_code=303)
+
+
+@uygulama.get("/eski-cryo/eslestir")
+def eski_cryo_eslestir_ekrani(request: Request, sayfa: int = 1):
+    """Eşleştirme listesi: adayı olan, henüz bağlanmamış eski kayıtlar.
+
+    Yalnızca **adayı olan** kayıtlar gösteriliyor. 2.600 kişilik ham liste
+    dökmek işe yaramazdı: hastaların çoğu henüz programa girilmedi. Hasta
+    girildiğinde kendi eski kayıtları bu listeye kendiliğinden düşer.
+    """
+    if not db.tablo_var("eski_cryo"):
+        return RedirectResponse("/eski-cryo", status_code=303)
+    toplam = db.tek(
+        "SELECT COUNT(*) AS n FROM eski_cryo e WHERE e.lab_id=? "
+        "AND e.hasta_id IS NULL AND " + _ESKI_ADAYI_VAR, (db.LAB_ID,))["n"]
+    sayfa_toplam = max(1, -(-toplam // ESKI_CRYO_SAYFA_BOYU))
+    sayfa = min(max(sayfa, 1), sayfa_toplam)
+    satirlar = db.sorgu(
+        "SELECT e.*, k.tam_yol FROM eski_cryo e "
+        "LEFT JOIN konum k ON k.id = e.konum_id "
+        "WHERE e.lab_id=? AND e.hasta_id IS NULL AND " + _ESKI_ADAYI_VAR
+        + " ORDER BY e.soyad, e.ad, k.tam_yol LIMIT ? OFFSET ?",
+        (db.LAB_ID, ESKI_CRYO_SAYFA_BOYU, (sayfa - 1) * ESKI_CRYO_SAYFA_BOYU))
+    liste = [{"kayit": r, "adaylar": eski_cryo.aday_hastalar(r)} for r in satirlar]
+    return sablon.TemplateResponse(
+        request, "eski_cryo_eslestir.html",
+        {"liste": liste, "toplam": toplam, "sayfa": sayfa,
+         "sayfa_toplam": sayfa_toplam, "kullanici": request.state.kullanici})
+
+
+@uygulama.post("/eski-cryo/{eski_id}/bagla")
+async def eski_cryo_bagla(request: Request, eski_id: int):
+    """Eski kaydı bir hastaya bağlar. Bağlamayı **her zaman insan onaylar**.
+
+    Eski haritada dosya numarası yok, yalnızca isim var; isim yalnızca aday
+    öneriyor (`eski_cryo.aday_hastalar()`), program kendiliğinden hiçbir
+    kaydı bağlamıyor -- CLAUDE.md "isimle eşleştirme yok" kuralı bu yüzden
+    gevşetilmedi.
+    """
+    f = await request.form()
+    ham = (f.get("hasta_id") or "").strip()
+    hedef = (f.get("donus") or "/eski-cryo/eslestir")
+    if not hedef.startswith("/"):        # adresten gelen yolu href'e yazma
+        hedef = "/eski-cryo/eslestir"
+    if ham == "":                        # bağı kopar
+        eski_cryo.bagla(eski_id, None)
+        return RedirectResponse(hedef, status_code=303)
+    if not ham.isdigit():
+        return RedirectResponse(hedef, status_code=303)
+    hasta = db.tek("SELECT id FROM hasta WHERE lab_id=? AND id=?",
+                   (db.LAB_ID, int(ham)))
+    if hasta:
+        eski_cryo.bagla(eski_id, hasta["id"], request.state.kullanici["id"])
+    return RedirectResponse(hedef, status_code=303)
+
+
+@uygulama.post("/eski-cryo/{eski_id}/durum")
+async def eski_cryo_durum(request: Request, eski_id: int):
+    """Örnek tanktan çıkarıldı / geri kondu.
+
+    Rota **`sil` diye adlandırılmadı**: o ad `yol_modulu()`'nde "silme"
+    modülüne düşerdi ve bu bir silme değil, envanter işareti (programın
+    "silme = iptal işaretleme" kuralı).
+    """
+    f = await request.form()
+    durum = "cikarildi" if (f.get("durum") or "") == "cikarildi" else "dolu"
+    eski_cryo.durum_yaz(eski_id, durum)
+    hedef = f.get("donus") or "/eski-cryo"
+    return RedirectResponse(hedef if hedef.startswith("/") else "/eski-cryo",
+                            status_code=303)
 
 
 def dosya_no_sahibi(dosya_no) -> dict | None:
