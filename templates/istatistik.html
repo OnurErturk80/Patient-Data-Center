@@ -151,9 +151,18 @@
 </div>{# sutun #}
 <div class="sutun">
 
+{# "Bu hafta ne yapıldı" penceresi (v6.124): pencere bir hafta, liste
+   sayfalı, sayfa boyu 5 (ana ekranın kartlarındaki ölçünün aynısı, v6.78).
+   Ay seçicisinden **bağımsız** — bu kart seçilen aya değil bugüne bakıyor;
+   bu yüzden sayfa bağlantıları `yil`/`ay`'ı taşıyor, sayfa çevirmek seçili
+   ayı sıfırlamasın diye. #}
 <div class="kart">
   <h2>{{ metin("son_kayitlar") }}</h2>
-  {% for k in son %}
+  <div class="ipucu" style="padding:0 2px 8px">
+    {{ metin("son_kayit_gun").format(gun=son.gun) }}{% if son.sinirli %} ·
+    {{ metin("son_kayit_sinir").format(n=son.toplam) }}{% endif %}
+  </div>
+  {% for k in son.satirlar %}
   {# Hasta kaydının cycle'ı yok; satır hastaya gider. #}
   <a class="satir hasta" href="{{ '/cycle/' ~ k.cycle_id if k.cycle_id else '/hastalar?ara=' ~ k.dosya_no }}">
     <div class="ad">{{ k.ad_soyad }}</div>
@@ -164,9 +173,22 @@
     </div>
   </a>
   {% else %}
-  <div class="bos">{{ metin("istatistik_bos") }}</div>
-    {% endfor %}
-  </div>
+  <div class="bos">{{ metin("son_kayit_bos").format(gun=son.gun) }}</div>
+  {% endfor %}
+  {% if son.sayfa_toplam > 1 %}
+  <nav class="aygezgin" style="margin-top:8px" aria-label="{{ metin('sayfalar') }}">
+    {% if son.sayfa > 1 %}
+    <a class="ok" href="/istatistik?yil={{ yil }}&ay={{ ay }}&kayitsayfa={{ son.sayfa - 1 }}"
+       aria-label="{{ metin('onceki_sayfa') }}" title="{{ metin('onceki_sayfa') }}">&#8249;</a>
+    {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+    <span class="sayfabilgi">{{ metin("sayfa_x_y").format(x=son.sayfa, y=son.sayfa_toplam) }}</span>
+    {% if son.sayfa < son.sayfa_toplam %}
+    <a class="ok" href="/istatistik?yil={{ yil }}&ay={{ ay }}&kayitsayfa={{ son.sayfa + 1 }}"
+       aria-label="{{ metin('sonraki_sayfa') }}" title="{{ metin('sonraki_sayfa') }}">&#8250;</a>
+    {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+  </nav>
+  {% endif %}
+</div>
 
 </div>{# sutun #}
 </div>{# sutunlar #}

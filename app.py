@@ -3832,7 +3832,8 @@ def _istatistik_donemi(yil: int, ay: int) -> tuple:
 
 
 @uygulama.get("/istatistik")
-def istatistik_ekrani(request: Request, yil: int = 0, ay: int = 0):
+def istatistik_ekrani(request: Request, yil: int = 0, ay: int = 0,
+                      kayitsayfa: int = 1):
     """Yönetici panelindeki istatistikler — **anlık hesaplanır, saklanmaz**.
 
     Kullanıcının sorusu "her kayıt anlık kaydedilebilir mi" idi; cevap
@@ -3853,6 +3854,14 @@ def istatistik_ekrani(request: Request, yil: int = 0, ay: int = 0):
     aynı ölçü olsun diye — iki ekran aynı ayda farklı sayıda tedavi
     gösterseydi hangisinin doğru olduğu anlaşılmazdı.
 
+    **"Son kayıtlar" ayrı sayfalanıyor** (`?kayitsayfa=`, v6.124) ve ay
+    seçicisinden **bağımsız**: o kart "bu hafta ne yapıldı" penceresi,
+    seçilen aya değil bugüne bakıyor. İki sayaç aynı adreste durduğu için
+    kartın sayfa bağlantıları `yil`/`ay`'ı taşımak zorunda — yoksa sayfa
+    çevirmek seçili ayı bugüne sıfırlardı (`/hastalar`'ın `sayfa`/`aysayfa`
+    ikilisinde çözülen sorunun aynısı). Sayfa numarası `son_kayitlar()`
+    içinde kendi aralığına sabitleniyor.
+
     Yalnızca yönetici: ekran laboratuvarın bütün üretimini ve son girilen
     hasta adlarını tek sayfada gösteriyor.
     """
@@ -3865,7 +3874,7 @@ def istatistik_ekrani(request: Request, yil: int = 0, ay: int = 0):
         {"g": disari.istatistikler(),
          "ga": disari.istatistikler(f"{yil:04d}-{ay:02d}"),
          "aylar": disari.istatistik_aylari(yil),
-         "son": disari.son_kayitlar(),
+         "son": disari.son_kayitlar(kayitsayfa),
          "yil": yil, "ay": ay,
          "yillar": _yil_araligi(yil),
          "onceki": _ay_kaydir(yil, ay, -1),

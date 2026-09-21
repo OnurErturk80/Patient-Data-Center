@@ -959,8 +959,34 @@ kaydedilebilir mi" diye sordu, cevap "kaydetmeye gerek yok, zaten kayıtlı".
 - **Paydası sıfır olan oran basılmaz** — "%0" ölçülmemişi ölçülmüş gösterir.
 - Transfer ve gebelik **tedavinin yapıldığı cycle'a** yazılır
   (`COALESCE(o.tr_cycle_id, s.cycle_id)`), ay listesindeki kuralın aynısı.
-- "Son kayıtlar" on satır: kayıt defteri değil, "en son ne yapıldı"
-  penceresi. Tam döküm `/disari/tumu`'da.
+- **"Son kayıtlar" haftalık ve sayfalı** (v6.124, kullanıcının isteği:
+  "son kayıtları sayfada çok gösterme haftalık tut ... beş sayfada göster
+  ki çok uzun liste olmasın"). Pencere `SON_KAYIT_GUN` = 7 gün, sayfa boyu
+  `SON_KAYIT_SAYFA_BOYU` = 5, en çok `SON_KAYIT_EN_COK_SAYFA` = 5 sayfa
+  → 25 kayıt. Kayıt defteri değil, **"bu hafta ne yapıldı"** penceresi;
+  tam döküm hâlâ `/disari/tumu`'da.
+  - **Sayfa boyu 5, çünkü ana ekranın üç kartı da `liste[:5]`** (v6.78).
+    Aynı programda "kısa liste" ölçüsü iki farklı sayı olmasın.
+  - **Tavanı aşan kayıt gizlenmiyor, sayısı yazılıyor** — kart
+    "Son 7 gün · en yeni 25 kayıt" basıyor. Sessizce kesmek "bu hafta 25
+    iş yapıldı" der gibi görünürdü.
+  - **Haftalık süzgeç `localtime` KULLANMAZ**: `olusturma_zamani` hiçbir
+    yerde elle yazılmıyor, şemanın `DEFAULT (datetime('now'))` değerine
+    düşüyor ve o **UTC**. Süzgeç de `datetime('now','-7 days')`. Klinik
+    tarih alanlarının deseniyle (`date(bitis_zamani) =
+    date('now','localtime')`, v6.29) karıştırma — orada karşılaştırılan
+    şey personelin elle girdiği yerel zaman, burada veritabanının kendi
+    damgası. Yeni bir `olusturma_zamani` süzgeci yazarsan `localtime`
+    ekleme.
+  - **Kart ay seçicisinden bağımsız ama sayfa bağlantıları `yil`/`ay`'ı
+    taşır** — yoksa son kayıtlarda sayfa çevirmek seçili ayı bugüne
+    sıfırlardı (`/hastalar`'ın `sayfa`/`aysayfa` ikilisindeki sorunun
+    aynısı). Aynı adreste iki bağımsız sayfa sayacı varsa her biri
+    ötekinin durumunu taşımak zorunda.
+  - `son_kayitlar()` **sözlük** döndürüyor (`satirlar`, `sayfa`,
+    `sayfa_toplam`, `toplam`, `gun`, `sinirli`), liste değil. Havuz için
+    tablo başına 25 çekiliyor: birleşik listenin ilk 25'i her tablonun
+    kendi ilk 25'inin içinde, ayrı bir `COUNT(*)` gerekmiyor.
 - **Ay/yıl seçilebilir** (v6.123, kullanıcının isteği: "aylık olarak
   oranlar tutulsun ... yıl ve tarih seçerek bakabileyim"). "Tutulsun"
   burada da ayrı bir aylık özet tablosu **değil**: `istatistikler(ay)`

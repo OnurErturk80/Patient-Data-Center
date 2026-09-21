@@ -625,39 +625,69 @@ def istatistik_aylari(yil: int = 0, n: int = ISTATISTIK_AY) -> list:
     return satirlar
 
 
-def son_kayitlar(n: int = 10) -> list:
-    """En son girilen kayıtlar — hasta, cycle ve laboratuvar işlemleri.
+# "Son kayıtlar" penceresi (v6.124, kullanıcının isteği: "son kayıtları
+# sayfada çok gösterme haftalık tut ... beş sayfada göster ki çok uzun liste
+# olmasın"). Üçü birlikte kartın boyunu sabitliyor: en çok 5x5 = 25 satır ve
+# hepsi son bir haftadan. Sayfa boyu **5**, ana ekranın üç kartındaki
+# "en fazla 5 satır" ölçüsüyle (v6.78) aynı — kullanıcının zaten seçtiği boy.
+SON_KAYIT_GUN = 7            # kaç günlük geçmişe bakılıyor
+SON_KAYIT_SAYFA_BOYU = 5     # bir sayfada kaç satır
+SON_KAYIT_EN_COK_SAYFA = 5   # en çok kaç sayfa
+
+
+def son_kayitlar(sayfa: int = 1) -> dict:
+    """Son bir haftada girilen kayıtlar — hasta, cycle ve laboratuvar işlemleri.
 
     Kullanıcının "yapılan her kayıt ... anlık" isteğinin ikinci yarısı:
     sayıların yanında **ne olduğu** da görünsün. Üç tablodan okunup zamana
     göre birleştiriliyor; ayrı bir günlük tablosu tutulmuyor (bkz.
     `istatistikler`).
 
-    Varsayılan **on satır**: bu bir kayıt defteri değil, "en son ne yapıldı"
-    penceresi. Uzun tutulunca ekranın yarısını kaplıyor ve yanındaki ay
-    kırılımını eziyordu. Tam döküm zaten `/disari/tumu`'da.
+    **Pencere bir hafta, liste sayfalı** (v6.124). Önce sabit on satırdı;
+    kullanıcı hem listenin kısalmasını hem de geçmişin haftayla sınırlanmasını
+    istedi. Bu hâlâ bir kayıt defteri değil, "bu hafta ne yapıldı" penceresi —
+    tam döküm `/disari/tumu`'da. Sınırı aşan kayıt **gizlenmiyor, yok**:
+    kart en çok `SON_KAYIT_EN_COK_SAYFA` sayfa gösteriyor ve ekranda kaç
+    kayıt olduğunu yazıyor, böylece "hepsi bu" sanılmıyor.
+
+    **Ölçü `olusturma_zamani`, ve o şemanın `datetime('now')` varsayılanıyla
+    yazılıyor — yani UTC.** Süzgeç de bu yüzden `datetime('now', '-7 days')`
+    kullanıyor, `'localtime'` DEĞİL: iki tarafın aynı saate göre olması
+    gerekiyor. Klinik tarih alanlarındaki (`bitis_zamani`, `planlanan_tarih`)
+    `date('now','localtime')` deseniyle karıştırma — onlar personelin elle
+    girdiği yerel zamanlar, bu ise veritabanının kendi damgası.
     """
+    # Her tablodan en çok gösterilebilecek kadar çekip birleştiriyoruz:
+    # birleşik listenin ilk N'i, her tablonun kendi ilk N'inin içindedir.
+    en_cok = SON_KAYIT_SAYFA_BOYU * SON_KAYIT_EN_COK_SAYFA
+    pencere = f"-{SON_KAYIT_GUN} days"
+
     hasta = db.sorgu(
         "SELECT olusturma_zamani AS z, 'hasta' AS tur, dosya_no, ad_soyad, "
         "  NULL AS cycle_id, NULL AS cycle_no, NULL AS tip "
-        "FROM hasta WHERE lab_id = ? ORDER BY olusturma_zamani DESC LIMIT ?",
-        (db.LAB_ID, n))
+        "FROM hasta WHERE lab_id = ? AND olusturma_zamani >= datetime('now', ?) "
+        "ORDER BY olusturma_zamani DESC LIMIT ?",
+        (db.LAB_ID, pencere, en_cok))
     cycle = db.sorgu(
         "SELECT c.olusturma_zamani AS z, 'cycle' AS tur, h.dosya_no, h.ad_soyad, "
         "  c.id AS cycle_id, c.cycle_no, c.cycle_tipi AS tip "
         "FROM cycle c JOIN hasta h ON h.id = c.hasta_id "
-        "WHERE c.lab_id = ? ORDER BY c.olusturma_zamani DESC LIMIT ?",
-        (db.LAB_ID, n))
+        "WHERE c.lab_id = ? AND c.olusturma_zamani >= datetime('now', ?) "
+        "ORDER BY c.olusturma_zamani DESC LIMIT ?",
+        (db.LAB_ID, pencere, en_cok))
     olay = db.sorgu(
         "SELECT o.olusturma_zamani AS z, 'olay' AS tur, h.dosya_no, h.ad_soyad, "
         "  c.id AS cycle_id, c.cycle_no, o.tip "
         "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
         "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
         "WHERE o.lab_id = ? AND o.iptal_mi = 0 "
-        "ORDER BY o.olusturma_zamani DESC LIMIT ?", (db.LAB_ID, n))
+        "  AND o.olusturma_zamani >= datetime('now', ?) "
+        "ORDER BY o.olusturma_zamani DESC LIMIT ?", (db.LAB_ID, pencere, en_cok))
 
     hepsi = [dict(r) for r in list(hasta) + list(cycle) + list(olay)]
     hepsi.sort(key=lambda r: r["z"] or "", reverse=True)
+    sinirli = len(hepsi) > en_cok          # haftada bundan fazlası var
+    hepsi = hepsi[:en_cok]
     for r in hepsi:
         if r["tur"] == "cycle":
             r["ad"] = _tip(r["tip"]) or r["tip"]
@@ -665,7 +695,17 @@ def son_kayitlar(n: int = 10) -> list:
             r["ad"] = metinler.t("olay_" + r["tip"]) if r["tip"] else ""
         else:
             r["ad"] = ""
-    return hepsi[:n]
+
+    # Sayfa sunucuda kendi aralığına sabitleniyor: aralık dışı bir değer
+    # hataya değil son sayfaya düşer (/hastalar'daki kuralın aynısı).
+    sayfa_toplam = max(1, -(-len(hepsi) // SON_KAYIT_SAYFA_BOYU))  # tavana yuvarla
+    sayfa = min(max(sayfa, 1), sayfa_toplam)
+    bas = (sayfa - 1) * SON_KAYIT_SAYFA_BOYU
+    return {
+        "satirlar": hepsi[bas:bas + SON_KAYIT_SAYFA_BOYU],
+        "sayfa": sayfa, "sayfa_toplam": sayfa_toplam,
+        "toplam": len(hepsi), "gun": SON_KAYIT_GUN, "sinirli": sinirli,
+    }
 
 
 ISTATISTIK_BASLIK = ["Ay", "Cycle", "Oosit", "MII", "ICSI yapılan", "2PN",

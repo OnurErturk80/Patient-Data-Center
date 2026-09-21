@@ -9600,3 +9600,97 @@ yayılmış 11 tedavi, 103 oosit, 264 olay; oranlar aydan aya bilerek farklı):
   devam eden, yaklaşanlar, kullanıcılar, klasörler, yedekleme, dil,
   tedavi ve aşama ekranları, hasta kartı, bağlan) 200 döndü; sunucu
   günlüğünde hata yok.
+
+# v6.124 — "Son kayıtlar" haftalık ve sayfalı
+
+Kullanıcının isteği: "İstatistikteki son kayıtları sayfada çok gösterme,
+haftalık tut. Onları da ekranda beş sayfada göster ki çok uzun liste
+olmasın."
+
+İki ayrı sınır isteniyor ve ikisi de gerekiyor: **pencere** (ne kadar
+geriye bakılacak) ve **liste boyu** (bir seferde kaç satır görünecek). Kart
+eskiden sabit on satır gösteriyordu ve pencere yoktu — laboratuvarın en
+son on kaydı, ne kadar eski olurlarsa olsunlar.
+
+## Ne değişti
+
+- **Pencere `SON_KAYIT_GUN` = 7 gün.** Kart artık "en son ne yapıldı"
+  değil, "bu hafta ne yapıldı" penceresi.
+- **Liste sayfalı**: `SON_KAYIT_SAYFA_BOYU` = 5, `SON_KAYIT_EN_COK_SAYFA`
+  = 5 → en çok 25 kayıt, beşerli beş sayfa. Gezgin `/hastalar`'ın sayfa
+  gezgininin aynısı (`.aygezgin` + `.sayfabilgi`, "Sayfa 2 / 5").
+- `son_kayitlar()` artık liste değil **sözlük** döndürüyor: `satirlar`,
+  `sayfa`, `sayfa_toplam`, `toplam`, `gun`, `sinirli`.
+- Kartın başlığının altında pencere yazıyor: "Son 7 gün", tavana
+  değiliyorsa yanında "· en yeni 25 kayıt".
+- Kayıt yoksa mesaj artık genel "Henüz kayıt yok." değil,
+  **"Son 7 günde kayıt yok."** (`son_kayit_bos`) — eskisi boş bir
+  laboratuvar sanılmasına yol açardı; asıl sebep pencerenin boş olması.
+
+## Sayfa boyu neden 5
+
+Kullanıcının "beş sayfa" demesi bir yana, **ana ekranın üç kartı zaten
+`liste[:5]` ile kesiliyor** (v6.78, yine kullanıcının isteği). Aynı
+programda "kısa liste" ölçüsü iki farklı sayı olmasın diye o boy
+tekrarlandı. Beş satır × beş sayfa aynı zamanda kullanıcının cümlesindeki
+iki sınırı da karşılıyor: sayfada çok satır yok, toplam beş sayfa.
+
+## Tavanı aşan kayıt gizlenmiyor, sayısı yazılıyor
+
+Bir haftada 25'ten fazla kayıt olması olağan (bir tedavi tek başına
+onlarca `olay` satırı üretiyor — test verisinde bir hafta 40 kayıttı).
+Kart o durumda en yeni 25'i gösterip **"en yeni 25 kayıt"** yazıyor.
+Sessizce kesseydi ekran "bu hafta 25 iş yapılmış" der gibi görünürdü;
+bu kart bir kayıt defteri değil, tam döküm hâlâ `/disari/tumu`'da.
+
+## Ay seçicisinden bağımsız, ama adres ikisini birlikte taşıyor
+
+Kart **seçilen aya değil bugüne** bakıyor — "bu hafta ne yapıldı"
+sorusunun geçmiş bir ayla ilgisi yok (v6.123'te "Son kayıtlar seçiciden
+etkilenmez" diye yazılmıştı, o karar değişmedi). Ama ikisi aynı adreste
+durduğu için sayfa bağlantıları `yil`/`ay`'ı **taşımak zorunda**: yoksa
+son kayıtlarda sayfa çevirmek seçili ayı bugüne sıfırlardı.
+`/hastalar`'ın `?sayfa=` / `?aysayfa=` ikilisinde çözülen sorunun
+aynısı, çözümü de aynı.
+
+## Haftalık süzgeç `localtime` KULLANMIYOR — bilerek
+
+`olusturma_zamani` hiçbir yerde elle yazılmıyor; hasta, cycle ve olay
+tablolarında şemanın `DEFAULT (datetime('now'))` değerine düşüyor ve
+SQLite'ın `datetime('now')`'ı **UTC**. Süzgeç de bu yüzden
+`datetime('now', '-7 days')` — iki tarafın aynı saate göre olması
+gerekiyor.
+
+Bu, klinik tarih alanlarındaki desenle karıştırılmamalı: "Bugün bitenler"
+(v6.29) `date(bitis_zamani) = date('now','localtime')` kullanıyor, çünkü
+`bitis_zamani` **personelin elle girdiği yerel bir zaman**. Biri
+veritabanının kendi damgası, öteki kullanıcının saati; aynı ifadeyi
+ikisine birden uygulamak ikisinden birini kaydırır.
+
+## Havuz neden tablo başına 25 çekiyor
+
+Üç tablodan ayrı ayrı okunup zamana göre birleşiyor (mekanizma
+değişmedi). Birleşik listenin ilk 25'i, her tablonun **kendi** ilk
+25'inin içindedir — o yüzden tablo başına `LIMIT 25` yetiyor, ayrı bir
+`COUNT(*)` sorgusu gerekmiyor. Sayfa numarası da sunucuda kendi
+`[1, sayfa_toplam]` aralığına sabitleniyor: aralık dışı bir değer hataya
+değil son sayfaya düşer (`/hastalar`'daki kuralın aynısı).
+
+## Test edildi
+
+Son 7 güne yayılmış 40 kayıtlık (2 hasta + 2 tedavi + 36 olay) bir test
+kümesiyle:
+
+- Havuz 25'te duruyor, `sinirli` bayrağı doğru, kart "Son 7 gün · en yeni
+  25 kayıt" bastı.
+- Sayfa 1/3/5 beşer satır verdi; `?kayitsayfa=99`, `0` ve `-4` son/ilk
+  sayfaya düştü, hata vermedi.
+- Pencere daraltılınca sayfa sayısı küçüldü (2 gün → 20 kayıt / 4 sayfa),
+  sıfırlanınca "Son 7 günde kayıt yok." çıktı.
+- 3 Eylül'deki eski test verisi pencereye **girmedi** — süzgeç çalışıyor.
+- `?yil=2026&ay=7&kayitsayfa=2`: sayfa bağlantıları yılı ve ayı taşıdı,
+  ay seçici Temmuz'da kaldı; Playwright ile "Sonraki sayfa"ya tıklandı,
+  adres `?yil=2026&ay=9&kayitsayfa=2` oldu ve seçici Eylül'de kaldı.
+- 1440x1000 ve 390x844'te sayfa yatay kaymıyor; kartın boyu kısaldığı
+  için masaüstünde sayfa yüksekliği 1550 → 1201px'e indi.
+- 19 ekran 200 döndü, sunucu günlüğünde hata yok.
