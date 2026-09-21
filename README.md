@@ -9350,3 +9350,65 @@ bir sunucu örneği çalıştırıldı:
 - İzole test klasörü (`LAB_VERI` ile işaret edilen geçici dizin) ve test
   sunucusu tamamen silindi/durduruldu; gerçek proje `lab.db`'sinde hasta/
   cycle sayıları test öncesiyle birebir aynı kaldığı doğrulandı.
+
+# v6.121 — Yedekleme kendi ekranına taşındı
+
+Kullanıcının bildirdiği sorun: "Yedekleme bölümünde Yedekleme olsun.
+Klasörlerin altında zor bulunuyor." v6.119/v6.120'de yedekleme/geri
+yükleme `/klasorler`'in bir kartıydı — yedek klasörünün **yolu** zaten o
+ekranda ayarlandığı için mantıklı görünmüştü, ama kullanıcı ekranı ararken
+bulamadı: "Klasörler" bir eylem menüsü gibi görünmüyor.
+
+## Ne değişti
+
+- Yeni ekran **`/yedekleme`** (`templates/yedekleme.html`) — son yedek
+  durumu, "Şimdi yedekle" düğmesi ve "Yedekten geri yükle" bağlantısı
+  artık kendi sayfasında, `/klasorler`'in dışında.
+- Rotalar taşındı: `/klasorler/yedekle-simdi` → `/yedekleme/yedekle-simdi`,
+  `/klasorler/geri-yukle` → `/yedekleme/geri-yukle` (GET+POST). Mantık
+  (üç kademeli onay, güvenlik kopyası, atomik takas, whitelist) hiç
+  değişmedi — yalnızca adresler.
+- **`/yonetim`'e doğrudan "Yedekleme" düğmesi eklendi** — Kullanıcılar,
+  Şifre istekleri, İstatistikler, Cryo haritası, Dil seçimi, Laboratuvar
+  formları, Klasörler, Telefona ekle ile **aynı seviyede**, bir üst
+  ekranın içine gömülü değil. Kullanıcının şikâyeti tam buydu: eylem bir
+  alt-kart değil, kendi menü öğesi olmalıydı.
+- `/yonetim`'in eski "Yedekleme" durum kartı (salt okunur, v6.12 kuralı
+  hâlâ geçerli) güncellendi: tarih artık `gg_aa_yyyy_saat()` ile
+  basılıyor (önceden ham ISO metniydi), ve **"terminalden python3
+  yedek.py çalıştır" tavsiyesi kaldırıldı** — o artık yanlış/eksik bir
+  tavsiye, ekrandan da yapılabiliyor. Yerine `/yedekleme`'ye bağlantı
+  kondu.
+- `/klasorler`'de yedek klasörünün **yolu** hâlâ ayarlanıyor (o bir klasör
+  ayarı, taşınmadı) — kaydetme formunun altında artık yalnızca `/yedekleme`
+  ekranına giden tek bir bağlantı var, eski büyük kart kaldırıldı. İki
+  ekran birbirine çapraz bağlı: Klasörler → Yedekleme (eylemler için),
+  Yedekleme → Klasörler (yolu değiştirmek için).
+
+## Sebep
+
+Kullanıcının kâğıt/menü sezgisi: bir eylem ("şimdi yedekle", "geri yükle")
+bir ayar ekranının (klasör yolları) alt kartı değil, kendi başına bir menü
+öğesi olmalı. `/yonetim` zaten "gidilecek ekranlar" listesi tutuyor
+(Kullanıcılar, İstatistikler, Cryo haritası, ...) — Yedekleme'nin oraya
+katılması, aranan yerde bulunması demek.
+
+## Test edildi
+
+Gerçek proje veritabanına dokunulmadan, `LAB_VERI` ile izole bir kopya
+üzerinde ayrı bir sunucu örneğinde (port 8125):
+- `GET /yedekleme`, `GET /klasorler`, `GET /yonetim` üçü de 200 döndü.
+- Eski adres `POST /klasorler/yedekle-simdi` artık 404 (rota gerçekten
+  taşınmış, eski yere düşen bir çağrı sessizce eski davranışa dönmüyor).
+- `/yonetim` ve `/klasorler` sayfalarında `/yedekleme`'ye giden bağlantılar
+  doğru adreste bulundu.
+- **Uçtan uca**: `POST /yedekleme/yedekle-simdi` gerçek bir yedek dosyası
+  oluşturdu; `GET /yedekleme/geri-yukle` o dosyayı listede gösterdi;
+  `POST /yedekleme/geri-yukle` (üç onay alanıyla) veritabanını gerçekten
+  geri yükledi ve `/yedekleme?gymesaj=...`'a yönlendirdi.
+- Playwright ile `/yonetim` ve `/yedekleme` ekran görüntüleri alındı:
+  Yedekleme düğmesi diğer yönetim düğmeleriyle aynı sırada/görünümde,
+  yeni ekran üç ayrı kart halinde (durum, yedekle, geri yükle) düzgün
+  render ediyor.
+- İzole test klasörü ve sunucu temizlendi; gerçek proje `lab.db`'sinde
+  hasta/cycle sayıları test öncesiyle birebir aynı kaldı.

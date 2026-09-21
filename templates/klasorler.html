@@ -63,38 +63,15 @@
   </div>
 </form>
 
-{# Elle yedekleme (v6.119, kullanıcının isteği). Ayrı, tek düğmelik bir
-   `<form>` -- yukarıdaki klasör kaydetme formunun içine gömülmedi, ikisi
-   ayrı işlem: bu düğme klasör alanındaki YAZILMAMIŞ bir değeri değil,
-   veritabanında zaten kayıtlı `yedek_klasor`'ü kullanır.
-
-   Yedekten geri yükleme (v6.120, kullanıcının isteği) aynı kartta ama ayrı
-   bir bağlantı -- `.tehlike-bag` ile kırmızı, hasta silmedeki "kalıcı sil"
-   düğmesiyle aynı görsel dil. Kendi onay ekranına (`/klasorler/geri-yukle`)
-   gidiyor, buradan doğrudan tetiklenmiyor -- seçenek listesi ve üç kademeli
-   onay orada. #}
-<div class="kart" style="margin-top:12px">
-  <h2>{{ metin("yedekleme") }}</h2>
-  {% if yhata %}<div class="uyari">{{ yhata }}</div>{% endif %}
-  {% if yedeklendi %}<div class="uyari">{{ metin("yedek_alindi") }}</div>{% endif %}
-  {% if gymesaj %}<div class="uyari">{{ gymesaj }}</div>{% endif %}
-  <div class="alan" style="border:0">
-    <div class="ipucu">
-      {{ metin("son_yedek") }}:
-      {{ gg_aa_yyyy_saat(son_yedek) if son_yedek else metin("hic_yedek_yok") }}
-    </div>
-    {% if yedek_uyari %}
-    <div class="ipucu" style="color:#a11f1f">{{ yedek_uyari }}</div>
-    {% endif %}
-    <form method="post" action="/klasorler/yedekle-simdi" style="margin-top:8px">
-      <button class="dugme" type="submit">{{ metin("simdi_yedekle") }}</button>
-      <div class="ipucu" style="margin-top:6px">{{ metin("yedekleniyor_uyari") }}</div>
-    </form>
-    <div class="ipucu" style="margin-top:6px">{{ metin("yedekleme_ipucu")|safe }}</div>
-    <a class="dugme ikincil tehlike-bag" href="/klasorler/geri-yukle"
-       style="margin-top:12px">{{ metin("yedekten_geri_yukle") }}</a>
-  </div>
-</div>
+{# Yedekleme eylemleri (şimdi yedekle / geri yükle) burada DURMUYOR --
+   v6.119/v6.120'de bu kartın kendisiydi, v6.121'de kullanıcının isteğiyle
+   ("Klasörlerin altında zor bulunuyor") kendi ekranına (`/yedekleme`)
+   taşındı ve `/yonetim`'den doğrudan bağlantı verildi. Yedek klasörünün
+   **yolu** hâlâ yukarıdaki formda -- o bir klasör ayarı, taşınmadı. Durum
+   (son yedek zamanı vb.) burada tekrarlanmıyor -- tek kaynak `/yedekleme`,
+   ikisi ayrı düşmesin diye. #}
+<a class="dugme ikincil" href="/yedekleme" style="margin-top:12px">
+  {{ metin("yedekleme") }}</a>
 
 <div class="kart" style="margin-top:12px">
   <div class="alan" style="border:0">

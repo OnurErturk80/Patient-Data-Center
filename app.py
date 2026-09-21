@@ -1286,8 +1286,7 @@ KLASOR_HATALARI = {"klasor_hata_kamera", "klasor_hata_arsiv"}
 
 
 @uygulama.get("/klasorler")
-def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0,
-                    yhata: str = "", yedeklendi: int = 0, gymesaj: str = ""):
+def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0):
     red = yonetici_kontrol(request)
     if red:
         return red
@@ -1300,25 +1299,42 @@ def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0,
         "yollar": yollar, "makine": db.MAKINE,
         "hata": metinler.t(hata) if hata in KLASOR_HATALARI else "",
         "kaydedildi": kaydedildi,
-        # Elle yedekleme (v6.119) -- ayrı bir hata/başarı çifti, klasör
-        # kaydetmenin `hata`/`kaydedildi`'siyle karışmasın diye. `yhata`
-        # `hata`'nın aksine beyaz listeden geçmiyor: adresten gelen bir
-        # anahtar değil, sunucunun `/klasorler/yedekle-simdi`'de ürettiği
-        # bitmiş metin (FormHatasi mesajlarının kullandığı desenin aynısı).
-        "yhata": yhata,
-        "yedeklendi": yedeklendi,
-        "son_yedek": _ayar("son_yedek", ""),
-        "yedek_uyari": yedek_durumu(),
-        # Yedekten geri yükleme (v6.120) -- başarı mesajı `/klasorler/
-        # geri-yukle`'den geliyor, aynı "sunucunun ürettiği bitmiş metni
-        # doğrudan göster" deseni.
-        "gymesaj": gymesaj,
         "kullanici": request.state.kullanici,
     })
 
 
-@uygulama.post("/klasorler/yedekle-simdi")
-def klasorler_yedekle_simdi(request: Request):
+# --------------------------------------------------------------- yedekleme
+#
+# v6.121, kullanıcının isteği: "Yedekleme bölümünde Yedekleme olsun.
+# Klasörlerin altında zor bulunuyor." v6.119/v6.120'de `/klasorler`'in bir
+# kartıydı (yedek klasörü ayarının hemen yanı bilerek seçilmişti); kullanıcı
+# ayrı bulunması gereken bir ekran olduğunu söyledi. Yedek klasörünün
+# **yolu** hâlâ `/klasorler`'de ayarlanıyor (o bir klasör ayarı) -- yalnızca
+# eylemler (şimdi yedekle / geri yükle) kendi ekranına taşındı, `/yonetim`
+# panelinden Kullanıcılar/Klasörler'in yanına doğrudan bağlantıyla.
+
+@uygulama.get("/yedekleme")
+def yedekleme_ekran(request: Request, yhata: str = "", yedeklendi: int = 0,
+                    gymesaj: str = ""):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(request, "yedekleme.html", {
+        # `yhata`/`gymesaj` `hata`'nın aksine beyaz listeden geçmiyor:
+        # adresten gelen bir anahtar değil, sunucunun ürettiği bitmiş metin
+        # (FormHatasi mesajlarının kullandığı desenin aynısı, tuzak #9
+        # burada geçerli değil).
+        "yhata": yhata,
+        "yedeklendi": yedeklendi,
+        "gymesaj": gymesaj,
+        "son_yedek": _ayar("son_yedek", ""),
+        "yedek_uyari": yedek_durumu(),
+        "kullanici": request.state.kullanici,
+    })
+
+
+@uygulama.post("/yedekleme/yedekle-simdi")
+def yedekleme_yedekle_simdi(request: Request):
     """Elle yedekleme (v6.119, kullanıcının isteği: "Elle yedekleme olsun").
 
     `yedek.py`'nin fonksiyonlarını **süreç içinde** çağırır -- `goc.py`'nin
@@ -1342,11 +1358,11 @@ def klasorler_yedekle_simdi(request: Request):
     hedef = db.ayar("yedek_klasor", "")
     if not hedef:
         return RedirectResponse(
-            "/klasorler?yhata=" + quote(metinler.t("yedek_klasoru_yok_hata")),
+            "/yedekleme?yhata=" + quote(metinler.t("yedek_klasoru_yok_hata")),
             status_code=303)
     if not _yedek.bu_makineye_uygun_mu(hedef):
         mesaj = metinler.t("yedek_klasoru_yanlis_makine").replace("{yol}", hedef)
-        return RedirectResponse("/klasorler?yhata=" + quote(mesaj), status_code=303)
+        return RedirectResponse("/yedekleme?yhata=" + quote(mesaj), status_code=303)
 
     hedef_klasor = Path(hedef)
     kullanici_adi = request.state.kullanici["kullanici_adi"]
@@ -1354,7 +1370,7 @@ def klasorler_yedekle_simdi(request: Request):
         hedef_klasor.mkdir(parents=True, exist_ok=True)
         _yedek.yaz("=" * 55)
         _yedek.yaz(f"Yedekleme basladi -> {hedef_klasor}   "
-                   f"(kaynak: /klasorler, {kullanici_adi})")
+                   f"(kaynak: /yedekleme, {kullanici_adi})")
         _yedek.veritabani_yedekle(hedef_klasor)
         _yedek.eskileri_temizle(hedef_klasor)
         arsiv_klasor = Path(db.ayar("goruntu_arsiv_klasor", str(db.VERI_KOK / "arsiv")))
@@ -1364,17 +1380,17 @@ def klasorler_yedekle_simdi(request: Request):
     except Exception as e:
         _yedek.yaz(f"HATA: {e}")
         mesaj = f"{metinler.t('yedekleme_basarisiz')}: {e}"
-        return RedirectResponse("/klasorler?yhata=" + quote(mesaj), status_code=303)
-    return RedirectResponse("/klasorler?yedeklendi=1", status_code=303)
+        return RedirectResponse("/yedekleme?yhata=" + quote(mesaj), status_code=303)
+    return RedirectResponse("/yedekleme?yedeklendi=1", status_code=303)
 
 
-@uygulama.get("/klasorler/geri-yukle")
-def klasorler_geri_yukle_ekran(request: Request, hata: str = ""):
+@uygulama.get("/yedekleme/geri-yukle")
+def yedekleme_geri_yukle_ekran(request: Request, hata: str = ""):
     """Yedekten geri yükleme onay ekranı (v6.120, kullanıcının isteği:
     "Yönetici isterse yedekten geri çağırsın... Yönetici panelinden hepsini
     yapabilsin"). Rota adı `-sil` ile bitmiyor, `yol_modulu()` bunu "silme"
     modülüne bağlamaz -- bu, silme izninden bağımsız, doğrudan yönetici
-    işi: `yonetici_kontrol()` burada elle çağrılıyor (`/klasorler`'in kendi
+    işi: `yonetici_kontrol()` burada elle çağrılıyor (`/yedekleme`'nin kendi
     deseni).
     """
     red = yonetici_kontrol(request)
@@ -1389,8 +1405,8 @@ def klasorler_geri_yukle_ekran(request: Request, hata: str = ""):
     })
 
 
-@uygulama.post("/klasorler/geri-yukle")
-async def klasorler_geri_yukle(request: Request):
+@uygulama.post("/yedekleme/geri-yukle")
+async def yedekleme_geri_yukle(request: Request):
     """Onay üç kademeli: (1) seçilen yedeğin dosya adını yazmak, (2) "GERİ
     YÜKLE" yazmak, (3) tarayıcının `confirm()`'ü (`geri_yukle.html`). Hasta
     kalıcı silmenin (dosya no + SIL) aynı deseni -- burada daha ağır, çünkü
@@ -1409,7 +1425,7 @@ async def klasorler_geri_yukle(request: Request):
 
     def hata(m):
         return RedirectResponse(
-            "/klasorler/geri-yukle?hata=" + quote(m), status_code=303)
+            "/yedekleme/geri-yukle?hata=" + quote(m), status_code=303)
 
     hedef = db.ayar("yedek_klasor", "")
     if not hedef:
@@ -1442,7 +1458,7 @@ async def klasorler_geri_yukle(request: Request):
              .replace("{cycle}", str(sonuc.get("cycle")))
              .replace("{specimen}", str(sonuc.get("specimen")))
              .replace("{goruntu}", str(sonuc.get("goruntu"))))
-    return RedirectResponse("/klasorler?gymesaj=" + quote(mesaj), status_code=303)
+    return RedirectResponse("/yedekleme?gymesaj=" + quote(mesaj), status_code=303)
 
 
 # Klasör gezgini (v6.43, kullanıcının isteği: "göz at şeklinde olsa").

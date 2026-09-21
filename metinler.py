@@ -1538,6 +1538,23 @@ METINLER = {
         "en": "Restored: {hasta} patients, {cycle} treatments, {specimen} "
               "specimens, {goruntu} photo records."},
 
+    # v6.121, kullanıcının isteği: "Yedekleme bölümünde Yedekleme olsun.
+    # Klasörlerin altında zor bulunuyor." -- eylemler `/klasorler`'den
+    # kendi ekranına (`/yedekleme`) taşındı.
+    "geri_yukle_kisa_ipucu": {
+        "tr": "Bir yedek seçip geri yükleyerek hastaları, tedavileri ve "
+              "işlem kayıtlarını o yedeğin alındığı ana döndürebilirsin.",
+        "en": "Pick a backup and restore it to return patients, treatments "
+              "and procedure records to the moment that backup was taken."},
+    "yedek_klasoru_degistir_ipucu": {
+        "tr": "Yedeğin yazılacağı klasörü değiştirmek için "
+              "<a href=\"/klasorler\">Klasörler</a> ekranı.",
+        "en": "To change the folder backups are written to, see the "
+              "<a href=\"/klasorler\">Folders</a> screen."},
+    "yedekleme_yonetim_ipucu": {
+        "tr": "Elle yedekleme ve yedekten geri yükleme için",
+        "en": "For manual backup and restore, see"},
+
     "klasor_var": {"tr": "klasör bulundu", "en": "folder found"},
     "klasor_yok": {"tr": "klasör bulunamadı", "en": "folder not found"},
     # Klasör gezgini (v6.43). Tarayıcı sayfaya gerçek yolu vermediği için

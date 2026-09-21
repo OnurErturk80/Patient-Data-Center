@@ -1322,7 +1322,8 @@ bile ağır** (v6.120, kullanıcının isteği: "Yönetici isterse yedekten geri
 çağırsın... Yönetici panelinden hepsini yapabilsin"). Kalıcı silme tek bir
 hastayı etkiliyor; geri yükleme **tüm** veritabanını seçilen yedeğin
 alındığı andaki hâline döndürüyor, aradan girilmiş her şey kayboluyor.
-`/klasorler/geri-yukle`, `geri_yukle.py`.
+`/yedekleme/geri-yukle` (v6.121'e kadar `/klasorler/geri-yukle`'ydi, bkz.
+"Bekleyen işler" madde 2), `geri_yukle.py`.
 - **Üç kademeli onay** — hasta kalıcı silmenin (dosya no + SIL) daha
   ağırı: (1) seçilen yedeğin dosya adını yazmak, (2) "GERİ YÜKLE" yazmak
   (iki dilde de **sabit, çevrilmeyen** aynı metin — sunucu kontrolü dilden
@@ -1983,30 +1984,45 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    - **Asıl iş klinikteki Windows mini PC'de:** gerçek hasta verisi orada.
      Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
      `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.
-   - **`/klasorler`'de "Şimdi yedekle" düğmesi var** (v6.119, kullanıcının
-     isteği: "Elle yedekleme olsun") — otomatik zamanlamanın **yerine
-     geçmiyor**, tamamlayıcısı: "hemen bir yedek almam lazım" anları için.
-     `app.py` `klasorler_yedekle_simdi()` `yedek.py`'nin fonksiyonlarını
-     (`veritabani_yedekle()`/`eskileri_temizle()`/`arsiv_yedekle()`)
-     **süreç içinde** çağırıyor, `goc.py`'nin göçleri çalıştırma deseninin
-     aynısı — `subprocess.run([sys.executable, ...])` **yazılmadı**,
-     paketlenmiş uygulamada bu satır yedeği değil programı yeniden
-     başlatırdı (göçler için söylenen tuzağın aynısı, burada da geçerli).
-     `yedek.main()` de çağrılmadı — `sys.exit()` kullanıyor, bir istek
-     işleyicisinin içinde istenmeyen bir şey; `main()`'in çağırdığı
-     fonksiyonlar elle, `try/except` ile çağrılıyor. Düğme `/klasorler`'de
+   - **`/yedekleme` ekranında "Şimdi yedekle" düğmesi var** (v6.119,
+     kullanıcının isteği: "Elle yedekleme olsun"; ekran v6.121'de
+     `/klasorler`'den ayrıldı, aşağıya bak) — otomatik zamanlamanın
+     **yerine geçmiyor**, tamamlayıcısı: "hemen bir yedek almam lazım"
+     anları için. `app.py` `yedekleme_yedekle_simdi()` `yedek.py`'nin
+     fonksiyonlarını (`veritabani_yedekle()`/`eskileri_temizle()`/
+     `arsiv_yedekle()`) **süreç içinde** çağırıyor, `goc.py`'nin göçleri
+     çalıştırma deseninin aynısı — `subprocess.run([sys.executable, ...])`
+     **yazılmadı**, paketlenmiş uygulamada bu satır yedeği değil programı
+     yeniden başlatırdı (göçler için söylenen tuzağın aynısı, burada da
+     geçerli). `yedek.main()` de çağrılmadı — `sys.exit()` kullanıyor, bir
+     istek işleyicisinin içinde istenmeyen bir şey; `main()`'in çağırdığı
+     fonksiyonlar elle, `try/except` ile çağrılıyor. Düğme `/yedekleme`'de
      duruyor, `/yonetim`'de **değil** — o hâlâ salt okunur (v6.12'nin
-     kuralı hiç değişmedi), yalnızca sonucu (`yedek_durumu()`) gösteriyor.
-     Yeni bir "elle tetiklenen arka plan işi" (goc/yedek dışında) eklersen
-     aynı üç şeyi sor: süreç içinde mi çalışıyor (subprocess değil), hangi
-     ekranda duruyor (`/yonetim` değilse neresi), ve `main()`'in
-     `sys.exit()`'ini mi yoksa alt fonksiyonlarını mı çağırman gerekiyor.
+     kuralı hiç değişmedi), yalnızca sonucu (`yedek_durumu()`) gösteriyor
+     ve `/yedekleme`'ye bağlantı veriyor. Yeni bir "elle tetiklenen arka
+     plan işi" (goc/yedek dışında) eklersen aynı üç şeyi sor: süreç içinde
+     mi çalışıyor (subprocess değil), hangi ekranda duruyor (`/yonetim`
+     değilse neresi), ve `main()`'in `sys.exit()`'ini mi yoksa alt
+     fonksiyonlarını mı çağırman gerekiyor.
    - **Yedekten geri yükleme** (v6.120, kullanıcının isteği: "Yönetici
      isterse yedekten geri çağırsın... her şey tekrar yerleşsin. Yönetici
-     panelinden hepsini yapabilsin") — `/klasorler/geri-yukle`, yeni
+     panelinden hepsini yapabilsin") — `/yedekleme/geri-yukle`, yeni
      `geri_yukle.py`. Bkz. aşağıdaki "Yedekten geri yükleme" bölümü
      (Değişmeyen kurallar) — bu, uygulamadaki en yıkıcı işlem, kendi
      kuralları var.
+   - **Yedekleme kendi ekranına taşındı** (v6.121, kullanıcının isteği:
+     "Yedekleme bölümünde Yedekleme olsun. Klasörlerin altında zor
+     bulunuyor."). `/klasorler/yedekle-simdi` → `/yedekleme/yedekle-simdi`,
+     `/klasorler/geri-yukle` → `/yedekleme/geri-yukle` (GET+POST) —
+     mantık değişmedi, yalnızca adresler ve `/yonetim`'e doğrudan bir
+     "Yedekleme" düğmesi eklendi (Kullanıcılar/Klasörler ile aynı
+     seviyede). `/klasorler`'de yedek klasörünün **yolu** hâlâ ayarlanıyor
+     (o bir klasör ayarı) — yalnızca eylemler taşındı. Yeni bir "ayar
+     ekranının alt kartı" yazarken kendine sor: bu bir **eylem** mi
+     (şimdi çalıştır, geri al, sil gibi düğmeler) yoksa bir **ayar** mı
+     (yol, seçenek, açık/kapalı)? Eylemse kendi menü öğesi olmayı hak
+     eder — kullanıcı burada tam bunu söyledi, bir ayar ekranının
+     içindeki eylemi bulamadı.
 3. **HTTPS yok** — iç ağ dışına açılmamalı.
 4. **Kullanıcı yönetimi — v6.11'de arayüze taşındı, v6.12'de panele bağlandı.**
    Yönetici `/yonetim` panelinden `/kullanicilar`'a girer; ekler, şifre sıfırlar,

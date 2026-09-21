@@ -36,6 +36,10 @@
 <a class="dugme ikincil" href="/dil">{{ metin("dil_secimi") }}</a>
 <a class="dugme ikincil" href="/formlar">{{ metin("lab_formlari") }}</a>
 <a class="dugme ikincil" href="/klasorler">{{ metin("klasorler") }}</a>
+{# v6.121, kullanıcının isteği: "Yedekleme bölümünde Yedekleme olsun.
+   Klasörlerin altında zor bulunuyor." -- Kullanıcılar/Klasörler'in
+   yanında, kendi doğrudan bağlantısı. #}
+<a class="dugme ikincil" href="/yedekleme">{{ metin("yedekleme") }}</a>
 <a class="dugme ikincil" href="/baglan">{{ metin("baglan") }}</a>
 
 {# Panel salt okunur; bu da bir okuma -- veriyi değiştirmiyor, dosyaya
@@ -50,18 +54,20 @@
 </div>
 
 <div class="kart" style="margin-top:12px">
-  <h2>Yedekleme</h2>
+  <h2>{{ metin("yedekleme") }}</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Son yedek</dt>
-      <dd {% if not son_yedek %}class="yok"{% endif %}>{{ son_yedek or 'hiç alınmadı' }}</dd></div>
+    <div class="veri"><dt>{{ metin("son_yedek") }}</dt>
+      <dd {% if not son_yedek %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(son_yedek) if son_yedek else metin("hic_yedek_yok") }}</dd></div>
     <div class="veri"><dt>Uyarı eşiği</dt>
       <dd>{{ yedek_uyari_gun }} gün</dd></div>
   </dl>
+  {# v6.121'de "terminalden python3 yedek.py" tavsiyesi kalktı -- artık
+     ekrandan da elle yedeklenip geri yüklenebiliyor (v6.119/v6.120), panel
+     yine salt okunur (v6.12), yalnızca bağlantı veriyor. #}
   <div class="alan" style="border:0">
     <div class="ipucu">
-      Yedek almak için bu bilgisayarda terminalden
-      <code>python3 yedek.py</code>. Klinikte Görev Zamanlayıcı'ya kurulmalı —
-      henüz kurulmadı.
+      {{ metin("yedekleme_yonetim_ipucu") }}
+      <a href="/yedekleme">{{ metin("yedekleme") }}</a>.
     </div>
   </div>
 </div>

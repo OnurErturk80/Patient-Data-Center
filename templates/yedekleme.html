@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("yedekleme") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{# v6.119'da /klasorler'in bir kartıydı, v6.120'de geri yükleme eklendi,
+   v6.121'de kullanıcının isteğiyle ("Klasörlerin altında zor bulunuyor")
+   kendi ekranına taşındı -- `/yonetim`'den Kullanıcılar/Klasörler'in
+   yanına doğrudan bağlantı verildi. Yedek klasörünün YOLU hâlâ
+   `/klasorler`'de ayarlanıyor (o bir klasör ayarı), buradaki tek konu
+   eylemler: şimdi yedekle / geri yükle. #}
+
+{% if yhata %}<div class="uyari">{{ yhata }}</div>{% endif %}
+{% if yedeklendi %}<div class="uyari">{{ metin("yedek_alindi") }}</div>{% endif %}
+{% if gymesaj %}<div class="uyari">{{ gymesaj }}</div>{% endif %}
+
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("son_yedek") }}</h2>
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      {{ gg_aa_yyyy_saat(son_yedek) if son_yedek else metin("hic_yedek_yok") }}
+    </div>
+    {% if yedek_uyari %}
+    <div class="ipucu" style="color:#a11f1f">{{ yedek_uyari }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("simdi_yedekle") }}</h2>
+  <div class="alan" style="border:0">
+    <form method="post" action="/yedekleme/yedekle-simdi">
+      <button class="dugme" type="submit">{{ metin("simdi_yedekle") }}</button>
+      <div class="ipucu" style="margin-top:6px">{{ metin("yedekleniyor_uyari") }}</div>
+    </form>
+    <div class="ipucu" style="margin-top:6px">{{ metin("yedekleme_ipucu")|safe }}</div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("yedekten_geri_yukle") }}</h2>
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("geri_yukle_kisa_ipucu") }}</div>
+    <a class="dugme ikincil tehlike-bag" href="/yedekleme/geri-yukle"
+       style="margin-top:8px">{{ metin("yedekten_geri_yukle") }}</a>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      {{ metin("yedek_klasoru_degistir_ipucu")|safe }}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("yedekten_geri_yukle") }}{% endblock %}
-{% block geri %}<a class="geri" href="/klasorler">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="/yedekleme">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis{% endblock %}
 {% block icerik %}
 
@@ -19,7 +19,7 @@
 </div>
 
 {% if yedekler %}
-<form method="post" action="/klasorler/geri-yukle" id="geriyukleform">
+<form method="post" action="/yedekleme/geri-yukle" id="geriyukleform">
   <div class="kart">
     <h2>{{ metin("geri_yukle_hangi_yedek") }}</h2>
     {% for y in yedekler %}
@@ -49,7 +49,7 @@
 
   <button class="dugme tehlikeli" type="submit">{{ metin("yedekten_geri_yukle") }}</button>
 </form>
-<a class="dugme ikincil" href="/klasorler">{{ metin("vazgec") }}</a>
+<a class="dugme ikincil" href="/yedekleme">{{ metin("vazgec") }}</a>
 
 <script>
 (function () {
