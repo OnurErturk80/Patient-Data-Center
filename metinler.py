@@ -1475,6 +1475,69 @@ METINLER = {
               "from a terminal. Automatic scheduling (Windows Task "
               "Scheduler) still needs to be set up separately; this button "
               "does not replace it."},
+
+    # Yedekten geri yükleme (v6.120, kullanıcının isteği: "Yönetici isterse
+    # yedekten geri çağırsın... Yönetici panelinden hepsini yapabilsin").
+    # `geri_yukle.html`, `hasta_sil.html`'in iki kademeli yazılı onay +
+    # tarayıcı confirm() deseninin aynısı. **Onay için yazılması gereken
+    # metin ("GERİ YÜKLE") her iki dilde de sabit** -- sunucu tarafındaki
+    # kontrol (`app.py` `klasorler_geri_yukle()`) dile bakmadan aynı
+    # sabit stringi arıyor, o yüzden ekrandaki yönerge de dilden bağımsız
+    # aynı kelimeyi göstermeli, yoksa İngilizce arayüzde kullanıcı ekranın
+    # söylediğini yazar ama sunucu reddeder.
+    "yedekten_geri_yukle": {"tr": "Yedekten geri yükle",
+                            "en": "Restore from backup"},
+    "geri_yukle_uyari_baslik": {
+        "tr": "Bu işlem geri alınamaz şekilde risklidir.",
+        "en": "This operation is irreversibly risky."},
+    "geri_yukle_uyari_govde": {
+        "tr": "Seçtiğin yedek, o yedeğin alındığı andan bu yana girilmiş "
+              "TÜM hasta, tedavi, oosit ve işlem kayıtlarının üzerine "
+              "yazar. Devam etmeden önce mevcut veritabanının bir güvenlik "
+              "kopyası otomatik alınır (yedek klasörüne "
+              "<code>lab_ONCEKI_...</code> adıyla) -- yanlış yedek "
+              "seçersen o kopyadan geri dönülebilir. Arşivdeki fotoğraflar "
+              "bu işlemden etkilenmez, onlar ayrı bir yerde ve hiç "
+              "silinmeden birikiyor.",
+        "en": "The backup you pick overwrites ALL patient, treatment, "
+              "oocyte and procedure records entered since that backup was "
+              "taken. Before proceeding, a safety copy of the current "
+              "database is taken automatically (named "
+              "<code>lab_ONCEKI_...</code> in the backup folder) -- if you "
+              "pick the wrong backup you can recover from that copy. "
+              "Archive photos are not affected by this operation, they "
+              "live separately and are never deleted."},
+    "geri_yukle_hangi_yedek": {"tr": "Hangi yedek geri yüklensin?",
+                               "en": "Which backup should be restored?"},
+    "geri_yukle_onceki_hal": {"tr": "önceki hâlin güvenlik kopyası",
+                              "en": "safety copy of a previous state"},
+    "geri_yukle_onay1_etiket": {
+        "tr": "1. Seçtiğin yedeğin dosya adını yaz",
+        "en": "1. Type the filename of the backup you selected"},
+    "geri_yukle_onay2_etiket": {
+        "tr": "2. Onaylamak için <strong>GERİ YÜKLE</strong> yaz",
+        "en": "2. Type <strong>GERİ YÜKLE</strong> to confirm"},
+    "geri_yukle_confirm": {
+        "tr": "{ad} geri yüklenecek. Bu işlem geri alınamaz. Devam edilsin mi?",
+        "en": "{ad} will be restored. This cannot be undone. Continue?"},
+    "geri_yukle_yedek_yok": {
+        "tr": "Yedek klasöründe geri yüklenebilecek bir dosya bulunamadı.",
+        "en": "No restorable file was found in the backup folder."},
+    "geri_yukle_secim_yok": {"tr": "Bir yedek seçilmedi.",
+                             "en": "No backup was selected."},
+    "geri_yukle_dosya_yanlis": {"tr": "Dosya adı doğru yazılmadı.",
+                                "en": "The filename was not typed correctly."},
+    "geri_yukle_onay_yanlis": {
+        "tr": "Onaylamak için 'GERİ YÜKLE' yazılmalı.",
+        "en": "Type 'GERİ YÜKLE' to confirm."},
+    "geri_yukleme_basarisiz": {"tr": "Geri yükleme başarısız",
+                               "en": "Restore failed"},
+    "geri_yuklendi_ozet": {
+        "tr": "Geri yüklendi: {hasta} hasta, {cycle} tedavi, {specimen} "
+              "örnek, {goruntu} fotoğraf kaydı.",
+        "en": "Restored: {hasta} patients, {cycle} treatments, {specimen} "
+              "specimens, {goruntu} photo records."},
+
     "klasor_var": {"tr": "klasör bulundu", "en": "folder found"},
     "klasor_yok": {"tr": "klasör bulunamadı", "en": "folder not found"},
     # Klasör gezgini (v6.43). Tarayıcı sayfaya gerçek yolu vermediği için

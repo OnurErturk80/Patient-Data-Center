@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("yedekten_geri_yukle") }}{% endblock %}
+{% block geri %}<a class="geri" href="/klasorler">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+
+{# v6.120, kullanıcının isteği: "Yönetici isterse yedekten geri çağırsın
+   programa hastalar tedaviler her şey tekrar yerleşsin." Bu ekranın deseni
+   `hasta_sil.html`'in kalıcı silme onayıyla aynı -- yazılı iki onay +
+   tarayıcı confirm() -- ama daha ağır: tek hasta değil TÜM veritabanını
+   değiştiriyor. `geri_yukle.py` değiştirmeden önce mevcut veritabanının
+   güvenlik kopyasını kendisi alıyor (yanlış seçilirse geri dönülsün). #}
+
+{% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+<div class="tehlike">
+  <strong>{{ metin("geri_yukle_uyari_baslik") }}</strong><br>
+  {{ metin("geri_yukle_uyari_govde")|safe }}
+</div>
+
+{% if yedekler %}
+<form method="post" action="/klasorler/geri-yukle" id="geriyukleform">
+  <div class="kart">
+    <h2>{{ metin("geri_yukle_hangi_yedek") }}</h2>
+    {% for y in yedekler %}
+    <label class="secsatir" data-dosya="{{ y.ad }}">
+      <input type="radio" name="dosya" value="{{ y.ad }}" {% if loop.first %}checked{% endif %}>
+      <span class="kutu"></span>
+      <span class="bilgi">
+        <strong>{{ gg_aa_yyyy_saat(y.tarih.isoformat(" ", "seconds")) if y.tarih else y.ad }}</strong>
+        <em>{{ y.ad }} · {{ "%.1f"|format(y.boyut_mb) }} MB{% if y.onceki_mi %} · {{ metin("geri_yukle_onceki_hal") }}{% endif %}</em>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="onay">{{ metin("geri_yukle_onay1_etiket") }}</label>
+      <input id="onay" name="onay" type="text" autocomplete="off"
+             spellcheck="false" placeholder="{{ yedekler[0].ad }}">
+    </div>
+    <div class="alan" style="border:0">
+      <label for="onay2">{{ metin("geri_yukle_onay2_etiket")|safe }}</label>
+      <input id="onay2" name="onay2" type="text" autocomplete="off"
+             autocapitalize="characters" placeholder="GERİ YÜKLE">
+    </div>
+  </div>
+
+  <button class="dugme tehlikeli" type="submit">{{ metin("yedekten_geri_yukle") }}</button>
+</form>
+<a class="dugme ikincil" href="/klasorler">{{ metin("vazgec") }}</a>
+
+<script>
+(function () {
+  var form = document.getElementById('geriyukleform');
+  if (!form) return;
+  document.querySelectorAll('input[name="dosya"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      document.querySelectorAll('.secsatir').forEach(function (l) {
+        l.classList.toggle('secili', l.querySelector('input').checked);
+      });
+    });
+  });
+  form.addEventListener('submit', function (e) {
+    var secili = document.querySelector('input[name="dosya"]:checked');
+    var ad = secili ? secili.value : '';
+    if (!confirm({{ metin("geri_yukle_confirm")|tojson }}.replace('{ad}', ad))) {
+      e.preventDefault();
+    }
+  });
+})();
+</script>
+{% else %}
+<div class="ipucu">{{ metin("geri_yukle_yedek_yok") }}</div>
+{% endif %}
+{% endblock %}

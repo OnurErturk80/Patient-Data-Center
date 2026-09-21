@@ -9201,3 +9201,152 @@ oturumuyla test edildi:
   oturum jetonu temizlendi, sunucu kapatıldı. (`yedek.log`'daki test
   satırları `.gitignore`'da olduğu için depoya girmiyor, elle
   temizlenmedi.)
+
+# v6.120 — Yedekten geri yükleme
+
+Kullanıcının isteği: "Yedekten geri çağırma var mı? Yoksa olsun. Yönetici
+isterse yedekten geri çağırsın programa hastalar tedaviler her şey tekrar
+yerleşsin. Yönetici panelinden hepsini yapabilsin." v6.119'un tersi:
+o yedek **alıyordu**, bu yedekten **geri yüklüyor** — tüm veritabanını
+seçilen yedeğin içeriğiyle değiştiriyor.
+
+## Sebep ve tasarım
+
+Bu, uygulamadaki en yıkıcı işlem: bir hastayı kalıcı silmek tek bir kaydı
+etkiliyor, geri yükleme **tüm** veritabanını (bütün hastalar, tedaviler,
+oositler, işlem kayıtları) seçilen yedeğin alındığı andaki hâline
+döndürüyor — aradan girilmiş her şey kayboluyor. Bu yüzden üç kat güvenlik
+katmanı var, hasta kalıcı silmenin (dosya no + SIL) kuralından daha ağır:
+
+1. **Seçilen yedeğin dosya adını yazmak** (hangi yedek olduğunu doğrulatıyor).
+2. **"GERİ YÜKLE" yazmak** (ikinci, ayrı bir onay — iki dilde de aynı sabit
+   metin, çünkü sunucu tarafındaki kontrol dilden bağımsız aynı stringi
+   arıyor).
+3. **Tarayıcının `confirm()`'ü.**
+
+**Değiştirmeden önce mevcut veritabanının güvenlik kopyası otomatik
+alınır** (`lab_ONCEKI_<tarih>.db`, `tasi.py`'nin USB'den içeri alırken
+kullandığı aynı adlandırma ve aynı gerekçe) — yanlış yedek seçilirse o
+kopyadan geri dönülebiliyor. Bu kopya `yedek_klasor`'e yazılıyor (bkz.
+"Bilinen hata (düzeltildi)" aşağıda) — hem "başka bir diskte olmalı"
+kuralından faydalansın hem geri yükleme ekranındaki listede kendisi de bir
+seçenek olarak görünsün diye.
+
+**Değiştirme mekaniği `tasi.py`'nin USB'den içeri alma deseninin aynısı**,
+elle taklit edilmedi, doğrudan onun `tutarli_kopya()`/`ONCEKI`/atomik
+takas üçlüsü kopyalandı (`geri_yukle.py` yeni bir dosya, `tasi.py`'yi
+import etmedi — o script'in kendi CLI akışı `sys.exit()`/`input()`
+kullanıyor, web rotasında istenmeyen şeyler, CLAUDE.md'nin "yedek.main()
+çağrılmadı" bölümündeki gerekçenin aynısı):
+1. Yedeğin kendisi bozuk mu diye `PRAGMA integrity_check` ile önce bak —
+   bozuk bir dosyayı canlıya taşımadan yakala.
+2. Mevcut canlı veritabanının güvenlik kopyasını SQLite backup API ile al.
+3. Seçilen yedeği SQLite backup API ile bir **geçici dosyaya** kopyala
+   (`lab.db.geri-yukleniyor`, `VERI_KOK`'ta — `Path.replace()`'in atomik
+   kalması için hedefle **aynı dosya sisteminde** olmak zorunda, `yedek_
+   klasor` başka bir diskte olabileceği için oraya yazılamaz).
+4. Eski `-wal`/`-shm` yardımcı dosyalarını sil (kalırsa yeni dosyanın
+   içeriğiyle uyuşmayan sayfalar yeniden oynatılmaya çalışılır — `tasi.py`
+   README v6.16'nın aynı önlemi).
+5. `Path.replace()` ile **atomik** takas — ya tam olur ya hiç olmaz, yarım
+   kalan bir kopya asla canlı veritabanının yerine geçmez.
+
+**Neden düz dosya kopyası değil ("`shutil.copy2`") burada da geçerli**
+(README v6.16'nın gerekçesi): WAL modunda düz kopya yarım/tutarsız çıkar.
+**Neden canlı `db.DB_YOLU`'na doğrudan `kaynak.backup(hedef)` değil de
+geçici-dosya+atomik-takas**: `db.baglan()` her istekte kendi bağlantısını
+açıp kapatıyor (kalıcı bir havuz yok), yani teoride doğrudan backup API ile
+canlıya yazmak da güvenli olurdu — ama `tasi.py` zaten bu deseni (geçici
+dosya + atomik takas) seçmiş ve Windows'ta dosya "kullanımda" hatasını
+`OSError` olarak yakalayıp temiz bir mesajla durabiliyor (canlı veritabanına
+hiç dokunulmadan). Aynı olgun deseni tekrar icat etmek yerine kopyalandı.
+
+## Ne değişti
+
+- Yeni dosya **`geri_yukle.py`**: `yedekleri_listele()` (yedek klasöründeki
+  `lab_*.db` dosyalarını tarih/boyutla listeler, `lab_ONCEKI_*.db` güvenlik
+  kopyalarını da `onceki_mi` bayrağıyla dahil eder) ve `geri_yukle()`
+  (yukarıdaki beş adım). Terminalden de çalışır (`python3 geri_yukle.py
+  listele` / `geri-yukle <dosya>`) — `kullanici.py`'nin "yönetici de
+  kilitlenirse" felsefesinin aynısı, web ekranı çalışmasa bile bir çıkış
+  yolu olsun diye.
+- `app.py`: `GET/POST /klasorler/geri-yukle` — ikisi de `yonetici_kontrol()`
+  ile başlıyor (rota adı `-sil` ile bitmediği için `yol_modulu()` bunu
+  "silme" modülüne bağlamıyor, kasıtlı: bu iş "silme" izninden bağımsız,
+  doğrudan yönetici işi). `/klasorler`'e `gymesaj` parametresi eklendi
+  (başarı mesajı, `yhata` gibi sunucunun ürettiği bitmiş metin — `metin()`'e
+  adresten gelen bir anahtar verilmiyor, tuzak #9 burada geçerli değil).
+- `templates/geri_yukle.html`: yedek listesi (radyo seçim,
+  `.secsatir`/hasta_sil.html'in aynı deseni), iki yazılı onay alanı, kırmızı
+  "Yedekten geri yükle" düğmesi, tarayıcı `confirm()`.
+- `/klasorler`'in "Yedekleme" kartına kırmızı bir "Yedekten geri yükle"
+  bağlantısı eklendi (`.tehlike-bag`, hasta silmedeki "kalıcı sil"
+  düğmesiyle aynı görsel dil).
+- **Güvenlik: `dosya` form alanı whitelist'ten geçiyor.** Adresten/formdan
+  gelen bir dosya adını doğrudan `Path(hedef) / dosya`'ya eklemek yol
+  aşımına (`../../lab.db` gibi) açık olurdu (tuzak #9'un dosya-yolu hali).
+  `klasorler_geri_yukle()` önce `yedekleri_listele()`'nin döndürdüğü
+  **gerçek** dosya adlarının kümesini kuruyor, `dosya` o kümede değilse
+  reddediyor — yol aşımı denemesi normal bir "yedek seçilmedi" hatasına
+  düşüyor, hiçbir zaman `yedek_klasor`'ün dışına çıkamıyor.
+
+## Bilinen hata (düzeltildi, geliştirme sırasında yakalandı)
+
+İlk yazımda güvenlik kopyası (`lab_ONCEKI_*.db`) `tasi.py`'yi birebir
+kopyalayarak `VERI_KOK`'a (canlı veritabanıyla aynı klasöre) yazılıyordu.
+Test sırasında fark edildi: `yedekleri_listele()` yalnızca `yedek_klasor`'ü
+tarıyor, yani bu kopya hiçbir zaman geri yükleme listesinde görünmeyecekti
+— kullanıcı "önceki hâle dön" seçeneğini asla göremezdi. Ayrıca `yedek_
+klasor`'ün "başka bir diskte olmalı" kuralından (v6.41) hiç faydalanmıyordu.
+Düzeltme: güvenlik kopyası artık `yedek_dosyasi.parent`'a (seçilen yedeğin
+bulunduğu, yani `yedek_klasor`'ün ta kendisi) yazılıyor — `tasi.py`'nin
+kendi ONCEKI'si hâlâ `VERI_KOK`'ta kalıyor, çünkü onun bağlamı farklı ("bu
+makinede hemen geri alınacak bir USB taşıma hatası", ayrı diske ihtiyaç
+yok). Yeni bir "önceki hâli sakla" ihtiyacı doğarsa sor: bu kopya nereden
+tekrar seçilecek/bulunacak, oraya mı yoksa `VERI_KOK`'a mı ait?
+
+## Bilinen sınır
+
+**Arşivdeki fotoğraflar geri yüklenmiyor.** `yedek.arsiv_yedekle()`
+hedeften hiçbir şey silmiyor, yalnızca birikimli kopyalıyor — yani "şu
+yedeğin arşiv anlık görüntüsü" diye bir kavram yok, hangi fotoğrafın hangi
+DB anına ait olduğunu ayıklamanın bir yolu yok. Bu bilinçli bir sınır:
+fotoğraf dosyaları kendi başına asla silinmiyor/üzerine yazılmıyor olduğu
+için risk yalnızca "eski DB, aradan silinmiş bir fotoğrafa işaret ediyor"
+(kırık bağlantı), veri kaybı değil. Ekrandaki uyarı metni bunu açıkça
+söylüyor.
+
+**Geri yükleme sonrası oturumlar geçersiz olabilir.** Eski bir yedeğe
+dönüldüğünde, o yedekten SONRA açılmış oturum jetonları (`oturum` tablosu)
+artık veritabanında yok — geri yükleyen yönetici dahil herkes bir sonraki
+istekte `/giris`'e düşebilir. Bu beklenen, doğru davranış (kimlik doğrulama
+verisi de veritabanının parçası), ayrıca bir işlem gerektirmiyor.
+
+## Test edildi
+
+**Gerçek proje veritabanına hiç dokunulmadı** — `LAB_VERI` ortam
+değişkeniyle tamamen izole bir kopya üzerinde, ayrı bir portta (8124) ikinci
+bir sunucu örneği çalıştırıldı:
+- İzole veritabanının SQLite backup API ile bir kopyası alındı, üzerine
+  iki test hastası eklenerek iki farklı "yedek" üretildi (1 hastalı temel
+  durum, sonra 2 hastalı "canlı" durum).
+- **Mutlu yol**: temel duruma geri yüklendi — canlı veritabanı 1 hastaya
+  döndü, `PRAGMA integrity_check` "ok" verdi, güvenlik kopyası doğru
+  klasörde (`yedek_klasor`) oluştu ve sonraki listede kendisi de seçenek
+  olarak göründü, sunucu çökmeden yanıt vermeye devam etti.
+- **Doğrulama hataları**: yanlış dosya adı yazma, yanlış onay metni yazma
+  — ikisi de doğru hata mesajıyla reddedildi, canlı veritabanı
+  değişmedi.
+- **Bozuk yedek**: gerçek bir SQLite dosyası olmayan bir dosya "yedek" diye
+  seçilip gönderildi — `PRAGMA integrity_check` başarısız olmadan önce
+  SQLite'ın kendi hatasıyla reddedildi, canlı veritabanı ve yedek klasörü
+  hiç değişmedi (yeni bir ONCEKI kopyası bile oluşmadı — doğrulama
+  güvenlik kopyasından ÖNCE yapılıyor).
+- **Yol aşımı denemesi**: `dosya=../../../etc/passwd` gönderildi, whitelist
+  kontrolü tarafından "yedek seçilmedi" hatasıyla reddedildi.
+- Playwright ile 390px mobil genişlikte onay ekranının görüntüsü alındı:
+  uyarı kutusu, yedek listesi (tarih/boyut/"önceki hâl" rozeti), iki onay
+  alanı ve kırmızı düğme doğru görünüyordu.
+- İzole test klasörü (`LAB_VERI` ile işaret edilen geçici dizin) ve test
+  sunucusu tamamen silindi/durduruldu; gerçek proje `lab.db`'sinde hasta/
+  cycle sayıları test öncesiyle birebir aynı kaldığı doğrulandı.

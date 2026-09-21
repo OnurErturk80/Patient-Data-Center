@@ -1287,7 +1287,7 @@ KLASOR_HATALARI = {"klasor_hata_kamera", "klasor_hata_arsiv"}
 
 @uygulama.get("/klasorler")
 def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0,
-                    yhata: str = "", yedeklendi: int = 0):
+                    yhata: str = "", yedeklendi: int = 0, gymesaj: str = ""):
     red = yonetici_kontrol(request)
     if red:
         return red
@@ -1309,6 +1309,10 @@ def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0,
         "yedeklendi": yedeklendi,
         "son_yedek": _ayar("son_yedek", ""),
         "yedek_uyari": yedek_durumu(),
+        # Yedekten geri yükleme (v6.120) -- başarı mesajı `/klasorler/
+        # geri-yukle`'den geliyor, aynı "sunucunun ürettiği bitmiş metni
+        # doğrudan göster" deseni.
+        "gymesaj": gymesaj,
         "kullanici": request.state.kullanici,
     })
 
@@ -1362,6 +1366,83 @@ def klasorler_yedekle_simdi(request: Request):
         mesaj = f"{metinler.t('yedekleme_basarisiz')}: {e}"
         return RedirectResponse("/klasorler?yhata=" + quote(mesaj), status_code=303)
     return RedirectResponse("/klasorler?yedeklendi=1", status_code=303)
+
+
+@uygulama.get("/klasorler/geri-yukle")
+def klasorler_geri_yukle_ekran(request: Request, hata: str = ""):
+    """Yedekten geri yükleme onay ekranı (v6.120, kullanıcının isteği:
+    "Yönetici isterse yedekten geri çağırsın... Yönetici panelinden hepsini
+    yapabilsin"). Rota adı `-sil` ile bitmiyor, `yol_modulu()` bunu "silme"
+    modülüne bağlamaz -- bu, silme izninden bağımsız, doğrudan yönetici
+    işi: `yonetici_kontrol()` burada elle çağrılıyor (`/klasorler`'in kendi
+    deseni).
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    import geri_yukle as _gy
+    hedef = db.ayar("yedek_klasor", "")
+    yedekler = _gy.yedekleri_listele(Path(hedef)) if hedef else []
+    return sablon.TemplateResponse(request, "geri_yukle.html", {
+        "yedekler": yedekler, "hata": hata,
+        "kullanici": request.state.kullanici,
+    })
+
+
+@uygulama.post("/klasorler/geri-yukle")
+async def klasorler_geri_yukle(request: Request):
+    """Onay üç kademeli: (1) seçilen yedeğin dosya adını yazmak, (2) "GERİ
+    YÜKLE" yazmak, (3) tarayıcının `confirm()`'ü (`geri_yukle.html`). Hasta
+    kalıcı silmenin (dosya no + SIL) aynı deseni -- burada daha ağır, çünkü
+    tek hasta değil TÜM veritabanını değiştiriyor.
+
+    Asıl iş `geri_yukle.geri_yukle()`'de: mevcut veritabanının güvenlik
+    kopyasını alıp SONRA takas ediyor, o yüzden burada yalnızca doğrulama +
+    çağrı var.
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    from urllib.parse import quote
+    import geri_yukle as _gy
+    f = dict(await request.form())
+
+    def hata(m):
+        return RedirectResponse(
+            "/klasorler/geri-yukle?hata=" + quote(m), status_code=303)
+
+    hedef = db.ayar("yedek_klasor", "")
+    if not hedef:
+        return hata(metinler.t("yedek_klasoru_yok_hata"))
+
+    # `dosya` bir form alanı -- adresten gelen bir metnin doğrudan dosya
+    # yoluna eklenmesi tuzak #9'un aynısı (whitelisting yok). Beyaz liste
+    # burada `yedekleri_listele()`'nin döndürdüğü gerçek dosya adları:
+    # `../../lab.db` gibi bir değer bu kümede olmayacağı için elenir,
+    # `Path(hedef) / dosya` hiçbir zaman `yedek_klasor`'ün dışına çıkamaz.
+    yedekler = _gy.yedekleri_listele(Path(hedef))
+    gecerli_adlar = {y["ad"] for y in yedekler}
+    dosya = (f.get("dosya") or "").strip()
+    if not dosya:
+        return hata(metinler.t("geri_yukle_secim_yok"))
+    if dosya not in gecerli_adlar:
+        return hata(metinler.t("geri_yukle_secim_yok"))
+    if (f.get("onay") or "").strip() != dosya:
+        return hata(metinler.t("geri_yukle_dosya_yanlis"))
+    if (f.get("onay2") or "").strip().upper() != "GERİ YÜKLE":
+        return hata(metinler.t("geri_yukle_onay_yanlis"))
+
+    try:
+        sonuc = _gy.geri_yukle(Path(hedef) / dosya)
+    except Exception as e:
+        return hata(f"{metinler.t('geri_yukleme_basarisiz')}: {e}")
+
+    mesaj = (metinler.t("geri_yuklendi_ozet")
+             .replace("{hasta}", str(sonuc.get("hasta")))
+             .replace("{cycle}", str(sonuc.get("cycle")))
+             .replace("{specimen}", str(sonuc.get("specimen")))
+             .replace("{goruntu}", str(sonuc.get("goruntu"))))
+    return RedirectResponse("/klasorler?gymesaj=" + quote(mesaj), status_code=303)
 
 
 # Klasör gezgini (v6.43, kullanıcının isteği: "göz at şeklinde olsa").

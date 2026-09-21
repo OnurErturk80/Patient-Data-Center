@@ -1317,6 +1317,58 @@ ayrı, bilinçli bir yol: dosya no yaz → `SIL` yaz → tarayıcı onayı.
 **Transfer kaydı olan hasta/cycle kalıcı silinemez** — ekranda seçenek
 görünmez, sunucu da reddeder. Bu kuralı gevşetme.
 
+**Yedekten geri yükleme, uygulamadaki en yıkıcı işlem — kalıcı silmeden
+bile ağır** (v6.120, kullanıcının isteği: "Yönetici isterse yedekten geri
+çağırsın... Yönetici panelinden hepsini yapabilsin"). Kalıcı silme tek bir
+hastayı etkiliyor; geri yükleme **tüm** veritabanını seçilen yedeğin
+alındığı andaki hâline döndürüyor, aradan girilmiş her şey kayboluyor.
+`/klasorler/geri-yukle`, `geri_yukle.py`.
+- **Üç kademeli onay** — hasta kalıcı silmenin (dosya no + SIL) daha
+  ağırı: (1) seçilen yedeğin dosya adını yazmak, (2) "GERİ YÜKLE" yazmak
+  (iki dilde de **sabit, çevrilmeyen** aynı metin — sunucu kontrolü dilden
+  bağımsız aynı stringi arıyor, ekrandaki yönerge de öyle söylemeli), (3)
+  tarayıcının `confirm()`'ü. Yeni bir "tüm veritabanını etkileyen" işlem
+  eklersen bu üçünü de koy, ikisi yetmez.
+- **Değiştirmeden önce mevcut veritabanının güvenlik kopyası otomatik
+  alınır** (`lab_ONCEKI_<tarih>.db`) — yanlış yedek seçilirse geri
+  dönülebilsin. **`tasi.py`'nin kendi ONCEKI'sinden farklı olarak bu kopya
+  `VERI_KOK`'a değil, seçilen yedeğin bulunduğu `yedek_klasor`'e yazılır**
+  (`yedek_dosyasi.parent`) — geliştirme sırasında tam tersi yazılmıştı,
+  test bunu yakaladı: `yedekleri_listele()` yalnızca `yedek_klasor`'ü
+  taradığı için `VERI_KOK`'a yazılan bir ONCEKI hiçbir zaman geri yükleme
+  listesinde görünmüyordu. `tasi.py`'ninki `VERI_KOK`'ta kalmaya devam
+  ediyor — onun bağlamı "bu makinede hemen geri alınacak bir USB taşıma
+  hatası", ayrı diske ihtiyacı yok. Yeni bir "değiştirmeden önce yedekle"
+  akışı yazarsan bu kopyanın SONRADAN nereden bulunacağını/seçileceğini
+  düşün, öyle karar ver.
+- **Değiştirme mekaniği `tasi.py`'nin USB'den içeri alma deseninin
+  birebir aynısı** — elle taklit edilmedi, aynı üç adım kopyalandı: SQLite
+  backup API ile bir **geçici dosyaya** kopyala (`VERI_KOK`'ta —
+  `Path.replace()`'in atomik kalması için hedefle aynı dosya sisteminde
+  olmalı, `yedek_klasor` ayrı diskte olabileceği için oraya yazılamaz),
+  eski `-wal`/`-shm` yardımcı dosyalarını sil (kalırsa yeni içerikle
+  uyuşmayan sayfalar yeniden oynatılmaya çalışılır, README v6.16), sonra
+  `Path.replace()` ile **atomik** takas — ya tam olur ya hiç olmaz.
+  Düz dosya kopyası (`shutil.copy2`) burada da yasak (README v6.16'nın
+  WAL gerekçesi).
+- **Güvenlik: seçilen dosya adı whitelist'ten geçiyor.** Formdan gelen
+  `dosya` alanını doğrudan `Path(hedef) / dosya`'ya eklemek yol aşımına
+  (`../../lab.db`) açık olurdu (tuzak #9'un dosya-yolu hali). Sunucu önce
+  `yedekleri_listele()`'nin döndürdüğü **gerçek** dosya adlarının kümesini
+  kuruyor, `dosya` o kümede değilse reddediyor. Yeni bir "kullanıcının
+  seçtiği dosya adını yola ekleyen" rota yazarsan aynı deseni kullan —
+  yolun kendisini değil, önceden bilinen bir listeye karşı doğrula.
+- **Arşivdeki fotoğraflar geri yüklenmiyor, bilinçli bir sınır.**
+  `yedek.arsiv_yedekle()` hedeften hiçbir şey silmiyor (yalnızca birikimli
+  kopyalıyor) — "şu yedeğin arşiv anlık görüntüsü" diye bir kavram yok.
+  Risk yalnızca "eski DB, aradan silinmiş bir fotoğrafa işaret ediyor"
+  (kırık bağlantı), veri kaybı değil — fotoğraf dosyaları kendi başına
+  asla silinmiyor/üzerine yazılmıyor.
+- **Geri yükleme sonrası oturumlar geçersiz olabilir** — eski bir yedeğe
+  dönülünce o yedekten sonra açılmış `oturum` satırları artık yok, geri
+  yükleyen yönetici dahil herkes bir sonraki istekte `/giris`'e düşebilir.
+  Beklenen davranış, ayrı bir işlem gerektirmiyor.
+
 **İki yerden gelinen ekranın geri oku sabit olamaz.** Taşıyıcı ekranına hem
 cryo haritasından hem çözme ekranından giriliyor; `?cycle=N` ile hangisinden
 gelindiği söyleniyor ve geri adresi **sunucuda** kuruluyor (v6.32). Aynı
@@ -1917,7 +1969,7 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    haftalar sonra gelen genetik sonucun eşleştirilmesi. `pgt_sonuc` tablosu
    şemada hazır, kullanılmıyor.
 2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi, elle
-   tetikleme v6.119'da eklendi.**
+   tetikleme v6.119'da, geri yükleme v6.120'de eklendi.**
    - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin
      `yerel_ayar.json` bölümündeki `yedek_klasor`'e gider. Komut satırı argümanı
      hep kazanır. Platforma uymayan yol (Mac'te `E:\yedek`) reddedilir.
@@ -1949,6 +2001,12 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      aynı üç şeyi sor: süreç içinde mi çalışıyor (subprocess değil), hangi
      ekranda duruyor (`/yonetim` değilse neresi), ve `main()`'in
      `sys.exit()`'ini mi yoksa alt fonksiyonlarını mı çağırman gerekiyor.
+   - **Yedekten geri yükleme** (v6.120, kullanıcının isteği: "Yönetici
+     isterse yedekten geri çağırsın... her şey tekrar yerleşsin. Yönetici
+     panelinden hepsini yapabilsin") — `/klasorler/geri-yukle`, yeni
+     `geri_yukle.py`. Bkz. aşağıdaki "Yedekten geri yükleme" bölümü
+     (Değişmeyen kurallar) — bu, uygulamadaki en yıkıcı işlem, kendi
+     kuralları var.
 3. **HTTPS yok** — iç ağ dışına açılmamalı.
 4. **Kullanıcı yönetimi — v6.11'de arayüze taşındı, v6.12'de panele bağlandı.**
    Yönetici `/yonetim` panelinden `/kullanicilar`'a girer; ekler, şifre sıfırlar,
