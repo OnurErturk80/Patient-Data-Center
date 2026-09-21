@@ -158,24 +158,6 @@ def yaz(sql, parametre=()):
         return imlec.lastrowid
 
 
-_TABLO_VAR = {}
-
-
-def tablo_var(ad: str) -> bool:
-    """Bu tablo var mı — yani o göç çalıştırılmış mı?
-
-    Göçü çalıştırmamış makinede program yine açılmalı, yalnızca o özellik
-    susmalı (tuzak #3). `app.sifre_istegi_tablosu_var()` aynı işi kendi
-    tablosu için yapıyordu; yenisini yazarken kopyalamak yerine bunu çağır.
-    Sonuç önbelleğe alınıyor: tablo bir sürecin ömründe ortadan kalkmaz,
-    göç açılışta çalışır.
-    """
-    if ad not in _TABLO_VAR:
-        _TABLO_VAR[ad] = bool(tek(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (ad,)))
-    return _TABLO_VAR[ad]
-
-
 def liste(liste_adi):
     """Bir seçim listesinin değerlerini döndürür."""
     return sorgu(

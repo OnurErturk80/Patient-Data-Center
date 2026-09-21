@@ -414,9 +414,6 @@ TUM_TABLOLAR = [
     "sperm_ornek", "sperm_analiz", "sperm_dondurma", "sperm_dondurma_dosya",
     "islem_yapan", "gebelik_sonucu",
     "beta_hcg", "dogan_bebek", "pgt_sonuc", "tasiyici", "konum", "konum_semasi",
-    # Program öncesi cryo haritası (v6.127): klinik kayıt, dökümde olmalı.
-    # `lab_formu` gibi tek hücreye sığmayan bir blob taşımıyor.
-    "eski_cryo",
     "liste_degeri", "degisiklik_log",
 ]
 

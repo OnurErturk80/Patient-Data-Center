@@ -94,16 +94,6 @@ if sperm_dondurmalar:
     if n:
         bulundu = True
         print(f"  {'sperm_dondurma_dosya.sperm_dondurma_id':36} {n}")
-# Program oncesi cryo haritasi (v6.127): hastaya baglanmis envanter
-# kayitlari. Silmeyi ENGELLEMEZ ama bagi kopmasi gerekir -- bunlar tankta
-# fiziksel olarak duran ornekler, hasta dosyasi silindi diye kaybolmamali.
-if b.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
-             "AND name='eski_cryo'").fetchone():
-    n = b.execute("SELECT COUNT(*) FROM eski_cryo WHERE hasta_id=?",
-                  (h["id"],)).fetchone()[0]
-    if n:
-        bulundu = True
-        print(f"  {'eski_cryo.hasta_id':36} {n}  (bagi kopacak, kayit silinmeyecek)")
 if not bulundu:
     print("  (hicbiri — temiz gorunuyor)")
 
@@ -165,12 +155,6 @@ for sdid in sperm_dondurmalar:
         (f"sperm_dondurma {sdid}: kayit", "DELETE FROM sperm_dondurma WHERE id=?", (sdid,)),
         (f"sperm_dondurma {sdid}: tasiyici", "DELETE FROM tasiyici WHERE id=?", (tid,)),
     ]
-if b.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
-             "AND name='eski_cryo'").fetchone():
-    ADIMLAR.append(
-        ("eski_cryo: baglari kopar (kayit silinmez)",
-         "UPDATE eski_cryo SET hasta_id=NULL, eslesme_zamani=NULL, "
-         "eslesme_kullanici_id=NULL WHERE hasta_id=?", (h["id"],)))
 ADIMLAR.append(("HASTA", "DELETE FROM hasta WHERE id=?", (h["id"],)))
 
 hatali = None

@@ -51,26 +51,12 @@
     {% for s in sema %}
     <div class="alan">
       <label for="seviye{{ s.seviye_sirasi }}">{{ s.seviye_adi }}</label>
-      {# Kullanılan değerler öneriliyor (v6.128). Kapalı `<select>` DEĞİL:
-         yeni bir tank/goblet her zaman açılabilir (CLAUDE.md'nin datalist
-         ölçüsü). Asıl amaç yazım birliği — "Tank 1" ile "TANK 1" aynı yer
-         ama farklı yazılırsa iki ayrı konum olurdu. (Sunucu tarafında
-         `_konum_anahtari()` bunu ayrıca yakalıyor; bu, kullanıcıya
-         gösterilen hali.) #}
       <input id="seviye{{ s.seviye_sirasi }}" name="seviye{{ s.seviye_sirasi }}"
-             type="text" autocomplete="off"
-             list="konumsec{{ s.seviye_sirasi }}">
-      <datalist id="konumsec{{ s.seviye_sirasi }}">
-        {% for d in (konum_secenek or {}).get(s.seviye_sirasi, []) %}
-        <option value="{{ d }}"></option>
-        {% endfor %}
-      </datalist>
+             type="text" autocomplete="off">
     </div>
     {% endfor %}
     <div class="alan" style="border:0;padding-top:0">
       <div class="ipucu">{{ metin("konum_ipucu") }}</div>
-      <div class="ipucu">{{ metin("konum_oneri_ipucu") }}</div>
-      <a class="dugme ikincil" href="/dolap" target="_blank">{{ metin("dolap_bak") }}</a>
     </div>
   </div>
 
