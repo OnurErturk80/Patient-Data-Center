@@ -1227,8 +1227,29 @@ body.kilitli { overflow: hidden; }
    goruntusuyle bildirdi: "tablo kesik, tam gorunmuyor"). Sutunlari daraltmak
    yerine (sayilar okunmaz olurdu) `.kalipolcek`'in (form.html, v6.107)
    kullandigi ayni desen: tabloyu degil, sarmalayan kutuyu kaydirilabilir
-   yap. Tablonun kendisi `nowrap` kaliyor, degismedi. */
+   yap. Tablonun kendisi `nowrap` kaliyor, degismedi.
+   **Yalnizca istatistik.html'de kaliyor.** cycle_detay.html'deki zaman
+   cizelgesi v6.117'de `.cizelgeolcek`'e (asagida) gecti -- kullanici
+   kaydirmayi acikca reddetti ("ilk bakista gorunsun, ekrani kaydirmadan"),
+   bu yuzden o tabloda artik kaydirma degil kucultme var. istatistik.html'in
+   iki tablosu icin kaydirma hala dogru: kullanicinin sikayeti "Tedavi ana
+   sayfasi" ile sinirliydi, orada degisiklik istenmedi. */
 .cizelgekap { overflow-x: auto; }
+
+/* Zaman cizelgesi (cycle_detay.html) tablosunu KAYDIRMADAN mevcut genislige
+   sigdirir (v6.117). `.sutunlar`'in disina genisletmek (v6.114) yalnizca
+   gercek iki-sutunlu genis masaustunde ek genislik kazandiriyordu; dar
+   telefonda (`.sutunlar` zaten tek sutuna dizilmis) kart ek genislik
+   almiyordu ve kaydirma da kaldirilmis oldugu icin tasma SAYFANIN kendisini
+   yatay kaydirilabilir yapiyordu -- kullanici bunu da reddetti ("kaydirmali
+   gorunuyor... ekrani kaydirarak degil"). `.kalipolcek`'in (form.html,
+   v6.107/v6.109) ayni deseni: tabloyu kirpmak yerine BUTUN olarak
+   `transform: scale()` ile kucultuyor, punto/hucre araligi birlikte
+   kuculur ama sutun kesilmez, sayfa hicbir zaman yatay kaymaz.
+   `transform-origin: top left` burada da SART (v6.109'un dersi) -- yoksa
+   kucultme ortaya dogru buzulup ustte bosluk birakir. */
+.cizelgeolcek { overflow: hidden; }
+.cizelgeolcek table.cizelge { transform-origin: top left; }
 
 /* Etiket listesi (yuklenen formlar icin) bir cizelge ama aciklama sutunu
    uzun; telefonda satira sigmasi icin sarilabiliyor. `.cizelge`nin kendisi

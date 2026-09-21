@@ -910,24 +910,39 @@ OPU'dan bu yana. Kullanıcının isteği — formdaki "24 saat / 40-45 saat /
     onu saran `<div>`'e uygulanıyor (`<table>`'ın kendisinde `overflow-x`
     güvenilir çalışmıyor). Yeni bir çok-sütunlu `.cizelge` tablosu
     eklersen aynı sarmalayıcıyı kullan.
-  - **Cycle ekranının zaman çizelgesi farklı — kaydırma DEĞİL, genişletme**
-    (v6.114, kullanıcının isteği: "yatay kaydırma yerine sadece zaman
-    çizelgesini uzat, başka hiçbir yeri uzatma — ne işlemi bitir butonunu
-    ne de embriyoloji özet formu butonunu"). `cycle_detay.html`'de bu kart
-    artık `.sutunlar`'ın **dışında**, iki sütunun ikisini birden kapsayan
-    tam genişlikte duruyor (`.kap.genis`'in kendi `--genis-sutun`
-    genişliği, ~940px'e kadar) — `.cizelgekap` kaydırma sarmalayıcısı
-    kaldırıldı. **Bu yalnızca gerçek iki-sütunlu (geniş masaüstü,
-    `--genis-sutun` ≳ 800px) görünümde işe yarıyor**: `.sutunlar` iki
-    380px'lik sütunu + 16px boşluğu (776px) sığdıramadığı her genişlikte
-    (dar telefon dahil, iki sütun zaten tek sütuna dizilmiş oluyor) kart
-    sığdığı tek sütunla **aynı genişlikte** kalıyor, tablo hâlâ taşabilir —
-    bu durumda kaydırma da yok, tuzak #5'in ("değiştirdiğin ekranı
-    tarayıcıda gerçek aç") hatırlattığı gibi **gerçekten dar bir telefonda
-    dördüncü sütun ("OPU'dan bu yana") hâlâ kesik görünebilir**. Kullanıcı
-    kaydırmayı bilerek istemedi, bu ödünü bilerek kabul etti — gerçek dar
-    telefon şikâyeti gelirse (genişletme fiziksel olarak yetmiyor) tekrar
-    kaydırmaya dönmeden önce ona sor.
+  - **Cycle ekranının zaman çizelgesi farklı — kaydırma DEĞİL, genişletme
+    + küçültme.** v6.114'te kullanıcının isteği "yatay kaydırma yerine
+    sadece zaman çizelgesini uzat, başka hiçbir yeri uzatma — ne işlemi
+    bitir butonunu ne de embriyoloji özet formu butonunu" idi.
+    `cycle_detay.html`'de bu kart `.sutunlar`'ın **dışında**, iki sütunun
+    ikisini birden kapsayan tam genişlikte duruyor (`.kap.genis`'in kendi
+    `--genis-sutun` genişliği, ~940px'e kadar) — `İşlemi bitir`/
+    `Embriyoloji Özet Formu` gibi düğmeler hâlâ kendi `.sutun`larının
+    içinde, genişlikleri değişmedi. **Ama bu genişletme yalnızca gerçek
+    iki-sütunlu (geniş masaüstü, `--genis-sutun` ≳ 800px) görünümde ek
+    genişlik veriyor**: `.sutunlar` iki 380px'lik sütunu + 16px boşluğu
+    (776px) sığdıramadığı her genişlikte (dar telefon dahil, iki sütun
+    zaten tek sütuna dizilmiş oluyor) kart sığdığı tek sütunla **aynı
+    genişlikte** kalıyor.
+    v6.114'te bu durumda kaydırma da kaldırılmış olduğu için (v6.113'ün
+    `.cizelgekap`'ı geri alınmıştı) taşma hiç kırpılmıyor, **sayfanın
+    kendisi** yatay kaydırılabilir hale geliyordu — v6.117'de kullanıcı
+    tam bunu bildirdi: "mobilde tam gözükmüyor, kaydırmalı görünüyor —
+    ilk bakışta görünsün, ekranı kaydırarak değil". **v6.117'nin çözümü**:
+    `<table class="cizelge">` artık `<div class="cizelgeolcek">` içinde;
+    `form.html`'in `.kalipolcek`/`formlariSigdir()` deseninin (v6.107,
+    v6.109) birebir aynısı — `cizelgeSigdir()` betiği tabloyu kırpmak/
+    kaydırmak yerine BÜTÜN olarak `transform: scale()` ile mevcut
+    genişliğe küçültüyor (`transform-origin: top left` burada da v6.109'un
+    dersiyle şart). Geniş ekranda oran zaten ~1 (v6.114'ün kazancı
+    korunuyor), dar telefonda tablo görsel olarak küçülüp **her zaman**
+    tam sığıyor — sayfa hiçbir genişlikte yatay kaymıyor. Bu, v6.114'ün
+    "gerçekten dar bir telefonda dördüncü sütun kesik görünebilir" bilinen
+    sınırını kapatıyor. Yeni bir yerde aynı "sabit-doğal-genişlikte içerik
+    hiçbir kaydırmaya/kesilmeye izin vermeden bir kaba sığmalı" ihtiyacı
+    doğarsa (form.html'in kâğıt kalıbı, buradaki zaman çizelgesi) bu
+    `transform: scale()` + `transform-origin: top left` deseni üçüncü
+    yerde de geçerli — kaydırma çözüm değilse ilk seçenek bu olsun.
 
 **`gun_alt()` / `son_alt()` `formlar.py`'de durur**, `disari.py` oradan alır.
 Örnek başına alt sorgu kuran iki küçük parça; iki kopya birbirinden ayrı

@@ -8982,3 +8982,70 @@ etkilenmediği (küçük harfle hâlâ çalıştığı) doğrulandı. Diğer ekr
 (`/`, `/hastalar`, `/cryo`, `/cycle/{id}`) 200 döndürdü. Test hasta,
 cycle, specimen, olay, taşıyıcı, sperm dondurma kayıtları ve oturum
 jetonu temizlendi, sunucu kapatıldı.
+
+# v6.117 — Zaman çizelgesi: genişletme yetmedi, kaydırma da istenmiyordu
+
+Kullanıcının bildirdiği hata, v6.114'ün tam öngördüğü "bilinen sınır"ın
+gerçekleşmesiydi: "Tedavi ana sayfasında zaman çizergesi mobilde tam
+gözükmüyor. Kaydırmalı olarak görünüyor. Bakınca görünecek şekilde olsun.
+İlk bakışta görünsün ekranı kaydırarak değil."
+
+## Sebep
+
+v6.114 `.cizelgekap`'ın (v6.113) `overflow-x: auto` kaydırma
+sarmalayıcısını kaldırıp kartı `.sutunlar`'ın dışına, tam genişliğe
+çıkarmıştı — ama bu yalnızca `.sutunlar` **gerçekten iki sütuna
+bölündüğünde** (≳1440px) ek genişlik veriyordu. Dar telefonda `.sutunlar`
+zaten tek sütuna dizilmiş olduğu için kart hiç ek genişlik kazanmıyordu
+ve artık hiçbir şey taşmayı kırpmıyordu (kaydırma sarmalayıcısı
+kaldırılmıştı) — taşan tablo doğrudan **sayfanın kendisini** yatay
+kaydırılabilir yapıyordu. Bu, v6.113'ün karta hapsedilmiş kaydırmasından
+daha kötü bir sonuçtu ve kullanıcının "ilk bakışta görünsün, kaydırarak
+değil" isteğini hiç karşılamıyordu. v6.114'teki "Bilinen sınır" bölümü bu
+riski zaten yazmıştı, şimdi gerçekleşti.
+
+## Ne değişti
+
+`templates/cycle_detay.html`: `<table class="cizelge">` artık yeni bir
+`<div class="cizelgeolcek">` sarmalayıcının içinde. `static/style.css`'e
+eklenen kural (`.cizelgeolcek { overflow: hidden; }` +
+`.cizelgeolcek table.cizelge { transform-origin: top left; }`) ve
+kartın altına eklenen küçük bir betik (`cizelgeSigdir()`), `form.html`'in
+`.kalipolcek`/`formlariSigdir()` deseninin (v6.107, v6.109) birebir
+aynısı: tabloyu **kırpmak/kaydırmak yerine bütün olarak `transform:
+scale()` ile mevcut genişliğe küçültüyor**. Punto ve hücre aralığı
+birlikte küçülür, hiçbir sütun kesilmez, sayfa hiçbir zaman yatay
+kaymaz. Yalnızca genişlik hesaba katılıyor — form.html'in aksine bu
+tablo ekran yüksekliğini zorlamıyor. `transform-origin: top left` burada
+da v6.109'un dersiyle aynı sebeple şart: yoksa küçültme ortaya doğru
+büzülüp içeriğin bir kısmını sarmalayıcının üstüne taşırdı.
+
+`/istatistik`'in iki `.cizelge` tablosu `.cizelgekap` kaydırmasında
+kaldı — kullanıcının şikâyeti yalnızca "Tedavi ana sayfası"yla
+(cycle_detay.html) ilgiliydi, orada değişiklik istenmedi.
+
+## Bilinen sınır kapandı
+
+v6.114'ün "gerçekten dar bir telefonda dördüncü sütun kesik
+görünebilir" notu artık geçerli değil: tablo hiçbir genişlikte kesilmiyor
+ya da kaydırma gerektirmiyor, yalnızca gerektiğinde (dar ekranda)
+görsel olarak küçülüyor. Geniş ekranda v6.114'ün kazancı (tam boyutta,
+küçülmeden gösterim) korunuyor — oran zaten ~1 çıkıyor.
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp cycle 1'e (OPU/Denüdasyon zaten kayıtlıydı)
+ICSI/Fertilizasyon/Cleavage(gün 2)/Blastokist için `olay` satırları
+eklenip altı satırlık bir zaman çizelgesi oluşturuldu. Playwright ile
+320, 375, 390, 428, 700, 1000, 1100, 1280, 1360, 1440 ve 1920px
+genişliklerde ölçüldü:
+- **Hiçbir genişlikte `document.body.scrollWidth >
+  document.documentElement.clientWidth` çıkmadı** — sayfa artık hiçbir
+  zaman yatay kaymıyor (önceki davranışın tam tersi).
+- 320px'te ekran görüntüsüyle tablo tam olarak (dört sütun, "OPU'dan bu
+  yana" dahil) kesiksiz, kaydırma göstergesi olmadan doğrulandı.
+- 700px ve üstünde oran zaten 1 (tablo doğal boyutunda, `matrix(1,0,0,
+  1,0,0)`) — v6.114'ün kazancı korunuyor.
+- 375-428px arası oranın 0.72-0.84 arasında kademeli değiştiği,
+  hiçbir noktada kırpma olmadığı ölçüldü.
+Test `olay` kayıtları ve oturum jetonu temizlendi, sunucu kapatıldı.

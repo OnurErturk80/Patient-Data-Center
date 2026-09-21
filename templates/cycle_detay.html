@@ -226,10 +226,25 @@
    genis`in kendi `--genis-sutun` genişliğine (iki sütun toplamı kadar,
    ~940px'e kadar) çıkarılınca tablo sığıyor -- kaydırmaya gerek kalmadı.
    Bunu yaparken "İşlemi bitir" (`bt.dugme`) ve "Embriyoloji Özet Formu"
-   gibi düğmeler hâlâ kendi `.sutun`larının içinde, genişlikleri değişmedi. #}
+   gibi düğmeler hâlâ kendi `.sutun`larının içinde, genişlikleri değişmedi.
+
+   Genişletmek yalnızca `.sutunlar` gerçekten iki sütuna bölündüğü geniş
+   masaüstünde işe yarıyor -- dar telefonda (`.sutunlar` zaten tek sütuna
+   dizilmiş) kart ekstra genişlik kazanmıyordu ve kaydırma da kaldırılmış
+   olduğu için taşma SAYFANIN kendisini yatay kaydırılabilir yapıyordu
+   (v6.117, kullanıcı ekran görüntüsüyle bildirdi: "mobilde tam gözükmüyor,
+   kaydırmalı görünüyor -- bakınca görünecek şekilde olsun, ekranı
+   kaydırarak değil"). Çözüm `.cizelgeolcek` + aşağıdaki betik: form.html'in
+   `.kalipolcek`/`formlariSigdir()` deseninin (v6.107/v6.109) aynısı --
+   tabloyu kırpmak/kaydırmak yerine BÜTÜN olarak `transform: scale()` ile
+   mevcut genişliğe küçültüyor, punto/hücre aralığı birlikte küçülür ama
+   hiçbir sütun kesilmez, sayfa hiçbir zaman yatay kaymaz. Geniş ekranda
+   oran zaten ~1 çıkıyor (v6.114'ün kazancı korunuyor), yalnızca gerçekten
+   dar bir telefonda küçülme görünür oluyor. #}
 {% if cizelge %}
 <div class="kart" style="margin-top:16px">
   <h2>{{ metin("zaman_cizelgesi") }}</h2>
+  <div class="cizelgeolcek">
   <table class="cizelge">
     <tr>
       <th>{{ metin("asama") }}</th><th>{{ metin("saat") }}</th>
@@ -244,8 +259,35 @@
     </tr>
     {% endfor %}
   </table>
+  </div>
   <div class="ipucu" style="padding:8px 14px">{{ metin("cizelge_ipucu") }}</div>
 </div>
+<script>
+(function () {
+  // .cizelgeolcek: zaman çizelgesi tablosunu mevcut genişliğe SIĞDIRIR,
+  // kaydırmaz -- form.html'deki formlariSigdir()'in aynı deseni, yalnızca
+  // genişlik hesaba katılıyor (bu tablo hiçbir zaman ekran yüksekliğini
+  // zorlamıyor, form.html'in aksine).
+  function cizelgeSigdir() {
+    document.querySelectorAll('.cizelgeolcek').forEach(function (sarmalayici) {
+      var tablo = sarmalayici.querySelector('table.cizelge');
+      if (!tablo) return;
+      tablo.style.transform = 'none';
+      var dogalGenislik = tablo.scrollWidth;
+      var dogalYukseklik = tablo.scrollHeight;
+      if (!dogalGenislik || !dogalYukseklik) return;
+      var mevcutGenislik = sarmalayici.clientWidth;
+      var oran = mevcutGenislik < dogalGenislik
+        ? mevcutGenislik / dogalGenislik : 1;
+      tablo.style.transform = 'scale(' + oran + ')';
+      sarmalayici.style.height = Math.ceil(dogalYukseklik * oran) + 'px';
+    });
+  }
+  window.addEventListener('resize', cizelgeSigdir);
+  window.addEventListener('orientationchange', cizelgeSigdir);
+  cizelgeSigdir();
+})();
+</script>
 {% endif %}
 
 {% set buyutec_ad = metin("doktor_notu") %}
