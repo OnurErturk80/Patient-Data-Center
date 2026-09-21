@@ -1099,6 +1099,37 @@ ve takvim: sorgu `cycle_listesi()` (`bitmis` / `bugun` / `ay` / `yaklasan` /
 `ay` / `plan` / `plangun`). Yeni bir liste ekranı yazarsan ayrı bir sorgu
 yazma, buraya bir kip ekle — hepsi aynı görünsün diye böyle.
 
+**Geri oku gerçekten bir önceki ekrana gider** (v6.126, kullanıcının
+bildirdiği sorun: "bir önceki menüye geçmesi gerekirken farklı menülere
+geçiyor"). `base.html`'in sonundaki küçük betik geri okuna tıklamayı
+yakalayıp `history.back()` çalıştırıyor — **tek yerde**, 55 şablonun
+okuna tek tek dokunmak tuzak #1'in tarifiydi.
+- **Şablonlardaki `{% block geri %}` adresi KALDIRILMADI** ve kaldırma:
+  o hâlâ ekranın "bir üst seviyesi" ve JS kapalıyken, doğrudan adresle/
+  yer iminden girildiğinde, karekoddan ya da ana ekran simgesinden
+  açıldığında tek davranış o. Yeni ekranda yine yaz.
+- **Betiğin karışmadığı dört durum, hepsi bilerek**: (1) referrer yok ya
+  da başka bir site — `history.back()` kullanıcıyı programın dışına
+  atardı; (2) gelinen sayfanın **yolu aynı**, yalnızca sorgusu farklı
+  (`?oosit=`, `?duzenle=`, `?gun=`, `?asama=`) — bu bir önceki ekran
+  değil, aynı ekranın başka hali; ICSI'nin "kaydet → sıradaki oosit"
+  akışında (v6.35) geri ok tedavi ekranına dönmeli, oositleri tek tek
+  geri yürümemeli; (3) sayfaya **yönlendirmeyle** gelinmiş
+  (`performance`'ın `redirectCount`'u > 0) — bu programda neredeyse her
+  zaman POST → 303, yani az önce kaydedilen form, ona dönmemeli;
+  (4) ekranda geri oku yok. Bu dördünü gevşetme.
+- **`?geri=<yol>` hâlâ yasak** — adresten gelen metin `href`'e yazılırsa
+  `javascript:` sokulabilir. Referrer burada yalnızca **karar vermek**
+  için okunuyor (aynı köken mi, aynı yol mu), hiçbir yere yazılmıyor.
+- **Yedek adresi yanlış olan iki ekran düzeltildi**: `/cryo` ve
+  `/yonetim` ana menü öğesi (`_gezinme.html` + `ana.html`), `/hastalar`'ın
+  altında değiller — `/hastalar` → `/`. Yeni bir ekranın adresini
+  yazarken "bu ekran hangi menünün altında" diye sor; "buraya kaç yoldan
+  geliniyor" sorusunu artık betik yanıtlıyor.
+- Betik `{% block tazeleme %}`'nin **dışında** — o blok yazdırma
+  ekranlarında (`form.html`, `/baglan`) boşaltılıyor, içine konsaydı
+  oralarda geri ok çalışmazdı.
+
 **Üst çubukta iki dönüş var, ikisi farklı şey.** Geri oku (`‹`) **bir
 önceki** ekrana gider ve şablon başına ayrı yazılır; ev simgesi (`.anaya`)
 **ana menüye** gider ve `base.html`'de tek yerde durur, 42 şablonun hepsine

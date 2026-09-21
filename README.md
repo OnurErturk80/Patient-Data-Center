@@ -9808,3 +9808,104 @@ dondurulmuş sperm kaydı (SP-700001-01) kurularak:
   çalışmaya devam etti — gerileme yok.
 - 24 ekran 200 döndü, sunucu günlüğünde hata yok; 1440x1000 ve 390x844'te
   sayfa yatay kaymıyor.
+
+# v6.126 — geri oku gerçekten bir önceki ekrana gidiyor
+
+Kullanıcının bildirdiği sorun: "Programda sol en üstte geri butonu var. Bir
+önceki menüye geçmesi gerekirken farklı menülere geçiyor. Geri butonu hep
+bir önceki menüye geçsin."
+
+## Sorun neydi
+
+Geri oku (`‹`) her şablonda **sabit yazılıydı** (`{% block geri %}`) — yani
+"nereden geldiysen oraya" değil, "bu ekranın bir üst seviyesi neresiyse
+oraya" gidiyordu. Ekrana tek bir yoldan giriliyorsa ikisi aynı şey; birden
+çok yoldan giriliyorsa değil. En bariz ikisi:
+
+| Ekran | Geri oku | Gerçekte nereden açılıyor |
+|---|---|---|
+| Cryo Haritası | `/hastalar` | ana menü (`_gezinme.html`, `ana.html`) |
+| Yönetici | `/hastalar` | ana menü |
+
+Yani ana ekrandan Cryo Haritası'na girip geri basınca Hasta Kayıtları'na
+düşülüyordu — kullanıcının dediği "farklı menüye geçiyor" tam buydu. Aynı
+sorun `/hasta/{id}` (istatistikten, cryo'dan, aramadan da açılıyor),
+`/cycle/{id}` (ana ekrandan, `/bitenler`'den, ay listesinden) ve
+`/sperm-dondurma/{id}` (cryo'dan, hasta kartından, androlojiden) için de
+vardı.
+
+v6.32/v6.34 bu sorunu görmüş ve **ekran ekran** çözmüştü (taşıyıcıda
+`?cycle=N`, hasta kayıtlarında arşiv/ay ayrımı). Kullanıcı şimdi kuralın
+genelleşmesini istedi.
+
+## Çözüm: tek yerde, şablonlara dokunmadan
+
+`base.html`'in sonunda küçük bir betik: sayfanın geri okuna tıklanınca,
+**gerçekten bir önceki ekran biliniyorsa** `history.back()` çalışıyor.
+55 şablonun geri okuna tek tek dokunmak tuzak #1'in tarifiydi.
+
+**Şablonlardaki adres kaldırılmadı.** O hâlâ ekranın "bir üst seviyesi" ve
+şu üç durumda tek davranış o: JS kapalı, doğrudan adresle/yer iminden
+girilmiş, karekoddan ya da telefonun ana ekran simgesinden açılmış. Yani
+değişiklik **eklemeli**: en kötü ihtimalle bugünkü davranış.
+
+## Betiğin KARIŞMADIĞI dört durum
+
+Hepsi bilerek — "hep geçmişe dön" demek bu programda birkaç yerde daha
+kötü olurdu:
+
+1. **Referrer yok ya da başka bir siteden gelinmiş.** Geçmişte bu
+   uygulamanın bir ekranı olduğunu bilmiyoruz; `history.back()` kullanıcıyı
+   programın dışına atardı.
+2. **Gelinen sayfanın YOLU aynı, yalnızca sorgusu farklı** (`?oosit=`,
+   `?duzenle=`, `?gun=`, `?asama=`). Bu "bir önceki ekran" değil, aynı
+   ekranın başka bir hali. Kritik örnek: ICSI'nin "kaydet → sıradaki oosit"
+   toplu giriş akışı (v6.35). Beşinci oositteyken geri basan embriyolog
+   dördüncü oosite değil **tedavi ekranına** dönmek ister; saf
+   `history.back()` onu tek tek geri yürütürdü. `esle.html`'in
+   `location.href='...?asama='` seçicisi de bu kuralla kapsanıyor.
+3. **Sayfaya bir yönlendirmeyle gelinmiş** (`performance` Navigation
+   Timing'in `redirectCount`'u). Bu programda neredeyse her zaman
+   "POST → 303" demek, yani az önce kaydedilen form: geri ok formun
+   kendisine dönmemeli. Ölçüm doğrulandı — hasta düzenleme kaydından sonra
+   `redirectCount = 1` çıkıyor ve betik devreye girmiyor.
+4. **Ekranda geri oku yok** (ana ekran, giriş) — yapacak iş yok.
+
+`location.reload()` (tazeleme, v6.54) ve `location.replace('/')`
+(`/ekle`, v6.47) geçmişe satır **eklemiyor**, o yüzden ikisi de bu mantığı
+bozmuyor.
+
+## Yedek adresler de düzeltildi
+
+Betik yalnızca bir önceki ekran bilinirken devreye giriyor; bilinmediğinde
+şablonun adresi kullanılıyor. `cryo.html` ve `yonetim.html`'inki **o
+durumda bile yanlıştı** (ikisi de ana menü öğesi, `/hastalar`'ın altında
+değiller): `/hastalar` → `/`. Öteki 53 şablonun adresi doğru olduğu için
+dokunulmadı.
+
+## Neden `history.back()`, `?geri=<yol>` değil
+
+CLAUDE.md'nin kuralı: adresten gelen metni doğrudan `href`'e yazmak
+`javascript:` sokulmasına açık. `history.back()` tarayıcının kendi
+yığınını kullanıyor, adrese hiçbir şey yazılmıyor. Referrer yalnızca
+**karar vermek** için okunuyor (aynı köken mi, aynı yol mu) — hiçbir yere
+yazılmıyor, `href` olarak kullanılmıyor.
+
+## Test edildi
+
+Playwright ile sekiz durum:
+
+| Durum | Sonuç |
+|---|---|
+| ana ekran → Cryo → geri | `/` (eskiden `/hastalar`) |
+| ana ekran → Yönetici → geri | `/` (eskiden `/hastalar`) |
+| istatistik → hasta kartı → geri | `/istatistik` (eskiden `/hastalar`) |
+| cryo → hasta kartı → geri | `/cryo` (eskiden `/hastalar`) |
+| ICSI `?oosit=2` → geri | `/cycle/11` — toplu giriş akışı korundu |
+| doğrudan adresle girildi → geri | şablonun adresi |
+| hasta düzenleme kaydı sonrası → geri | `/hastalar` — forma dönmedi |
+| **JS kapalı** → geri | şablonun adresi (artık doğru) |
+
+Ayrıca 24 ekran 200 döndü, sunucu günlüğünde hata yok. Betik yazdırma
+ekranlarında da var (`/form/ozet/{id}`, `/baglan`) — `{% block tazeleme %}`'nin
+**dışına** konuldu, o blok oralarda boşaltılıyor.

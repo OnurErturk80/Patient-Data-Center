@@ -249,5 +249,51 @@
 </script>
 {% endif %}
 {% endblock %}
+
+{# ---------------------------------------------------------------- geri oku
+   Geri oku (`‹`) artık GERÇEKTEN bir önceki ekrana gidiyor (v6.126,
+   kullanıcının bildirdiği sorun: "bir önceki menüye geçmesi gerekirken
+   farklı menülere geçiyor").
+
+   Şablonlardaki `{% block geri %}` adresi **kaldırılmadı** — o hâlâ
+   ekranın "bir üst seviyesi" ve JS kapalıyken, doğrudan adresle
+   girildiğinde, karekoddan/ana ekran simgesinden açıldığında tek
+   davranış o. Buradaki betik yalnızca gerçekten bir önceki ekran
+   biliniyorsa araya giriyor. Tek yerde duruyor: 55 şablonun geri
+   okuna tek tek dokunmak tuzak #1'in tarifi.
+
+   Dört durumda KARIŞMIYOR, hepsi bilerek:
+   1. Referrer yok ya da başka bir siteden gelinmiş — geçmişte bu
+      uygulamanın bir ekranı olduğunu bilmiyoruz, `history.back()`
+      kullanıcıyı programın dışına atardı.
+   2. Gelinen sayfanın YOLU aynı, yalnızca sorgusu farklı
+      (`?oosit=`, `?duzenle=`, `?gun=`, `?asama=`). Bu "bir önceki ekran"
+      değil, aynı ekranın başka bir hali: ICSI'de "kaydet → sıradaki
+      oosit" akışında (v6.35) beşinci oositten geri basınca dördüncüye
+      değil, tedavi ekranına dönmek gerekir.
+   3. Sayfaya bir yönlendirmeyle gelinmiş (`redirectCount`) — bu
+      programda neredeyse her zaman "POST → 303" demek, yani az önce
+      kaydedilen form. Geri ok orada formun kendisine dönmemeli.
+   4. Ekranda geri oku yok (ana ekran, giriş) — zaten yapacak iş yok.
+#}
+<script>
+(function () {
+  var ok = document.querySelector('.ust .geri');
+  if (!ok) return;                                   // (4)
+  var gelinen = document.referrer;
+  if (!gelinen || gelinen.indexOf(location.origin + '/') !== 0) return;   // (1)
+  var c = document.createElement('a');               // yolu ayıklamanın
+  c.href = gelinen;                                  // kütüphanesiz yolu
+  if (c.pathname === location.pathname) return;      // (2)
+  try {
+    var g = performance.getEntriesByType('navigation')[0];
+    if (g && g.redirectCount > 0) return;            // (3)
+  } catch (e) { /* eski tarayıcı: ölçemiyorsak karışmayalım */ }
+  ok.addEventListener('click', function (o) {
+    o.preventDefault();
+    history.back();
+  });
+})();
+</script>
 </body>
 </html>
