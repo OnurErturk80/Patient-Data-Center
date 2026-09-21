@@ -1825,6 +1825,32 @@ METINLER = {
                               "{z} yeni konum.",
                         "en": "Imported — {x} new, {y} updated, {z} new "
                               "locations."},
+    # --- dolap haritası (v6.128) ---
+    "dolap": {"tr": "Dolap Haritası", "en": "Cabinet Map"},
+    "dolap_aciklama": {
+        "tr": "Hangi tankta, hangi kanisterde, hangi goblette ne olduğunu "
+              "gösterir. Sayılar kayıtlardan hesaplanır. Programın tankın "
+              "yerleşimini (kaç goblet, goblet kapasitesi) bilmediğini "
+              "unutma: burada yalnızca kaydı olan yerler görünür, hiç "
+              "kullanılmamış bir goblet listede olmaz.",
+        "en": "Shows what is in each tank, canister and goblet. The counts "
+              "are derived from the records. The program does not know the "
+              "tank's layout or goblet capacity: only locations that have "
+              "been used appear here."},
+    "dolap_konum_sayisi": {"tr": "{n} konum", "en": "{n} locations"},
+    "dolap_eski_kayit": {"tr": "{n} eski kayıt", "en": "{n} old records"},
+    "dolap_tasiyici": {"tr": "{n} taşıyıcı", "en": "{n} carriers"},
+    "dolap_bosalmis": {"tr": "boş", "en": "empty"},
+    "dolap_bos": {"tr": "Kayıt yok.", "en": "No records."},
+    "dolap_kanistersiz": {"tr": "(kanister yazılmamış)", "en": "(no canister)"},
+    "dolap_ara_ipucu": {"tr": "Kanister ya da goblet", "en": "Canister or goblet"},
+    "dolap_bak": {"tr": "Dolap haritasına bak", "en": "Open the cabinet map"},
+    "konum_oneri_ipucu": {
+        "tr": "Kutulara yazmaya başlayınca kullanılan tank/kanister/goblet "
+              "adları önerilir. Öneriden seçmek yazım birliğini korur — "
+              "farklı yazılan aynı yer iki ayrı konum olur.",
+        "en": "Existing tank/canister/goblet names are suggested as you "
+              "type. Picking from the list keeps the spelling consistent."},
     "eski_cryo_bag_dusen": {
         "tr": "{n} kaydın hasta bağı koparıldı: Excel'de o satırda artık "
               "başka bir isim yazıyor (araya satır eklenmiş ya da silinmiş "

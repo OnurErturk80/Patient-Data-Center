@@ -10233,3 +10233,73 @@ Excel gerçek hasta isimleri taşıyor. Dosya git'e **eklenmedi**, içinden
 çıkarılan hiçbir isim README/CLAUDE.md'ye ya da commit mesajına
 yazılmadı; çözümleme çıktısı yalnızca oturumun geçici klasöründe kaldı.
 Bu sürümdeki bütün sayılar toplam/oran düzeyinde.
+
+---
+
+# v6.128 — dolap haritası ve konum yazım birliği
+
+Kullanıcının sorusu: "yeni bir hastanın embriyosunu dondurmak işlemine
+aldığımda cryo haritada nereye kaydedebileceğimi nasıl bulacağım?"
+
+Cevap aranırken iki şey çıktı: ekranda böyle bir yol **yoktu**, ve
+v6.127'nin "konum paylaşılıyor" tasarımı **sessizce bozulabiliyordu**.
+
+## Kusur: aynı yer, iki farklı yazım, iki ayrı konum
+
+`konum_bul_veya_olustur()` eşleşmeyi `tam_yol`un **tam metniyle** yapıyordu.
+Eski harita içeri alınırken yollar `TANK 1 / Kanister 1 / 1A` diye yazıldı
+(içeri alma `f"Kanister {n}"` üretiyor, tank adı Excel'den büyük harfle
+geliyor). Personel vitrifikasyon ekranında aynı yeri — kutunun etiketi
+"Tank" yazdığı için gayet doğal olarak — `Tank 1 / kanister 1 / 1a` diye
+yazarsa program bunu **başka bir konum** sayıp yeni satır açıyor ve o
+gobleti boş gösteriyordu. Oysa içinde 2019'dan kalma dört embriyo var.
+
+v6.127'nin `konum` paylaşmasının **tek gerekçesi** "program bu goblet dolu
+mu bilsin"di; yazım farkı onu sessizce ortadan kaldırıyordu.
+
+Düzeltme iki katmanlı:
+
+- **Sunucuda `_konum_anahtari()`**: tam metin tutmazsa, yolu `tr_buyuk()` +
+  boşluk sadeleştirmesiyle normalleştirip mevcut konumlarla karşılaştırıyor;
+  tutan varsa **onun id'si** dönüyor, yeni satır açılmıyor. Tarama yalnızca
+  yeni bir konum açılacakken çalışıyor (nadir), her kayıtta değil.
+  `str.upper()` değil `tr_buyuk()` — "İ"li bir goblet adı yoksa eşleşmezdi
+  (v6.115'in aynı gerekçesi).
+- **Ekranda `<datalist>`**: vitrifikasyon ve iki sperm dondurma formundaki
+  dört konum kutusu artık kullanılan tank/kanister/goblet/pozisyon
+  değerlerini öneriyor (`konum_secenekleri()`). Kapalı bir `<select>`
+  değil — yeni bir tank ya da goblet her zaman açılabilir, CLAUDE.md'nin
+  datalist ölçüsü tam bu durum.
+
+Doğrulandı: `Tank 1 / kanister 1 / 1a` yazınca program mevcut
+`TANK 1 / Kanister 1 / 1A` konumunu buluyor, konum sayısı 2523'te
+kalıyor (kopya açılmıyor).
+
+## Yeni ekran: `/dolap`
+
+Tank → kanister → goblet dökümü, her satırda o konumdaki eski kayıt ve
+taşıyıcı sayısı. `/cryo`'dan ve her üç dondurma formundan bağlantısı var
+(formdan **yeni sekmede** açılıyor — doldurulan form kaybolmasın).
+
+- **Türetilmiş**, ayrı bir doluluk tablosu yok: sayılar `konum`a bağlı
+  `eski_cryo` ve `tasiyici` satırlarından geliyor. v6.38'in gerekçesi.
+- **Doğal sıralama**: goblet adları metin sırasında `1, 10, 10A, 11, 2`
+  diye gidiyordu, göze göre yanlış. `_dogal()` sayı parçalarını sayı gibi
+  sıralıyor → `1, 1A, 2, 2A, … 10, 10A`.
+- Adresten gelen tank adı **beyaz listeden** geçiyor (gerçekten var olan
+  tank adlarından biri değilse hiçbiri seçilmiyor) — SQL'e zaten parametre
+  olarak gidiyor ama ekranda uydurma bir başlık da çıkmasın (tuzak #9'un
+  veri hali).
+- İzni `cryo` (`yol_modulu`), ayrı modül açılmadı.
+
+## Gösteremediği şey, ve sebebi
+
+Ekran **"nerede ne var"ı** gösteriyor, **"nerede yer var"ı** değil. Program
+tankın yerleşimini bilmiyor: kaç kanister, kanister başına kaç goblet,
+bir goblete kaç taşıyıcı sığar. `konum` satırları kullanıldıkça açılıyor,
+yani hiç kullanılmamış bir gobletin kaydı **yok** ve listede de görünmüyor.
+
+Kapasite klinik bir bilgi — uydurulmadı, kullanıcıya soruldu (CLAUDE.md:
+"Klinik bir varsayım yapman gerekiyorsa yapma"). Cevabına göre ya tankın
+yerleşimi tanımlanacak (ve ekran boş goblet gösterebilecek) ya da bugünkü
+"ne nerede" görünümü yeterli sayılacak.

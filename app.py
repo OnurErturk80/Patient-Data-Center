@@ -554,6 +554,9 @@ def yol_modulu(yol: str):
     if p[0] == "cryo":
         # /cryo/tasiyici/{id}/thaw gerçek bir çözme işlemi — çözme izni ister
         return "thaw" if son == "thaw" else "cryo"
+    if p[0] == "dolap":
+        # Dolap haritası cryo haritasının bir görünümü (v6.128).
+        return "cryo"
     if p[0] == "eski-cryo":
         # Programdan önceki cryo haritası (v6.127) da Cryo Haritası'nın
         # parçası — ayrı bir modül açılmadı, sperm dondurmadaki gerekçenin
@@ -5450,6 +5453,23 @@ def konum_semasi():
         "WHERE lab_id = ? ORDER BY seviye_sirasi", (db.LAB_ID,))
 
 
+def _konum_anahtari(tam_yol: str) -> str:
+    """Konum yolunun yazım farklarından arındırılmış hali.
+
+    `konum` eşleşmesi `tam_yol`un **tam metniyle** yapılıyordu. Eski cryo
+    haritası içeri alınırken yollar `TANK 1 / Kanister 1 / 1A` diye
+    yazıldı; personel vitrifikasyon ekranında aynı yeri `Tank 1 / kanister
+    1 / 1a` diye yazarsa program bunu **başka bir konum** sayar, yeni bir
+    satır açar ve o gobleti boş gösterir — oysa içinde 2019'dan kalma dört
+    embriyo var (v6.127'de bulundu). Konumu paylaşmanın bütün amacı buydu,
+    yazım farkı onu sessizce bozuyordu.
+
+    Büyütme `tr_buyuk()` ile: `str.upper()` Türkçe 'i'yi yanlış çevirir
+    (v6.115) ve "İ"li bir goblet adı eşleşmezdi.
+    """
+    return " / ".join(p.strip() for p in tr_buyuk(tam_yol or "").split("/"))
+
+
 def konum_bul_veya_olustur(seviyeler):
     """seviyeler: ['T2','K3','G5','12'] — boş olanlar atlanır."""
     temiz = [(s or "").strip() for s in seviyeler] + ["", "", "", ""]
@@ -5461,11 +5481,37 @@ def konum_bul_veya_olustur(seviyeler):
                     (db.LAB_ID, tam_yol))
     if mevcut:
         return mevcut["id"]
+    # Tam metin tutmadı: yazım farkı yüzünden ikinci bir konum açmayalım.
+    # Tarama yalnızca YENİ bir konum açılacakken çalışıyor (nadir), her
+    # kayıtta değil.
+    anahtar = _konum_anahtari(tam_yol)
+    for r in db.sorgu("SELECT id, tam_yol FROM konum WHERE lab_id=?", (db.LAB_ID,)):
+        if _konum_anahtari(r["tam_yol"]) == anahtar:
+            return r["id"]
     return db.yaz(
         "INSERT INTO konum (lab_id, seviye1, seviye2, seviye3, seviye4, tam_yol, durum) "
         "VALUES (?,?,?,?,?,?,'dolu')",
         (db.LAB_ID, temiz[0] or None, temiz[1] or None, temiz[2] or None,
          temiz[3] or None, tam_yol))
+
+
+def konum_secenekleri() -> dict:
+    """Her seviyede şu an KULLANILAN değerler: {1: [...], 2: [...], ...}.
+
+    Vitrifikasyon/sperm dondurma ekranlarındaki konum kutuları bunları
+    `<datalist>` ile öneriyor. Kapalı bir `<select>` değil, çünkü yeni bir
+    tank/goblet her zaman açılabilir (CLAUDE.md: kategorisi kesinleşmemiş
+    alanda datalist). Asıl amaç yazım birliği: personel "Tank 1" diye
+    yeni bir yol uydurmak yerine listeden "TANK 1"i seçsin, yoksa eski
+    haritayla aynı yer iki ayrı konum olur.
+    """
+    cikti = {}
+    for i in (1, 2, 3, 4):
+        cikti[i] = [r["d"] for r in db.sorgu(
+            f"SELECT DISTINCT seviye{i} AS d FROM konum "
+            f"WHERE lab_id=? AND seviye{i} IS NOT NULL AND seviye{i} <> '' "
+            f"ORDER BY seviye{i}", (db.LAB_ID,))]
+    return cikti
 
 
 def tasiyici_icerigi(tasiyici_id):
@@ -5532,7 +5578,7 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
 
     return sablon.TemplateResponse(
         request, "vitrifikasyon.html",
-        {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(),
+        {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(), "konum_secenek": konum_secenekleri(),
          "gezinme": asama_gezinme(cycle_id, "vitrifikasyon"),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
@@ -5710,6 +5756,75 @@ def sperm_dondurma_harita_eski(request: Request, ara: str = ""):
     from urllib.parse import urlencode
     return RedirectResponse(
         "/cryo" + (f"?{urlencode({'ara': ara})}" if ara else ""), status_code=303)
+
+
+# --------------------------------------------------------------- dolap haritası
+#
+# "Yeni bir embriyoyu nereye koyacağımı nasıl bulacağım?" (kullanıcının
+# sorusu, v6.128). Vitrifikasyon ekranı konumu dört BOŞ kutuyla soruyordu;
+# personel nereye yer olduğunu ezberden bilmek zorundaydı ve yazım farkı
+# (bkz. `_konum_anahtari`) aynı yeri ikiye bölebiliyordu.
+#
+# Bu ekran **türetilmiş**: ayrı bir doluluk tablosu yok, sayılar `konum`a
+# bağlı `eski_cryo` ve `tasiyici` satırlarından geliyor (cryo haritasının
+# ve istatistiklerin aynı gerekçesi).
+#
+# **Gösterebildiği şey "nerede ne var", "nerede yer var" DEĞİL.** Program
+# tankın yerleşimini (kaç kanister, kanister başına kaç goblet, goblet
+# kapasitesi) bilmiyor — `konum` satırları kullanıldıkça açılıyor. Boş bir
+# gobletin kaydı hiç yok, o yüzden listede de yok. Kapasite klinik bir
+# bilgi; kullanıcıya soruldu, cevabına göre genişletilecek.
+
+
+def _dogal(deger):
+    """Doğal sıralama anahtarı: "10A" > "2A", metin sırasında tersiydi."""
+    return [(0, int(p)) if p.isdigit() else (1, p)
+            for p in re.split(r"(\d+)", str(deger or "")) if p]
+
+
+def dolap_haritasi(tank: str = "") -> list:
+    """Bir tankın kanister/goblet dökümü; tank verilmezse tank özeti."""
+    eski_var = db.tablo_var("eski_cryo")
+    eski_say = ("(SELECT COUNT(*) FROM eski_cryo e WHERE e.konum_id=k.id "
+                " AND e.durum='dolu')") if eski_var else "0"
+    tas_say = ("(SELECT COUNT(*) FROM tasiyici t WHERE t.konum_id=k.id "
+               " AND t.durum='dolu')")
+    if not tank:
+        return db.sorgu(
+            f"SELECT k.seviye1 AS ad, COUNT(*) AS konum, "
+            f"  SUM({eski_say}) AS eski, SUM({tas_say}) AS tasiyici "
+            f"FROM konum k WHERE k.lab_id=? AND k.seviye1 IS NOT NULL "
+            f"GROUP BY k.seviye1 ORDER BY k.seviye1", (db.LAB_ID,))
+    return db.sorgu(
+        f"SELECT k.id, k.seviye2 AS kanister, k.seviye3 AS goblet, "
+        f"  k.seviye4 AS pozisyon, k.tam_yol, "
+        f"  {eski_say} AS eski, {tas_say} AS tasiyici "
+        f"FROM konum k WHERE k.lab_id=? AND k.seviye1=? "
+        f"ORDER BY k.seviye2, k.seviye3, k.seviye4", (db.LAB_ID, tank))
+
+
+@uygulama.get("/dolap")
+def dolap_ekrani(request: Request, tank: str = "", ara: str = ""):
+    """Tank / kanister / goblet dökümü — donduracak yeri seçerken bakılır."""
+    tanklar = dolap_haritasi()
+    # Adresten gelen tank adı **beyaz listeden** geçiyor: gerçekten var olan
+    # tank adlarından biri değilse hiçbiri seçilmiyor (tuzak #9'un veri hali;
+    # SQL'e zaten parametre olarak gidiyor ama ekranda da uydurma bir başlık
+    # çıkmasın).
+    gecerli = {t["ad"] for t in tanklar}
+    tank = tank if tank in gecerli else ""
+    satirlar = dolap_haritasi(tank) if tank else []
+    satirlar = sorted(satirlar, key=lambda r: (_dogal(r["kanister"]),
+                                               _dogal(r["goblet"]),
+                                               _dogal(r["pozisyon"])))
+    if ara.strip() and satirlar:
+        a = ara.strip().lower()
+        satirlar = [r for r in satirlar
+                    if a in (r["tam_yol"] or "").lower()]
+    return sablon.TemplateResponse(
+        request, "dolap.html",
+        {"tanklar": tanklar, "tank": tank, "satirlar": satirlar, "ara": ara,
+         "kullanici": request.state.kullanici})
 
 
 # ------------------------------------------- programdan önceki cryo haritası
@@ -5995,7 +6110,7 @@ def sperm_dondurma_form(request: Request, hasta_id: int, hata: str = ""):
     from datetime import datetime as _d
     return sablon.TemplateResponse(
         request, "sperm_dondurma_form.html",
-        {"h": h, "sema": konum_semasi(),
+        {"h": h, "sema": konum_semasi(), "konum_secenek": konum_secenekleri(),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
          "onerilen": f"{h['dosya_no']}-SP-{_d.now().strftime('%H%M')}"})
@@ -6029,7 +6144,7 @@ def sperm_dondurma_yeni_hasta_form(request: Request, hata: str = ""):
     from datetime import datetime as _d
     return sablon.TemplateResponse(
         request, "sperm_dondurma_yeni_hasta.html",
-        {"v": {}, "hata": hata, "eslesen": None, "sema": konum_semasi(),
+        {"v": {}, "hata": hata, "eslesen": None, "sema": konum_semasi(), "konum_secenek": konum_secenekleri(),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -6046,7 +6161,7 @@ async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
         # gidecek bağlantıyı taşıyan bir uyarı kutusu basıyor (v6.125).
         return sablon.TemplateResponse(
             request, "sperm_dondurma_yeni_hasta.html",
-            {"v": dict(f), "hata": m, "eslesen": eslesen, "sema": konum_semasi(),
+            {"v": dict(f), "hata": m, "eslesen": eslesen, "sema": konum_semasi(), "konum_secenek": konum_secenekleri(),
              "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
              "simdi": f.get("islem_zamani") or _dt.now().strftime("%Y-%m-%dT%H:%M")})
 

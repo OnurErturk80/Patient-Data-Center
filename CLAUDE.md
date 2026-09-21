@@ -1480,6 +1480,35 @@ kur.
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
+**Konum yolu yazım farkına DAYANIKLI olmalı** (v6.128, kullanıcının
+"nereye kaydedebileceğimi nasıl bulacağım?" sorusu üzerine bulundu).
+`konum_bul_veya_olustur()` eşleşmeyi `tam_yol`un tam metniyle yapıyordu;
+eski harita `TANK 1 / Kanister 1 / 1A` yazmıştı, personel kutunun etiketine
+bakıp `Tank 1 / kanister 1 / 1a` yazınca program **ayrı bir konum** açıp o
+gobleti boş gösteriyordu — v6.127'de `konum`u paylaşmanın tek gerekçesi
+buydu ve sessizce ortadan kalkıyordu.
+- **`_konum_anahtari()`**: tam metin tutmazsa yol `tr_buyuk()` + boşluk
+  sadeleştirmesiyle normalleştirilip mevcut konumlarla karşılaştırılıyor.
+  `str.upper()` değil `tr_buyuk()` (v6.115). Tarama yalnızca yeni konum
+  açılacakken çalışıyor. Yeni bir konum yazan yol eklersen bu fonksiyonu
+  atlama.
+- **Konum kutuları `<datalist>` ile öneriyor** (`konum_secenekleri()`,
+  vitrifikasyon + iki sperm dondurma formu). Kapalı `<select>` değil: yeni
+  tank/goblet her zaman açılabilir. Yeni bir konum girişi yazarsan aynısını
+  yap — yazım birliği kullanıcı tarafında da desteklensin.
+
+**`/dolap` — dolap haritası** (v6.128): tank → kanister → goblet dökümü,
+her satırda o konumdaki eski kayıt + taşıyıcı sayısı. `/cryo`'dan ve
+dondurma formlarından (yeni sekmede — doldurulan form kaybolmasın) açılıyor.
+- **Türetilmiş**, doluluk tablosu yok; sayılar `konum`a bağlı `eski_cryo`
+  ve `tasiyici` satırlarından.
+- **`_dogal()` ile sıralanır**: goblet adları metin sırasında `1, 10, 10A,
+  11, 2` diye gidiyordu. Yeni bir konum listesi yazarsan aynı anahtarı kullan.
+- **"Nerede yer var"ı gösteremez**, yalnızca "nerede ne var". Program tankın
+  yerleşimini ve goblet kapasitesini bilmiyor; `konum` satırları kullanıldıkça
+  açıldığı için hiç kullanılmamış goblet listede yok. Kapasite **klinik bir
+  bilgi** — uydurma, kullanıcıya sor (soruldu, yanıt bekleniyor).
+
 **Programdan önceki cryo haritası ayrı bir tabloda, `konum`u paylaşarak**
 (v6.127, `goc_042`, `eski_cryo.py`). Laboratuvar 2011'den beri haritasını
 Excel'de tutuyordu; 5.415 kayıt / ~2.600 kişi programa alındı. Kullanıcının
