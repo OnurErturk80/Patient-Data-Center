@@ -9412,3 +9412,63 @@ Gerçek proje veritabanına dokunulmadan, `LAB_VERI` ile izole bir kopya
   render ediyor.
 - İzole test klasörü ve sunucu temizlendi; gerçek proje `lab.db`'sinde
   hasta/cycle sayıları test öncesiyle birebir aynı kaldı.
+
+# v6.122 — Cleavage skoru: elle giriş artık G1-G4 seçimi
+
+Kullanıcının isteği: "Cleavage bölümünde skor kısmı elle girilebilsin.
+G1,G2,G3,G4 şeklinde seçilebilsin." Elle skor girme zaten vardı
+(`cl_skor`/`cl_skor_kaynagi`, "Otomatik skorlar kaynak işaretler" kuralı)
+ama serbest bir metin kutusuydu — kullanıcı kapalı bir seçim istedi.
+
+## Ne değişti
+
+- Yeni `liste_degeri` listesi **`cleavage_skor`** (`goc_041.py`, dört
+  satır: G1, G2, G3, G4) — `simetri`'nin izlediği aynı kalıp.
+  `sifirdan_kur.py`'nin `LISTELER`'ine de eklendi, sıfırdan kurulan bir
+  laboratuvarda göç beklemeden hazır gelsin diye.
+- Cleavage ekranındaki serbest metin `<input id="cl_skor">` kaldırıldı,
+  yerine `cl_simetri`'nin hemen üstündeki aynı `.secenek`/`.sec` radyo
+  grubu geldi (`templates/cleavage.html`). Salt okunur özet kartındaki
+  skor satırı da `liste_etiket('cleavage_skor', kayit.cl_skor)` ile
+  basılıyor — ham kod değil etiket.
+- `app.py` `cleavage_ekran()` context'ine `"skorlar": db.liste("cleavage_skor")`
+  eklendi.
+- **Otomatik A/B/C hesabına dokunulmadı** — `cleavage_skor()` fonksiyonu
+  hâlâ aynı şekilde çalışıyor, kullanıcının isteği yalnızca elle girişin
+  şeklini kapsıyordu ("bekleyen iş 5"in kendisi açık kaldı, kullanıcı ona
+  ayrıca sorulmadan cevap vermedi).
+- `cleavage_kaydet()` (POST) değişmedi — `(f.get("cl_skor") or "").strip().upper()`
+  satırı zaten vardı, G1-G4 kodları büyük harfle seçildiği için hâlâ
+  aynen çalışıyor.
+
+## Sebep
+
+`liste_degeri` kodları bilerek **büyük harf** ("G1", lowercase "g1"
+değil) seçildi: `cleavage_kaydet()`'in mevcut `.upper()` satırı elle
+girilen değeri her zaman büyütüyordu (eski serbest metin girişinde de
+öyleydi, değiştirilmedi). Kod lowercase olsaydı kaydedilen değer
+büyütülüp "G1" olurdu ama `liste_degeri`'ndeki gerçek kod "g1" kalırdı —
+bugün `liste_etiket()`'in bulunamayan kodu olduğu gibi döndürme
+davranışı bunu gizler (ekranda yine "G1" görünür, kodun kendisi düşer)
+ama laboratuvar etiketi sonradan değiştirirse (örn. "Grade 1
+(mükemmel)") o değişiklik bu örnek için sessizce hiç uygulanmazdı. Kod ve
+etiketi eşit tutmak bu riski en baştan kapattı.
+
+## Test edildi
+
+Gerçek proje `lab.db`'sine karşı (yalnızca `liste_degeri`'ne satır ekleyen,
+yıkıcı olmayan bir göç ve normal bir klinik kayıt olduğu için izole kopya
+gerekmedi):
+- `python3 goc_041.py` iki kez çalıştırıldı — ilkinde 4 satır eklendi,
+  ikincisinde "cleavage_skor listesi zaten guncel." ile idempotent çıktı.
+- `GET /cycle/1/cleavage?gun=2`: G1-G4 radyo düğmeleri doğru etiketlerle
+  render edildi.
+- `POST /cycle/1/cleavage` (`cl_skor=G2` ile) gerçek bir specimen için
+  kaydedildi; veritabanında `olay.cl_skor='G2'`, `cl_skor_kaynagi='elle'`
+  doğrulandı.
+- Kayıt sonrası salt okunur özet kartı "G2" gösterdi; `?duzenle=1` ile
+  form moduna dönüldüğünde G2 radyosu `checked`, etiketi `secili`
+  sınıflı, ve ipucu metni "Şu anki kayıt: **G2** (elle girildi)."
+  doğru basıldı.
+- Test kaydı (`olay` satırı) ve test oturum jetonu temizlendi; gerçek
+  veritabanında başka hiçbir şey değişmedi.

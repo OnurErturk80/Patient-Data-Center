@@ -1427,6 +1427,17 @@ tarayıcıdan mini PC'ye bağlanır. `arsiv/` ağa taşınabilir (`yerel_kur.py`
 
 **Otomatik skorlar kaynak işaretler.** Elle skor girilirse
 `cl_skor_kaynagi='elle'` yazılır, otomatik hesap onu ezmez.
+- **Elle `cl_skor` artık serbest metin değil, kapalı G1-G4 seçimi**
+  (v6.122, kullanıcının isteği). `liste_degeri`'nde yeni bir liste
+  (`cleavage_skor`, `goc_041`) — `cl_simetri`'nin aynı `.secenek`/`.sec`
+  radyo deseni. **Kodlar bilerek büyük harf** ("G1", "g1" değil): POST
+  handler'daki `(f.get("cl_skor") or "").strip().upper()` satırı elle
+  değeri her zaman büyütüyor, kod lowercase olsaydı `liste_etiket()`
+  eşleşmeyi bulamazdı (kod kendisi düşerek gizlenen bir hata, laboratuvar
+  etiketi sonradan değiştirince ortaya çıkardı). Otomatik hesaplanan A/B/C
+  değerine dokunulmadı, o soru hâlâ açık (bkz. "Bekleyen işler" madde 5) —
+  `liste_etiket('cleavage_skor', kod)` bulunamayan bir kodu (A/B/C gibi)
+  olduğu gibi döndürdüğü için ikisi çakışmıyor.
 
 **"İşlemi yapan" her aşama ekranının altında.** Aşama başına tek değer
 (`islem_yapan` tablosu, `UNIQUE(cycle_id, asama)`), sütun adı hâlâ
@@ -2033,7 +2044,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    düşürülemez** — her iki yolda da engelleniyor.
 5. **Cleavage skor kuralı bir varsayım.** `cleavage_skor` fonksiyonu üç boyutu
    ayrı puanlayıp en kötüsünü alıyor. Kullanıcının kendi kuralı netleşince
-   değişecek — ona sor.
+   değişecek — ona sor. **Elle giriş tarafı v6.122'de çözüldü** (kapalı
+   G1-G4 seçimi, yukarıdaki "Otomatik skorlar kaynak işaretler" bölümüne
+   bak) — bu madde yalnızca **otomatik** A/B/C hesabının kuralı için hâlâ
+   açık, kullanıcı ona ayrıca bir şey söylemedi.
 6. ~~**Bozuk tarih**~~ — **kapandı.** v6.51'de koruma ve araç yazıldı,
    v6.53'te denetim genişletildi (okunamayan biçimler + üst sınır).
    Kullanıcı 2026-09-12'de kendi veritabanında `tarih_duzelt.py`'yi

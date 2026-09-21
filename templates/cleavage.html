@@ -77,7 +77,7 @@
        (metin("fragmentasyon_kisa"), yuzde(kayit.cl_fragmentasyon)),
        (metin("simetri"), liste_etiket('simetri', kayit.cl_simetri)),
        (metin("bulgular"), bk.bulgu_metni(bulgular, secili_bulgular)),
-       (metin("skor"), kayit.cl_skor),
+       (metin("skor"), liste_etiket('cleavage_skor', kayit.cl_skor)),
        (metin("islem_saati"), gg_aa_yyyy_saat(kayit.zaman)),
      ],
      geri_yol ~ '&duzenle=1',
@@ -158,19 +158,29 @@
     </div>
   </div>
 
+  {# Elle skor artık serbest metin değil, kapalı bir seçim (v6.122,
+     kullanıcının isteği: "G1,G2,G3,G4 şeklinde seçilebilsin") --
+     `cl_simetri`'nin hemen üstteki aynı `.secenek`/`.sec` deseni,
+     `liste_degeri`'nden (`cleavage_skor`, goc_041). Hiçbir seçenek
+     işaretlenmezse otomatik A/B/C hesabı geçerli kalır (POST'taki
+     `cleavage_kaydet()` mantığı değişmedi). #}
   <div class="kart">
-    <div class="alan">
-      <label for="cl_skor">{{ metin("skor") }}</label>
-      <input id="cl_skor" name="cl_skor" type="text" maxlength="3"
-             autocomplete="off" placeholder="{{ metin('otomatik_hesaplanir') }}"
-             value="{{ kayit.cl_skor if kayit and kayit.cl_skor_kaynagi == 'elle' else '' }}">
-      <div class="ipucu">
-        {{ metin("skor_ipucu") }}
-        {% if kayit and kayit.cl_skor %}
-        {{ metin("su_anki_kayit") }} <strong>{{ kayit.cl_skor }}</strong>
-        ({{ metin("elle_girildi") if kayit.cl_skor_kaynagi == "elle" else metin("otomatik") }}).
-        {% endif %}
-      </div>
+    <h2>{{ metin("skor") }}</h2>
+    <div class="secenek">
+      {% for s in skorlar %}
+      <label class="sec {% if kayit and kayit.cl_skor_kaynagi == 'elle' and kayit.cl_skor == s.kod %}secili{% endif %}">
+        <input type="radio" name="cl_skor" value="{{ s.kod }}"
+               {% if kayit and kayit.cl_skor_kaynagi == 'elle' and kayit.cl_skor == s.kod %}checked{% endif %}>
+        <span>{{ s.etiket }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="ipucu">
+      {{ metin("skor_ipucu") }}
+      {% if kayit and kayit.cl_skor %}
+      {{ metin("su_anki_kayit") }} <strong>{{ liste_etiket('cleavage_skor', kayit.cl_skor) }}</strong>
+      ({{ metin("elle_girildi") if kayit.cl_skor_kaynagi == "elle" else metin("otomatik") }}).
+      {% endif %}
     </div>
   </div>
 

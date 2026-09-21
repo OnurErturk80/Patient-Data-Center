@@ -57,6 +57,7 @@ LISTELER = {
     "pn_sayisi": [("0","0PN"),("1","1PN"),("2","2PN"),("3","3PN"),("4+","4PN ve üzeri")],
     "pn_skoru": [("z1","Z1"),("z2","Z2"),("z3","Z3"),("z4","Z4")],
     "simetri": [("esit","Eşit"),("hafif_esitsiz","Hafif eşitsiz"),("esitsiz","Eşitsiz")],
+    "cleavage_skor": [("G1","G1"),("G2","G2"),("G3","G3"),("G4","G4")],
     "bl_genisleme": [("1","1 - Erken blastosöl"),("2","2 - Blastosöl ≥ yarım"),
                      ("3","3 - Tam blastokist"),("4","4 - Genişlemiş"),
                      ("5","5 - Hatching"),("6","6 - Hatched"),

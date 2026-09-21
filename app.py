@@ -4938,6 +4938,10 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
         "duzenle": duzenle,
         "simetriler": db.liste("simetri"),
         "bulgular": db.liste("bulgu_cleavage"),
+        # Elle skor artık serbest metin değil, kapalı bir seçim (v6.122,
+        # kullanıcının isteği: "G1,G2,G3,G4 şeklinde seçilebilsin") --
+        # simetri'nin aynı `liste_degeri` deseni, goc_041.
+        "skorlar": db.liste("cleavage_skor"),
         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
         "hedef_saat": db.ayar("gun3_kontrol_saat", "68") if gun == 3 else None,
     }
