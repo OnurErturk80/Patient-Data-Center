@@ -1825,6 +1825,22 @@ METINLER = {
                               "{z} yeni konum.",
                         "en": "Imported — {x} new, {y} updated, {z} new "
                               "locations."},
+    "eski_cryo_bag_dusen": {
+        "tr": "{n} kaydın hasta bağı koparıldı: Excel'de o satırda artık "
+              "başka bir isim yazıyor (araya satır eklenmiş ya da silinmiş "
+              "olabilir). Bağ yanlış hastaya geçmesin diye kaldırıldı — "
+              "bu kayıtları yeniden eşleştirin.",
+        "en": "{n} records were unlinked: that row in the Excel now holds a "
+              "different name (a row may have been inserted or deleted). The "
+              "link was removed so it could not move to the wrong patient — "
+              "please match those records again."},
+    "eski_cryo_artan": {
+        "tr": "{n} eski kaydın yüklenen dosyada karşılığı yok. Silinmediler; "
+              "dosyadan satır sildiyseniz ya da kısmi bir dosya yüklediyseniz "
+              "beklenen durum budur.",
+        "en": "{n} old records have no counterpart in the uploaded file. They "
+              "were not deleted; this is expected if you removed rows or "
+              "uploaded a partial file."},
     "eski_cryo_toplam": {"tr": "Kayıt", "en": "Records"},
     "eski_cryo_eslesen": {"tr": "Hastası bağlı", "en": "Linked to a patient"},
     "eski_cryo_eslesmeyen": {"tr": "Bağlanmamış", "en": "Not linked"},

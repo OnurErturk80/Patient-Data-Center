@@ -27,6 +27,17 @@
     {{ metin("eski_cryo_sonuc").format(x=s[0], y=s[1] if s|length > 1 else "0",
                                        z=s[2] if s|length > 2 else "0") }}
   </div>
+  {# Kopan bağ sessiz kalmamalı: Excel'de satır eklenip silinince kaynak
+     koordinat kayıyor, o kayıt artık başka bir kişi oluyor. Program bağı
+     yanlış hastaya taşımak yerine koparıyor (goc_042 / eski_cryo.iceri_al)
+     ve kaç tane olduğunu burada söylüyor -- kullanıcı yeniden bağlasın. #}
+  {% if s|length > 3 and s[3]|int %}
+  <div class="uyari">{{ metin("eski_cryo_bag_dusen").format(n=s[3]) }}</div>
+  {% endif %}
+  {% if s|length > 4 and s[4]|int %}
+  <div class="ipucu" style="padding:0 14px 10px">
+    {{ metin("eski_cryo_artan").format(n=s[4]) }}</div>
+  {% endif %}
   {% endif %}
 
   <div class="ozet ozetsar">

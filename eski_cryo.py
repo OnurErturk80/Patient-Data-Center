@@ -430,25 +430,49 @@ def iceri_al(satirlar: list, konum_bul, kullanici_id=None) -> dict:
             konumlar[anahtar] = None
 
     # 2) Kayıtlar — tek işlemde.
-    eklenen = guncellenen = 0
+    eklenen = guncellenen = bag_dusen = 0
+    dokunulan = set()
     with db.yazma_islemi() as b:
-        var = {(r["kaynak_sayfa"], r["kaynak_satir"], r["kaynak_sutun"]): r["id"]
+        var = {(r["kaynak_sayfa"], r["kaynak_satir"], r["kaynak_sutun"]): r
                for r in b.execute(
-                   "SELECT id, kaynak_sayfa, kaynak_satir, kaynak_sutun "
-                   "FROM eski_cryo WHERE lab_id=?", (db.LAB_ID,))}
+                   "SELECT id, kaynak_sayfa, kaynak_satir, kaynak_sutun, "
+                   "  soyad, ad, hasta_id FROM eski_cryo WHERE lab_id=?",
+                   (db.LAB_ID,))}
         for s in satirlar:
             konum_id = konumlar[(s["tank"], s["kanister"], s["goblet"])]
             alanlar = (konum_id, s["kategori"], s["soyad"], s["ad"], s["es_adi"],
                        s["tarih"], s["tarih_notu"], s["icerik"], s["vial_metni"],
                        s["tip"], s["renk"], s["adet"], s.get("notlar") or None)
-            kimlik = var.get((s["sayfa"], s["satir"], s["sutun"]))
-            if kimlik:
+            onceki = var.get((s["sayfa"], s["satir"], s["sutun"]))
+            if onceki:
+                # ---- Excel'de satır eklenip silinirse kimlik KAYAR ----
+                # Kimlik anahtarı kaynak hücrenin koordinatı (sayfa/satır/
+                # sütun). Kullanıcı Excel'in ortasına bir satır eklerse
+                # altındaki her şey bir aşağı kayar: 461. satır artık BAŞKA
+                # bir kişidir. UPDATE o satırın adını yeni kişininkiyle
+                # değiştirir ama `hasta_id`ye dokunmaz -- yani A hastası için
+                # kurulmuş bağ sessizce B'nin örneğine geçer. Bu, programın
+                # bütün tasarımının kaçınmaya çalıştığı "yanlış hasta"
+                # hatasının ta kendisi.
+                #
+                # Koruma: bağlı bir satırın ADI değiştiyse bağ KOPARILIR ve
+                # sayılır. Yanlış tarafa düşmektense kopsun -- kullanıcı
+                # raporu görüp yeniden bağlar. (Yalnızca yazım düzeltilmiş
+                # olabilir; o zaman da yeniden bağlamak birkaç saniye.)
+                if onceki["hasta_id"] and _kelimeler(
+                        f"{onceki['soyad']} {onceki['ad']}") != _kelimeler(
+                        f"{s['soyad']} {s['ad']}"):
+                    b.execute(
+                        "UPDATE eski_cryo SET hasta_id=NULL, eslesme_zamani=NULL, "
+                        "  eslesme_kullanici_id=NULL WHERE id=?", (onceki["id"],))
+                    bag_dusen += 1
                 b.execute(
                     "UPDATE eski_cryo SET konum_id=?, kategori=?, soyad=?, ad=?, "
                     "  es_adi=?, tarih=?, tarih_notu=?, icerik=?, vial_metni=?, "
                     "  tip=?, renk=?, adet=?, notlar=? WHERE id=?",
-                    alanlar + (kimlik,))
+                    alanlar + (onceki["id"],))
                 guncellenen += 1
+                dokunulan.add(onceki["id"])
             else:
                 b.execute(
                     "INSERT INTO eski_cryo (lab_id, konum_id, kategori, soyad, "
@@ -458,8 +482,15 @@ def iceri_al(satirlar: list, konum_bul, kullanici_id=None) -> dict:
                     (db.LAB_ID,) + alanlar
                     + (s["sayfa"], s["satir"], s["sutun"]))
                 eklenen += 1
+    # Yüklenen dosyada karşılığı olmayan eski kayıtlar. **Silinmiyor** —
+    # kullanıcı yalnızca bir sayfayı içeren kısmi bir dosya yüklemiş olabilir
+    # ve tankta duran bir örneğin kaydını dosya eksik diye atmak yanlış olur.
+    # Yalnızca sayılıyor ki "sildiğim satır programdan da düştü mü" sorusu
+    # yanıtsız kalmasın.
+    artan = len(var) - len(dokunulan)
     return {"eklenen": eklenen, "guncellenen": guncellenen,
-            "konum": len(konumlar), "yeni_konum": yeni_konum}
+            "konum": len(konumlar), "yeni_konum": yeni_konum,
+            "bag_dusen": bag_dusen, "artan": artan}
 
 
 # ---------------------------------------------------------------- eşleştirme

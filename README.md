@@ -10015,6 +10015,61 @@ ikinci bir kayıt açmıyor, mevcut satır güncelleniyor — ve **elle kurulmu�
 `hasta_id` eşleşmesi korunuyor** (UPDATE o kolona dokunmuyor). Ölçüldü: ilk
 yükleme 4,5 sn, ikincisi 0,1 sn.
 
+### Ama kimlik anahtarı KOORDİNAT, ve bu bir tehlike taşıyordu
+
+Kullanıcı sordu: "değiştirilmiş cryo harita exceli yüklersem şu anda
+yaptığım bağlantılar kaybolur mu?" Cevabı ararken yukarıdaki cümlenin
+**eksik ve tehlikeli** olduğu ortaya çıktı.
+
+Kimlik `(sayfa, satır, sütun)`. Hücrenin **içeriği** düzeltilirse (isim,
+tarih, vial metni) sorun yok: aynı koordinat, UPDATE, bağ yerinde kalır.
+Ama Excel'in ortasına **bir satır eklenirse** altındaki her şey bir aşağı
+kayar — 461. satır artık başka bir kişidir. O zaman UPDATE satırın adını
+yeni kişininkiyle değiştiriyor ama `hasta_id`ye dokunmuyordu: **A hastası
+için kurulmuş bağ sessizce B'nin örneğine geçiyordu.** Bu, programın bütün
+tasarımının kaçınmaya çalıştığı "yanlış hasta" hatasının ta kendisi.
+
+Koruma: **bağlı bir satırın ADI değiştiyse bağ koparılır** ve sayılır
+(`bag_dusen`), ekranda uyarı basılır. Yanlış tarafa düşmektense kopsun —
+kullanıcı raporu görüp yeniden bağlar. İsim karşılaştırması eşleştirmedeki
+`_kelimeler()` kümesiyle, yani boşluk/sıra farkı yüzünden boşuna kopmuyor.
+Tarayıcıda doğrulandı: satır eklenmiş bir dosya yüklendiğinde kayan
+satırın bağı **koptu**, aynı dosyadaki başka bir sayfanın (etkilenmemiş)
+bağı **korundu**.
+
+**İkinci sonuç: yapısal değişiklik KOPYA üretir.** Kaymış satırlar yeni
+koordinatta yeni kayıt olarak ekleniyor, eski koordinattakiler yerinde
+kalıyor. Ölçüldü: TANK 4'e tek bir satır eklemek 5.415 kaydı **5.651**
+yapıyor (236 yeni + 236 artık dosyada karşılığı olmayan eski satır).
+Silme yapılmıyor — kullanıcı kısmi bir dosya yüklemiş olabilir ve tankta
+duran bir örneğin kaydını "dosyada yok" diye atmak yanlış olur; onun
+yerine sayısı (`artan`) ekranda yazılıyor.
+
+Bu, koordinat tabanlı kimliğin doğasında var: içerik tabanlı bir anahtar
+(isim + goblet + içerik) satır eklemeye dayanırdı ama bu kez **isim
+düzeltmek** kayıt kopyalardı. İkisi de her düzenlemeye dayanamıyor. Doğru
+kullanım şu ve kullanıcıya böyle söylendi: **eski harita bir kerelik
+envanter aktarımı; bundan sonra harita programın kendisi.** Yeni dondurma
+programdan giriliyor, çözülen örnek "tanktan çıkarıldı" diye
+işaretleniyor. Yeniden yükleme yalnızca "eski dosyadaki bir yazım
+hatasını düzelttim" için.
+
+### `.xlsx` ilişki yolu iki türlü yazılıyor
+
+Değişmiş dosyayı test ederken okuyucu dosyayı hiç açamadı: "dosyada sayfa
+yok". Sebep: Excel sayfa hedefini **göreli** yazıyor
+(`worksheets/sheet1.xml`), openpyxl/LibreOffice gibi araçlar **mutlak**
+(`/xl/worksheets/sheet1.xml`). `izgara()` için yazdığım yol birleştirme
+yalnızca göreliyi çözüyordu, öteki dosyada bütün sayfalar atlanıyordu.
+
+Asıl ders şu: kuralı zaten **`_birlestir()`** biliyordu ve `kalip()` onu
+kullanıyor — mutlak hedefte de doğru çalışıyor, yani `/formlar`'ın form
+yükleme yolu hiç kırılmamıştı. Ben bir fonksiyon ötedeki mantığın yanına
+ikinci bir kopya yazmıştım. Düzeltme, o kopyayı silip `_birlestir()`'i
+çağırmak oldu. Projenin tekrar eden kuralı ("ızgarayı kuran kural tek
+yerde", "ayarı iki yerden okuma") burada da geçerli: **yolu kendin
+birleştirme.**
+
 `liste_degeri.tasiyici_tipi`'ne **Rapid-i** ve **Vitrifit** eklendi — eski
 haritada geçen iki marka (Cryolock/Cryotop/Straw/Vial zaten vardı).
 

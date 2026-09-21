@@ -5812,7 +5812,12 @@ async def eski_cryo_yukle(request: Request):
     sayac = eski_cryo.iceri_al(cozum["satirlar"], konum_bul_veya_olustur,
                                request.state.kullanici["id"])
     _gunluk.info("eski cryo haritasi alindi: %s", sayac)
-    ozet = f"{sayac['eklenen']}/{sayac['guncellenen']}/{sayac['yeni_konum']}"
+    # Sonuç adreste taşınıyor (POST -> 303). Beş sayı: eklenen / güncellenen /
+    # yeni konum / KOPAN BAĞ / dosyada bulunmayan. Kopan bağ ayrıca uyarı
+    # olarak basılıyor -- sessiz kalmamalı, kullanıcının yeniden bağlaması
+    # gereken kayıtlar onlar.
+    ozet = (f"{sayac['eklenen']}/{sayac['guncellenen']}/{sayac['yeni_konum']}"
+            f"/{sayac['bag_dusen']}/{sayac['artan']}")
     return RedirectResponse(f"/eski-cryo?sonuc={ozet}", status_code=303)
 
 

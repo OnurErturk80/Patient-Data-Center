@@ -1521,6 +1521,24 @@ tarihsel arşiv değil **canlı envanter**.
   bilerek: önce konumlar (`konum_bul_veya_olustur` kendi bağlantısını açar),
   SONRA satırlar tek `yazma_islemi()` içinde — karıştırılırsa `BEGIN
   IMMEDIATE` kilidi kendi kendini bekler.
+- **Kimlik KOORDİNAT olduğu için "bağ yanlış hastaya geçer" tehlikesi
+  vardı** (v6.127'de kullanıcının sorusu üzerine bulundu: "değiştirilmiş
+  excel yüklersem bağlantılar kaybolur mu?"). Hücre **içeriği** düzeltilirse
+  sorun yok; ama Excel'e **satır eklenirse** altındaki her şey kayar ve
+  461. satır artık başka bir kişidir — UPDATE adı değiştirip `hasta_id`ye
+  dokunmayınca A için kurulmuş bağ sessizce B'nin örneğine geçiyordu.
+  **Koruma**: bağlı bir satırın adı değiştiyse bağ KOPARILIR (`bag_dusen`),
+  ekranda uyarı basılır. Bu korumayı kaldırma — yanlış tarafa düşmektense
+  kopsun. Karşılaştırma `_kelimeler()` kümesiyle (boşluk/sıra farkı boşuna
+  koparmasın).
+- **Yapısal değişiklik KOPYA üretir, bu kaçınılmaz.** Kayan satırlar yeni
+  koordinatta yeni kayıt olur, eskiler yerinde kalır (ölçüldü: tek satır
+  eklemek 5.415'i 5.651 yapıyor). Dosyada karşılığı kalmayanlar
+  **silinmiyor** (kısmi dosya yüklenmiş olabilir, tanktaki örneğin kaydı
+  atılmamalı), sayısı `artan` olarak ekrana yazılıyor. İçerik tabanlı bir
+  anahtar da çözmez: o da isim düzeltilince kopyalardı. Doğru kullanım
+  kullanıcıya söylendi: **eski harita bir kerelik aktarım, bundan sonra
+  harita programın kendisi.**
 - **Tuzak #4'ün TERSİ**: `hasta_sil()` kalıcı silme dalında
   `eski_cryo.hasta_id` NULL'a çekilir, **kayıt silinmez** — hasta dosyası
   silindi diye tankta duran örnek kaybolmamalı. Aynı adım
@@ -1532,6 +1550,13 @@ tarihsel arşiv değil **canlı envanter**.
   bir okuyucu yazma. `openpyxl` **sokma** (`excel.py`'nin gerekçesi).
   Izgara **1'den sayar** (`_adres_coz()` 0'dan sayar, o kalıp içindi):
   satır numarası kullanıcıya rapor ediliyor, Excel'de gördüğüyle tutmalı.
+  **Sayfa yolunu `_birlestir()` çözer, kendin birleştirme.** İlişki hedefi
+  Excel'de göreli (`worksheets/sheet1.xml`), openpyxl/LibreOffice'te
+  mutlak (`/xl/...`) yazılıyor; `izgara()`'ya elle yazdığım birleştirme
+  yalnızca göreliyi çözüyor, başka bir araçla kaydedilmiş dosya "sayfa
+  yok" deyip hiç açılmıyordu (v6.127). `_birlestir()` ikisini de biliyor
+  ve `kalip()` zaten onu kullanıyordu — bir fonksiyon ötedeki kuralın
+  yanına ikinci kopya yazılmıştı.
   Çözümleme `openpyxl` referansıyla karşılaştırıldı, 5.415 kayıt birebir
   aynı — okuyucuya dokunursan bu karşılaştırmayı tekrar çalıştır (v6.45'te
   karekod için yapılanın aynısı).

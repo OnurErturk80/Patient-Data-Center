@@ -484,17 +484,28 @@ def _tarihli_stiller(z):
 
 
 def _sayfa_adlari(z):
-    """[(sayfa adı, xl/ içindeki yolu), ...] -- kitaptaki sırayla."""
+    """[(sayfa adı, ZIP içindeki tam yolu), ...] -- kitaptaki sırayla.
+
+    **İlişki hedefi iki türlü yazılabiliyor** ve ikisi de geçerli:
+    Excel göreli yazıyor (`worksheets/sheet1.xml`, parçanın kendi
+    klasörüne göre), openpyxl/LibreOffice gibi araçlar ise mutlak
+    (`/xl/worksheets/sheet1.xml`, paketin köküne göre). İlk yazışta
+    burada elle bir birleştirme vardı ve yalnızca göreliyi çözüyordu:
+    başka bir araçla kaydedilmiş dosya "sayfa yok" deyip hiç açılmıyordu
+    (v6.127'de bulundu). Oysa kuralı zaten `_birlestir()` biliyor --
+    `kalip()` onu kullanıyor ve mutlak hedefte de doğru çalışıyor.
+    **Yolu kendin birleştirme, o fonksiyonu çağır.**
+    """
     kok = _xml(z, "xl/workbook.xml")
     if kok is None:
         raise Hata("xl/workbook.xml yok -- bu bir .xlsx değil")
-    rels, _ = _iliskiler(z, "xl/workbook.xml")
+    rels, klasor = _iliskiler(z, "xl/workbook.xml")
     cikti = []
     kutu = kok.find(f"{_A}sheets")
     for s in (kutu.findall(f"{_A}sheet") if kutu is not None else []):
         hedef = rels.get(s.get(_RID))
         if hedef:
-            cikti.append((s.get("name") or "", hedef))
+            cikti.append((s.get("name") or "", _birlestir(klasor or "xl", hedef)))
     return cikti
 
 
@@ -523,8 +534,7 @@ def izgara(baytlar: bytes, en_cok_satir: int = 5000,
         paylasilan = _paylasilan(z)
         tarihli = _tarihli_stiller(z)
         cikti = {}
-        for ad, hedef in _sayfa_adlari(z):
-            yol = hedef if hedef.startswith("xl/") else "xl/" + hedef.lstrip("/")
+        for ad, yol in _sayfa_adlari(z):
             kok = _xml(z, yol)
             if kok is None:
                 continue
