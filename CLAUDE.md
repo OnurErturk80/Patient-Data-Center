@@ -1916,7 +1916,8 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 1. **Biyopsi / PGT modülü** — tek kalan ana modül. Biyopsi kaydı, tüp etiketi,
    haftalar sonra gelen genetik sonucun eşleştirilmesi. `pgt_sonuc` tablosu
    şemada hazır, kullanılmıyor.
-2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi.**
+2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi, elle
+   tetikleme v6.119'da eklendi.**
    - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin
      `yerel_ayar.json` bölümündeki `yedek_klasor`'e gider. Komut satırı argümanı
      hep kazanır. Platforma uymayan yol (Mac'te `E:\yedek`) reddedilir.
@@ -1930,6 +1931,24 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    - **Asıl iş klinikteki Windows mini PC'de:** gerçek hasta verisi orada.
      Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
      `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.
+   - **`/klasorler`'de "Şimdi yedekle" düğmesi var** (v6.119, kullanıcının
+     isteği: "Elle yedekleme olsun") — otomatik zamanlamanın **yerine
+     geçmiyor**, tamamlayıcısı: "hemen bir yedek almam lazım" anları için.
+     `app.py` `klasorler_yedekle_simdi()` `yedek.py`'nin fonksiyonlarını
+     (`veritabani_yedekle()`/`eskileri_temizle()`/`arsiv_yedekle()`)
+     **süreç içinde** çağırıyor, `goc.py`'nin göçleri çalıştırma deseninin
+     aynısı — `subprocess.run([sys.executable, ...])` **yazılmadı**,
+     paketlenmiş uygulamada bu satır yedeği değil programı yeniden
+     başlatırdı (göçler için söylenen tuzağın aynısı, burada da geçerli).
+     `yedek.main()` de çağrılmadı — `sys.exit()` kullanıyor, bir istek
+     işleyicisinin içinde istenmeyen bir şey; `main()`'in çağırdığı
+     fonksiyonlar elle, `try/except` ile çağrılıyor. Düğme `/klasorler`'de
+     duruyor, `/yonetim`'de **değil** — o hâlâ salt okunur (v6.12'nin
+     kuralı hiç değişmedi), yalnızca sonucu (`yedek_durumu()`) gösteriyor.
+     Yeni bir "elle tetiklenen arka plan işi" (goc/yedek dışında) eklersen
+     aynı üç şeyi sor: süreç içinde mi çalışıyor (subprocess değil), hangi
+     ekranda duruyor (`/yonetim` değilse neresi), ve `main()`'in
+     `sys.exit()`'ini mi yoksa alt fonksiyonlarını mı çağırman gerekiyor.
 3. **HTTPS yok** — iç ağ dışına açılmamalı.
 4. **Kullanıcı yönetimi — v6.11'de arayüze taşındı, v6.12'de panele bağlandı.**
    Yönetici `/yonetim` panelinden `/kullanicilar`'a girer; ekler, şifre sıfırlar,

@@ -1286,7 +1286,8 @@ KLASOR_HATALARI = {"klasor_hata_kamera", "klasor_hata_arsiv"}
 
 
 @uygulama.get("/klasorler")
-def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0):
+def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0,
+                    yhata: str = "", yedeklendi: int = 0):
     red = yonetici_kontrol(request)
     if red:
         return red
@@ -1299,8 +1300,68 @@ def klasorler_ekran(request: Request, hata: str = "", kaydedildi: int = 0):
         "yollar": yollar, "makine": db.MAKINE,
         "hata": metinler.t(hata) if hata in KLASOR_HATALARI else "",
         "kaydedildi": kaydedildi,
+        # Elle yedekleme (v6.119) -- ayrı bir hata/başarı çifti, klasör
+        # kaydetmenin `hata`/`kaydedildi`'siyle karışmasın diye. `yhata`
+        # `hata`'nın aksine beyaz listeden geçmiyor: adresten gelen bir
+        # anahtar değil, sunucunun `/klasorler/yedekle-simdi`'de ürettiği
+        # bitmiş metin (FormHatasi mesajlarının kullandığı desenin aynısı).
+        "yhata": yhata,
+        "yedeklendi": yedeklendi,
+        "son_yedek": _ayar("son_yedek", ""),
+        "yedek_uyari": yedek_durumu(),
         "kullanici": request.state.kullanici,
     })
+
+
+@uygulama.post("/klasorler/yedekle-simdi")
+def klasorler_yedekle_simdi(request: Request):
+    """Elle yedekleme (v6.119, kullanıcının isteği: "Elle yedekleme olsun").
+
+    `yedek.py`'nin fonksiyonlarını **süreç içinde** çağırır -- `goc.py`'nin
+    zaten kurduğu desenin aynısı. `subprocess.run([sys.executable, ...])`
+    yazılmadı: paketlenmiş uygulamada `sys.executable` **programın kendisi**
+    olur, o satır yedeği değil programı yeniden başlatırdı (CLAUDE.md,
+    "Çalıştırıcı tek yerde" bölümü, göçler için söylenen aynı tuzak).
+
+    `yedek.main()` çağrılmadı -- o `sys.exit()` kullanıyor, terminalden
+    çalıştırıldığında doğru ama bir istek işleyicisinin içinde `SystemExit`
+    fırlatmak istenmeyen bir şey. Onun yerine `main()`'in çağırdığı aynı
+    fonksiyonlar (`veritabani_yedekle`, `eskileri_temizle`,
+    `arsiv_yedekle`) burada elle, normal `try/except` ile çağrılıyor.
+    """
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    from urllib.parse import quote
+    import yedek as _yedek
+
+    hedef = db.ayar("yedek_klasor", "")
+    if not hedef:
+        return RedirectResponse(
+            "/klasorler?yhata=" + quote(metinler.t("yedek_klasoru_yok_hata")),
+            status_code=303)
+    if not _yedek.bu_makineye_uygun_mu(hedef):
+        mesaj = metinler.t("yedek_klasoru_yanlis_makine").replace("{yol}", hedef)
+        return RedirectResponse("/klasorler?yhata=" + quote(mesaj), status_code=303)
+
+    hedef_klasor = Path(hedef)
+    kullanici_adi = request.state.kullanici["kullanici_adi"]
+    try:
+        hedef_klasor.mkdir(parents=True, exist_ok=True)
+        _yedek.yaz("=" * 55)
+        _yedek.yaz(f"Yedekleme basladi -> {hedef_klasor}   "
+                   f"(kaynak: /klasorler, {kullanici_adi})")
+        _yedek.veritabani_yedekle(hedef_klasor)
+        _yedek.eskileri_temizle(hedef_klasor)
+        arsiv_klasor = Path(db.ayar("goruntu_arsiv_klasor", str(db.VERI_KOK / "arsiv")))
+        _yedek.arsiv_yedekle(arsiv_klasor, hedef_klasor)
+        _yedek.ayar_yaz("son_yedek", _dt.now().isoformat(" ", "seconds"))
+        _yedek.yaz("Yedekleme tamam.")
+    except Exception as e:
+        _yedek.yaz(f"HATA: {e}")
+        mesaj = f"{metinler.t('yedekleme_basarisiz')}: {e}"
+        return RedirectResponse("/klasorler?yhata=" + quote(mesaj), status_code=303)
+    return RedirectResponse("/klasorler?yedeklendi=1", status_code=303)
 
 
 # Klasör gezgini (v6.43, kullanıcının isteği: "göz at şeklinde olsa").

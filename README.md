@@ -9119,3 +9119,85 @@ kullandığı için bu kayıt `/sperm-dondurma/1` açılınca sessizce `/cryo`'y
 yönlendiriyor — uygulamadan hiç erişilemiyor, zararsız ama silinmemiş
 ölü veri. Bu oturumda dokunulmadı (kapsam dışı); kullanıcı isterse
 `sperm_dondurma`/`tasiyici` tablosundan elle temizlenebilir.
+
+# v6.119 — Elle yedekleme düğmesi
+
+Kullanıcının isteği: "Elle yedekleme olsun." Yedekleme o zamana kadar
+yalnızca terminalden (`python3 yedek.py`) ya da Windows Görev
+Zamanlayıcı'yla otomatik çalışıyordu (bkz. CLAUDE.md "bekleyen iş 2");
+ekrandan tetiklenen bir yol yoktu.
+
+## Ne değişti
+
+- `/klasorler`'e (yönetici ekranı, klasör ayarlarının yapıldığı yer) yeni
+  bir **"Yedekleme"** kartı eklendi: son yedeğin ne zaman alındığını
+  (`gg_aa_yyyy_saat`), eskiyse `/yonetim`'in zaten gösterdiği uyarı
+  metniyle aynısını (`yedek_durumu()`), ve bir **"Şimdi yedekle"**
+  düğmesini gösteriyor.
+- Düğme ayrı, tek amaçlı bir `<form action="/klasorler/yedekle-simdi">` —
+  yukarıdaki klasör-kaydetme formunun içine gömülmedi. Bilerek: bu düğme
+  ekrandaki (belki henüz kaydedilmemiş) yol kutusunu değil, veritabanında
+  **zaten kayıtlı** `yedek_klasor` ayarını kullanıyor.
+- Yeni rota `app.py` `klasorler_yedekle_simdi()`: `yedek.py`'nin
+  `veritabani_yedekle()` / `eskileri_temizle()` / `arsiv_yedekle()`
+  fonksiyonlarını **süreç içinde** (`import yedek`) çağırıyor —
+  `goc.py`'nin göçleri çalıştırma deseninin aynısı.
+  **`subprocess.run([sys.executable, ...])` yazılmadı**: paketlenmiş
+  uygulamada `sys.executable` programın kendisi olur, o satır yedeği değil
+  programı yeniden başlatırdı (CLAUDE.md'nin göçler için söylediği aynı
+  tuzak, burada da geçerli).
+  **`yedek.main()` de çağrılmadı** — o `sys.exit()` kullanıyor (CLI için
+  doğru, bir istek işleyicisinin içinde `SystemExit` fırlatmak istenmeyen
+  bir şey); `main()`'in çağırdığı fonksiyonlar burada elle, normal
+  `try/except` ile çağrılıyor.
+- Hata durumları: yedek klasörü hiç ayarlanmamışsa ya da bu makinenin
+  işletim sistemine uygun bir yol değilse (`yedek.bu_makineye_uygun_mu()`,
+  v6.8'in aynı kontrolü) açıklayıcı bir mesajla `/klasorler`'e dönülüyor.
+  Diğer her hata (disk dolu, izin sorunu, doğrulama başarısız...) olduğu
+  gibi (`Yedekleme başarısız: {e}`) gösteriliyor — `FormHatasi`
+  mesajlarının kullandığı "sunucunun ürettiği bitmiş metni doğrudan
+  göster" deseninin aynısı, `metin()`'e adresten gelen bir anahtar
+  verilmiyor (tuzak #9 burada geçerli değil).
+- Yeni metin anahtarları `metinler.py`'ye eklendi (iki dilde de):
+  `yedekleme`, `son_yedek`, `hic_yedek_yok`, `simdi_yedekle`,
+  `yedekleniyor_uyari`, `yedek_alindi`, `yedek_klasoru_yok_hata`,
+  `yedek_klasoru_yanlis_makine`, `yedekleme_basarisiz`,
+  `yedekleme_ipucu`.
+- **`/yonetim`'e dokunulmadı** — o hâlâ salt okunur (v6.12), yalnızca son
+  yedek durumunu gösteriyor. Düğme bilerek `/klasorler`'de: "ayarlar kendi
+  ekranlarından yapılır" kuralının aynısı, klasör yolu ayarının zaten
+  orada olması.
+
+## Bilinen sınır
+
+Düğme **eşzamanlı** (senkron) çalışıyor — istek, yedekleme bitene kadar
+yanıt vermiyor, ilerleme çubuğu yok. Bugünkü test verisinde (birkaç MB)
+saniyeler sürüyor; gerçek hasta arşivi büyüdükçe (`arsiv_yedekle()`
+`rglob` ile bütün klasörü tarıyor) bu daha uzun sürebilir. Ekranda "sayfadan
+ayrılma" uyarısı var ama gerçek bir ilerleme göstergesi yok. Otomatik
+zamanlanmış yedeklemenin (Windows Görev Zamanlayıcı) yerini almıyor —
+düğme günlük rutinin **tamamlayıcısı**, "hemen şimdi bir yedek almam
+lazım" anları için (örn. büyük bir veri girişinden önce/sonra).
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp `/klasorler` ekranı ve yeni rota gerçek yönetici
+oturumuyla test edildi:
+- **Başarılı yol**: mevcut `yedek_klasor` (`/root/lab_yedek`) ile düğmeye
+  basıldı — `lab_YYYYMMDD_HHMM.db` dosyası oluştu, `PRAGMA
+  integrity_check` geçti, `yedek.log`'a hem başlangıç/bitiş satırları
+  (`kaynak: /klasorler, <kullanıcı adı>`) hem `veritabani_yedekle()`'nin
+  kendi özet satırı yazıldı, `son_yedek` ayarı güncellendi ve ekranda
+  "Yedekleme tamamlandı." + güncel tarih göründü, eski stale-yedek uyarısı
+  kayboldu.
+- **Yanlış makine yolu**: `db.yerel_yaz()` ile `yedek_klasor` geçici
+  olarak `E:\yedek`'e çevrildi (Mac/Linux'ta geçersiz), düğmeye basıldı —
+  yedek alınmadı, "'E:\yedek' bu işletim sisteminin yolu değil, yedek
+  alınamadı." mesajı ekranda doğru (HTML-escape'lenmiş) göründü. Ayar
+  gerçek değerine geri çevrildi.
+- Playwright ile 390px mobil genişlikte ekran görüntüsü alınıp kartın
+  düzeninin diğer kartlarla tutarlı olduğu doğrulandı.
+- Test sırasında oluşan yedek `.db` dosyaları (`/root/lab_yedek/`) ve
+  oturum jetonu temizlendi, sunucu kapatıldı. (`yedek.log`'daki test
+  satırları `.gitignore`'da olduğu için depoya girmiyor, elle
+  temizlenmedi.)

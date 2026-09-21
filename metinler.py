@@ -1439,6 +1439,42 @@ METINLER = {
               "disk</b>, otherwise a disk failure takes the backup with it. A "
               "disk that is not plugged in (E: for example) may be entered; "
               "it is not created, it is looked for when a backup runs."},
+    # Elle yedekleme (v6.119, kullanıcının isteği: "Elle yedekleme olsun").
+    # `/klasorler`'de, yedek klasörü ayarının hemen altında -- panel yine
+    # `/yonetim` DEĞİL, o salt okunur kalıyor (v6.12).
+    "yedekleme": {"tr": "Yedekleme", "en": "Backup"},
+    "son_yedek": {"tr": "Son yedek", "en": "Last backup"},
+    "hic_yedek_yok": {"tr": "Henüz hiç yedek alınmadı.",
+                      "en": "No backup has been taken yet."},
+    "simdi_yedekle": {"tr": "Şimdi yedekle", "en": "Back up now"},
+    "yedekleniyor_uyari": {
+        "tr": "Yedekleme sürerken sayfadan ayrılma; büyük arşivlerde birkaç "
+              "dakika sürebilir.",
+        "en": "Do not leave this page while backing up; it can take a few "
+              "minutes for a large archive."},
+    "yedek_alindi": {"tr": "Yedekleme tamamlandı.",
+                     "en": "Backup completed."},
+    "yedek_klasoru_yok_hata": {
+        "tr": "Yedek klasörü ayarlanmamış. Önce yukarıdan kaydet.",
+        "en": "Backup folder is not set. Save it above first."},
+    "yedek_klasoru_yanlis_makine": {
+        "tr": "'{yol}' bu işletim sisteminin yolu değil, yedek alınamadı.",
+        "en": "'{yol}' is not a path for this operating system, backup not "
+              "taken."},
+    "yedekleme_basarisiz": {"tr": "Yedekleme başarısız",
+                            "en": "Backup failed"},
+    "yedekleme_ipucu": {
+        "tr": "Veritabanının anlık bir kopyasını alır, doğrular ve arşivdeki "
+              "yeni fotoğrafları yukarıdaki yedek klasörüne kopyalar -- "
+              "terminalden <code>python3 yedek.py</code> çalıştırmakla aynı "
+              "işi yapar. Otomatik zamanlama (Windows Görev Zamanlayıcı) "
+              "ayrıca kurulmalı, bu düğme onun yerine geçmez.",
+        "en": "Takes a consistent snapshot of the database, verifies it, "
+              "and copies new archive photos into the backup folder above "
+              "-- the same work as running <code>python3 yedek.py</code> "
+              "from a terminal. Automatic scheduling (Windows Task "
+              "Scheduler) still needs to be set up separately; this button "
+              "does not replace it."},
     "klasor_var": {"tr": "klasör bulundu", "en": "folder found"},
     "klasor_yok": {"tr": "klasör bulunamadı", "en": "folder not found"},
     # Klasör gezgini (v6.43). Tarayıcı sayfaya gerçek yolu vermediği için
