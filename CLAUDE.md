@@ -1749,13 +1749,24 @@ paralel ama ayrı birer yol açıldı.
   `elle_ekle()`/`goruntu_sil()`'in aynısı ama ayrı klasör fonksiyonuyla
   (`sperm_onam_klasoru()` — `hedef_klasor()` cycle_id istiyor, kullanılamadı):
   `arsiv/<dosya no>/sperm-dondurma/<sperm_dondurma_id>/`.
-  - **Fotoğraf da PDF gibi yeni sekmede açılıyor**, paylaşılan
-    `_buyutec.html` lightbox'ı kullanılmadı — o JS `/dosya/` adresine sabit
-    yazılmış (`img.src = '/dosya/' + id`), `sperm_dondurma_dosya` ayrı bir
-    tablo/rota (`/sperm-onam/{id}`) olduğu için oraya takılamaz. Onamlar
-    zaten embriyo fotoğrafı değil belge eki, pixel pixel yakınlaştırma
-    gerekmiyor — Doktor Notu'nun PDF'i için zaten kullanılan "yeni sekme"
-    gerekçesi fotoğrafa da genişletildi.
+  - **PDF hâlâ yeni sekmede açılıyor** — belge eki, tarayıcının kendi PDF
+    görüntüleyicisi zaten neredeyse tam ekran, Doktor Notu'nun PDF'i için
+    kullanılan gerekçenin aynısı. **Fotoğraf artık değil** (v6.118,
+    kullanıcının isteği: "dosya yükleme yapılan bölümde görüntüyü açtıktan
+    sonra kapatma butonu olsun") — v6.101'de fotoğraf da PDF gibi yeni
+    sekmede açılıyordu çünkü paylaşılan `_buyutec.html` lightbox'ının JS'i
+    `/dosya/` adresine sabitti (`img.src = '/dosya/' + id`) ve
+    `sperm_dondurma_dosya` ayrı bir tablo/rotaydı (`/sperm-onam/{id}`) —
+    yeni sekmede açılan ham görüntü bir HTML sayfası olmadığı için içine
+    bir "Kapat" düğmesi konamıyordu. v6.118'de `_buyutec.html`'in
+    `buyutecAc()`'i dördüncü, isteğe bağlı bir `onEki` parametresi aldı
+    (varsayılan `/dosya/`) — `sperm_dondurma_detay.html` artık onu
+    `onEki="/sperm-onam/"` ile çağırıyor, fotoğraf Doktor Notu'yla aynı
+    lightbox'ta (kapatma düğmesi dahil) açılıyor. **Yeni bir `/dosya/`
+    dışı görüntü kaynağı** (üçüncü bir tablo/rota) eklersen aynı deseni
+    kullan — `_buyutec.html`'e dokunmadan yalnızca `buyutecAc(idler, no,
+    baslangic, "/kendi-onekin/")` çağır, her ekran kendi tıklama betiğini
+    yazsın (paylaşılan bir global yok, bu kural değişmedi).
   - **Tuzak #4'ün aynısı**: `hasta_sil()`'in kalıcı silme dalı zaten
     `sperm_dondurma`'yı hastaya göre siliyordu (v6.85); bu göç test
     edilirken **gerçekten patladı** — `sperm_dondurma_dosya` FK'sı

@@ -22,7 +22,7 @@
   var once = document.getElementById('bonce');
   var sonra = document.getElementById('bsonra');
   var yakinDugme = document.getElementById('byakin');
-  var idler = [], sira = 0, no = '', yakin = false;
+  var idler = [], sira = 0, no = '', yakin = false, onEki = '/dosya/';
   // Cagiran ya tam etiket veriyor ("Blastokist 3") ya da sadece numara ("3").
   // Numaraysa sayfanin ornek adiyla tamamlanir -- eskiden burada "Oosit" sabit
   // yaziyordu, blastokist ekraninda da Ingilizcede de yanlisti.
@@ -37,7 +37,7 @@
     if (!yakin) { govde.scrollTop = 0; govde.scrollLeft = 0; }
   }
   function ciz() {
-    img.src = '/dosya/' + idler[sira];
+    img.src = onEki + idler[sira];
     img.alt = etiket();
     bilgi.textContent = idler.length > 1
       ? etiket() + ' — ' + (sira + 1) + '/' + idler.length
@@ -51,9 +51,13 @@
     document.body.classList.remove('kilitli');
   }
 
-  // Satır içi panelden çağrılır
-  window.buyutecAc = function (yeniIdler, yeniNo, baslangic) {
+  // Satır içi panelden çağrılır. `yeniOnEki` isteğe bağlı -- vermeyen
+  // çağıran '/dosya/' alır (embriyoloji fotoğrafları, eskisi gibi);
+  // `/dosya/` dışında bir yoldan gelen görüntüler (v6.118, sperm dondurma
+  // onamları gibi) kendi yol öneklerini geçirir.
+  window.buyutecAc = function (yeniIdler, yeniNo, baslangic, yeniOnEki) {
     idler = yeniIdler; no = yeniNo; sira = baslangic || 0;
+    onEki = yeniOnEki || '/dosya/';
     if (!idler.length) return;
     ciz();
     kat.hidden = false;

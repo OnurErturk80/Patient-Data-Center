@@ -5585,9 +5585,11 @@ def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int, hata: str = "
             "SELECT * FROM sperm_dondurma_dosya WHERE sperm_dondurma_id=? "
             "ORDER BY id", (sperm_dondurma_id,))
     ]
+    onam_resim_ids = [o["id"] for o in onamlar if not o["pdf_mi"]]
     return sablon.TemplateResponse(
         request, "sperm_dondurma_detay.html",
-        {"sd": sd, "etiketler": etiketler, "onamlar": onamlar, "hata": hata})
+        {"sd": sd, "etiketler": etiketler, "onamlar": onamlar,
+         "onam_resim_ids": onam_resim_ids, "hata": hata})
 
 
 @uygulama.post("/sperm-dondurma/{sperm_dondurma_id}/islem-yapan")

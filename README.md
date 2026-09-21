@@ -9049,3 +9049,73 @@ genişliklerde ölçüldü:
 - 375-428px arası oranın 0.72-0.84 arasında kademeli değiştiği,
   hiçbir noktada kırpma olmadığı ölçüldü.
 Test `olay` kayıtları ve oturum jetonu temizlendi, sunucu kapatıldı.
+
+# v6.118 — Sperm dondurma onamlarına kapatma düğmeli görüntüleme
+
+Kullanıcının isteği: "Dosya yükleme yapılan bölümde görüntüyü açtıktan
+sonra kapatma butonu olsun." İki dosya yükleme bölümü var (Doktor Notu ve
+Sperm Dondurma Onamları); ikisi de istendi.
+
+## Sebep
+
+Doktor Notu (`cycle_detay.html`) fotoğrafları zaten `_buyutec.html`'in
+paylaşılan büyütecinde (lightbox) açılıyordu — sağ üstte `×` kapatma
+düğmesi hep vardı, burada eksik yoktu. Sperm Dondurma Onamları
+(`sperm_dondurma_detay.html`) farklıydı: fotoğraf `<a target="_blank"
+href="/sperm-onam/{id}">` ile doğrudan **yeni bir tarayıcı sekmesinde**,
+ham görüntü dosyası olarak açılıyordu (v6.101'in bilinçli kararı — "PDF
+gibi yeni sekme, pixel pixel yakınlaştırma gerekmiyor"). Orası bir HTML
+sayfası değil, tarayıcının kendi görüntü görüntüleyicisi; uygulamanın
+içine bir "Kapat" düğmesi konamaz, yalnızca sekmeyi kapatmak/geri gitmek
+vardı — kullanıcının bahsettiği eksiklik buydu.
+
+## Ne değişti
+
+- `_buyutec.html`'in `window.buyutecAc()`'i **dördüncü, isteğe bağlı bir
+  parametre** aldı: `onEki` (görüntü adresinin öneki). Vermeyen çağıran
+  hâlâ `/dosya/` alır (bütün embriyoloji ekranları, Doktor Notu dahil —
+  davranışları değişmedi).
+- `sperm_dondurma_detay.html`: onam **fotoğrafları** (PDF değil) artık
+  `<a target="_blank">` yerine Doktor Notu'nun aynı deseniyle
+  `<button class="kfoto onamfoto">` — tıklanınca `_buyutec.html`'i
+  `onEki="/sperm-onam/"` ile açıyor. Sayfa artık `{% include
+  "_buyutec.html" %}` içeriyor ve kendi tıklama betiğini yazıyor (CLAUDE.md
+  kuralı: paylaşılan bir global yok, her ekran kendi betiğini yazar).
+  Birden çok onam fotoğrafı varsa büyüteçteki ‹ › ile aralarında gezinilir
+  (Doktor Notu'nun `doktor_notu_resim_ids` deseninin aynısı, `app.py`'de
+  yeni `onam_resim_ids`).
+- **PDF onamlar dokunulmadı** — hâlâ yeni sekmede, `target="_blank"`.
+  Kullanıcının isteği "görüntüyü açtıktan sonra" diyordu, PDF için
+  tarayıcının kendi görüntüleyicisi zaten neredeyse tam ekran ve kendi
+  kapatma/geri deneyimini veriyor (v6.81'in PDF gerekçesinin aynısı).
+
+## Test edildi
+
+Sunucu ayağa kaldırılıp gerçek rotalardan (`/cycle/1/doktor-notu-ekle`,
+`/sperm-dondurma/yeni-hasta` + `/sperm-dondurma/{id}/onam-ekle`) bir test
+görüntüsü ve bir test PDF'i yüklendi. Playwright ile:
+- Doktor Notu fotoğrafına tıklanınca büyüteç açıldı (`#buyut` hidden=false),
+  `#bimg.src` `/dosya/<id>` idi, `.bkapat`'a tıklanınca büyüteç kapandı
+  (hidden=true) — regresyon yok.
+- Sperm Onam fotoğrafına tıklanınca büyüteç açıldı, `#bimg.src`
+  `/sperm-onam/<id>` idi (yeni `onEki` doğru geçiyor), `.bkapat`'a
+  tıklanınca kapandı.
+- Ekran görüntüsüyle iki büyütecin de görsel olarak birebir aynı
+  (başlık + `×` kapatma düğmesi + Yakınlaştır çubuğu) olduğu doğrulandı.
+- Sperm Onam PDF yüklemesi test edildi: bağlantı hâlâ
+  `<a class="kfoto pdf" href="/sperm-onam/{id}" target="_blank">` —
+  değişmedi.
+Test hasta, taşıyıcı, sperm dondurma, `goruntu`/`sperm_dondurma_dosya`
+kayıtları, arşiv klasöründeki test dosyaları ve oturum jetonu temizlendi,
+sunucu kapatıldı.
+
+## Bilinen not
+
+Test sırasında **bu değişiklikle ilgisiz**, önceden var olan bozuk bir
+kayıt bulundu: `sperm_dondurma.id=1`, `hasta_id=4`'e işaret ediyor ama
+`hasta` tablosunda 4 no'lu kayıt yok (muhtemelen daha önceki bir test
+temizliğinde hasta silinirken bu satır atlanmış). Rota zaten `JOIN hasta`
+kullandığı için bu kayıt `/sperm-dondurma/1` açılınca sessizce `/cryo`'ya
+yönlendiriyor — uygulamadan hiç erişilemiyor, zararsız ama silinmemiş
+ölü veri. Bu oturumda dokunulmadı (kapsam dışı); kullanıcı isterse
+`sperm_dondurma`/`tasiyici` tablosundan elle temizlenebilir.

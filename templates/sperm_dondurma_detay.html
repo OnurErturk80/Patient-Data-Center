@@ -79,11 +79,24 @@
 
 {# Onamlar (v6.101, kullanıcının isteği): PDF/fotoğraf eki, `goruntu`
    tablosuna değil `sperm_dondurma_dosya`'ya yazılıyor (sperm dondurmanın
-   cycle'ı olmayabilir, `goruntu.cycle_id` NOT NULL). Fotoğraf da PDF gibi
-   yeni sekmede açılıyor -- paylaşılan `_buyutec.html` `/dosya/`'ya sabit,
-   burada kullanılmıyor; bunlar embriyo fotoğrafı değil belge eki, pixel
-   pixel yakınlaştırma gerekmiyor (Doktor Notu'nun PDF'i için zaten
-   kullanılan "yeni sekme" gerekçesinin aynısı). #}
+   cycle'ı olmayabilir, `goruntu.cycle_id` NOT NULL). PDF hâlâ yeni sekmede
+   açılıyor -- bunlar embriyo fotoğrafı değil belge eki, pixel pixel
+   yakınlaştırma gerekmiyor (Doktor Notu'nun PDF'i için zaten kullanılan
+   "yeni sekme" gerekçesinin aynısı), tarayıcının kendi PDF görüntüleyicisi
+   zaten neredeyse tam ekran.
+
+   Fotoğraf artık yeni sekmeye DEĞİL, Doktor Notu'nun kullandığı aynı
+   büyüteç (lightbox)'e açılıyor (v6.118, kullanıcının isteği: "dosya
+   yükleme yapılan bölümde görüntüyü açtıktan sonra kapatma butonu olsun").
+   Önceki hal (`<a target="_blank" href="/sperm-onam/{id}">`) tarayıcının
+   ham görüntü görüntüleyicisine açılıyordu -- orası bir HTML sayfası
+   değil, uygulamanın içine bir "Kapat" düğmesi koyamazsın, yalnızca
+   sekmeyi kapatmak vardı. `_buyutec.html`'in `buyutecAc()`'i artık dördüncü
+   bir parametre alıyor (`onEki`, varsayılan `/dosya/`) -- burada
+   `/sperm-onam/` veriliyor, PDF'ler bu değişiklik dışında (hâlâ yeni
+   sekmede, native görüntüleyici zaten kendi kapatma/geri deneyimini
+   veriyor). #}
+{% set buyutec_ad = metin("onamlar") %}
 <div class="kart">
   <h2>{{ metin("onamlar") }}{% if onamlar %} ({{ onamlar|length }}){% endif %}</h2>
   {% if onamlar %}
@@ -94,10 +107,12 @@
       <a class="kfoto pdf" href="/sperm-onam/{{ o.id }}" target="_blank" rel="noopener"
          title="{{ o.orijinal_dosya_adi }}">PDF</a>
       {% else %}
-      <a class="kfoto" href="/sperm-onam/{{ o.id }}" target="_blank" rel="noopener"
-         title="{{ o.orijinal_dosya_adi }}">
+      <button type="button" class="kfoto onamfoto"
+              data-idler="{{ onam_resim_ids|join(',') }}"
+              data-baslangic="{{ onam_resim_ids.index(o.id) }}"
+              data-no="{{ metin('onamlar') }}">
         <img src="/sperm-onam/{{ o.id }}" alt="{{ metin('onamlar') }}">
-      </a>
+      </button>
       {% endif %}
       <a class="fsil" href="/sperm-onam/{{ o.id }}/sil"
          aria-label="{{ metin('sil') }}" title="{{ metin('sil') }}">&times;</a>
@@ -116,6 +131,16 @@
   </form>
   {% endif %}
 </div>
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.onamfoto').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas, '/sperm-onam/');
+  });
+});
+</script>
 
 <a class="dugme ikincil" href="/hasta/{{ sd.hasta_id }}">{{ metin("hasta") }}</a>
 {% if yetkim("silme") %}
