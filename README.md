@@ -9472,3 +9472,131 @@ gerekmedi):
   doğru basıldı.
 - Test kaydı (`olay` satırı) ve test oturum jetonu temizlendi; gerçek
   veritabanında başka hiçbir şey değişmedi.
+
+# v6.123 — istatistiklerde aylık oranlar ve yıl/ay seçici
+
+Kullanıcının isteği: "Yönetici bölümünde istatistik alanında aylık olarak
+oranlar tutulsun. M2 oranı, PN oranı, Blastokist oranı, Klinik gebelik
+oranı (transfer başına) bunlar aylık olarak tutulsun ve yıl ve tarih
+seçerek bakabileyim."
+
+**"Tutulsun" yine bir sayaç açmak değil.** v6.38'in kararı burada da
+geçerli: sayılar her açılışta `hasta`/`cycle`/`specimen`/`olay`'dan
+türetiliyor. İstenen dört oranın **tanımı zaten vardı** ve tam bu adlarla
+(`oran_mii`, `oran_fert`, `oran_blast`, `oran_gebelik`); `istatistikler()`
+zaten `ay="2026-09"` alıp süzebiliyordu. Eksik olan yalnızca ekrandaki
+karşılığıydı — ay seçilemiyordu ve ay kırılımı tablosu dört orandan
+yalnızca birini (fertilizasyon) basıyordu.
+
+## Ne değişti
+
+- **Ay/yıl seçici** (`/istatistik?yil=&ay=`) — `/hastalar`'ın ay gezgininin
+  birebir aynısı (`.aygezgin`, `‹ ›` okları, iki açılır seçici, JS kapalıysa
+  kalan "Göster" düğmesi). Aynı işi yapan iki ekran aynı görünsün diye
+  yeniden yazılmadı, kopyalandı; tek fark bu ekranda arama olmadığı için
+  gizli `ara` alanının olmaması.
+- **Oranlar kartı artık iki değer sütunu taşıyor**: seçilen ay ve
+  laboratuvarın tamamı. Ayın sütununda yüzdenin yanında **payı ve
+  paydası** da yazıyor (`20 / 32`).
+- **"Aylara göre" tablosu seçilen yılın ayları** (eskiden "son 12 ay") ve
+  dört oranı birden basıyor. Ayın adı bağlantı: üstteki kartı o aya
+  çeviriyor. Seçili ayın satırı `--vurgu-ac` zeminle işaretli.
+- **Excel çıktısı** (`/disari/istatistik?yil=`) ekrandaki yılı taşıyor;
+  "Aylara göre" sayfası artık sayıların yanında dört oranı da veriyor
+  (13 sütun), sayfa adı `2026 aylara göre`.
+- `oran_mii`'nin ekran etiketi **"MII oranı" → "M2 oranı (MII / kayıtlı
+  oosit)"**. Kullanıcı bu orana "M2" diyor ve tedavi ekranının özet kutusu
+  (`ozet_m2`, v6.112) zaten "M2" yazıyordu; aynı ekranda sütun başlığı "M2"
+  iken satırın "MII oranı" demesi tutarsız olurdu. Paydası da yazıldı —
+  öteki üç etiketin zaten izlediği desen.
+
+## Neden ay kırılımı oranları kendi başına hesaplamıyor
+
+`istatistik_aylari()` her ay için `istatistikler(ay)` çağırıyor ve oranı
+ondan alıyor. Kendi `pay/payda` formülünü yazsaydı ekranın üstündeki kart
+ile altındaki tablo iki ayrı formülle aynı sayıyı hesaplardı; biri
+düzeltilip öteki unutulurdu. Sayaç tutmama gerekçesinin (v6.38) formül
+hali. Bedeli on iki ekstra sorgu kümesi — SQLite yerelde, ekran zaten
+yalnızca yöneticinin ara sıra açtığı bir ekran.
+
+## Neden "genel toplam" ve "son kayıtlar" seçiciden etkilenmiyor
+
+İkisi de bilerek laboratuvarın tamamı. "Genel toplam" zaten adıyla bunu
+söylüyor ve `istatistikler(ay)` ay verildiğinde hasta sayılarını `None`
+döndürüyor (hasta kaydı bir aya ait değil). "Son kayıtlar" ise "en son ne
+yapıldı" penceresi (v6.38) — geçmiş bir aya bakarken o ayın son on kaydını
+göstermek onu başka bir şeye çevirirdi.
+
+## Neden boş ay "%0" değil "—" yazıyor
+
+"Paydası sıfır olan oran basılmaz" kuralı (v6.38) ay kırılımında daha da
+önemli: bir laboratuvarın işlem yapmadığı ayda "%0 blastokist" yazmak
+"ölçüldü ve sıfır çıktı" demek olurdu. `_oran()` paydası sıfırken `None`
+döndürüyor, ekran `—` basıyor. Kaydı hiç olmayan ay tabloya **girmiyor** —
+on iki satır tire tabloyu uzatmaktan başka bir şey yapmazdı; o ayın seçili
+olması durumunda kartın altında "Bu ayda kayıt yok." notu çıkıyor.
+
+## Adresten gelen yıl/ay: `_istatistik_donemi()`
+
+`?yil=`/`?ay=` dışarıdan geliyor ve üç şey birden yapılıyor (tuzak #9'un
+sorgu hali):
+
+- **Değer iki tamsayıdan kuruluyor.** `ay_str` `disari.istatistikler()`
+  içinde SQL metnine giriyor; orada tırnak da ayıklanıyor ama asıl güvence
+  adresten gelen metnin sorguya hiç ulaşmaması.
+- **Yıl `EN_ESKI_YIL` .. bu yıl + `EN_YENI_YIL_PAYI` arasına sıkıştırılıyor.**
+  `_yil_araligi()` seçili yılı listeye zorla ekliyor; `?yil=99999` gelseydi
+  seçicide doksan bin satır olurdu. Tarih doğrulamasının kendi sınırları
+  kullanıldı — iki ayrı "makul yıl" tanımı olmasın diye.
+- **Boş gelirse bugüne düşüyor**, `/hastalar`'daki gibi.
+
+## Tablo genişliği: ölçü "sığıyor" dese de ekran görüntüsü yalan söylemez
+
+İlk yazışta oran tablosu dört sütunla `.sutun`un genişliğini (masaüstünde
+~444px) aşıyordu. `.cizelgekap`'ın `overflow-x`i (v6.113) teknik olarak
+kaydırılabilir yapıyordu ve Playwright ölçümü de "sayfa yatay taşmıyor"
+diyordu — **ama ekran görüntüsünde "Tüm zamanlar" sütununun başlığı "Tüm
+zam" diye kesilmişti ve hücrelerin yalnızca "%" işareti görünüyordu.**
+Kimse iki değeri karşılaştırmak için tabloyu yatay kaydırmaz; görünmeyen
+değer yok demektir. v6.109'un dersinin bir kere daha doğrulanması: dış
+kabın geometrisi doğru çıkabilir, içerideki asıl içeriğin nerede
+göründüğüne ayrıca bakmak gerekiyor.
+
+Düzeltme `nowrap`'i kaldırmak değil, **kapsamını daraltmak**:
+`.cizelge`nin `white-space: nowrap`'i sayılar için ("%77.8", "12 / 20"
+ortasından bölünmesin); etiket sütununun sarmasında bir sakınca yok.
+`.cizelge.oran td.ad { white-space: normal; }` — yalnızca bu tabloya, yeni
+bir `oran` sınıfıyla. Aylık tablo da yeni bir `aylik` sınıfıyla yatay
+dolgusunu 14px'ten 8px'e çekiyor (altı sütunda 72px kazanç).
+`cycle_detay.html`'in zaman çizelgesi ve `form_etiketleri.html`
+sınıfsız `.cizelge` olarak kaldı, ikisi de etkilenmedi.
+
+## Test edildi
+
+Ayrı bir test veritabanında (2025 Kasım + 2026 Haziran/Temmuz/Eylül'e
+yayılmış 11 tedavi, 103 oosit, 264 olay; oranlar aydan aya bilerek farklı):
+
+- Dört oran elle yapılan hesabın aynısı çıktı — örn. 2026-09: M2 20/32
+  = %62,5, PN 12/20 = %60, blastokist 4/12 = %33,3, klinik gebelik 1/3
+  = %33,3.
+- Kaydı olmayan ay (`?yil=2026&ay=1`) "Bu ayda kayıt yok.", kaydı olmayan
+  yıl (`?yil=2024`) ayrıca "Bu yılda kayıt yok." bastı; oranlar `—` çıktı,
+  "%0" değil.
+- `?yil=99999` 2031'e sıkıştırıldı, yıl seçicide yedi satır kaldı.
+- Oklar yıl sınırını çeviriyor: Ocak 2026'da `‹` → Aralık 2025, Aralık
+  2026'da `›` → Ocak 2027.
+- Yönetici olmayan kullanıcı hem `/istatistik` hem `/disari/istatistik`
+  için `/hastalar`'a döndürüldü; aynı kullanıcı `/hastalar`'ı açabildi.
+- Excel: iki sayfa (`2026 aylara göre` + `Genel`), 13 sütun, sayılar ve
+  oranlar ekrandakiyle birebir aynı.
+- Playwright ile dört ekran boyutunda (1440x1000, 1100x900, 390x844,
+  360x740): sayfa hiçbirinde yatay kaymıyor; 390px'e kadar iki tablo da
+  kaba **tam sığıyor** (kaydırma yok), yalnızca 360px'lik dar telefonda
+  `.cizelgekap` içinde 13/22px kaydırma kalıyor — bu ekran için kabul
+  edilmiş çözüm (v6.113).
+- `cycle_detay.html`'in zaman çizelgesi masaüstünde ve telefonda
+  değişmedi (`transform: none`, sayfa taşması yok).
+- 21 ekran (ana, hasta kayıtları, yönetim, cryo, formlar, bitenler,
+  devam eden, yaklaşanlar, kullanıcılar, klasörler, yedekleme, dil,
+  tedavi ve aşama ekranları, hasta kartı, bağlan) 200 döndü; sunucu
+  günlüğünde hata yok.

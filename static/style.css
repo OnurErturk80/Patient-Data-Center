@@ -1236,6 +1236,45 @@ body.kilitli { overflow: hidden; }
    sayfasi" ile sinirliydi, orada degisiklik istenmedi. */
 .cizelgekap { overflow-x: auto; }
 
+/* Istatistik ekraninin oran tablosu iki deger sutunu tasiyor (v6.123):
+   secilen ay ve laboratuvarin tamami. Goz once secilen aya gitsin diye
+   ayin yuzdesi normal renkte; pay/payda ve genel deger soluk. Ikisi de
+   METIN rengi -- `--ink-2`/`--ink-3` zemin ya da kenarlik olarak
+   kullanilmaz (v6.74). */
+.cizelge td.kesir { color: var(--ink-3); font-size: 12px; }
+.cizelge td.genel { color: var(--ink-2); }
+
+/* Ay tablosunda ustteki oran kartinin gosterdigi ay isaretli dursun:
+   tabloda gezerken "su an hangi ayin ayrintisina bakiyorum" gorunur
+   kalsin. Zemin sabit degil, `--vurgu`nun koyu tonu -- tema degiskeni
+   (renk sabit yazilmaz). */
+.cizelge tr.secili td { background: var(--vurgu-ac); }
+
+/* Ayin adi bagalanti: karti o aya cevirir. Tablo icinde duz mavi bir
+   bagalanti rengi tabloyu bolerdi, o yuzden metin rengini miras aliyor
+   ve tiklanabilirligini noktali alt cizgiyle soyluyor. */
+.cizelge td.ad a { color: inherit; text-decoration: none;
+  border-bottom: 1px dotted var(--ink-3); }
+.cizelge td.ad a:hover { color: var(--baslik); }
+
+/* Oran tablosunun ETIKET sutunu sarabilir (v6.123). `.cizelge`nin `nowrap`i
+   sayilar icin: "%77.8" ya da "12 / 20" ortasindan bolunmesin. Etiket ayri
+   -- "Klinik gebelik orani (transfer basina)" tek satirda 4 sutunlu tabloyu
+   `.sutun`un genisligini (masaustunde ~444px) asiriyordu ve tasan "Tum
+   zamanlar" sutunu kartin disinda kaliyordu: ekran goruntusunde basligin
+   "Tum zam"i ve hucrelerin yalnizca "%"i gorunuyordu. Sarmalayicinin
+   `overflow-x`i teknik olarak kaydirilabilir yapiyordu ama kimse yan yana
+   karsilastirmak icin tabloyu kaydirmaz -- deger gorunmuyorsa yok demektir
+   (v6.109'un dersi: olcu dogru cikabilir, ekran goruntusu yalan soylemez).
+   Sayilar `nowrap` kaliyor, yalnizca ilk sutun sariyor. */
+.cizelge.oran td.ad { white-space: normal; }
+
+/* Aylik oran tablosu alti sutunlu: dar telefonda `.cizelgekap` icinde
+   kaydirmasi kalsin (istatistik ekraninin bilinen ve kabul edilmis
+   cozumu, yukaridaki yoruma bak) ama once yatay dolguyu kisaltip
+   kaydirma ihtiyacini azalt -- sutun basina 12px, alti sutunda 72px. */
+.cizelge.aylik th, .cizelge.aylik td { padding-left: 8px; padding-right: 8px; }
+
 /* Zaman cizelgesi (cycle_detay.html) tablosunu KAYDIRMADAN mevcut genislige
    sigdirir (v6.117). `.sutunlar`'in disina genisletmek (v6.114) yalnizca
    gercek iki-sutunlu genis masaustunde ek genislik kazandiriyordu; dar

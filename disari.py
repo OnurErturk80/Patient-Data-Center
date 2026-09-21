@@ -581,25 +581,46 @@ def _oran(pay, payda):
     return round(pay * 100.0 / payda, 1)
 
 
-def istatistik_aylari(n: int = ISTATISTIK_AY) -> list:
-    """Son n ayın ay ay kırılımı: (ay, cycle, oosit, 2PN, transfer, gebelik)."""
+def istatistik_aylari(yil: int = 0, n: int = ISTATISTIK_AY) -> list:
+    """Ay ay kırılım: sayılar **ve dört oran** (v6.123, kullanıcının isteği).
+
+    `yil` verilirse o yılın on iki ayı, verilmezse bugünden geriye `n` ay
+    (eski davranış). Ekran yıl seçicisiyle çalıştığı için hep yıl veriyor;
+    Excel çıktısı da ekrandaki yılı taşıyor, böylece düğmeye basınca
+    bakılan yıl iniyor.
+
+    **Oranlar burada hesaplanmıyor, `istatistikler(ay)` hesaplıyor** —
+    ekranın üstündeki kart ile bu tablo aynı tanımı kullansın diye. İki
+    ayrı formül yazılsaydı biri düzeltilip öteki unutulurdu; sayaç
+    tutmama gerekçesinin (v6.38) formül hali.
+
+    Kaydı olmayan ay listeye girmez: "o ay iş yapılmadı" bilgisi satırın
+    yokluğundan okunuyor, on iki satır tire tabloyu uzatmaktan başka bir
+    şey yapmazdı.
+    """
     from datetime import date
-    bugun = date.today()
-    aylar = []
-    yil, ay = bugun.year, bugun.month
-    for _ in range(n):
-        aylar.append(f"{yil:04d}-{ay:02d}")
-        ay -= 1
-        if ay == 0:
-            yil, ay = yil - 1, 12
+    if yil:
+        aylar = [f"{yil:04d}-{a:02d}" for a in range(1, 13)]
+    else:
+        bugun = date.today()
+        aylar, y, a = [], bugun.year, bugun.month
+        for _ in range(n):
+            aylar.append(f"{y:04d}-{a:02d}")
+            a -= 1
+            if a == 0:
+                y, a = y - 1, 12
+        aylar.reverse()
     satirlar = []
-    for a in reversed(aylar):
+    for a in aylar:
         i = istatistikler(a)
         if i["cycle"]:
             satirlar.append({
                 "ay": a, "cycle": i["cycle"], "oosit": i["oosit"],
-                "ikipn": i["ikipn"], "transfer": i["transfer_cycle"],
-                "gebelik": i["gebelik"], "oran_fert": i["oran_fert"],
+                "mii": i["mii"], "icsi": i["icsi"], "ikipn": i["ikipn"],
+                "blast": i["blast"], "transfer": i["transfer_cycle"],
+                "gebelik": i["gebelik"],
+                "oran_mii": i["oran_mii"], "oran_fert": i["oran_fert"],
+                "oran_blast": i["oran_blast"], "oran_gebelik": i["oran_gebelik"],
             })
     return satirlar
 
@@ -647,14 +668,24 @@ def son_kayitlar(n: int = 10) -> list:
     return hepsi[:n]
 
 
-ISTATISTIK_BASLIK = ["Ay", "Cycle", "Oosit", "2PN", "Transfer edilen cycle",
-                     "Klinik gebelik", "Fertilizasyon oranı (%)"]
+ISTATISTIK_BASLIK = ["Ay", "Cycle", "Oosit", "MII", "ICSI yapılan", "2PN",
+                     "Blastokist", "Transfer edilen cycle", "Klinik gebelik",
+                     "M2 oranı (%)", "Fertilizasyon oranı (%)",
+                     "Blastokist oranı (%)", "Klinik gebelik oranı (%)"]
 
 
-def istatistik_sayfalari():
-    """İstatistiklerin Excel hali: ay ay kırılım + genel toplam."""
-    aylar = [[s["ay"], s["cycle"], s["oosit"], s["ikipn"], s["transfer"],
-              s["gebelik"], s["oran_fert"]] for s in istatistik_aylari()]
+def istatistik_sayfalari(yil: int = 0):
+    """İstatistiklerin Excel hali: ay ay kırılım + genel toplam.
+
+    `yil` ekrandan geliyor (v6.123) — düğmeye basıldığında bakılan yıl
+    insin diye. Ekranda oranların yanında **payı ve paydası** da yazıyor;
+    burada da öyle: yalnızca yüzdeyi vermek "%100" ile "1/1"i ayırt
+    edilemez yapardı.
+    """
+    aylar = [[s["ay"], s["cycle"], s["oosit"], s["mii"], s["icsi"],
+              s["ikipn"], s["blast"], s["transfer"], s["gebelik"],
+              s["oran_mii"], s["oran_fert"], s["oran_blast"],
+              s["oran_gebelik"]] for s in istatistik_aylari(yil)]
     g = istatistikler()
     genel = [
         ["Hasta (toplam)", g["hasta"]],
@@ -672,10 +703,11 @@ def istatistik_sayfalari():
         ["Transfer edilen embriyo", g["transfer_embriyo"]],
         ["Klinik gebelik", g["gebelik"]],
         ["Fotoğraf", g["foto"]],
-        ["MII oranı (%)", g["oran_mii"]],
+        ["M2 oranı (%)", g["oran_mii"]],
         ["Fertilizasyon oranı (%)", g["oran_fert"]],
         ["Blastokist oranı (%)", g["oran_blast"]],
-        ["Gebelik oranı (%)", g["oran_gebelik"]],
+        ["Klinik gebelik oranı (%)", g["oran_gebelik"]],
     ]
-    return [("Aylara göre", ISTATISTIK_BASLIK, aylar),
+    return [(f"{yil} aylara göre" if yil else "Aylara göre",
+             ISTATISTIK_BASLIK, aylar),
             ("Genel", ["Ölçü", "Değer"], genel)]

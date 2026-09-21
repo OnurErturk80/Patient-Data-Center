@@ -961,6 +961,43 @@ kaydedilebilir mi" diye sordu, cevap "kaydetmeye gerek yok, zaten kayıtlı".
   (`COALESCE(o.tr_cycle_id, s.cycle_id)`), ay listesindeki kuralın aynısı.
 - "Son kayıtlar" on satır: kayıt defteri değil, "en son ne yapıldı"
   penceresi. Tam döküm `/disari/tumu`'da.
+- **Ay/yıl seçilebilir** (v6.123, kullanıcının isteği: "aylık olarak
+  oranlar tutulsun ... yıl ve tarih seçerek bakabileyim"). "Tutulsun"
+  burada da ayrı bir aylık özet tablosu **değil**: `istatistikler(ay)`
+  zaten aya süzebiliyordu, eksik olan ekrandaki karşılığıydı. Seçici
+  `/hastalar`'ın `.aygezgin`'inin birebir kopyası — aynı işi yapan iki
+  ekran aynı görünsün diye; yeni bir seçici deseni yazma.
+  - **Dört oranın tanımı v6.38'den beri aynı**, yeniden yazılmadı:
+    `oran_mii` = MII / kayıtlı oosit (specimen sayısı — OPU'da elle
+    girilen "toplanan" sayısı **değil**, v6.112'nin ayrımı burada da
+    geçerli), `oran_fert` = 2PN / ICSI, `oran_blast` = blastokist / 2PN,
+    `oran_gebelik` = klinik gebelik / transfer edilen tedavi.
+  - **Ay kırılımı oranı kendi hesaplamıyor**, her ay için
+    `istatistikler(ay)` çağırıp ondan alıyor — ekranın üstündeki kart ile
+    altındaki tablo iki ayrı formül kullansaydı biri düzeltilip öteki
+    unutulurdu. Sayaç tutmama gerekçesinin formül hali. Yeni bir yerde
+    aynı oranı göstereceksen sen de `istatistikler()`'den al.
+  - **"Genel toplam" ve "Son kayıtlar" seçiciden etkilenmez**, bilerek:
+    ikisi de laboratuvarın tamamı. `istatistikler(ay)` ay verildiğinde
+    `hasta`/`hasta_aktif`'i `None` döndürüyor — hasta kaydı bir aya ait
+    değil. Aya bağlı yeni bir sayı eklersen bu ayrımı hatırla.
+  - **Kaydı olmayan ay tabloya girmez**; oranı `None` (ekranda `—`).
+    Boş bir ayda "%0 blastokist" yazmak "ölçüldü, sıfır çıktı" demek
+    olurdu — "paydası sıfır olan oran basılmaz" kuralının aylık hali.
+  - **Adresten gelen `?yil=`/`?ay=` `_istatistik_donemi()`'nden geçer**:
+    iki tamsayıya sabitlenir (SQL'e giden `ay_str` oradan kuruluyor,
+    tuzak #9) ve yıl `EN_ESKI_YIL` .. bu yıl + `EN_YENI_YIL_PAYI`
+    aralığına sıkıştırılır — `_yil_araligi()` seçili yılı listeye zorla
+    eklediği için `?yil=99999` seçiciye doksan bin satır koyardı.
+  - **`.cizelge`nin `nowrap`i SAYILAR için, etiket sütunu sarabilir.**
+    Oran tablosu dört sütunla `.sutun`u aşınca taşan "Tüm zamanlar"
+    sütunu kartın dışında kaldı: ekran görüntüsünde başlık "Tüm zam"
+    diye kesikti, hücrelerde yalnızca "%" görünüyordu — `.cizelgekap`
+    teknik olarak kaydırılabilir yapmıştı ama kimse karşılaştırmak için
+    tabloyu kaydırmaz. Çözüm `.cizelge.oran td.ad { white-space: normal }`
+    (yalnızca o tabloya). v6.109'un dersi bir kez daha: dış kabın ölçüsü
+    doğru çıkabilir, içeriğin göründüğü yere ayrıca bak — bir ekran
+    görüntüsü geometrinin kaçırdığını yakalar.
 
 **Örnek kodu aranabilir** (v6.35). Kod (`527078-2026-0001-03`) tüpün ve
 formun üstünde yazan şey; `<hasta dosya no>-<specimen.id>` olarak

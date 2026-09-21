@@ -1314,7 +1314,8 @@ METINLER = {
     "istatistikler": {"tr": "İstatistikler", "en": "Statistics"},
     "genel_toplam": {"tr": "Genel toplam", "en": "Overall"},
     "oranlar": {"tr": "Oranlar", "en": "Rates"},
-    "oran_mii": {"tr": "MII oranı", "en": "MII rate"},
+    "oran_mii": {"tr": "M2 oranı (MII / kayıtlı oosit)",
+                 "en": "M2 rate (MII / recorded oocytes)"},
     "oran_fert": {"tr": "Fertilizasyon oranı (2PN / ICSI)",
                   "en": "Fertilization rate (2PN / ICSI)"},
     "oran_blast": {"tr": "Blastokist oranı (blastokist / 2PN)",
@@ -1322,6 +1323,19 @@ METINLER = {
     "oran_gebelik": {"tr": "Klinik gebelik oranı (transfer başına)",
                      "en": "Clinical pregnancy rate (per transfer)"},
     "aylara_gore": {"tr": "Aylara göre", "en": "By month"},
+    "tum_zamanlar": {"tr": "Tüm zamanlar", "en": "All time"},
+    "gebelik_kisa": {"tr": "Gebelik", "en": "Pregnancy"},
+    "aylik_oran_ipucu": {
+        "tr": "Sütunlar yüzde oranıdır. Bir ayın sayılarını görmek için "
+              "ayın adına dokunun.",
+        "en": "The columns are percentages. Tap a month's name to see its "
+              "counts."},
+    "istatistik_ay_bos": {
+        "tr": "Bu ayda kayıt yok.",
+        "en": "No records in this month."},
+    "istatistik_yil_bos": {
+        "tr": "Bu yılda kayıt yok.",
+        "en": "No records in this year."},
     "kayit_hasta": {"tr": "Yeni hasta", "en": "New patient"},
     "kayit_cycle": {"tr": "Yeni tedavi", "en": "New cycle"},
     "kayit_olay": {"tr": "İşlem", "en": "Procedure"},

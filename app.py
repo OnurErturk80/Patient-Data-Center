@@ -3806,8 +3806,33 @@ def disari_cryo(request: Request):
     return excel_yaniti("cryo", disari.cryo_sayfalari())
 
 
+def _istatistik_donemi(yil: int, ay: int) -> tuple:
+    """Adresten gelen yıl/ay'ı makul bir döneme oturtur (v6.123).
+
+    Değer `?yil=`/`?ay=` ile **dışarıdan** geliyor; üç şeyi birden yapması
+    gerekiyor:
+
+    - **Sayıya sabitlemek.** `ay_str` buradan çıkıp `disari.istatistikler()`
+      içinde SQL metnine giriyor. Orada tırnak da ayıklanıyor ama asıl
+      güvence bu: değer iki tamsayıdan kuruluyor, adresten gelen metin
+      hiçbir zaman sorguya ulaşmıyor (tuzak #9'un sorgu hali).
+    - **Yıl aralığını kapatmak.** `_yil_araligi()` seçili yılı listeye
+      zorla ekliyor; `?yil=99999` gelseydi seçicide doksan bin satır
+      olurdu. Sınır tarih doğrulamasının kendi sınırı (`EN_ESKI_YIL` ..
+      bu yıl + `EN_YENI_YIL_PAYI`) — iki ayrı "makul yıl" tanımı olmasın
+      diye aynı sabitler kullanılıyor.
+    - **Boş gelince bugüne düşmek**, `/hastalar`'ın ay gezgininde olduğu
+      gibi: ekran ilk açıldığında içinde bulunulan ay görünsün.
+    """
+    bugun = _dt.now()
+    yil = min(max(yil or bugun.year, EN_ESKI_YIL),
+              bugun.year + EN_YENI_YIL_PAYI)
+    ay = ay if 1 <= ay <= 12 else bugun.month
+    return yil, ay
+
+
 @uygulama.get("/istatistik")
-def istatistik_ekrani(request: Request):
+def istatistik_ekrani(request: Request, yil: int = 0, ay: int = 0):
     """Yönetici panelindeki istatistikler — **anlık hesaplanır, saklanmaz**.
 
     Kullanıcının sorusu "her kayıt anlık kaydedilebilir mi" idi; cevap
@@ -3815,28 +3840,52 @@ def istatistik_ekrani(request: Request):
     Ayrı bir sayaç aynı bilgiyi iki yere yazmak olurdu ve biri ötekinden ayrı
     düşerdi (bkz. `disari.istatistikler`).
 
+    **Ay seçilebiliyor** (v6.123, kullanıcının isteği: "aylık olarak oranlar
+    tutulsun ... yıl ve tarih seçerek bakabileyim"). "Tutulsun" yine ayrı
+    bir tabloya yazmak değil: `istatistikler(ay)` zaten aya süzebiliyordu,
+    ekranda karşılığı yoktu. Dört oran (M2, 2PN, blastokist, klinik
+    gebelik) hem seçilen ay hem laboratuvarın tamamı için yan yana
+    basılıyor — bir ayın oranı ancak kendi ortalamasıyla birlikte bir şey
+    anlatıyor.
+
+    Ayın ölçüsü **ekranlardakiyle aynı**: OPU tarihi, yoksa tedavinin
+    açıldığı tarih (`disari.istatistikler`). `/hastalar`'ın ay listesiyle
+    aynı ölçü olsun diye — iki ekran aynı ayda farklı sayıda tedavi
+    gösterseydi hangisinin doğru olduğu anlaşılmazdı.
+
     Yalnızca yönetici: ekran laboratuvarın bütün üretimini ve son girilen
     hasta adlarını tek sayfada gösteriyor.
     """
     engel = yonetici_kontrol(request)
     if engel:
         return engel
+    yil, ay = _istatistik_donemi(yil, ay)
     return sablon.TemplateResponse(
         request, "istatistik.html",
         {"g": disari.istatistikler(),
-         "aylar": disari.istatistik_aylari(),
+         "ga": disari.istatistikler(f"{yil:04d}-{ay:02d}"),
+         "aylar": disari.istatistik_aylari(yil),
          "son": disari.son_kayitlar(),
+         "yil": yil, "ay": ay,
+         "yillar": _yil_araligi(yil),
+         "onceki": _ay_kaydir(yil, ay, -1),
+         "sonraki": _ay_kaydir(yil, ay, 1),
          "kullanici": request.state.kullanici},
     )
 
 
 @uygulama.get("/disari/istatistik")
-def disari_istatistik(request: Request):
-    """İstatistiklerin Excel hali — ekranla aynı izin: yalnızca yönetici."""
+def disari_istatistik(request: Request, yil: int = 0):
+    """İstatistiklerin Excel hali — ekranla aynı izin: yalnızca yönetici.
+
+    `yil` ekrandaki düğmeden geliyor: bakılan yıl insin, kullanıcı dosyayı
+    açtığında başka bir yılın tablosunu bulmasın.
+    """
     engel = yonetici_kontrol(request)
     if engel:
         return engel
-    return excel_yaniti("istatistik", disari.istatistik_sayfalari())
+    yil, _ = _istatistik_donemi(yil, 0)
+    return excel_yaniti(f"istatistik_{yil}", disari.istatistik_sayfalari(yil))
 
 
 @uygulama.get("/disari/tumu")

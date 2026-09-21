@@ -6,7 +6,9 @@
 
 {# Sayılar **anlık hesaplanıyor**, saklanmıyor: ayrı bir sayaç tutmak aynı
    bilgiyi iki yere yazmak olurdu ve biri ötekinden ayrı düşerdi. Cryo
-   haritasının türetilmiş olmasıyla aynı gerekçe (v6.38). #}
+   haritasının türetilmiş olmasıyla aynı gerekçe (v6.38). Aylık oranlar da
+   öyle (v6.123): "aylık tutulsun" ayrı bir aylık özet tablosu değil,
+   `istatistikler(ay)`'ın her açılışta aynı kayıtlardan türettiği sayı. #}
 
 <div class="kart">
   <h2>{{ metin("genel_toplam") }}</h2>
@@ -33,49 +35,116 @@
 <div class="sutunlar" style="margin-top:14px">
 <div class="sutun">
 
-{# Oranlar: paydası olmayan oran basılmıyor -- "%0" yanıltıcı olurdu. #}
-<div class="kart">
+{# Ay/yıl seçici (v6.123). `/hastalar`'ın ay gezgininin aynısı: aynı işi
+   yapan iki ekran aynı görünsün, personel ikinci bir şey öğrenmesin.
+   Buradaki tek fark gizli `ara` alanının olmaması — bu ekranda arama yok.
+   **Bu sütunun ikisini birden yönetiyor**: altındaki oran kartı seçilen
+   AYI, onun altındaki tablo seçilen YILI gösteriyor. Sağ sütundaki "Son
+   kayıtlar" ve en üstteki genel toplam süzgeçten etkilenmiyor —
+   ikisi de bilerek laboratuvarın tamamı. #}
+<form class="aygezgin" method="get" action="/istatistik">
+  <a class="ok" href="/istatistik?yil={{ onceki[0] }}&ay={{ onceki[1] }}"
+     aria-label="{{ metin('onceki_ay') }}" title="{{ metin('onceki_ay') }}">&#8249;</a>
+  <select name="ay" aria-label="{{ metin('ay') }}">
+    {% for a in range(1, 13) %}
+    <option value="{{ a }}"{% if a == ay %} selected{% endif %}>{{ metin("ay_" ~ a) }}</option>
+    {% endfor %}
+  </select>
+  <select name="yil" aria-label="{{ metin('yil') }}">
+    {% for y in yillar %}
+    <option value="{{ y }}"{% if y == yil %} selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  {# JS açıkken seçim anında gidiyor; kapalıysa bu düğme kalıyor. #}
+  <button class="ok goster" type="submit" id="istgoster"
+          aria-label="{{ metin('goster') }}" title="{{ metin('goster') }}">&#8250;|</button>
+  <a class="ok" href="/istatistik?yil={{ sonraki[0] }}&ay={{ sonraki[1] }}"
+     aria-label="{{ metin('sonraki_ay') }}" title="{{ metin('sonraki_ay') }}">&#8250;</a>
+</form>
+<script>
+(function () {
+  var d = document.getElementById('istgoster');
+  if (!d) return;                       // seçici basılmadı (tuzak #10)
+  d.hidden = true;                      // JS var: düğmeye gerek yok
+  d.form.querySelectorAll('select').forEach(function (s) {
+    s.addEventListener('change', function () { d.form.submit(); });
+  });
+})();
+</script>
+
+{# Oranlar: paydası olmayan oran basılmıyor -- "%0" yanıltıcı olurdu.
+   Seçilen ayın yanında laboratuvarın tamamı da duruyor (v6.123): bir ayın
+   oranı ancak kendi ortalamasıyla karşılaştırılınca bir şey anlatıyor,
+   "%60" tek başına iyi mi kötü mü belli değil. Ayın sütununda yüzdenin
+   yanında **payı ve paydası** da var — dar bir ayda "%100" ile "1/1"
+   karışmasın diye. #}
+<div class="kart" style="margin-top:14px">
   <h2>{{ metin("oranlar") }}</h2>
   <div class="cizelgekap">
-  <table class="cizelge">
+  <table class="cizelge oran">
+    <tr>
+      <th></th>
+      <th colspan="2">{{ ay_adi(yil, ay) }}</th>
+      <th>{{ metin("tum_zamanlar") }}</th>
+    </tr>
     <tr><td class="ad">{{ metin("oran_mii") }}</td>
-      <td>{{ yuzde(g.oran_mii) if g.oran_mii is not none else "—" }}</td>
-      <td>{{ g.mii }} / {{ g.oosit }}</td></tr>
+      <td>{{ yuzde(ga.oran_mii) if ga.oran_mii is not none else "—" }}</td>
+      <td class="kesir">{{ ga.mii }} / {{ ga.oosit }}</td>
+      <td class="genel">{{ yuzde(g.oran_mii) if g.oran_mii is not none else "—" }}</td></tr>
     <tr><td class="ad">{{ metin("oran_fert") }}</td>
-      <td>{{ yuzde(g.oran_fert) if g.oran_fert is not none else "—" }}</td>
-      <td>{{ g.ikipn }} / {{ g.icsi }}</td></tr>
+      <td>{{ yuzde(ga.oran_fert) if ga.oran_fert is not none else "—" }}</td>
+      <td class="kesir">{{ ga.ikipn }} / {{ ga.icsi }}</td>
+      <td class="genel">{{ yuzde(g.oran_fert) if g.oran_fert is not none else "—" }}</td></tr>
     <tr><td class="ad">{{ metin("oran_blast") }}</td>
-      <td>{{ yuzde(g.oran_blast) if g.oran_blast is not none else "—" }}</td>
-      <td>{{ g.blast }} / {{ g.ikipn }}</td></tr>
+      <td>{{ yuzde(ga.oran_blast) if ga.oran_blast is not none else "—" }}</td>
+      <td class="kesir">{{ ga.blast }} / {{ ga.ikipn }}</td>
+      <td class="genel">{{ yuzde(g.oran_blast) if g.oran_blast is not none else "—" }}</td></tr>
     {% if g.gebelik_var %}
     <tr><td class="ad">{{ metin("oran_gebelik") }}</td>
-      <td>{{ yuzde(g.oran_gebelik) if g.oran_gebelik is not none else "—" }}</td>
-      <td>{{ g.gebelik }} / {{ g.transfer_cycle }}</td></tr>
+      <td>{{ yuzde(ga.oran_gebelik) if ga.oran_gebelik is not none else "—" }}</td>
+      <td class="kesir">{{ ga.gebelik }} / {{ ga.transfer_cycle }}</td>
+      <td class="genel">{{ yuzde(g.oran_gebelik) if g.oran_gebelik is not none else "—" }}</td></tr>
     {% endif %}
   </table>
   </div>
+  {% if not ga.cycle %}
+  <div class="bos">{{ metin("istatistik_ay_bos") }}</div>
+  {% endif %}
 </div>
 
+{# Seçilen yılın ayları, dört oranla. Kaydı olmayan ay listeye girmiyor
+   (bkz. `disari.istatistik_aylari`). Ayın adı bağlantı: üstteki kart o aya
+   geçiyor, sayıları payı paydasıyla orada görünüyor. #}
 <div class="kart" style="margin-top:14px">
-  <h2>{{ metin("aylara_gore") }}</h2>
+  <h2>{{ metin("aylara_gore") }} &middot; {{ yil }}</h2>
   {% if aylar %}
   <div class="cizelgekap">
-  <table class="cizelge">
+  <table class="cizelge aylik">
     <tr>
       <th>{{ metin("ay") }}</th><th>{{ metin("cycle") }}</th>
-      <th>{{ metin("oosit_ad") }}</th><th>2PN</th><th>{{ metin("asama_transfer") }}</th>
+      <th>M2</th><th>2PN</th><th>{{ metin("blastokist_ad") }}</th>
+      {% if g.gebelik_var %}<th>{{ metin("gebelik_kisa") }}</th>{% endif %}
     </tr>
     {% for s in aylar %}
-    <tr>
-      <td class="ad">{{ ay_adi(s.ay[:4]|int, s.ay[5:]|int) }}</td>
-      <td>{{ s.cycle }}</td><td>{{ s.oosit }}</td>
-      <td>{{ s.ikipn }}</td><td>{{ s.transfer }}</td>
+    {% set s_ay = s.ay[5:]|int %}
+    <tr{% if s_ay == ay %} class="secili"{% endif %}>
+      {# Yalnızca ay adı: yıl kartın başlığında zaten yazıyor, her satırda
+         tekrarlanması altı sütunlu tabloyu dar telefonda boşuna genişletirdi. #}
+      <td class="ad"><a href="/istatistik?yil={{ yil }}&ay={{ s_ay }}">{{ metin("ay_" ~ s_ay) }}</a></td>
+      <td>{{ s.cycle }}</td>
+      <td>{{ yuzde(s.oran_mii) if s.oran_mii is not none else "—" }}</td>
+      <td>{{ yuzde(s.oran_fert) if s.oran_fert is not none else "—" }}</td>
+      <td>{{ yuzde(s.oran_blast) if s.oran_blast is not none else "—" }}</td>
+      {% if g.gebelik_var %}
+      <td>{{ yuzde(s.oran_gebelik) if s.oran_gebelik is not none else "—" }}</td>
+      {% endif %}
     </tr>
     {% endfor %}
   </table>
   </div>
+  <div class="ipucu" style="padding:8px 2px">{{ metin("aylik_oran_ipucu") }}</div>
   {% else %}
-  <div class="bos">{{ metin("istatistik_bos") }}</div>
+  <div class="bos">{{ metin("istatistik_yil_bos") }}</div>
   {% endif %}
 </div>
 
@@ -102,6 +171,6 @@
 </div>{# sutun #}
 </div>{# sutunlar #}
 
-<a class="dugme ikincil" href="/disari/istatistik">{{ metin("excele_aktar_istatistik") }}</a>
+<a class="dugme ikincil" href="/disari/istatistik?yil={{ yil }}">{{ metin("excele_aktar_istatistik") }}</a>
 <div class="ipucu" style="padding:8px 2px">{{ metin("istatistik_ipucu") }}</div>
 {% endblock %}
