@@ -22,6 +22,36 @@
 {% if yetkim("hasta") %}<a class="dugme" href="/hasta/{{ hasta.id }}/cycle/yeni">{{ metin("yeni_cycle_ac") }}</a>{% endif %}
 {% if yetkim("cryo") %}<a class="dugme ikincil" href="/hasta/{{ hasta.id }}/sperm-dondurma/yeni">{{ metin("yeni_sperm_dondurma") }}</a>{% endif %}
 
+{# Bu dosya numarasına ait dondurulmuş sperm (v6.125, kullanıcının isteği:
+   "hasta kartında dondurulmuş sperm işlemi varsa dosya numarasından eşle").
+   Kart şimdiye kadar yalnızca "Yeni Sperm Dondurma" düğmesini gösteriyordu;
+   var olanlar görünmüyordu. Eşleştirme dosya numarasıyla: lab içinde UNIQUE
+   olduğu için aynı numara = aynı hasta satırı, isim karşılaştırması yok.
+   Kaydı olmayan hastada kart hiç basılmıyor -- boş bir "yok" kutusu her
+   tüp bebek hastasının kartını uzatırdı. İzin `cryo`, düğmeyle aynı. #}
+{% if yetkim("cryo") and sperm_kayitlari %}
+<div class="kart">
+  <h2>{{ metin("dondurulmus_sperm") }}</h2>
+  {% for sd in sperm_kayitlari %}
+  <a class="satir" href="/sperm-dondurma/{{ sd.id }}">
+    <div class="no">{{ sd.etiket }}</div>
+    <div class="meta">
+      {{ gg_aa_yyyy(sd.dondurma_zamani) if sd.dondurma_zamani else "—" }}
+      {%- if sd.tam_yol %} · {{ sd.tam_yol }}{% endif %}
+      {%- if sd.sebep %} · {{ sd.sebep }}{% endif %}
+    </div>
+    <div class="meta">
+      {% if sd.kullanim_cycle_id %}
+        {{ metin("kullanildigi_tedavi") }}: {{ sd.kul_cycle_no }}
+        {%- if sd.kul_ad_soyad %} · {{ sd.kul_dosya_no }} · {{ sd.kul_ad_soyad }}{% endif %}
+      {% else %}{{ metin("sperm_bagli_degil") }}{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+  <div class="ipucu" style="padding:8px 2px">{{ metin("sperm_dosya_esleme_ipucu") }}</div>
+</div>
+{% endif %}
+
 <div class="kart">
   <h2>{{ metin("cycleler") }}</h2>
   {% for c in cycles %}

@@ -254,6 +254,25 @@ METINLER = {
         "tr": "Listeden seçebilir ya da kendi sebebinizi yazabilirsiniz.",
         "en": "Pick from the list or type your own reason."},
     "kullanildigi_tedavi": {"tr": "Kullanıldığı tedavi", "en": "Used in treatment"},
+    # ---- dosya numarasından eşleşme (v6.125) ----
+    "mukerrer_tedavi_var": {"tr": "{n} tüp bebek tedavisi var",
+                            "en": "{n} IVF treatment(s) on record"},
+    "mukerrer_sperm_var": {"tr": "{n} dondurulmuş sperm kaydı var",
+                           "en": "{n} frozen sperm record(s)"},
+    "mukerrer_es": {"tr": "eşi: {ad}", "en": "spouse: {ad}"},
+    "dondurulmus_sperm": {"tr": "Dondurulmuş sperm", "en": "Frozen sperm"},
+    "sperm_dosya_esleme_ipucu": {
+        "tr": "Bu kayıtlar dosya numarasıyla eşleşiyor — aynı dosya no, aynı "
+              "hasta kaydı.",
+        "en": "These records match by file number — same file number, same "
+              "patient record."},
+    "sperm_bagli_degil": {"tr": "Henüz bir tedaviye bağlanmadı",
+                          "en": "Not linked to a treatment yet"},
+    "sperm_dosyada_bekliyor": {
+        "tr": "Bu dosya numarasına ait, henüz hiçbir tedaviye bağlanmamış "
+              "{n} dondurulmuş sperm kaydı var.",
+        "en": "This file number has {n} frozen sperm record(s) not yet linked "
+              "to any treatment."},
     "dondurulmus_sperm_bagla": {"tr": "Dondurulmuş sperm bağla",
                                 "en": "Link frozen sperm"},
     "sperm_bagli_yok": {"tr": "Bu tedaviye bağlı dondurulmuş sperm yok.",

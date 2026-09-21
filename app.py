@@ -2633,13 +2633,30 @@ def hasta_kaydet(
 
 @uygulama.get("/hasta/kontrol")
 def hasta_kontrol(dosya_no: str = ""):
-    if not dosya_no.strip().isdigit():
+    """Yazılan dosya no zaten kayıtlı mı? Form gönderilmeden önce sorulur.
+
+    İki ekran çağırıyor: yeni hasta (`hasta_form.html`) ve Sperm Dondurma'nın
+    yeni-hasta formu. **Tek uç nokta** — sperm tarafına ikinci bir kopya
+    yazılmadı, yoksa biri güncellenip öteki unutulurdu.
+
+    **v6.125'te tedavi ve sperm sayısı da dönüyor** (kullanıcının isteği:
+    "eğer bu hastanın eşi ile birlikte tüp bebek için hasta kaydı varsa
+    uyarı mesajı ver"). Eskiden yalnızca "kayıtlı, adı şu" diyordu;
+    sperm dondurmaya gelen erkeğin dosya numarası çiftin tüp bebek
+    kaydınınkiyle aynıysa personelin bunu **girerken** bilmesi gerekiyor.
+    Eşleştirme tamamen dosya numarası üzerinden: `UNIQUE (lab_id,
+    dosya_no)` sayesinde aynı numara = aynı `hasta` satırı, isim
+    karşılaştırması yok (bkz. `dosya_no_sahibi`).
+
+    Sunucu tarafındaki engel kalkmadı; bu yalnızca **erken haber**
+    (CLAUDE.md: "ekranda göstermek yetmez, sunucu da reddetmeli").
+    """
+    h = dosya_no_sahibi(dosya_no)
+    if not h:
         return {"var": False}
-    h = db.tek(
-        "SELECT id, ad_soyad FROM hasta WHERE lab_id = ? AND dosya_no = ?",
-        (db.LAB_ID, int(dosya_no)),
-    )
-    return {"var": True, "id": h["id"], "ad_soyad": h["ad_soyad"]} if h else {"var": False}
+    return {"var": True, "id": h["id"], "ad_soyad": h["ad_soyad"],
+            "es_adi": h["es_adi"] or "", "arsiv": h["durum"] == "arsiv",
+            "cycle_sayisi": h["cycle_sayisi"], "sperm_sayisi": h["sperm_sayisi"]}
 
 
 @uygulama.get("/hasta/{hasta_id}")
@@ -2651,8 +2668,17 @@ def hasta_detay(request: Request, hasta_id: int):
         "SELECT * FROM cycle WHERE hasta_id = ? "
         "ORDER BY hasta_cycle_no DESC, id DESC", (hasta_id,)
     )
+    # Bu dosya numarasına ait dondurulmuş sperm kayıtları (v6.125,
+    # kullanıcının isteği: "hasta kartında dondurulmuş sperm işlemi varsa
+    # dosya numarasından eşle"). Kart şimdiye kadar yalnızca "Yeni Sperm
+    # Dondurma" düğmesini gösteriyordu — var olanları göstermiyordu, yani
+    # bir tüp bebek çiftinin kartına bakan embriyolog o çiftin dondurulmuş
+    # spermi olduğunu göremiyordu. Eşleştirme `hastanin_sperm_kayitlari()`
+    # ile: dosya no lab içinde UNIQUE, "aynı dosya no" = "aynı hasta satırı".
     return sablon.TemplateResponse(
-        request, "hasta_detay.html", {"hasta": hasta, "cycles": cycles}
+        request, "hasta_detay.html",
+        {"hasta": hasta, "cycles": cycles,
+         "sperm_kayitlari": hastanin_sperm_kayitlari(hasta_id)}
     )
 
 
@@ -3229,10 +3255,22 @@ def androloji(request: Request, cycle_id: int, ornek: str = "",
         "JOIN hasta h ON h.id = sd.hasta_id "
         "WHERE sd.kullanim_cycle_id=? AND sd.iptal_mi=0", (cycle_id,))
 
+    # Bu tedavinin hastası (= bu dosya numarası) adına dondurulmuş, henüz
+    # hiçbir tedaviye bağlanmamış sperm var mı (v6.125, kullanıcının isteği:
+    # "elle eşleme var, bir de dosya numarası üzerinden bu şekilde uyarı
+    # ver"). Elle eşleme ekranı (`/androloji/sperm-baglama`) duruyor ve
+    # bütün laboratuvarı arıyor — kayıt bilerek başka bir hastaya ait
+    # olabildiği için (v6.86). Buradaki fark, aramayı beklemeden haber
+    # vermesi: dosya numarası tutuyorsa eşleşme kesindir, personelin
+    # arayarak bulmasına gerek yok.
+    dosya_sperm = (hastanin_sperm_kayitlari(c["hasta_id"], yalnizca_bagsiz=True)
+                   if not sd_baglanti else [])
+
     return sablon.TemplateResponse(
         request, "androloji.html",
         {
             "c": c,
+            "dosya_sperm": dosya_sperm,
             "ornekler": ornekler,
             "secili": secili,
             "yeni_mi": yeni_mi,
@@ -5645,6 +5683,62 @@ def sperm_dondurma_harita_eski(request: Request, ara: str = ""):
         "/cryo" + (f"?{urlencode({'ara': ara})}" if ara else ""), status_code=303)
 
 
+def dosya_no_sahibi(dosya_no) -> dict | None:
+    """Bu dosya numarası kimin? Tedavi ve sperm dondurma sayısıyla birlikte.
+
+    **Dosya numarası bu programda tek eşleştirme anahtarı** (v6.125,
+    kullanıcının isteği: "dondurma işlemi yapılan erkek hastanın dosya
+    numarası giriliyor ... eşi ile birlikte tüp bebek için hasta kaydı
+    varsa uyarı mesajı ver ... dosya numarasından eşle").
+
+    Bunu yapabilmemizin sebebi şemadaki `UNIQUE (lab_id, dosya_no)`:
+    **"aynı dosya no" ile "aynı `hasta` satırı" aynı şey.** Yani tüp bebek
+    çiftinin kaydı ile o çiftteki erkeğin sperm dondurması aynı satıra
+    bağlanıyor, `sperm_dondurma.hasta_id` üzerinden — ayrı bir eşleştirme
+    tablosuna da, isim karşılaştırmasına da gerek yok. İsimle eşleştirme
+    **bilerek yazılmadı**: "yanlış hasta bu işin en pahalı hatası"
+    (CLAUDE.md) ve ad benzerliği o riski taşır; dosya numarası kesin.
+
+    Dönen `None` "böyle bir dosya no yok" demek; sözlük dönerse içinde
+    `cycle_sayisi` (tüp bebek tedavisi var mı) ve `sperm_sayisi` var.
+    """
+    if not str(dosya_no).strip().isdigit():
+        return None
+    r = db.tek(
+        "SELECT h.id, h.dosya_no, h.ad_soyad, h.es_adi, h.durum, "
+        "  (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) AS cycle_sayisi, "
+        "  (SELECT COUNT(*) FROM sperm_dondurma WHERE hasta_id = h.id "
+        "     AND iptal_mi = 0) AS sperm_sayisi "
+        "FROM hasta h WHERE h.lab_id = ? AND h.dosya_no = ?",
+        (db.LAB_ID, int(str(dosya_no).strip())))
+    return dict(r) if r else None
+
+
+def hastanin_sperm_kayitlari(hasta_id: int, yalnizca_bagsiz: bool = False) -> list:
+    """Bir hastanın (= bir dosya numarasının) dondurulmuş sperm kayıtları.
+
+    `dosya_no_sahibi()`'nin açıkladığı aynı gerekçeyle doğrudan
+    `sperm_dondurma.hasta_id` üzerinden okunuyor. `yalnizca_bagsiz` henüz
+    hiçbir tedaviye bağlanmamış (`kullanim_cycle_id IS NULL`) olanları
+    süzüyor — androloji ekranındaki "bağlanmayı bekleyen kayıt var"
+    uyarısı için; hasta kartı ise hepsini gösteriyor, bağlananın hangi
+    tedavide kullanıldığını da yazarak.
+    """
+    ek = " AND sd.kullanim_cycle_id IS NULL" if yalnizca_bagsiz else ""
+    return db.sorgu(
+        "SELECT sd.id, sd.dondurma_zamani, sd.sebep, sd.kullanim_cycle_id, "
+        "  t.etiket, t.durum AS tasiyici_durum, k.tam_yol, "
+        "  uc.cycle_no AS kul_cycle_no, uh.dosya_no AS kul_dosya_no, "
+        "  uh.ad_soyad AS kul_ad_soyad "
+        "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+        "LEFT JOIN konum k ON k.id = t.konum_id "
+        "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
+        "LEFT JOIN hasta uh ON uh.id = uc.hasta_id "
+        f"WHERE sd.hasta_id = ? AND sd.lab_id = ? AND sd.iptal_mi = 0{ek} "
+        "ORDER BY sd.dondurma_zamani DESC, sd.id DESC",
+        (hasta_id, db.LAB_ID))
+
+
 def _sperm_dondurma_olustur(hasta_id, f, kid):
     """Taşıyıcı + `sperm_dondurma` satırını birlikte yazar.
 
@@ -5727,7 +5821,7 @@ def sperm_dondurma_yeni_hasta_form(request: Request, hata: str = ""):
     from datetime import datetime as _d
     return sablon.TemplateResponse(
         request, "sperm_dondurma_yeni_hasta.html",
-        {"v": {}, "hata": hata, "sema": konum_semasi(),
+        {"v": {}, "hata": hata, "eslesen": None, "sema": konum_semasi(),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -5736,13 +5830,15 @@ def sperm_dondurma_yeni_hasta_form(request: Request, hata: str = ""):
 async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
     f = await request.form()
 
-    def yeniden(m):
+    def yeniden(m, eslesen=None):
         # Hata formu kapatmaz, yazılanlarla yeniden basılır (v6.21 kuralı) —
         # bu form uzun olduğu için (hasta + taşıyıcı + konum + semen analizi)
         # kaybı özellikle can sıkıcı olurdu.
+        # `eslesen` doluysa şablon düz bir hata satırı yerine, o hastaya
+        # gidecek bağlantıyı taşıyan bir uyarı kutusu basıyor (v6.125).
         return sablon.TemplateResponse(
             request, "sperm_dondurma_yeni_hasta.html",
-            {"v": dict(f), "hata": m, "sema": konum_semasi(),
+            {"v": dict(f), "hata": m, "eslesen": eslesen, "sema": konum_semasi(),
              "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
              "simdi": f.get("islem_zamani") or _dt.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -5752,11 +5848,14 @@ async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
         return yeniden("Dosya no ve ad soyad boş bırakılamaz.")
     if not dosya_no.isdigit():
         return yeniden("Dosya no sayı olmalı.")
-    if db.tek("SELECT id FROM hasta WHERE lab_id=? AND dosya_no=?",
-              (db.LAB_ID, int(dosya_no))):
-        return yeniden(
-            f"'{dosya_no}' dosya no'lu bir hasta zaten var. Sperm dondurmayı "
-            "o hastanın kendi sayfasından (“Yeni Sperm Dondurma”) ekleyin.")
+    # Dosya no zaten kayıtlıysa: eskiden düz bir metin dönüyordu, artık
+    # hastayı adıyla tanıtan ve oraya götüren bir kutu (v6.125). Engel aynı
+    # (`UNIQUE (lab_id, dosya_no)` zaten izin vermezdi) — değişen, çıkmaz
+    # sokak yerine yolu göstermesi: çift zaten kayıtlıysa doğru davranış
+    # yeni bir hasta açmak değil, o kayda sperm dondurma eklemek.
+    eslesen = dosya_no_sahibi(dosya_no)
+    if eslesen:
+        return yeniden("", eslesen)
 
     try:
         dt = zaman(f.get("dogum_tarihi"), "Doğum tarihi")

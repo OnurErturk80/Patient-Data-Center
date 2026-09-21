@@ -74,6 +74,23 @@
   </form>
   {% else %}
   <div class="bos">{{ metin("sperm_bagli_yok") }}</div>
+  {# Dosya numarasından gelen otomatik haber (v6.125, kullanıcının isteği:
+     "elle eşleme var, bir de dosya numarası üzerinden bu şekilde uyarı ver").
+     Elle eşleme ekranı duruyor ve bütün laboratuvarı arıyor -- kayıt bilerek
+     BAŞKA bir hastaya ait olabiliyor (v6.86). Buradaki fark: dosya numarası
+     tutuyorsa eşleşme kesindir, personelin arayarak bulmasına gerek yok. #}
+  {% if dosya_sperm %}
+  <div class="uyari">
+    {{ metin("sperm_dosyada_bekliyor").format(n=dosya_sperm|length) }}
+    {% for sd in dosya_sperm %}
+    <div class="meta" style="margin-top:4px">
+      <strong>{{ sd.etiket }}</strong>
+      {%- if sd.dondurma_zamani %} · {{ gg_aa_yyyy(sd.dondurma_zamani) }}{% endif %}
+      {%- if sd.sebep %} · {{ sd.sebep }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
   <a class="dugme ikincil" href="/cycle/{{ c.id }}/androloji/sperm-baglama">{{ metin("dondurulmus_sperm_bagla") }}</a>
   {% endif %}
 </div>

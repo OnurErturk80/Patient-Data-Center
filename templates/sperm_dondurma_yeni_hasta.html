@@ -3,7 +3,20 @@
 {% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
 {% block icerik %}
 
+{# Dosya no zaten kayıtlıysa çıkan uyarı. İki yoldan doluyor: yazarken
+   canlı (aşağıdaki betik, `/hasta/kontrol`) ve form gönderilince sunucudan
+   (`eslesen`). İkincisi ASIL engel — ekrandaki uyarıyı görmeyen ya da JS'i
+   kapalı olan da geçemesin (CLAUDE.md: "ekranda göstermek yetmez"). #}
 <div class="uyari" id="mukerrer" hidden></div>
+{% if eslesen %}
+<div class="uyari">
+  {{ metin("mukerrer_dosya_no") }} <strong>{{ eslesen.ad_soyad }}</strong>
+  {%- if eslesen.cycle_sayisi %} &middot; {{ metin("mukerrer_tedavi_var").format(n=eslesen.cycle_sayisi) }}{% endif %}
+  {%- if eslesen.sperm_sayisi %} &middot; {{ metin("mukerrer_sperm_var").format(n=eslesen.sperm_sayisi) }}{% endif %}
+  {%- if eslesen.es_adi %} &middot; {{ metin("mukerrer_es").format(ad=eslesen.es_adi) }}{% endif %}
+  &mdash; <a href="/hasta/{{ eslesen.id }}/sperm-dondurma/yeni">{{ metin("kaydi_ac") }}</a>
+</div>
+{% endif %}
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
 <form method="post" action="/sperm-dondurma/yeni-hasta">
@@ -122,22 +135,43 @@
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 
 <script>
-const alan = document.getElementById('dosya_no');
-const kutu = document.getElementById('mukerrer');
-let zamanlayici;
-alan.addEventListener('input', () => {
-  clearTimeout(zamanlayici);
-  zamanlayici = setTimeout(async () => {
-    if (!alan.value) { kutu.hidden = true; return; }
-    const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(alan.value));
-    const s = await y.json();
-    if (s.var) {
-      kutu.innerHTML = {{ metin("mukerrer_dosya_no")|tojson }} + ' <strong>' +
-        s.ad_soyad + '</strong> &mdash; <a href="/hasta/' + s.id + '/sperm-dondurma/yeni">' +
-        {{ metin("kaydi_ac")|tojson }} + '</a>';
+(function () {
+  const alan = document.getElementById('dosya_no');
+  const kutu = document.getElementById('mukerrer');
+  if (!alan || !kutu) return;             // form basılmadı (tuzak #10)
+  // Metin sunucudan geliyor: dil değişince burası da değişsin diye
+  // (CLAUDE.md "metni doğrudan şablona yazma" kuralı betikte de geçerli).
+  const T = {
+    basi: {{ metin("mukerrer_dosya_no")|tojson }},
+    tedavi: {{ metin("mukerrer_tedavi_var")|tojson }},
+    sperm: {{ metin("mukerrer_sperm_var")|tojson }},
+    es: {{ metin("mukerrer_es")|tojson }},
+    ac: {{ metin("kaydi_ac")|tojson }},
+  };
+  const kacis = (m) => String(m).replace(/[&<>"]/g, (k) => (
+    {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[k]));
+  let zamanlayici;
+  alan.addEventListener('input', () => {
+    clearTimeout(zamanlayici);
+    zamanlayici = setTimeout(async () => {
+      if (!alan.value) { kutu.hidden = true; return; }
+      const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(alan.value));
+      const s = await y.json();
+      if (!s.var) { kutu.hidden = true; return; }
+      // Kullanıcının istediği bilgi: "eşi ile birlikte tüp bebek kaydı var mı"
+      // (v6.125). Sıfır olan parça hiç basılmıyor -- "0 tedavi" yazmak
+      // "ölçülmedi" ile "yok"u karıştırır (istatistikteki kuralın aynısı).
+      const parcalar = [];
+      if (s.cycle_sayisi) parcalar.push(T.tedavi.replace('{n}', s.cycle_sayisi));
+      if (s.sperm_sayisi) parcalar.push(T.sperm.replace('{n}', s.sperm_sayisi));
+      if (s.es_adi) parcalar.push(T.es.replace('{ad}', kacis(s.es_adi)));
+      kutu.innerHTML = kacis(T.basi) + ' <strong>' + kacis(s.ad_soyad) + '</strong>' +
+        (parcalar.length ? ' &middot; ' + parcalar.join(' &middot; ') : '') +
+        ' &mdash; <a href="/hasta/' + encodeURIComponent(s.id) +
+        '/sperm-dondurma/yeni">' + kacis(T.ac) + '</a>';
       kutu.hidden = false;
-    } else { kutu.hidden = true; }
-  }, 350);
-});
+    }, 350);
+  });
+})();
 </script>
 {% endblock %}

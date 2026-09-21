@@ -9694,3 +9694,117 @@ kümesiyle:
 - 1440x1000 ve 390x844'te sayfa yatay kaymıyor; kartın boyu kısaldığı
   için masaüstünde sayfa yüksekliği 1550 → 1201px'e indi.
 - 19 ekran 200 döndü, sunucu günlüğünde hata yok.
+
+# v6.125 — dosya numarasından sperm dondurma eşleşmesi ve uyarı
+
+Kullanıcının isteği: "Sperm dondurma alanında dondurma işlemi yapılan erkek
+hastanın dosya numarası giriliyor. Eğer bu hastanın eşi ile birlikte tüp
+bebek için hasta kaydı varsa uyarı mesajı ver. Aynı şekilde hasta kartında
+dondurulmuş sperm işlemi varsa dosya numarasından eşle. Elle eşleme var.
+Bir de dosya numarası üzerinden bu şekilde uyarı ver."
+
+## Eşleştirme neden dosya numarasıyla yapılabiliyor
+
+Şemada **`UNIQUE (lab_id, dosya_no)`** var. Yani lab içinde bir dosya
+numarası bir `hasta` satırına aittir ve **"aynı dosya no" ile "aynı hasta
+kaydı" aynı şeydir**. Tüp bebek çifti tek bir `hasta` satırı olarak
+tutuluyor (`ad_soyad` kadın, `es_adi` erkek); o çiftteki erkeğin sperm
+dondurması aynı satıra `sperm_dondurma.hasta_id` ile bağlanıyor. Dolayısıyla
+"dosya numarasından eşle" ayrı bir eşleştirme tablosu ya da arama değil,
+**var olan yabancı anahtarın okunması**.
+
+**İsimle eşleştirme bilerek yazılmadı.** `hasta.ad_soyad` (kadın) ile
+`hasta.es_adi` (erkek) karşılaştırıp "bu adam şu çiftin kocası" demek
+teknik olarak mümkün, ama ad benzerliği kesin değil ve "yanlış hasta bu
+işin en pahalı hatası" (CLAUDE.md). Dosya numarası kesin; kullanıcının
+kendisi de iki kez "dosya numarası üzerinden" dedi.
+
+## Üç yer
+
+**1. Sperm Dondurma > yeni hasta formu — dosya no girilirken uyarı.**
+Canlı kontrol zaten vardı (`/hasta/kontrol`, yazarken soruyor) ama yalnızca
+"kayıtlı, adı şu" diyordu. Artık **tedavi sayısını, dondurulmuş sperm
+sayısını ve eşin adını** da söylüyor:
+
+> Bu dosya no zaten kayıtlı: **AYŞE YILMAZ** · 1 tüp bebek tedavisi var ·
+> 1 dondurulmuş sperm kaydı var · eşi: MEHMET YILMAZ — kaydı aç
+
+**`/hasta/kontrol` genişletildi, ikinci bir uç nokta yazılmadı.** İlk
+yazışta `/sperm-dondurma/dosya-kontrol` diye ayrı bir rota açılmıştı;
+`hasta_form.html`'in aynı işi yapan betiği görülünce geri alındı — iki
+kopya olsaydı biri güncellenip öteki unutulurdu (`izgara_kur()`,
+`gun_alt()` gibi yerlerdeki aynı kural). `/hasta/yeni` ekranı değişmeden
+çalışmaya devam ediyor: eklenen alanlar eski cevabın üstüne, onun
+kullanmadığı anahtarlar olarak geliyor.
+
+**Sunucu tarafındaki engel de zenginleşti.** POST'ta mükerrer dosya no
+eskiden düz bir metinle reddediliyordu; artık aynı bilgiyi taşıyan ve
+**o hastaya götüren bağlantısı olan** bir kutu basılıyor. Engelin kendisi
+değişmedi (`UNIQUE` zaten izin vermezdi) — değişen, çıkmaz sokak yerine
+yolu göstermesi: çift zaten kayıtlıysa doğru davranış yeni bir hasta
+açmak değil, o kayda sperm dondurma eklemek.
+
+**2. Hasta kartı — dondurulmuş sperm kayıtları listeleniyor.**
+`/hasta/{id}` şimdiye kadar yalnızca "Yeni Sperm Dondurma" düğmesini
+gösteriyordu; **var olanları göstermiyordu**. Yani bir tüp bebek çiftinin
+kartına bakan embriyolog, o çiftin dondurulmuş spermi olduğunu göremiyordu.
+Artık taşıyıcı etiketi, tarih, konum, sebep ve "Kullanıldığı tedavi" (ya da
+"Henüz bir tedaviye bağlanmadı") ile listeleniyor.
+
+Kaydı olmayan hastada kart **hiç basılmıyor** — boş bir "yok" kutusu her
+tüp bebek hastasının kartını boşuna uzatırdı. İzni düğmeyle aynı (`cryo`).
+
+**3. Androloji — dosya numarasından otomatik haber.**
+Elle eşleme ekranı (`/cycle/{id}/androloji/sperm-baglama`, v6.86) duruyor ve
+**bütün laboratuvarı** arıyor; öyle olmak zorunda, çünkü kayıt bilerek
+başka bir hastaya ait olabiliyor. Buraya eklenen, aramayı beklemeden
+söylenen şey: bu tedavinin dosya numarasına ait, henüz hiçbir tedaviye
+bağlanmamış sperm varsa kartta uyarı çıkıyor ve taşıyıcı etiketini yazıyor.
+Dosya numarası tutuyorsa eşleşme kesin — personelin arayarak bulmasına
+gerek yok.
+
+Uyarı yalnızca bu tedaviye **henüz sperm bağlanmamışken** çıkıyor
+(`sd_baglanti` boşken): bağlandıktan sonra zaten bağlı kaydın kendi kartı
+var, ikisi birlikte görünmesi gürültü olurdu.
+
+## Paylaşılan iki yardımcı
+
+`dosya_no_sahibi(dosya_no)` ve `hastanin_sperm_kayitlari(hasta_id,
+yalnizca_bagsiz=False)`. Üç ekran da bunları çağırıyor; sorgu üç yere
+kopyalanmadı. İkincisinin `yalnizca_bagsiz` süzgeci androloji uyarısı için
+(bağlanmayı bekleyenler), hasta kartı ise hepsini gösteriyor.
+
+## Kapsamadığı durum
+
+Erkek hasta **kendi ayrı dosya numarasıyla** kayıtlıysa (onkoloji öncesi
+sperm dondurma için açılmış, çiftin dosyasından bağımsız bir kayıt) dosya
+numarası tutmaz ve bu uyarıların hiçbiri çıkmaz. O durum zaten **elle
+eşlemenin** kapsamı (v6.86): androloji ekranından bütün laboratuvar aranıp
+bağlanıyor, `sperm_dondurma.hasta_id` erkekte kalıyor,
+`kullanim_cycle_id` eşin tedavisini gösteriyor. Bu sürüm o yolu
+değiştirmedi, yanına kesin olan ikinci bir yol koydu.
+
+## Test edildi
+
+Tek `hasta` satırında bir çift (dosya no 700001, AYŞE YILMAZ / eşi MEHMET
+YILMAZ), bir `ivf_icsi` tedavisi ve aynı dosya numarasına bağlı bir
+dondurulmuş sperm kaydı (SP-700001-01) kurularak:
+
+- `/hasta/kontrol?dosya_no=700001` → `cycle_sayisi: 1`, `sperm_sayisi: 1`,
+  `es_adi: "MEHMET YILMAZ"`; kayıtsız numara ve rakam olmayan metin
+  `{"var": false}` döndü. Oturumsuz istek `/giris`'e düştü — uç nokta
+  hasta adı sızdırmıyor.
+- Playwright: yeni-hasta formuna "700001" yazılınca uyarı kutusu açıldı ve
+  dört bilgiyi de bastı, bağlantısı `/hasta/14/sperm-dondurma/yeni`;
+  "999999" yazılınca kutu kapandı.
+- POST ile aynı numara gönderildi: kutu bağlantısıyla birlikte basıldı,
+  **yeni hasta kaydı açılmadı** (tabloda hâlâ tek satır), forma yazılanlar
+  korundu.
+- Hasta kartı kaydı listeledi; tedaviye bağlanmadan önce "Henüz bir
+  tedaviye bağlanmadı", `/androloji/sperm-baglama` ile bağlandıktan sonra
+  "Kullanıldığı tedavi: 2026-7001 · 700001 · AYŞE YILMAZ" yazdı.
+- Androloji uyarısı bağlanmadan önce çıktı, bağlandıktan sonra kayboldu.
+- `/hasta/yeni` (aynı uç noktayı kullanan öteki ekran) eski mesajıyla
+  çalışmaya devam etti — gerileme yok.
+- 24 ekran 200 döndü, sunucu günlüğünde hata yok; 1440x1000 ve 390x844'te
+  sayfa yatay kaymıyor.

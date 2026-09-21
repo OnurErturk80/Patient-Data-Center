@@ -1828,6 +1828,46 @@ yanıtlanıyor.
   kuralı, tuzak #4). Yeni bir `cycle_id`-referanslı tablo eklersen ikisini de
   güncelle, `cycle_tamamen_sil()` tek başına yetmiyor.
 
+**Dosya numarası tek eşleştirme anahtarı; isimle eşleştirme yok**
+(v6.125, kullanıcının isteği: "erkek hastanın dosya numarası giriliyor ...
+eşi ile birlikte tüp bebek için hasta kaydı varsa uyarı mesajı ver ...
+hasta kartında dondurulmuş sperm işlemi varsa dosya numarasından eşle").
+Şemadaki `UNIQUE (lab_id, dosya_no)` sayesinde **"aynı dosya no" = "aynı
+`hasta` satırı"**: tüp bebek çifti tek satır (`ad_soyad` kadın, `es_adi`
+erkek) ve o çiftteki erkeğin sperm dondurması aynı satıra
+`sperm_dondurma.hasta_id` ile bağlı. Yani "dosya numarasından eşle" ayrı
+bir tablo ya da arama değil, var olan yabancı anahtarın okunması.
+- **`ad_soyad` ↔ `es_adi` karşılaştırması yazma.** Teknik olarak mümkün
+  ama ad benzerliği kesin değil ve yanlış hasta bu işin en pahalı hatası.
+  Kullanıcı iki kez "dosya numarası üzerinden" dedi.
+- **Paylaşılan iki yardımcı**: `dosya_no_sahibi(dosya_no)` (kim + tedavi
+  sayısı + sperm sayısı) ve `hastanin_sperm_kayitlari(hasta_id,
+  yalnizca_bagsiz=False)`. Üç ekran da bunları çağırıyor, sorgu
+  kopyalanmadı. Yeni bir yerde aynı soruyu soracaksan bunları kullan.
+- **Üç yer**: (1) Sperm Dondurma'nın yeni-hasta formunda dosya no
+  girilirken uyarı, (2) hasta kartında dondurulmuş sperm listesi,
+  (3) androloji ekranında "bu dosya numarasına ait, bağlanmayı bekleyen
+  kayıt var" haberi.
+- **`/hasta/kontrol` tek uç nokta, ikinci bir kopya açma.** Canlı kontrol
+  zaten vardı (`hasta_form.html` ve sperm yeni-hasta formu ikisi de onu
+  çağırıyor); v6.125'te **genişletildi** (`es_adi`, `cycle_sayisi`,
+  `sperm_sayisi` eklendi), yanına `/sperm-dondurma/dosya-kontrol` diye
+  ikinci bir rota açılmadı — ilk yazışta açılmıştı, geri alındı. Ekleme
+  geriye dönük uyumlu: `/hasta/yeni`'nin betiği eski anahtarlarla
+  çalışmaya devam ediyor.
+- **Canlı uyarı engel değil, erken haber.** Asıl engel POST'taki
+  `dosya_no_sahibi()` kontrolü (CLAUDE.md "ekranda göstermek yetmez,
+  sunucu da reddetmeli"). Engel eskiden düz metin dönüyordu, artık o
+  hastaya **götüren bağlantısı olan** bir kutu: çift zaten kayıtlıysa
+  doğru davranış yeni hasta açmak değil, o kayda sperm dondurma eklemek.
+- **Androloji uyarısı yalnızca bağlı sperm yokken çıkar** (`sd_baglanti`
+  boşken) — bağlandıktan sonra zaten bağlı kaydın kendi kartı var.
+- **Kapsamadığı durum, bilinçli**: erkek hasta kendi ayrı dosya
+  numarasıyla kayıtlıysa (onkoloji öncesi, çiftin dosyasından bağımsız)
+  dosya no tutmaz, uyarıların hiçbiri çıkmaz. O durum **elle eşlemenin**
+  kapsamı (v6.86) ve o yol değişmedi — bu sürüm yanına kesin olan ikinci
+  bir yol koydu.
+
 **Yalnızca sperm dondurma amacıyla açılmış hasta Tüm Hastalar'da
 görünmez, aranınca görünür** (v6.98, kullanıcının isteği). Ölçü **türetilmiş**
 — `_sadece_sperm_kosulu()` (`app.py`): hiç `cycle`'ı olmayan ve en az bir
