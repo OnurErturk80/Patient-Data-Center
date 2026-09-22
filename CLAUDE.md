@@ -2260,6 +2260,16 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 
 5. **Şablon değişikliği sessizce tutmayabilir.** Değiştirdiğin ekranı tarayıcıda
    gerçekten aç.
+   - **Kardeşi (v6.138'de başa geldi): şablon diskten tazeleniyor, Python
+     tazelenmiyor.** Jinja `auto_reload` açık, yani `templates/` her istekte
+     yeniden okunuyor; `app.py` yalnızca açılışta. Kullanıcı `git pull` yapıp
+     programı yeniden başlatmazsa **yeni şablon + eski rota** çalışır: rotanın
+     vermediği context değişkeni Jinja'da `Undefined` olur, `{% if %}` sessizce
+     yanlış döner. Sonuç "hata yok ama çalışmıyor" — v6.138'de arama kutusu
+     göründü, Enter'a basınca hiçbir şey olmadı. Kullanıcı "çalışmıyor" derse
+     **ilk sorulacak şey bu**; ölçmenin yolu eski commit'i yeni şablonlarla
+     çalıştırmak (bire bir yeniden üretildi). Test ederken de kendi sunucunu
+     yeniden başlat — yoksa aynı tuzağa sen düşersin.
 
 6. **Serbest metin bir kolonu sabit bir listeyle eşleştirirken dikkat.**
    `kullanici.rol` serbest metin; `androlog` diye elle yazılmış bir rol vardı.

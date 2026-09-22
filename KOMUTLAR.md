@@ -177,6 +177,13 @@ git push origin main                 # gönder
 
 `git pull` **kodu** getirir, **hasta verisini getirmez** — veri `.gitignore`'da.
 
+**`git pull`'dan sonra programı yeniden başlat.** Çalışan program `templates/`
+klasörünü her istekte diskten okuyor ama Python dosyalarını (`app.py`,
+`metinler.py`, ...) **yalnızca açılışta** okuyor. Yeniden başlatmazsan yeni
+ekran parçaları görünür ama çalışmaz — düğme/kutu ortaya çıkar, basınca
+hiçbir şey olmaz, hata da vermez. Terminalde `Ctrl+C`, sonra tekrar
+`python3 baslat.py`.
+
 Çakışma (`conflict`) çıkarsa **dur**, Claude Code'a sor.
 
 ---
@@ -206,6 +213,10 @@ Klasör ZIP ile kurulmuş. Yukarıdaki `git clone` adımını uygula.
 
 **`git status` → "ahead of 'origin/main' by N commits"**
 Commit etmişsin, push etmemişsin. `git push origin main`.
+
+**Yeni bir kutu/düğme göründü ama hiçbir şey yapmıyor**
+`git pull` yaptın, programı yeniden başlatmadın. Şablonlar diskten tazelenir,
+Python kodu tazelenmez. `Ctrl+C` → `python3 baslat.py`.
 
 **Bir ekran veya gün eksik görünüyor**
 Göç uygulanamamış olabilir: `/yonetim` → Veritabanı güncellemeleri kartına bak, ya da `python3 goc_hepsi.py` çalıştır.

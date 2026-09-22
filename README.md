@@ -10907,3 +10907,32 @@ etiket yerinde; "Aramayı temizle" ve geri ok doğru. Ana ekrandan
 "SP-700001" → sperm kaydı ve `/sperm-dondurma/1`. Bulunamayan etikette
 "Bu etikete uyan taşıyıcı yok." 25 adres 200, JS hatası yok, hiçbir
 genişlikte yatay taşma yok.
+
+## "Vitrifikasyon ekranında çalışmıyor" — sebep: bayat süreç
+
+Kullanıcı sürümü aldıktan sonra bildirdi: arama kutusu **görünüyordu**, ama
+Enter'a basınca hiçbir şey olmuyordu — hata da yoktu.
+
+Sebep kodda değildi: **Jinja şablonları diskten her istekte yeniden okunuyor
+(`auto_reload` açık), `app.py` ise yalnızca açılışta.** `git pull` yapıp
+programı yeniden başlatmayan bir makinede **yeni şablon + eski rota** çalışır.
+Eski `vit_ekran()` `ara` parametresini ve `etiket_sonuc` context'ini vermiyor;
+Jinja'da eksik değişken sessizce `Undefined` (yani `{% if ara %}` yanlış).
+Sonuç tam olarak "kutu var, çalışmıyor, hata da yok".
+
+Bire bir yeniden üretildi: v6.137'nin `app.py`'si + v6.138'in şablonları →
+kutu var, sonuç 0, `/hastalar`'da kart hiç yok. Aynı anda HEAD → kutu var,
+3 taşıyıcı, kart yerinde. Çözüm kullanıcı tarafında tek satır: `Ctrl+C`,
+`python3 baslat.py`.
+
+Kalıcı olarak yazıldı: `KOMUTLAR.md`'de "Kod güncelleme" ve "Sık sorunlar"
+bölümlerine, `CLAUDE.md`'de tuzak #5'in kardeşi olarak. **Bir kullanıcı "yeni
+şey görünüyor ama çalışmıyor" derse ilk sorulacak soru bu.**
+
+### Yan karar: izin kapısı kaldırıldı
+
+Kutu ilk yazışta `{% if yetkim("cryo") %}` ile gizleniyordu. Kaldırıldı:
+`/hastalar`'daki aynı kart gizlenmiyor, ikisinin aynı davranması gerekiyor —
+ve bu kapı, kutunun **sessizce hiç görünmemesi** demekti, yani yukarıdaki
+sorunun bir başka kaynağı. İzni olmayan biri sonuç satırına basarsa
+middleware onu döndürür; bu görünür bir cevap, sessiz bir yokluk değil.

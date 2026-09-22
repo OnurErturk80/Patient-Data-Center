@@ -22,11 +22,14 @@
 {# Etiket araması (v6.138, kullanıcının isteği: "Vitrifikasyonda etiket kodu
    ile arama olsun"). Elde tutulan tüpün etiketi burada da aranabiliyor --
    aranan taşıyıcı bu tedaviye ait olmak zorunda değil, soru "bu etiket
-   kimin". Sonuç satırı cryo sayfalarına gidiyor, o yüzden kutu `cryo` izni
-   olmayana hiç basılmıyor (asıl engel middleware'de, bu yalnızca gizleme).
+   kimin".
+   **`yetkim("cryo")` ile GİZLENMİYOR** (ilk yazışta öyleydi, v6.138'de
+   kaldırıldı): `/hastalar`'daki aynı kart da gizlenmiyor, ikisi aynı
+   davranmalı. Asıl engel zaten middleware'de -- izni olmayan sonuç satırına
+   basınca döndürülür, bu görünür bir cevap; kutunun sessizce hiç
+   basılmaması ise "çalışmıyor" gibi görünürdü.
    Kendi formu: aşağıdaki dondurma formunun içinde DEĞİL, yoksa Enter'a
    basmak vitrifikasyonu kaydederdi. #}
-{% if yetkim("cryo") %}
 <form class="arama kucuk" method="get" action="/cycle/{{ c.id }}/vitrifikasyon">
   <input type="search" name="ara" value="{{ ara }}"
          placeholder="{{ metin('etiket_ara_ipucu') }}"
@@ -36,7 +39,6 @@
 {% if ara %}
 {{ es.sonuc(etiket_sonuc, metin("etiket_bulunamadi")) }}
 <a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("aramayi_temizle") }}</a>
-{% endif %}
 {% endif %}
 
 {% set dondurulmus = embriyolar|selectattr('tasiyici_id')|list %}
