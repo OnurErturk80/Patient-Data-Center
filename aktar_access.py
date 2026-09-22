@@ -16,6 +16,15 @@ Kullanım:
     python3 aktar_access.py liste  agustos.csv    ne yazılacağını gösterir
     python3 aktar_access.py        agustos.csv    AKTAR yazınca uygular
 
+**İkinci bir Access dosyası aktarıyorsan `kaynak=` ver:**
+
+    python3 aktar_access.py liste kaynak=TEMMUZ temmuz.csv
+    python3 aktar_access.py       kaynak=TEMMUZ temmuz.csv
+
+Her Access dosyası kendi kayıtlarını 1'den numaralandırıyor; etiket olmadan
+ikinci dosyanın ilk satırları birincinin numaralarıyla çakışır ("Aynı tedavi
+iki kez girmiyor" bölümüne bak). Unutursan betik **durur**, yazmaz.
+
 **Önce `liste` ile bak.** Ne yazılacağını satır satır döküyor; hiçbir şeye
 dokunmuyor. Aktarmadan önce yedek al (`/yedekleme` → "Şimdi yedekle").
 
@@ -58,6 +67,19 @@ NASIL EŞLEŞTİRİYOR
 kendi kayıt numarası yazılıyor (`[Access kaydı #12]`); o işareti taşıyan
 bir tedavi zaten varsa satır atlanıyor. Yani betiği iki kez çalıştırmak
 güvenli, yarıda kalırsa kaldığı yerden devam eder.
+
+**Ama numara dosya başına 1'den başlıyor** -- ağustos dosyasının #1'i ile
+temmuz dosyasının #1'i aynı işareti üretir ve ikinci dosyanın o satırları
+"zaten aktarılmış" sanılıp SESSİZCE atlanır. Bu yüzden ikinci dosyadan
+itibaren `kaynak=TEMMUZ` verilir: işaret `[Access kaydı TEMMUZ#5]` olur,
+ağustosun `[Access kaydı #5]`'iyle karışmaz (kapanış `]` sayesinde `#1]`
+deseni `#10]`'u da yakalamıyor). Ağustos etiketsiz kaldı, öyle kalmalı --
+etiket verilirse o satırlar yeniden aktarılır.
+
+Unutulursa betik **durup soruyor**: işaret bir tedavi buluyor ama o tedavi
+BAŞKA bir hastanınsa (dosya no tutmuyorsa) bu bir yeniden çalıştırma değil,
+çakışmadır; hiçbir şey yazılmadan çıkıyor. Uyarıp devam etmiyor -- sessiz
+veri kaybı bu projenin tuzak listesinin tam olarak uyardığı şey.
 
 ------------------------------------------------------------------------
 SAYILAR NEDEN OOSİT OOSİT AÇILIYOR
@@ -383,11 +405,38 @@ def satirlari_oku(yol: str) -> list:
 
 # ------------------------------------------------------------------- yazma
 
-ISARET = "[Access kaydı #{}]"      # aynı satır iki kez girmesin diye
+ISARET = "[Access kaydı {}#{}]"     # aynı satır iki kez girmesin diye
+
+# Kaynak dosyanın etiketi (`kaynak=TEMMUZ`). Boşken işaret v6.130'daki
+# haliyle basılıyor -- ağustos aktarımı bu yüzden bozulmuyor.
+#
+# Neden gerekli: her Access dosyası KENDİ kayıtlarını 1'den numaralandırıyor.
+# Ağustos dosyasının #1..#20'si programda dururken temmuz dosyası
+# aktarılsaydı onun ilk 20 satırı "zaten aktarılmış" sanılıp SESSİZCE
+# atlanırdı. Etiket numarayı dosyasına bağlıyor: `[Access kaydı TEMMUZ#5]`
+# ile `[Access kaydı #5]` birbirini bulmuyor (kapanış `]` sayesinde
+# `#1]` deseni `#10]`'u da yakalamıyor).
+KAYNAK = ""
 
 
 def _isaret(kimlik) -> str:
-    return ISARET.format(kimlik)
+    return ISARET.format(KAYNAK, kimlik)
+
+
+def _kaynak_ayikla(deger: str) -> str:
+    """`kaynak=` değerini işarete yazılabilir hale getirir.
+
+    Yalnızca harf/rakam: işaret SQL'de `LIKE` deseni olarak kullanılıyor ve
+    `_` ile `%` orada joker. Türkçe harfler de düşüyor -- işaret protokol
+    notunda, yani resmî formun NOTLAR kutusunda görünüyor.
+    """
+    # `tr_buyuk()` DEĞİL `_sade()`: ilki 'i'yi 'İ' yapıyor ve ASCII süzgeci
+    # onu düşürüyor ("nisan" -> "NSAN"). `_sade()` Türkçe harfleri ASCII
+    # karşılığına katlıyor ("ağustos" -> "AGUSTOS").
+    ad = "".join(k for k in _sade(deger) if k.isascii() and k.isalnum())
+    if not ad:
+        sys.exit(f"Gecersiz kaynak adi: {deger!r} (yalnizca harf ve rakam)")
+    return ad
 
 
 def _kullanici_id() -> int:
@@ -641,8 +690,10 @@ def _not_kur(r: dict) -> str:
     vitrifikasyon kaydı); burada yalnızca kaynağın kendi metni, tek cümlelik
     uyarı ve işaret kalıyor. Satırlar 68 karakterde elle sarılıyor.
 
-    Yeni bir satır eklersen formu açıp bak (tuzak #5) -- kutu yaklaşık
-    yedi satır alıyor.
+    Yeni bir satır eklersen formu açıp bak (tuzak #5). Bugünkü en uzun
+    not sekiz satır (protokol + kaynağın notu + aktarım cümlesi + işaret +
+    v6.104'ün iptal sebebi) ve kutu onu kesmeden basıyor -- ölçüldü,
+    `scrollHeight == clientHeight`.
     """
     p = []
     if r["protokol"]:
@@ -651,12 +702,18 @@ def _not_kur(r: dict) -> str:
         p.append(r["notlar"])
     if r["tip"] in FET_TIPLERI:
         p.append("Program öncesi Access kaydından aktarıldı; çözülen "
-                 "embriyoların dondurulduğu tedavi programda yok. "
-                 + _isaret(r["kimlik"]))
+                 "embriyoların dondurulduğu tedavi programda yok.")
     else:
         p.append("Program öncesi Access kaydından aktarıldı; yumurta kayıtları "
-                 "toplam sayılardan üretildi, tek tek gözlem değildir. "
-                 + _isaret(r["kimlik"]))
+                 "toplam sayılardan üretildi, tek tek gözlem değildir.")
+    # İşaret KENDİ satırında: cümlenin sonuna eklenirse `textwrap` onu
+    # ortasından bölüyor ("[Access kaydı\nTEMMUZ#9]") ve `_zaten_var()`in
+    # `LIKE` deseni tutmuyor -- yani aktarım idempotent olmaktan çıkıyor,
+    # ikinci çalıştırma aynı tedaviyi bir daha açıyor. Ağustosta işaret
+    # kısa olduğu için (etiketsiz) rastgele sığıyordu; `kaynak=TEMMUZ`
+    # altı karakter uzatınca 86 satırın 60'ında bölündü. Tek başına bir
+    # satır olarak 68'in çok altında, hiçbir etiketle bölünemez.
+    p.append(_isaret(r["kimlik"]))
     return "\n".join(textwrap.fill(satir, 68) for satir in p)
 
 
@@ -1115,10 +1172,36 @@ def _islem_yapan(b, r, cycle_id):
 
 
 def _zaten_var(kimlik):
-    """Bu Access satırı daha önce aktarılmış mı? (işaret protokol notunda)"""
-    return _db.tek("SELECT id, cycle_no FROM cycle WHERE lab_id=? AND "
-                   "protokol_notu LIKE ?",
+    """Bu Access satırı daha önce aktarılmış mı? (işaret protokol notunda)
+
+    Hastanın dosya numarası da dönüyor: `_carpismalar()` "işaret tuttu ama
+    BAŞKA hastanın tedavisi" durumunu ondan anlıyor.
+    """
+    # Satır sonları boşluğa katlanıyor: notu elle düzenleyen ya da daha
+    # uzun bir etiket kullanan biri işareti iki satıra bölerse arama yine
+    # tutsun. Kemer + askı -- `_not_kur()` işareti zaten kendi satırında
+    # yazıyor, ama bu sorgu daha önce yazılmış notları da okuyor.
+    return _db.tek("SELECT c.id, c.cycle_no, h.dosya_no FROM cycle c "
+                   "JOIN hasta h ON h.id = c.hasta_id "
+                   "WHERE c.lab_id=? AND REPLACE(REPLACE(c.protokol_notu, "
+                   "char(13), ' '), char(10), ' ') LIKE ?",
                    (_db.LAB_ID, f"%{_isaret(kimlik)}%"))
+
+
+def _carpismalar(satirlar) -> list:
+    """Kayıt numarası çakışması var mı — işaret tuttu ama başka hasta?
+
+    `kaynak=` unutulursa ikinci dosyanın satırları birincininkiyle aynı
+    işareti taşır ve "zaten aktarılmış" sanılıp sessizce atlanır. Sessiz
+    veri kaybı, bu projenin tuzak listesinin tam olarak uyardığı şey --
+    o yüzden betik durup soruyor, uyarıp devam etmiyor.
+
+    Ölçü hastanın dosya numarası: gerçek bir yeniden çalıştırmada işaret
+    aynı hastanın tedavisini bulur, çakışmada başkasınınkini.
+    """
+    return [(r, var) for r in satirlar
+            if (var := _zaten_var(r["kimlik"]))
+            and str(var["dosya_no"]) != str(r["dosya_no"])]
 
 
 def _satiri_yaz(r) -> list:
@@ -1243,7 +1326,11 @@ def tamamla(satirlar):
 
 
 def main():
-    arg = sys.argv[1:]
+    global KAYNAK
+    arg = [a for a in sys.argv[1:] if not a.lower().startswith("kaynak=")]
+    for a in sys.argv[1:]:
+        if a.lower().startswith("kaynak="):
+            KAYNAK = _kaynak_ayikla(a.split("=", 1)[1])
     kip = "aktar"
     if arg and arg[0] in ("liste", "tamamla"):
         kip, arg = arg[0], arg[1:]
@@ -1253,9 +1340,29 @@ def main():
                  "  python3 aktar_access.py <dosya.csv>           aktarir\n"
                  "  python3 aktar_access.py tamamla <dosya.csv>   zaten aktarilmis\n"
                  "                                                tedavilere nottaki\n"
-                 "                                                skorlari ekler")
+                 "                                                skorlari ekler\n"
+                 "\n"
+                 "  kaynak=<AD>  ikinci bir Access dosyasi aktarilirken sart:\n"
+                 "               her dosya kendi kayitlarini 1'den numaraliyor,\n"
+                 "               etiket numarayi dosyasina bagliyor.\n"
+                 "               ornek: python3 aktar_access.py kaynak=TEMMUZ temmuz.csv")
     satirlar = satirlari_oku(arg[0])
     satirlar.sort(key=lambda r: (r["tarih"] or "9999-99-99", int(r["kimlik"] or 0)))
+    cakisan = _carpismalar(satirlar)
+    if cakisan:
+        print(f"\nDUR -- hicbir sey yazilmadi. {len(cakisan)} satirin kayit "
+              "numarasi baska bir aktarimin numarasiyla cakisiyor:\n")
+        for r, var in cakisan[:5]:
+            print(f'  #{r["kimlik"]:>3} dosya {r["dosya_no"]} -> isaret '
+                  f'{var["cycle_no"]} tedavisini buluyor (dosya '
+                  f'{var["dosya_no"]}, BASKA hasta)')
+        if len(cakisan) > 5:
+            print(f"  ... ve {len(cakisan) - 5} satir daha")
+        print("\nHer Access dosyasi kendi kayitlarini 1'den numaraliyor. Bu "
+              "dosyaya\nkendi etiketini ver, yoksa o satirlar 'zaten "
+              "aktarilmis' sanilip\nSESSIZCE atlanir:\n\n"
+              f'  python3 aktar_access.py kaynak=<AD> {arg[0]}\n')
+        sys.exit(1)
     if kip == "liste":
         onizleme(satirlar)
         return

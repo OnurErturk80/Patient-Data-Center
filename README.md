@@ -11150,3 +11150,150 @@ seçiyor, kaydetmek `dogan_bebek.cinsiyet='kiz'` yazıyor, ekran dönüşünde
 **Tarayıcı önbelleği sorun çıkarmıyor**: `style.css` sürüm numarasıyla
 bağlanıyor (v6.69, `statik_surum()` dosyanın `st_mtime`'ı) — kullanıcının
 sert yenileme yapması gerekmiyor.
+
+---
+
+# v6.141 — temmuz 2026 Access kayıtları: kaynak etiketi ve bölünen işaret
+
+Kullanıcının isteği: *"Şimdi daha önce son halini verdiğimiz eski kayıtları
+programlamaya devam edelim. Bu da 2026 temmuz ayı hasta kayıtları. Bunu da
+programa yerleştir."* — v6.130'un ağustos aktarımından sonra ikinci bir
+Access dosyası.
+
+Dosya aynı yapıda: tek tablo (`VERİTABANI`), kolon başlıkları ağustosunkiyle
+**bire bir aynı**, 86 satır, hepsinin tarihi temmuz 2026. Yani
+`aktar_access.py` dosyayı olduğu gibi okuyabiliyordu. Ama aktarım
+denendiğinde iki ayrı hata çıktı; ikisi de **sessiz veri kaybı** üretiyordu,
+o yüzden bu sürüm aslında aracın iki düzeltmesi.
+
+## 1. Kayıt numaraları dosya başına 1'den başlıyor
+
+`aktar_access.py` aynı satırı iki kez girmemek için her tedavinin protokol
+notuna kaynağın kendi kayıt numarasını yazıyor (`[Access kaydı #12]`,
+v6.130) ve o işareti taşıyan tedavi varsa satırı atlıyor. Bu, **tek bir
+dosya** için doğru çalışıyordu.
+
+İkinci dosyada çalışmıyor: her Access dosyası kendi kayıtlarını 1'den
+numaralandırıyor. Ağustosun #1..#20'si programda dururken temmuz dosyası
+aktarılsaydı, temmuzun #1..#20'si "zaten aktarılmış" sanılıp **sessizce
+atlanacaktı** — 86 satırın 20'si, hiçbir hata vermeden. Ölçüldü: iki dosyada
+20 numara çakışıyor.
+
+**Çözüm: kaynak etiketi.**
+
+```
+python3 aktar_access.py liste kaynak=TEMMUZ temmuz.csv
+python3 aktar_access.py       kaynak=TEMMUZ temmuz.csv
+```
+
+İşaret `[Access kaydı TEMMUZ#5]` oluyor; ağustosun `[Access kaydı #5]`'iyle
+karışmıyor. Kapanış `]` sayesinde `#1]` deseni `#10]`'u da yakalamıyor,
+yani numara sınırları da güvende.
+
+**Ağustos etiketsiz kaldı ve öyle kalmalı.** `KAYNAK` boşken işaret
+v6.130'daki haliyle basılıyor, yani bayt bayt aynı — ağustos dosyasını
+yeniden çalıştırmak hâlâ 20 satırın 20'sini atlıyor (ölçüldü). Ağustosa
+sonradan etiket verilirse o satırlar **yeniden** aktarılır; verme.
+
+**Unutulursa betik duruyor, uyarıp devam etmiyor.** Etiket vermeyi unutmak
+tam da yukarıdaki sessiz kaybı üretirdi. Ölçü hastanın dosya numarası:
+gerçek bir yeniden çalıştırmada işaret **aynı** hastanın tedavisini bulur,
+çakışmada **başkasınınkini**. Bulduğu tedavi başka hastanınsa betik hiçbir
+şey yazmadan çıkıyor ve ne yapılacağını söylüyor:
+
+```
+DUR -- hicbir sey yazilmadi. 20 satirin kayit numarasi baska bir
+aktarimin numarasiyla cakisiyor:
+  #  2 dosya … -> isaret 2026-0002 tedavisini buluyor (dosya …, BASKA hasta)
+  ...
+  python3 aktar_access.py kaynak=<AD> temmuz.csv
+```
+
+Bu ölçünün tek boşluğu, çakışan iki kaydın **aynı** hastaya ait olması
+(aynı çift, iki ayrı ayda tedavi). Bu dosya çiftinde öyle bir satır yok
+(20 çakışmanın 20'sinde dosya no farklı), ama teorik olarak mümkün — asıl
+koruma yine etiketin kendisi, bu yalnızca unutmaya karşı ağ.
+
+## 2. `textwrap` işareti ortasından bölüyordu
+
+Etiket eklenince ikinci bir hata ortaya çıktı, ve bu daha sinsiydi.
+
+Protokol notu `textwrap.fill(..., 68)` ile sarılıyor (v6.130 — resmî formun
+NOTLAR kutusu `white-space: pre`, uzun satır sarmıyor, sessizce kesiliyor).
+İşaret cümlenin **sonuna** ekleniyordu, yani sarma onu ortasından bölebilir:
+
+```
+Program öncesi Access kaydından aktarıldı; yumurta kayıtları toplam
+sayılardan üretildi, tek tek gözlem değildir. [Access kaydı
+TEMMUZ#9]
+```
+
+Bölünmüş işareti `_zaten_var()`'ın `LIKE '%[Access kaydı TEMMUZ#9]%'` deseni
+**bulamıyor**. Yani aktarım idempotent olmaktan çıkıyordu: betiği ikinci kez
+çalıştırmak aynı tedavileri bir daha açacaktı. Ölçüldü: 86 satırın **60**'ında
+işaret bölünüyordu.
+
+Ağustosta olmamasının sebebi şans: etiketsiz işaret altı karakter kısa ve
+satıra rastgele sığıyordu (20/20 sağlam, ölçüldü). Yani hata v6.130'dan beri
+oradaydı, yalnızca tetiklenmemişti.
+
+**Düzeltme iki katlı.**
+
+- **İşaret kendi satırında.** `_not_kur()` onu artık cümleye eklemiyor, ayrı
+  bir paragraf yapıyor — tek başına 68'in çok altında, hiçbir etiketle
+  bölünemez. Not bir satır uzuyor: en uzun hâli sekiz satır (protokol +
+  kaynağın notu + aktarım cümlesi + işaret + v6.104'ün iptal sebebi).
+  Kutuyu taşırmıyor, ölçüldü — Playwright ile `scrollHeight == clientHeight`,
+  86 tedavinin hiçbirinde kesik hücre yok.
+- **Arama satır sonlarına dayanıklı.** Sorgu `REPLACE(...char(10), ' ')` ile
+  satır sonlarını boşluğa katlıyor. Kemer + askı: notu elle düzenleyen ya da
+  daha uzun bir etiket kullanan biri işareti yine bölerse arama tutmaya devam
+  ediyor. Zaten yazılmış bölünmüş işaretleri de buluyor — denendi, bozuk
+  aktarımın 86 satırının 86'sı bulundu, hiçbiri ikinci kez yazılmadı.
+
+**Ders:** üretilmiş bir metnin içine gömülen bir işaret, o metni biçimleyen
+her şeye bağımlıdır. Sarma genişliği, bir kelimenin uzunluğu, sonradan eklenen
+bir cümle — hepsi işareti sessizce bölebilir. Makinenin okuyacağı işaret,
+insanın okuyacağı metinden **ayrı bir satırda** dursun; arayan sorgu da
+boşluk/satır sonu farklarına dayanıklı olsun.
+
+## Aktarımın sonucu
+
+Kopya bir veritabanında baştan sona denendi (kullanıcının makinesine
+dokunulmadı):
+
+| | |
+|---|---|
+| CSV satırı | 86 (hepsinin tarihi temmuz 2026, tarihsiz satır yok) |
+| Tedavi tipi | 47 `ivf_icsi`, 26 `fet`, 13 `oosit_cryo` |
+| Yazılan tedavi | 86 (0 atlandı, 0 hata) |
+| Yeni hasta kartı | 83 |
+| Var olan karta eklenen | 3 — ağustosta da tedavisi olan hastalar |
+| Ağustos kayıtlarından değişen | **yok** (tedavi, protokol notu, durum, hasta adı — hepsi birebir aynı) |
+
+Üç satırda kaynağın kendi sayıları tutmuyor ve araç **uydurmak yerine
+söylüyor** (v6.130'un davranışı, değişmedi):
+
+```
+Access #11  (2026-0039): notta 2 örnek yazıyor ama 0 uygun kayıt var
+Access #33  (2026-0070): notta 1 örnek yazıyor ama 0 uygun kayıt var
+Access #80  (2026-0107): notta 6 örnek yazıyor ama 5 uygun kayıt var
+```
+
+İlk ikisinde kaynak "2PN yok" diyor ama notunda dondurulan embriyo yazıyor;
+araç fertilizasyon kaydı olmayan bir örneğe dondurma yazmıyor. Kullanıcı bu
+üç tedaviye kaynaktan bakıp eksiği elle tamamlayabilir — geri kalan 83 satır
+uyarısız geçti.
+
+Aktarım sonrası ekranlar açıldı (tuzak #5): ana ekran, `/hastalar`,
+`/istatistik`, aktarılan üç tedavinin `/cycle/{id}` ekranı, Embriyoloji Özet
+ve ART Lab formları (hem HTML hem Excel — üç `.xlsx` de geçerli ZIP).
+Hiçbirinde hata yok.
+
+## Dosyanın kendisi depoya girmiyor
+
+v6.130'un kuralı: `.accdb` ve ondan üretilen CSV **gerçek hasta verisi**,
+depoya girmiyor (`.gitignore`: `*.accdb`, `*.mdb`, `*.csv`). Bu dosyada da
+öyle — README'ye, CLAUDE.md'ye ve commit mesajına hasta adı ya da dosya
+numarası yazılmadı. Yukarıdaki tedavi numaraları (`2026-0039`) programın
+kendi sıra numarası, hasta kimliği değil.

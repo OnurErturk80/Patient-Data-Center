@@ -1691,6 +1691,26 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
 - **İşaret protokol notunda**: `[Access kaydı #19]`. Aynı satır iki kez
   girmesin diye; betik yeniden çalıştırılabilir. Yeni bir içeri alma
   yazarsan aynı deseni kullan — ayrı bir "aktarıldı" tablosu açma.
+  - **İkinci bir Access dosyası aktarılırken `kaynak=` ŞART** (v6.141).
+    Her dosya kendi kayıtlarını 1'den numaralandırıyor: ağustosun #1..#20'si
+    dururken temmuz dosyası etiketsiz aktarılsaydı temmuzun ilk 20 satırı
+    "zaten aktarılmış" sanılıp **sessizce** atlanırdı.
+    `python3 aktar_access.py kaynak=TEMMUZ temmuz.csv` → işaret
+    `[Access kaydı TEMMUZ#5]`. **Ağustos etiketsiz kaldı, öyle kalmalı** —
+    `KAYNAK` boşken işaret v6.130'daki haliyle basılıyor, etiket verilirse
+    o satırlar yeniden aktarılır. Unutulursa betik duruyor: işaretin bulduğu
+    tedavi **başka** hastanınsa (dosya no tutmuyorsa) bu yeniden çalıştırma
+    değil çakışmadır, hiçbir şey yazmadan çıkıyor.
+  - **İşaret kendi satırında durur, cümlenin sonunda değil** (v6.141).
+    Not `textwrap.fill(..., 68)` ile sarılıyor ve cümleye eklenen işaret
+    ortasından bölünüyordu (`[Access kaydı\nTEMMUZ#9]`) — `_zaten_var()`in
+    `LIKE` deseni tutmuyor, yani aktarım idempotent olmaktan çıkıyor. 86
+    satırın 60'ında oldu; ağustosta olmaması şanstı (işaret altı karakter
+    kısa). `_zaten_var()` ayrıca satır sonlarını boşluğa katlıyor
+    (`REPLACE(...char(10), ' ')`), zaten yazılmış bölünmüş işaretleri de
+    buluyor. **Genel kural**: üretilmiş bir metnin içine gömdüğün, sonra
+    makineyle arayacağın bir işareti sarma/biçimleme bozabilir — ayrı
+    satıra koy, arayan sorguyu da boşluk farklarına dayanıklı yaz.
 - **Toplam sayılar oosit oosit açılıyor** çünkü program sayıları
   `specimen`/`olay`'dan türetiyor ("istatistikler türetilmiştir"). Bu
   bilgi protokol notunda, yani ekranda ve resmî formda yazılı.

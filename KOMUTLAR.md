@@ -130,6 +130,39 @@ LAB_VERI=/bir/klasor python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000
 
 ---
 
+## Eski Access kayıtlarını içeri alma (`aktar_access.py`)
+
+Program öncesi tutulan Access kayıtlarını programa alır. `.accdb` okunmuyor
+— Access'ten **CSV** olarak dışa aktar (beş adımlık yönerge betiğin
+başında, `python3 -c "import aktar_access; print(aktar_access.__doc__)"`).
+
+**Önce `liste` ile bak, hiçbir şeye dokunmuyor:**
+
+```
+python3 aktar_access.py liste kaynak=TEMMUZ temmuz.csv
+```
+
+Tarihler doğru okunmuş mu, hangi hastalar yeni açılacak — hepsi orada.
+Sonra yedek al (`/yedekleme` → "Şimdi yedekle") ve gerçekten yaz:
+
+```
+python3 aktar_access.py kaynak=TEMMUZ temmuz.csv
+```
+
+`AKTAR` yazınca uyguluyor. İki kez çalıştırmak güvenli: aktarılmış satır
+atlanıyor.
+
+**`kaynak=<AD>` ne işe yarıyor:** her Access dosyası kendi kayıtlarını
+1'den numaralandırıyor. Etiket olmadan ikinci dosyanın ilk satırları
+birincinin numaralarıyla çakışır ve "zaten aktarılmış" sanılıp **sessizce
+atlanır**. Her dosyaya kendi adını ver (`kaynak=TEMMUZ`, `kaynak=HAZIRAN`).
+Unutursan betik durur, yazmaz.
+
+> **Ağustos 2026 dosyası etiketsiz aktarıldı; onu yeniden çalıştırırsan
+> `kaynak=` VERME.** Etiket verilirse o 20 tedavi ikinci kez açılır.
+
+---
+
 ## Sorun teşhisi
 
 ```
