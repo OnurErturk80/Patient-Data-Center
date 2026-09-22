@@ -2408,6 +2408,30 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
     kullanıcıya gösterilen referans numarası) bir `id INTEGER PRIMARY KEY`
     kolonu varsa `AUTOINCREMENT` ekle.
 
+14. **Görsel olarak gizlenmiş bir form alanı hâlâ YER KAPLAR — genişliğini
+    kendi kuralında sabitle** (v6.140). `.secenek .sec input` (Kız/Erkek gibi
+    düğmelerin arkasındaki radyo) `position: absolute; opacity: 0` ile
+    gizleniyor, `display: none` ile **değil** (klavye ve form gönderimi
+    çalışsın diye — bilinçli). Gebelik ekranında "Bebekler" formu
+    `class="alan"` taşıdığı için `.alan input { width: 100% }` bu radyoya da
+    uyuyordu; `position: absolute` ve üzerinde konumlandırılmış bir ata
+    olmadığı için "%100" **ekranın tamamı** demekti (1280px'lik masaüstünde
+    radyo 1280px). Üçü yan yana sayfayı 2023px'e uzatıyor, sağında bomboş bir
+    alanla yatay kaydırma çıkıyordu. **Hiçbir şey kesik görünmediği için
+    aylarca fark edilmedi** — kullanıcı da "nasıl bir sorun anlamadım" dedi,
+    ekran görüntüsüyle gösterildi.
+    - Düzeltme **bileşenin kendi kuralında**: `width: auto; min-width: 0`.
+      Şablondaki `class="alan"`'ı kaldırmak da çalışırdı ama yalnızca o
+      ekranı kurtarırdı — bileşen başka bir gün başka bir `.alan`'ın içine
+      konduğunda sorun sessizce geri gelirdi.
+    - Yeni bir "gizli ama yer kaplayan" alan yazarsan ölçüsünü orada
+      sabitle, kabın genel kuralına güvenme.
+    - Ölçerken **yalnızca `scrollWidth > clientWidth`e bakmak yetti** ama
+      sebebi bulmak için taşan ögeyi tek tek aramak gerekti
+      (`getBoundingClientRect().right > clientWidth`) — v6.109'un dersinin
+      tersi yönü: orada dış kabın ölçüsü doğru çıkıp içerik kayıyordu,
+      burada içerik doğru görünüp görünmez bir öge sayfayı uzatıyor.
+
 ---
 
 ## Bekleyen işler

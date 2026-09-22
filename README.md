@@ -11083,3 +11083,70 @@ doğru. 40 adres 200, masaüstü ve telefonda JS hatası yok.
 1280px'de yatay taşıyor (bir `.secenek` satırı sarmıyor). v6.138'de de
 taşıyordu — ölçüldü, bu sürümün getirdiği bir gerileme değil, ayrıca
 bildirildi.
+
+---
+
+# v6.140 — Gebelik ekranının yatay taşması
+
+Kullanıcı v6.139'un sonunda bildirilen "bu sürümün getirmediği sorun"u
+sordu: *"cycle/{id}/gebelik ekranı geniş ekranda yatay taşıyor dediğin nasıl
+bir sorun anlamadım"*. Ekran görüntüsüyle gösterildi, sonra düzeltildi.
+
+## Belirti
+
+1280px'lik bir masaüstünde sayfa **2023px** genişliğinde oluyordu: altta yatay
+kaydırma çubuğu, sağda kocaman boş bir alan, fare tekerleğiyle sayfa yana
+kayabiliyor. **Hiçbir şey kesik değildi, veri kaybı yoktu** — kartların hepsi
+okunuyordu; fazlalık 743px tamamen boştu. Telefonda (390px) hiç olmuyordu.
+
+## Sebep — üç kuralın kesişimi
+
+1. `gebelik.html`'de "Bebekler" kartındaki form `class="alan"` taşıyor.
+2. `.alan input { width: 100% }` — normal metin kutuları boydan boya olsun diye.
+3. `.secenek .sec input { position: absolute; opacity: 0 }` — Kız/Erkek/
+   Belirtme düğmelerinin arkasındaki **gizli radyo**.
+
+Gizli radyo da bir `input` olduğu için 2. kural ona da uyuyordu. `position:
+absolute` ve üzerinde **konumlandırılmış bir ata olmadığı** için kapsayıcı
+blok doğrudan görüntü alanı: "%100" = **ekranın tamamı**, yani 1280px. Üç
+tanesi yan yana sayfayı 2023px'e uzatıyordu. Radyo görünmez ama **yer
+kaplıyor** — görünmezlik `opacity: 0` ile, `display: none` ile değil (klavye
+ve form gönderimi çalışsın diye, bilinçli).
+
+Aynı ekrandaki öteki seçenek grupları (Var/Yok/Bilinmiyor, Pozitif/Negatif/
+Bilinmiyor) `.alan`'ın **içinde olmadığı** için sağlamdı — sorun bu yüzden tek
+bir kartta görünüyordu ve gözden kaçmıştı.
+
+## Düzeltme
+
+`static/style.css`, tek yer — bileşenin kendisi:
+
+```css
+.secenek .sec input {
+  position: absolute; opacity: 0; pointer-events: none;
+  width: auto; min-width: 0;
+}
+```
+
+**Şablondaki `class="alan"`'ı kaldırmak da işe yarardı ama yanlış çözüm
+olurdu**: yalnızca o ekranı kurtarır, aynı bileşen başka bir gün başka bir
+`.alan`'ın içine konduğunda sorun sessizce geri gelirdi. Bileşeni her kaptan
+bağımsız kılan yer gizli radyonun kendi kuralı.
+
+## Ölçüm
+
+| | önce | sonra |
+|---|---|---|
+| Sayfa genişliği (1280px ekran) | 2023px | **1280px** |
+| Gizli radyonun genişliği | 1280px | **13px** |
+
+`.secenek` kullanan **16 ekranın hepsi** masaüstü (1280x900) ve telefonda
+(390x844) tarandı: hiçbirinde yatay taşma yok, hiçbir gizli radyo 30px'i
+geçmiyor ve hepsi hâlâ görünmez (`opacity: 0`). Bileşenin işlevi de uçtan
+uca doğrulandı (veritabanı kopyası üzerinde): etikete tıklamak radyoyu
+seçiyor, kaydetmek `dogan_bebek.cinsiyet='kiz'` yazıyor, ekran dönüşünde
+"Kız" seçili görünüyor. JS hatası yok.
+
+**Tarayıcı önbelleği sorun çıkarmıyor**: `style.css` sürüm numarasıyla
+bağlanıyor (v6.69, `statik_surum()` dosyanın `st_mtime`'ı) — kullanıcının
+sert yenileme yapması gerekmiyor.

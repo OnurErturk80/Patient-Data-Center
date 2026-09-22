@@ -830,7 +830,19 @@ body.kilitli { overflow: hidden; }
 
 .secenek { display: flex; gap: 8px; padding: 12px; flex-wrap: wrap; }
 .secenek .sec { flex: 1 1 0; min-width: 78px; }
-.secenek .sec input { position: absolute; opacity: 0; pointer-events: none; }
+/* Gizli radyo: gorunmez ama YER KAPLIYOR. `width: auto` sart (v6.140) --
+   yoksa kapsayicinin genel kurali ona da uyuyor. Gebelik ekraninda
+   "Bebekler" formu `class="alan"` tasiyor ve `.alan input { width: 100% }`
+   bu radyoyu da %100 yapiyordu; `position: absolute` oldugu ve uzerinde
+   konumlandirilmis bir ata olmadigi icin "%100" EKRANIN tamami demekti
+   (1280px'lik masaustunde radyo 1280px). Uc tanesi yan yana sayfayi
+   2023px'e uzatiyor, saginda kocaman bos alanla yatay kaydirma cikiyordu.
+   Bileseni her kaptan bagimsiz kilan yer burasi -- kabin sinifini
+   degistirmek yalnizca o ekrani kurtarirdi. */
+.secenek .sec input {
+  position: absolute; opacity: 0; pointer-events: none;
+  width: auto; min-width: 0;
+}
 .secenek .sec span {
   display: flex; align-items: center; justify-content: center;
   min-height: 52px; padding: 8px 6px; text-align: center;
