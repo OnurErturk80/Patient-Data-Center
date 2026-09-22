@@ -9961,3 +9961,217 @@ yeniden gündeme gelirse önce v6.127/v6.128 bölümlerini git geçmişinden
 oku — orada neyin neden öyle yapıldığı, ölçülen sayılar ve üç somut tuzak
 (koordinat kimliğinin bağ kaydırması, `.xlsx` ilişki yolunun iki türlü
 yazılması, kâğıt düzeninin başlık tekrarları) yazılı.
+
+# v6.130 — program öncesi Access kayıtlarının içeri alınması
+
+Kullanıcının isteği: "Bu accdb dosyasında ağustos ayında laboratuvarda
+tedavisini yaptığım hastalar... hasta kartı oluşturup tedavileri ekler
+misin? Eğer aynı hasta varsa oluşturulmuş hasta kartına tedaviyi ekle."
+Amacı ayrıca söyledi: "bir hastanın tedavi sayısı, daha önce ne yapıldığı,
+kaç yumurta toplanıp ne kadar döllenip ne kadarı embriyo olduğu, ne kadar
+dondurulduğu, transfer yapılıp sonuca ulaştı mı önemli."
+
+Yeni dosya: **`aktar_access.py`**. Programın koduna neredeyse hiç
+dokunmuyor (tek istisna aşağıdaki istatistik düzeltmesi) — ayrı bir araç,
+veritabanına kayıt yazıyor.
+
+## `.accdb` okunmuyor, CSV okunuyor
+
+Access dosyasını doğrudan okumak ek bir kütüphane isterdi. Projenin "ek
+bağımlılık yok" kuralı (`excel.py`, `karekod.py`, `xlsx_oku.py` hepsi
+kütüphanesiz) burada da geçerli: kullanıcı Access'ten CSV'ye aktarıyor,
+betik onu okuyor. Beş adımlık dışa aktarma yönergesi betiğin başında;
+ayırıcı olarak hem virgül hem noktalı virgül tanınıyor (Türkçe Windows'ta
+Access noktalı virgül yazıyor).
+
+## Eşleştirme: yalnızca dosya numarası
+
+Şemadaki `UNIQUE (lab_id, dosya_no)` sayesinde "aynı dosya no" = "aynı
+hasta satırı". İsim karşılaştırması yok (v6.125'in kuralı: "isimle
+eşleştirme yok" — kullanıcı iki kez böyle dedi). Dosya no programda varsa
+tedavi o karta ekleniyor ve **ad üzerine yazılmıyor**; yalnızca boş olan
+alanlar (eş adı, doğum tarihi, telefon) dolduruluyor.
+
+**Aynı satır iki kez girmiyor.** Her tedavinin protokol notuna kaynağın
+kendi kayıt numarası yazılıyor (`[Access kaydı #19]`); o işareti taşıyan
+tedavi varsa satır atlanıyor. Yani betik iki kez çalıştırılabilir, yarıda
+kalırsa kaldığı yerden devam eder. Ölçüldü: ikinci çalıştırmada 20 satırın
+20'si atlandı.
+
+## Sayılar neden oosit oosit açılıyor
+
+Access toplam tutuyor ("8 toplandı, 7 MII, 3 2PN"); program her oositi ayrı
+kaydedip sayıları **ondan türetiyor** (v6.38, v6.110). Yani sayıyı yazacak
+bir kolon yok — yedi oosit kaydında "MII" yazması gerekiyor. Bu yüzden her
+tedavi için toplanan oosit kadar `specimen` ve sayılara uyan `olay` satırı
+açılıyor; tedavi özeti, hasta kartı, `/istatistik` oranları ve Excel
+çıktıları hiçbir kod değişikliği olmadan doğru çalışıyor.
+
+Bedeli: hangi oositin MII olduğu kaynakta yok, sırayla dağıtılıyor (önce
+MII'ler, sonra immatür, sonra empty zona/dejenere/atretik; ICSI listenin
+başından, yani önce MII'lere). Her tedavinin protokol notunda bu cümle
+duruyor ve resmî forma da basılıyor: "oosit kayıtları toplam sayılardan
+üretildi, tek tek gözlem değildir."
+
+## INTAKT = 0PN
+
+Kaynakta her satırda `İŞLEME ALINAN = 2PN + ANORMAL + İŞLEM SONRASI
+DEJENERE + INTAKT` tutuyor — yirmi satırın hepsinde. Yani INTAKT
+"döllenmemiş, bütün kalmış" oosit; programın `pn_sayisi` listesindeki `0`
+tam olarak bu. Formun "ANORMAL FERTİLİZASYON (0/1/3PN)" kutusu programın
+kendi tanımı gereği 0PN'i de sayıyor, o yüzden orada kaynağın ANORMAL
+sütunundan büyük bir sayı görünür — kutunun etiketi zaten bunu söylüyor
+(`formlar.py`: `anormal = sum(n for k, n in pn.items() if k and k != "2")`).
+
+## FET: embriyo nereden geliyor
+
+`fet` tedavilerinde çözülen embriyolar önceki aylarda, programın olmadığı
+dönemde dondurulmuş; kaynak tedavi programda yok. `specimen.cycle_id`
+embriyonun kendi cycle'ı olmalı (CLAUDE.md) ama burada öyle bir cycle hiç
+yok. İki seçenek vardı:
+
+- (a) embriyoyu hiç kaydetmemek,
+- (b) FET'in kendi altına kaydetmek.
+
+**(b) seçildi**, çünkü ağustosta yapılan **bütün** transferler FET
+(ivf_icsi tedavilerinde taze transfer hiç yok). (a) ile program "ağustosta
+hiç transfer yapılmamış" derdi — kullanıcının en çok istediği bilgi
+kaybolurdu. `thaw`/`transfer` olayları `thaw_cycle_id`/`tr_cycle_id` ile
+yine aynı tedaviyi gösteriyor; program her yerde `COALESCE(tr_cycle_id,
+s.cycle_id)` kullandığı için sayılar doğru çıkıyor.
+
+### Tek yan etkisi ve programdaki tek düzeltme
+
+`/istatistik`'in "kayıtlı oosit" sayısı `specimen` satırlarını sayıyordu;
+FET embriyoları toplanmış yumurta gibi görünüp M2 oranını düşürdü
+(ölçüldü: 105 oosit, %63.8 — doğrusu 94 ve %71.3). Bu **aktarımdan
+bağımsız bir doğruluk hatası**: çözülmüş bir embriyo hiçbir dünyada
+"toplanan oosit" değil. `disari.istatistikler()` düzeltildi — oosit sayımı
+artık yumurta toplanan tedavilerle sınırlı.
+
+Bunun için `FET_TIPLERI` **`db.py`'ye taşındı**: `disari.py` de aynı
+ayrımı soruyor ve `app`'i import edemiyor (app zaten disari'yi import
+ediyor). `app.FET_TIPLERI` adı duruyor, `db.FET_TIPLERI`'den besleniyor —
+yirmiye yakın kullanım yeri değişmedi.
+
+## Tedavi nasıl kapanıyor
+
+Aktarılan tedavi **açık bırakılmıyor**: bırakılsaydı ana ekranın
+"Yapılacaklar" listesi (v6.28, her sabah bakılan kâğıt klasörün karşılığı)
+ağustos işiyle dolardı. Ama kapanış sebebi uydurulmuyor:
+
+- transfer tarihi **ve** transfer edilen embriyo sayısı varsa → `transfer`
+- dondurulan embriyo sayısı varsa → `dondurma`
+- kaynağın NOTLAR metni açıkça "iptal edildi"/"uygulanmadı" diyorsa →
+  `iptal` (aşağıya bak)
+- hiçbiri değilse → `durum='tamamlandi'`, **sebep boş**. `cycle_detay.html`
+  bu durumu zaten biliyor (`c.durum == "tamamlandi" or c.bitis_sebebi`,
+  sebep yoksa "Tamamlandı" rozeti basıyor).
+
+### İptal sebebi serbest metinden, iki kademeli
+
+Serbest metinden klinik karar çıkarmak riskli. Bu yüzden önce metin açıkça
+"İPTAL"/"UYGULANMADI" demeli; **ancak ondan sonra** hangi ayrıntılı sebep
+olduğuna bakılıyor (v6.103'ün `IPTAL_DETAY_SEBEPLERI`'si), tanınmazsa genel
+"İptal" kalıyor. Yirmi satırda: 3 `cleavage_arrest` ("2./3. gün embriyo
+arresti", "klivaj aşamasında embriyo arresti"), 1 `fert_olmadi`, 3 genel
+iptal (empty zona — listede karşılığı yok). `liste` kipi hangi satıra ne
+yazılacağını tek tek basıyor; aktarmadan önce okunacak.
+
+Aynı iki kademeli mantık dondurma için de var: yumurta dondurmada
+"DONDURULAN EMBRİYO SAYISI" alanı boş (o kolon embriyo için) ve kaç
+yumurtanın dondurulduğunu yalnızca not söylüyor ("16 ADET OOSİT 4 TÜPTE
+... DONDURULARAK SAKLANDI") — o cümle varsa tedavi `dondurma` ile
+kapanıyor. Sayı **not metninden çıkarılmıyor**, vitrifikasyon kaydı
+açılmıyor: serbest metinden sayı ayıklamak kırılgan olurdu.
+
+## `_sade()` bütün Türkçe harfleri katlıyor
+
+İlk yazışta yalnızca `İ` katlanıyordu ve "3. GÜN EMBRİYO ARRESTİ SEBEBİYLE
+İŞLEM İPTAL EDİLDİ" notu `cleavage_arrest` yerine genel iptale düşüyordu:
+kalıptaki `GUN` ile metindeki `GÜN` tutmuyordu. `str.maketrans("İIŞĞÜÖÇ",
+"IISGUOC")` ile hepsi katlanıyor, kalıplar ASCII yazılıyor. Aynı katlama
+sperm alınma/hazırlama yöntemlerinin yazım farklarını da tekliyor
+(SWİM UP/SWIM UP, EJAKÜLAT, ÇÖZME SPERM).
+
+## Protokol notu kısa tutuldu — form kutusu taşıyordu
+
+İlk yazışta aktarımın bütün ayrıntıları (empty zona sayısı, taşıyıcı yok,
+MI/GV ayrımı, taraf ayrımı) protokol notuna yazılmıştı. O metin Embriyoloji
+Özet formunun NOTLAR kutusuna basılıyor (v6.102) ve kutu `white-space: pre`
+— uzun satır sarmıyor, **kutunun dışında kesiliyor**. Ekran görüntüsünde
+görüldü. Şimdi notta yalnızca kaynağın kendi metni, tek cümlelik uyarı ve
+işaret var; satırlar 68 karakterde sarılıyor. Ölçüldü: kutunun
+`scrollWidth == clientWidth` ve `scrollHeight == clientHeight`, yani hiçbir
+yönde taşma yok. Ayrıntılar zaten verinin kendisinde: maturasyon olayı
+olmayan oosit = empty zona, taşıyıcısız vitrifikasyon kaydı = yeri bilinmiyor.
+
+## Aktarılmayanlar — uydurulmadı
+
+- **Gebelik sonucu**: kaynağın bütün gebelik alanları (BHCG, USG, doğum)
+  boş. "Transfer yapılıp sonuca ulaştı mı" sorusunun ilk yarısı aktarıldı,
+  ikinci yarısı bu dosyada yok.
+- **Cleavage/blastokist sayısı**: kaynakta gün 2/3/5'te kaç embriyo olduğu
+  yok. Aşama yalnızca dondurulan ve transfer edilen embriyo için yazılı.
+  Dondurulanlar için o kadarı kaydedildi (gün ≥ 5 blastokist, öncesi
+  cleavage değerlendirmesi, skor alanları boş) — yani bu sayılar "en az"
+  demek. FET'te transfer edilen embriyo için yazılmadı: o embriyo bu
+  tedavide gelişmedi, `oran_blast`'ın paydasında karşılığı yok.
+- **Taşıyıcı ve konum**: kaynakta yok. Vitrifikasyon olayı
+  `vit_tasiyici_id` olmadan yazılıyor — sayı doğru, Cryo Haritası'nda
+  görünmüyor. Taşıyıcı uydurmak v6.127'nin geri alınan hatasıydı.
+- **EMPTY ZONA**: `maturasyon` listesinde karşılığı yok. O oositler kayıt
+  olarak açılıyor, maturasyon olayı yazılmıyor (7 oosit).
+- **MI/GV ayrımı**: kaynak ikisini toplamış, hepsi `mi` yazıldı (18 oosit).
+- **OPU sağ/sol**: kaynakta taraf yok; toplam `opu_sag_oosit`e yazıldı
+  ("Toplanan" bu ikisinin toplamı, v6.112), özet kutusunda "sağ N · sol 0"
+  görünüyor.
+- **TEDAVİ PROTOKOLÜ** (GONAPEPTYL gibi ilaç adı) `protokol_tipi`
+  listesine (antagonist/long agonist/...) uymuyor; eşlemek klinik bir
+  varsayım olurdu. Ham metin notta, `protokol_tipi` boş.
+- **NOTLAR CONFIDENTIAL**: telefon `hasta.telefon`a, parantez içindeki
+  endikasyon (`AOR`, `ERKEK FAKTÖR`) `cycle.endikasyon`a gidiyor. Protokol
+  notuna **yazılmıyor** — o metin resmî forma basılıyor, hasta telefonunun
+  orada işi yok.
+
+## `olusturma_zamani` tedavinin tarihine çekiliyor
+
+Kayıt bugün açılıyor ama iş ağustosta yapıldı. Ay listeleri ve
+`/istatistik`'in ay süzgeci `COALESCE(c.opu_zamani, c.olusturma_zamani)`
+kullanıyor — FET'te `opu_zamani` yok, bu alan olmasa yedi FET eylül ayına
+düşerdi. Aynı sebeple hasta kaydının damgası da ilk tedavisinin tarihine
+çekiliyor: "Son kayıtlar" (v6.124, son 7 gün) aktarılan eski kaydı "bu
+haftanın işi" gibi göstermemeli.
+
+## Ölçüm
+
+20 satır, 20 hasta, 20 tedavi (8 ivf_icsi, 7 fet, 5 oosit_cryo), hata yok.
+Kaynak ile program satır satır karşılaştırıldı:
+
+| | kaynak | program |
+|---|---|---|
+| toplanan oosit | 94 | 94 |
+| MII | 67 | 67 |
+| immatür (MI) | 18 | 18 |
+| dejenere | 2 | 2 |
+| empty zona | 7 | 7 (maturasyon olayı yok) |
+| ICSI | 44 | 44 |
+| 2PN | 23 | 23 |
+| 0PN (intakt) | 19 | 19 |
+| ICSI sonrası dejenere | 2 | 2 |
+| dondurulan | 7 | 7 |
+| çözülen | 11 | 11 |
+| transfer | 8 | 8 |
+| sperm örneği | 7 | 7 |
+
+`/istatistik?yil=2026&ay=8`: 20 tedavi, %71.3 M2, %52.3 fertilizasyon,
+%17.4 blastokist, gebelik oranı %0 (kaynakta sonuç yok). 45 adres 200
+döndürdü (bütün aşama ekranları, iki resmî form, beş Excel çıktısı dahil).
+`teshis.py` "tarihlerin yılları makul" diyor, `teshis_silme.py` aktarılan
+bir hastada bütün silme adımlarını geçiyor, `PRAGMA foreign_key_check`
+temiz. Ana ekranın "Devam Eden Tedaviler" kartı ağustos işiyle dolmuyor.
+
+## Sonraki oturuma not
+
+Kaynak dosya ve ondan üretilen CSV **depoya girmedi** ve girmemeli: gerçek
+hasta verisi. Bu bölümde de hiçbir hasta adı/dosya numarası yok, bilerek.

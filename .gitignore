@@ -12,6 +12,12 @@ yedek.log
 program.log
 program.log.*
 
+# Dışarıdan gelen hasta verisi (Access dökümü ve ondan üretilen CSV,
+# aktar_access.py'nin girdisi). Gerçek hasta kaydı — depoya girmez.
+*.accdb
+*.mdb
+*.csv
+
 # Makineye özel ayar
 yerel_ayar.json
 

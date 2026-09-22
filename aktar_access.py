@@ -1,0 +1,943 @@
+"""Access'ten dışa aktarılmış tedavi kayıtlarını programa alır.
+
+Kullanıcının isteği (2026-09-22): "Bu accdb dosyasında ağustos ayında
+laboratuvarda tedavisini yaptığım hastalar... hasta kartı oluşturup
+tedavileri ekler misin? Eğer aynı hasta varsa oluşturulmuş hasta kartına
+tedaviyi ekle." Amacı: "bir hastanın tedavi sayısı, daha önce ne yapıldığı,
+kaç yumurta toplanıp ne kadar döllenip ne kadarı embriyo olduğu, ne kadar
+dondurulduğu, transfer yapılıp sonuca ulaştı mı önemli."
+
+**Bu bir araç, programın parçası değil.** Program `.accdb` okumuyor ve
+okumayacak (ek bağımlılık yok kuralı) -- Access'ten CSV'ye aktarılmış bir
+dosyayı okuyor. Programın koduna dokunmuyor, yalnızca kendi tablolarına
+kayıt yazıyor.
+
+Kullanım:
+    python3 aktar_access.py liste  agustos.csv    ne yazılacağını gösterir
+    python3 aktar_access.py        agustos.csv    AKTAR yazınca uygular
+
+**Önce `liste` ile bak.** Ne yazılacağını satır satır döküyor; hiçbir şeye
+dokunmuyor. Aktarmadan önce yedek al (`/yedekleme` → "Şimdi yedekle").
+
+------------------------------------------------------------------------
+ACCESS'TEN CSV NASIL ÇIKAR
+
+1. Access'te veritabanını aç, sol taraftaki tablolardan **VERİTABANI**'nı
+   seç (tıkla, açmana gerek yok).
+2. Dış Veri (External Data) → Dışa Aktar → **Metin Dosyası**.
+3. "Verileri kaynak biçimlendirmesi ... ile dışa aktar" seçeneğini işaretle.
+4. Sihirbazda **Ayrılmış (Delimited)**, ayırıcı virgül ya da noktalı virgül
+   (ikisi de okunuyor), "İlk satır alan adlarını içerir" **işaretli**,
+   metin niteleyici `"`.
+5. Kodlama **UTF-8** olsun (Gelişmiş düğmesi). Değilse Türkçe harfler
+   bozulur ve betik kolon adlarını bulamaz.
+
+Betik `.accdb` dosyasını okumuyor: okumak için ek bir kütüphane gerekirdi
+ve bu programın "ek bağımlılık yok" kuralı tam bunun için var (`excel.py`,
+`karekod.py`, `xlsx_oku.py` hepsi aynı sebeple kütüphanesiz).
+
+**Tarih biçimi**: `19.08.2026`, `08/19/26` ve `2026-08-19` tanınıyor.
+Gün/ay sırası belirsizse (ikisi de 12'den küçük) nokta ayıracı gün.ay,
+eğik çizgi ay/gün sayılıyor -- Access ile mdbtools'un yaptığı bu. `liste`
+kipi her satırın tarihini basıyor; **aktarmadan önce oradan bak**, yanlış
+okunmuşsa hemen görürsün.
+
+------------------------------------------------------------------------
+NASIL EŞLEŞTİRİYOR
+
+**Dosya numarasıyla.** Access'te "DOSYA NO" var ve şemadaki
+`UNIQUE (lab_id, dosya_no)` sayesinde "aynı dosya no" = "aynı hasta satırı".
+İsim benzerliğine hiç bakılmıyor (CLAUDE.md "isimle eşleştirme yok").
+- Dosya no programda varsa: yeni hasta açılmıyor, tedavi o karta ekleniyor.
+  Hastanın adı **üzerine yazılmıyor** -- programdaki kayıt daha yeni
+  olabilir; yalnızca BOŞ olan alan (eş adı, doğum tarihi, telefon)
+  dolduruluyor.
+- Yoksa yeni hasta kartı açılıyor (ad ve eş adı `tr_buyuk()` ile, v6.115).
+
+**Aynı tedavi iki kez girmiyor.** Her tedavinin protokol notuna Access'in
+kendi kayıt numarası yazılıyor (`[Access kaydı #12]`); o işareti taşıyan
+bir tedavi zaten varsa satır atlanıyor. Yani betiği iki kez çalıştırmak
+güvenli, yarıda kalırsa kaldığı yerden devam eder.
+
+------------------------------------------------------------------------
+SAYILAR NEDEN OOSİT OOSİT AÇILIYOR
+
+Access toplam tutuyor ("8 toplandı, 6 MII, 4 2PN"); program her oositi ayrı
+kaydedip sayıları ONDAN HESAPLIYOR (CLAUDE.md "istatistikler türetilmiştir",
+`cycle_ozet()`). Yani sayıyı yazacak bir kolon yok -- altı tane oosit
+kaydında "MII" yazması gerekiyor.
+
+Bu yüzden her tedavi için TOPLANAN OOSİT kadar `specimen` satırı ve
+sayılara uyan `olay` satırları açılıyor. Böylece tedavi ekranındaki özet,
+hasta kartı, `/istatistik` oranları ve Excel çıktıları hiçbir kod
+değişikliği gerekmeden doğru çalışıyor.
+
+**Bedeli dürüstçe yazılıyor**: hangi oositin MII olduğu Access'te yok,
+sırayla dağıtılıyor. Her tedavinin protokol notunda bu satır duruyor, yani
+ekranda da resmî formda da görünüyor:
+
+    Oosit kayıtları toplam sayılardan üretildi, tek tek gözlem değildir.
+
+Dağıtım kuralı (tek yerde, `_oositleri_ac()`): önce MII'ler, sonra immatür,
+sonra empty zona, dejenere, atretik. ICSI önce MII'lere veriliyor; İŞLEME
+ALINAN sayısı MII'den fazlaysa (bir satırda öyle: 12 MII, 13 işlem) kalanı
+immatürlere gidiyor. Fertilizasyon işlem gören oositlere: önce 2PN'ler,
+sonra INTAKT'lar.
+
+**INTAKT = 0PN.** Kaynak kayıtta her satırda
+`İŞLEME ALINAN = 2PN + ANORMAL + İŞLEM SONRASI DEJENERE + INTAKT`
+tutuyor (yirmi satırın hepsinde doğrulandı) -- yani INTAKT "döllenmemiş,
+bütün kalmış" oosit demek, programın `pn_sayisi` listesindeki `0` bu.
+
+------------------------------------------------------------------------
+KARŞILIĞI OLMAYAN ALANLAR -- UYDURULMUYOR
+
+- **EMPTY ZONA**: `maturasyon` listesinde karşılığı yok (mii/mi/gv/
+  degenere/atretik). O oositler kayıt olarak açılıyor ama maturasyon olayı
+  yazılmıyor, sayısı nota düşüyor.
+- **İMMATÜR (MI+GV)**: Access ikisini toplamış, program ayrı tutuyor.
+  Hepsi `mi` yazılıyor, nota "MI/GV ayrımı kaynak kayıtta yok" düşüyor.
+- **OPU sağ/sol**: kaynakta taraf yok, tek toplam var. Toplam
+  `opu_sag_oosit`e yazılıyor ("Toplanan" bu ikisinin toplamı, v6.112) ve
+  nota "taraf ayrımı kaynak kayıtta yok" düşüyor.
+- **Cleavage / blastokist sayısı**: kaynakta gün 2/3/5'te kaç embriyo
+  olduğu YOK. Aşama yalnızca **dondurulan** ve **transfer edilen** embriyo
+  için yazılı ("5,GÜN", "3.GÜN").
+  - Dondurulanlar için o kadarı kaydediliyor: gün ≥ 5 blastokist, öncesi
+    cleavage değerlendirmesi, skor alanları boş. Yani bu sayılar "en az"
+    demek -- gün 5'e ulaşıp dondurulmayan embriyo kaynakta hiç görünmüyor.
+    `/istatistik`'in blastokist oranı bu yüzden olduğundan düşük çıkar;
+    ağustos için "ölçülmedi" demek daha doğru olurdu ama programda o ayrım
+    yok.
+  - FET'te transfer edilen embriyo için **yazılmıyor**: o embriyo bu
+    tedavide gelişmedi, programda hiç olmayan bir önceki tedavide gelişti.
+    Aşaması ve kalitesi transfer olayının notunda duruyor ("5. gün", "3AA").
+- **Dondurulan embriyonun taşıyıcısı ve yeri**: kaynakta yok.
+  `vitrifikasyon` olayı `vit_tasiyici_id` olmadan yazılıyor -- sayı doğru
+  çıkar ama Cryo Haritası'nda görünmez. Taşıyıcı/konum uydurmak, geri
+  alınan v6.127'nin hatasıydı.
+- **Dondurulan YUMURTA (oosit_cryo)**: kaynağın "DONDURULAN EMBRİYO
+  SAYISI" alanı embriyo için, yumurta dondurmada boş. Kaç yumurtanın
+  dondurulduğu yalnızca serbest NOTLAR metninde yazıyor ("16 ADET OOSİT
+  4 TÜPTE..."). Serbest metinden sayı çıkarmak kırılgan olurdu; o tedaviler
+  için vitrifikasyon olayı **yazılmıyor**, not olduğu gibi aktarılıyor.
+  Kullanıcı isterse vitrifikasyon ekranından elle girer.
+- **Gebelik sonucu**: kaynağın bütün gebelik alanları (BHCG, USG, doğum)
+  **boş**. "Transfer yapılıp sonuca ulaştı mı" sorusunun ilk yarısı
+  aktarılıyor (transfer var/yok), ikinci yarısı bu dosyada yok.
+- **TEDAVİ PROTOKOLÜ** (GONAPEPTYL gibi ilaç adı) `protokol_tipi`
+  listesine (antagonist/long agonist/...) uymuyor; eşlemek klinik bir
+  varsayım olurdu. Ham metin nota yazılıyor, `protokol_tipi` boş kalıyor.
+- Karşılığı olmayan ötekiler (INTAKT dışındaki sayımlar, transfer
+  klinisyeni, medium/lot) forma da boş giriyor -- README v6.37'nin kuralı.
+
+------------------------------------------------------------------------
+FET: EMBRİYO NEREDEN GELİYOR
+
+`fet` tedavilerinde çözülen embriyolar daha önceki aylarda -- programın
+olmadığı dönemde -- dondurulmuş. Kaynak tedavi programda YOK.
+
+CLAUDE.md `specimen.cycle_id`'nin embriyonun KENDİ cycle'ı olduğunu
+söylüyor; burada o cycle hiç yok. İki seçenek vardı: (a) embriyoyu hiç
+kaydetmemek, (b) FET tedavisinin kendi altına kaydetmek.
+
+**(b) seçildi**, çünkü ağustosta yapılan BÜTÜN transferler FET: (a) ile
+program "ağustosta hiç transfer yapılmamış" derdi ve kullanıcının en çok
+istediği bilgi (transfer yapıldı mı) kaybolurdu. Embriyolar FET'in kendi
+altında açılıyor, `thaw`/`transfer` olayları `thaw_cycle_id`/`tr_cycle_id`
+ile yine aynı tedaviyi gösteriyor -- program her yerde
+`COALESCE(tr_cycle_id, s.cycle_id)` kullandığı için sayılar doğru çıkıyor.
+
+Bunun tek yan etkisi vardı: `/istatistik`'in "kayıtlı oosit" sayısı
+`specimen` satırlarını sayıyor ve FET embriyoları toplanmış yumurta gibi
+görünüp MII oranını düşürüyordu. Bu, aktarımdan bağımsız bir doğruluk
+hatası (çözülmüş bir embriyo hiçbir dünyada "toplanan oosit" değil), o
+yüzden `disari.istatistikler()`'de düzeltildi: oosit sayımı artık yumurta
+toplanan tedavilerle sınırlı.
+"""
+
+
+import csv
+import datetime as _dt
+import re
+import sys
+import textwrap
+
+import db as _db          # veritabanının yeri tek yerde: db.py (tuzak #8)
+
+DB = _db.DB_YOLU
+if not DB.exists():
+    sys.exit("lab.db bulunamadi.")
+
+
+# --------------------------------------------------------------- yardımcılar
+
+def tr_buyuk(deger):
+    """Türkçe büyük harf. `app.tr_buyuk()`'ün birebir kopyası.
+
+    Göç/araç betikleri `app.py`'yi import etmiyor (goc_040'ın deseni).
+    `str.upper()` Türkçe 'i'yi yanlış çeviriyor -- v6.115.
+    """
+    if deger is None:
+        return None
+    return deger.replace("i", "İ").upper()
+
+
+def _m(s):
+    return (s or "").strip()
+
+
+def _sayi(s, varsayilan=None):
+    s = _m(s)
+    if not s:
+        return varsayilan
+    try:
+        return int(float(s.replace(",", ".")))
+    except ValueError:
+        return varsayilan
+
+
+def _ondalik(s):
+    s = _m(s)
+    if not s:
+        return None
+    try:
+        return float(s.replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _tarih(s):
+    """Access'in yazdığı tarihi ISO'ya çevirir. Çevrilemezse None.
+
+    mdbtools `08/19/26 00:00:00` (ay/gün/yıl), Access'in kendi dışa
+    aktarımı `19.08.2026` ya da `19/08/2026` yazabiliyor. Üçü de tanınıyor;
+    belirsiz olan ilk iki parça, ay/gün sırası **12'den büyük olana** göre
+    çözülüyor.
+    """
+    s = _m(s)
+    if not s:
+        return None
+    s = s.split()[0]
+    e = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    if e:
+        return s
+    p = re.split(r"[./-]", s)
+    if len(p) != 3 or not all(x.isdigit() for x in p):
+        return None
+    a, b, y = int(p[0]), int(p[1]), int(p[2])
+    if y < 100:
+        # İki haneli yıl: 00-29 -> 2000'li, 30-99 -> 1900'lü (Excel/Access'in
+        # kendi kuralı). Düz "+2000" doğum tarihlerini 2088'e taşıyordu --
+        # tedavi tarihleri 26 (2026), doğum tarihleri 88/96 (1988/1996).
+        y += 2000 if y < 30 else 1900
+    gun, ay = (b, a) if a <= 12 and b > 12 else (a, b)
+    if a <= 12 and b <= 12:          # ikisi de olabilir -> gün.ay (Access TR)
+        gun, ay = (a, b) if "." in s else (b, a)
+    try:
+        return _dt.date(y, ay, gun).isoformat()
+    except ValueError:
+        return None
+
+
+def _zaman(iso, saat="09:00:00"):
+    return f"{iso} {saat}" if iso else None
+
+
+# Kaynak kayıttaki metinler elle yazılmış: aynı şey iki türlü yazılmış
+# (GONAPEPTLY/GONAPEPTYL, OOSİT/OOİT CRYO, SWİM UP/SWIM UP, KONSANTRAYON/
+# KONSANTRASYON, 5,GÜN/5.GÜN). Karşılaştırmadan önce büyük harfe çevirip
+# **bütün Türkçe harfleri ASCII'ye katlıyoruz**.
+#
+# Yalnızca `İ`yi katlamak yetmiyor: ilk yazışta öyleydi ve "3. GÜN EMBRİYO
+# ARRESTİ SEBEBİYLE İŞLEM İPTAL EDİLDİ" notu `cleavage_arrest` yerine genel
+# "iptal"e düşüyordu — kalıptaki "GUN" ile metindeki "GÜN" tutmuyordu.
+# Yeni bir kalıp yazarken kalıbı da ASCII yaz (GUN, ASAMA, COZME).
+_KATLA = str.maketrans("İIŞĞÜÖÇ", "IISGUOC")
+
+
+def _sade(s):
+    return re.sub(r"\s+", " ", _m(s)).upper().translate(_KATLA)
+
+
+FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")   # app.FET_TIPLERI
+
+
+def cycle_tipi(protokol: str) -> str:
+    p = _sade(protokol)
+    if "COZME" in p:
+        return "fet"
+    if "CRYO" in p or "KRIYO" in p:
+        return "oosit_cryo"
+    return "ivf_icsi"
+
+
+_HAZIRLAMA = {"SWIM UP": "swim_up", "SWIMUP": "swim_up",
+              "KONSANTRASYON": "gradient", "KONSANTRAYON": "gradient",
+              "GRADIENT": "gradient", "YIKAMA": "yikama"}
+_ALINMA = {"EJAKULAT": "masturbasyon", "EJAKÜLAT": "masturbasyon",
+           "TESE": "tese", "TESA": "tesa", "MIKROTESE": "mikrotese",
+           "COZME SPERM": "thaw", "ÇÖZME SPERM": "thaw", "DONOR": "donor"}
+
+
+# ------------------------------------------------------------------ okuma
+
+def satirlari_oku(yol: str) -> list:
+    """CSV'yi okur ve her satırı programın anlayacağı bir sözlüğe çevirir."""
+    with open(yol, encoding="utf-8-sig", newline="") as f:
+        baslik = f.readline()
+        f.seek(0)
+        # Access Türkçe Windows'ta CSV'yi noktalı virgülle yazıyor, mdbtools
+        # virgülle. Ayıracı başlık satırındaki sayısına bakarak seçiyoruz --
+        # `csv.Sniffer` kolon adlarındaki noktalı virgülsüz metinlerde
+        # yanılabiliyor.
+        ayirac = max((";", ",", "\t"), key=baslik.count)
+        ham = list(csv.DictReader(f, delimiter=ayirac))
+    if not ham:
+        sys.exit("CSV bos.")
+    gerekli = ("DOSYA NO", "SOYADI", "ADI")
+    eksik = [k for k in gerekli if k not in ham[0]]
+    if eksik:
+        sys.exit(f"CSV'de su kolonlar yok: {', '.join(eksik)}\n"
+                 f"Access'te VERITABANI tablosunu disa aktardigina emin ol.")
+
+    cikti = []
+    for s in ham:
+        def v(k):
+            return _m(s.get(k))
+        dosya_no = _sayi(v("DOSYA NO"))
+        if not dosya_no:
+            continue                       # dosya numarasi olmayan satir alinmaz
+        tip = cycle_tipi(v("TEDAVİ PROTOKOLÜ"))
+        opu = _tarih(v("OPU TARİHİ"))
+        transfer = _tarih(v("TRANSFER TARİHİ"))
+        cikti.append({
+            "kimlik": v("Kimlik"),
+            # Tedavinin tarihi: OPU, yoksa transfer (FET'te OPU yok). Hem
+            # sıralama hem `olusturma_zamani` bundan besleniyor.
+            "tarih": opu or transfer,
+            "dosya_no": dosya_no,
+            "ad_soyad": tr_buyuk(f'{v("ADI")} {v("SOYADI")}'.strip()),
+            "es_adi": tr_buyuk(v("EŞİNİN ADI")) or None,
+            "dogum_tarihi": _tarih(v("DOĞUM TARİHİ")),
+            "tip": tip,
+            "protokol": _m(v("TEDAVİ PROTOKOLÜ")),
+            "opu": opu,
+            "transfer": transfer,
+            "opu_hekim": _m(v("OPU KLİNİSYEN")) or None,
+            "notlar": _m(v("NOTLAR")),
+            "gizli_not": _m(v("NOTLAR CONFIDENTIAL")),
+            # --- oosit sayıları ---
+            "toplanan": _sayi(v("TOPLANAN OOSİT"), 0),
+            "mii": _sayi(v("MATÜR (MII)"), 0),
+            "immatur": _sayi(v("İMMATÜR (MI+GV)"), 0),
+            "empty_zona": _sayi(v("EMPTY ZONA"), 0),
+            "dejenere": _sayi(v("DEJENERE"), 0),
+            "atretik": _sayi(v("ATRETİK"), 0),
+            # --- ICSI / fertilizasyon ---
+            "islenen": _sayi(v("İŞLEME ALINAN OOSİT SAYISI"), 0),
+            "iki_pn": _sayi(v("NORMAL FERTİLİZASYON (2PN)"), 0),
+            # INTAKT = döllenmemiş, bütün kalmış oosit = 0PN (docstring'de
+            # aritmetiğiyle yazılı: işlenen = 2pn + anormal + dejenere + intakt)
+            "intakt": _sayi(v("INTAKT"), 0),
+            "anormal_fert": _sayi(v("ANORMAL FERTİLİZASYON"), 0),
+            "islem_dejenere": _sayi(v("İŞLEM SONRASI DEJENERE"), 0),
+            "fert_yontemi": _m(v("FERTİLİZASYON YÖNTEMİ")),
+            # --- transfer / dondurma / çözme ---
+            "transfer_adet": _sayi(v("TRANSFER EDİLEN EMBRİYO SAYISI"), 0),
+            "transfer_asama": _m(v("EMBRİYO TRANSFER AŞAMASI")),
+            "dondurulan": _sayi(v("DONDURULAN EMBRİYO SAYISI"), 0),
+            "dondurma_asama": _m(v("EMBRİYO DONDURMA AŞAMASI")),
+            "cozulen": _sayi(v("ÇÖZDÜRÜLEN EMBRİYO SAYISI"), 0),
+            "viabilite": _ondalik(v("ÇÖZDÜRME SONRASI VİABİLİTE")),
+            "emb1": (_m(v("EMBRİYO1 HÜCRE/AŞAMA")), _m(v("EMBRİYO1 KALİTE"))),
+            "emb2": (_m(v("EMBRİYO2 HÜCRE/AŞAMA")), _m(v("EMBRİYO2 KALİTE"))),
+            # --- androloji ---
+            "sperm_kaynak": _m(v("SPERM KAYNAĞI")),
+            "hazirlama": _m(v("HAZIRLAMA YÖNTEMİ")),
+            "bazal": {
+                "hacim_ml": _ondalik(v("BAZAL VOLÜM (ML)")),
+                "konsantrasyon_milyon_ml": _ondalik(v("BAZAL KONSANTRASYON (x106/ML)")),
+                "total_motil_yuzde": _ondalik(v("BAZAL MOTİLİTE (%)")),
+                "pr_yuzde": _ondalik(v("BAZAL PROGRESSİF (%)")),
+                "morfoloji_normal_yuzde": _ondalik(v("MORFOLOJİ (% NORMAL)")),
+                "lokosit_milyon_ml": _ondalik(v("LÖKOSİT (x106/ML)")),
+            },
+            "hazirlik": {
+                "hacim_ml": _ondalik(v("HAZIRLAMA SONRASI VOLÜM (ML)")),
+                "konsantrasyon_milyon_ml": _ondalik(
+                    v("HAZIRLAMA SONRASI KONSANTRASYON (x106/ML)")),
+                "total_motil_yuzde": _ondalik(v("HAZIRLAMA SONRASI MOTİLİTE (%)")),
+                "pr_yuzde": _ondalik(v("HAZIRLAMA SONRASI PROGRESSİF (%)")),
+            },
+            # --- işlemi yapan ---
+            "yapan": {
+                "opu": _m(v("OPU EMBRİYOLOG")) or None,
+                "androloji": _m(v("HAZIRLAYAN EMBRİYOLOG")) or None,
+                "icsi": _m(v("EMBRİYOLOG")) or None,
+                "transfer": _m(v("TRANSFER EMBRİYOLOG")) or None,
+            },
+        })
+    return cikti
+
+
+# ------------------------------------------------------------------- yazma
+
+ISARET = "[Access kaydı #{}]"      # aynı satır iki kez girmesin diye
+
+
+def _isaret(kimlik) -> str:
+    return ISARET.format(kimlik)
+
+
+def _kullanici_id() -> int:
+    """Kayıtları "kimin girdiği". `olay.kullanici_id` NOT NULL.
+
+    Aktarımı yapan yönetici seçiliyor. Bu "kim yaptı" değil "kim girdi" --
+    işlemi yapan embriyolog ayrı, `islem_yapan.yapan_ad`'a yazılıyor
+    (CLAUDE.md'nin ayrımı).
+    """
+    for kosul in ("AND rol='yonetici'", ""):
+        r = _db.tek(f"SELECT id FROM kullanici WHERE lab_id=? AND aktif_mi=1 "
+                    f"{kosul} ORDER BY id LIMIT 1", (_db.LAB_ID,))
+        if r:
+            return r["id"]
+    sys.exit("Aktif kullanici yok -- once bir kullanici ac (kullanici.py).")
+
+
+def _lab_no(b, yil: str) -> str:
+    """Bir sonraki tedavi numarası. `app.sonraki_lab_no()`'nun kopyası.
+
+    Tek fark: yıl öneki **tedavinin kendi yılından** geliyor (aktarım
+    gelecek yıl çalıştırılsa bile ağustos 2026 kaydı 2026-xxxx olsun diye).
+    Aynı işlem içinde okuyup yazıyor -- tuzak #7.
+    """
+    onek = yil if _db.ayar("lab_no_yillik_sifirla", "1") == "1" \
+        else _db.ayar("lab_no_onek", yil)
+    basamak = int(_db.ayar("lab_no_basamak", "4") or 4)
+    bosluk_doldur = _db.ayar("lab_no_bosluk_doldur", "1") == "1"
+    kalip = re.compile(rf"^{re.escape(onek)}-(\d+)$")
+    kullanilan = set()
+    for (no,) in b.execute("SELECT cycle_no FROM cycle WHERE lab_id=?",
+                           (_db.LAB_ID,)).fetchall():
+        m = kalip.match(no or "")
+        if m:
+            kullanilan.add(int(m.group(1)))
+    if bosluk_doldur:
+        sira = 1
+        while sira in kullanilan:
+            sira += 1
+    else:
+        sira = (max(kullanilan) + 1) if kullanilan else 1
+    return f"{onek}-{sira:0{basamak}d}"
+
+
+def _gun_ekle(iso: str, gun: int) -> str:
+    return (_dt.date.fromisoformat(iso) + _dt.timedelta(days=gun)).isoformat()
+
+
+def _asama_gunu(metin: str):
+    """"5,GÜN" / "3.GÜN" -> 5 / 3. Tanınmazsa None."""
+    m = re.match(r"\s*(\d+)", _m(metin))
+    return int(m.group(1)) if m else None
+
+
+# İptal sebebi kaynak kaydın NOTLAR metninden okunuyor. **Serbest metinden
+# klinik karar çıkarmak riskli**, o yüzden iki kademeli: metin önce açıkça
+# "iptal edildi" / "uygulanmadı" demeli; ancak ondan sonra hangi ayrıntılı
+# sebep olduğuna bakılıyor, tanınmazsa genel "iptal" kalıyor (CLAUDE.md:
+# genel İptal listede olmayan sebepler için duruyor). `liste` kipi hangi
+# satıra hangi sebebin yazılacağını tek tek basıyor -- aktarmadan önce oku.
+_IPTAL_SOZU = ("IPTAL", "UYGULANMADI")
+_IPTAL_AYRINTI = (
+    ("fert_olmadi", ("FERTILIZASYON OLMADI",)),
+    ("cleavage_arrest", ("2. GUN EMBRIYO ARRE", "3. GUN EMBRIYO ARRE",
+                         "2.GUN EMBRIYO ARRE", "3.GUN EMBRIYO ARRE",
+                         "KLIVAJ ASAMASINDA EMBRIYO ARRE")),
+    ("gun5_arrest", ("5. GUN EMBRIYO ARRE", "5.GUN EMBRIYO ARRE",
+                     "BLASTOKIST ARRE")),
+)
+
+
+# "Dondurularak saklandı" cümlesi: sayı alanı boş olan yumurta dondurmada
+# tedavinin nasıl bittiğini yalnızca not söylüyor. "DONDURULMUŞ EMBRİYOSU
+# KALDI" (önceki tedaviden artan) bilerek eşleşmiyor.
+_DONDURMA_SOZU = ("DONDURULARAK SAKLAND", "DONDURULDU")
+
+
+def _dondurma_sozu(notlar: str) -> bool:
+    n = _sade(notlar)
+    return any(s in n for s in _DONDURMA_SOZU)
+
+
+def _iptal_sebebi(notlar: str):
+    n = _sade(notlar)
+    if not any(s in n for s in _IPTAL_SOZU):
+        return None
+    for kod, kaliplar in _IPTAL_AYRINTI:
+        if any(k in n for k in kaliplar):
+            return kod
+    return "iptal"
+
+
+_ENDIKASYON = (("AOR", "azalmis_over_rezervi"),
+               ("AZALMIS OVER", "azalmis_over_rezervi"),
+               ("ERKEK FAKTOR", "erkek_faktoru"))
+
+
+def _gizli_notu_coz(metin: str) -> tuple:
+    """NOTLAR CONFIDENTIAL -> (telefon, endikasyon kodu, kalan metin).
+
+    O kolon telefon numarası ve parantez içinde endikasyon taşıyor. İkisi
+    de programda kendi alanına gidiyor; **protokol notuna yazılmıyor**,
+    çünkü protokol notu resmî formun NOTLAR kutusuna basılıyor (v6.102) --
+    hasta telefonu orada işi yok.
+    """
+    ham = _m(metin)
+    if not ham:
+        return None, None, ""
+    tel = None
+    m = re.search(r"[\d][\d ]{8,}", ham)
+    if m and len(re.sub(r"\D", "", m.group(0))) >= 10:
+        tel = re.sub(r"\s+", " ", m.group(0)).strip()
+        ham = ham.replace(m.group(0), " ")
+    sade = _sade(ham)
+    endikasyon = next((kod for anahtar, kod in _ENDIKASYON if anahtar in sade), None)
+    # Tanınan endikasyon `cycle.endikasyon`a gidiyor; aynı kelimeyi bir de
+    # hasta notuna yazmak gereksiz tekrar olurdu ("Not: AOR"). Silme
+    # **katlanmış kopyanın üstünden** yürüyor ("ERKEK FAKTÖR" ham metinde
+    # Türkçe harfli, kalıplar ASCII) ama karakter karakter hizalı kalsın
+    # diye boşluk sıkıştırılmıyor -- `_sade()` sıkıştırdığı için burada
+    # kullanılamaz.
+    hizali = ham.upper().translate(_KATLA)
+    for anahtar, _kod in _ENDIKASYON:
+        yer = hizali.find(anahtar)
+        while yer >= 0:
+            bosluk = " " * len(anahtar)
+            ham = ham[:yer] + bosluk + ham[yer + len(anahtar):]
+            hizali = hizali[:yer] + bosluk + hizali[yer + len(anahtar):]
+            yer = hizali.find(anahtar)
+    kalan = re.sub(r"[\s()+]+", " ", ham).strip()
+    return tel, endikasyon, kalan
+
+
+def _not_kur(r: dict) -> str:
+    """Tedavinin protokol notu -- ekranda **ve resmî formda** görünen metin.
+
+    **Kısa tutuluyor, bilerek.** Bu metin Embriyoloji Özet formunun NOTLAR
+    kutusuna basılıyor (v6.102) ve o kutu `white-space: pre` -- uzun satır
+    sarmıyor, kutunun dışında kesiliyor. İlk yazışta aktarımın bütün
+    ayrıntıları (empty zona sayısı, taşıyıcı yok, MI/GV ayrımı...) buraya
+    yazılmıştı ve formda kesik görünüyordu. O ayrıntılar zaten verinin
+    kendisinde duruyor (maturasyon olayı olmayan oosit, taşıyıcısız
+    vitrifikasyon kaydı); burada yalnızca kaynağın kendi metni, tek cümlelik
+    uyarı ve işaret kalıyor. Satırlar 68 karakterde elle sarılıyor.
+
+    Yeni bir satır eklersen formu açıp bak (tuzak #5) -- kutu yaklaşık
+    yedi satır alıyor.
+    """
+    p = []
+    if r["protokol"]:
+        p.append(f'Tedavi protokolü (kaynak kayıt): {r["protokol"]}')
+    if r["notlar"]:
+        p.append(r["notlar"])
+    if r["tip"] in FET_TIPLERI:
+        p.append("Program öncesi Access kaydından aktarıldı; çözülen "
+                 "embriyoların dondurulduğu tedavi programda yok. "
+                 + _isaret(r["kimlik"]))
+    else:
+        p.append("Program öncesi Access kaydından aktarıldı; oosit kayıtları "
+                 "toplam sayılardan üretildi, tek tek gözlem değildir. "
+                 + _isaret(r["kimlik"]))
+    return "\n".join(textwrap.fill(satir, 68) for satir in p)
+
+
+def _olay(b, kid, specimen_id, cycle_id, tip, zaman, **alanlar):
+    alanlar = {k: v for k, v in alanlar.items() if v is not None}
+    kolonlar = ["lab_id", "specimen_id", "cycle_id", "tip", "zaman",
+                "kullanici_id", "olusturma_zamani"] + list(alanlar)
+    degerler = [_db.LAB_ID, specimen_id, cycle_id, tip, zaman, kid,
+                zaman] + list(alanlar.values())
+    b.execute(f"INSERT INTO olay ({','.join(kolonlar)}) "
+              f"VALUES ({','.join('?' * len(kolonlar))})", degerler)
+
+
+def _durum_yaz(b, sid, durum):
+    b.execute("UPDATE specimen SET durum=? WHERE id=?", (durum, sid))
+
+
+def _hastayi_bul_veya_ac(b, r, rapor) -> int:
+    """Dosya numarasına göre hasta. Varsa **üzerine yazmaz**, boşları doldurur."""
+    tel, _endikasyon, kalan = _gizli_notu_coz(r["gizli_not"])
+    h = b.execute("SELECT * FROM hasta WHERE lab_id=? AND dosya_no=?",
+                  (_db.LAB_ID, r["dosya_no"])).fetchone()
+    if h:
+        bos = {}
+        for kolon, deger in (("es_adi", r["es_adi"]),
+                             ("dogum_tarihi", r["dogum_tarihi"]),
+                             ("telefon", tel), ("notlar", kalan or None)):
+            if deger and not h[kolon]:
+                bos[kolon] = deger
+        if bos:
+            b.execute("UPDATE hasta SET " + ",".join(f"{k}=?" for k in bos) +
+                      " WHERE id=?", list(bos.values()) + [h["id"]])
+            rapor.append(f'    hasta {r["dosya_no"]}: boş alanlar dolduruldu '
+                         f'({", ".join(bos)})')
+        else:
+            rapor.append(f'    hasta {r["dosya_no"]}: zaten kayıtlı')
+        return h["id"]
+
+    # `olusturma_zamani` tedavinin tarihine çekiliyor: kayıt bugün açılıyor
+    # ama iş ağustosta yapıldı. Ay listeleri ve `/istatistik`'in ay süzgeci
+    # bu alana düşüyor (FET'te opu_zamani yok), "Son kayıtlar" da öyle --
+    # aktarılan eski kayıt "bu haftanın işi" gibi görünmemeli (v6.124).
+    b.execute("INSERT INTO hasta (lab_id, dosya_no, ad_soyad, dogum_tarihi, "
+              "es_adi, telefon, notlar, durum, olusturma_zamani) "
+              "VALUES (?,?,?,?,?,?,?,'aktif',?)",
+              (_db.LAB_ID, r["dosya_no"], r["ad_soyad"], r["dogum_tarihi"],
+               r["es_adi"], tel, kalan or None, _zaman(r["tarih"], "08:00:00")))
+    rapor.append(f'    hasta {r["dosya_no"]}: YENİ kart açıldı')
+    return b.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def _cycle_ac(b, r, hasta_id, rapor) -> tuple:
+    """Tedaviyi açar. (cycle_id, cycle_no) döner."""
+    tarih = r["tarih"]
+    yil = tarih[:4] if tarih else str(_dt.date.today().year)
+    cycle_no = _lab_no(b, yil)
+    sira = (b.execute("SELECT MAX(hasta_cycle_no) FROM cycle WHERE hasta_id=?",
+                      (hasta_id,)).fetchone()[0] or 0) + 1
+    _tel, endikasyon, _kalan = _gizli_notu_coz(r["gizli_not"])
+
+    sebep = _iptal_sebebi(r["notlar"])
+    if sebep:
+        durum, bitis = "iptal", sebep
+        bitis_zamani = r["transfer"] or r["opu"]
+    elif r["transfer"] and r["transfer_adet"]:
+        durum, bitis, bitis_zamani = "tamamlandi", "transfer", r["transfer"]
+    elif r["dondurulan"] or _dondurma_sozu(r["notlar"]):
+        # Yumurta dondurmada sayı alanı boş (embriyo kolonu) ama not açıkça
+        # "16 ADET OOSİT ... DONDURULARAK SAKLANDI" diyor -- iptal notunda
+        # olduğu gibi, kaynak kaydın kendi cümlesine güveniliyor.
+        gun = _asama_gunu(r["dondurma_asama"]) or 0
+        durum, bitis = "tamamlandi", "dondurma"
+        bitis_zamani = _gun_ekle(r["opu"], gun) if r["opu"] else None
+    else:
+        # Kaynak kayıt ne transfer ne dondurma diyor, iptal de demiyor.
+        # Uydurulmuyor: tedavi "tamamlandı" olarak kapanıyor (yapılacaklar
+        # listesini ağustos işiyle doldurmasın diye) ama sebep boş kalıyor.
+        # `cycle_detay.html` bu durumu zaten biliyor: sebep yoksa
+        # "Tamamlandı" rozeti basıyor.
+        durum, bitis = "tamamlandi", None
+        bitis_zamani = r["transfer"] or r["opu"]
+
+    opu_zamani = _zaman(r["opu"], "09:00:00") if r["tip"] not in FET_TIPLERI else None
+    b.execute(
+        "INSERT INTO cycle (lab_id, hasta_id, cycle_no, hasta_cycle_no, "
+        " cycle_tipi, endikasyon, protokol_notu, opu_zamani, denudasyon_zamani, "
+        " opu_hekim, opu_sag_oosit, durum, bitis_sebebi, bitis_zamani, "
+        " olusturma_zamani) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (_db.LAB_ID, hasta_id, cycle_no, sira, r["tip"], endikasyon,
+         _not_kur(r), opu_zamani, _zaman(r["opu"], "11:00:00"),
+         r["opu_hekim"], r["toplanan"] or None, durum, bitis,
+         _zaman(bitis_zamani, "16:00:00"), _zaman(tarih, "08:30:00")))
+    cycle_id = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+    rapor.append(f'    tedavi {cycle_no} ({sira}. tedavi, {r["tip"]}) — '
+                 f'{durum}{" / " + bitis if bitis else ""}')
+    return cycle_id, cycle_no
+
+
+def _specimen_ac(b, cycle_id, cycle_no, sira, durum, zaman) -> str:
+    sid = f"{cycle_no}-{sira:02d}"
+    b.execute("INSERT INTO specimen (id, lab_id, cycle_id, cycle_sira_no, "
+              "durum, olusturma_zamani) VALUES (?,?,?,?,?,?)",
+              (sid, _db.LAB_ID, cycle_id, sira, durum, zaman))
+    return sid
+
+
+def _oositleri_ac(b, r, cycle_id, cycle_no, kid, rapor):
+    """Toplanan oosit kadar kayıt açar, sayılara uyan olayları yazar.
+
+    Dağıtım sırası **tek yerde burada**: önce MII, sonra immatür, sonra
+    empty zona / dejenere / atretik. ICSI listenin başından veriliyor
+    (yani önce MII'lere), fertilizasyon da işlem görenlerin başından.
+    Hangi oositin hangisi olduğu kaynak kayıtta yok -- docstring'de yazılı.
+    """
+    n = r["toplanan"] or 0
+    if not n:
+        return
+    opu = r["opu"]
+    t_denud = _zaman(opu, "11:00:00")
+    t_icsi = _zaman(opu, "13:00:00")
+    t_fert = _zaman(_gun_ekle(opu, 1), "09:00:00") if opu else t_icsi
+
+    plan = (["mii"] * r["mii"] + ["mi"] * r["immatur"] +
+            [None] * r["empty_zona"] + ["degenere"] * r["dejenere"] +
+            ["atretik"] * r["atretik"])
+    plan = (plan + [None] * n)[:n]        # sayılar tutmazsa kalanı boş geçer
+
+    oositler = []
+    for i, mat in enumerate(plan, start=1):
+        sid = _specimen_ac(b, cycle_id, cycle_no, i, "oosit", t_denud)
+        oositler.append([sid, mat, None])          # [id, maturasyon, durum]
+        if mat:
+            # oosit_cryo'da bu soru denüdasyon ekranında soruluyor, ivf_icsi'de
+            # ICSI ekranında -- ikisi de aynı olay tipini yazıyor (v6.96).
+            _olay(b, kid, sid, cycle_id, "maturasyon_kontrolu", t_denud,
+                  mat_deger=mat)
+
+    # --- ICSI: önce MII'ler, yetmezse immatürler (bir satırda işlem sayısı
+    #     MII'den fazla: 12 MII / 13 işlem -- kaynak kayıt öyle diyor).
+    islenen = min(r["islenen"] or 0, n)
+    enjekte = oositler[:islenen]
+    dejenere_olan = enjekte[len(enjekte) - (r["islem_dejenere"] or 0):] \
+        if r["islem_dejenere"] else []
+    for o in enjekte:
+        bozuk = o in dejenere_olan
+        _olay(b, kid, o[0], cycle_id, "icsi", t_icsi,
+              icsi_sonuc="degenere" if bozuk else "basarili")
+        o[2] = "degenere" if bozuk else "enjekte"
+
+    # --- Fertilizasyon: dejenere olanlara bakılmıyor (değerlendirilmez)
+    kalan = [o for o in enjekte if o not in dejenere_olan]
+    sirada = 0
+    for _ in range(min(r["iki_pn"] or 0, len(kalan))):
+        o = kalan[sirada]; sirada += 1
+        _olay(b, kid, o[0], cycle_id, "fertilizasyon_kontrolu", t_fert,
+              fert_pn_sayisi="2", fert_sonuc="normal")
+        o[2] = "zigot"
+    for _ in range(min(r["intakt"] or 0, len(kalan) - sirada)):
+        o = kalan[sirada]; sirada += 1
+        _olay(b, kid, o[0], cycle_id, "fertilizasyon_kontrolu", t_fert,
+              fert_pn_sayisi="0")
+        o[2] = "0pn"
+    for _ in range(min(r["anormal_fert"] or 0, len(kalan) - sirada)):
+        o = kalan[sirada]; sirada += 1
+        # PN sayısı kaynak kayıtta yok (1PN mi 3PN mi belli değil) -- boş
+        # bırakılıyor, sebebi olayın notuna yazılıyor.
+        _olay(b, kid, o[0], cycle_id, "fertilizasyon_kontrolu", t_fert,
+              notlar="Anormal fertilizasyon; PN sayısı kaynak kayıtta yok.")
+        o[2] = "kontrol_edildi"
+
+    # --- Dondurma: 2PN olanlardan (embriyo haline gelenler) baştan
+    donan = min(r["dondurulan"] or 0, len(kalan))
+    if donan:
+        gun = _asama_gunu(r["dondurma_asama"])
+        t_gun = _gun_ekle(opu, gun) if (opu and gun) else None
+        t_deg = _zaman(t_gun, "09:00:00") if t_gun else t_fert
+        t_vit = _zaman(t_gun, "12:00:00") if t_gun else t_fert
+        for o in [x for x in kalan if x[2] == "zigot"][:donan]:
+            # Kaynak kayıt embriyonun aşamasını YALNIZCA dondurulanlar için
+            # söylüyor ("5,GÜN" / "3.GÜN"). O kadarı yazılıyor: gün 5 ve
+            # sonrası blastokist, öncesi cleavage değerlendirmesi. Skor
+            # alanları boş -- kalite yalnızca serbest NOTLAR metninde var
+            # ("(3AA)", "(4HG2)") ve oradan çıkarmak kırılgan olurdu.
+            if gun:
+                _olay(b, kid, o[0], cycle_id,
+                      "blastokist_degerlendirme" if gun >= 5
+                      else "cleavage_degerlendirme", t_deg, gun=gun,
+                      notlar="Dondurma aşamasından türetildi; kaynak kayıtta "
+                             "ayrı bir değerlendirme yok.")
+            _olay(b, kid, o[0], cycle_id, "vitrifikasyon", t_vit,
+                  notlar=f'Aşama: {r["dondurma_asama"] or "kaynak kayıtta yok"}. '
+                         f'Taşıyıcı/konum kaynak kayıtta yok.')
+            o[2] = "dondurulmus"
+
+    for sid, _mat, durum in oositler:
+        if durum:
+            _durum_yaz(b, sid, durum)
+        elif _mat and _mat != "mii":
+            _durum_yaz(b, sid, "degenere" if _mat == "degenere" else "immatur")
+    rapor.append(f'    {n} oosit, {r["mii"]} MII, {islenen} ICSI, '
+                 f'{r["iki_pn"]} 2PN, {donan} dondurma')
+
+
+def _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor):
+    """FET'te çözülen/transfer edilen embriyolar (docstring: "FET" bölümü)."""
+    adet = max(r["cozulen"] or 0, r["transfer_adet"] or 0)
+    if not adet:
+        rapor.append("    çözülen/transfer sayısı kaynak kayıtta yok, "
+                     "embriyo kaydı açılmadı")
+        return
+    t_thaw = _zaman(r["transfer"], "09:00:00")
+    t_tr = _zaman(r["transfer"], "12:00:00")
+    kaliteler = [f"{h}{k}" for h, k in (r["emb1"], r["emb2"]) if h or k]
+
+    embriyolar = []
+    for i in range(1, adet + 1):
+        sid = _specimen_ac(b, cycle_id, cycle_no, i, "oosit", t_thaw)
+        # Transfer edilen embriyo mutlaka çözülmüştür; `thaw_cycle_id` bu
+        # tedaviyi gösteriyor (CLAUDE.md: "hangi tedavi için çözüldü").
+        _olay(b, kid, sid, cycle_id, "thaw", t_thaw, thaw_cycle_id=cycle_id,
+              thaw_sagkalim="canli" if (r["viabilite"] or 0) > 0 else None,
+              thaw_canlilik=r["viabilite"])
+        _durum_yaz(b, sid, "cozuldu")
+        embriyolar.append(sid)
+
+    for i, sid in enumerate(embriyolar[:r["transfer_adet"] or 0]):
+        _olay(b, kid, sid, cycle_id, "transfer", t_tr, tr_cycle_id=cycle_id,
+              notlar=(f'Aşama: {r["transfer_asama"]}. ' if r["transfer_asama"] else "")
+                     + (f'Embriyo: {kaliteler[i]}' if i < len(kaliteler) else ""))
+        _durum_yaz(b, sid, "transfer_edildi")
+    rapor.append(f'    {adet} embriyo çözüldü, {r["transfer_adet"] or 0} '
+                 f'transfer edildi')
+
+
+def _androloji(b, r, cycle_id, kid):
+    """`sperm_ornek` + iki `sperm_analiz` (bazal / hazırlık sonrası)."""
+    if not (r["sperm_kaynak"] or r["bazal"]["konsantrasyon_milyon_ml"]):
+        return
+    t_al = _zaman(r["opu"], "08:00:00")
+    b.execute("INSERT INTO sperm_ornek (lab_id, cycle_id, alinma_zamani, "
+              "alinma_yontemi, hacim_ml, hazirlama_yontemi, hazirlama_zamani, "
+              "kullanici_id, notlar, olusturma_zamani) VALUES (?,?,?,?,?,?,?,?,?,?)",
+              (_db.LAB_ID, cycle_id, t_al,
+               _ALINMA.get(_sade(r["sperm_kaynak"])), r["bazal"]["hacim_ml"],
+               _HAZIRLAMA.get(_sade(r["hazirlama"])), _zaman(r["opu"], "10:00:00"),
+               kid,
+               f'Kaynak kayıt: {r["sperm_kaynak"]} / {r["hazirlama"]}'.strip(" /"),
+               t_al))
+    ornek_id = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+    for asama, veri, zaman in (("bazal", r["bazal"], t_al),
+                               ("hazirlik_sonrasi", r["hazirlik"],
+                                _zaman(r["opu"], "10:00:00"))):
+        alanlar = {k: v for k, v in veri.items() if v is not None}
+        if not alanlar:
+            continue
+        kolonlar = ["sperm_ornek_id", "asama", "zaman", "kullanici_id"] + list(alanlar)
+        b.execute(f"INSERT INTO sperm_analiz ({','.join(kolonlar)}) "
+                  f"VALUES ({','.join('?' * len(kolonlar))})",
+                  [ornek_id, asama, zaman, kid] + list(alanlar.values()))
+
+
+def _islem_yapan(b, r, cycle_id):
+    """"İşlemi yapan" -- aşama başına tek kişi (`UNIQUE(cycle_id, asama)`).
+
+    Kaynak kayıttaki ad programdaki personel listesinde olmayabilir; tuzak
+    #6'nın gereği olarak `_islem_yapan.html` bilinmeyen değeri listeye
+    kendi seçeneği olarak ekliyor, o yüzden ad olduğu gibi yazılıyor.
+    """
+    zamanlar = {"opu": _zaman(r["opu"], "09:00:00"),
+                "androloji": _zaman(r["opu"], "10:00:00"),
+                "icsi": _zaman(r["opu"], "13:00:00"),
+                "transfer": _zaman(r["transfer"], "12:00:00")}
+    for asama, ad in r["yapan"].items():
+        if not ad:
+            continue
+        b.execute("INSERT OR IGNORE INTO islem_yapan (lab_id, cycle_id, asama, "
+                  "yapan_ad, zaman) VALUES (?,?,?,?,?)",
+                  (_db.LAB_ID, cycle_id, asama, re.sub(r"\s+", " ", ad),
+                   zamanlar.get(asama)))
+
+
+def _zaten_var(kimlik):
+    """Bu Access satırı daha önce aktarılmış mı? (işaret protokol notunda)"""
+    return _db.tek("SELECT id, cycle_no FROM cycle WHERE lab_id=? AND "
+                   "protokol_notu LIKE ?",
+                   (_db.LAB_ID, f"%{_isaret(kimlik)}%"))
+
+
+def _satiri_yaz(r) -> list:
+    """Bir Access satırını tek işlemde yazar. Patlarsa hiçbiri yazılmaz."""
+    rapor = []
+    kid = _kullanici_id()
+    with _db.yazma_islemi() as b:
+        hasta_id = _hastayi_bul_veya_ac(b, r, rapor)
+        cycle_id, cycle_no = _cycle_ac(b, r, hasta_id, rapor)
+        if r["tip"] in FET_TIPLERI:
+            _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor)
+        else:
+            _oositleri_ac(b, r, cycle_id, cycle_no, kid, rapor)
+            _androloji(b, r, cycle_id, kid)
+        _islem_yapan(b, r, cycle_id)
+    return rapor
+
+
+def _ozet_satiri(r) -> str:
+    sebep = _iptal_sebebi(r["notlar"])
+    if sebep:
+        son = f"İPTAL ({sebep})"
+    elif r["transfer"] and r["transfer_adet"]:
+        son = "tamamlandı / transfer"
+    elif r["dondurulan"] or _dondurma_sozu(r["notlar"]):
+        son = "tamamlandı / dondurma"
+    else:
+        son = "tamamlandı (sebep yok — kaynak kayıt söylemiyor)"
+    if r["tip"] in FET_TIPLERI:
+        icerik = (f'{max(r["cozulen"] or 0, r["transfer_adet"] or 0)} embriyo '
+                  f'çözme, {r["transfer_adet"] or 0} transfer')
+    else:
+        icerik = (f'{r["toplanan"]} oosit / {r["mii"]} MII / '
+                  f'{r["islenen"]} ICSI / {r["iki_pn"]} 2PN / '
+                  f'{r["dondurulan"]} dondurma')
+    return (f'#{r["kimlik"]:>3}  dosya {r["dosya_no"]:<10} {r["tip"]:<11}'
+            f'{r["tarih"] or "tarihsiz":<11} {icerik:<52} {son}')
+
+
+def onizleme(satirlar):
+    print(f"\nCSV'de {len(satirlar)} satır. Veritabanı: {DB}\n")
+    yeni_hasta, atlanan = 0, 0
+    gorulen = set()
+    for r in satirlar:
+        var = _zaten_var(r["kimlik"])
+        if var:
+            atlanan += 1
+            print(f'#{r["kimlik"]:>3}  ATLANIR — zaten aktarılmış '
+                  f'(tedavi {var["cycle_no"]})')
+            continue
+        h = _db.tek("SELECT id FROM hasta WHERE lab_id=? AND dosya_no=?",
+                    (_db.LAB_ID, r["dosya_no"]))
+        if not h and r["dosya_no"] not in gorulen:
+            yeni_hasta += 1
+        gorulen.add(r["dosya_no"])
+        print(_ozet_satiri(r) + ("   [YENİ HASTA]" if not h else ""))
+    print(f'\n{len(satirlar) - atlanan} tedavi yazılacak, {yeni_hasta} yeni '
+          f'hasta kartı açılacak, {atlanan} satır atlanacak.')
+    print("Yazmak için: python3 aktar_access.py <dosya.csv>\n")
+
+
+def aktar(satirlar):
+    toplam = {"tedavi": 0, "atlanan": 0, "hata": 0}
+    for r in satirlar:
+        var = _zaten_var(r["kimlik"])
+        if var:
+            toplam["atlanan"] += 1
+            print(f'#{r["kimlik"]:>3}  atlandı (zaten aktarılmış: {var["cycle_no"]})')
+            continue
+        try:
+            rapor = _satiri_yaz(r)
+        except Exception as hata:            # bir satır ötekileri durdurmasın
+            toplam["hata"] += 1
+            print(f'#{r["kimlik"]:>3}  HATA: {hata}')
+            continue
+        toplam["tedavi"] += 1
+        print(f'#{r["kimlik"]:>3}  aktarıldı')
+        for satir in rapor:
+            print(satir)
+    print(f'\nBitti. {toplam["tedavi"]} tedavi aktarıldı, '
+          f'{toplam["atlanan"]} atlandı, {toplam["hata"]} hata.')
+
+
+def main():
+    arg = sys.argv[1:]
+    kip = "aktar"
+    if arg and arg[0] == "liste":
+        kip, arg = "liste", arg[1:]
+    if not arg:
+        sys.exit("Kullanim:\n"
+                 "  python3 aktar_access.py liste <dosya.csv>   ne yazilacagini gosterir\n"
+                 "  python3 aktar_access.py <dosya.csv>         aktarir")
+    satirlar = satirlari_oku(arg[0])
+    satirlar.sort(key=lambda r: (r["tarih"] or "9999-99-99", int(r["kimlik"] or 0)))
+    if kip == "liste":
+        onizleme(satirlar)
+        return
+    onizleme(satirlar)
+    print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")
+    if input("Devam etmek icin AKTAR yaz: ").strip() != "AKTAR":
+        sys.exit("Vazgecildi, hicbir sey yazilmadi.")
+    aktar(satirlar)
+
+
+if __name__ == "__main__":
+    main()

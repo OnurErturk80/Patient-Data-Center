@@ -125,6 +125,7 @@ Patient Data Center/
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
+  aktar_access.py   program öncesi Access kayıtlarını içeri alır (araç)
   yerel_kur.py      bu makinenin klasör yollarını ayarlar
   sifirdan_kur.py   boş veritabanı
   yedek.py          yedekleme (Windows'ta zamanlama kurulmadı)
@@ -205,6 +206,10 @@ tipte de ICSI aşaması yoksa aynı ihtiyaç doğar, aynı deseni kullan.
 **`fet`, `fet_kultur` ve `yumurta_cozme`'de dondurulan örnek BU cycle'dan
 gelmez** — `FET_TIPLERI` sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)`
 bunu tek yerden kontrol ediyor (v6.62, `yumurta_cozme` v6.102'de eklendi).
+**Sabitin kendisi v6.130'dan beri `db.py`'de**, `app.FET_TIPLERI` oradan
+besleniyor: `disari.py`'nin istatistik sorgusu da aynı ayrımı soruyor ve
+`app`'i import edemiyor (app zaten disari'yi import ediyor). Yeni bir üye
+eklersen `db.py`'ye ekle, `app.py`'deki ad kendiliğinden kapsar.
 Taşıyıcı/örnek listeleri `specimen.cycle_id` ile değil, `olay.thaw_cycle_id`
 ("hangi tedavi için çözüldü") ile aranıyor — `specimen.cycle_id` örneğin
 **ilk** (OPU/ICSI) cycle'ı, hiç değişmez (README v6.7). `FET_TIPLERI` adı
@@ -957,6 +962,12 @@ kaydedilebilir mi" diye sordu, cevap "kaydetmeye gerek yok, zaten kayıtlı".
   `yonetici_kontrol(request)` ile başlıyor. Ekran bütün üretimi ve son
   girilen hasta adlarını tek sayfada gösteriyor.
 - **Paydası sıfır olan oran basılmaz** — "%0" ölçülmemişi ölçülmüş gösterir.
+- **"Kayıtlı oosit" yalnızca yumurta TOPLANAN tedavilerden sayılır**
+  (v6.130): `db.FET_TIPLERI` dışındaki cycle'lar. FET'teki bir örnek
+  çözülmüş bir embriyo/yumurtadır, toplanmış oosit değil — M2 oranının
+  paydasına girerse oran olduğundan düşük çıkar (ölçüldü: 105/%63.8,
+  doğrusu 94/%71.3). Program normal akışta FET'e specimen yazmıyor, ama
+  `aktar_access.py` yazıyor (aşağıya bak).
 - Transfer ve gebelik **tedavinin yapıldığı cycle'a** yazılır
   (`COALESCE(o.tr_cycle_id, s.cycle_id)`), ay listesindeki kuralın aynısı.
 - **"Son kayıtlar" haftalık ve sayfalı** (v6.124, kullanıcının isteği:
@@ -1487,6 +1498,37 @@ kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 > Kullanıcının veritabanında kalanları `eski_cryo_temizle.py` siliyor —
 > kod geri alındı ama `eski_cryo` tablosu ve `konum` satırları kalıyor ve
 > bağ kurulmuş bir hastanın kalıcı silinmesi FOREIGN KEY hatası veriyor.
+
+**Program öncesi kayıtlar `aktar_access.py` ile giriyor** (v6.130,
+kullanıcının isteği). Ağustos 2026 tedavileri Access'te tutuluyordu;
+betik Access'ten CSV'ye aktarılmış dosyayı okuyup `hasta`/`cycle`/
+`specimen`/`olay`/`sperm_*`/`islem_yapan` yazıyor. **Programın parçası
+değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
+- **Eşleştirme yalnızca dosya numarasıyla**, isimle değil (v6.125'in
+  kuralı). Var olan hastanın adı üzerine yazılmıyor, boş alanlar
+  dolduruluyor.
+- **İşaret protokol notunda**: `[Access kaydı #19]`. Aynı satır iki kez
+  girmesin diye; betik yeniden çalıştırılabilir. Yeni bir içeri alma
+  yazarsan aynı deseni kullan — ayrı bir "aktarıldı" tablosu açma.
+- **Toplam sayılar oosit oosit açılıyor** çünkü program sayıları
+  `specimen`/`olay`'dan türetiyor ("istatistikler türetilmiştir"). Bu
+  bilgi protokol notunda, yani ekranda ve resmî formda yazılı.
+- **FET'in embriyoları FET'in kendi altına açılıyor** — kaynak (dondurma)
+  tedavisi programda yok. `specimen.cycle_id`'nin "kendi cycle'ı" kuralının
+  bilinçli istisnası; gerekçe README v6.130'da (ağustosun bütün
+  transferleri FET, yoksa program "hiç transfer yok" derdi). Bunun tek yan
+  etkisi istatistikteki oosit sayımıydı, o da düzeltildi (yukarı bak).
+- **Serbest metinden klinik karar iki kademeli çıkarılıyor**: önce kaynak
+  açıkça "iptal edildi"/"dondurularak saklandı" demeli, ancak ondan sonra
+  hangi ayrıntılı sebep olduğuna bakılıyor; tanınmazsa genel "iptal"
+  kalıyor. `liste` kipi yazmadan önce her satır için ne seçildiğini
+  basıyor. Yeni bir metin kalıbı eklersen **ASCII yaz** — `_sade()` bütün
+  Türkçe harfleri katlıyor (GUN, ASAMA, COZME).
+- **Protokol notu kısa kalmalı**: resmî formun NOTLAR kutusuna basılıyor,
+  kutu `white-space: pre` — uzun satır sarmıyor, kesiliyor. Satırlar 68
+  karakterde sarılı. Nota yeni satır eklersen formu açıp bak (tuzak #5).
+- **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
+  verisi. README/CLAUDE.md'ye hasta adı/dosya numarası yazma.
 
 **Embriyo cycle değiştirmez; üç alan üç soruyu yanıtlar.**
 `specimen.cycle_id` nereden geldiği (OPU/ICSI cycle'ı, değişmez),
