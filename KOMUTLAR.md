@@ -161,6 +161,17 @@ Unutursan betik durur, yazmaz.
 > **Ağustos 2026 dosyası etiketsiz aktarıldı; onu yeniden çalıştırırsan
 > `kaynak=` VERME.** Etiket verilirse o 20 tedavi ikinci kez açılır.
 
+**Araç düzeltildiyse, zaten aktarılmış dosyayı `tamamla` ile onar:**
+
+```
+python3 aktar_access.py tamamla kaynak=TEMMUZ temmuz.csv
+```
+
+Baştan aktarmıyor, yalnızca eksik kalan dondurma kayıtlarını ekliyor; iki
+kez çalıştırmak güvenli. Aktarımdan **hemen sonra** çalıştır: aktarılan bir
+embriyonun skorunu ekranda elle düzelttiysen `tamamla` onu nottaki değerle
+ezer.
+
 ---
 
 ## Sorun teşhisi

@@ -623,7 +623,7 @@ def _skor_coz(parca: str):
     return None
 
 
-def _dondurma_coz(notlar: str, asama: str = "") -> dict:
+def _dondurma_coz(notlar: str, asama: str = "", tip: str = "") -> dict:
     """Dondurma cümlesini çözümler. Dondurma yoksa boş sözlük.
 
     Yalnızca "... DONDURULARAK SAKLANDI" cümlesinin **öncesine** bakıyor:
@@ -668,13 +668,27 @@ def _dondurma_coz(notlar: str, asama: str = "") -> dict:
                 icerik.append({"tur": "taninmadi", "ham": parca.strip()})
         if icerik:
             gruplar.append(icerik)
+    ogeler = [o for g in gruplar for o in g]      # düz liste
     return {
         "gun": gun,
-        "oosit_mi": "OOSIT" in cumle or "YUMURTA" in cumle,
+        # Yumurta mı embriyo mu -- üç işaretten biri yeter (v6.142). Önceden
+        # yalnızca nottaki kelimeye bakılıyordu; bir temmuz notu kelimeyi
+        # atlamış: "2 TÜPTE 10 ADET (5*M2) (5*M2)". Araç onu embriyo sandı,
+        # yumurta dondurma tedavisinde 2PN'li örnek aradı, bulamadı ve
+        # 10 yumurtayı HİÇ yazmadı -- Cryo Haritası o iki tüpü göstermedi.
+        # (1) Tedavinin tipi: programın kendi kuralı `db.yumurta_mi()`.
+        #     Yapılandırılmış veri serbest metinden önce gelir.
+        # (2) Nottaki kelime: `ivf_icsi`'de yumurta dondurulmuşsa tek işaret.
+        # (3) Her öğe yumurta yazımı ("N*M2"): MII/MI bir olgunluk derecesi,
+        #     embriyo için hiç yazılmaz.
+        "oosit_mi": (_db.yumurta_mi(tip)
+                     or "OOSIT" in cumle or "YUMURTA" in cumle
+                     or (bool(ogeler)
+                         and all(o["tur"] == "oosit" for o in ogeler))),
         "adet": _ilk(r"(\d+)\s*ADET"),
         "tup": _ilk(r"(\d+)\s*TUPTE"),
         "gruplar": gruplar,
-        "ogeler": [o for g in gruplar for o in g],   # düz liste: önizleme için
+        "ogeler": ogeler,
     }
 
 
@@ -986,8 +1000,34 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     varsa dondurma kısmına hiç dokunulmuyor (kullanıcı konumu elle girmiş
     olabilir, üzerine yazmak onu silerdi).
     """
-    coz = _dondurma_coz(r["notlar"], r["dondurma_asama"])
-    if not coz or not coz["gruplar"]:
+    coz = _dondurma_coz(r["notlar"], r["dondurma_asama"], r["tip"])
+    if not coz:
+        return
+    ham = ", ".join(o["ham"] for o in coz["ogeler"])
+    if r["tip"] in FET_TIPLERI:
+        # Çözme SONRASI yeniden dondurma (v6.142). Bir temmuz FET notu:
+        # "KÜLTÜRE EDİLEN TRANSFER FAZLASI 1 ADET D5 EMBRİYOSU (1CC) ŞEKLİNDE
+        # DONDURULARAK SAKLANDI". Programda bunun yeri yok -- FET'in
+        # aşamaları çözme/transfer/gebelik, vitrifikasyon aşaması hiç yok.
+        # Nasıl yazılacağı klinik bir karar ve kullanıcıya soruldu; o
+        # verilene kadar yazılmıyor. Ama SESSİZCE de geçilmiyor: tüp tankta
+        # duruyor ve Cryo Haritası onu göstermeyecek. Önceden aktarım bu
+        # satırı hiç söylemiyordu, `tamamla` ise yanlış sebeple ("OPU tarihi
+        # yok") uyarıyordu. Bu dönüş taşıyıcısız-vitrifikasyon iptalinden
+        # de ÖNCE: FET'in kayıtlarına hiçbir şekilde dokunulmuyor.
+        rapor.append("    UYARI: çözme sonrası yeniden dondurma var"
+                     + (f" ({ham})" if ham else "")
+                     + " -- program bunu kaydedemiyor, tüp Cryo "
+                       "Haritası'nda görünmeyecek")
+        return
+    if not coz["gruplar"]:
+        # Dondurma cümlesi var ama kaç örnek/tüp olduğu yazmıyor (parantez
+        # grubu yok) -- neyin yazılacağı bilinemez. Önceden burada da
+        # sessizce dönülüyordu; #33'ün dersi (v6.142): dondurulmuş bir
+        # örnek tankta durup programda görünmüyorsa bu SÖYLENMELİ.
+        # Temmuz ve ağustos dosyalarında böyle satır yok (ölçüldü).
+        rapor.append("    UYARI: notta dondurma var ama kaç örnek/tüp olduğu "
+                     "okunamadı -- dondurma kaydı yazılmadı")
         return
     cycle_no = b.execute("SELECT cycle_no FROM cycle WHERE id=?",
                          (cycle_id,)).fetchone()[0]
@@ -1213,6 +1253,10 @@ def _satiri_yaz(r) -> list:
         cycle_id, cycle_no = _cycle_ac(b, r, hasta_id, rapor)
         if r["tip"] in FET_TIPLERI:
             _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor)
+            # FET'te hiçbir şey yazmıyor, yalnızca çözme sonrası yeniden
+            # dondurmayı haber veriyor -- `tamamla` ile aktarım aynı satır
+            # için aynı şeyi söylesin (v6.142).
+            _dondurma_kayitlari(b, r, cycle_id, kid, rapor)
         else:
             _oositleri_ac(b, r, cycle_id, cycle_no, kid, rapor)
             _dondurma_kayitlari(b, r, cycle_id, kid, rapor)
@@ -1259,13 +1303,19 @@ def onizleme(satirlar):
             yeni_hasta += 1
         gorulen.add(r["dosya_no"])
         print(_ozet_satiri(r) + ("   [YENİ HASTA]" if not h else ""))
-        coz = _dondurma_coz(r["notlar"], r["dondurma_asama"])
+        coz = _dondurma_coz(r["notlar"], r["dondurma_asama"], r["tip"])
         if coz and coz["ogeler"]:
             # Kullanıcının kendi yazımı basılıyor ("4HG2"), çözümlenmiş kod
             # değil -- kendi notunda ne yazdığını tanıyabilmeli.
             ozet = ", ".join(o["ham"] for o in coz["ogeler"])
             print(f'        dondurulan ({"yumurta" if coz["oosit_mi"] else "embriyo"}'
-                  + (f', gün {coz["gun"]}' if coz["gun"] else "") + f'): {ozet}')
+                  + (f', gün {coz["gun"]}' if coz["gun"] else "") + f'): {ozet}'
+                  + ("   <- FET'te yeniden dondurma, YAZILMAYACAK"
+                     if r["tip"] in FET_TIPLERI else ""))
+        elif coz:
+            neden = ("FET'te yeniden dondurma" if r["tip"] in FET_TIPLERI
+                     else "kaç örnek/tüp olduğu okunamadı")
+            print(f"        dondurma notu var   <- {neden}, YAZILMAYACAK")
     print(f'\n{len(satirlar) - atlanan} tedavi yazılacak, {yeni_hasta} yeni '
           f'hasta kartı açılacak, {atlanan} satır atlanacak.')
     print("Yazmak için: python3 aktar_access.py <dosya.csv>\n")

@@ -18,7 +18,10 @@ arayüz Türkçe; klinik terimler İngilizce kalır (blastocyst, ICSI, PN, ICM, 
 re-expansion, FET). Kullanıcı klinik doğruluk konusunda uzman, kod konusunda
 öğrenci — teknik kararları açıklayarak ver, klinik kararlarda ona sor.
 
-**Durum:** çalışır halde, gerçek hasta verisi henüz girilmedi.
+**Durum:** çalışır halde. **Gerçek hasta verisi var** — program öncesi
+Access kayıtları (temmuz ve ağustos 2026) `aktar_access.py` ile aktarıldı
+(v6.130, v6.141). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
+işte bunu hesaba kat.
 
 ---
 
@@ -1750,11 +1753,42 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     deyip kullanıcıya gereksiz iş çıkardı.
   - **Taşıyıcıya bağlı vitrifikasyon varsa dokunulmuyor**
     (`_vitrifikasyon_var()`): kullanıcı konumu elle girmiş olabilir.
+- **Yumurta mı embriyo mu: önce tedavinin tipi, sonra not** (v6.142).
+  `_dondurma_coz()` yalnızca nottaki "OOSİT"/"YUMURTA" kelimesine
+  bakıyordu; bir temmuz notu kelimeyi atlamış ("2 TÜPTE 10 ADET (5*M2)
+  (5*M2)"), araç embriyo sandı ve 10 yumurtayı **hiç yazmadı** — Cryo
+  Haritası o iki tüpü göstermiyordu. Artık üç işaretten biri yeter:
+  `db.yumurta_mi(tip)`, nottaki kelime, her öğenin `N*M2` yazımı.
+  **Serbest metinden bir klinik kategori çıkaracaksan önce yapılandırılmış
+  veriye sor** — `db.yumurta_mi()`'nin var olma sebebi tam bu soru.
+- **FET'te çözme sonrası yeniden dondurma YAZILMIYOR, söyleniyor**
+  (v6.142). Temmuzda bir FET notu transfer fazlası bir embriyonun D5'te
+  yeniden dondurulduğunu yazıyor; `fet`'in vitrifikasyon aşaması yok ve
+  nasıl gösterileceği kullanıcıya soruldu. `_dondurma_kayitlari()` FET'te
+  hiçbir şeye dokunmadan uyarıp dönüyor; aktarım da `tamamla` da aynı
+  cümleyi söylüyor (önceden aktarım susuyor, `tamamla` "OPU tarihi yok"
+  diye yanlış sebep veriyordu). Kullanıcı karar verince burası değişecek.
+  Aynı ilkeyle skor parantezi olmayan bir dondurma cümlesi de artık
+  uyarıyor (önceden sessizce dönülüyordu). **Kural: dondurulmuş bir örneği
+  yazamıyorsan söyle** — tankta duran ama Cryo Haritası'nda görünmeyen bir
+  tüp bu işin en sinsi kayıplarından.
+- **"UYARI: notta N örnek ... M uygun kayıt var" iki ayrı sebebi taşıyor**:
+  kaynağın kendi tutarsızlığı (2PN'den çok dondurulan embriyo) ya da
+  aracın notu yanlış okuması. v6.141 ikisini karıştırıp aracın hatasını
+  "kaynak tutmuyor" diye raporladı. Uyarıya sonuç bağlamadan önce notun
+  kendisine bak.
 - **`tamamla` kipi**: aktarılmış tedavileri baştan almadan günceller
   (`python3 aktar_access.py tamamla <dosya.csv>`). `_dondurma_kayitlari()`
   idempotent — var olan değerlendirmeyi `UPDATE` ediyor, ikinci satır
   açmıyor. Betiğe nottan okunan yeni bir alan eklersen aynı işlevin içine
   koy, yoksa daha önce aktarmış kullanıcı ona ulaşamaz.
+  - **Aracın bir hatası düzeltildiyse onarım yolu budur** (v6.142'de
+    #33'ün eksik tüpleri böyle eklendi) — ama **hemen** çalıştırılmalı:
+    değerlendirme nottaki değerle güncelleniyor, yani kullanıcı aktarılan
+    bir skoru ekranda elle düzelttiyse `tamamla` o düzeltmeyi ezer.
+    Onarımı önermeden önce hatalı aktarımın kopyasında dene ve **her
+    tabloyu satır satır** karşılaştır — v6.142'de yalnızca beklenen
+    satırların değiştiği böyle gösterildi.
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
   verisi. README/CLAUDE.md'ye hasta adı/dosya numarası yazma.
 

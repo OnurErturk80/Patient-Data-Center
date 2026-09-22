@@ -11271,8 +11271,9 @@ dokunulmadı):
 | Var olan karta eklenen | 3 — ağustosta da tedavisi olan hastalar |
 | Ağustos kayıtlarından değişen | **yok** (tedavi, protokol notu, durum, hasta adı — hepsi birebir aynı) |
 
-Üç satırda kaynağın kendi sayıları tutmuyor ve araç **uydurmak yerine
-söylüyor** (v6.130'un davranışı, değişmedi):
+Üç satır uyarı verdi (tedavi numaraları bu denemenin; gerçek
+veritabanında o anki tedavi sayısına göre farklı olabilir — sabit olan
+Access kayıt numarası):
 
 ```
 Access #11  (2026-0039): notta 2 örnek yazıyor ama 0 uygun kayıt var
@@ -11280,10 +11281,16 @@ Access #33  (2026-0070): notta 1 örnek yazıyor ama 0 uygun kayıt var
 Access #80  (2026-0107): notta 6 örnek yazıyor ama 5 uygun kayıt var
 ```
 
-İlk ikisinde kaynak "2PN yok" diyor ama notunda dondurulan embriyo yazıyor;
-araç fertilizasyon kaydı olmayan bir örneğe dondurma yazmıyor. Kullanıcı bu
-üç tedaviye kaynaktan bakıp eksiği elle tamamlayabilir — geri kalan 83 satır
-uyarısız geçti.
+#11 ve #80'de kaynağın kendi sayıları tutmuyor (#11'de 2PN 0 ama notta
+dondurulan iki embriyo var; #80'de 5 2PN, altı embriyo); araç fertilizasyon
+kaydı olmayan bir örneğe dondurma yazmıyor ve bunu söylüyor.
+
+> **#33 için yukarıdaki yorum YANLIŞTI — v6.142'de düzeltildi.** O satırda
+> kaynak tutarlıydı; hata aracındı. Notta "OOSİT" kelimesi geçmediği için
+> yumurta dondurmayı embriyo sandı ve 10 yumurtayı hiç yazmadı. Aynı
+> "UYARI" satırı iki farklı şeyi (kaynağın tutarsızlığı / aracın yanlış
+> okuması) aynı cümleyle söylüyordu; ayrım ancak notun kendisine bakınca
+> ortaya çıktı.
 
 Aktarım sonrası ekranlar açıldı (tuzak #5): ana ekran, `/hastalar`,
 `/istatistik`, aktarılan üç tedavinin `/cycle/{id}` ekranı, Embriyoloji Özet
@@ -11297,3 +11304,140 @@ depoya girmiyor (`.gitignore`: `*.accdb`, `*.mdb`, `*.csv`). Bu dosyada da
 öyle — README'ye, CLAUDE.md'ye ve commit mesajına hasta adı ya da dosya
 numarası yazılmadı. Yukarıdaki tedavi numaraları (`2026-0039`) programın
 kendi sıra numarası, hasta kimliği değil.
+
+---
+
+# v6.142 — yumurta dondurma notu embriyo sanılıyordu; FET'te yeniden dondurma
+
+Kullanıcı temmuz dosyasını kendi veritabanına aktardı ("Tamamdır aktardı").
+Aktarımın çıktısına son kez bakılırken v6.141'in "kaynağın sayıları
+tutmuyor" dediği üç uyarıdan birinin aslında **aracın hatası** olduğu
+görüldü.
+
+## 1. "OOSİT" kelimesi olmayan yumurta notu embriyo sanılıyordu
+
+Temmuzun #33 numaralı satırı bir yumurta dondurma tedavisi (`oosit_cryo`):
+11 yumurta toplanmış, 10'u MII, notu:
+
+```
+2 TÜPTE 10 ADET (5*M2) (5*M2) ŞEKLİNDE DONDURULARAK SAKLANDI.
+```
+
+Kaynak tamamen tutarlı: 10 MII, iki tüpte beşer. Ama `_dondurma_coz()`
+yumurta mı embriyo mu kararını **yalnızca nottaki kelimeye** bakarak
+veriyordu (`"OOSIT" in cumle or "YUMURTA" in cumle`) ve bu notu yazan kişi
+"OOSİT" kelimesini atlamış. Araç notu embriyo sandı, yumurta dondurma
+tedavisinde 2PN'li örnek aradı, bulamadı, ilk tüpte durdu ve **10 yumurtayı
+hiç yazmadı**: vitrifikasyon kaydı yok, taşıyıcı yok, Cryo Haritası o iki
+tüpü göstermiyor. Verdiği uyarı ("notta 1 örnek yazıyor ama 0 uygun kayıt
+var") kaynağın tutarsızlığını söyleyen uyarıyla aynı cümleydi, o yüzden
+v6.141 onu da "kaynak tutmuyor" diye okudu.
+
+**Çözüm: üç işaretten biri yeter.**
+1. **Tedavinin tipi** — programın kendi kuralı `db.yumurta_mi(cycle_tipi)`.
+   CLAUDE.md bu soru için "karar orada" diyor; araç ona hiç sormuyordu.
+   Yapılandırılmış veri (tedavi tipi) serbest metinden önce gelir.
+2. **Nottaki kelime** — eskisi gibi; `ivf_icsi`'de yumurta dondurulmuşsa
+   (sperm yokken olabilir) tek işaret bu.
+3. **Her öğe yumurta yazımı** (`N*M2`, `N*M1`) — MII/MI bir olgunluk
+   derecesi, embriyo için hiç yazılmaz.
+
+Karşılaştırma iki dosyanın **her** satırında eski ve yeni ayrıştırıcıyla
+yapıldı: değişen tek satır temmuz #33 (`oosit_mi` False → True). Ağustosun
+yedi dondurma notunun ve temmuzun öteki 51 notunun çözümü bire bir aynı —
+hepsinde "OOSİT" yazıyordu ya da embriyo notuydu.
+
+## 2. FET'te çözme sonrası yeniden dondurma yazılamıyor — artık söyleniyor
+
+Temmuz #37 bir FET: 5 embriyo çözülmüş, 2'si transfer edilmiş, notu:
+
+```
+KÜLTÜRE EDİLEN TRANSFER FAZLASI 1 ADET D5 EMBRİYOSU (1CC) ŞEKLİNDE
+DONDURULARAK SAKLANDI.
+```
+
+Yani bir embriyo tankta yeniden duruyor. **Programda bunun yeri yok**:
+`fet`'in aşamaları çözme/transfer/gebelik, vitrifikasyon aşaması hiç yok
+(`TIP_ASAMALARI`). Nasıl gösterileceği klinik bir karar — kullanıcıya
+soruldu, cevap gelene kadar **yazılmıyor**.
+
+Ama sessizce de geçilmiyordu ve asıl hata oydu: aktarım FET satırlarında
+dondurma adımını hiç çağırmıyor, yani bu satır için **hiçbir şey
+söylemiyordu**. `tamamla` ise çağırıyordu ve yanlış sebeple uyarıyordu
+("OPU tarihi yok, dondurma kaydı yazılamadı"). İkisi aynı satır için iki
+farklı şey söylüyordu. Artık:
+
+- `_dondurma_kayitlari()` FET'te **hiçbir şeye dokunmadan** dönüyor ve
+  `UYARI: çözme sonrası yeniden dondurma var (1CC) -- program bunu
+  kaydedemiyor, tüp Cryo Haritası'nda görünmeyecek` diyor. Dönüş
+  taşıyıcısız-vitrifikasyon iptalinden de önce — FET'in kayıtlarına
+  hiçbir yoldan dokunulmuyor.
+- Aktarım FET dalında da bu işlevi çağırıyor, yani aktarım ve `tamamla`
+  aynı satır için aynı cümleyi söylüyor. FET dışı yolun yazma sırası
+  **değişmedi** (bilerek: ağustostan beri doğrulanmış sıra).
+- `liste` önizlemesi o satırın yanına `<- FET'te yeniden dondurma,
+  YAZILMAYACAK` yazıyor — karar yazmadan önce görülsün.
+
+İki dosyada bu durumdaki tek satır temmuz #37 (ağustosun yedi FET'inde
+yeniden dondurma yok).
+
+**Aynı ilkeyle üçüncü bir sessiz dönüş kapatıldı**: notta dondurma cümlesi
+var ama skor parantezi yoksa ("3 ADET EMBRİYO DONDURULDU.") araç kaç
+örnek/tüp olduğunu bilemiyor ve hiçbir şey yazmadan, **hiçbir şey
+söylemeden** dönüyordu. Artık `UYARI: notta dondurma var ama kaç örnek/tüp
+olduğu okunamadı -- dondurma kaydı yazılmadı` diyor, önizleme de o satırı
+işaretliyor. Temmuz ve ağustosta böyle satır **yok** (ölçüldü), yani bugünkü
+sonuçları değiştirmiyor; sonraki aylar için. Yeni dallar uydurma notlarla
+ayrıca denendi (on durumun onu doğru) ve veritabanı yerine `None` verilerek
+çağrıldı: erken dönen dalların hiçbir şeye dokunmadığı böyle gösterildi.
+
+## Kullanıcının veritabanı nasıl onarılıyor
+
+Aktarım zaten yapılmıştı, yani #33'ün tüpleri kullanıcının veritabanında
+eksik. Onarım v6.132'nin `tamamla` kipiyle — baştan aktarmadan, yalnızca
+eksiği ekleyerek:
+
+```
+python3 aktar_access.py tamamla kaynak=TEMMUZ temmuz.csv
+```
+
+Hatalı aktarımın bire bir kopyası üzerinde denendi, **her tablo satır satır**
+karşılaştırıldı:
+
+| | |
+|---|---|
+| Eklenen taşıyıcı | 2 (`<tedavi no>-1400`, `-1401`, konum boş) |
+| Eklenen vitrifikasyon olayı | 10, hepsi #33'ün tedavisinde |
+| Değişen örnek | 10 yumurta, `durum`: `oosit` → `dondurulmus` |
+| Başka herhangi bir tablo/satır | **değişmedi** |
+| İkinci `tamamla` + ağustosa `tamamla` | **hiçbir şey değişmedi** (idempotent) |
+
+Ayrıca **temiz kopyaya yeni kodla sıfırdan aktarım** yapılıp onarılmış
+hâlle tedavi tedavi karşılaştırıldı (kimlikten bağımsız: tip, durum,
+protokol notu, örnek durumları, her olayın skoru/saati/tüp etiketi, işlemi
+yapan, taşıyıcılar, hastalar): 120 tedavinin hiçbiri farklı değil. Yani
+onarılan veritabanı, en baştan doğru aktarılsaydı olacağı hâlle aynı.
+
+Ekranlar açıldı (tuzak #5): Cryo Haritası iki tüpü "5 yumurta" diye
+gösteriyor; vitrifikasyon ekranında "Dondurulmuş (10)", tüp etiketleri
+kartlarda — eski kodun doğru aktardığı başka bir yumurta dondurma
+tedavisiyle (#53, beş tüp) aynı görünüm; Embriyoloji Özet'in NOTLAR
+kutusunda `Dondurulan: 10 yumurta, 2 tüp: (5) (5)`, kesik değil.
+
+**`tamamla` hemen çalıştırılmalı.** `_dondurma_kayitlari()` var olan
+değerlendirmeyi nottaki değerle güncelliyor (v6.132'nin tasarımı): kullanıcı
+aktarılan bir temmuz embriyosunun skorunu ekranda elle düzeltirse, sonra
+çalışan `tamamla` o düzeltmeyi nottakiyle ezer. Aktarımdan hemen sonra bu
+risk yok — bu denemede 85 satırın hiçbirinde tek alan değişmedi.
+
+## Ders
+
+**Aynı uyarı cümlesi iki farklı sebebi taşıyorsa, uyarıyı okuyan sebebi
+ayırt edemez.** "Notta N örnek yazıyor ama M uygun kayıt var" hem "kaynak
+kendi içinde tutarsız" (#11, #80) hem "araç notu yanlış okudu" (#33)
+demekti; ayrım ancak notun kendisine bakınca çıktı. Bir uyarıya sonuç
+bağlamadan önce kaynağına bak.
+
+**Serbest metinden bir klinik kategori çıkarırken yapılandırılmış veriye
+önce sor.** Tedavi tipi zaten "yumurta dondurma" diyordu; araç ona değil,
+personelin not yazarken kullanıp kullanmadığı bir kelimeye güveniyordu.
