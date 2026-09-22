@@ -2299,8 +2299,12 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     kapandı" demek), ama **ay listesinde görünür**: o iş o ay yapıldı, sonra
     dosyanın kapanmış olması onu yapılmamış saymaz.
 
-    Sıra: yapılacaklarda en eski OPU üstte — unutulan bir cycle listenin
-    dibine düşüp gözden kaybolmasın diye. Ötekilerde en yeni üstte.
+    Sıra: **hepsinde en yeni üstte**. Yapılacaklar v6.137'ye kadar en eski
+    OPU'yu üste alıyordu (v6.28: "unutulan bir cycle dibe düşüp gözden
+    kaybolmasın"); kullanıcı tersini istedi ("hastaları yeniden eskiye doğru
+    diz") — günlük iş en yeni hastada, her sabah listenin dibine inmek
+    istemiyor. Eski gerekçe tümden geçersiz değil: kart 5 satır gösteriyor
+    (v6.78), en eskiler artık "Tümü" (`/devam-eden`) sayfasında kalıyor.
     """
     kolon_var = _bitis_kolonu_var()
     plan_var = _planlanan_kolonu_var()
@@ -2354,7 +2358,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     elif bitmis or bugun:
         sira = "COALESCE(c.bitis_zamani, c.olusturma_zamani) DESC"
     else:
-        sira = "COALESCE(c.opu_zamani, c.olusturma_zamani)"
+        sira = "COALESCE(c.opu_zamani, c.olusturma_zamani) DESC"
     sinir = ""
     if limit:
         sinir = " LIMIT ? OFFSET ?"
@@ -5521,6 +5525,46 @@ def tasiyici_icerigi(tasiyici_id):
         "ORDER BY s.cycle_sira_no", (tasiyici_id,))
 
 
+# Vitrifikasyon ekranının listesi: bir önceki aşamada (gün 2/3 ya da
+# blastokist) kaydı olan örnekler (v6.137, kullanıcının isteği: "bir önceki
+# blastokist menüsünde kaydı yapılmamış embriyoyu gösterme"). Kaydı olmayan
+# örnek -- döllenmemiş (0PN), zigotta kalmış, immatür -- dondurulacak bir
+# embriyo değil; ekranda yalnızca gürültü yapıyordu (gerçek bir tedavide 9
+# satırın 7'si böyleydi).
+#
+# **Cleavage de sayılıyor, yalnızca blastokist değil**: bu laboratuvar gün 3
+# embriyosu da donduruyor (ağustos kaydı: "1 TÜPTE 3 ADET D3 EMBRİYOSU
+# (4HG2-4HG2-3HG2)"). Yalnızca blastokist aransaydı gün 3'te dondurma
+# programda tümden yapılamaz hale gelirdi.
+#
+# **Vitrifikasyon da sayılıyor**: zaten dondurulmuş bir örnek, değerlendirmesi
+# ne olursa olsun listeden DÜŞMEMELİ -- ekranın üst kartı ("dondurulanlar")
+# aynı listeden besleniyor, süzgeç var olan bir kaydı görünmez yapardı.
+_DEGERLENDIRILMIS = (
+    "EXISTS (SELECT 1 FROM olay o WHERE o.specimen_id = s.id "
+    "        AND o.iptal_mi = 0 AND o.tip IN ('cleavage_degerlendirme', "
+    "            'blastokist_degerlendirme', 'vitrifikasyon'))")
+
+
+def _vit_satiri(e: dict) -> dict:
+    """Vitrifikasyon listesinde bir satırın kalitesi ve günü.
+
+    Blastokist skoru varsa o; yoksa gün 2/3 kaydından hücre sayısı + skor
+    ("4HG2"). Kaydı hiç olmayan örnek zaten listeye girmiyor (v6.137), ama
+    `oosit_cryo`'da süzgeç uygulanmadığı için orada ikisi de boş kalabilir --
+    şablon o zaman "değerlendirilmemiş" basıyor, doğru olan da o.
+    """
+    if e.get("skor"):
+        e["kalite"], e["kalite_gun"] = e["skor"], e.get("gun")
+    elif e.get("cl_hucre") is not None:
+        e["kalite"] = (f"{e['cl_hucre']}H{e['cl_skor']}" if e.get("cl_skor")
+                       else f"{e['cl_hucre']}H")
+        e["kalite_gun"] = e.get("cl_gun")
+    else:
+        e["kalite"], e["kalite_gun"] = None, None
+    return e
+
+
 @uygulama.get("/cycle/{cycle_id}/vitrifikasyon")
 def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -5536,6 +5580,12 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
     # süzerdi) -- bkz. _ICSI_YAPILMADI'nin belgesi.
     kosul = ("s.cycle_id=? AND NOT (" + _ICSI_YAPILMADI + ")"
              if c["cycle_tipi"] == "ivf_icsi" else "s.cycle_id=?")
+    # Embriyo aşaması olan tiplerde, o aşamalarda HİÇ değerlendirilmemiş örnek
+    # listeye girmesin (v6.137, kullanıcının isteği) -- aynı `_ICSI_YAPILMADI`
+    # sorusu: bu süzgeç `oosit_cryo`'da UYGULANMAZ, orada cleavage/blastokist
+    # aşaması hiç yok, her yumurta elenir ve ekran bomboş kalırdı.
+    if "blast" in TIP_ASAMALARI.get(c["cycle_tipi"], ()):
+        kosul += " AND (" + _DEGERLENDIRILMIS + ")"
     embriyolar = db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
@@ -5544,6 +5594,18 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
         "  (SELECT b.gun FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS gun, "
+        # Gün 2/3'te dondurulan embriyonun blastokist skoru yok; kendi
+        # cleavage kaydı gösterilsin diye (v6.137) -- yoksa listedeki her
+        # gün 3 embriyosu "değerlendirilmemiş" yazardı, oysa kaydı var.
+        "  (SELECT cl.cl_hucre_sayisi FROM olay cl WHERE cl.specimen_id=s.id "
+        "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
+        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_hucre, "
+        "  (SELECT cl.cl_skor FROM olay cl WHERE cl.specimen_id=s.id "
+        "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
+        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_skor, "
+        "  (SELECT cl.gun FROM olay cl WHERE cl.specimen_id=s.id "
+        "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
+        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_gun, "
         "  (SELECT o.vit_tasiyici_id FROM olay o WHERE o.specimen_id=s.id "
         "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 LIMIT 1) AS tasiyici_id, "
         "  (SELECT t.etiket FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
@@ -5561,6 +5623,12 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
         "  AS goruntu_idler, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
         f"FROM specimen s WHERE {kosul} ORDER BY s.cycle_sira_no", (cycle_id,))
+
+    # Satırda gösterilecek kalite: blastokist skoru, yoksa cleavage'ın kendi
+    # yazımı ("4HG2" -- laboratuvarın kendi notasyonu, v6.135'te resmî
+    # formlarda da bu kullanılıyor). sqlite3.Row'a alan eklenemiyor, sözlüğe
+    # çevriliyor (`cycle_listesi()`'nin deseni).
+    embriyolar = [_vit_satiri(dict(e)) for e in embriyolar]
 
     return sablon.TemplateResponse(
         request, "vitrifikasyon.html",

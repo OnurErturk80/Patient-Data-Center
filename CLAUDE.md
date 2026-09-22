@@ -181,6 +181,16 @@ olayı yok. Bu ayrım şart — enjekte edilip **sonra** dejenere olan oositin
   ve `blast_durum()`'un `WHERE`'ine `AND NOT (_ICSI_YAPILMADI)` eklendi;
   ikisi de zaten yalnızca `ivf_icsi`'de (ya da `fet_kultur` gibi ondan gelen
   embriyolarla) çalışıyor, güvenli.
+- **Aynı ekranda ikinci bir süzgeç var: `_DEGERLENDIRILMIS`** (v6.137,
+  kullanıcının isteği: "bir önceki blastokist menüsünde kaydı yapılmamış
+  embriyoyu gösterme"). Örneğin iptal edilmemiş bir cleavage/blastokist
+  değerlendirmesi ya da zaten bir vitrifikasyon kaydı olmalı. **Cleavage de
+  sayılıyor**: bu lab gün 3 embriyosu da donduruyor, yalnızca blastokist
+  aransaydı gün 3'te dondurma programda tümden yapılamazdı. **Dondurulmuş
+  örnek her koşulda kalır** — ekranın üst kartı aynı listeden besleniyor.
+  Koşul `TIP_ASAMALARI`'na bakıyor (`"blast" in ...`), cycle tipini elle
+  yazmıyor. Satırdaki kalite `_vit_satiri()`'nden: blastokist skoru → yoksa
+  cleavage yazımı ("4HG2") → yoksa "değerlendirilmemiş".
 - **Vitrifikasyon ekranı `oosit_cryo` ile de paylaşılıyor — orada bu süzgeç
   UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
   (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**
@@ -565,6 +575,13 @@ içinde — **her** genişlikte (≥1100px) üçü yan yana kalıyor. Ana ekran
 menüyle çarpışmasın diye `calc(100vw - 500px)` ile sınırlı. Yeni bir kart
 eklersen bu üç sütunu şişirme, altına koy; kart basisini büyütürsen aynı
 sığma hesabını (3×basis + 2×16 ≤ 640) tekrar yap.
+
+**Devam Eden Tedaviler en yeniden eskiye sıralanır** (v6.137, kullanıcının
+isteği). v6.28'de bilerek tersiydi ("unutulan bir cycle dibe düşmesin");
+kullanıcı değiştirdi — günlük iş en yeni hastada. `cycle_listesi()`'nin
+yalnızca **yapılacaklar** dalı `DESC` oldu, öteki listeler (`/bitenler`,
+ay listesi, Yaklaşanlar) kendi sıralarını koruyor. Kart 5 satır gösterdiği
+için (v6.78) en eskiler artık `/devam-eden`'de kalıyor.
 
 **Üç kart da en fazla 5 satır gösterir, fazlası "Tümü" ile ayrı ekrana
 gider** (v6.78, kullanıcının isteği). `ana.html` her listeyi `liste[:5]`

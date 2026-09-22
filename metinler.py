@@ -389,6 +389,12 @@ METINLER = {
                              "en": "No embryos left to freeze."},
     "dondurulacak_embriyolar": {"tr": "Dondurulacak embriyolar",
                                 "en": "Embryos to freeze"},
+    # Vitrifikasyon ekranı `oosit_cryo` ile paylaşılıyor; orada dondurulan
+    # şey embriyo değil yumurta (v6.137). Şablon `yumurta_mi()` ile seçiyor.
+    "dondurulacak_yumurta_kalmadi": {"tr": "Dondurulacak yumurta kalmadı.",
+                                     "en": "No oocytes left to freeze."},
+    "dondurulacak_yumurtalar": {"tr": "Dondurulacak yumurtalar",
+                                "en": "Oocytes to freeze"},
     "degerlendirilmemis": {"tr": "değerlendirilmemiş", "en": "not assessed"},
     "gun_n": {"tr": "gün {n}", "en": "day {n}"},
     "ayni_tasiyici_ipucu": {

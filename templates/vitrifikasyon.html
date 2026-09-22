@@ -45,13 +45,17 @@
 
 {% set adaylar = embriyolar|rejectattr('tasiyici_id')|list %}
 {% if not adaylar %}
-<div class="kart"><div class="bos">{{ metin("dondurulacak_kalmadi") }}</div></div>
+<div class="kart"><div class="bos">{{ metin("dondurulacak_yumurta_kalmadi"
+  if yumurta_mi(c.cycle_tipi) else "dondurulacak_kalmadi") }}</div></div>
 {% else %}
 
 <form method="post" action="/cycle/{{ c.id }}/vitrifikasyon" id="vitform">
 
   <div class="kart">
-    <h2>{{ metin("dondurulacak_embriyolar") }}</h2>
+    {# Yumurta dondurma tedavisinde dondurulan şey embriyo değil (v6.137);
+       karar tek yerde: db.yumurta_mi(), ornek_adi()'yi de o besliyor. #}
+    <h2>{{ metin("dondurulacak_yumurtalar"
+      if yumurta_mi(c.cycle_tipi) else "dondurulacak_embriyolar") }}</h2>
     {% for e in adaylar %}
     <label class="secsatir">
       <input type="checkbox" name="embriyo" value="{{ e.id }}">
@@ -59,7 +63,8 @@
       {{ kf.kucuk(e) }}
       <span class="bilgi">
         <strong>{{ ornek_adi('vitrifikasyon', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
-        {% if e.skor %}<em>{{ e.skor }}{% if e.gun %} · {{ metin("gun_n").format(n=e.gun) }}{% endif %}</em>
+        {# Blastokist skoru, yoksa gün 2/3 kaydı ("4HG2") -- app._vit_satiri() #}
+        {% if e.kalite %}<em>{{ e.kalite }}{% if e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</em>
         {% else %}<em>{{ metin("degerlendirilmemis") }}</em>{% endif %}
       </span>
     </label>

@@ -10733,3 +10733,89 @@ taşmıyor (`%  85` ve `%  99` tam 32px).
 
 Excel: `/disari/form/artlab/17` ve `/disari/form/ozet/17` geçerli ZIP; içinde
 `%  85` / `%  99` var ve **hiçbir yerde `.0` ile biten değer kalmadı**.
+
+
+# v6.137 — vitrifikasyon listesi süzüldü, devam edenler yeniden eskiye
+
+Kullanıcının üç isteği: (1) vitrifikasyonda "Dondurulacak embriyolar"da bir
+önceki aşamada kaydı yapılmamış embriyo görünmesin; (2) ana ekranın "Devam
+Eden Tedaviler" kartı yeniden eskiye doğru sıralansın; (3) yumurta dondurma
+tedavisinde başlık "Dondurulacak yumurtalar" olsun.
+
+## 1) Kaydı olmayan örnek listeye girmiyor
+
+Ölçüldü (kullanıcının ağustos verisi): bir `ivf_icsi` tedavisinde ekran
+**dokuz** satır basıyordu ama yalnızca ikisi dondurulabilir bir embriyoydu.
+Kalan yedi satır 0PN, zigotta kalmış ve immatür örneklerdi — hiçbiri
+dondurulamaz, yalnızca yanlış seçim riski ve gürültü.
+
+Süzgeç `_DEGERLENDIRILMIS`: örneğin iptal edilmemiş bir **cleavage ya da
+blastokist** değerlendirmesi (ya da zaten bir vitrifikasyon kaydı) olmalı.
+
+- **`oosit_cryo`'da UYGULANMIYOR.** `_ICSI_YAPILMADI`'nın (v6.105) birebir
+  aynı tuzağı: yumurta dondurmada cleavage/blastokist aşaması hiç yok,
+  süzgeç her yumurtayı eler ve ekran bomboş kalırdı. Koşul
+  `TIP_ASAMALARI`'na bakıyor (`"blast" in ...`), cycle tipini elle
+  yazmıyor — yeni bir tip eklenirse kendiliğinden doğru davranır.
+- **Cleavage de sayılıyor, yalnızca blastokist değil.** Kullanıcının isteği
+  "blastokist menüsünde kaydı yapılmamış" diyordu ama bu laboratuvar **gün 3
+  embriyosu da donduruyor** — ağustos kaydı: "1 TÜPTE 3 ADET D3 EMBRİYOSU
+  (4HG2-4HG2-3HG2)". Yalnızca blastokist aransaydı gün 3'te dondurma
+  programda **tümden yapılamaz** hale gelirdi; istenen temizlik ise cleavage
+  dahil edilince de bire bir sağlanıyor (dokuz satır yine ikiye iniyor).
+- **Zaten dondurulmuş örnek her koşulda listede kalır.** Ekranın üst kartı
+  ("Dondurulmuş") aynı listeden besleniyor; süzgeç var olan bir kaydı
+  görünmez yapardı. `vitrifikasyon` da bu yüzden `_DEGERLENDIRILMIS`'in
+  içinde.
+
+Ölçüm: cycle 17 (ivf_icsi) 9 → **2**; cycle 32 (ivf_icsi, gün 3 dondurma)
+8 → **3** (üç embriyo da korundu); cycle 28/30 (`oosit_cryo`) 5 → 5 ve
+16 → 16, yani hiç değişmedi.
+
+### Yan etki: gün 3 embriyosu artık skorunu gösteriyor
+
+Liste satırı yalnızca `bl_skor` okuyordu; cleavage'da dondurulan embriyoda o
+alan boş olduğu için **her gün 3 embriyosu "değerlendirilmemiş" yazacaktı** —
+kaydı olmayanı eleyen bir listede bu kendi kendisiyle çelişirdi.
+`_vit_satiri()` artık sırayla bakıyor: blastokist skoru → cleavage'ın kendi
+yazımı (`4HG2`, laboratuvarın notasyonu, v6.135'te resmî formlarda da bu) →
+"değerlendirilmemiş".
+
+`sqlite3.Row`'a alan eklenemediği için satırlar sözlüğe çevriliyor
+(`cycle_listesi()`'nin zaten yaptığı şey).
+
+**Bilinen, dokunulmayan durum:** v6.5 öncesi test kayıtlarında
+`bl_genisleme` dolu ama `bl_skor` NULL (skor o zaman saklanmıyordu) —
+o satırlar "değerlendirilmemiş" yazıyor. Yalnızca cycle 1-11'de var,
+kullanıcının gerçek verisinde (15-34) hiç yok; `blast_skor()` bugün her
+kayıtta skoru yazıyor.
+
+## 2) Devam Eden Tedaviler: en yeni üstte
+
+`cycle_listesi()`'nin yapılacaklar dalı **en eski OPU'yu** üste alıyordu ve
+bu bilinçliydi (v6.28: "unutulan bir cycle listenin dibine düşüp gözden
+kaybolmasın"). Kullanıcı tersini istedi — günlük iş en yeni hastada.
+`ORDER BY COALESCE(opu_zamani, olusturma_zamani) DESC`.
+
+Eski gerekçe tümden geçersiz değil: kart 5 satır gösteriyor (v6.78), yani
+artık **en eskiler** kartın dışında kalıyor. Tamamı "Tümü" bağlantısındaki
+`/devam-eden` sayfasında, o da aynı fonksiyondan besleniyor. Öteki listeler
+(`/bitenler`, ay listesi, Yaklaşanlar) **değişmedi** — onlar zaten kendi
+sıralarını kullanıyordu; ölçüldü.
+
+## 3) Yumurta dondurmada "Dondurulacak yumurtalar"
+
+Vitrifikasyon ekranı `oosit_cryo` ile paylaşılıyor ve iki kart başlığı
+sabit "embriyo" diyordu (satırların kendisi zaten `ornek_adi()` ile doğru
+kelimeyi basıyordu — yalnızca başlıklar unutulmuştu). İki yeni metin
+anahtarı (`dondurulacak_yumurtalar`, `dondurulacak_yumurta_kalmadi`),
+seçim Jinja global `yumurta_mi(c.cycle_tipi)` ile — karar zaten `db.py`'de
+tek yerde (v6.135).
+
+## Ölçüm
+
+Ekrandan doğrulandı: `oosit_cryo` tedavisinde başlık "Dondurulacak
+yumurtalar", satırlar "Yumurta 3/4/5"; hepsi dondurulmuşsa "Dondurulacak
+yumurta kalmadı."; `ivf_icsi`'de ikisi de eskisi gibi "embriyo". Ana ekran
+listesi 20.09 → 18.09 15:20 → 18.09 12:55 sırasında. 51 ekranlık genel
+tarama temiz.
