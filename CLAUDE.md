@@ -1489,6 +1489,23 @@ kur.
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
+**Taşıyıcının içeriği "yumurta" mı "embriyo" mu — karar `_yumurta_mi(
+cycle_tipi)`'de** (v6.133, kullanıcının isteği: "Yumurta donduruluyorsa
+Yumurta, Embriyo donduruluyorsa Embriyo yazsın"). Aynı fonksiyon
+`ornek_adi()`'ni de besliyor, yani yumurta donduran yeni bir cycle tipi
+eklenirse tek satır değişir. Ekranda Jinja global `icerik_sayisi(adet,
+cycle_tipi)` ("4 yumurta"/"4 embriyo") ya da `yumurta_mi(cycle_tipi)`
+kullan — `say("n_embriyo", ...)` yazma, altı yerde aynı etiket var
+(cryo haritası tank+taşıyıcı satırı, çözme ekranının iki listesi, taşıyıcı
+detayının üç yeri) ve biri unutulursa ekranlar birbirini tutmaz.
+- Taşıyıcının içeriğinin tedavi tipini `ICERIK_TIPI` alt sorgusu veriyor
+  (üç sorguda metin olarak paylaşılıyor, taşıyıcı hepsinde `t`). **İlk
+  satır yeter**: bir taşıyıcı tek bir tedavinin örneklerini taşıyor.
+- **Tank satırı ikisini ayrı sayıyor** — bir tankta ikisi birden olabilir,
+  orada tek kelime seçilemez; sıfır olmayan basılıyor.
+- `oosit_ad` metni ("Oosit") **değişmedi**: kullanıcı bu ekranlar için
+  "Yumurta" dedi, aşama ekranlarının sözlüğü ayrı bir karar.
+
 > **Eski cryo haritasını Excel'den içeri alma denendi ve GERİ ALINDI**
 > (v6.127/v6.128 yazıldı, v6.129'da revert edildi). Kullanıcının kararı:
 > "Cryo Harita istediğim gibi olmadı." Özellik hatalı olduğu için değil,

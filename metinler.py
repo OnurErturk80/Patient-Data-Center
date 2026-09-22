@@ -204,6 +204,11 @@ METINLER = {
     "n_tasiyici_tekil": {"tr": "{n} taşıyıcı", "en": "{n} carrier"},
     "n_embriyo": {"tr": "{n} embriyo", "en": "{n} embryos"},
     "n_embriyo_tekil": {"tr": "{n} embriyo", "en": "{n} embryo"},
+    # Yumurta dondurmada taşıyıcının içindekiler embriyo değil (v6.133,
+    # kullanıcının isteği: "Yumurta donduruluyorsa Yumurta, Embriyo
+    # donduruluyorsa Embriyo yazsın"). Seçimi `yumurta_mi()` yapıyor.
+    "n_yumurta": {"tr": "{n} yumurta", "en": "{n} oocytes"},
+    "n_yumurta_tekil": {"tr": "{n} yumurta", "en": "{n} oocyte"},
     "dolu_tasiyicilar": {"tr": "Dolu taşıyıcılar", "en": "Occupied carriers"},
     "konum_girilmemis": {"tr": "konum girilmemiş", "en": "location not entered"},
     "aramaya_uyan_tasiyici_yok": {"tr": "Bu aramaya uyan taşıyıcı yok.",
@@ -442,8 +447,13 @@ METINLER = {
     "tasiyicida_n_embriyo": {
         "tr": "Bu taşıyıcıda {n} embriyo var. Çözüldüğünde hepsi etkilenir.",
         "en": "This carrier holds {n} embryos. Thawing affects all of them."},
+    "tasiyicida_n_yumurta": {
+        "tr": "Bu taşıyıcıda {n} yumurta var. Çözüldüğünde hepsi etkilenir.",
+        "en": "This carrier holds {n} oocytes. Thawing affects all of them."},
     "icindeki_embriyolar": {"tr": "İçindeki embriyolar",
                             "en": "Embryos on this carrier"},
+    "icindeki_yumurtalar": {"tr": "İçindeki yumurtalar",
+                            "en": "Oocytes on this carrier"},
     "cyclei_ac": {"tr": "tedaviyi aç", "en": "open cycle"},
     "tasiyici_bosaltilmis": {"tr": "Bu taşıyıcı boşaltılmış.",
                              "en": "This carrier has been emptied."},

@@ -32,7 +32,7 @@
       <div class="no">{{ t.etiket }}</div>
       <div class="meta">
         {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
-        · {{ say("n_embriyo", t.adet) }}
+        · {{ icerik_sayisi(t.adet, t.icerik_tipi) }}
       </div>
       <div class="meta">
         {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
@@ -102,7 +102,7 @@
   {% for t in bos %}
   <a class="satir" href="/cryo/tasiyici/{{ t.id }}?cycle={{ c.id }}">
     <div class="no">{{ t.etiket }}</div>
-    <div class="meta">{{ say("n_embriyo", t.adet) }} · {{ say("n_cozme_kaydi", t.cozulen) }}</div>
+    <div class="meta">{{ icerik_sayisi(t.adet, t.icerik_tipi) }} · {{ say("n_cozme_kaydi", t.cozulen) }}</div>
     <div class="meta">{{ t.tam_yol or '—' }}</div>
   </a>
   {% endfor %}

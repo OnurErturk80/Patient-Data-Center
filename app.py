@@ -310,12 +310,38 @@ ASAMA_ORNEK_ADI = {
 }
 
 
+def _yumurta_mi(cycle_tipi) -> bool:
+    """Bu tedavide dondurulan/çözülen örnek yumurta mı, embriyo mu?
+
+    Tek yerde duruyor çünkü iki soruyu birden yanıtlıyor: aşama ekranında
+    örneğe ne deneceği (`ornek_adi()`) ve taşıyıcının içinde ne olduğu
+    (`icerik_sayisi()`, v6.133). Yalnızca `oosit_cryo`'da yumurta dondurulur
+    — `ivf_icsi`'nin vitrifikasyon ekranı zaten enjekte edilmiş (embriyo
+    olmuş) örnekleri listeliyor (`_ICSI_YAPILMADI` süzgeci). Yumurta
+    donduran yeni bir cycle tipi eklersen burayı genişlet, ikisi birden
+    doğru olur.
+    """
+    return cycle_tipi == "oosit_cryo"
+
+
 def _ornek_adi(asama, cycle_tipi=None):
     """Bu aşamada örneğe ne deniyor: Oosit / Zigot / Cleavage / Blastokist / Embriyo."""
     anahtar = ASAMA_ORNEK_ADI.get(asama, "ornek_ad")
     if anahtar is None:
-        anahtar = "oosit_ad" if cycle_tipi == "oosit_cryo" else "embriyo_ad"
+        anahtar = "oosit_ad" if _yumurta_mi(cycle_tipi) else "embriyo_ad"
     return metinler.t(anahtar)
+
+
+def _icerik_sayisi(adet, cycle_tipi=None):
+    """Taşıyıcının içindekiler: "4 yumurta" / "4 embriyo" (v6.133).
+
+    Kullanıcının isteği: "Yumurta donduruluyorsa Yumurta, Embriyo
+    donduruluyorsa Embriyo yazsın." Daha önce her taşıyıcı "n embriyo"
+    diyordu; yumurta dondurma kaydı programa ilk kez v6.132'de girince
+    ortaya çıktı.
+    """
+    return metinler.say("n_yumurta" if _yumurta_mi(cycle_tipi) else "n_embriyo",
+                        adet)
 
 
 def _ornek_kodu(specimen_id):
@@ -351,6 +377,8 @@ def _liste_etiket(liste_adi: str, kod):
 
 sablon.env.globals["liste_etiket"] = _liste_etiket
 sablon.env.globals["ornek_adi"] = _ornek_adi
+sablon.env.globals["yumurta_mi"] = _yumurta_mi
+sablon.env.globals["icerik_sayisi"] = _icerik_sayisi
 sablon.env.globals["ornek_kodu"] = _ornek_kodu
 
 
@@ -5451,10 +5479,24 @@ def konum_bul_veya_olustur(seviyeler):
          temiz[3] or None, tam_yol))
 
 
+# Taşıyıcının içinde ne olduğunu (yumurta mı embriyo mu) söyleyen alt sorgu.
+# Bir taşıyıcı tek bir tedavinin örneklerini taşıyor -- hem ekrandaki
+# vitrifikasyon kaydı tek seferde tek cycle'dan seçim yapıyor hem de
+# `aktar_access.py` tüp başına tek grup yazıyor -- o yüzden ilk satır yeter.
+# Taşıyıcı üç sorguda da `t` diye adlandığı için metin olarak paylaşılıyor.
+ICERIK_TIPI = (
+    "(SELECT c9.cycle_tipi FROM olay o9 "
+    " JOIN specimen s9 ON s9.id = o9.specimen_id "
+    " JOIN cycle c9 ON c9.id = s9.cycle_id "
+    " WHERE o9.vit_tasiyici_id = t.id AND o9.tip = 'vitrifikasyon' "
+    " AND o9.iptal_mi = 0 LIMIT 1) AS icerik_tipi")
+
+
 def tasiyici_icerigi(tasiyici_id):
     return db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.durum, o.zaman, o.id AS olay_id, "
-        "  c.id AS cycle_id, c.cycle_no, h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
+        "  c.id AS cycle_id, c.cycle_no, c.cycle_tipi, "
+        "  h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
@@ -5592,8 +5634,9 @@ def cryo_harita(request: Request, ara: str = ""):
             "SELECT DISTINCT t.id, t.etiket, t.tip, t.renk, t.durum, "
             "  k.tam_yol, t.vitrifikasyon_zamani, "
             "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
-            "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet "
-            "FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
+            "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
+            + ICERIK_TIPI +
+            " FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
             "LEFT JOIN olay o ON o.vit_tasiyici_id=t.id AND o.iptal_mi=0 "
             "LEFT JOIN specimen s ON s.id=o.specimen_id "
             "LEFT JOIN cycle c ON c.id=s.cycle_id "
@@ -5615,18 +5658,26 @@ def cryo_harita(request: Request, ara: str = ""):
             "SELECT t.id, t.etiket, t.tip, t.renk, t.durum, k.tam_yol, "
             "  t.vitrifikasyon_zamani, "
             "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
-            "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet "
-            "FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
+            "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
+            + ICERIK_TIPI +
+            " FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
             "WHERE t.lab_id=? AND t.durum='dolu' AND t.kategori='embriyo' "
             "ORDER BY k.tam_yol, t.etiket",
             (db.LAB_ID,))
 
-    tanklar = db.sorgu(
-        "SELECT k.seviye1 AS tank, COUNT(DISTINCT t.id) AS tasiyici, "
+    # Tank satırında embriyo ve yumurta AYRI sayılıyor: bir tankta ikisi de
+    # olabilir, tek bir "n embriyo" ikisini de embriyo gösterirdi (v6.133).
+    tank_sayim = (
         "  (SELECT COUNT(*) FROM olay o JOIN tasiyici t2 ON t2.id=o.vit_tasiyici_id "
         "   JOIN konum k2 ON k2.id=t2.konum_id "
+        "   JOIN specimen s2 ON s2.id=o.specimen_id "
+        "   JOIN cycle c2 ON c2.id=s2.cycle_id "
         "   WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND t2.durum='dolu' "
-        "   AND k2.seviye1 = k.seviye1) AS embriyo "
+        "   AND k2.seviye1 = k.seviye1 AND c2.cycle_tipi {es} 'oosit_cryo') AS {ad} ")
+    tanklar = db.sorgu(
+        "SELECT k.seviye1 AS tank, COUNT(DISTINCT t.id) AS tasiyici, "
+        + tank_sayim.format(es="<>", ad="embriyo") + ", "
+        + tank_sayim.format(es="=", ad="yumurta") + 
         "FROM konum k JOIN tasiyici t ON t.konum_id=k.id AND t.durum='dolu' "
         "  AND t.kategori='embriyo' "
         "WHERE k.lab_id=? AND k.seviye1 IS NOT NULL "
@@ -6348,8 +6399,9 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         "   JOIN specimen s4 ON s4.id=o4.specimen_id "
         "   JOIN cycle c3 ON c3.id=s4.cycle_id "
         "   WHERE o4.vit_tasiyici_id=t.id AND o4.tip='vitrifikasyon' "
-        "   AND o4.iptal_mi=0) AS kaynak_cycle "
-        "FROM tasiyici t "
+        "   AND o4.iptal_mi=0) AS kaynak_cycle, "
+        + ICERIK_TIPI +
+        " FROM tasiyici t "
         "JOIN olay o ON o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
         "JOIN specimen s ON s.id=o.specimen_id "
         "JOIN cycle c2 ON c2.id = s.cycle_id "

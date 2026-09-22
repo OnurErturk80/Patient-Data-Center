@@ -10359,3 +10359,70 @@ bir hata değil — program daha önce hiç yumurta dondurma kaydı görmemişti
 yüzden ortaya çıkmamıştı. Düzeltmek `cryo_harita()`'nın sorgusuna taşıyıcının
 cycle tipini eklemeyi gerektiriyor; kelimenin ne olacağı (yumurta/oosit)
 kullanıcının sözlüğü, ona soruldu.
+
+# v6.133 — taşıyıcıda yumurta varsa "yumurta", embriyo varsa "embriyo"
+
+Kullanıcının isteği: **"Yumurta donduruluyorsa Yumurta, Embriyo
+donduruluyorsa Embriyo yazsın."**
+
+Cryo Haritası her taşıyıcı için `say("n_embriyo", t.adet)` basıyordu, yani
+bir tüp dolusu yumurta da **"4 embriyo"** diye görünüyordu. Bu v6.132'nin
+açtığı bir hata değil: program o güne kadar hiç yumurta dondurma kaydı
+görmemişti (`oosit_cryo` tedavilerinde vitrifikasyon hiç girilmemişti), o
+yüzden ortaya çıkmamıştı.
+
+## Karar tek yerde: `_yumurta_mi(cycle_tipi)`
+
+Ayrım zaten `_ornek_adi()` içinde vardı (`"oosit_ad" if cycle_tipi ==
+"oosit_cryo" else "embriyo_ad"`) ama satır içine gömülüydü. Ayrı bir
+fonksiyona alındı; artık iki soruyu birden yanıtlıyor — aşama ekranında
+örneğe ne deneceği ve taşıyıcının içinde ne olduğu. **Yumurta donduran yeni
+bir cycle tipi eklenirse tek satır değişecek, ikisi birden doğru olacak.**
+
+Yalnızca `oosit_cryo`'da yumurta donuyor: `ivf_icsi`'nin vitrifikasyon
+ekranı zaten `_ICSI_YAPILMADI` süzgeciyle enjekte edilmiş (embriyo olmuş)
+örnekleri listeliyor, `fet` tiplerinde de dondurma yapılmıyor.
+
+## Altı yerde aynı etiket
+
+Aynı nesnenin ("bu taşıyıcıda ne var") altı ayrı yerde yazıldığı ortaya
+çıktı; biri düzeltilip ötekiler bırakılsaydı ekranlar birbirini tutmazdı:
+
+- `cryo.html` — tank satırı, taşıyıcı satırı
+- `cycle_thaw.html` — dolu taşıyıcı, çözülmüş taşıyıcı
+- `tasiyici.html` — "İçerik" satırı, "Bu taşıyıcıda n ... var" uyarısı,
+  "İçindeki embriyolar" başlığı
+
+Hepsi yeni Jinja global `icerik_sayisi(adet, cycle_tipi)` ya da
+`yumurta_mi(cycle_tipi)` üzerinden geçiyor. Yeni metin anahtarları:
+`n_yumurta`, `n_yumurta_tekil`, `tasiyicida_n_yumurta`,
+`icindeki_yumurtalar` — İngilizceleri de yazıldı (`oocyte(s)`).
+
+## Taşıyıcının içeriği sorguya eklendi
+
+`ICERIK_TIPI` — taşıyıcının içindeki ilk örneğin tedavi tipini veren alt
+sorgu, metin olarak üç sorguda paylaşılıyor (üçünde de taşıyıcı `t` diye
+adlanıyor). **İlk satır yeter**: bir taşıyıcı tek bir tedavinin örneklerini
+taşıyor — ekrandaki vitrifikasyon kaydı tek seferde tek cycle'dan seçim
+yapıyor, `aktar_access.py` de tüp başına tek grup yazıyor.
+`tasiyici_icerigi()` ayrıca `c.cycle_tipi` döndürüyor.
+
+## Tank satırı ikisini ayrı sayıyor
+
+Bir tankta hem embriyo hem yumurta olabilir, orada tek bir kelime seçmek
+mümkün değil. Tank sorgusu ikisini ayrı sayıyor, şablon sıfır olmayanı
+basıyor: tek tip varsa görünüm eskisiyle aynı ("3 taşıyıcı · 12 embriyo"),
+karışıksa ikisi de yazıyor. Ölçüldü: aynı tanka bir embriyo ve bir yumurta
+taşıyıcısı konunca satır **"Tank 9 · 2 taşıyıcı · 1 embriyo · 4 yumurta"**
+oluyor.
+
+## Ölçüm
+
+Cryo Haritası: dört embriyo tüpü "embriyo", sekiz yumurta tüpü "yumurta".
+Taşıyıcı detayında üç etiketin üçü de (İçerik / uyarı / başlık) doğru
+kelimeyi kullanıyor. Çözme ekranı: `oosit_cryo` tedavisinde "4 yumurta",
+`ivf_icsi`'de "3 embriyo". 11 adres 200 döndürdü.
+
+**`oosit_ad` metnine dokunulmadı** — o hâlâ "Oosit" ve aşama ekranlarında
+öyle görünüyor. Kullanıcı bu ekran için "Yumurta" dedi; aşama ekranlarının
+sözlüğünü değiştirmek ayrı bir karar, sorulmadan yapılmadı.
