@@ -1003,23 +1003,6 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     coz = _dondurma_coz(r["notlar"], r["dondurma_asama"], r["tip"])
     if not coz:
         return
-    ham = ", ".join(o["ham"] for o in coz["ogeler"])
-    if r["tip"] in FET_TIPLERI:
-        # Çözme SONRASI yeniden dondurma (v6.142). Bir temmuz FET notu:
-        # "KÜLTÜRE EDİLEN TRANSFER FAZLASI 1 ADET D5 EMBRİYOSU (1CC) ŞEKLİNDE
-        # DONDURULARAK SAKLANDI". Programda bunun yeri yok -- FET'in
-        # aşamaları çözme/transfer/gebelik, vitrifikasyon aşaması hiç yok.
-        # Nasıl yazılacağı klinik bir karar ve kullanıcıya soruldu; o
-        # verilene kadar yazılmıyor. Ama SESSİZCE de geçilmiyor: tüp tankta
-        # duruyor ve Cryo Haritası onu göstermeyecek. Önceden aktarım bu
-        # satırı hiç söylemiyordu, `tamamla` ise yanlış sebeple ("OPU tarihi
-        # yok") uyarıyordu. Bu dönüş taşıyıcısız-vitrifikasyon iptalinden
-        # de ÖNCE: FET'in kayıtlarına hiçbir şekilde dokunulmuyor.
-        rapor.append("    UYARI: çözme sonrası yeniden dondurma var"
-                     + (f" ({ham})" if ham else "")
-                     + " -- program bunu kaydedemiyor, tüp Cryo "
-                       "Haritası'nda görünmeyecek")
-        return
     if not coz["gruplar"]:
         # Dondurma cümlesi var ama kaç örnek/tüp olduğu yazmıyor (parantez
         # grubu yok) -- neyin yazılacağı bilinemez. Önceden burada da
@@ -1031,42 +1014,75 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
         return
     cycle_no = b.execute("SELECT cycle_no FROM cycle WHERE id=?",
                          (cycle_id,)).fetchone()[0]
+    # FET'te çözme SONRASI yeniden dondurma (v6.143, kullanıcının isteği:
+    # "Çözülen embriyo aynı FET tedavisinde yeniden dondurulabilsin ve tüp
+    # Cryo Haritası'na girsin"). Temmuzda bir FET notu: "KÜLTÜRE EDİLEN
+    # TRANSFER FAZLASI 1 ADET D5 EMBRİYOSU (1CC) ŞEKLİNDE DONDURULARAK
+    # SAKLANDI". v6.142 bunu yazmıyor, uyarıyordu; program artık destekliyor
+    # (`vit_cycle_id`, goc_046). Farkları aşağıda: hedef örnekler, tarih ve
+    # dondurmanın hangi tedavide yapıldığı.
+    fet = r["tip"] in FET_TIPLERI
 
-    # v6.131'in ilk yazışındaki taşıyıcısız vitrifikasyon olayları iptal
-    # ediliyor: istatistikte "donduruldu" derken ekranda "aday" görünüyorlardı.
-    eski = b.execute(
-        "SELECT o.id FROM olay o JOIN specimen s ON s.id=o.specimen_id "
-        "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-        "AND o.vit_tasiyici_id IS NULL", (cycle_id,)).fetchall()
-    for (oid,) in eski:
-        b.execute("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, "
-                  "iptal_zamani=?, iptal_sebep=? WHERE id=?",
-                  (kid, _dt.datetime.now().isoformat(" ", "seconds"),
-                   "Tasiyicili kayitla degistirildi", oid))
+    if not fet:
+        # v6.131'in ilk yazışındaki taşıyıcısız vitrifikasyon olayları iptal
+        # ediliyor: istatistikte "donduruldu" derken ekranda "aday"
+        # görünüyorlardı. FET'te öyle kayıt hiç yazılmadı.
+        eski = b.execute(
+            "SELECT o.id FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+            "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+            "AND o.vit_tasiyici_id IS NULL", (cycle_id,)).fetchall()
+        for (oid,) in eski:
+            b.execute("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, "
+                      "iptal_zamani=?, iptal_sebep=? WHERE id=?",
+                      (kid, _dt.datetime.now().isoformat(" ", "seconds"),
+                       "Tasiyicili kayitla degistirildi", oid))
 
     gun = coz["gun"] or 5
     oosit_mi = coz["oosit_mi"]
-    # Yumurta dondurma OPU günü, denüdasyondan sonra; embriyo dondurma
-    # kaynak kaydın söylediği gün ("5,GÜN" / "3.GÜN").
-    temel = (_zaman(r["opu"], "14:00:00") if oosit_mi
-             else _zaman(_gun_ekle(r["opu"], gun), "12:00:00")) if r["opu"] else None
+    if fet:
+        # FET'te OPU yok. Kaynak kayıtta yalnızca transfer günü var; kültürün
+        # kaçıncı güne sürdüğü yazmıyor -- değerlendirme ve dondurma o güne,
+        # transferden (12:00) sonraya yazılıyor. Program öncesi kayıtların
+        # bütün saatleri gibi yaklaşık (v6.130); gün ise nottaki ("D5").
+        temel = _zaman(r["transfer"], "14:00:00") if r["transfer"] else None
+        t_deg = _zaman(r["transfer"], "13:00:00") if r["transfer"] else None
+        eksik_tarih = "transfer"
+    else:
+        # Yumurta dondurma OPU günü, denüdasyondan sonra; embriyo dondurma
+        # kaynak kaydın söylediği gün ("5,GÜN" / "3.GÜN").
+        temel = (_zaman(r["opu"], "14:00:00") if oosit_mi
+                 else _zaman(_gun_ekle(r["opu"], gun), "12:00:00")) if r["opu"] else None
+        t_deg = _zaman(_gun_ekle(r["opu"], gun), "09:00:00") if r["opu"] else None
+        eksik_tarih = "OPU"
     if not temel:
-        rapor.append("    UYARI: OPU tarihi yok, dondurma kaydı yazılamadı")
+        rapor.append(f"    UYARI: {eksik_tarih} tarihi yok, dondurma kaydı "
+                     "yazılamadı")
         return
 
-    # Hedef örnekler: yumurtada MII olanlar, embriyoda 2PN olanlar; ikisinde
-    # de daha önce dondurulmuş işaretlenenler öne alınıyor ki "tamamla"
-    # aynı örneklere denk gelsin.
+    # Hedef örnekler: yumurtada MII olanlar, embriyoda 2PN olanlar; FET'te bu
+    # tedavide çözülüp canlı/kısmi hasarlı çıkan ve transfer edilmeyenler
+    # (FET'in embriyoları FET'in kendi altında, v6.130). Hepsinde daha önce
+    # dondurulmuş işaretlenenler öne alınıyor ki "tamamla" aynı örneklere
+    # denk gelsin.
     secili, gorulen = [], set()
     sorgular = ["SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
                 "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' "
                 "GROUP BY s.id ORDER BY s.cycle_sira_no"]
-    sorgular.append(
-        "SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
-        "WHERE s.cycle_id=? AND o.iptal_mi=0 AND " +
-        ("o.tip='maturasyon_kontrolu' AND o.mat_deger='mii'" if oosit_mi else
-         "o.tip='fertilizasyon_kontrolu' AND o.fert_pn_sayisi='2'") +
-        " GROUP BY s.id ORDER BY s.cycle_sira_no")
+    if fet:
+        sorgular.append(
+            "SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
+            "WHERE s.cycle_id=? AND o.iptal_mi=0 AND o.tip='thaw' "
+            "AND COALESCE(o.thaw_sagkalim, '') <> 'degenere' "
+            "AND NOT EXISTS (SELECT 1 FROM olay tr WHERE tr.specimen_id=s.id "
+            "                AND tr.tip='transfer' AND tr.iptal_mi=0) "
+            "GROUP BY s.id ORDER BY s.cycle_sira_no")
+    else:
+        sorgular.append(
+            "SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
+            "WHERE s.cycle_id=? AND o.iptal_mi=0 AND " +
+            ("o.tip='maturasyon_kontrolu' AND o.mat_deger='mii'" if oosit_mi else
+             "o.tip='fertilizasyon_kontrolu' AND o.fert_pn_sayisi='2'") +
+            " GROUP BY s.id ORDER BY s.cycle_sira_no")
     for sorgu in sorgular:
         for (sid,) in b.execute(sorgu, (cycle_id,)).fetchall():
             if sid not in gorulen:
@@ -1074,7 +1090,12 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
                 secili.append(sid)
 
     zaten = _vitrifikasyon_var(b, cycle_id)
-    t_deg = _zaman(_gun_ekle(r["opu"], gun), "09:00:00")
+    # Yeniden dondurmada dondurmanın yapıldığı tedavi bu FET (`vit_cycle_id`,
+    # goc_046) -- programın kendi FET vitrifikasyon ekranının yazdığıyla aynı.
+    ek_vit = {"vit_cycle_id": cycle_id} if fet else {}
+    vit_notu = ("Kaynak kayıttaki dondurma notundan aktarıldı (çözme sonrası "
+                "yeniden dondurma); konum girilmedi." if fet else
+                "Kaynak kayıttaki dondurma notundan aktarıldı; konum girilmedi.")
     sira, tup_no, yazilan, tupler = 0, 0, [], []
     for grup in coz["gruplar"]:
         ogeler = [o for o in grup if o["tur"] in ("blast", "cleavage", "oosit")]
@@ -1113,9 +1134,7 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
                 yazilan.append(o["ham"])
             if tid:
                 _olay(b, kid, sid, cycle_id, "vitrifikasyon", an,
-                      vit_tasiyici_id=tid,
-                      notlar="Kaynak kayıttaki dondurma notundan aktarıldı; "
-                             "konum girilmedi.")
+                      vit_tasiyici_id=tid, notlar=vit_notu, **ek_vit)
                 _durum_yaz(b, sid, "dondurulmus")
 
     if sira > len(secili):
@@ -1253,9 +1272,8 @@ def _satiri_yaz(r) -> list:
         cycle_id, cycle_no = _cycle_ac(b, r, hasta_id, rapor)
         if r["tip"] in FET_TIPLERI:
             _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor)
-            # FET'te hiçbir şey yazmıyor, yalnızca çözme sonrası yeniden
-            # dondurmayı haber veriyor -- `tamamla` ile aktarım aynı satır
-            # için aynı şeyi söylesin (v6.142).
+            # Çözme sonrası yeniden dondurma (v6.143) -- çözme kayıtları bir
+            # satır yukarıda, aynı işlemde yazıldı; hedef örnekleri onlar.
             _dondurma_kayitlari(b, r, cycle_id, kid, rapor)
         else:
             _oositleri_ac(b, r, cycle_id, cycle_no, kid, rapor)
@@ -1310,12 +1328,11 @@ def onizleme(satirlar):
             ozet = ", ".join(o["ham"] for o in coz["ogeler"])
             print(f'        dondurulan ({"yumurta" if coz["oosit_mi"] else "embriyo"}'
                   + (f', gün {coz["gun"]}' if coz["gun"] else "") + f'): {ozet}'
-                  + ("   <- FET'te yeniden dondurma, YAZILMAYACAK"
+                  + ("   <- çözme sonrası yeniden dondurma"
                      if r["tip"] in FET_TIPLERI else ""))
         elif coz:
-            neden = ("FET'te yeniden dondurma" if r["tip"] in FET_TIPLERI
-                     else "kaç örnek/tüp olduğu okunamadı")
-            print(f"        dondurma notu var   <- {neden}, YAZILMAYACAK")
+            print("        dondurma notu var   <- kaç örnek/tüp olduğu "
+                  "okunamadı, YAZILMAYACAK")
     print(f'\n{len(satirlar) - atlanan} tedavi yazılacak, {yeni_hasta} yeni '
           f'hasta kartı açılacak, {atlanan} satır atlanacak.')
     print("Yazmak için: python3 aktar_access.py <dosya.csv>\n")
@@ -1416,6 +1433,14 @@ def main():
     if kip == "liste":
         onizleme(satirlar)
         return
+    # Yazmadan önce: araç göçleri kendisi çalıştırmıyor, program açılışta
+    # çalıştırıyor (v6.49). `git pull`'dan sonra program yeniden açılmadıysa
+    # FET'in yeniden dondurması `vit_cycle_id`'yi (goc_046) yazarken işlemin
+    # ortasında patlardı -- baştan, hiçbir şey yazmadan söyle.
+    if not _db.yeniden_dondurma_var():
+        sys.exit("Veritabani guncellemesi eksik (goc_046). Programi bir kez "
+                 "kapatip ac -- guncellemeler acilista uygulanir -- ya da "
+                 "`python3 goc_hepsi.py` calistir, sonra tekrar dene.")
     if kip == "tamamla":
         tamamla(satirlar)
         return

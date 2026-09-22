@@ -52,8 +52,15 @@
       <div class="no">{{ e.dosya_no }}</div>
       <div class="ad">{{ e.ad_soyad }}</div>
       <div class="meta">
-        {{ e.cycle_no }} · {{ metin("oosit_n").format(n=e.cycle_sira_no)|lower }}{% if e.skor %} · {{ e.skor }}{% endif %}
+        {# Örneğin adı tedavi tipinden (CLAUDE.md: "Yumurta diye sabit yazma") --
+           `oosit_n` v6.134'ten beri "Yumurta N" basıyordu, embriyo tüpünde de. #}
+        {{ e.cycle_no }} · {{ (ornek_adi('vitrifikasyon', e.cycle_tipi) ~ ' ' ~ e.cycle_sira_no)|lower }}{% if e.skor %} · {{ e.skor }}{% endif %}
       </div>
+      {# Bu tüpten çözülüp başka bir tüpe yeniden dondurulduysa (v6.143) --
+         geçmiş iki yönden izlenebilsin. #}
+      {% if e.son_tasiyici_id and e.son_tasiyici_id != t.id %}
+      <div class="meta">{{ metin("yeniden_donduruldu") }}: <a href="/cryo/tasiyici/{{ e.son_tasiyici_id }}">{{ e.son_tasiyici_etiket }}</a></div>
+      {% endif %}
       <div class="meta"><a href="/cycle/{{ e.cycle_id }}">{{ metin("cyclei_ac") }}</a></div>
     </div>
   </div>

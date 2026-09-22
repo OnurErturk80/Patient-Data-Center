@@ -109,7 +109,9 @@
 </div>
 {% endif %}
 
-{% if not fet_tipi_mi(c.cycle_tipi) %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("vitrifikasyon_ekrani") }}</a>{% endif %}
+{# Tipin vitrifikasyon aşaması varsa (v6.143'ten beri FET'te de: çözülen
+   embriyo yeniden dondurulabiliyor). Koşul rotada TIP_ASAMALARI'ndan. #}
+{% if vit_var %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("vitrifikasyon_ekrani") }}</a>{% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 {{ ok.baglama() }}
 {{ iy.kutu(c.id, "thaw") }}

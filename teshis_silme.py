@@ -18,6 +18,8 @@ if not DB.exists():
 b = sqlite3.connect(DB)
 b.row_factory = sqlite3.Row
 b.execute("PRAGMA foreign_keys = ON")
+# Göçü çalışmamış makinede olmayan kolonlar sorulmasın (tuzak #3).
+OLAY_KOLONLARI = {r[1] for r in b.execute("PRAGMA table_info(olay)")}
 
 # --------------------------------------------------------------- liste
 if len(sys.argv) < 2:
@@ -68,6 +70,16 @@ if cycles:
         ("olay.thaw_cycle_id (baska cycle'dan)",
          f"SELECT COUNT(*) FROM olay WHERE thaw_cycle_id IN ({q}) AND cycle_id NOT IN ({q})",
          cycles + cycles),
+    ]
+    # FET'te yeniden dondurma (v6.143, goc_046): başka bir tedavinin
+    # embriyosu bu FET'te yeniden dondurulduysa kaydı `vit_cycle_id` ile
+    # buraya bağlı (FK). Kalıcı silme bağı koparıyor (app.cycle_tamamen_sil).
+    if "vit_cycle_id" in OLAY_KOLONLARI:
+        taramalar.append(
+            ("olay.vit_cycle_id (baska cycle'dan)",
+             f"SELECT COUNT(*) FROM olay WHERE vit_cycle_id IN ({q}) "
+             f"AND cycle_id NOT IN ({q})", cycles + cycles))
+    taramalar += [
         ("sperm_dondurma.kullanim_cycle_id (baska hastadan)",
          f"SELECT COUNT(*) FROM sperm_dondurma WHERE kullanim_cycle_id IN ({q}) "
          f"AND hasta_id<>?", cycles + [h["id"]]),
@@ -110,6 +122,13 @@ for cid in cycles:
         (f"cycle {cid}: cozme baglarini kopar",
          "UPDATE olay SET thaw_cycle_id=NULL WHERE thaw_cycle_id=? AND cycle_id<>?",
          (cid, cid)),
+    ]
+    if "vit_cycle_id" in OLAY_KOLONLARI:
+        ADIMLAR.append(
+            (f"cycle {cid}: yeniden dondurma baglarini kopar",
+             "UPDATE olay SET vit_cycle_id=NULL WHERE vit_cycle_id=? AND cycle_id<>?",
+             (cid, cid)))
+    ADIMLAR += [
         (f"cycle {cid}: sperm_dondurma baglarini kopar",
          "UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE kullanim_cycle_id=?",
          (cid,)),

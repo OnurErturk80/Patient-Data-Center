@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("vit_kaydini_sil") }}{% endblock %}
-{% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">&#8249;</a>{% endblock %}
+{# Dönüş, dondurmanın YAPILDIĞI tedaviye (v6.143): FET'te yeniden dondurmada o FET. #}
+{% block geri %}<a class="geri" href="/cycle/{{ hedef_cycle }}/vitrifikasyon">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
@@ -12,7 +13,13 @@
 
 {% if not kayit %}
 <div class="kart"><div class="bos">{{ metin("vit_kaydi_yok") }}</div></div>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">{{ metin("geri_don") }}</a>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/vitrifikasyon">{{ metin("geri_don") }}</a>
+{% elif engel %}
+{# Önce en son adım geri alınır (v6.143): tüp çözülmüşse dondurmayı silmek
+   geçmişi kendi içinde çelişkili bırakırdı. Sunucu da reddediyor. #}
+<div class="uyari">{{ metin(engel) }}</div>
+<a class="dugme ikincil" href="/cryo/tasiyici/{{ kayit.vit_tasiyici_id }}">{{ metin("tasiyiciya_git") }}</a>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/vitrifikasyon">{{ metin("geri_don") }}</a>
 {% else %}
 
 <div class="tehlike">
@@ -41,8 +48,10 @@
 {% endif %}
 
 <form method="post" action="/specimen/{{ sp.id }}/vit-sil">
+  {# Hangi tedavinin dondurması (v6.143) -- bir örneğin birden çok dondurması olabiliyor. #}
+  {% if adres_cycle %}<input type="hidden" name="cycle" value="{{ adres_cycle }}">{% endif %}
   <button class="dugme tehlikeli" type="submit">{{ metin("kaydi_geri_al_dugme") }}</button>
 </form>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/vitrifikasyon">{{ metin("vazgec") }}</a>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/vitrifikasyon">{{ metin("vazgec") }}</a>
 {% endif %}
 {% endblock %}

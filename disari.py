@@ -111,7 +111,9 @@ def ay_sayfalari(ay: str, baslik: str):
     Aşama sayıları cycle'ın **kendi** örneklerinden geliyor; çözme ve transfer
     ise tedavinin yapıldığı cycle'dan (`thaw_cycle_id` / `tr_cycle_id`). Bir
     FET cycle'ında oosit yoktur ama transfer vardır — sayının doğru cycle'da
-    görünmesi böyle sağlanıyor.
+    görünmesi böyle sağlanıyor. Dondurma da (v6.143): FET'te yeniden
+    dondurulan embriyo o FET'in "Donan"ına yazılır, kaynak tedavininkine
+    değil (`db.vit_tedavisi()`).
     """
     h = _etiket_haritasi()
     bitis_var = _kolon_var("cycle", "bitis_sebebi")
@@ -156,7 +158,7 @@ def ay_sayfalari(ay: str, baslik: str):
                   AND o.tip = 'blastokist_degerlendirme') AS blast,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
                  JOIN specimen s ON s.id = o.specimen_id
-                WHERE s.cycle_id = c.id AND o.iptal_mi = 0
+                WHERE {db.vit_tedavisi('o')} = c.id AND o.iptal_mi = 0
                   AND o.tip = 'vitrifikasyon') AS donan,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
                  JOIN specimen s ON s.id = o.specimen_id
@@ -367,6 +369,12 @@ def cryo_sayfalari():
     tablosu yok, liste vitrifikasyon ve çözme kayıtlarından çıkıyor.
     """
     h = _etiket_haritasi()
+    # Satır bir DONDURMA; çözme sütunu o dondurmanın tüpünden yapılan çözme
+    # (v6.143, `thaw_tasiyici_id`). "Örneğin son çözmesi" yeniden dondurulan
+    # bir embriyonun yeni tüpüne eski tüpün çözmesini yazardı ve "Dolapta"
+    # dolu bir tüp için "Hayır" derdi. Göç yoksa eski ölçü.
+    tup = ("AND x.thaw_tasiyici_id = o.vit_tasiyici_id"
+           if db.cozme_tupu_var() else "")
     satirlar = db.sorgu(
         f"""
         SELECT k.tam_yol, t.etiket, t.tip AS tasiyici_tipi, t.renk,
@@ -374,8 +382,8 @@ def cryo_sayfalari():
                h.dosya_no, h.ad_soyad, c.cycle_no, c.cycle_tipi,
                s.id AS ornek, s.cycle_sira_no, s.durum AS ornek_durum,
                {_son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC')} AS skor,
-               {_son_alt('zaman', 'thaw')} AS cozme,
-               {_son_alt('thaw_sagkalim', 'thaw')} AS sagkalim,
+               {_son_alt('zaman', 'thaw', ek=tup)} AS cozme,
+               {_son_alt('thaw_sagkalim', 'thaw', ek=tup)} AS sagkalim,
                {_son_alt('zaman', 'transfer')} AS transfer
           FROM olay o
           JOIN specimen s ON s.id = o.specimen_id

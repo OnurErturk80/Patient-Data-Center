@@ -172,6 +172,11 @@ kez çalıştırmak güvenli. Aktarımdan **hemen sonra** çalıştır: aktarıl
 embriyonun skorunu ekranda elle düzelttiysen `tamamla` onu nottaki değerle
 ezer.
 
+**"Veritabani guncellemesi eksik (goc_046)" derse:** `git pull`'dan sonra
+program yeniden açılmamış demektir. Programı bir kez kapatıp aç —
+güncellemeler açılışta kendiliğinden uygulanır — sonra komutu tekrar
+çalıştır. Araç bu durumda hiçbir şey yazmadan durur.
+
 ---
 
 ## Sorun teşhisi

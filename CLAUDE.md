@@ -117,7 +117,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..044.py   veritabanı göçleri (sırayla)
+  goc_002..046.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -144,9 +144,13 @@ Patient Data Center/
 
 Tedavi tipine göre hangi aşamaların görüneceği değişir:
 - `ivf_icsi` → 11 aşamanın hepsi (OPU ve androloji dahil)
-- `fet` → çözme, transfer, gebelik (**OPU yok** — oosit toplanmaz, embriyo
-  başka bir cycle'dan gelir, aynı gün transfer edilir)
-- `fet_kultur` → çözme, **blastokist**, transfer, gebelik (v6.62, `goc_031`).
+- `fet` → çözme, transfer, **vitrifikasyon**, gebelik (**OPU yok** — oosit
+  toplanmaz, embriyo başka bir cycle'dan gelir, aynı gün transfer edilir).
+  Vitrifikasyon v6.143'ten beri (kullanıcının isteği): çözülüp transfer
+  edilmeyen embriyo aynı tedavide yeniden dondurulabiliyor — aşağıdaki
+  "Bir örneğin birden çok dondurması ve çözmesi olabilir" bölümüne bak.
+- `fet_kultur` → çözme, **blastokist**, transfer, vitrifikasyon, gebelik
+  (v6.62, `goc_031`; vitrifikasyon v6.143).
   "FET (3→5 kültür)" — gün 2/3 embriyosu çözülüp gün 5'e kadar kültürlenip
   öyle transfer ediliyor; `fet`'ten farkı yalnızca araya giren blastokist
   değerlendirmesi. **Sıra `ivf_icsi`'nin tersi**: orada blastokist
@@ -266,9 +270,11 @@ Taşıyıcı/örnek listeleri `specimen.cycle_id` ile değil, `olay.thaw_cycle_i
 "embriyo" diyor ama mekanizma tamamen genel: `cycle_thaw_listesi()`'nin
 taşıyıcı sorgusu embriyo/oosit ayrımı yapmıyor, `yumurta_cozme` eklenirken
 hiç değişmedi. Yeni bir `FET_TIPLERI` üyesi eklersen `cycle_thaw_listesi()`,
-`_blast_kosul()` ve `cycle_thaw.html`'deki vitrifikasyon-bağlantısı koşulu
+`_blast_kosul()` ve `vit_ekran()`'in FET dalı (`_FET_DONDURULABILIR`)
 otomatik kapsar — `fet_tipi_mi()` kullanmayan yeni bir `== "fet"` kontrolü
-yazma.
+yazma. `cycle_thaw.html`'deki vitrifikasyon bağlantısı v6.143'ten beri
+`fet_tipi_mi()`'ye değil **tipin aşamalarına** bakıyor (`vit_var`,
+`TIP_ASAMALARI`): FET'te de vitrifikasyon var, `yumurta_cozme`'de yok.
 
 **Blastokist ekranında seçim `specimen.id` ile, `cycle_sira_no` ile DEĞİL**
 (v6.62, yalnızca bu ekranda). `fet_kultur`'da birden çok cycle'ın embriyoları
@@ -1761,17 +1767,16 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   `db.yumurta_mi(tip)`, nottaki kelime, her öğenin `N*M2` yazımı.
   **Serbest metinden bir klinik kategori çıkaracaksan önce yapılandırılmış
   veriye sor** — `db.yumurta_mi()`'nin var olma sebebi tam bu soru.
-- **FET'te çözme sonrası yeniden dondurma YAZILMIYOR, söyleniyor**
-  (v6.142). Temmuzda bir FET notu transfer fazlası bir embriyonun D5'te
-  yeniden dondurulduğunu yazıyor; `fet`'in vitrifikasyon aşaması yok ve
-  nasıl gösterileceği kullanıcıya soruldu. `_dondurma_kayitlari()` FET'te
-  hiçbir şeye dokunmadan uyarıp dönüyor; aktarım da `tamamla` da aynı
-  cümleyi söylüyor (önceden aktarım susuyor, `tamamla` "OPU tarihi yok"
-  diye yanlış sebep veriyordu). Kullanıcı karar verince burası değişecek.
-  Aynı ilkeyle skor parantezi olmayan bir dondurma cümlesi de artık
-  uyarıyor (önceden sessizce dönülüyordu). **Kural: dondurulmuş bir örneği
-  yazamıyorsan söyle** — tankta duran ama Cryo Haritası'nda görünmeyen bir
-  tüp bu işin en sinsi kayıplarından.
+- **FET'te çözme sonrası yeniden dondurma yazılıyor** (v6.143; v6.142'de
+  yalnızca uyarıyordu, kullanıcı "programa ekleyelim" dedi). Hedef bu
+  FET'te çözülüp transfer edilmeyen embriyolar, dondurmanın `vit_cycle_id`'si
+  bu FET — programın kendi FET vitrifikasyon ekranının yazdığıyla aynı.
+  Tarih transfer günü (kaynakta kültürün kaçıncı güne sürdüğü yok). **Araç
+  göçü kendisi çalıştırmıyor**: goc_046 yoksa hiçbir şey yazmadan duruyor.
+  Skor parantezi olmayan bir dondurma cümlesi de uyarıyor (v6.142'ye kadar
+  sessizce dönülüyordu). **Kural: dondurulmuş bir örneği yazamıyorsan
+  söyle** — tankta duran ama Cryo Haritası'nda görünmeyen bir tüp bu işin
+  en sinsi kayıplarından.
 - **"UYARI: notta N örnek ... M uygun kayıt var" iki ayrı sebebi taşıyor**:
   kaynağın kendi tutarsızlığı (2PN'den çok dondurulan embriyo) ya da
   aracın notu yanlış okuması. v6.141 ikisini karıştırıp aracın hatasını
@@ -1792,13 +1797,62 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
   verisi. README/CLAUDE.md'ye hasta adı/dosya numarası yazma.
 
-**Embriyo cycle değiştirmez; üç alan üç soruyu yanıtlar.**
+**Embriyo cycle değiştirmez; her alan tek bir soruyu yanıtlar.**
 `specimen.cycle_id` nereden geldiği (OPU/ICSI cycle'ı, değişmez),
 `olay.thaw_cycle_id` hangi tedavi için çözüldüğü, `olay.tr_cycle_id` nerede
-transfer edildiği. FET böyle bağlanır — embriyo kopyalanmaz, taşınmaz.
-Transfere ulaşmayan çözme de FET'in kaydıdır, görünmesi gerekir (README v6.7).
-Bu iki alan **başka bir cycle'a** işaret edebildiği için kalıcı silmede
-`NULL`'a çekilmeleri şart (bkz. tuzak #4).
+transfer edildiği, **`olay.vit_cycle_id` hangi tedavide dondurulduğu**
+(v6.143; boş = kendi tedavisi). FET böyle bağlanır — embriyo kopyalanmaz,
+taşınmaz. Transfere ulaşmayan çözme de FET'in kaydıdır, görünmesi gerekir
+(README v6.7). Bu üç alan **başka bir cycle'a** işaret edebildiği için kalıcı
+silmede `NULL`'a çekilmeleri şart (bkz. tuzak #4) — `cycle_tamamen_sil()` ve
+`teshis_silme.py` üçünü de biliyor.
+
+**Bir örneğin birden çok dondurması ve çözmesi olabilir** (v6.143, `goc_046`,
+kullanıcının isteği: "Çözülen embriyo aynı FET tedavisinde yeniden
+dondurulabilsin ve tüp Cryo Haritası'na girsin"). Geçmiş bir dizi: dondur A →
+çöz A → dondur B → çöz B. v6.143'e kadar program örnek başına tek dondurma,
+tek çözme varsayıyordu (`olay_kaydet_veya_guncelle()` aynı tipin son kaydını
+**güncelliyor**); yeniden dondurma ilk dondurmanın üzerine yazar, ikinci
+çözme ilk FET'in çözmesini ezerdi. README v6.143'te bu varsayımın kırdığı
+yedi yer tek tek yazılı.
+- **Dondurmayı "hangisi" diye sor, "son" diye değil.** Bir tedavinin
+  dondurması `db.vit_tedavisi(o) = <tedavi>` (`COALESCE(vit_cycle_id,
+  cycle_id)`) — vitrifikasyon ekranı, resmî formların `dondurma_tupleri()`'i,
+  ART Lab'ın dondurma saati, ay listesinin "Donan"ı hep böyle. Yeni bir
+  yerde bir örneğin dondurmasını okuyacaksan `LIMIT 1` yazıp geçme: hangi
+  tedavinin dondurması? Bir tüpün içeriği ise zaten `vit_tasiyici_id` ile
+  soruluyor, değişmedi.
+- **Çözme tüpüne bağlı: `olay.thaw_tasiyici_id`.** Bir tüpün "çözüldü mü /
+  kaç çözme" sorusu `thaw_tasiyici_id = <tüp>`; "örneğin herhangi bir
+  çözmesi" bir embriyonun ikinci tüpüne ilkinin çözmesini yazar. Çözme ekranı
+  tüp başına bir çözme yazıyor (`ek_kosul`), Cryo Excel'inin çözme sütunu,
+  taşıyıcı sayfasının özeti, tedavinin çözme listesi hep tüpe bakıyor.
+- **`olay_kaydet_veya_guncelle(..., ek_kosul, ek_deger)`**: aynı tipte birden
+  çok kaydı olabilen bir olay yazıyorsan hangisinin güncelleneceğini söyle.
+  Verilmezse eski davranış (son kayıt) — yalnızca gerçekten tek olan
+  olaylarda (ICSI, fertilizasyon, transfer) böyle bırak.
+- **Önce en son adım geri alınır.** Çözülmüş bir tüpün dondurması geri
+  alınamaz (`_vit_geri_alma_engeli()`), çözmeden sonra yeniden dondurma
+  varsa çözme geri alınamaz (`_cozme_geri_alma_engeli()`); ölçü kimlik
+  sırası, saat değil (saatler elle geri tarihlenebilir). Aynı kural kayıt
+  tarafında: çözülmüş bir tüpün dondurma kaydı başka tüpe **taşınamaz**
+  (eski sekmedeki form). Engel ekranda yazar, sunucu da reddeder.
+- **Geri alma bağlantısı ekranın tedavisini taşır**:
+  `/specimen/{id}/vit-sil?cycle=N`. Adressiz eski bağlantı son dondurmayı
+  bulur (eski davranış).
+- **Çözmeyi geri almak tüpü haritaya geri koymaz** — bu sürümden önceki
+  bilinçli bir karar, `thaw_sil.html` söylüyor; değiştirme.
+- **FET'in vitrifikasyon listesi `_FET_DONDURULABILIR`**: bu tedavi için
+  çözülüp dejenere çıkmayan, transfer edilmemiş (ya da bu tedavide zaten
+  yeniden dondurulmuş) embriyolar. ivf_icsi'nin iki süzgeci
+  (`_ICSI_YAPILMADI`, `_DEGERLENDIRILMIS`) FET'e uygulanmaz.
+- **Göç çalışmamışsa eski davranış** (`db.kolon_var()`,
+  `db.cozme_tupu_var()`, `db.yeniden_dondurma_var()`); FET'in vitrifikasyon
+  ekranı göç uyarısı basar.
+- **Kapsam dışı kalan:** zaman çizelgesi (`formlar._olay_ilk()`) saatleri
+  örneğin kaynak tedavisinden topluyor — FET'in çizelgesi boş, kaynak
+  ICSI'ninkinde FET'in çözme/transferi görünüyor. Bu sürümden önce de
+  böyleydi, ayrı iş olarak önerildi.
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)

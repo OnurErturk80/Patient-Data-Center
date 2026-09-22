@@ -18,6 +18,7 @@
 {% block icerik %}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+{% if goc_gerekli %}<div class="uyari">{{ metin("yeniden_dondurma_goc_gerekli") }}</div>{% endif %}
 
 {# Etiket araması (v6.138, kullanıcının isteği: "Vitrifikasyonda etiket kodu
    ile arama olsun"). Elde tutulan tüpün etiketi burada da aranabiliyor --
@@ -49,6 +50,9 @@
                      metin("dondurulmus") ~ " (" ~ dondurulmus|length ~ ")", "vit") %}
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("numara") }}</dt><dd>{{ e.cycle_sira_no }}</dd></div>
+    {# FET'te (v6.143) liste birden çok kaynak tedaviden gelebilir; numara
+       yalnızca kendi tedavisinde tekil (v6.62). #}
+    {% if fet %}<div class="veri"><dt>{{ metin("kaynak_cycle") }}</dt><dd>{{ e.kaynak_cycle_no }}</dd></div>{% endif %}
     <div class="veri"><dt>{{ metin("skor") }}</dt>
       <dd {% if not e.skor %}class="yok"{% endif %}>
         {{ e.skor if e.skor else metin("girilmedi") }}
@@ -61,15 +65,18 @@
   </dl>
   <div class="sfalt">
     <a href="/cryo/tasiyici/{{ e.tasiyici_id }}/thaw" style="color:var(--ink)">{{ metin("coz") }}</a>
-    <a href="/specimen/{{ e.id }}/vit-sil">{{ metin("kaydi_geri_al") }}</a>
+    {# Hangi tedavinin dondurması geri alınacak (v6.143): bir örneğin artık
+       birden çok dondurması olabiliyor, bağlantı bu ekranın tedavisini taşır. #}
+    <a href="/specimen/{{ e.id }}/vit-sil?cycle={{ c.id }}">{{ metin("kaydi_geri_al") }}</a>
   </div>
 {% endcall %}
 {% endif %}
 
 {% set adaylar = embriyolar|rejectattr('tasiyici_id')|list %}
 {% if not adaylar %}
-<div class="kart"><div class="bos">{{ metin("dondurulacak_yumurta_kalmadi"
-  if yumurta_mi(c.cycle_tipi) else "dondurulacak_kalmadi") }}</div></div>
+<div class="kart"><div class="bos">{{ metin("fet_dondurulacak_yok") if fet
+  else metin("dondurulacak_yumurta_kalmadi" if yumurta_mi(c.cycle_tipi)
+             else "dondurulacak_kalmadi") }}</div></div>
 {% else %}
 
 <form method="post" action="/cycle/{{ c.id }}/vitrifikasyon" id="vitform">
@@ -86,6 +93,7 @@
       {{ kf.kucuk(e) }}
       <span class="bilgi">
         <strong>{{ ornek_adi('vitrifikasyon', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
+        {%- if fet %} <span class="ipucu">· {{ e.kaynak_cycle_no }}</span>{% endif %}
         {# Blastokist skoru, yoksa gün 2/3 kaydı ("4HG2") -- app._vit_satiri() #}
         {% if e.kalite %}<em>{{ e.kalite }}{% if e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</em>
         {% else %}<em>{{ metin("degerlendirilmemis") }}</em>{% endif %}
@@ -93,6 +101,7 @@
     </label>
     {% endfor %}
     <div class="alan" style="border:0">
+      {% if fet %}<div class="ipucu">{{ metin("yeniden_dondurma_ipucu") }}</div>{% endif %}
       <div class="ipucu">{{ metin("ayni_tasiyici_ipucu") }}</div>
     </div>
   </div>

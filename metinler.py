@@ -419,6 +419,45 @@ METINLER = {
                                      "en": "No oocytes left to freeze."},
     "dondurulacak_yumurtalar": {"tr": "Dondurulacak yumurtalar",
                                 "en": "Oocytes to freeze"},
+    # FET'te yeniden dondurma (v6.143): liste bu tedavi için çözülüp transfer
+    # edilmeyen embriyolar -- "kalmadı" yerine neden boş olduğunu söyle.
+    "fet_dondurulacak_yok": {
+        "tr": "Bu tedavide çözülüp transfer edilmeyen embriyo yok. Yeniden "
+              "dondurulacak embriyo önce Çözme ekranından bu tedavi için "
+              "çözülmüş olmalı.",
+        "en": "No embryo was thawed and left untransferred in this cycle. An "
+              "embryo to re-freeze must first be thawed for this cycle on "
+              "the Thaw screen."},
+    "yeniden_dondurma_ipucu": {
+        "tr": "Bu tedavi için çözülüp transfer edilmeyen embriyolar. "
+              "Dondurulan embriyo yeni bir taşıyıcıya girer; ilk taşıyıcının "
+              "kaydı geçmiş olarak kalır.",
+        "en": "Embryos thawed for this cycle and not transferred. A re-frozen "
+              "embryo goes into a new carrier; the first carrier's record "
+              "stays as history."},
+    "yeniden_dondurma_goc_gerekli": {
+        "tr": "Çözülen embriyonun yeniden dondurulması için veritabanı "
+              "güncellemesi (goc_046) henüz uygulanmamış. Programı kapatıp "
+              "yeniden aç; güncellemeler açılışta kendiliğinden uygulanır.",
+        "en": "The database update needed to re-freeze a thawed embryo "
+              "(goc_046) has not been applied yet. Close and reopen the "
+              "program; updates are applied automatically at start-up."},
+    # Geri alma sırası (v6.143): önce en son adım.
+    "vit_geri_alma_cozulmus": {
+        "tr": "Bu taşıyıcı çözülmüş. Dondurma kaydını silmek \"hiç "
+              "dondurulmadı\" demek olurdu ama çözme kaydı duruyor. Önce "
+              "çözme kaydını geri al.",
+        "en": "This carrier has been thawed. Deleting the freezing record "
+              "would mean it was never frozen, but the thaw record remains. "
+              "Undo the thaw record first."},
+    "thaw_geri_alma_yeniden_dondurulmus": {
+        "tr": "Bu embriyo çözüldükten sonra yeniden dondurulmuş. Önce yeniden "
+              "dondurma kaydını geri al.",
+        "en": "This embryo was re-frozen after this thaw. Undo the re-freezing "
+              "record first."},
+    "tasiyiciya_git": {"tr": "Taşıyıcıya git", "en": "Go to carrier"},
+    # Taşıyıcı detayında: bu tüpten çözülüp sonra başka tüpe dondurulan örnek.
+    "yeniden_donduruldu": {"tr": "Yeniden donduruldu", "en": "Re-frozen"},
     "degerlendirilmemis": {"tr": "değerlendirilmemiş", "en": "not assessed"},
     "gun_n": {"tr": "gün {n}", "en": "day {n}"},
     "ayni_tasiyici_ipucu": {

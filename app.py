@@ -4667,14 +4667,22 @@ def icsi_durum(cycle_id: int):
 
 
 def olay_kaydet_veya_guncelle(specimen_id, cycle_id, tip, alanlar, kullanici_id,
-                              zaman=None):
+                              zaman=None, ek_kosul="", ek_deger=()):
     """Aynı tipte kayıt varsa günceller (değişiklikleri loglar), yoksa ekler.
 
     zaman verilmezse şu an kullanılır. Geriye dönük kayıt için elle verilir.
+
+    `ek_kosul`/`ek_deger` (v6.143): bir örneğin aynı tipte BİRDEN ÇOK kaydı
+    olabilen olaylar için hangisinin güncelleneceği. Dondurma ve çözme artık
+    öyle -- FET'te çözülüp yeniden dondurulan embriyonun iki dondurması, iki
+    kez çözülenin iki çözmesi var; ek koşul verilmeseydi ikincisi birincinin
+    üzerine yazardı. Koşul metni KODDAN gelir, hiçbir zaman adresten değil.
+    Verilmezse eski davranış: o tipin en son kaydı.
     """
     mevcut = db.tek(
         "SELECT * FROM olay WHERE specimen_id=? AND tip=? AND iptal_mi=0 "
-        "ORDER BY id DESC LIMIT 1", (specimen_id, tip)
+        + (f"AND ({ek_kosul}) " if ek_kosul else "") +
+        "ORDER BY id DESC LIMIT 1", (specimen_id, tip, *ek_deger)
     )
     from datetime import datetime as _d
     simdi = zaman or _d.now().isoformat(" ", "seconds")
@@ -5690,7 +5698,16 @@ def tasiyici_icerigi(tasiyici_id):
         "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
         "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
         "  AS goruntu_idler, "
-        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
+        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare, "
+        # Örneğin EN SON dondurmasının tüpü (v6.143): bu tüpten çözülüp başka
+        # bir tüpe yeniden dondurulduysa taşıyıcı sayfası onu gösterir --
+        # geçmiş iki yönden izlenebilsin.
+        "  (SELECT v2.vit_tasiyici_id FROM olay v2 WHERE v2.specimen_id=s.id "
+        "   AND v2.tip='vitrifikasyon' AND v2.iptal_mi=0 "
+        "   ORDER BY v2.id DESC LIMIT 1) AS son_tasiyici_id, "
+        "  (SELECT t2.etiket FROM olay v2 JOIN tasiyici t2 ON t2.id=v2.vit_tasiyici_id "
+        "   WHERE v2.specimen_id=s.id AND v2.tip='vitrifikasyon' AND v2.iptal_mi=0 "
+        "   ORDER BY v2.id DESC LIMIT 1) AS son_tasiyici_etiket "
         "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
         "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
         "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND o.vit_tasiyici_id=? "
@@ -5789,6 +5806,31 @@ _DEGERLENDIRILMIS = (
     "            'blastokist_degerlendirme', 'vitrifikasyon'))")
 
 
+# FET'in vitrifikasyon ekranında listelenen embriyolar (v6.143, kullanıcının
+# isteği: "Çözülen embriyo aynı FET tedavisinde yeniden dondurulabilsin").
+# `specimen.cycle_id` onların KAYNAK tedavisi, hiç değişmiyor; "bu FET'e ait"
+# sorusunu çözme kaydının `thaw_cycle_id`'si yanıtlıyor (`_blast_kosul()`'ün
+# ve `/cycle/{id}/thaw`'ın aynı mantığı). Liste:
+#   * bu tedavi için çözülen ve dejenere çıkmayan -- kısmi hasarlı da
+#     listede, çünkü laboratuvar onu transfere de uygun sayıyor
+#     (`TRANSFERE_UYGUN`); karar embriyoloğun;
+#   * transfer edilmemiş, **ya da** bu tedavide zaten yeniden dondurulmuş
+#     (sonradan başka bir FET'te çözülüp transfer edilse bile bu tedavinin
+#     "Dondurulmuş" kartından düşmesin -- v6.137'nin "var olan kayıt
+#     görünmez olmasın" gerekçesi).
+# İki `?`: ikisi de bu tedavinin kimliği. `vit_kaydet()` sunucu tarafında
+# aynı koşulu kullanıyor -- ekranda gizlemek yetmez.
+_FET_DONDURULABILIR = (
+    "s.id IN (SELECT t.specimen_id FROM olay t WHERE t.tip='thaw' "
+    "         AND t.iptal_mi=0 AND t.thaw_cycle_id=? "
+    "         AND COALESCE(t.thaw_sagkalim, '') <> 'degenere') "
+    "AND (NOT EXISTS (SELECT 1 FROM olay tr WHERE tr.specimen_id=s.id "
+    "                 AND tr.tip='transfer' AND tr.iptal_mi=0) "
+    "     OR EXISTS (SELECT 1 FROM olay v WHERE v.specimen_id=s.id "
+    "                AND v.tip='vitrifikasyon' AND v.iptal_mi=0 "
+    "                AND v.vit_cycle_id=?))")
+
+
 def _vit_satiri(e: dict) -> dict:
     """Vitrifikasyon listesinde bir satırın kalitesi ve günü.
 
@@ -5817,19 +5859,39 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         return RedirectResponse("/hastalar", status_code=303)
 
     from datetime import datetime as _d
-    # ICSI yapılmadı işaretlenen örnek burada hiç görünmesin (v6.105) --
-    # yalnızca ivf_icsi'de: oosit_cryo'da maturasyon denüdasyonda
-    # değerlendirilir (v6.96) ve ICSI aşaması hiç yoktur, o cycle_tipi'nde
-    # _ICSI_YAPILMADI HER örnek için doğru çıkar (yanlışlıkla hepsini
-    # süzerdi) -- bkz. _ICSI_YAPILMADI'nin belgesi.
-    kosul = ("s.cycle_id=? AND NOT (" + _ICSI_YAPILMADI + ")"
-             if c["cycle_tipi"] == "ivf_icsi" else "s.cycle_id=?")
-    # Embriyo aşaması olan tiplerde, o aşamalarda HİÇ değerlendirilmemiş örnek
-    # listeye girmesin (v6.137, kullanıcının isteği) -- aynı `_ICSI_YAPILMADI`
-    # sorusu: bu süzgeç `oosit_cryo`'da UYGULANMAZ, orada cleavage/blastokist
-    # aşaması hiç yok, her yumurta elenir ve ekran bomboş kalırdı.
-    if "blast" in TIP_ASAMALARI.get(c["cycle_tipi"], ()):
-        kosul += " AND (" + _DEGERLENDIRILMIS + ")"
+    fet = fet_tipi_mi(c["cycle_tipi"])
+    # FET'te yeniden dondurma goc_046'yı istiyor (iki kolon); çalışmamışsa
+    # ekran açılır ama liste boş ve üstte göç uyarısı (tuzak #3).
+    goc_gerekli = fet and not db.yeniden_dondurma_var()
+    if fet:
+        # v6.143: bu tedavi için çözülüp transfer edilmeyen embriyolar
+        # (`_FET_DONDURULABILIR`'in belgesi). ivf_icsi'nin iki süzgeci
+        # (`_ICSI_YAPILMADI`, `_DEGERLENDIRILMIS`) burada anlamsız: çözülen
+        # embriyo zaten bir kez dondurulmuştu. Program öncesi aktarılan FET
+        # embriyolarının hiç değerlendirmesi yok (v6.130); süzgeç onları
+        # elerdi.
+        kosul, par = ("0", ()) if goc_gerekli else (_FET_DONDURULABILIR,
+                                                    (cycle_id, cycle_id))
+    else:
+        # ICSI yapılmadı işaretlenen örnek burada hiç görünmesin (v6.105) --
+        # yalnızca ivf_icsi'de: oosit_cryo'da maturasyon denüdasyonda
+        # değerlendirilir (v6.96) ve ICSI aşaması hiç yoktur, o cycle_tipi'nde
+        # _ICSI_YAPILMADI HER örnek için doğru çıkar (yanlışlıkla hepsini
+        # süzerdi) -- bkz. _ICSI_YAPILMADI'nin belgesi.
+        kosul = ("s.cycle_id=? AND NOT (" + _ICSI_YAPILMADI + ")"
+                 if c["cycle_tipi"] == "ivf_icsi" else "s.cycle_id=?")
+        # Embriyo aşaması olan tiplerde, o aşamalarda HİÇ değerlendirilmemiş
+        # örnek listeye girmesin (v6.137, kullanıcının isteği) -- aynı
+        # `_ICSI_YAPILMADI` sorusu: bu süzgeç `oosit_cryo`'da UYGULANMAZ,
+        # orada cleavage/blastokist aşaması hiç yok, her yumurta elenir ve
+        # ekran bomboş kalırdı.
+        if "blast" in TIP_ASAMALARI.get(c["cycle_tipi"], ()):
+            kosul += " AND (" + _DEGERLENDIRILMIS + ")"
+        par = (cycle_id,)
+    # Satırın tüpü: BU tedavide yapılan dondurma (v6.143). Yeniden dondurulan
+    # bir embriyonun ilk tüpü kaynak tedavinin ekranında, ikincisi FET'inkinde
+    # görünür. `cycle_id` rotadan tamsayı geliyor, metne gömmek güvenli.
+    bu_vit = f"AND {db.vit_tedavisi('o')} = {int(cycle_id)} "
     embriyolar = db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
@@ -5851,13 +5913,19 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
         "   ORDER BY cl.gun DESC LIMIT 1) AS cl_gun, "
         "  (SELECT o.vit_tasiyici_id FROM olay o WHERE o.specimen_id=s.id "
-        "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 LIMIT 1) AS tasiyici_id, "
+        "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 " + bu_vit +
+        "   ORDER BY o.id DESC LIMIT 1) AS tasiyici_id, "
         "  (SELECT t.etiket FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
         "   WHERE o.specimen_id=s.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-        "   LIMIT 1) AS tasiyici_etiket, "
+        + bu_vit + "ORDER BY o.id DESC LIMIT 1) AS tasiyici_etiket, "
         "  (SELECT k.tam_yol FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
         "   JOIN konum k ON k.id=t.konum_id WHERE o.specimen_id=s.id "
-        "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 LIMIT 1) AS konum, "
+        "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 " + bu_vit +
+        "   ORDER BY o.id DESC LIMIT 1) AS konum, "
+        # FET'te liste birden çok kaynak tedaviden gelebilir ve `cycle_sira_no`
+        # yalnızca kendi tedavisinde tekil (v6.62) -- satırda kaynağı da yaz.
+        "  (SELECT kc.cycle_no FROM cycle kc WHERE kc.id=s.cycle_id) "
+        "  AS kaynak_cycle_no, "
         "  COALESCE( "
         "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
         "     AND g.asama='blastokist' ORDER BY g.id DESC LIMIT 1), "
@@ -5866,7 +5934,8 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
         "  AS goruntu_idler, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
-        f"FROM specimen s WHERE {kosul} ORDER BY s.cycle_sira_no", (cycle_id,))
+        f"FROM specimen s WHERE {kosul} ORDER BY s.cycle_id, s.cycle_sira_no",
+        par)
 
     # Satırda gösterilecek kalite: blastokist skoru, yoksa cleavage'ın kendi
     # yazımı ("4HG2" -- laboratuvarın kendi notasyonu, v6.135'te resmî
@@ -5880,6 +5949,7 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
          "gezinme": asama_gezinme(cycle_id, "vitrifikasyon"),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
+         "fet": fet, "goc_gerekli": goc_gerekli,
          # Etiket araması (v6.138, kullanıcının isteği): elde tutulan tüpün
          # etiketi bu ekranda da aranabiliyor. Bu cycle'la sınırlı DEĞİL --
          # aranan tüp çoğu zaman başka bir tedaviye ait, soru zaten "bu
@@ -5900,9 +5970,49 @@ async def vit_kaydet(request: Request, cycle_id: int):
         return RedirectResponse(
             f"/cycle/{cycle_id}/vitrifikasyon?hata={quote(m)}", status_code=303)
 
+    fet = fet_tipi_mi(c["cycle_tipi"])
+    if fet and not db.yeniden_dondurma_var():
+        return hata("Çözülen embriyonun yeniden dondurulması için veritabanı "
+                    "güncellemesi (goc_046) henüz uygulanmamış. Programı "
+                    "kapatıp yeniden aç.")
+
     secilen = f.getlist("embriyo")
     if not secilen:
         return hata("Hiç embriyo seçilmedi.")
+
+    # Seçilenler ÖNCE doğrulanıyor, taşıyıcı SONRA açılıyor (v6.143): hiçbiri
+    # uygun değilse -- eski bir sekmedeki form, bu arada transfer edilmiş bir
+    # embriyo -- Cryo Haritası'nda içi boş bir "dolu" tüp kalmasın. FET'te
+    # ekrandaki koşulun aynısı (`_FET_DONDURULABILIR`); gizlemek yetmez.
+    # Güncellenecek kayıt BU tedavide yapılan dondurma (v6.143): örnek bu
+    # tedavide zaten dondurulduysa o kayıt güncellenir (başka tüpe taşıma,
+    # eski davranış); başka bir tedavideki dondurması -- FET'te yeniden
+    # dondurulan embriyonun ilk tüpü -- hiç ellenmez, yeni kayıt açılır.
+    bu_vit = f"{db.vit_tedavisi('olay')} = ?"
+    uygunlar = []
+    for sid in secilen:
+        if fet:
+            sp = db.tek("SELECT s.* FROM specimen s WHERE s.id=? AND "
+                        + _FET_DONDURULABILIR, (sid, cycle_id, cycle_id))
+        else:
+            sp = db.tek("SELECT * FROM specimen WHERE id=? AND cycle_id=?",
+                        (sid, cycle_id))
+        # Çözülmüş bir tüpün dondurma kaydı TAŞINAMAZ (v6.143): eski bir
+        # sekmedeki form, bu arada dondurulup çözülen bir örneği gönderirse
+        # kayıt yeni tüpe taşınır, çözmenin tüpü içeriksiz kalırdı -- geçmiş
+        # yeniden yazılırdı. Geri almadaki kuralın aynısı
+        # (`_vit_geri_alma_engeli()`).
+        if sp:
+            mevcut = db.tek("SELECT specimen_id, vit_tasiyici_id FROM olay "
+                            "WHERE specimen_id=? AND tip='vitrifikasyon' "
+                            f"AND iptal_mi=0 AND {bu_vit} "
+                            "ORDER BY id DESC LIMIT 1", (sid, cycle_id))
+            if _vit_geri_alma_engeli(mevcut):
+                sp = None
+        if sp:
+            uygunlar.append(sp)
+    if not uygunlar:
+        return hata("Seçilenlerin hiçbiri bu tedavide dondurulamıyor.")
 
     etiket = (f.get("etiket") or "").strip()
     if not etiket:
@@ -5924,18 +6034,23 @@ async def vit_kaydet(request: Request, cycle_id: int):
     if konum_id:
         db.yaz("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
 
+    # `olay.cycle_id` örneğin KENDİ tedavisi (CLAUDE.md), FET'in kimliği
+    # `vit_cycle_id`'de.
     eski_tasiyicilar = set()
-    for sid in secilen:
-        sp = db.tek("SELECT * FROM specimen WHERE id=? AND cycle_id=?", (sid, cycle_id))
-        if not sp:
-            continue
+    for sp in uygunlar:
+        sid = sp["id"]
         onceki = db.tek(
             "SELECT vit_tasiyici_id FROM olay WHERE specimen_id=? "
-            "AND tip='vitrifikasyon' AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sid,))
+            f"AND tip='vitrifikasyon' AND iptal_mi=0 AND {bu_vit} "
+            "ORDER BY id DESC LIMIT 1", (sid, cycle_id))
         if onceki and onceki["vit_tasiyici_id"] and onceki["vit_tasiyici_id"] != tid:
             eski_tasiyicilar.add(onceki["vit_tasiyici_id"])
-        olay_kaydet_veya_guncelle(sid, cycle_id, "vitrifikasyon",
-                                  {"vit_tasiyici_id": tid}, kid, simdi)
+        alanlar = {"vit_tasiyici_id": tid}
+        if fet:
+            alanlar["vit_cycle_id"] = cycle_id
+        olay_kaydet_veya_guncelle(sid, sp["cycle_id"], "vitrifikasyon", alanlar,
+                                  kid, simdi, ek_kosul=bu_vit,
+                                  ek_deger=(cycle_id,))
         db.yaz("UPDATE specimen SET durum='dondurulmus' WHERE id=?", (sid,))
 
     # Boşalan eski taşıyıcıları ve konumlarını serbest bırak
@@ -6488,11 +6603,21 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0):
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     icerik = tasiyici_icerigi(tasiyici_id)
-    thawlar = db.sorgu(
-        "SELECT o.thaw_sagkalim, o.thaw_canlilik FROM olay o "
-        "JOIN specimen s ON s.id=o.specimen_id "
-        "JOIN olay v ON v.specimen_id=s.id AND v.tip='vitrifikasyon' AND v.iptal_mi=0 "
-        "WHERE o.tip='thaw' AND o.iptal_mi=0 AND v.vit_tasiyici_id=?", (tasiyici_id,))
+    # Çözme özeti: BU tüpten yapılan çözmeler (v6.143). Eski ölçü ("bu tüpte
+    # dondurulmuş örneklerin herhangi bir çözmesi") yeniden dondurulan bir
+    # embriyoda ikinci tüpe ilk tüpün çözmesini yazardı -- dolu bir tüp
+    # "çözüldü" görünürdü. Göç yoksa eski ölçü.
+    if db.cozme_tupu_var():
+        thawlar = db.sorgu(
+            "SELECT o.thaw_sagkalim, o.thaw_canlilik FROM olay o "
+            "WHERE o.tip='thaw' AND o.iptal_mi=0 AND o.thaw_tasiyici_id=?",
+            (tasiyici_id,))
+    else:
+        thawlar = db.sorgu(
+            "SELECT o.thaw_sagkalim, o.thaw_canlilik FROM olay o "
+            "JOIN specimen s ON s.id=o.specimen_id "
+            "JOIN olay v ON v.specimen_id=s.id AND v.tip='vitrifikasyon' AND v.iptal_mi=0 "
+            "WHERE o.tip='thaw' AND o.iptal_mi=0 AND v.vit_tasiyici_id=?", (tasiyici_id,))
     ozet = None
     if thawlar:
         canli = sum(1 for r in thawlar if r["thaw_sagkalim"] == "canli")
@@ -6506,39 +6631,112 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0):
          "geri": geri, "geri_cycle": cycle if gecerli else 0})
 
 
+def _vit_kaydi(specimen_id, cycle: int = 0):
+    """Geri alınacak dondurma kaydı (v6.143).
+
+    Bir örneğin artık birden çok dondurması olabiliyor (FET'te yeniden
+    dondurma). `cycle` verilirse O tedavide yapılan dondurma -- "Kaydı geri
+    al" bağlantısı hangi ekrandan basıldıysa onun tedavisini taşıyor; yoksa
+    en son dondurma (eski davranış, adressiz bağlantılar için).
+    """
+    kosul, par = "", (specimen_id,)
+    if cycle:
+        kosul, par = f"AND {db.vit_tedavisi('o')} = ? ", (specimen_id, cycle)
+    return db.tek(
+        "SELECT o.*, t.etiket, k.tam_yol FROM olay o "
+        "LEFT JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+        "LEFT JOIN konum k ON k.id=t.konum_id "
+        "WHERE o.specimen_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        + kosul + "ORDER BY o.id DESC LIMIT 1", par)
+
+
+def _vit_geri_alma_engeli(kayit):
+    """Bu dondurma geri alınamıyorsa sebebinin metin anahtarı, alınabiliyorsa
+    None (v6.143).
+
+    **Önce en son adım geri alınır.** Tüp çözülmüşse dondurmayı silmek
+    "hiç dondurulmadı" demek olurdu, ama çözme kaydı -- ve belki ondan sonra
+    yapılan yeniden dondurma -- duruyor: geçmiş kendi içinde çelişirdi.
+    Önce çözme geri alınmalı. Göç (goc_046) çalışmamışsa eski davranış:
+    engel yok.
+    """
+    if not (kayit and kayit["vit_tasiyici_id"] and db.cozme_tupu_var()):
+        return None
+    cozme = db.tek("SELECT 1 FROM olay WHERE specimen_id=? AND tip='thaw' "
+                   "AND iptal_mi=0 AND thaw_tasiyici_id=?",
+                   (kayit["specimen_id"], kayit["vit_tasiyici_id"]))
+    return "vit_geri_alma_cozulmus" if cozme else None
+
+
+def _vit_yapildigi_tedavi(kayit, varsayilan):
+    """Dondurmanın YAPILDIĞI tedavi: FET'te yeniden dondurmada o FET, yoksa
+    örneğin kendi tedavisi (`db.vit_tedavisi()`'nin Python hali)."""
+    if not kayit:
+        return varsayilan
+    if "vit_cycle_id" in kayit.keys() and kayit["vit_cycle_id"]:
+        return kayit["vit_cycle_id"]
+    return kayit["cycle_id"]
+
+
+def _dondurma_oncesi_cozme(kayit):
+    """Bu dondurmadan ÖNCE açılmış etkin çözme -- varsa bu bir yeniden
+    dondurmadır ve geri alınınca örnek o çözülmüş hâline döner.
+
+    Ölçü kimlik sırası, saat değil: saatler elle geri tarihlenebiliyor.
+    "Kaynak tedaviden farklı bir FET mi" diye bakılmıyor, çünkü program
+    öncesi aktarılan FET embriyolarının kendi tedavisi zaten o FET (v6.130).
+    """
+    if not kayit:
+        return None
+    return db.tek("SELECT thaw_sagkalim FROM olay WHERE specimen_id=? "
+                  "AND tip='thaw' AND iptal_mi=0 AND id < ? "
+                  "ORDER BY id DESC LIMIT 1", (kayit["specimen_id"], kayit["id"]))
+
+
 @uygulama.get("/specimen/{specimen_id}/vit-sil")
-def vit_sil_ekran(request: Request, specimen_id: str):
+def vit_sil_ekran(request: Request, specimen_id: str, cycle: int = 0):
     sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
                 "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
                 "WHERE s.id=?", (specimen_id,))
     if not sp:
         return RedirectResponse("/hastalar", status_code=303)
-    kayit = db.tek(
-        "SELECT o.*, t.etiket, k.tam_yol FROM olay o "
-        "LEFT JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
-        "LEFT JOIN konum k ON k.id=t.konum_id "
-        "WHERE o.specimen_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-        "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+    kayit = _vit_kaydi(specimen_id, cycle)
     kardes = 0
     if kayit and kayit["vit_tasiyici_id"]:
         kardes = db.tek("SELECT COUNT(*) k FROM olay WHERE vit_tasiyici_id=? "
                         "AND tip='vitrifikasyon' AND iptal_mi=0",
                         (kayit["vit_tasiyici_id"],))["k"]
+    # Geri ok ve Vazgeç, dondurmanın YAPILDIĞI tedavinin ekranına döner --
+    # FET'te yeniden dondurmada o FET, kaynak tedavi değil.
+    hedef = _vit_yapildigi_tedavi(kayit, sp["cycle_id"])
     return sablon.TemplateResponse(
-        request, "vit_sil.html", {"sp": sp, "kayit": kayit, "kardes": kardes})
+        request, "vit_sil.html",
+        {"sp": sp, "kayit": kayit, "kardes": kardes, "hedef_cycle": hedef,
+         "adres_cycle": cycle, "engel": _vit_geri_alma_engeli(kayit)})
 
 
 @uygulama.post("/specimen/{specimen_id}/vit-sil")
-def vit_sil(request: Request, specimen_id: str):
+async def vit_sil(request: Request, specimen_id: str):
     sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
     if not sp:
         return RedirectResponse("/hastalar", status_code=303)
+    f = await request.form()
+    # Adrese yazılacak bir değer: yalnızca rakam (denüdasyonun `secili`
+    # alanının kuralı, v6.35).
+    cycle_metin = (f.get("cycle") or "").strip()
+    cycle = int(cycle_metin) if cycle_metin.isdigit() else 0
     from datetime import datetime as _d
     kid = request.state.kullanici["id"]
     simdi = _d.now().isoformat(" ", "seconds")
 
-    k = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='vitrifikasyon' "
-               "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
+    k = _vit_kaydi(specimen_id, cycle)
+    # Sunucu da reddediyor -- ekranda düğmeyi gizlemek yetmez.
+    if _vit_geri_alma_engeli(k):
+        return RedirectResponse(
+            f"/specimen/{specimen_id}/vit-sil" + (f"?cycle={cycle}" if cycle else ""),
+            status_code=303)
+    cozme = _dondurma_oncesi_cozme(k)
+    hedef = _vit_yapildigi_tedavi(k, sp["cycle_id"])
     if k:
         db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
                "iptal_sebep='Vitrifikasyon kaydi temizlendi' WHERE id=?",
@@ -6553,10 +6751,18 @@ def vit_sil(request: Request, specimen_id: str):
                 if t and t["konum_id"]:
                     db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
 
+    # Önceki duruma dön. FET'te yeniden dondurma geri alındıysa embriyo o
+    # tedavide çözülmüş hâline döner (transfere de, tekrar dondurmaya da
+    # aday) -- `transfer_sil()`'in çözme kuralının aynısı. Aksi hâlde eski
+    # davranış.
+    onceki = "blastokist"
+    if cozme:
+        onceki = ("cozuldu" if cozme["thaw_sagkalim"] == "canli"
+                  else cozme["thaw_sagkalim"] or "cozuldu")
     guvenlik.degisiklikleri_yaz("specimen", specimen_id, sp,
-                                {"durum": "blastokist"}, kid)
-    db.yaz("UPDATE specimen SET durum='blastokist' WHERE id=?", (specimen_id,))
-    return RedirectResponse(f"/cycle/{sp['cycle_id']}/vitrifikasyon", status_code=303)
+                                {"durum": onceki}, kid)
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (onceki, specimen_id))
+    return RedirectResponse(f"/cycle/{hedef}/vitrifikasyon", status_code=303)
 
 
 # ----------------------------------------------------------------- thaw
@@ -6604,9 +6810,15 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
     from datetime import datetime as _d
     icerik = tasiyici_icerigi(tasiyici_id)
     mevcut, fotolar = {}, {}
+    # Mevcut çözme: BU tüpten yapılan (v6.143). Yeniden dondurulan bir
+    # embriyonun ikinci tüpü açıldığında ilk tüpten yapılan çözme "zaten
+    # çözüldü" diye görünmemeli. Göç yoksa eski ölçü: örneğin son çözmesi.
+    tup_kosul = "AND thaw_tasiyici_id=? " if db.cozme_tupu_var() else ""
+    tup_deger = (tasiyici_id,) if db.cozme_tupu_var() else ()
     for e in icerik:
         k = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='thaw' "
-                   "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (e["id"],))
+                   "AND iptal_mi=0 " + tup_kosul + "ORDER BY id DESC LIMIT 1",
+                   (e["id"], *tup_deger))
         if k:
             mevcut[e["id"]] = k
         fotolar[e["id"]] = {}
@@ -6692,10 +6904,26 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
                    "thaw_notu": thaw_notu}
         if thaw_cycle_var():
             alanlar["thaw_cycle_id"] = secili_cycle or e["cycle_id"]
-        olay_kaydet_veya_guncelle(e["id"], e["cycle_id"], "thaw",
-                                  alanlar, kid, simdi)
-        db.yaz("UPDATE specimen SET durum=? WHERE id=?",
-               ("cozuldu" if sagkalim == "canli" else sagkalim, e["id"]))
+        # Tüp başına bir çözme (v6.143): aynı tüpün formu yeniden
+        # kaydedilirse o çözme güncellenir (düzeltme, eski davranış); başka
+        # bir tüpten -- yeniden dondurulan embriyonun ikinci tüpü -- yeni
+        # kayıt açılır, ilk FET'in çözmesi ezilmez.
+        ek_kosul, ek_deger = "", ()
+        if db.cozme_tupu_var():
+            alanlar["thaw_tasiyici_id"] = tasiyici_id
+            ek_kosul, ek_deger = "thaw_tasiyici_id = ?", (tasiyici_id,)
+        thaw_id = olay_kaydet_veya_guncelle(e["id"], e["cycle_id"], "thaw",
+                                            alanlar, kid, simdi,
+                                            ek_kosul=ek_kosul, ek_deger=ek_deger)
+        # Bu çözmeden SONRA yeniden dondurulduysa (eski bir tüpün çözme
+        # bilgisi sonradan düzeltiliyor) durum "çözüldü"ye çekilmez: embriyo
+        # şu an başka bir tüpte donmuş duruyor.
+        sonra_donduruldu = db.tek(
+            "SELECT 1 FROM olay WHERE specimen_id=? AND tip='vitrifikasyon' "
+            "AND iptal_mi=0 AND id > ?", (e["id"], thaw_id))
+        if not sonra_donduruldu:
+            db.yaz("UPDATE specimen SET durum=? WHERE id=?",
+                   ("cozuldu" if sagkalim == "canli" else sagkalim, e["id"]))
 
     # Taşıyıcı boşaldı, konumu serbest kaldı
     db.yaz("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?", (tasiyici_id,))
@@ -6708,6 +6936,36 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
 
+def _cozme_tupu(kayit, specimen_id):
+    """Bu çözmenin boşalttığı tüp: `{vit_tasiyici_id, etiket}` ya da None.
+
+    v6.143'ten beri çözme tüpünü kendisi biliyor (`thaw_tasiyici_id`,
+    goc_046). Bilmiyorsa (göç yok ya da tüpü programda olmayan program öncesi
+    bir kayıt) eski ölçü: örneğin son dondurmasının tüpü.
+    """
+    if kayit and db.cozme_tupu_var() and kayit["thaw_tasiyici_id"]:
+        return db.tek("SELECT id AS vit_tasiyici_id, etiket FROM tasiyici "
+                      "WHERE id=?", (kayit["thaw_tasiyici_id"],))
+    return db.tek("SELECT o.vit_tasiyici_id, t.etiket FROM olay o "
+                  "LEFT JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+                  "WHERE o.specimen_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+                  "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+
+
+def _cozme_geri_alma_engeli(kayit):
+    """Bu çözme geri alınamıyorsa sebebinin metin anahtarı (v6.143).
+
+    Önce en son adım geri alınır: çözmeden SONRA açılmış bir dondurma varsa
+    (FET'te yeniden dondurma) çözmeyi silmek "hiç çözülmedi" demek olurdu ama
+    embriyo o arada başka bir tüpe girmiş. Kimlik sırası, saat değil.
+    """
+    if not (kayit and db.cozme_tupu_var()):
+        return None
+    sonra = db.tek("SELECT 1 FROM olay WHERE specimen_id=? AND tip='vitrifikasyon' "
+                   "AND iptal_mi=0 AND id > ?", (kayit["specimen_id"], kayit["id"]))
+    return "thaw_geri_alma_yeniden_dondurulmus" if sonra else None
+
+
 @uygulama.get("/specimen/{specimen_id}/thaw-sil")
 def thaw_sil_ekran(request: Request, specimen_id: str):
     sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
@@ -6717,15 +6975,13 @@ def thaw_sil_ekran(request: Request, specimen_id: str):
         return RedirectResponse("/hastalar", status_code=303)
     kayit = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='thaw' "
                    "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
-    vit = db.tek("SELECT o.vit_tasiyici_id, t.etiket FROM olay o "
-                 "LEFT JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
-                 "WHERE o.specimen_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-                 "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+    vit = _cozme_tupu(kayit, specimen_id)
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
         request, "thaw_sil.html",
-        {"sp": sp, "kayit": kayit, "vit": vit, "etiketler": etiketler})
+        {"sp": sp, "kayit": kayit, "vit": vit, "etiketler": etiketler,
+         "engel": _cozme_geri_alma_engeli(kayit)})
 
 
 @uygulama.post("/specimen/{specimen_id}/thaw-sil")
@@ -6737,15 +6993,16 @@ def thaw_sil(request: Request, specimen_id: str):
     kid = request.state.kullanici["id"]
     k = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='thaw' AND iptal_mi=0 "
                "ORDER BY id DESC LIMIT 1", (specimen_id,))
+    # Sunucu da reddediyor -- ekranda düğmeyi gizlemek yetmez.
+    if _cozme_geri_alma_engeli(k):
+        return RedirectResponse(f"/specimen/{specimen_id}/thaw-sil", status_code=303)
+    vit = _cozme_tupu(k, specimen_id)
     if k:
         db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
                "iptal_sebep='Thaw kaydi temizlendi' WHERE id=?",
                (kid, _d.now().isoformat(" ", "seconds"), k["id"]))
     db.yaz("UPDATE specimen SET durum='dondurulmus' WHERE id=?", (specimen_id,))
 
-    vit = db.tek("SELECT vit_tasiyici_id FROM olay WHERE specimen_id=? "
-                 "AND tip='vitrifikasyon' AND iptal_mi=0 ORDER BY id DESC LIMIT 1",
-                 (specimen_id,))
     hedef = f"/cryo/tasiyici/{vit['vit_tasiyici_id']}" if vit and vit["vit_tasiyici_id"] else "/cryo"
     return RedirectResponse(hedef, status_code=303)
 
@@ -6768,14 +7025,23 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         kosul = "s.cycle_id = ?"
         par = (cycle_id,)
 
+    # v6.143: bir tüpten yapılan çözme o tüpün kendi kaydı (`thaw_tasiyici_id`).
+    # Eski ölçü ("bu tüpte dondurulmuş örneğin herhangi bir çözmesi")
+    # yeniden dondurulan bir embriyoda ikinci tüpe ilk tüpün çözmesini
+    # sayardı. Göç yoksa eski ölçü.
+    tup_yeni = db.cozme_tupu_var()
+    cozulen_alt = (
+        "  (SELECT COUNT(*) FROM olay o3 WHERE o3.tip='thaw' AND o3.iptal_mi=0 "
+        "   AND o3.thaw_tasiyici_id=t.id) AS cozulen, " if tup_yeni else
+        "  (SELECT COUNT(*) FROM olay o3 JOIN olay v3 ON v3.specimen_id=o3.specimen_id "
+        "   AND v3.tip='vitrifikasyon' AND v3.iptal_mi=0 AND v3.vit_tasiyici_id=t.id "
+        "   WHERE o3.tip='thaw' AND o3.iptal_mi=0) AS cozulen, ")
     tasiyicilar = db.sorgu(
         "SELECT DISTINCT t.id, t.etiket, t.tip, t.renk, t.durum, k.tam_yol, "
         "  t.vitrifikasyon_zamani, "
         "  (SELECT COUNT(*) FROM olay o2 WHERE o2.vit_tasiyici_id=t.id "
         "   AND o2.tip='vitrifikasyon' AND o2.iptal_mi=0) AS adet, "
-        "  (SELECT COUNT(*) FROM olay o3 JOIN olay v3 ON v3.specimen_id=o3.specimen_id "
-        "   AND v3.tip='vitrifikasyon' AND v3.iptal_mi=0 AND v3.vit_tasiyici_id=t.id "
-        "   WHERE o3.tip='thaw' AND o3.iptal_mi=0) AS cozulen, "
+        + cozulen_alt +
         "  (SELECT group_concat(DISTINCT c3.cycle_no) FROM olay o4 "
         "   JOIN specimen s4 ON s4.id=o4.specimen_id "
         "   JOIN cycle c3 ON c3.id=s4.cycle_id "
@@ -6791,18 +7057,29 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
 
     # Bu cycle için yapılmış çözmeler. Transfere ulaşmayan (canlı çıkmayan)
     # embriyo da burada görünür — FET'in kaydı budur (README v6.7).
+    # Satırın tüpü çözmenin KENDİ tüpü (v6.143). Eski birleştirme (örneğin
+    # dondurma kayıtları üzerinden) yeniden dondurulan bir embriyoyu iki
+    # dondurmasıyla iki satır yapardı. Transfer de yalnızca BU tedavideki:
+    # başka bir FET'te sonradan transfer edilen embriyo burada "transfer
+    # edildi" görünmesin.
+    if tup_yeni:
+        tup_birlesimi = "LEFT JOIN tasiyici t ON t.id=o.thaw_tasiyici_id "
+        tr_kosul = "AND COALESCE(tr.tr_cycle_id, tr.cycle_id) = o.thaw_cycle_id"
+    else:
+        tup_birlesimi = ("LEFT JOIN olay v ON v.specimen_id=s.id "
+                         "  AND v.tip='vitrifikasyon' AND v.iptal_mi=0 "
+                         "LEFT JOIN tasiyici t ON t.id=v.vit_tasiyici_id ")
+        tr_kosul = ""
     cozulenler = [] if not thaw_cycle_var() else db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no AS kaynak_cycle_no, "
         "  c2.hasta_cycle_no AS kaynak_hasta_cycle_no, "
         "  o.zaman, o.thaw_sagkalim, o.thaw_canlilik, o.thaw_re_expansion, "
         "  t.etiket AS tasiyici_etiket, "
         "  (SELECT tr.id FROM olay tr WHERE tr.specimen_id=s.id "
-        "   AND tr.tip='transfer' AND tr.iptal_mi=0) AS transfer_id "
+        f"   AND tr.tip='transfer' AND tr.iptal_mi=0 {tr_kosul}) AS transfer_id "
         "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
         "JOIN cycle c2 ON c2.id=s.cycle_id "
-        "LEFT JOIN olay v ON v.specimen_id=s.id AND v.tip='vitrifikasyon' "
-        "  AND v.iptal_mi=0 "
-        "LEFT JOIN tasiyici t ON t.id=v.vit_tasiyici_id "
+        + tup_birlesimi +
         "WHERE o.tip='thaw' AND o.iptal_mi=0 AND o.thaw_cycle_id=? "
         "ORDER BY o.zaman, s.cycle_sira_no", (cycle_id,))
     ozet = None
@@ -6818,6 +7095,9 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         request, "cycle_thaw.html",
         {"c": c, "tasiyicilar": tasiyicilar, "etiketler": etiketler,
          "cozulenler": cozulenler, "ozet": ozet, "goc_gerekli": not thaw_cycle_var(),
+         # Vitrifikasyon ekranına bağlantı, tipin o aşaması varsa (v6.143:
+         # FET'e de geldi). Tip adını elle yazma, `TIP_ASAMALARI`'na bak.
+         "vit_var": "vitrifikasyon" in TIP_ASAMALARI.get(c["cycle_tipi"], ()),
          "gezinme": asama_gezinme(cycle_id, "thaw")})
 
 
@@ -7111,6 +7391,13 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
     # çözmelerin bağı kopar (kayıt kalır, hangi tedavi için olduğu bilinmez)
     db.yaz("UPDATE olay SET thaw_cycle_id=NULL "
            "WHERE thaw_cycle_id=? AND cycle_id<>?", (cycle_id, cycle_id))
+    # Aynısı yeniden dondurma için (v6.143, tuzak #4): bu FET'te yeniden
+    # dondurulan başka bir tedavinin embriyosu. Kayıt kalır -- tüp tankta
+    # duruyor, silmek onu haritadan düşürürdü -- yalnızca hangi tedavide
+    # dondurulduğu bilinmez olur (boş = kendi tedavisi).
+    if db.kolon_var("olay", "vit_cycle_id"):
+        db.yaz("UPDATE olay SET vit_cycle_id=NULL "
+               "WHERE vit_cycle_id=? AND cycle_id<>?", (cycle_id, cycle_id))
 
     # Başka bir hastaya (eşe) ait, bu tedaviye bağlanmış dondurulmuş sperm
     # varsa bağı kopar (v6.86, tuzak #4'ün aynısı: yeni bir cycle_id alanı
@@ -7155,6 +7442,12 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
                        (tid,))["k"]
         if kalan == 0:
             t = db.tek("SELECT konum_id FROM tasiyici WHERE id=?", (tid,))
+            # Çözme kaydı tüpü `thaw_tasiyici_id` ile gösteriyor (v6.143,
+            # FK). O çözmeler aynı örneğin kayıtları ve 4. adımda silindi;
+            # yine de tüpe işaret eden kalırsa silme FOREIGN KEY ile patlardı.
+            if db.cozme_tupu_var():
+                db.yaz("UPDATE olay SET thaw_tasiyici_id=NULL "
+                       "WHERE thaw_tasiyici_id=?", (tid,))
             db.yaz("DELETE FROM tasiyici WHERE id=?", (tid,))
             if t and t["konum_id"]:
                 db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
@@ -7268,15 +7561,22 @@ ASAMA_SIRASI = [
 TIP_ASAMALARI = {
     "ivf_icsi": ["opu", "androloji", "denudasyon", "icsi", "fert", "cleavage",
                  "blast", "vitrifikasyon", "thaw", "transfer", "gebelik"],
-    # FET'te oosit toplanmaz — embriyo baska bir cycle'dan gelir
-    "fet": ["thaw", "transfer", "gebelik"],
+    # FET'te oosit toplanmaz — embriyo baska bir cycle'dan gelir.
+    # Vitrifikasyon (v6.143, kullanicinin istegi): cozulup transfer edilmeyen
+    # embriyo AYNI tedavide yeniden dondurulabiliyor. Transferden SONRA:
+    # dondurulan sey transferin fazlasi. Ekran FET'te bu tedavi icin cozulen
+    # embriyolari listeliyor (vit_ekran), dondurma yeni bir kayit oluyor --
+    # ilk dondurmanin uzerine yazmiyor (goc_046).
+    "fet": ["thaw", "transfer", "vitrifikasyon", "gebelik"],
     # FET (3->5 kultur, v6.62, goc_031): gun 2/3 embriyosu cozulup gun 5'e
     # kadar kulturleniyor, sonra transfer ediliyor -- araya "blast" giriyor.
     # SIRA BURADA thaw'i blast'tan ONCE koyuyor; ivf_icsi'de tam tersi (blast
     # sonra dondurma). Ikisi de ayni ASAMA_SIRASI'ndan besleniyor ama
     # gosterim sirasi buradaki liste sirasindan geliyor (asagida
     # cycle_asamalari), yoksa fet_kultur'da blast thaw'dan once cikardi.
-    "fet_kultur": ["thaw", "blast", "transfer", "gebelik"],
+    # Yeniden dondurma burada da transferden sonra (v6.143): gun 5'e
+    # kulturlenip transfer edilmeyen blastokistin dondurulmasi.
+    "fet_kultur": ["thaw", "blast", "transfer", "vitrifikasyon", "gebelik"],
     "oosit_cryo": ["opu", "denudasyon", "vitrifikasyon", "thaw"],
     # Yumurta Çözme (v6.102, goc_039): oosit_cryo'da dondurulmuş bir
     # yumurtanın AYRI bir tedavide çözülmesi -- yalnızca çözme aşaması,

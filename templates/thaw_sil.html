@@ -13,6 +13,11 @@
 {% if not kayit %}
 <div class="kart"><div class="bos">Bu embriyonun çözme kaydı yok.</div></div>
 <a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}">Geri dön</a>
+{% elif engel %}
+{# Önce en son adım geri alınır (v6.143): çözmeden sonra yeniden dondurma
+   varsa önce o. Sunucu da reddediyor. #}
+<div class="uyari">{{ metin(engel) }}</div>
+<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}">{{ metin("geri_don") }}</a>
 {% else %}
 
 <div class="tehlike">

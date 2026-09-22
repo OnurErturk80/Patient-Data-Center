@@ -160,10 +160,17 @@ def gun_alt(alan, tip, gun):
             "ORDER BY x.id DESC LIMIT 1)")
 
 
-def son_alt(alan, tip, sira="x.id DESC"):
-    """Bir örneğin o tipteki son kaydından tek alan (alt sorgu)."""
+def son_alt(alan, tip, sira="x.id DESC", ek=""):
+    """Bir örneğin o tipteki son kaydından tek alan (alt sorgu).
+
+    `ek` (v6.143): `AND ...` diye başlayan ek koşul, alt sorgunun olayı `x`.
+    Bir örneğin artık birden çok dondurması/çözmesi olabildiği için "son"
+    her zaman yeterli değil -- ör. BU tüpten yapılan çözme, BU tedavide
+    yapılan dondurma. Koşul metni koddan gelir, adresten değil.
+    """
     return (f"(SELECT x.{alan} FROM olay x WHERE x.specimen_id = s.id "
-            f"AND x.tip = '{tip}' AND x.iptal_mi = 0 ORDER BY {sira} LIMIT 1)")
+            f"AND x.tip = '{tip}' AND x.iptal_mi = 0 {ek} "
+            f"ORDER BY {sira} LIMIT 1)")
 
 
 # ------------------------------------------------------------ zaman çizelgesi
@@ -331,6 +338,12 @@ def _transfer_edilenler(cycle_id):
 def dondurma_tupleri(cycle_id: int) -> list:
     """Bu tedavide dondurulan örnekler, tüp tüp.
 
+    "Bu tedavide" = dondurmanın YAPILDIĞI tedavi (v6.143, `db.vit_tedavisi()`),
+    örneğin kaynağı değil. FET'te çözülüp yeniden dondurulan embriyonun ikinci
+    tüpü FET'in resmî formunda çıkar; kaynak ICSI tedavisinin formuna o
+    tedavide dondurulmuş gibi yazılmaz -- resmî forma yanlış bilgi yazmak
+    boş bırakmaktan kötü.
+
     Her öğe: `{"etiket", "ogeler": [kalite|None], "gunler": [int]}`.
     `ogeler` tüpteki **her** örnek için bir giriş taşır; kalitesi
     kaydedilmemişse `None` (yumurta dondurmada hiçbirinin skoru olmaz).
@@ -350,7 +363,8 @@ def dondurma_tupleri(cycle_id: int) -> list:
                  AS cl_gun
           FROM olay o JOIN specimen s ON s.id = o.specimen_id
           LEFT JOIN tasiyici t ON t.id = o.vit_tasiyici_id
-         WHERE s.cycle_id = ? AND o.tip='vitrifikasyon' AND o.iptal_mi = 0
+         WHERE {db.vit_tedavisi('o')} = ? AND o.tip='vitrifikasyon'
+           AND o.iptal_mi = 0
          ORDER BY o.vit_tasiyici_id, s.cycle_sira_no
         """, (cycle_id,))
 
@@ -783,7 +797,9 @@ def artlab_verisi(cycle_id: int):
                {gun_alt('cl_skor', 'cleavage_degerlendirme', 3)} AS g3_skor,
                {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC')} AS bl,
                {son_alt('zaman', 'transfer')} AS tr_zaman,
-               {son_alt('zaman', 'vitrifikasyon')} AS vit_zaman
+               {son_alt('zaman', 'vitrifikasyon',
+                        ek=f"AND {db.vit_tedavisi('x')} = s.cycle_id")}
+                 AS vit_zaman
           FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no
         """, (cycle_id,))
 

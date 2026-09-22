@@ -191,6 +191,57 @@ def liste(liste_adi):
     )
 
 
+# ------------------------------------------------- göç çalıştı mı (tuzak #3)
+
+_KOLONLAR = {}
+
+
+def kolon_var(tablo: str, kolon: str) -> bool:
+    """`tablo.kolon` var mı -- göçü çalışmamış makinede ekran 500 vermesin.
+
+    Bir kez bakılıp saklanıyor (`thaw_cycle_var()`'ın deseni). Göçler açılışta
+    ilk istekten ÖNCE çalışıyor (v6.49), ilk bakış onlardan sonraya düşer --
+    bu yüzden modül yüklenirken ÇAĞIRMA, "yok" cevabı saklanırdı. Tablo ve
+    kolon adı her zaman koddan gelir, adresten değil (PRAGMA parametre almaz).
+    """
+    if (tablo, kolon) not in _KOLONLAR:
+        _KOLONLAR[(tablo, kolon)] = any(
+            r["name"] == kolon for r in sorgu(f"PRAGMA table_info({tablo})"))
+    return _KOLONLAR[(tablo, kolon)]
+
+
+def vit_tedavisi(o: str = "o") -> str:
+    """Bir dondurma olayının YAPILDIĞI tedavi -- SQL ifadesi (v6.143, goc_046).
+
+    `olay.cycle_id` her zaman örneğin KENDİ tedavisi (CLAUDE.md: "Embriyo
+    cycle değiştirmez"). FET'te çözülüp yeniden dondurulan embriyonun ikinci
+    dondurması ise o FET'te yapıldı; bu `vit_cycle_id`'de yazıyor. Boşsa
+    kendi tedavisi -- `COALESCE(thaw_cycle_id, ...)` deseninin aynısı, bugüne
+    kadarki bütün dondurmalar için doğru olan da bu.
+
+    `formlar.py` (resmî formdaki dondurulan tüpler) ve `disari.py` (ay
+    listesi) de soruyor ve `app`'i import edemiyor -- `FET_TIPLERI` ile aynı
+    gerekçeyle burada. `o`: sorgudaki olay tablosunun takma adı. Göç
+    çalışmamışsa eski ölçü: örneğin kendi tedavisi.
+    """
+    if kolon_var("olay", "vit_cycle_id"):
+        return f"COALESCE({o}.vit_cycle_id, {o}.cycle_id)"
+    return f"{o}.cycle_id"
+
+
+def cozme_tupu_var() -> bool:
+    """Çözme kaydı hangi tüpü boşalttığını biliyor mu (`olay.thaw_tasiyici_id`,
+    goc_046). Bilmiyorsa bir örneğin tek dondurması, tek çözmesi var sayılır
+    -- v6.143'ten önceki davranış."""
+    return kolon_var("olay", "thaw_tasiyici_id")
+
+
+def yeniden_dondurma_var() -> bool:
+    """Çözülen embriyo yeniden dondurulabilir mi -- goc_046'nın iki kolonu da
+    var mı. Biri yoksa FET'in vitrifikasyon ekranı göç uyarısı basar."""
+    return kolon_var("olay", "vit_cycle_id") and cozme_tupu_var()
+
+
 # ----------------------------------------------------------------- yerel ayar
 
 YEREL_DOSYA = VERI_KOK / "yerel_ayar.json"

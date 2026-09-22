@@ -11441,3 +11441,184 @@ bağlamadan önce kaynağına bak.
 **Serbest metinden bir klinik kategori çıkarırken yapılandırılmış veriye
 önce sor.** Tedavi tipi zaten "yumurta dondurma" diyordu; araç ona değil,
 personelin not yazarken kullanıp kullanmadığı bir kelimeye güveniyordu.
+
+---
+
+# v6.143 — çözülen embriyo aynı FET'te yeniden dondurulabiliyor
+
+Kullanıcının isteği: *"Programa ekleyelim. Çözülen embriyo aynı FET
+tedavisinde yeniden dondurulabilsin ve tüp Cryo Haritası'na girsin."*
+v6.142'de temmuz Access kayıtlarından biri (#37) bunu anlatıyordu —
+"KÜLTÜRE EDİLEN TRANSFER FAZLASI 1 ADET D5 EMBRİYOSU (1CC) ŞEKLİNDE
+DONDURULARAK SAKLANDI" — ve programda karşılığı yoktu: FET'in aşamaları
+çözme/transfer/gebelik, vitrifikasyon hiç yok. Soru yalnızca aktarımın değildi:
+laboratuvar çözüp yeniden dondurduğunda bunu bugün programa hiç giremiyordu.
+
+## Asıl iş: "örnek başına tek dondurma, tek çözme" varsayımı
+
+FET'e bir vitrifikasyon ekranı eklemek kolaydı; zor olan, programın her
+yerinde duran bir varsayımdı. `olay_kaydet_veya_guncelle()` aynı tipte kayıt
+varsa onu **güncelliyor** — dondurma da çözme de böyle yazılıyordu. Yeniden
+dondurma eklenip bu varsayım bırakılsaydı:
+
+- yeniden dondurma **ilk dondurmanın üzerine yazardı** (tüp A'nın kaydı B'ye
+  dönüşür, A'nın geçmişi kaybolurdu);
+- yeniden dondurulan embriyo ileride tekrar çözülünce **ikinci çözme ilk
+  FET'in çözme kaydını ezerdi** — ilk FET'in "çözülen embriyo" sayısı, resmî
+  formu, çözme listesi sessizce değişirdi;
+- tüp B'nin sayfası tüp A'dan yapılan çözmeyi "bu tüp çözüldü" diye gösterirdi
+  (çözme kaydı hangi tüpten yapıldığını bilmiyordu);
+- FET'in çözme listesinde embriyo **iki kez** görünürdü (iki dondurmasıyla
+  birleşiyordu);
+- Cryo Excel'i dolu tüp B için "Dolapta: Hayır" derdi;
+- resmî formlarda tüp B, kaynak ICSI tedavisinin formuna **o tedavide
+  dondurulmuş gibi** yazılırdı; FET'in kendi formunda hiç görünmezdi;
+- ay listesinin "Donan" sütunu yeniden dondurmayı kaynak tedaviye yazardı.
+
+## İki yeni alan (`goc_046`)
+
+- **`olay.vit_cycle_id`** — bu dondurma **hangi tedavide yapıldı**. Boşsa
+  örneğin kendi tedavisi (bugüne kadarki bütün dondurmalar). `thaw_cycle_id`
+  ve `tr_cycle_id`'nin deseni: `olay.cycle_id` her zaman örneğin KENDİ
+  tedavisi kalıyor. SQL ifadesi tek yerde: `db.vit_tedavisi()`
+  (`COALESCE(vit_cycle_id, cycle_id)`) — `formlar.py` ve `disari.py` de
+  soruyor, `app`'i import edemiyorlar; `FET_TIPLERI` ile aynı gerekçe.
+- **`olay.thaw_tasiyici_id`** — bu çözme **hangi tüpü boşalttı**. Göç var
+  olan çözmelere, o çözmeden ÖNCE açılmış dondurmanın tüpünü yazıyor (kimlik
+  sırası; saat elle geri tarihlenebildiği için ona bakılmıyor). Denendi:
+  çözmeden sonra dondurması iptal edilip başka tüpe yazılmış bir örnekte doğru
+  tüp (çözmeden önceki) seçildi. Dondurması programda olmayan program öncesi
+  FET embriyolarının çözmesi boş kalıyor — tüpü gerçekten bilinmiyor.
+- İlk yazışta göç patladı: SQLite alt sorgunun `ORDER BY`'ında dıştaki
+  tabloyu görmüyor (`no such column: olay.id`); `WHERE`'de görüyor. İki adıma
+  bölündü. Yarım kalan göç (kolonlar eklenmiş, doldurma yapılmamış) yeniden
+  çalışınca tamamlandı — idempotent.
+- Göç çalışmamışsa (tuzak #3) her şey eski davranışla çalışıyor, FET'in
+  vitrifikasyon ekranı göç uyarısı basıyor: `db.kolon_var()`,
+  `db.cozme_tupu_var()`, `db.yeniden_dondurma_var()`.
+
+`olay_kaydet_veya_guncelle()`'ye `ek_kosul`/`ek_deger` eklendi: aynı tipte
+birden çok kaydı olabilen olaylar için hangisinin güncelleneceği. Vitrifikasyon
+**bu tedavide yapılan** dondurmayı günceller (aynı tedavide başka tüpe taşıma
+eski davranış), çözme **bu tüpten yapılan** çözmeyi. Verilmezse eski davranış.
+
+## Ekranlar
+
+- **FET ve FET (3→5 kültür)'e vitrifikasyon aşaması** — transferden sonra
+  (`TIP_ASAMALARI`): dondurulan şey transferin fazlası. Liste
+  `_FET_DONDURULABILIR`: bu tedavi için çözülüp dejenere çıkmayan (kısmi hasar
+  listede — laboratuvar onu transfere de uygun sayıyor, karar embriyoloğun),
+  transfer edilmemiş embriyolar; bu tedavide zaten yeniden dondurulmuş olanlar
+  da, sonradan başka bir FET'te transfer edilseler bile üst kartta kalıyor.
+  Satırda kaynak tedavinin numarası: liste birden çok kaynaktan gelebilir,
+  `cycle_sira_no` yalnızca kendi tedavisinde tekil (v6.62). Sunucu aynı
+  koşulla doğruluyor.
+- **Taşıyıcı sayfası** çözme özetini artık **bu tüpten** yapılan çözmelerden
+  hesaplıyor; tüpten çözülüp başka tüpe dondurulan embriyonun satırında
+  "Yeniden donduruldu: <tüp>" bağlantısı (şu anki tüpü). Geçmiş iki yönden
+  izlenebiliyor.
+- **Tedavinin çözme ekranı** satırın tüpünü çözmenin kendi tüpünden alıyor
+  (embriyo iki kez listelenmiyor), "transfer edildi" yalnızca **bu** tedavideki
+  transfer. Vitrifikasyon ekranına bağlantı tipin o aşaması varsa
+  (`TIP_ASAMALARI`'dan, FET adını elle yazmadan).
+- **Yumurta dondurma, normal ICSI dondurması değişmedi** — denendi: aynı
+  tedavide başka tüpe taşıma aynı kaydı güncelliyor, geri alma eski durumuna
+  ("blastokist") döndürüyor, adressiz eski "geri al" bağlantısı çalışıyor.
+
+## Geri alma: önce en son adım
+
+Bir örneğin geçmişi artık bir dizi (dondur A → çöz A → dondur B → çöz B), ve
+ortadan bir adım silinirse dizi kendi içinde çelişir. Kural: **önce en son
+adım geri alınır.**
+
+- Çözülmüş bir tüpün dondurması geri alınamıyor — "hiç dondurulmadı" demek
+  olurdu ama çözme kaydı duruyor. Önce çözme geri alınmalı.
+- Çözmeden sonra yeniden dondurma varsa çözme geri alınamıyor.
+- Dondurmayı geri alma bağlantısı ekranın tedavisini taşıyor
+  (`/specimen/{id}/vit-sil?cycle=N`): ICSI ekranından basılan ilk tüpü, FET
+  ekranından basılan yeniden dondurmayı bulur. Yeniden dondurma geri alınınca
+  embriyo **o tedavideki çözülmüş hâline** döner (canlı → "çözüldü", kısmi
+  hasar → "kısmi hasar"); ölçü "bu dondurmadan önce açılmış bir çözme var mı"
+  — "kaynak tedaviden farklı bir FET mi" değil, çünkü program öncesi FET
+  embriyolarının kendi tedavisi zaten o FET (ilk yazışta bu yüzden yanlıştı,
+  denemeden önce düzeltildi).
+- Aynı kural kayıt tarafında da var: eski bir sekmedeki form, bu arada
+  dondurulup çözülmüş bir örneği gönderirse **reddediliyor** — yoksa kayıt
+  yeni tüpe taşınır, çözmenin tüpü içeriksiz kalırdı.
+- Engel ekranda açık bir mesaj ve taşıyıcıya bağlantı; sunucu da reddediyor.
+- **Değişmeyen karar:** çözmeyi geri almak tüpü haritaya geri koymuyor.
+  `thaw_sil.html` bunu zaten söylüyor ("Taşıyıcı boşaltıldı durumunda kalır…
+  Fiziksel olarak geri koyduysan yeni bir vitrifikasyon kaydı girilmelidir");
+  ilk bakışta hata sanıldı, bilinçli olduğu görüldü, dokunulmadı.
+
+## Resmî formlar ve Excel
+
+- `formlar.dondurma_tupleri()` dondurmanın **yapıldığı** tedaviye bakıyor:
+  FET'in Özet NOTLAR'ı ve ART Lab FREEZE'i yeniden dondurmayı gösteriyor
+  (denendi: "Dondurulan: 2 embriyo, 3. gün, 2 tüp: (8HG1) (9HG2)"), kaynak
+  ICSI'nin formu yalnızca kendi dondurmasını ("7 embriyo, 2 tüp" — değişmedi).
+  ART Lab'ın yumurta sütunundaki dondurma saati de o tedavinin dondurması.
+- Ay listesinin "Donan"ı yapıldığı tedaviye (FET'te 2, kaynak ICSI'de 7,
+  değişmedi) — "Çözülen" ve "Transfer" zaten öyleydi.
+- Cryo Excel'inde her satır bir dondurma, çözme sütunu **o tüpten** yapılan
+  çözme: tüp B'nin satırı kendi çözmesini (01.10), A'nın satırları FET1'inkini
+  (20.09) gösteriyor; "Dolapta" doğru.
+- `formlar.son_alt()`'a `ek` koşulu eklendi (`disari.py` de oradan alıyor).
+- **İstatistikteki "Donan" değişmedi**: `COUNT(DISTINCT specimen)` — yeniden
+  dondurulan embriyo kaynak tedavisinde zaten sayılmıştı, bir kez daha
+  sayılmıyor.
+
+## Kalıcı silme (tuzak #4)
+
+`vit_cycle_id` başka bir tedaviye işaret edebildiği için FET kalıcı
+silinirken bağ koparılıyor (`thaw_cycle_id`'nin aynısı): kayıt kalıyor —
+tüp tankta, silmek onu haritadan düşürürdü — yalnızca hangi tedavide
+dondurulduğu bilinmez oluyor. Tüp silinmeden önce ona işaret eden
+`thaw_tasiyici_id` de boşaltılıyor. `teshis_silme.py` de biliyor. Denendi:
+yeniden dondurmalı, transfersiz bir FET kalıcı silindi, FOREIGN KEY hatası
+yok, `PRAGMA foreign_key_check` temiz, tüp dolu kaldı.
+
+## Aktarım aracı: #37 artık yazılıyor
+
+v6.142'nin "program bunu kaydedemiyor" uyarısı yerine gerçek kayıt: bu FET'te
+çözülüp transfer edilmeyen ilk embriyoya nottaki skor (1CC, gün 5), bir tüp ve
+`vit_cycle_id`'si bu FET olan bir dondurma. Tarih: kaynak kayıtta yalnızca
+transfer günü var, kültürün kaçıncı güne sürdüğü yazmıyor — değerlendirme ve
+dondurma o güne, transferden sonraya yazılıyor (program öncesi kayıtların
+bütün saatleri gibi yaklaşık).
+
+- **Araç göçü kendisi çalıştırmıyor**; göç yoksa hiçbir şey yazmadan
+  duruyor ("programı bir kez kapatıp aç"). Yoksa FET satırı işlemin ortasında
+  patlardı.
+- Kullanıcının veritabanı iki hâlde olabilir, ikisi de denendi: v6.142'nin
+  `tamamla`'sı çalışmadıysa #33'ün 10 yumurtası ve #37 birlikte ekleniyor;
+  çalıştıysa yalnızca #37. Her iki durumda başka hiçbir satır değişmiyor,
+  ikinci çalıştırma hiçbir şey yapmıyor. Sıfırdan aktarım onarılmış hâlle
+  (yeni kolonlar dahil) birebir aynı. Uyarı sayısı üçten ikiye indi (#11, #80).
+
+## Uçtan uca deneme
+
+Onarılmış kopyada, program kendi ekranlarının formlarıyla sürüldü (49 kontrol):
+ICSI'de dört embriyolu bir tüp → FET1 için çözme (canlı, canlı, kısmi hasar,
+dejenere) → biri transfer → vitrifikasyon adayları yalnızca kalan ikisi →
+yeni tüpe yeniden dondurma → Cryo Haritası, taşıyıcı sayfaları, iki tedavinin
+vitrifikasyon ve çözme ekranları, formlar ve Excel → geri alma sırası (dört
+engel ve bir izinli geri alma) → FET2'de yeni tüpün tekrar çözülüp transferi:
+FET1'in çözmesi ezilmedi, FET1'in sayfaları değişmedi. Masaüstü ve telefonda
+beş ekran: yatay taşma yok.
+
+## Yan yolda bulunanlar
+
+- **Düzeltildi:** vitrifikasyon kaydı seçilen örnekler doğrulanmadan önce
+  taşıyıcıyı açıyordu — hiçbiri uygun değilse Cryo Haritası'nda içi boş bir
+  "dolu" tüp kalırdı. Artık önce doğrulama.
+- **Düzeltildi:** taşıyıcı sayfası embriyolar için "yumurta 5" yazıyordu
+  (`oosit_n` v6.134'ten beri "Yumurta N" döndürüyor); artık `ornek_adi()`.
+- **Düzeltilmedi, kapsam dışı:** zaman çizelgesi (`formlar._olay_ilk()`)
+  saatleri örneğin **kaynak** tedavisinden topluyor. FET'in çizelgesi boş
+  (çözme/transfer yok), kaynak ICSI'nin çizelgesinde FET'in çözme ve transferi
+  görünüyor. Bu sürümden önce de böyleydi; yeniden dondurma durumu
+  kötüleştirmiyor (ICSI'nin dondurma satırı en erken saati alıyor, ilk
+  dondurma). Ayrı bir iş olarak önerildi.
+- `yumurta_cozme` (çözülen yumurta) yeniden dondurmaya açılmadı — istek
+  embriyo içindi.
