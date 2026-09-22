@@ -498,8 +498,18 @@ def istatistikler(ay: str = "") -> dict:
             f"JOIN specimen s ON s.id = o.specimen_id WHERE {ornek_kosul} "
             f"AND o.tip = ? AND o.iptal_mi = 0 {ek}", (db.LAB_ID, tip))
 
-    oosit = _tek(f"SELECT COUNT(*) n FROM specimen s WHERE {ornek_kosul}",
-                 (db.LAB_ID,))
+    # "Kayıtlı oosit" yalnızca yumurta TOPLANAN tedavilerden sayılır. FET
+    # tipi tedavilerde (`db.FET_TIPLERI`) OPU yok; oradaki örnek çözülmüş bir
+    # embriyo/yumurtadır, toplanmış bir oosit değil -- MII oranının paydasına
+    # girerse oran olduğundan düşük çıkar. Program bugün FET'e specimen
+    # yazmıyor ama program öncesi kayıtlar aktarıldığında (transferi görünür
+    # kılmak için FET'in embriyoları kendi altına açılıyor) bu satırlar
+    # gerçekten oluşuyor.
+    fet_dislama = " AND c2.cycle_tipi NOT IN (%s)" % ",".join(
+        "'%s'" % t for t in db.FET_TIPLERI)
+    oosit = _tek(f"SELECT COUNT(*) n FROM specimen s "
+                 f"JOIN cycle c2 ON c2.id = s.cycle_id "
+                 f"WHERE {ornek_kosul}{fet_dislama}", (db.LAB_ID,))
     mii = _olay("maturasyon_kontrolu", "AND o.mat_deger = 'mii'")
     icsi = _olay("icsi")
     ikipn = _olay("fertilizasyon_kontrolu", "AND o.fert_pn_sayisi = '2'")

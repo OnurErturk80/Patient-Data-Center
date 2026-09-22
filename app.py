@@ -98,7 +98,11 @@ TIP_KODLARI = ("ivf_icsi", "fet", "fet_kultur", "oosit_cryo", "yumurta_cozme", "
 # goc_039) yalnızca çözme aşamasından oluşuyor -- oosit_cryo'da dondurulmuş
 # bir yumurtanın AYRI bir tedavide çözülmesi, FET'in embriyo için yaptığının
 # aynısı. Üçünde de dondurulan örneğin kendi cycle'ı bu cycle DEĞİL.
-FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")
+#
+# Liste `db.py`'de duruyor: `disari.py`'nin istatistik sorgusu da aynı ayrımı
+# soruyor ve `app`'i import edemiyor. Buradaki ad kalsın -- 20'ye yakın yer
+# bunu kullanıyor.
+FET_TIPLERI = db.FET_TIPLERI
 
 
 def tip_kisa(kod):

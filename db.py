@@ -72,6 +72,14 @@ except OSError:
 DB_YOLU = VERI_KOK / "lab.db"
 LAB_ID = 1          # v1 tek laboratuvar
 
+# Bu tiplerde dondurulan örnek (embriyo ya da oosit) BAŞKA bir cycle'dan
+# gelir, bu cycle'da OPU olmaz -- yumurta toplanmıyor. Tanım burada duruyor
+# çünkü `app.py` de (`FET_TIPLERI`, `fet_tipi_mi()`) `disari.py` de
+# (istatistikteki oosit sayımı) soruyor; `disari` `app`'i import edemez
+# (app zaten disari'yi import ediyor), iki kopya er geç ayrı düşerdi.
+# Yeni bir "örneği başka tedaviden gelen" tip eklersen buraya ekle.
+FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")
+
 # Kilitli veritabanında ne kadar beklenecek. Klinikte birkaç telefon aynı anda
 # kayıt girer; varsayılan 5 sn kısa kalabiliyor.
 BEKLEME_SN = 15
