@@ -1354,6 +1354,16 @@ body.kilitli { overflow: hidden; }
 }
 .kalip .sar { white-space: pre-wrap; }
 
+/* Sigmayan yazisi sagdaki bos kutulara akabilen hucre (v6.135). ART Lab'in
+   FREEZE kutusu bir oosit sutunu kadar dar; bir tupte uc embriyo varsa
+   "(4HG2-4HG2-3HG2)" sigmiyor ve `.kalip td`'nin `overflow: hidden`'i onu
+   SESSIZCE kesiyordu. Kullanicinin karari: kesilmesindense sagdaki bos
+   alana tassin -- Excel'in kendi davranisi da bu (dolu hucrenin yazisi bos
+   komsusuna akar), yani iki cikti ayni gorunuyor. Hangi hucrelerin bu
+   sinifi alacagini doldurma tarafi soyluyor (form_kalip.satirlar'in
+   `tasan` parametresi), kalip degil. */
+.kalip .tasabilir { overflow: visible; position: relative; }
+
 /* Punto: tablonun taban puntosu olcekli geliyor, sinifllar ona goreli. */
 .kalip .p7 { font-size: .7em; }
 .kalip .p8 { font-size: .8em; }

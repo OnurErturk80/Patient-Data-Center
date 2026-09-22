@@ -80,6 +80,22 @@ LAB_ID = 1          # v1 tek laboratuvar
 # Yeni bir "örneği başka tedaviden gelen" tip eklersen buraya ekle.
 FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")
 
+
+def yumurta_mi(cycle_tipi) -> bool:
+    """Bu tedavide dondurulan/çözülen örnek yumurta mı, embriyo mu?
+
+    Yalnızca `oosit_cryo`'da yumurta dondurulur — `ivf_icsi`'nin
+    vitrifikasyon ekranı zaten enjekte edilmiş (embriyo olmuş) örnekleri
+    listeliyor (`_ICSI_YAPILMADI` süzgeci). Yumurta donduran yeni bir cycle
+    tipi eklersen burayı genişlet.
+
+    `FET_TIPLERI` ile aynı gerekçeyle burada (v6.135): `app.py` ekranda
+    (`ornek_adi()`, `icerik_sayisi()`, v6.133) soruyor, `formlar.py` da
+    resmî formda soruyor ("2 embriyo" mu "12 yumurta" mı donduruldu) ve
+    `app`'i import edemez — app zaten formlar'ı import ediyor.
+    """
+    return cycle_tipi == "oosit_cryo"
+
 # Kilitli veritabanında ne kadar beklenecek. Klinikte birkaç telefon aynı anda
 # kayıt girer; varsayılan 5 sn kısa kalabiliyor.
 BEKLEME_SN = 15

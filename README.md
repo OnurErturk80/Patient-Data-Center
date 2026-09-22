@@ -10556,3 +10556,137 @@ görüntüsüyle de bakıldı, v6.109'un dersi).
 
 `goc_044` bu makinede çalıştı: 13 tedavinin notu güncellendi, ikinci
 çalıştırmada 0. Göç çalıştırıcısı açılışta da uyguladı.
+
+
+# v6.135 — dondurulan embriyolar iki resmî forma da yazılıyor
+
+Kullanıcının isteği, dört madde: (1) Embriyoloji Özet'in **EMBRİYO DONDURMA
+AŞAMASI** kutusuna embriyonun kaçıncı gün dondurulduğu; (2) dondurulan
+embriyolar **NOTLAR**'a, kaç tüp olduğu ve kalitesi **parantez içinde, her
+parantez bir tüp**; (3) ART Lab'ın **FREEZE** bölümüne aynı parantezler,
+birden çok tüp varsa alt satırlara; (4) ART Lab'ın **yorum** bölümüne varsa
+yumurta bulguları.
+
+## Bir tüp = bir taşıyıcı, bir parantez = bir tüp
+
+Kullanıcının kendi yazım geleneği zaten buydu: Access notlarında ayrı tüpler
+"(3AA) (3AA)", bir tüpteki üç embriyo "(4HG2-4HG2-3HG2)" diye yazılıydı.
+`aktar_access.py` v6.132'de bu kuralı okuyup taşıyıcıları açmıştı; formlar
+şimdi aynı kuralı tersinden okuyor.
+
+Cevabı **tek yer** veriyor: `formlar.dondurma_tupleri(cycle_id)` — `olay`in
+`vit_tasiyici_id`'sine göre gruplanmış, her tüp için içindeki örneklerin
+kalitesi ve günü. İki form da onu çağırıyor; iki kopya olsaydı Özet'in
+NOTLAR'ı ile ART Lab'ın FREEZE sütunu birbirini tutmazdı.
+
+- **Kalite** `bl_skor` ("3AA", "KAV2"), cleavage'da hücre+skor ("8HG2") —
+  `tasiyici_icerigi()`/Cryo Haritası'nın gösterdiğiyle aynı alan.
+- **Gün** örneğin **kendi son değerlendirmesinin** günü (blastokist, yoksa
+  cleavage). Programda "kaçıncı günde donduruldu" diye ayrı bir alan yok ve
+  uydurulmadı: değerlendirmesi olmayan örnek güne katkı vermiyor, kutu boş
+  kalıyor (yumurta dondurmada hep böyle).
+- **Kalitesi kayıtlı olmayan tüp sayıyla görünür** — `(4)`, yani "bu tüpte
+  dört örnek". Yumurta dondurmada hiçbirinin skoru olmaz; on üç tane `?`
+  basmak kutuyu okunmaz yapardı. Bazısının kalitesi varsa eksik olan `?`
+  ile görünüyor: sessizce düşürmek "bu tüpte bir tane var" derdi.
+
+Ölçüldü (kullanıcının ağustos verisi, gerçek kayıtlar):
+
+| tedavi | NOTLAR satırı | kaynak Access notu |
+|---|---|---|
+| 17 | `Dondurulan: 2 embriyo, 5. gün, 2 tüp: (3AA) (3AA)` | "2 ADET D5 EMBRİYO (3AA) (3AA)" |
+| 32 | `Dondurulan: 3 embriyo, 3. gün, 1 tüp: (4HG2-4HG2-3HG2)` | "1TÜPTE 3 ADET D3 EMBRİYOSU (4HG2-4HG2-3HG2)" |
+| 30 | `Dondurulan: 16 yumurta, 4 tüp: (4) (4) (4) (4)` | "16 ADET OOSİT 4 TÜPTE (4*M2) …" |
+
+Program, kaynak metni hiç okumadan kendi kayıtlarından aynı cümleyi kuruyor.
+
+## "EMBRİYO DONDURMA AŞAMASI" artık gün yazıyor
+
+Kutu önceden blastokist **genişleme etiketini** basıyordu ("Tam blastokist").
+O bilgi kaybolmadı: skoruyla birlikte NOTLAR'daki parantezlerde duruyor
+(`3AA`'nın ilk hanesi zaten genişleme). Kutuya kullanıcının istediği
+"kaçıncı gün" geldi.
+
+## NOTLAR satırı 68 karakterde sarılı
+
+Kutu `white-space: pre` — uzun satır sarmaz, **sessizce kesilir** (v6.130'un
+kendi kuralı). `dondurma_notu()` bu yüzden `textwrap.fill(..., 68)` ile
+sarıyor, `aktar_access.py`'nin protokol notuyla aynı ölçü. Sıra klinik akış:
+protokol notu → dondurma → çözme notu (v6.102) → iptal sebebi (v6.104).
+
+Ölçüldü: 34 tedavinin Özet formunda NOTLAR kutusunun taşması 0px (yatay ve
+dikey), ekran görüntüsüyle de bakıldı.
+
+## ART Lab: FREEZE sütunu sayı değil, tüp tüp parantez
+
+Kâğıtta FREEZE sütununda **dört kutu** var (satır 28-31) — "birden çok tüp
+varsa alt satırlarına yaz" tam buraya oturuyor. Dörtten çok tüp varsa son
+kutu kalanı sayıyla söylüyor ("+3 tüp"); sessizce kırpmak "toplam dört tüp
+var" derdi, tam liste zaten Özet'in NOTLAR'ında.
+
+### Dar kutu: kesmek yerine taşırmak
+
+Bir tüpte üç embriyo varsa "(4HG2-4HG2-3HG2)" bir oosit sütunu genişliğindeki
+kutuya sığmıyor ve `.kalip td`'nin `overflow: hidden`'ı onu **sessizce
+kesiyordu** — ekran görüntüsünde "(4HG2-4HG2" diye yarım görünüyordu.
+Kullanıcıya soruldu, kararı: *"Thaw ve onun[ki] alana kadar satırı
+uzatabilirsin."*
+
+Çözüm yeni bir `.tasabilir` sınıfı (`overflow: visible`): yazı sığmazsa
+sağdaki boş kutulara akıyor. **Excel'in kendi davranışı da bu** (dolu bir
+hücrenin yazısı boş komşusuna akar), yani iki çıktı aynı görünüyor ve Excel
+tarafında hiçbir şey eklemek gerekmedi.
+
+- Hangi hücrelerin taşabileceğini **doldurma tarafı** söylüyor:
+  `form_kalip.satirlar()`'a `tasan` parametresi eklendi, `deger`/`ek` ile
+  aynı yerden geliyor. **Kalıp (`form_kalip.json`) değişmedi** — "kalıba
+  dokunma" kuralı korunuyor, kâğıt aynı kâğıt.
+- Yüklenen lab formları etkilenmiyor: `tasan` verilmezse davranış eskisi.
+- **Bilinen tek sıkışıklık**: aynı tedavide hem üç örneklik bir tüp hem de
+  çözme varsa (THAW kutusu satır 28'de dolu), uzun yazı onun üstüne 30px
+  kadar biniyor. Kullanıcının verisinde böyle bir tedavi yok (ölçüldü);
+  kesilmesindense binmesi tercih edildi, kesilen bir skor yanlış bilgi olurdu.
+
+## ART Lab: yumurta bulguları alttaki geniş "Yorum:" satırında
+
+"Yorum bölümü" belirsizdi, kullanıcıya soruldu: formda **iki tane** var —
+ızgaranın en alt satırı (oosit başına, çok dar) ve kâğıdın altındaki
+"Raporu dolduran … Yorum:" satırı (sayfa genişliğinde tek birleşik hücre).
+Kullanıcı **alttaki geniş satırı** seçti. Doğru seçim olduğu ölçüldü:
+ızgaraya konduğunda "3AA, Vakuol, Geniş PVS" kutudan **52px taşıyordu**.
+
+Bulgular oosit numarasıyla yazılıyor, çünkü satır tek ve bütün tedaviyi
+kapsıyor: `Yorum: 1: Vakuol, Geniş PVS · 3: Kalın zona`. Kâğıtta basılı
+"Yorum:" yazısının arkasına ekleniyor — `ek` mekanizmasının tam işi
+(`"Dosya No :"` + numara deseni).
+
+- Bulgu **iki aşamada da** girilebiliyor (`ivf_icsi`'de ICSI ekranı,
+  `oosit_cryo`'da denüdasyon — v6.96), bu yüzden aşama süzülmüyor; aynı
+  bulgu iki aşamada da işaretliyse bir kez yazılıyor.
+- Izgaranın kendi "Yorum" satırı **değişmedi**: blastokist skorunu
+  göstermeye devam ediyor (v6.37'nin kararı, o skorun ART formunda başka
+  yeri yok).
+- Bulgu yoksa satıra hiçbir şey eklenmiyor, kâğıt aslındaki gibi kalıyor.
+
+## `db.yumurta_mi()` — "2 embriyo" mu "12 yumurta" mı
+
+`_yumurta_mi()` v6.133'te `app.py`'deydi; `formlar.py` de aynı soruyu
+soruyor (NOTLAR satırındaki kelime) ve `app`'i import edemez — app zaten
+formlar'ı import ediyor. Karar `db.py`'ye taşındı, `FET_TIPLERI`'nin
+(v6.130) aynı gerekçesi; `app._yumurta_mi()` oradan besleniyor, ekrandaki
+davranış değişmedi.
+
+## Ölçüm
+
+34 tedavinin **iki formu da** (68 sayfa) gezildi: `.kalip` hücrelerinde
+kırpılan yazı **yok** (taşabilir işaretlileri hariç tutularak ölçüldü).
+`%` ile başlayan iki hücrenin 8px taşması v6.37'den beri var, bu sürümle
+ilgisi yok — dokunulmadı.
+
+Excel: `/disari/form/ozet/32` ve `/disari/form/artlab/{17,32}` geçerli ZIP
+(10 parça, bozuk parça yok) ve içlerinde yeni içerik doğrulandı —
+`(4HG2-4HG2-3HG2)`, `(3AA)` iki satır, `Dondurulan: 3 embriyo, 3. gün,
+1 tüp: …`, `Yorum:   1: Vakuol, Geniş PVS · 3: Kalın zona`.
+
+Bulgusuz bir tedavide alt satır kâğıttaki gibi "… Yorum:" diye bitiyor.
+51 ekranlık genel tarama yine temiz.

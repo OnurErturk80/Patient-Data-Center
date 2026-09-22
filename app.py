@@ -320,8 +320,12 @@ def _yumurta_mi(cycle_tipi) -> bool:
     olmuş) örnekleri listeliyor (`_ICSI_YAPILMADI` süzgeci). Yumurta
     donduran yeni bir cycle tipi eklersen burayı genişlet, ikisi birden
     doğru olur.
+
+    **Kararın kendisi v6.135'ten beri `db.py`'de** — `formlar.py` de aynı
+    soruyu soruyor (resmî formda "2 embriyo" mu "12 yumurta" mı donduruldu)
+    ve `app`'i import edemez, `FET_TIPLERI`'nin aynı gerekçesi.
     """
-    return cycle_tipi == "oosit_cryo"
+    return db.yumurta_mi(cycle_tipi)
 
 
 def _ornek_adi(asama, cycle_tipi=None):
@@ -4034,7 +4038,10 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
     if not v:
         return RedirectResponse("/hastalar", status_code=303)
     # Ekranda basılan ızgara ile Excel'e giden ızgara **aynı kalıptan** geliyor.
-    sayfalar = [form_kalip.satirlar(kalip, deger, ek)
+    # `tasan`: ART Lab'ın dar FREEZE kutusu, yazısı sığmazsa sağdaki boş
+    # kutulara akıyor (v6.135, kullanıcının kararı) -- kesilmesindense.
+    tasan = formlar.ARTLAB_TASAN_HUCRELER if ad == "artlab" else None
+    sayfalar = [form_kalip.satirlar(kalip, deger, ek, tasan=tasan)
                 for deger, ek in dolgu(v)]
     return sablon.TemplateResponse(
         request, "form.html",

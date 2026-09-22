@@ -304,16 +304,24 @@ def _yazi(kalip_metni: str, deger, ekleme) -> str:
     return kalip_metni
 
 
-def satirlar(kaynak, deger=None, ek=None, alan=None) -> dict:
+def satirlar(kaynak, deger=None, ek=None, alan=None, tasan=None) -> dict:
     """Şablonun bastığı ızgara: sütun genişlikleri + satır satır hücreler.
 
     Ölçek: kâğıdın kendi punto ve satır yükseklikleri A4'e sığmıyor (Excel
     "sayfaya sığdır" ile basıyor). Aynısını tarayıcıda yapmak için bütün
     yükseklikler ve puntolar tek bir katsayıyla küçültülüyor — oranlar
     bozulmadığı için form aynı görünüyor.
+
+    `tasan`: sığmayan yazısı sağa **taşabilecek** hücrelerin (satır, sütun)
+    kümesi. `.kalip td` varsayılan olarak `overflow: hidden` -- sığmayan
+    yazıyı sessizce kesiyor; bu hücreler `.tasabilir` sınıfını alıp Excel'in
+    kendi davranışını taklit ediyor (dolu hücrenin yazısı boş komşusuna
+    akar). **Kalıbın kendisiyle ilgisi yok**, `deger`/`ek` gibi doldurma
+    tarafından geliyor -- kâğıt değişmiyor (v6.135).
     """
     k = _kalip_al(kaynak)
     deger, ek, alan = deger or {}, ek or {}, alan or {}
+    tasan = tasan or set()
 
     toplam = sum(h or 15.0 for h in k["satir_yuksekligi"])
     sayfa_yon, hedef = _sayfa_olcusu(kaynak)
@@ -330,7 +338,8 @@ def satirlar(kaynak, deger=None, ek=None, alan=None) -> dict:
             hucreler.append({
                 "metin": etiketleri_doldur(
                     _yazi(metin, deger.get((r, c)), ek.get((r, c))), alan),
-                "sinif": _sinif(stil) if stil else "",
+                "sinif": ((_sinif(stil) if stil else "")
+                          + (" tasabilir" if (r, c) in tasan else "")).strip(),
                 "satir_yayilim": rs,
                 "sutun_yayilim": cs,
             })

@@ -821,6 +821,47 @@ kalıptan**: `form_kalip.json`.
   ile kalıbı yeniden üret — JSON'ı elle düzenleme, bu "kalıba dokunma"
   kuralını çiğnemez çünkü değişen kâğıt değil, aracın kendi hatası.
 - Form **iki dilde de Türkçe** basılır: kurum belgesi, arayüz metni değil.
+- **Dondurulan örnekler iki forma da tek yerden yazılıyor** (v6.135,
+  kullanıcının isteği). `formlar.dondurma_tupleri(cycle_id)` — `olay.
+  vit_tasiyici_id`'ye göre gruplanmış tüpler, her tüpte örneklerin kalitesi
+  ve günü. **Bir tüp = bir taşıyıcı, bir parantez = bir tüp**; kullanıcının
+  Access'teki kendi yazımı da bu ("(3AA) (3AA)" ayrı tüpler,
+  "(4HG2-4HG2-3HG2)" bir tüpte üç embriyo — `aktar_access.py` v6.132 aynı
+  kuralı okuyor). Yeni bir yerde "hangi tüpte ne var" diye soracaksan bu
+  fonksiyonu çağır, ikinci bir sorgu yazma: Özet'in NOTLAR'ı ile ART Lab'ın
+  FREEZE sütunu birbirini tutmak zorunda.
+  - **Kalite** `bl_skor`, cleavage'da hücre+skor ("8HG2") — Cryo
+    Haritası'nın gösterdiği alanın aynısı. **Gün** örneğin kendi son
+    değerlendirmesinin günü; "kaçıncı günde donduruldu" diye bir alan yok
+    ve uydurulmuyor, değerlendirmesi olmayan örnek güne katkı vermiyor.
+  - Özet'te: "EMBRİYO DONDURMA AŞAMASI" kutusu **gün** basıyor (v6.135'e
+    kadar blastokist genişleme etiketiydi), NOTLAR'a
+    `Dondurulan: 2 embriyo, 5. gün, 2 tüp: (3AA) (3AA)` satırı ekleniyor.
+    Satır `textwrap.fill(..., 68)` ile sarılı — kutu `white-space: pre`,
+    uzun satır sarmaz, **sessizce kesilir** (v6.130'un kuralı). NOTLAR
+    sırası: protokol → dondurma → çözme → iptal sebebi.
+  - ART Lab'da FREEZE sütununun **dört kutusu** (satır 28-31) tüp tüp
+    doluyor; dörtten çoksa son kutu kalanı sayıyla söylüyor ("+3 tüp").
+- **Sığmayan yazıyı kesme, sağa taşır** (v6.135, kullanıcının kararı:
+  "Thaw ve onun[ki] alana kadar satırı uzatabilirsin"). `.kalip td`
+  varsayılan olarak `overflow: hidden` — ART Lab'ın dar FREEZE kutusunda
+  "(4HG2-4HG2-3HG2)" **sessizce kesiliyordu**. `form_kalip.satirlar()`'ın
+  `tasan` parametresi (koordinat kümesi) o hücrelere `.tasabilir`
+  (`overflow: visible`) veriyor, yazı sağdaki boş kutulara akıyor —
+  **Excel'in kendi davranışı da bu**, o yüzden Excel tarafında bir şey
+  yapmak gerekmedi. `tasan` `deger`/`ek` gibi **doldurma tarafından**
+  geliyor, kalıp değişmiyor. Yeni bir dar kutuya uzun bir değer yazarsan
+  önce ölç (`scrollWidth > clientWidth`), sonra taşıt.
+- **ART Lab'ın "Yorum"u iki ayrı yer** — karıştırma. Izgaranın en alt
+  satırı **oosit başına** ve çok dar (blastokist skoru orada, v6.37);
+  kâğıdın altındaki "Raporu dolduran … Yorum:" satırı ise sayfa
+  genişliğinde tek hücre. **Yumurta bulguları alttakine** yazılıyor
+  (v6.135, kullanıcıya soruldu, o seçti): ızgaraya konduğunda
+  "3AA, Vakuol, Geniş PVS" kutudan 52px taşıyordu. Bulgular oosit
+  numarasıyla (`1: Vakuol, Geniş PVS · 3: Kalın zona`), basılı yazının
+  arkasına `ek` ile ekleniyor. Bulgu iki aşamada da girilebildiği için
+  (ICSI / denüdasyon, v6.96) aşama süzülmüyor, tekrar eden bulgu bir kez
+  yazılıyor.
 - **`formlar.py`'deki bir hücre koordinatı kalıptaki gerçek satırla eşleşmeyebilir
   — kalıba değil, o sabite bak.** `_OZET_NOTLAR = (70, 2)` NOTLAR kutusunu hiç
   bulamıyordu (v6.102'de bulundu): kalıpta satır 70 (0'dan sayarak) boş,
@@ -1489,9 +1530,11 @@ kur.
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
-**Taşıyıcının içeriği "yumurta" mı "embriyo" mu — karar `_yumurta_mi(
+**Taşıyıcının içeriği "yumurta" mı "embriyo" mu — karar `db.yumurta_mi(
 cycle_tipi)`'de** (v6.133, kullanıcının isteği: "Yumurta donduruluyorsa
-Yumurta, Embriyo donduruluyorsa Embriyo yazsın"). Aynı fonksiyon
+Yumurta, Embriyo donduruluyorsa Embriyo yazsın"; **v6.135'ten beri `db.py`'de**
+çünkü `formlar.py` de soruyor — resmî formda "2 embriyo" mu "12 yumurta" mı
+donduruldu — ve `app`'i import edemez, `FET_TIPLERI`'nin aynı gerekçesi). Aynı fonksiyon
 `ornek_adi()`'ni de besliyor, yani yumurta donduran yeni bir cycle tipi
 eklenirse tek satır değişir. Ekranda Jinja global `icerik_sayisi(adet,
 cycle_tipi)` ("4 yumurta"/"4 embriyo") ya da `yumurta_mi(cycle_tipi)`

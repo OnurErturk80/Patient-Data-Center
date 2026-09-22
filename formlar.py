@@ -26,6 +26,7 @@ yanlış veri yazmak, boş bırakmaktan kötü.
 """
 
 import datetime as _dt
+import textwrap
 
 import db
 import metinler
@@ -302,6 +303,187 @@ def _transfer_edilenler(cycle_id):
         "ORDER BY s.cycle_sira_no", (cycle_id,))
 
 
+# ------------------------------------------------ dondurulan örnekler, tüp tüp
+#
+# **Bir tüp = bir `tasiyici`** (v6.135, kullanıcının isteği). Vitrifikasyon
+# olayı `vit_tasiyici_id` ile taşıyıcıya bağlı; aynı taşıyıcıya yazılmış
+# örnekler aynı tüptedir. Kullanıcının kendi yazım geleneği de bu: Access
+# notlarında "2 ADET D5 EMBRİYO (3AA) (3AA)" -- **bir parantez bir tüp**
+# (aynı kural `aktar_access.py`'de de var, v6.132).
+#
+# İki form da aynı üç soruyu soruyor: kaç tüp, içinde ne, hangi gün. Cevap
+# BURADA tek yerde duruyor -- iki kopya olsaydı Özet'in NOTLAR'ı ile ART
+# Lab'ın FREEZE sütunu birbirini tutmazdı.
+
+def dondurma_tupleri(cycle_id: int) -> list:
+    """Bu tedavide dondurulan örnekler, tüp tüp.
+
+    Her öğe: `{"etiket", "ogeler": [kalite|None], "gunler": [int]}`.
+    `ogeler` tüpteki **her** örnek için bir giriş taşır; kalitesi
+    kaydedilmemişse `None` (yumurta dondurmada hiçbirinin skoru olmaz).
+    """
+    satirlar = db.sorgu(
+        f"""
+        SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
+               {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC')}
+                 AS bl_skor,
+               {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC')}
+                 AS bl_gun,
+               {son_alt('cl_hucre_sayisi', 'cleavage_degerlendirme',
+                        'x.gun DESC')} AS cl_hucre,
+               {son_alt('cl_skor', 'cleavage_degerlendirme', 'x.gun DESC')}
+                 AS cl_skor,
+               {son_alt('gun', 'cleavage_degerlendirme', 'x.gun DESC')}
+                 AS cl_gun
+          FROM olay o JOIN specimen s ON s.id = o.specimen_id
+          LEFT JOIN tasiyici t ON t.id = o.vit_tasiyici_id
+         WHERE s.cycle_id = ? AND o.tip='vitrifikasyon' AND o.iptal_mi = 0
+         ORDER BY o.vit_tasiyici_id, s.cycle_sira_no
+        """, (cycle_id,))
+
+    tupler, sira = [], {}
+    for r in satirlar:
+        # Taşıyıcısı olmayan eski bir kayıt tek bir "tüp" sayılır: uydurma
+        # bir tüp bölmesi açmaktansa hepsini bir parantezde toplamak dürüst.
+        anahtar = r["tup"] or 0
+        if anahtar not in sira:
+            sira[anahtar] = len(tupler)
+            tupler.append({"etiket": r["etiket"], "ogeler": [], "gunler": []})
+        t = tupler[sira[anahtar]]
+        t["ogeler"].append(_dondurma_kalitesi(r))
+        gun = r["bl_gun"] if r["bl_skor"] or r["bl_gun"] else r["cl_gun"]
+        if gun and gun not in t["gunler"]:
+            t["gunler"].append(gun)
+    return tupler
+
+
+def _dondurma_kalitesi(r):
+    """Dondurulan bir örneğin kalitesi -- laboratuvarın kendi yazımıyla.
+
+    Blastokistte `bl_skor` ("3AA", "KAV2"); cleavage'da hücre sayısı + skor
+    ("8HG2"). İkisi de kullanıcının Access notlarında aynen böyle yazılıydı,
+    `aktar_access.py` de tam bu kalıbı çözümlüyor -- form da aynı dili
+    konuşsun diye. Kaydı yoksa `None`, uydurulmuyor.
+    """
+    if r["bl_skor"]:
+        return r["bl_skor"]
+    if r["cl_hucre"] is not None:
+        return f"{r['cl_hucre']}H{r['cl_skor']}" if r["cl_skor"] \
+            else f"{r['cl_hucre']}H"
+    return None
+
+
+def tup_metni(tup) -> str:
+    """Bir tüpün parantezi: `(4HG2-4HG2-3HG2)`.
+
+    Ayraç **tire**, kullanıcının kendi yazımı: Access notlarında bir tüpteki
+    üç embriyo "(4HG2-4HG2-3HG2)", ayrı tüpler ise "(3AA) (3AA)" diye
+    yazılıydı. ART Lab'ın FREEZE kutusu dar olduğu için de virgül+boşluktan
+    kısa olması işe yarıyor.
+
+    Hiçbir örneğin kalitesi kayıtlı değilse (yumurta dondurma) parantez
+    **sayıyı** taşır -- `(4)`, yani "bu tüpte 4 örnek". On üç tane `?`
+    basmak kutuyu okunmaz yapardı. Bazısının kalitesi varsa eksik olanlar
+    `?` ile görünür: sessizce düşürmek "bu tüpte bir tane var" derdi.
+    """
+    if all(o is None for o in tup["ogeler"]):
+        return f"({len(tup['ogeler'])})"
+    return "(" + "-".join(o or "?" for o in tup["ogeler"]) + ")"
+
+
+def dondurma_gunleri(tupler) -> str | None:
+    """Dondurma günü: "5. gün", birden çok gün varsa "5. gün, 6. gün".
+
+    Gün, örneğin **kendi son değerlendirmesinin** günü (blastokist, yoksa
+    cleavage) -- programda "kaçıncı günde donduruldu" diye ayrı bir alan
+    yok ve uydurulmuyor. Değerlendirmesi olmayan örnek (yumurta dondurma)
+    güne hiç katkı vermez, kutu boş kalır.
+    """
+    gunler = sorted({g for t in tupler for g in t["gunler"]})
+    return ", ".join(f"{g}. gün" for g in gunler) or None
+
+
+# ART Lab'ın FREEZE sütununda kâğıt dört kutu veriyor (satır 28-31).
+_ARTLAB_FREEZE_SATIR = (28, 29, 30, 31)
+_ARTLAB_FREEZE_SUTUN = 12
+
+# Kâğıdın altındaki "Raporu dolduran ... Yorum:" satırı: tek birleşik hücre,
+# sayfanın tamamı kadar geniş. Yumurta bulguları oraya ekleniyor.
+_ARTLAB_YORUM_SATIR = 36
+
+# FREEZE kutusu bir oosit sütunu kadar dar; bir tüpte üç embriyo varsa
+# ("(4HG2-4HG2-3HG2)", ağustostaki gerçek kayıt) metin sığmıyordu ve
+# `.kalip td`'nin `overflow: hidden`'ı onu **sessizce kesiyordu**.
+# Kullanıcının kararı: "Thaw ve onun[ki] alana kadar satırı uzatabilirsin" --
+# yani metin sağa, boş komşu kutulara taşsın. Excel zaten böyle davranıyor
+# (dolu bir hücrenin yazısı boş komşusuna akar); ekranda aynısını yapmak
+# için bu hücrelerin `overflow`'u açılıyor (`.tasabilir`, style.css).
+# Kırpmak yerine taşırmak bilinçli: kesilen bir skor yanlış bilgi olurdu.
+ARTLAB_TASAN_HUCRELER = {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
+
+
+def _freeze_satirlari(tupler) -> list:
+    """FREEZE sütununun kutuları: her satır bir tüp.
+
+    Dört kutudan fazla tüp varsa son kutu kalanı sayıyla söylüyor
+    ("+3 tüp") -- sessizce kırpmak "toplam dört tüp var" derdi. Tam liste
+    zaten Embriyoloji Özet'in NOTLAR kutusunda duruyor.
+    """
+    n = len(_ARTLAB_FREEZE_SATIR)
+    if len(tupler) <= n:
+        return [tup_metni(t) for t in tupler]
+    return ([tup_metni(t) for t in tupler[:n - 1]]
+            + [f"+{len(tupler) - n + 1} tüp"])
+
+
+def _bulgu_notu(cycle_id: int, h) -> str:
+    """Yumurta bulguları, ART Lab'ın alttaki geniş "Yorum:" satırı için.
+
+    "1: Vakuol, Geniş PVS · 3: Kalın zona" -- hangi yumurtanın bulgusu
+    olduğu numarasıyla yazılıyor, çünkü bu satır tek ve bütün tedaviyi
+    kapsıyor. Izgaradaki dar "Yorum" kutusuna sığmadığı için buraya kondu
+    (v6.135, kullanıcıya soruldu).
+
+    Bulgu iki aşamada da girilebiliyor -- `ivf_icsi`'de ICSI ekranında,
+    `oosit_cryo`'da denüdasyonda (v6.96) -- bu yüzden aşama süzülmüyor;
+    aynı bulgu iki aşamada da işaretliyse bir kez yazılıyor.
+    """
+    bulgular = {}
+    for r in db.sorgu(
+            "SELECT s.cycle_sira_no, sb.bulgu_kodu FROM specimen_bulgu sb "
+            "JOIN specimen s ON s.id = sb.specimen_id "
+            "WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no, sb.id",
+            (cycle_id,)):
+        liste = bulgular.setdefault(r["cycle_sira_no"], [])
+        e = _et(h, "bulgu_icsi", r["bulgu_kodu"])
+        if e and e not in liste:
+            liste.append(e)
+    return " · ".join(f"{no}: {', '.join(b)}"
+                      for no, b in sorted(bulgular.items()) if b)
+
+
+def dondurma_notu(cycle_id: int, cycle_tipi, tupler) -> str | None:
+    """NOTLAR kutusuna giren dondurma satırı (v6.135, kullanıcının isteği).
+
+    "Dondurulan: 2 embriyo, 5. gün, 2 tüp: (3AA) (3AA)" -- kullanıcının
+    Access'te kendi yazdığı cümlenin aynısı. Satır 68 karakterde sarılıyor:
+    NOTLAR kutusu `white-space: pre`, uzun satır sarmaz, **sessizce kesilir**
+    (v6.130'un kuralı). Nota bir şey eklersen formu açıp bak (tuzak #5).
+    """
+    if not tupler:
+        return None
+    adet = sum(len(t["ogeler"]) for t in tupler)
+    ad = "yumurta" if db.yumurta_mi(cycle_tipi) else "embriyo"
+    parcalar = [f"{adet} {ad}"]
+    gun = dondurma_gunleri(tupler)
+    if gun:
+        parcalar.append(gun)
+    parcalar.append(f"{len(tupler)} tüp")
+    satir = ("Dondurulan: " + ", ".join(parcalar) + ": "
+             + " ".join(tup_metni(t) for t in tupler))
+    return textwrap.fill(satir, 68)
+
+
 def ozet_verisi(cycle_id: int):
     """Embriyoloji Özet Formu'nun (DH.FR.91) bütün kutuları.
 
@@ -341,14 +523,7 @@ def ozet_verisi(cycle_id: int):
         (cycle_id,))["n"]
 
     tr = _transfer_edilenler(cycle_id)
-    donan = db.sorgu(
-        "SELECT s.id, o.zaman, "
-        "  (SELECT b.bl_genisleme FROM olay b WHERE b.specimen_id=s.id "
-        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
-        "   ORDER BY b.gun DESC LIMIT 1) AS genisleme, s.durum "
-        "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
-        "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0",
-        (cycle_id,))
+    tupler = dondurma_tupleri(cycle_id)
     cozulen = db.sorgu(
         "SELECT o.thaw_sagkalim, o.thaw_notu FROM olay o "
         "JOIN specimen s ON s.id=o.specimen_id "
@@ -361,6 +536,9 @@ def ozet_verisi(cycle_id: int):
     # İptal sebebi de aynı kutuya, en altta eklenir (v6.104, kullanıcının
     # isteği) -- cycle iptal edilmediyse None, kutuya bir şey eklemiyor.
     iptal_notu = _iptal_notu(c)
+    # Dondurulan embriyolar da NOTLAR'a (v6.135, kullanıcının isteği).
+    # Sıra klinik akış: protokol -> dondurma -> çözme -> iptal sebebi.
+    don_notu = dondurma_notu(cycle_id, c["cycle_tipi"], tupler)
 
     def _asama_ozeti(satirlar, alan):
         """Dondurma/transfer aşaması: kayıtlardaki farklı aşamalar, virgülle."""
@@ -442,14 +620,19 @@ def ozet_verisi(cycle_id: int):
         "embriyo2_asama": _emb(1, "asama"),
         "embriyo2_kalite": _emb(1, "kalite"),
         # --- kriyoprezervasyon ---
-        "dondurulan_sayi": len(donan) or None,
-        "dondurma_asamasi": _asama_ozeti(donan, "genisleme"),
+        "dondurulan_sayi": sum(len(t["ogeler"]) for t in tupler) or None,
+        # Kâğıtta "EMBRİYO DONDURMA AŞAMASI" yazıyor; kullanıcının isteği
+        # (v6.135) buraya **kaçıncı gün** dondurulduğunun yazılması. Önceden
+        # blastokist genişleme etiketi ("Tam blastokist") basılıyordu -- o
+        # bilgi artık NOTLAR'daki parantezlerde, skoruyla birlikte duruyor.
+        "dondurma_asamasi": dondurma_gunleri(tupler),
         "cozdurulen_sayi": len(cozulen) or None,
         "cozdurme_viabilite": ", ".join(
             sorted({_et(h, "thaw_sagkalim", r["thaw_sagkalim"]) or ""
                     for r in cozulen} - {""})) or None,
         "notlar": "\n".join(
-            p for p in (c["protokol_notu"], cozme_notu, iptal_notu) if p) or None,
+            p for p in (c["protokol_notu"], don_notu, cozme_notu, iptal_notu)
+            if p) or None,
         # --- başlık / künye ---
         "cycle_no": c["cycle_no"],
         "cycle_id": cycle_id,
@@ -592,6 +775,8 @@ def artlab_verisi(cycle_id: int):
           FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no
         """, (cycle_id,))
 
+    bulgu_notu = _bulgu_notu(cycle_id, h)
+
     sutunlar = []
     for o in ornekler:
         sutunlar.append({
@@ -608,6 +793,10 @@ def artlab_verisi(cycle_id: int):
             "transfer": "✓" if o["tr_zaman"] else ("F" if o["vit_zaman"] else ""),
             # Kâğıtta blastokist satırı yok (form gün 3'te bitiyor); blastokist
             # skoru "Yorum" satırına yazılıyor -- orası serbest metin.
+            # Yumurta bulguları buraya DEĞİL, kâğıdın altındaki geniş
+            # "Yorum:" satırına yazılıyor (v6.135, kullanıcıya soruldu):
+            # bu kutu bir oosit genişliğinde, "3AA, Vakuol, Geniş PVS" 52px
+            # taşıp kesiliyordu.
             "yorum": o["bl"] or _et(h, "fert_sonuc", o["fert"]) or "",
         })
 
@@ -622,10 +811,7 @@ def artlab_verisi(cycle_id: int):
             analiz[r["asama"]] = r
     bazal, sonrasi = analiz.get("bazal"), analiz.get("hazirlik_sonrasi")
 
-    donan = db.tek(
-        "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
-        "JOIN specimen s ON s.id=o.specimen_id WHERE s.cycle_id=? "
-        "AND o.tip='vitrifikasyon' AND o.iptal_mi=0", (cycle_id,))["n"]
+    tupler = dondurma_tupleri(cycle_id)
     cozulen = db.tek(
         "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
         "JOIN specimen s ON s.id=o.specimen_id WHERE o.tip='thaw' "
@@ -673,7 +859,14 @@ def artlab_verisi(cycle_id: int):
         "oosit_atretik": mat.get("atretik"),
         "pn0": pn.get("0"), "pn1": pn.get("1"), "pn2": pn.get("2"),
         "pn3": pn.get("3"), "pn4": pn.get("4+"),
-        "freeze": donan or None,
+        # FREEZE sütunu artık sayı değil, **tüp tüp parantezler** (v6.135,
+        # kullanıcının isteği: "Parantezler içine embriyoları yaz, birden çok
+        # tüp varsa alt satırlarına"). Kâğıtta bu sütunda dört kutu var
+        # (28-31); tüp sayısı bunu aşarsa son kutu kalanı sayıyla söylüyor --
+        # kırpıp susmak kaç tüp olduğunu gizlerdi.
+        "freeze_satirlari": _freeze_satirlari(tupler),
+        # Kâğıdın altındaki geniş "Yorum:" satırına eklenir (v6.135).
+        "bulgu_notu": bulgu_notu,
         "thaw": cozulen or None,
         "transfer": transfer or None,
         # ART Lab'da NOTLAR gibi bir kutu yok; iptal sebebi kalıbın dışına,
@@ -690,7 +883,7 @@ _ARTLAB_OZET = [
     (31, 5, "oosit_dej"),                                 # Mll / Ml / Pl / Dej
     (28, 6, "oosit_dej_islem"),                           # Dej (fertilizasyon)
     (28, 8, "pn0"), (28, 9, "pn1"), (28, 10, "pn2"), (28, 11, "pn3"),
-    (28, 12, "freeze"), (28, 14, "thaw"), (28, 16, "transfer"),
+    (28, 14, "thaw"), (28, 16, "transfer"),   # FREEZE ayrı: dört kutu, aşağıda
 ]
 
 # "% Motil" ve "% Normal" kutularında kâğıtta zaten yazı var; sayı onun
@@ -745,6 +938,11 @@ def artlab_dolgu(v: dict) -> list:
         ek[(8, 9)] = ("→ " + v["sperm_kaynagi"]) if v["sperm_kaynagi"] else None
         ek[(6, 21)] = v["hekim"]              # Hekimler: OPU
         ek[(7, 17)] = v["laboratuvar"]        # Labratuvar
+        # Kâğıdın altındaki tek satırlık "... Yorum:" alanı (tüm sayfa
+        # genişliğinde tek birleşik hücre). Yumurta bulguları oraya, basılı
+        # yazının arkasına ekleniyor -- `ek`'in tam işi (v6.135).
+        if sayfa == 0 and v.get("bulgu_notu"):
+            ek[(_ARTLAB_YORUM_SATIR, 0)] = " " + v["bulgu_notu"]
 
         # --- oosit ızgarası
         dilim = sutunlar[sayfa * ARTLAB_SUTUN:(sayfa + 1) * ARTLAB_SUTUN]
@@ -757,6 +955,9 @@ def artlab_dolgu(v: dict) -> list:
         if sayfa == 0:
             for satir, c, anahtar in _ARTLAB_OZET:
                 d[(satir, c)] = _yaz(v.get(anahtar))
+            for satir, metin in zip(_ARTLAB_FREEZE_SATIR,
+                                    v.get("freeze_satirlari") or []):
+                d[(satir, _ARTLAB_FREEZE_SUTUN)] = metin
             for satir, c, anahtar in _ARTLAB_OZET_EK:
                 ek[(satir, c)] = v.get(anahtar)
             for satir, asama in _ARTLAB_ISLEM:
