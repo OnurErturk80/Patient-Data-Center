@@ -601,20 +601,31 @@ def _dondurma_coz(notlar: str, asama: str = "") -> dict:
         m = re.search(kalip, cumle)
         return int(m.group(1)) if m else None
 
-    ogeler = []
+    # **Bir parantez grubu = bir tüp.** Kaynak kayıt tüp sayısını bazen ayrıca
+    # yazıyor ("2 TÜPTE"), bazen yazmıyor; ama yazdığı her satırda grup sayısı
+    # o sayıyla birebir tutuyor (doğrulandı, 7 notun 3'ünde açık sayı var):
+    #   "6 ADET OOSİT 2 TÜPTE (3*M2) (3*M2)"        -> 2 grup, 2 tüp
+    #   "1TÜPTE 3 ADET D3 EMBRİYOSU (4HG2-4HG2-3HG2)" -> 1 grup, 1 tüp
+    # Grup içinde "-" örnekleri ayırıyor, "N*M2" ise N yumurta demek.
+    # Açık sayı olmayan satırlarda tüp sayısı bu yapıdan okunuyor.
+    gruplar = []
     for grup in re.findall(r"\(([^)]*)\)", ham_cumle):
+        icerik = []
         for parca in grup.split("-"):
             coz = _skor_coz(parca)
             if coz:
-                ogeler.append(coz)
+                icerik.append(coz)
             elif parca.strip():
-                ogeler.append({"tur": "taninmadi", "ham": parca.strip()})
+                icerik.append({"tur": "taninmadi", "ham": parca.strip()})
+        if icerik:
+            gruplar.append(icerik)
     return {
         "gun": gun,
         "oosit_mi": "OOSIT" in cumle or "YUMURTA" in cumle,
         "adet": _ilk(r"(\d+)\s*ADET"),
         "tup": _ilk(r"(\d+)\s*TUPTE"),
-        "ogeler": ogeler,
+        "gruplar": gruplar,
+        "ogeler": [o for g in gruplar for o in g],   # düz liste: önizleme için
     }
 
 
@@ -847,6 +858,50 @@ def _degerlendirme_yaz(b, kid, sid, cycle_id, tip, gun, zaman, alanlar, ham):
         _olay(b, kid, sid, cycle_id, tip, zaman, gun=gun, notlar=notu, **alanlar)
 
 
+def _tasiyici_ac(b, kid, cycle_no, zaman):
+    """Taşıyıcıyı vitrifikasyon ekranının kendi kalıbıyla açar.
+
+    Etiket **uydurulmuyor**: `vit_ekran()` zaten `onerilen =
+    f"{cycle_no}-{HHMM}"` diye bir kod öneriyor ve personel ekranda çoğu
+    zaman onu kabul ediyor -- yani etiket tüpten okunan bir ad değil,
+    programın ürettiği bir kod. Aktarım da aynı kalıbı kullanıyor
+    (kullanıcının isteği: "Vitrifikasyon bölümünde etiket kodu üretiyor,
+    onu kullansan").
+
+    Saat, o tüpün vitrifikasyon saati. Aynı tedavide birden çok tüp varsa
+    dakika ilerliyor (`UNIQUE(lab_id, etiket)`) -- tüpler zaten arka arkaya
+    hazırlanıyor, kod da öyle okunuyor.
+
+    Konum (tank/kanister/goblet/pozisyon) **boş kalıyor**: kaynak kayıtta
+    yok ve ekranın kendisi de boş bırakılmasına izin veriyor ("taşıyıcı
+    sistemde görünür ama nerede olduğu bilinmez"). Kullanıcı Cryo
+    Haritası'ndan konumu sonradan girer.
+    """
+    t = _dt.datetime.fromisoformat(zaman)
+    for _ in range(600):
+        etiket = f"{cycle_no}-{t:%H%M}"
+        if not b.execute("SELECT id FROM tasiyici WHERE lab_id=? AND etiket=?",
+                         (_db.LAB_ID, etiket)).fetchone():
+            break
+        t += _dt.timedelta(minutes=1)
+    else:
+        raise RuntimeError(f"{cycle_no} icin bos etiket bulunamadi")
+    an = t.isoformat(" ", "seconds")
+    b.execute("INSERT INTO tasiyici (lab_id, tip, etiket, konum_id, "
+              "vitrifikasyon_zamani, kullanici_id, durum, kategori) "
+              "VALUES (?,'cryotop',?,NULL,?,?,'dolu','embriyo')",
+              (_db.LAB_ID, etiket, an, kid))
+    return b.execute("SELECT last_insert_rowid()").fetchone()[0], etiket, an
+
+
+def _vitrifikasyon_var(b, cycle_id) -> bool:
+    """Bu tedavide taşıyıcıya bağlı, iptal edilmemiş bir dondurma var mı?"""
+    return bool(b.execute(
+        "SELECT 1 FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        "AND o.vit_tasiyici_id IS NOT NULL LIMIT 1", (cycle_id,)).fetchone())
+
+
 # Blastokist dışı kodların `specimen.durum` karşılığı -- `app.blast_kaydet()`
 # ile aynı eşleme. Blastokist (sayı) genişlemelerde durum "blastokist".
 _BLAST_DURUM = {"kavitasyon": "kavitasyon", "arrest": "arrest",
@@ -854,32 +909,33 @@ _BLAST_DURUM = {"kavitasyon": "kavitasyon", "arrest": "arrest",
 
 
 def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
-    """Nottan çözümlenen dondurma skorlarını aşama ekranlarına yazar.
+    """Nottan çözümlenen dondurmayı ilgili aşama ekranlarına yazar.
 
     Kullanıcının isteği (2026-09-22): "4BB blastokist dondurulmuş yazıyor ise
-    blastokist bölümüne fotoğrafsız 4BB embriyo kaydet". Yani skor artık
-    serbest notta kalmıyor, `bl_genisleme`/`bl_icm`/`bl_te` (ya da cleavage'da
-    `cl_hucre_sayisi`/`cl_skor`) alanlarına giriyor.
+    blastokist bölümüne fotoğrafsız 4BB embriyo kaydedip vitrifikasyonda da
+    bunun dondurulduğunu ilgili bölüme yaz."
 
-    **Vitrifikasyon kaydı burada AÇILMIYOR** ve bu bilinçli: vitrifikasyon
-    ekranının "Dondurulmuş" listesi `tasiyici_id`'ye bakıyor
-    (`selectattr('tasiyici_id')`), yani taşıyıcısız bir vitrifikasyon olayı
-    orada zaten görünmez; taşıyıcının etiketi ise tüpün üstünde yazan gerçek
-    ad, kaynak kayıtta yok ve `UNIQUE` olduğu için sonradan değiştirilemiyor
-    (yalnızca `vit_sil` ile "boşaltıldı"ya düşüyor, etiket kalıyor). Uydurma
-    bir etiket Cryo Haritası'na tüpün gerçekte olmadığı bir ad yazardı.
-    Embriyolar skorlarıyla birlikte vitrifikasyon ekranının **aday**
-    listesinde çıkıyor; dondurmayı kullanıcı orada, gerçek etiket ve konumla
-    yapıyor.
+    Üç şey yazılıyor:
+    1. **Değerlendirme** — gün 5 ve sonrası `blastokist_degerlendirme`
+       (`bl_genisleme`/`bl_icm`/`bl_te` ya da kavitasyon + derece), öncesi
+       `cleavage_degerlendirme` (`cl_hucre_sayisi`/`cl_skor`).
+    2. **Taşıyıcı** — her parantez grubu bir tüp (`_dondurma_coz()`'e bak),
+       etiketi `vit_ekran()`'in önerdiği kalıpta.
+    3. **Vitrifikasyon olayı** — taşıyıcıya bağlı, yani vitrifikasyon
+       ekranının "Dondurulmuş" listesinde ve Cryo Haritası'nda görünüyor.
 
-    Bu işlev **idempotent**: hem taze aktarımda hem "tamamla" kipinde
-    çağrılıyor, ikinci çalıştırma yeni kayıt açmıyor.
+    **İdempotent**: hem taze aktarımda hem "tamamla" kipinde çağrılıyor.
+    Değerlendirme varsa güncelleniyor; taşıyıcıya bağlı bir dondurma zaten
+    varsa dondurma kısmına hiç dokunulmuyor (kullanıcı konumu elle girmiş
+    olabilir, üzerine yazmak onu silerdi).
     """
     coz = _dondurma_coz(r["notlar"], r["dondurma_asama"])
-    if not coz:
+    if not coz or not coz["gruplar"]:
         return
+    cycle_no = b.execute("SELECT cycle_no FROM cycle WHERE id=?",
+                         (cycle_id,)).fetchone()[0]
 
-    # Daha önceki sürümün açtığı taşıyıcısız vitrifikasyon olayları iptal
+    # v6.131'in ilk yazışındaki taşıyıcısız vitrifikasyon olayları iptal
     # ediliyor: istatistikte "donduruldu" derken ekranda "aday" görünüyorlardı.
     eski = b.execute(
         "SELECT o.id FROM olay o JOIN specimen s ON s.id=o.specimen_id "
@@ -889,68 +945,95 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
         b.execute("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, "
                   "iptal_zamani=?, iptal_sebep=? WHERE id=?",
                   (kid, _dt.datetime.now().isoformat(" ", "seconds"),
-                   "Tasiyici bilgisi yok; dondurma vitrifikasyon ekranindan "
-                   "gercek etiketle girilecek", oid))
-    if eski:
-        rapor.append(f"    {len(eski)} taşıyıcısız vitrifikasyon kaydı iptal "
-                     f"edildi (dondurmayı ekrandan gireceksin)")
+                   "Tasiyicili kayitla degistirildi", oid))
 
-    if coz["oosit_mi"]:
-        gruplar = [o["adet"] for o in coz["ogeler"] if o["tur"] == "oosit"]
-        rapor.append(
-            f'    yumurta dondurma: {coz["adet"] or sum(gruplar)} yumurta'
-            + (f', {coz["tup"] or len(gruplar)} tüpte ' +
-               "+".join(str(g) for g in gruplar) if gruplar else "")
-            + " — taşıyıcı etiketi kaynak kayıtta yok, vitrifikasyon ekranından gir")
+    gun = coz["gun"] or 5
+    oosit_mi = coz["oosit_mi"]
+    # Yumurta dondurma OPU günü, denüdasyondan sonra; embriyo dondurma
+    # kaynak kaydın söylediği gün ("5,GÜN" / "3.GÜN").
+    temel = (_zaman(r["opu"], "14:00:00") if oosit_mi
+             else _zaman(_gun_ekle(r["opu"], gun), "12:00:00")) if r["opu"] else None
+    if not temel:
+        rapor.append("    UYARI: OPU tarihi yok, dondurma kaydı yazılamadı")
         return
 
-    embriyolar = [o for o in coz["ogeler"] if o["tur"] in ("blast", "cleavage")]
-    if not embriyolar:
-        return
-
-    # Hedef örnekler: önce daha önce dondurulmuş işaretlenenler (tamamla
-    # kipinde aynı embriyolara denk gelsin diye), sonra 2PN olanlar.
+    # Hedef örnekler: yumurtada MII olanlar, embriyoda 2PN olanlar; ikisinde
+    # de daha önce dondurulmuş işaretlenenler öne alınıyor ki "tamamla"
+    # aynı örneklere denk gelsin.
     secili, gorulen = [], set()
-    for sorgu in (
+    sorgular = ["SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
+                "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' "
+                "GROUP BY s.id ORDER BY s.cycle_sira_no"]
+    sorgular.append(
         "SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
-        "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' "
-        "GROUP BY s.id ORDER BY s.cycle_sira_no",
-        "SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
-        "WHERE s.cycle_id=? AND o.tip='fertilizasyon_kontrolu' "
-        "AND o.iptal_mi=0 AND o.fert_pn_sayisi='2' "
-        "GROUP BY s.id ORDER BY s.cycle_sira_no",
-    ):
+        "WHERE s.cycle_id=? AND o.iptal_mi=0 AND " +
+        ("o.tip='maturasyon_kontrolu' AND o.mat_deger='mii'" if oosit_mi else
+         "o.tip='fertilizasyon_kontrolu' AND o.fert_pn_sayisi='2'") +
+        " GROUP BY s.id ORDER BY s.cycle_sira_no")
+    for sorgu in sorgular:
         for (sid,) in b.execute(sorgu, (cycle_id,)).fetchall():
-            if sid not in gorulen and len(secili) < len(embriyolar):
+            if sid not in gorulen:
                 gorulen.add(sid)
                 secili.append(sid)
 
-    if len(secili) < len(embriyolar):
-        rapor.append(f"    UYARI: notta {len(embriyolar)} embriyo yazıyor ama "
-                     f"{len(secili)} uygun örnek var; fazlası yazılmadı")
+    zaten = _vitrifikasyon_var(b, cycle_id)
+    t_deg = _zaman(_gun_ekle(r["opu"], gun), "09:00:00")
+    sira, tup_no, yazilan, tupler = 0, 0, [], []
+    for grup in coz["gruplar"]:
+        ogeler = [o for o in grup if o["tur"] in ("blast", "cleavage", "oosit")]
+        if not ogeler:
+            continue
+        adet = (sum(o["adet"] for o in ogeler) if oosit_mi else len(ogeler))
+        payi = secili[sira:sira + adet]
+        sira += adet
+        if not payi:
+            break
 
-    gun = coz["gun"] or 5
-    t_deg = _zaman(_gun_ekle(r["opu"], gun), "09:00:00") if r["opu"] else None
-    yazilan = []
-    for sid, o in zip(secili, embriyolar):
-        if o["tur"] == "blast":
-            alanlar = {"bl_genisleme": o["genisleme"], "bl_icm": o.get("icm"),
-                       "bl_te": o.get("te"), "bl_derece": o.get("derece"),
-                       "bl_skor": o["skor"], "bl_skor_kaynagi": "elle"}
-            _degerlendirme_yaz(b, kid, sid, cycle_id, "blastokist_degerlendirme",
-                               max(gun, 4), t_deg, alanlar, o["ham"])
-            _durum_yaz(b, sid, _BLAST_DURUM.get(o["genisleme"], "blastokist"))
-        else:
-            alanlar = {"cl_hucre_sayisi": o["hucre"], "cl_skor": o["skor"],
-                       "cl_skor_kaynagi": "elle"}
-            _degerlendirme_yaz(b, kid, sid, cycle_id, "cleavage_degerlendirme",
-                               min(gun, 3), t_deg, alanlar, o["ham"])
-            _durum_yaz(b, sid, f"gun{min(gun, 3)}")
-        yazilan.append(o["ham"])          # kullanıcının kendi yazımı
-    taninmayan = [o["ham"] for o in coz["ogeler"] if o["tur"] == "taninmadi"]
-    rapor.append(f'    dondurulan embriyo skorları: {", ".join(yazilan)} '
-                 f'(gün {gun}, {len(yazilan)} embriyo)'
-                 + (f' — tanınmayan: {", ".join(taninmayan)}' if taninmayan else ""))
+        tid = etiket = None
+        if not zaten:
+            an = (_dt.datetime.fromisoformat(temel)
+                  + _dt.timedelta(minutes=tup_no)).isoformat(" ", "seconds")
+            tid, etiket, an = _tasiyici_ac(b, kid, cycle_no, an)
+            tupler.append(f"{etiket} ({len(payi)})")
+        tup_no += 1
+
+        for i, sid in enumerate(payi):
+            if not oosit_mi:
+                o = ogeler[i]
+                if o["tur"] == "blast":
+                    alanlar = {"bl_genisleme": o["genisleme"], "bl_icm": o.get("icm"),
+                               "bl_te": o.get("te"), "bl_derece": o.get("derece"),
+                               "bl_skor": o["skor"], "bl_skor_kaynagi": "elle"}
+                    _degerlendirme_yaz(b, kid, sid, cycle_id,
+                                       "blastokist_degerlendirme", max(gun, 4),
+                                       t_deg, alanlar, o["ham"])
+                else:
+                    alanlar = {"cl_hucre_sayisi": o["hucre"], "cl_skor": o["skor"],
+                               "cl_skor_kaynagi": "elle"}
+                    _degerlendirme_yaz(b, kid, sid, cycle_id,
+                                       "cleavage_degerlendirme", min(gun, 3),
+                                       t_deg, alanlar, o["ham"])
+                yazilan.append(o["ham"])
+            if tid:
+                _olay(b, kid, sid, cycle_id, "vitrifikasyon", an,
+                      vit_tasiyici_id=tid,
+                      notlar="Kaynak kayıttaki dondurma notundan aktarıldı; "
+                             "konum girilmedi.")
+                _durum_yaz(b, sid, "dondurulmus")
+
+    if sira > len(secili):
+        rapor.append(f"    UYARI: notta {sira} örnek yazıyor ama {len(secili)} "
+                     f"uygun kayıt var; fazlası yazılmadı")
+    taninmayan = [o["ham"] for g in coz["gruplar"] for o in g
+                  if o["tur"] == "taninmadi"]
+    if yazilan:
+        rapor.append(f'    skorlar: {", ".join(yazilan)} (gün {gun})'
+                     + (f' — tanınmayan: {", ".join(taninmayan)}' if taninmayan else ""))
+    if tupler:
+        rapor.append(f'    dondurma: {len(tupler)} tüp — {", ".join(tupler)} '
+                     f'(konum boş, Cryo Haritası\'ndan gir)')
+    elif zaten:
+        rapor.append("    dondurma zaten girilmiş, dokunulmadı")
 
 
 def _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor):

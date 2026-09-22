@@ -10280,3 +10280,82 @@ etiketiyle aday listesinde gösteriyor. 18 adres 200 döndürdü.
 
 Ağustos sayıları: blastokist 4, cleavage 3, dondurulmuş 0 (taşıyıcı
 girilene kadar — bilinçli).
+
+# v6.132 — dondurma kaydı taşıyıcısıyla yazılıyor (v6.131'in kararı geri alındı)
+
+Kullanıcının tek cümlelik düzeltmesi: **"Vitrifikasyon bölümünde etiket kodu
+üretiyor. Onu kullansan."**
+
+v6.131 taşıyıcı açmamıştı, gerekçesi "etiket tüpün üstünde yazan gerçek ad,
+uydurulamaz" idi. **Bu gerekçe yanlıştı.** `vit_ekran()` zaten şunu
+döndürüyor:
+
+```python
+"onerilen": f"{c['cycle_no']}-{_d.now().strftime('%H%M')}"
+```
+
+Yani etiket tüpten okunan bir ad değil, **programın kendi ürettiği kod**;
+personel ekranda çoğu zaman onu kabul edip tüpün üstüne o kodu yazıyor.
+Aktarım da aynı kalıbı kullanabilir — ve kullanmalı, çünkü taşıyıcı olmadan
+dondurma ne vitrifikasyon ekranında ne Cryo Haritası'nda görünüyor.
+
+Ders: **bir alanın "elle girilen gerçek bir ad" mı yoksa "programın ürettiği
+bir kod" mu olduğunu, kullanıldığı ekranın kendi varsayılanına bakarak
+belirle.** v6.131 bunu yapmadan "uydurulamaz" dedi ve kullanıcıya gereksiz
+iş çıkardı.
+
+## Bir parantez grubu = bir tüp
+
+Notlardaki grup yapısı tüp dağılımını da veriyor. Yazılı tüp sayısı olan üç
+satırın **üçünde de** grup sayısı birebir tutuyor:
+
+| not | grup | yazılı |
+|---|---|---|
+| `6 ADET OOSİT 2 TÜPTE (3*M2) (3*M2)` | 2 | 2 |
+| `16 ADET OOSİT 4 TÜPTE (4*M2) ×4` | 4 | 4 |
+| `1TÜPTE 3 ADET D3 EMBRİYOSU (4HG2-4HG2-3HG2)` | 1 | 1 |
+
+Grup içinde `-` örnekleri ayırıyor, `N*M2` ise N yumurta demek. Tüp sayısı
+yazılmamış satırlarda (`2 ADET D5 EMBRİYO (3AA) (3AA)` → 2 tüp) dağılım bu
+yapıdan okunuyor. Kural doğrulanabilir olduğu için varsayım değil.
+
+## Ne yazılıyor
+
+- **Taşıyıcı**: `tasiyici` satırı, etiket `<tedavi no>-<SSDD>`, tip
+  `cryotop`, `durum='dolu'`, `kategori='embriyo'`. Aynı tedavide birden çok
+  tüp varsa dakika ilerliyor (`UNIQUE(lab_id, etiket)`) — tüpler zaten arka
+  arkaya hazırlanıyor.
+- **Vitrifikasyon saati**: embriyoda kaynak kaydın söylediği gün (OPU + 5 /
+  OPU + 3) saat 12:00; yumurtada OPU günü 14:00 (denüdasyondan sonra).
+- **Konum boş** — kaynak kayıtta tank/kanister/goblet/pozisyon yok ve ekranın
+  kendisi de boş bırakılmasına izin veriyor ("taşıyıcı sistemde görünür ama
+  nerede olduğu bilinmez"). Cryo Haritası bu tüpleri **"konum girilmemiş"**
+  diye işaretliyor, kullanıcı oradan giriyor. Uydurulan tek şey yok.
+- v6.131'in bıraktığı taşıyıcısız vitrifikasyon olayları iptal ediliyor
+  (silinmiyor, `iptal_sebep` yazılı).
+
+## İdempotanlık
+
+`tamamla` ikinci kez çalıştırıldığında: değerlendirme güncelleniyor,
+**dondurmaya hiç dokunulmuyor** ("dondurma zaten girilmiş"). Sebep: kullanıcı
+o arada konumu elle girmiş olabilir; yeniden yazmak onu silerdi. Kontrol
+`_vitrifikasyon_var()` — taşıyıcıya bağlı, iptal edilmemiş bir vitrifikasyon
+olayı varsa o tedavinin dondurması bitmiş sayılıyor.
+
+## Ölçüm
+
+12 taşıyıcı açıldı, 31 örnek donduruldu (7 embriyo + 24 yumurta) — kaynak
+notların söylediği sayıların aynısı. Ağustos istatistiği: dondurulmuş 31,
+blastokist 4, cleavage 3, M2 oranı %71.3 (değişmedi). Cryo Haritası 12 tüpü
+"konum girilmemiş" uyarısıyla listeliyor, vitrifikasyon ekranı embriyoları
+"Dondurulmuş (2)" başlığı altında gösteriyor. 16 adres 200 döndürdü, ikinci
+`tamamla` hiçbir şeyi değiştirmedi.
+
+## Bilinen kusur — kullanıcıya soruldu
+
+Cryo Haritası taşıyıcı satırında `say("n_embriyo", t.adet)` yazıyor, yani bir
+tüp dolusu **yumurta** da "4 embriyo" diye görünüyor. Bu v6.132'nin açtığı
+bir hata değil — program daha önce hiç yumurta dondurma kaydı görmemişti, o
+yüzden ortaya çıkmamıştı. Düzeltmek `cryo_harita()`'nın sorgusuna taşıyıcının
+cycle tipini eklemeyi gerektiriyor; kelimenin ne olacağı (yumurta/oosit)
+kullanıcının sözlüğü, ona soruldu.

@@ -1535,14 +1535,20 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   `app.blast_skor()`'un ürettiğiyle birebir aynı olması; tanınmayan parça
   atılmıyor, olayın notuna ham haliyle giriyor. `bl_skor_kaynagi='elle'`
   — skor bir insanın notu, otomatik hesap ezmemeli.
-- **Vitrifikasyon kaydı AÇILMIYOR, bilerek.** Vitrifikasyon ekranının
-  "Dondurulmuş" listesi `selectattr('tasiyici_id')` ile kuruluyor:
-  taşıyıcısız bir vitrifikasyon olayı orada görünmez, istatistikte
-  görünür — iki yer birbirini tutmaz. Taşıyıcı etiketi tüpün üstündeki
-  gerçek ad, kaynak kayıtta yok ve `UNIQUE` olduğu için sonradan
-  değiştirilemiyor. Embriyolar skorlarıyla aday listesinde çıkıyor,
-  dondurmayı kullanıcı gerçek etiket ve konumla ekrandan yapıyor.
-  **Yeni bir içeri almada da taşıyıcı uydurma.**
+- **Dondurma taşıyıcısıyla birlikte yazılıyor** (v6.132 — v6.131 taşıyıcı
+  açmıyordu, kullanıcı düzeltti: "Vitrifikasyon bölümünde etiket kodu
+  üretiyor, onu kullansan"). Etiket `vit_ekran()`'in kendi önerisiyle aynı
+  kalıpta: `<tedavi no>-<SSDD>`, aynı tedavide birden çok tüp varsa dakika
+  ilerliyor. **Konum boş kalıyor** (kaynakta yok, ekran da boşa izin
+  veriyor) — Cryo Haritası o tüpleri "konum girilmemiş" diye işaretliyor.
+  Tüp dağılımı nottaki **parantez gruplarından**: bir grup = bir tüp,
+  yazılı "N TÜPTE" olan üç satırın üçünde de tutuyor.
+  - **Ders**: bir alanın "elle girilen gerçek ad" mı yoksa "programın
+    ürettiği kod" mu olduğunu, o alanı kullanan ekranın **kendi
+    varsayılanına** bakarak belirle. v6.131 bunu yapmadan "uydurulamaz"
+    deyip kullanıcıya gereksiz iş çıkardı.
+  - **Taşıyıcıya bağlı vitrifikasyon varsa dokunulmuyor**
+    (`_vitrifikasyon_var()`): kullanıcı konumu elle girmiş olabilir.
 - **`tamamla` kipi**: aktarılmış tedavileri baştan almadan günceller
   (`python3 aktar_access.py tamamla <dosya.csv>`). `_dondurma_kayitlari()`
   idempotent — var olan değerlendirmeyi `UPDATE` ediyor, ikinci satır
