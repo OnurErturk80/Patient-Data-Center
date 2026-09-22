@@ -10690,3 +10690,46 @@ Excel: `/disari/form/ozet/32` ve `/disari/form/artlab/{17,32}` geçerli ZIP
 
 Bulgusuz bir tedavide alt satır kâğıttaki gibi "… Yorum:" diye bitiyor.
 51 ekranlık genel tarama yine temiz.
+
+
+# v6.136 — "%  85.0" kutuya sığmıyordu: anlamsız ".0" düşürüldü
+
+v6.135'in ölçümünde kalan tek kesilme: ART Lab'ın SEMEN bloğundaki
+"% Motil" / "% Normal" kutuları. Kullanıcı "ona da bak" dedi.
+
+**Sebep sayının biçimiydi, kutunun darlığı değil.** `sperm_analiz`'in yüzde
+kolonları SQLite'ta REAL; 85 değeri `str()` ile "85.0" oluyor ve kâğıttaki
+"%" ile birleşince "%  85.0" çıkıyordu. Ölçüldü: kutu **32px**, yazı
+**40px** — fazlası `.kalip td`'nin `overflow: hidden`'ıyla sessizce
+kesiliyor, ekranda "%  85." görünüyordu. v6.37'den beri böyleydi.
+
+Düzeltme `_sayi()`'de, tek yerde: değer tam sayıysa ondalık düşüyor.
+
+| yazı | genişlik | kutu 32px |
+|---|---|---|
+| `%  85.0` (önce) | 40px | 8px kesiliyordu |
+| `%  85` (sonra) | 32px | **tam sığıyor** |
+| `%  100` | 37px | 5px taşıyor (kesilmiyor, aşağıya bak) |
+
+- **Gerçekten kesirli bir değer olduğu gibi kalıyor** — `0.8` ml, `0.1`
+  lökosit, `85.5`%. Yuvarlamak klinik bir sayıyı değiştirirdi; resmî forma
+  yanlış veri yazmak boş bırakmaktan da kötü (v6.37'nin kuralı).
+- Düzeltme `_sayi()`'nin **17 çağıranının hepsini** kapsıyor, yani iki form
+  da: ART Lab'ın "M/ml" kutusu artık "30.0" değil "30", Özet'in BAZAL VOLÜM
+  kutusu "5.0" değil "5". Geniş kutular zaten kesilmiyordu, orada değişen
+  yalnızca okunaklılık. Yüklenen lab formlarının `{{bazal_volum}}` gibi
+  etiketleri de aynı değeri alıyor (geriye dönük uyumlu, sadece kısaldı).
+- **Dört yüzde kutusu ayrıca `.tasabilir`** (v6.135'in mekanizması): %100
+  ya da gerçekten kesirli bir değer 5px taşıyorsa komşunun 2px dolgusuna
+  akıyor, kesilmiyor. Ekran görüntüsüyle bakıldı: "%  100Motil" diye sıkışık
+  ama **eksiksiz** görünüyor. Kesilmesindense sıkışması tercih edildi.
+
+## Ölçüm
+
+34 tedavinin iki formu da (68 sayfa) yeniden gezildi: **kırpılan hücre 0**.
+Kutusundan geniş tek yazı ART Lab'ın `(4HG2-4HG2-3HG2)`'si ve o `.tasabilir`
+olduğu için tamamı görünüyor. Gerçek veride yüzde kutularının hiçbiri artık
+taşmıyor (`%  85` ve `%  99` tam 32px).
+
+Excel: `/disari/form/artlab/17` ve `/disari/form/ozet/17` geçerli ZIP; içinde
+`%  85` / `%  99` var ve **hiçbir yerde `.0` ile biten değer kalmadı**.

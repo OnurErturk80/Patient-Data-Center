@@ -842,6 +842,13 @@ kalıptan**: `form_kalip.json`.
     sırası: protokol → dondurma → çözme → iptal sebebi.
   - ART Lab'da FREEZE sütununun **dört kutusu** (satır 28-31) tüp tüp
     doluyor; dörtten çoksa son kutu kalanı sayıyla söylüyor ("+3 tüp").
+- **Sayıyı forma basmadan önce `_sayi()`'den geçir** (v6.136). Yüzde/hacim
+  kolonları SQLite'ta REAL; 85 değeri "85.0" diye geliyordu ve ART Lab'ın
+  "% Motil" kutusuna (32px) "%  85.0" (40px) sığmayıp **sessizce
+  kesiliyordu**. `_sayi()` tam sayıda ondalığı düşürüyor ("85"), gerçekten
+  kesirli değeri koruyor ("0.8") -- yuvarlama yok, resmî forma yanlış sayı
+  yazmak boş bırakmaktan kötü. Yeni bir sayısal form alanı eklersen ham
+  kolonu değil bu fonksiyonu kullan.
 - **Sığmayan yazıyı kesme, sağa taşır** (v6.135, kullanıcının kararı:
   "Thaw ve onun[ki] alana kadar satırı uzatabilirsin"). `.kalip td`
   varsayılan olarak `overflow: hidden` — ART Lab'ın dar FREEZE kutusunda

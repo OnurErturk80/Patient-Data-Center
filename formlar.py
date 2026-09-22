@@ -35,7 +35,20 @@ import metinler
 
 
 def _sayi(r, anahtar):
-    return r[anahtar] if r and r[anahtar] is not None else None
+    """Sayısal bir alanın forma basılacak hali; anlamsız ".0" düşürülür.
+
+    Kolonlar SQLite'ta REAL olduğu için 85 değeri "85.0" diye geliyordu ve
+    ART Lab'ın "% Motil" kutusuna **sığmıyordu**: kutu 32px, "%  85.0" 40px
+    -- fazlası `.kalip td`'nin `overflow: hidden`'ıyla sessizce kesiliyor,
+    ekranda "%  85." görünüyordu (v6.37'den beri böyleydi, v6.136'da
+    düzeltildi). Tam sayıda ondalık düşüyor ("85"), gerçekten kesirli bir
+    değer olduğu gibi kalıyor ("0.8" ml, "85.5") -- yuvarlamak klinik bir
+    sayıyı değiştirirdi, bu forma yanlış veri yazmak demek olurdu.
+    """
+    d = r[anahtar] if r and r[anahtar] is not None else None
+    if isinstance(d, float) and d.is_integer():
+        return int(d)
+    return d
 
 
 def _zaman_coz(metin):
@@ -419,7 +432,6 @@ _ARTLAB_YORUM_SATIR = 36
 # (dolu bir hücrenin yazısı boş komşusuna akar); ekranda aynısını yapmak
 # için bu hücrelerin `overflow`'u açılıyor (`.tasabilir`, style.css).
 # Kırpmak yerine taşırmak bilinçli: kesilen bir skor yanlış bilgi olurdu.
-ARTLAB_TASAN_HUCRELER = {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
 
 
 def _freeze_satirlari(tupler) -> list:
@@ -892,6 +904,15 @@ _ARTLAB_OZET_EK = [
     (29, 0, "bazal_motil"), (30, 0, "bazal_normal"),
     (29, 2, "son_motil"), (30, 2, "son_normal"),
 ]
+
+ARTLAB_TASAN_HUCRELER = (
+    {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
+    # "% Motil" / "% Normal" kutuları da dar (32px): kâğıttaki "%" ile
+    # değerin ikisi birden aynı hücreye giriyor. `_sayi()` ".0"ı düşürdüğü
+    # için iki haneli değer tam sığıyor ("%  85" = 32px); %100 ya da gerçekten
+    # kesirli bir değer 5px taşıyor ve komşunun 2px dolgusuna akıyor --
+    # kesilmesindense (v6.136).
+    | {(r, c) for r, c, _ in _ARTLAB_OZET_EK})
 
 # "İŞLEM / Tarih / Sa." bloğu: kâğıttaki beş satır ve çizelgedeki karşılığı.
 _ARTLAB_ISLEM = [
