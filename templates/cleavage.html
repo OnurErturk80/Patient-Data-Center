@@ -33,8 +33,12 @@
 <div class="serit">
   {% for o in oositler %}
   <a href="/cycle/{{ c.id }}/cleavage?gun={{ gun }}&oosit={{ o.cycle_sira_no }}"
-     class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kayit_id %}dolu{% endif %}">
-    <b>{{ o.cycle_sira_no }}</b>{% if o.hucre is not none %}<i>-{{ o.hucre }}H</i>{% endif %}
+     class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kayit_id %}dolu{% endif %}
+            {% if o.dejenere %}deg{% endif %}">
+    {#- Dejenere yumurta listede kalır ama "Dej." yazar ve formu açılmaz
+        (v6.139, kullanıcının isteği). Hücre sayısı varsa o eski kayıttır --
+        dejenere işaretinden önce girilmiş olabilir, gizlenmiyor. -#}
+    <b>{{ o.cycle_sira_no }}</b>{% if o.dejenere %}<i>-{{ metin("mat_kisa_degenere") }}</i>{% elif o.hucre is not none %}<i>-{{ o.hucre }}H</i>{% endif %}
   </a>
   {% endfor %}
 </div>
@@ -44,7 +48,9 @@
   <span class="hed">{{ ornek_adi('cleavage', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
-{% if sp.pn and sp.pn != '2' %}
+{% if sp.dejenere %}
+<div class="uyari">{{ metin("dejenere_uyari") }}</div>
+{% elif sp.pn and sp.pn != '2' %}
 <div class="uyari">{{ metin("fert_kontrolunde_npn").format(n=sp.pn) }}</div>
 {% endif %}
 
@@ -88,6 +94,14 @@
   {{ metin("fotograf_ekle") }}</a>
 <a class="dugme ikincil tehlike-bag"
    href="/specimen/{{ sp.id }}/cleavage-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
+
+{% elif sp.dejenere and not kayit %}
+{# Dejenere yumurtaya embriyo kaydı girilmiyor (v6.139, kullanıcının isteği:
+   "işlem yapılamasın. Yani cleavage ve Blast embriyo yazılamasın").
+   v6.105'in fertilizasyondaki deseninin aynısı: daha önce girilmiş bir kayıt
+   varsa (`kayit`) bu dala hiç düşülmez, o kaydı düzeltmek/silmek mümkün
+   kalır. Asıl engel sunucuda (`_dejenere_engel`). #}
+<div class="kart"><div class="bos">{{ metin("dejenere_form_yok") }}</div></div>
 
 {% else %}
 <form method="post" action="/cycle/{{ c.id }}/cleavage" id="clform">

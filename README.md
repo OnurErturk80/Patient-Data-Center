@@ -10936,3 +10936,150 @@ Kutu ilk yazışta `{% if yetkim("cryo") %}` ile gizleniyordu. Kaldırıldı:
 ve bu kapı, kutunun **sessizce hiç görünmemesi** demekti, yani yukarıdaki
 sorunun bir başka kaynağı. İzni olmayan biri sonuç satırına basarsa
 middleware onu döndürür; bu görünür bir cevap, sessiz bir yokluk değil.
+
+---
+
+# v6.139 — dejenere yumurta kilitleniyor, eşin dosya numarası
+
+Kullanıcının dört isteği:
+
+1. *"ICSI veya Fertilizasyon ekranında dejenere işaretlenen yumurta ileriki
+   menülerde yumurtanın kutucuğunda Dej. kısaltmasıyla gösterilsin ve işlem
+   yapılamasın. Yani cleavage ve Blast embriyo yazılamasın."*
+2. *"ICSI de GV işlem yapılmadı yumurtaları ileride küçük kutucuğunda GV
+   kısaltmasıyla gösterilsin."*
+3. *"Hasta kartında Eşin dosya numarasının girilebileceği yer olsun. Eğer Eş
+   erkek olarak sperm dondurma kayıt daha önce yapıldıysa uyarı versin."*
+4. *"Hasta kartında tedaviye bağlama opsiyonu versin."*
+
+## 1) Dejenere yumurta: görünür ama kilitli
+
+Süzgeç `_DEJENERE`. **`specimen.durum`'a değil OLAY tablosuna bakıyor** ve bu
+sürümün tek gerçek tasarım kararı bu: `durum` her aşamada **üzerine yazılıyor**
+(`cleavage_kaydet()` `gun2` yazar, `vit_kaydet()` `dondurulmus`), yani dejenere
+bir örneğe bir kez kayıt girilse `durum` artık `'degenere'` demezdi ve süzgeç
+**sessizce** susardı. Olay kalıcı: ICSI'de `icsi_sonuc='degenere'` ya da
+fertilizasyonda `fert_sonuc='degenere'` iptal edilene kadar duruyor.
+`_ICSI_YAPILMADI`'nın (v6.105) "durum'a bakma" gerekçesinin başka bir yüzü.
+
+- **Gizlenmiyor, kilitleniyor.** Kullanıcı "gösterilsin **ve** işlem
+  yapılamasın" dedi. Gizlemek "o yumurta hiç yoktu" der gibi olurdu; oysa
+  toplandı, enjekte edildi ve dejenere oldu — numarası da listede kalmalı.
+- **Kutucukta `10-Dej.`** ve kutu `deg` sınıfını alıyor (kırmızı çerçeve,
+  `.sn.deg` zaten vardı).
+- **Form hiç basılmıyor**, yerine bilgi kartı: "Dejenere olduğu için bu
+  yumurtaya embriyo kaydı girilmiyor." — v6.105'in fertilizasyondaki
+  `icsi_yapilmadi_fert_form_yok` deseninin birebir aynısı.
+- **Var olan kayıt dokunulmaz.** `{% elif sp.dejenere and not kayit %}` —
+  daha önce girilmiş (ya da dejenere işaretinden önce girilmiş) bir kayıt
+  varsa normal düzenleme/silme akışı bozulmuyor. Yoksa kullanıcı kendi
+  verisine kilitlenirdi: yanlışlıkla dejenere işaretlenen bir embriyonun
+  kaydı bir daha düzeltilemezdi.
+- **Asıl engel sunucuda**: `_dejenere_engel()` yalnızca **yeni** bir
+  değerlendirme açılmasını reddediyor (CLAUDE.md "ekranda göstermek yetmez").
+  Ölçüldü: dejenere örneğe doğrudan POST atıldığında `olay` tablosuna hiçbir
+  satır yazılmıyor, normal örnek etkilenmiyor.
+
+## 2) Enjekte edilmeyen yumurta kendi maturasyonunu yazıyor
+
+Fertilizasyon şeridi enjekte edilmeyen her yumurtaya `∅` basıyordu — hangisi
+olduğunu söylemiyordu. Artık kendi değerlendirmesini yazıyor: **GV**, **MI**,
+**Dej.**, **Atr.** Kullanıcının seçimi (soruldu): "Kendi maturasyonu".
+
+`mat_kisa(kod)` Jinja global'ı: yalnızca uzun iki etiketin (`degenere`,
+`atretik`) kısaltması `metinler.py`'de; MII/MI/GV kendi `liste_degeri`
+etiketiyle basılıyor — liste laba özgü ve yönetici düzenleyebiliyor, burada
+sabit bir sözlük yazmak CLAUDE.md'nin "kodu değil etiketi göster" kuralını
+bozardı. ICSI şeridi de `|upper`'dan (ekranda "DEGENERE" yazıyordu) buna
+geçti.
+
+### v6.105 gevşetilmedi
+
+Kullanıcıya soruldu — *"MI şu an nasılsa öyle kalsın. GV/Dej. kısaltmalarını
+fertilizasyonda göster, sonra gösterme."* Yani ICSI'de **enjekte edilmeyen**
+yumurtalar (GV / MI / atretik / enjekte edilmeden dejenere) cleavage ve
+blastokistte **hâlâ hiç görünmüyor**. Kilitlenen ve "Dej." yazan grup,
+enjekte edilip **sonra** dejenere olanlar ile fertilizasyonda dejenere
+işaretlenenler — onlar zaten o ekranlarda görünüyordu, bugüne kadar
+düzenlenebilir haldeydiler.
+
+**Vitrifikasyon elden geçirilmedi, gerekmiyor**: v6.137'nin
+`_DEGERLENDIRILMIS` süzgeci zaten cleavage/blastokist/vitrifikasyon kaydı
+olmayan örneği eliyor — dejenere bir yumurtaya artık kayıt açılamadığı için
+oraya hiç ulaşamıyor.
+
+## 3) Eşin dosya numarası (`goc_045`)
+
+v6.125 eşleştirmeyi **yalnızca dosya numarasıyla** yapıyordu ve bir durumu
+bilerek kapsam dışı bırakmıştı: erkek hasta kendi **ayrı** dosya numarasıyla
+kayıtlıysa (onkoloji öncesi sperm dondurma, çiftin dosyasından bağımsız)
+numara tutmuyor, hiçbir uyarı çıkmıyordu. Yeni `hasta.es_dosya_no` tam bu
+boşluğu kapatıyor.
+
+- **FK değil, düz sayı.** Eş henüz kayıtlı olmayabilir (numara önce yazılır,
+  kayıt sonra açılır) ve `hasta`'nın benzersizliği `UNIQUE (lab_id,
+  dosya_no)` üzerinde — tek kolona FK verilemezdi. "Kayıtlı mı" sorusu her
+  seferinde `dosya_no_sahibi()` ile yeniden soruluyor (türetilmiş,
+  saklanmıyor).
+- **Rakam olmayan değer NULL'a düşüyor**, reddedilmiyor: eş sonradan
+  kaydedilebilir, formu bu yüzden bloke etmek yanlış olurdu.
+- **Göç çalışmamışsa alan tümden yok sayılıyor** (`es_dosya_no_var()`) —
+  `cycle_alanlari()`'nın (v6.33) aynı koruması. Yoksa göçü çalıştırmamış bir
+  makinede **hasta açmak tümden bozulurdu** (tuzak #3'ün en pahalı hali).
+- **Canlı uyarı aynı uç noktadan**: `/hasta/kontrol`, ikinci bir rota
+  açılmadı (v6.125'in kuralı). Üç cevap veriyor: dondurulmuş spermi var
+  ("Eşin kendi dosya numarasında 1 dondurulmuş sperm kaydı var" + kayda
+  bağlantı), kayıtlı ama spermi yok (adı + bağlantı), hiç kayıtlı değil.
+- Hasta kartında **ayrı bir kart**: "Eşin dondurulmuş spermi". Kendi
+  kayıtlarıyla aynı kartta değil — bunlar **başka bir hasta kaydına** ait,
+  sahiplik hep dondurmayı yaptıran kişide kalıyor.
+
+## 4) Hasta kartından tedaviye bağlama
+
+v6.86'dan beri bağlama yalnızca androloji ekranındaydı ve kayıt orada
+**aranarak** bulunuyordu. Hasta kartında kayıt zaten gözün önünde; eksik olan
+tek şey hangi tedaviye bağlanacağıydı.
+
+- **Bağlama mantığı artık tek yerde**: `sperm_tedaviye_bagla()` /
+  `sperm_baglanti_kaldir()`. Androloji rotaları da bunları çağırıyor —
+  iki kopya olsaydı biri taşıyıcı durumunu güncellemeyi unuturdu.
+- **Tedavi seçimi BU hastanın tedavileri arasından.** Başka bir hastanın
+  tedavisine buradan bağlamak yanlış hasta riski taşırdı (CLAUDE.md'nin en
+  pahalı hatası); o iş hâlâ androloji ekranının arama akışında.
+- **Yalnızca androloji aşaması olan tipler seçilebiliyor**
+  (`"androloji" in TIP_ASAMALARI[...]`). FET'e bağlanan bir sperm hiçbir
+  ekranda görünmezdi — androloji kartı yalnızca `ivf_icsi`'de basılıyor.
+  Koşul `TIP_ASAMALARI`'na bakıyor, tip adı elle yazılmıyor.
+- **Bağlantıyı kaldırma yalnızca bağ BU hastanın tedavisindeyse** —
+  androloji ekranındaki kuralın aynısı.
+- Satır tasarımı tek yerde (`hasta_detay.html`'de `sperm_satiri()` makrosu),
+  kendi kayıtları ve eşin kayıtları aynı görünsün diye. Form `<a>`'nın
+  **içine** konamadı (iç içe etkileşimli öge), kardeşi olarak altına
+  basılıyor — `/hastalar`'ın `.satirikili` gerekçesinin aynısı.
+
+## Ölçüm
+
+Gerçek veriyle (ağustos aktarımındaki bir `ivf_icsi` tedavisi: 15 yumurta, 1'i
+enjekte edilip dejenere, 5'i MI/enjekte edilmedi):
+
+| Ekran | Önce | Sonra |
+|---|---|---|
+| ICSI şeridi | `10-MII`, `11-MI` | aynı (uzun etiket artık kısaltılıyor) |
+| Fertilizasyon | `10--`, `11-∅` | `10-Dej.`, `11-MI` |
+| Cleavage / Blastokist | `10` düzenlenebilir | `10-Dej.`, form yok, uyarı var |
+| Cleavage / Blastokist, MI'lar | görünmüyor | görünmüyor (değişmedi) |
+
+Sunucu engeli ayrıca doğrulandı: dejenere örneğe doğrudan POST → hiçbir satır
+yazılmıyor; normal örnek yazılabiliyor; fertilizasyonda dejenere işaretlenen
+bir örneğin **var olan** cleavage kaydı korunuyor ve düzenlenebilir kalıyor.
+
+Eş akışı uçtan uca: düzenleme formundan numara girildi → kart "Eşin
+dondurulmuş spermi"ni gösterdi → "Tedaviye bağla" ile bağlandı (`tasiyici.
+durum='kullanildi'`) → bağ androloji ekranında göründü → hasta kartından
+kaldırıldı (`'dolu'`ya döndü). Yeni hasta formunda canlı uyarının üç hali de
+doğru. 40 adres 200, masaüstü ve telefonda JS hatası yok.
+
+**Bu sürümde düzeltilmeyen, ayrı bir sorun:** `/cycle/{id}/gebelik` ekranı
+1280px'de yatay taşıyor (bir `.secenek` satırı sarmıyor). v6.138'de de
+taşıyordu — ölçüldü, bu sürümün getirdiği bir gerileme değil, ayrıca
+bildirildi.

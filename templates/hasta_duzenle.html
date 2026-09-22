@@ -43,6 +43,15 @@
       <label for="es_dogum_tarihi">{{ metin("es_dogum_tarihi") }}</label>
       <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date" min="1900-01-01" value="{{ h.es_dogum_tarihi or '' }}">
     </div>
+    {# Eşin KENDİ dosya numarası (v6.139) -- hasta_form.html'deki alanın
+       aynısı; oradaki canlı uyarı burada yok, çünkü düzenleme ekranında
+       kaydın kendisi zaten hasta kartında görünüyor. #}
+    <div class="alan">
+      <label for="es_dosya_no">{{ metin("es_dosya_no") }}</label>
+      <input id="es_dosya_no" name="es_dosya_no" type="number" inputmode="numeric"
+             autocomplete="off" value="{{ h.es_dosya_no or '' }}">
+      <div class="ipucu">{{ metin("es_dosya_no_ipucu") }}</div>
+    </div>
     <div class="alan">
       <label for="notlar">{{ metin("not") }}</label>
       <textarea id="notlar" name="notlar">{{ h.notlar or '' }}</textarea>

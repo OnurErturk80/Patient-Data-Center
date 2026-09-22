@@ -380,6 +380,26 @@ def _liste_etiket(liste_adi: str, kod):
 
 
 sablon.env.globals["liste_etiket"] = _liste_etiket
+
+
+# Numara şeridindeki kutucuk çok dar (v6.139): "Dejenere"/"Atretik" oraya
+# sığmıyor, o yüzden yalnızca bu ikisinin kısaltması var. Ötekiler
+# (MII/MI/GV) zaten kısa, kendi `liste_degeri` etiketiyle basılıyor --
+# liste laba özgü ve yönetici düzenleyebiliyor (CLAUDE.md "kodu değil
+# etiketi göster"), burada sabit bir sözlük yazmak onu bozardı.
+_MAT_KISALTMALI = ("degenere", "atretik")
+
+
+def _mat_kisa(kod):
+    """Maturasyon kodunun dar kutucuğa sığan hâli: 'GV', 'MII', 'Dej.'."""
+    if not kod:
+        return ""
+    if kod in _MAT_KISALTMALI:
+        return metinler.t(f"mat_kisa_{kod}")
+    return _liste_etiket("maturasyon", kod)
+
+
+sablon.env.globals["mat_kisa"] = _mat_kisa
 sablon.env.globals["ornek_adi"] = _ornek_adi
 sablon.env.globals["yumurta_mi"] = _yumurta_mi
 sablon.env.globals["icerik_sayisi"] = _icerik_sayisi
@@ -392,6 +412,19 @@ def bos_ise_none(deger):
         return None
     deger = deger.strip()
     return deger if deger else None
+
+
+def _dosya_no_sayi(deger):
+    """Form alanından gelen dosya numarasını tamsayıya çevirir (v6.139).
+
+    Eşin dosya numarası **serbest bir referans**: eş henüz kayıtlı olmayabilir
+    (numara önce yazılır, kayıt sonra açılır), o yüzden "böyle bir hasta yok"
+    diye reddedilmiyor -- yalnızca rakam olmayan bir şey yazılmışsa NULL'a
+    düşüyor. "Kayıtlı mı" sorusunu her seferinde `dosya_no_sahibi()` yanıtlıyor
+    (türetilmiş, saklanmıyor).
+    """
+    d = (deger or "").strip()
+    return int(d) if d.isdigit() else None
 
 
 def tr_buyuk(deger):
@@ -2644,6 +2677,7 @@ def hasta_kaydet(
     es_adi: str = Form(""),
     es_telefon: str = Form(""),
     es_dogum_tarihi: str = Form(""),
+    es_dosya_no: str = Form(""),
     notlar: str = Form(""),
 ):
     mevcut = db.tek(
@@ -2666,15 +2700,23 @@ def hasta_kaydet(
                    "dogum_tarihi": dogum_tarihi,
                    "es_adi": es_adi, "es_telefon": es_telefon,
                    "es_dogum_tarihi": es_dogum_tarihi,
+                   "es_dosya_no": es_dosya_no,
                    "notlar": notlar}},
         )
 
+    # Eşin dosya numarası (v6.139). Göç çalışmamışsa kolon INSERT'ten
+    # tümden çıkıyor -- `cycle_alanlari()`'nın koruması (tuzak #3).
+    kolonlar = ["lab_id", "dosya_no", "ad_soyad", "telefon", "dogum_tarihi",
+                "es_adi", "es_telefon", "es_dogum_tarihi", "notlar"]
+    degerler = [db.LAB_ID, int(dosya_no), tr_buyuk(ad_soyad.strip()),
+                bos_ise_none(telefon), dt, tr_buyuk(bos_ise_none(es_adi)),
+                bos_ise_none(es_telefon), edt, bos_ise_none(notlar)]
+    if es_dosya_no_var():
+        kolonlar.append("es_dosya_no")
+        degerler.append(_dosya_no_sayi(es_dosya_no))
     yeni_id = db.yaz(
-        "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, telefon, dogum_tarihi, "
-        "es_adi, es_telefon, es_dogum_tarihi, notlar) VALUES (?,?,?,?,?,?,?,?,?)",
-        (db.LAB_ID, int(dosya_no), tr_buyuk(ad_soyad.strip()), bos_ise_none(telefon), dt,
-         tr_buyuk(bos_ise_none(es_adi)), bos_ise_none(es_telefon), edt, bos_ise_none(notlar)),
-    )
+        f"INSERT INTO hasta ({', '.join(kolonlar)}) "
+        f"VALUES ({', '.join('?' * len(kolonlar))})", tuple(degerler))
     return RedirectResponse(f"/hasta/{yeni_id}", status_code=303)
 
 
@@ -2722,11 +2764,70 @@ def hasta_detay(request: Request, hasta_id: int):
     # bir tüp bebek çiftinin kartına bakan embriyolog o çiftin dondurulmuş
     # spermi olduğunu göremiyordu. Eşleştirme `hastanin_sperm_kayitlari()`
     # ile: dosya no lab içinde UNIQUE, "aynı dosya no" = "aynı hasta satırı".
+    # Eşin KENDİ dosya numarasıyla açılmış kaydı (v6.139, kullanıcının
+    # isteği: "Eğer eş erkek olarak sperm dondurma kaydı daha önce
+    # yapıldıysa uyarı versin"). v6.125'in bilerek kapsamadığı durum buydu:
+    # onkoloji öncesi sperm donduran erkek çiftin dosyasından bağımsız bir
+    # numarayla kayıtlıysa dosya no tutmuyor, hiçbir uyarı çıkmıyordu.
+    # Artık çiftin kaydı o numarayı taşıyor ve bağ kesinleşiyor.
+    es_sahibi = es_sperm = None
+    if es_dosya_no_var() and hasta and hasta["es_dosya_no"]:
+        es_sahibi = dosya_no_sahibi(hasta["es_dosya_no"])
+        # Aynı satırı iki kez listelememek için: eşin dosya numarası yanlışlıkla
+        # çiftin kendi numarası yazılmışsa `sperm_kayitlari` zaten onu gösteriyor.
+        if es_sahibi and es_sahibi["id"] != hasta_id:
+            es_sperm = hastanin_sperm_kayitlari(es_sahibi["id"])
+    # Bağlanabilir tedaviler: yalnızca androloji aşaması OLAN tipler
+    # (v6.139). Dondurulmuş sperm FET'te kullanılmıyor ve bağlansaydı bağ
+    # hiçbir ekranda görünmezdi -- androloji kartı yalnızca `ivf_icsi`'de
+    # basılıyor. Koşul `TIP_ASAMALARI`'na bakıyor, cycle tipini elle
+    # yazmıyor: yeni bir androlojili tip eklenirse kendiliğinden kapsar.
+    baglanabilir = [c for c in cycles
+                    if "androloji" in TIP_ASAMALARI.get(c["cycle_tipi"], ())]
     return sablon.TemplateResponse(
         request, "hasta_detay.html",
         {"hasta": hasta, "cycles": cycles,
-         "sperm_kayitlari": hastanin_sperm_kayitlari(hasta_id)}
+         "sperm_kayitlari": hastanin_sperm_kayitlari(hasta_id),
+         "es_sahibi": es_sahibi, "es_sperm": es_sperm,
+         "baglanabilir": baglanabilir}
     )
+
+
+@uygulama.post("/hasta/{hasta_id}/sperm-dondurma/{sperm_dondurma_id}/bagla")
+async def hasta_sperm_bagla(request: Request, hasta_id: int, sperm_dondurma_id: int):
+    """Hasta kartından dondurulmuş spermi bu hastanın bir tedavisine bağlar.
+
+    v6.139, kullanıcının isteği: "Hasta kartında tedaviye bağlama opsiyonu
+    versin". v6.86'dan beri bağlama yalnızca androloji ekranındaydı ve orada
+    **arayarak** bulunuyordu; hasta kartında ise kayıt zaten gözünün önünde
+    (kendi kaydı ya da eşin dosya numarasından bulunan kayıt), aradaki tek
+    eksik hangi tedaviye bağlanacağıydı.
+
+    Tedavi **bu hastanın** tedavileri arasından seçiliyor: başka bir hastanın
+    tedavisine buradan bağlamak yanlış hasta riski taşırdı (CLAUDE.md'nin en
+    pahalı hatası), o iş hâlâ androloji ekranının arama akışında.
+    """
+    f = await request.form()
+    cycle_id = (f.get("cycle_id") or "").strip()
+    if cycle_id.isdigit() and db.tek(
+            "SELECT 1 x FROM cycle WHERE id=? AND hasta_id=?", (int(cycle_id), hasta_id)):
+        sperm_tedaviye_bagla(sperm_dondurma_id, int(cycle_id))
+    return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
+
+
+@uygulama.post("/hasta/{hasta_id}/sperm-dondurma/{sperm_dondurma_id}/baglanti-kaldir")
+def hasta_sperm_baglanti_kaldir(request: Request, hasta_id: int, sperm_dondurma_id: int):
+    """Bu hastanın bir tedavisine bağlanmış spermin bağını kaldırır.
+
+    Yalnızca bağlı olduğu tedavi BU hastanınsa kaldırılıyor — androloji
+    ekranındaki kuralın (yalnızca kendi tedavisinin bağını koparır) hasta
+    kartı hali.
+    """
+    if db.tek(
+        "SELECT 1 x FROM sperm_dondurma sd JOIN cycle c ON c.id = sd.kullanim_cycle_id "
+        "WHERE sd.id=? AND c.hasta_id=?", (sperm_dondurma_id, hasta_id)):
+        sperm_baglanti_kaldir(sperm_dondurma_id)
+    return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
 
 
 @uygulama.get("/hasta/{hasta_id}/duzenle")
@@ -2745,6 +2846,7 @@ def hasta_guncelle(
     es_adi: str = Form(""),
     es_telefon: str = Form(""),
     es_dogum_tarihi: str = Form(""),
+    es_dosya_no: str = Form(""),
     notlar: str = Form(""),
 ):
     eski = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
@@ -2758,6 +2860,10 @@ def hasta_guncelle(
             "es_dogum_tarihi": zaman(es_dogum_tarihi, "Eş doğum tarihi"),
             "notlar": bos_ise_none(notlar),
         }
+        # Göç çalışmamışsa alan hiç yazılmıyor (tuzak #3) -- sözlüğe
+        # eklenmediği için aşağıdaki UPDATE de onu görmüyor.
+        if es_dosya_no_var():
+            yeni["es_dosya_no"] = _dosya_no_sayi(es_dosya_no)
     except FormHatasi as e:
         # Şablon `h`'ye sözlükle de erişiyor; yazılanlar ekranda kalsın.
         return sablon.TemplateResponse(
@@ -2765,12 +2871,12 @@ def hasta_guncelle(
             {"h": {**dict(eski), "ad_soyad": ad_soyad, "telefon": telefon,
                    "dogum_tarihi": dogum_tarihi, "es_adi": es_adi,
                    "es_telefon": es_telefon,
-                   "es_dogum_tarihi": es_dogum_tarihi, "notlar": notlar},
+                   "es_dogum_tarihi": es_dogum_tarihi,
+                   "es_dosya_no": es_dosya_no, "notlar": notlar},
              "hata": str(e)},
         )
     db.yaz(
-        "UPDATE hasta SET ad_soyad=?, telefon=?, dogum_tarihi=?, es_adi=?, "
-        "es_telefon=?, es_dogum_tarihi=?, notlar=? WHERE id=?",
+        "UPDATE hasta SET " + ", ".join(f"{k}=?" for k in yeni) + " WHERE id=?",
         (*yeni.values(), hasta_id),
     )
     guvenlik.degisiklikleri_yaz(
@@ -3373,28 +3479,18 @@ def androloji_sperm_baglama_ekran(request: Request, cycle_id: int, ara: str = ""
 
 @uygulama.post("/cycle/{cycle_id}/androloji/sperm-baglama/{sperm_dondurma_id}")
 def androloji_sperm_bagla(request: Request, cycle_id: int, sperm_dondurma_id: int):
-    c = db.tek("SELECT id FROM cycle WHERE id=?", (cycle_id,))
-    sd = db.tek(
-        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND lab_id=? "
-        "AND iptal_mi=0 AND kullanim_cycle_id IS NULL",
-        (sperm_dondurma_id, db.LAB_ID))
-    if c and sd:
-        db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=? WHERE id=?",
-               (cycle_id, sperm_dondurma_id))
-        db.yaz("UPDATE tasiyici SET durum='kullanildi' WHERE id=?",
-               (sd["tasiyici_id"],))
+    # Bağlama mantığı tek yerde (v6.139) -- hasta kartı da aynı işi yapıyor.
+    sperm_tedaviye_bagla(sperm_dondurma_id, cycle_id)
     return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
 
 
 @uygulama.post("/cycle/{cycle_id}/androloji/sperm-baglanti-kaldir/{sperm_dondurma_id}")
 def androloji_sperm_baglanti_kaldir(request: Request, cycle_id: int, sperm_dondurma_id: int):
-    sd = db.tek(
-        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND kullanim_cycle_id=?",
-        (sperm_dondurma_id, cycle_id))
-    if sd:
-        db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE id=?",
-               (sperm_dondurma_id,))
-        db.yaz("UPDATE tasiyici SET durum='dolu' WHERE id=?", (sd["tasiyici_id"],))
+    # Yalnızca BU tedaviye bağlıysa kaldır -- başka bir tedavinin bağını
+    # bu ekrandan koparmak yanlış olurdu (v6.86'nın davranışı korunuyor).
+    if db.tek("SELECT 1 x FROM sperm_dondurma WHERE id=? AND kullanim_cycle_id=?",
+              (sperm_dondurma_id, cycle_id)):
+        sperm_baglanti_kaldir(sperm_dondurma_id)
     return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
 
 
@@ -4515,6 +4611,30 @@ _ICSI_YAPILMADI = (
     "AND i.tip = 'icsi' AND i.iptal_mi = 0)"
 )
 
+# Dejenere işaretlenmiş örnek (v6.139, kullanıcının isteği: "ICSI veya
+# Fertilizasyon ekranında dejenere işaretlenen yumurta ileriki menülerde
+# yumurtanın kutucuğunda Dej. kısaltmasıyla gösterilsin ve işlem yapılamasın.
+# Yani cleavage ve Blast embriyo yazılamasın").
+#
+# **`specimen.durum`'a değil OLAY tablosuna bakıyor** -- `_ICSI_YAPILMADI`'nın
+# gerekçesinin başka bir yüzü: `durum` her aşamada ÜZERİNE YAZILIYOR
+# (`cleavage_kaydet()` `gun2` yazar, `vit_kaydet()` `dondurulmus`), yani
+# dejenere bir örneğe bir kez kayıt girilirse `durum` artık 'degenere' demez
+# ve süzgeç sessizce susardı. Olay kalıcı: ICSI'de "dejenere oldu" ya da
+# fertilizasyonda "dejenere" seçilmiş olması iptal edilene kadar duruyor.
+#
+# İki kaynağı da kapsıyor çünkü kullanıcı ikisini birlikte söyledi. ICSI'de
+# **enjekte edilmeden** dejenere denen örnek (`mat_deger='degenere'`) buraya
+# GİRMİYOR -- onu `_ICSI_YAPILMADI` zaten yakalıyor ve o örnek cleavage/
+# blastokistte hiç görünmüyor (v6.105, kullanıcı 2026-09-22'de "şu an nasılsa
+# öyle kalsın" dedi); fertilizasyon ekranında ise kendi maturasyonuyla
+# ("Dej.") görünüyor, aşağıdaki `mat_kisa()`'ya bak.
+_DEJENERE = (
+    "EXISTS (SELECT 1 FROM olay d WHERE d.specimen_id = s.id AND d.iptal_mi = 0 "
+    "AND ((d.tip = 'icsi' AND d.icsi_sonuc = 'degenere') "
+    "  OR (d.tip = 'fertilizasyon_kontrolu' AND d.fert_sonuc = 'degenere')))"
+)
+
 
 def asama_goruntuleri(specimen_id, asama):
     """Bir oositin belirli bir aşamadaki tüm kareleri."""
@@ -4806,7 +4926,8 @@ def fert_durum(cycle_id: int):
         "  (SELECT o.fert_sonuc FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0 "
         "   ORDER BY o.id DESC LIMIT 1) AS fert, "
-        f"  CASE WHEN {_ICSI_YAPILMADI} THEN 1 ELSE 0 END AS icsi_yapilmadi "
+        f"  CASE WHEN {_ICSI_YAPILMADI} THEN 1 ELSE 0 END AS icsi_yapilmadi, "
+        f"  CASE WHEN {_DEJENERE} THEN 1 ELSE 0 END AS dejenere "
         "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
         (cycle_id,),
     )
@@ -5014,7 +5135,11 @@ def cleavage_durum(cycle_id: int, gun: int):
         "   ORDER BY o.id DESC LIMIT 1) AS hucre, "
         "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='cleavage_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
-        "   ORDER BY o.id DESC LIMIT 1) AS kayit_id "
+        "   ORDER BY o.id DESC LIMIT 1) AS kayit_id, "
+        # Dejenere örnek listeden DÜŞMÜYOR, kilitleniyor (v6.139): kullanıcı
+        # "gösterilsin ve işlem yapılamasın" dedi -- gizlemek "hiç yoktu" der
+        # gibi olurdu, oysa o yumurta toplandı ve dejenere oldu.
+        f"  CASE WHEN {_DEJENERE} THEN 1 ELSE 0 END AS dejenere "
         f"FROM specimen s WHERE s.cycle_id = ? AND NOT ({_ICSI_YAPILMADI}) "
         "ORDER BY s.cycle_sira_no",
         (f"gun{gun}", f"gun{gun}", gun, gun, cycle_id),
@@ -5112,6 +5237,33 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
          "kareler": asama_goruntuleri(sp["id"], f"gun{gun}")})
 
 
+
+def _dejenere_mi(specimen_id) -> bool:
+    """Bu örnek ICSI ya da fertilizasyonda dejenere işaretlendi mi? (v6.139)
+
+    `_DEJENERE`'nin tek örneklik hali -- POST tarafındaki engel için.
+    Aynı SQL'i ikinci kez yazmamak için `s.id` yerine parametre koyuyoruz.
+    """
+    return bool(db.tek(
+        "SELECT 1 x FROM specimen s WHERE s.id = ? AND (" + _DEJENERE + ")",
+        (specimen_id,)))
+
+
+def _dejenere_engel(specimen_id, gun, tip) -> bool:
+    """Dejenere örneğe YENİ bir değerlendirme açılıyor mu?
+
+    **Var olan kaydın düzenlenmesi engellenmiyor**: yanlışlıkla girilmiş ya da
+    dejenere işaretinden ÖNCE girilmiş bir kaydı düzeltmek/silmek mümkün
+    kalmalı, yoksa kullanıcı kendi verisine kilitlenir (v6.105'in "daha önce
+    girilmiş bir kayıt varsa normal akış bozulmaz" kuralının aynısı).
+    """
+    if not _dejenere_mi(specimen_id):
+        return False
+    return not db.tek(
+        "SELECT 1 x FROM olay WHERE specimen_id=? AND tip=? AND gun=? AND iptal_mi=0",
+        (specimen_id, tip, gun))
+
+
 @uygulama.post("/cycle/{cycle_id}/cleavage")
 async def cleavage_kaydet(request: Request, cycle_id: int):
     f = await request.form()
@@ -5120,6 +5272,13 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
     sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
     if not sp:
         return RedirectResponse(f"/cycle/{cycle_id}/cleavage?gun={gun}", status_code=303)
+
+    # Dejenere yumurtaya embriyo kaydı yazılamaz (v6.139) -- ekran zaten
+    # formu basmıyor, bu sunucu tarafındaki asıl engel.
+    if _dejenere_engel(sp["id"], gun, "cleavage_degerlendirme"):
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
+            status_code=303)
 
     kid = request.state.kullanici["id"]
     try:
@@ -5271,7 +5430,8 @@ def blast_durum(cycle_id: int, gun: int, cycle_tipi=None):
         "   ORDER BY o.id DESC LIMIT 1) AS gen, "
         "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='blastokist_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
-        "   ORDER BY o.id DESC LIMIT 1) AS kayit_id "
+        "   ORDER BY o.id DESC LIMIT 1) AS kayit_id, "
+        f"  CASE WHEN {_DEJENERE} THEN 1 ELSE 0 END AS dejenere "
         f"FROM specimen s WHERE {kosul} AND NOT ({_ICSI_YAPILMADI}) "
         "ORDER BY s.cycle_sira_no",
         (f"gun{gun}", f"gun{gun}", gun, gun, gun, cycle_id),
@@ -5362,6 +5522,11 @@ async def blast_kaydet(request: Request, cycle_id: int):
     if not sp:
         return RedirectResponse(f"/cycle/{cycle_id}/blast?gun={gun}", status_code=303)
     c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
+
+    # Dejenere yumurtaya embriyo kaydı yazılamaz (v6.139), cleavage ile aynı.
+    if _dejenere_engel(sp["id"], gun, "blastokist_degerlendirme"):
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/blast?gun={gun}&oosit={sp['id']}", status_code=303)
 
     genisleme = f.get("bl_genisleme") or None
     if not genisleme:
@@ -5926,6 +6091,63 @@ def dosya_no_sahibi(dosya_no) -> dict | None:
         "FROM hasta h WHERE h.lab_id = ? AND h.dosya_no = ?",
         (db.LAB_ID, int(str(dosya_no).strip())))
     return dict(r) if r else None
+
+
+_ES_DOSYA_NO_KOLONU = None
+
+
+def es_dosya_no_var() -> bool:
+    """`goc_045` çalıştırıldı mı (v6.139).
+
+    Çalışmadıysa hasta kaydetmek/güncellemek **eskisi gibi** çalışır, yalnızca
+    eşin dosya numarası alanı yok sayılır. `cycle_alanlari()`'nın (v6.33)
+    aynı koruması: göçü çalıştırmamış bir makinede hasta açmayı tümden
+    bozmak, alanın kendisinden çok daha pahalı olurdu (tuzak #3).
+    """
+    global _ES_DOSYA_NO_KOLONU
+    if _ES_DOSYA_NO_KOLONU is None:
+        _ES_DOSYA_NO_KOLONU = any(
+            r["name"] == "es_dosya_no" for r in db.sorgu("PRAGMA table_info(hasta)"))
+    return _ES_DOSYA_NO_KOLONU
+
+
+def sperm_tedaviye_bagla(sperm_dondurma_id: int, cycle_id: int) -> bool:
+    """Dondurulmuş spermi bir tedaviye bağlar (v6.86; v6.139'da paylaşıldı).
+
+    İki ekran çağırıyor: androloji (`/cycle/{id}/androloji/sperm-baglama`) ve
+    hasta kartı (v6.139, kullanıcının isteği: "Hasta kartında tedaviye
+    bağlama opsiyonu versin"). Sahiplik değişmiyor -- `sperm_dondurma.
+    hasta_id` dondurmayı yaptıran erkekte kalır, yalnızca "hangi tedavi için
+    kullanıldı" yazılır.
+
+    Yalnızca **henüz bağlanmamış** bir kayıt bağlanır; zaten bağlıysa sessizce
+    hiçbir şey yapmaz (False döner) -- iki ekrandan aynı anda basılırsa
+    ikincisi birincinin bağını başka bir tedaviye çevirmesin.
+    """
+    c = db.tek("SELECT id FROM cycle WHERE id=? AND lab_id=?", (cycle_id, db.LAB_ID))
+    sd = db.tek(
+        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND lab_id=? "
+        "AND iptal_mi=0 AND kullanim_cycle_id IS NULL",
+        (sperm_dondurma_id, db.LAB_ID))
+    if not (c and sd):
+        return False
+    db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=? WHERE id=?",
+           (cycle_id, sperm_dondurma_id))
+    db.yaz("UPDATE tasiyici SET durum='kullanildi' WHERE id=?", (sd["tasiyici_id"],))
+    return True
+
+
+def sperm_baglanti_kaldir(sperm_dondurma_id: int) -> bool:
+    """Bağlantıyı kaldırır; taşıyıcı `'dolu'`ya döner (v6.86)."""
+    sd = db.tek(
+        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND lab_id=? "
+        "AND kullanim_cycle_id IS NOT NULL", (sperm_dondurma_id, db.LAB_ID))
+    if not sd:
+        return False
+    db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE id=?",
+           (sperm_dondurma_id,))
+    db.yaz("UPDATE tasiyici SET durum='dolu' WHERE id=?", (sd["tasiyici_id"],))
+    return True
 
 
 def hastanin_sperm_kayitlari(hasta_id: int, yalnizca_bagsiz: bool = False) -> list:

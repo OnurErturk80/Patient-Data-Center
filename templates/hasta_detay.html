@@ -15,6 +15,7 @@
     {% if hasta.dogum_tarihi %}{{ metin("dogum_tarihi_kisa") }} {{ gg_aa_yyyy(hasta.dogum_tarihi) }}{% endif %}
     {% if hasta.telefon %} · {{ metin("telefon") }}: {{ hasta.telefon }}{% endif %}
     {% if hasta.es_adi %} · {{ metin("es") }}: {{ hasta.es_adi }}{% if hasta.es_telefon %} ({{ hasta.es_telefon }}){% endif %}{% endif %}
+    {%- if hasta.es_dosya_no %} · {{ metin("es_dosya_no") }}: {{ hasta.es_dosya_no }}{% endif %}
   </div>
 </div>
 {% endblock %}
@@ -29,10 +30,12 @@
    olduğu için aynı numara = aynı hasta satırı, isim karşılaştırması yok.
    Kaydı olmayan hastada kart hiç basılmıyor -- boş bir "yok" kutusu her
    tüp bebek hastasının kartını uzatırdı. İzin `cryo`, düğmeyle aynı. #}
-{% if yetkim("cryo") and sperm_kayitlari %}
-<div class="kart">
-  <h2>{{ metin("dondurulmus_sperm") }}</h2>
-  {% for sd in sperm_kayitlari %}
+{# Sperm satırı iki kartta da aynı görünsün diye tek makro (v6.139):
+   hastanın kendi kayıtları ve eşin kendi dosya numarasındaki kayıtlar.
+   Bağlama formu `<a>`'nın İÇİNE konamaz (iç içe etkileşimli öge) -- kardeşi
+   olarak altına basılıyor, `/hastalar`'ın `.satirikili` deseninin gerekçesi
+   burada da geçerli. #}
+{% macro sperm_satiri(sd) %}
   <a class="satir" href="/sperm-dondurma/{{ sd.id }}">
     <div class="no">{{ sd.etiket }}</div>
     <div class="meta">
@@ -47,8 +50,65 @@
       {% else %}{{ metin("sperm_bagli_degil") }}{% endif %}
     </div>
   </a>
-  {% endfor %}
+  {% if not sd.kullanim_cycle_id %}
+    {% if baglanabilir %}
+    {# Tedavi seçimi BU hastanın tedavileri arasından; başka bir hastanın
+       tedavisine bağlamak androloji ekranının arama akışında kalıyor
+       (yanlış hasta riski, CLAUDE.md'nin en pahalı hatası). #}
+    <form method="post" class="alan ikili" style="border:0;padding:6px 2px 10px"
+          action="/hasta/{{ hasta.id }}/sperm-dondurma/{{ sd.id }}/bagla">
+      <div>
+        {# Ayrı bir <label> yerine aria-label: satırın altındaki dar şeritte
+           etiket satırı gereksiz yer kaplıyor, CSS'e yeni bir "görsel olarak
+           gizli" sınıfı eklemeye de gerek yok. #}
+        <select name="cycle_id" aria-label="{{ metin('tedavi_sec') }}">
+          {% for c in baglanabilir %}
+          <option value="{{ c.id }}">{{ c.cycle_no }} · {{ tip_kisa(c.cycle_tipi) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><button class="dugme ikincil" type="submit"
+                   style="margin-top:0">{{ metin("tedaviye_bagla") }}</button></div>
+    </form>
+    {% else %}
+    <div class="ipucu" style="padding:2px 2px 10px">{{ metin("baglanacak_tedavi_yok") }}</div>
+    {% endif %}
+  {% elif sd.kul_dosya_no and sd.kul_dosya_no|string == hasta.dosya_no|string %}
+    {# Bağ BU hastanın bir tedavisindeyse buradan kaldırılabilir; başka bir
+       hastanın tedavisine bağlıysa düğme hiç basılmıyor (androloji ekranının
+       kuralının aynısı). #}
+    <form method="post" style="padding:0 2px 10px"
+          action="/hasta/{{ hasta.id }}/sperm-dondurma/{{ sd.id }}/baglanti-kaldir">
+      <button class="dugme ikincil" type="submit"
+              style="margin-top:0">{{ metin("sperm_baglantisini_kaldir") }}</button>
+    </form>
+  {% endif %}
+{% endmacro %}
+
+{% if yetkim("cryo") and sperm_kayitlari %}
+<div class="kart">
+  <h2>{{ metin("dondurulmus_sperm") }}</h2>
+  {% for sd in sperm_kayitlari %}{{ sperm_satiri(sd) }}{% endfor %}
   <div class="ipucu" style="padding:8px 2px">{{ metin("sperm_dosya_esleme_ipucu") }}</div>
+</div>
+{% endif %}
+
+{# Eşin KENDİ dosya numarasındaki kayıtlar (v6.139, kullanıcının isteği).
+   Ayrı bir kart: bunlar başka bir hasta kaydına ait, yukarıdakilerle
+   karışmamalı -- sahiplik hep dondurmayı yaptıran kişide kalıyor. #}
+{% if yetkim("cryo") and hasta.es_dosya_no %}
+<div class="kart">
+  <h2>{{ metin("esin_dondurulmus_spermi") }}</h2>
+  {% if es_sahibi %}
+  <div class="ipucu" style="padding:2px 2px 8px">
+    {{ es_sahibi.dosya_no }} · <strong>{{ es_sahibi.ad_soyad }}</strong>
+    &mdash; <a href="/hasta/{{ es_sahibi.id }}">{{ metin("kaydi_ac") }}</a>
+  </div>
+  {% for sd in es_sperm %}{{ sperm_satiri(sd) }}
+  {% else %}<div class="bos">{{ metin("dondurulmus_sperm_yok") }}</div>{% endfor %}
+  {% else %}
+  <div class="bos">{{ metin("es_kayitli_degil") }}</div>
+  {% endif %}
 </div>
 {% endif %}
 

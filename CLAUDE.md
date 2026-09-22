@@ -181,6 +181,43 @@ olayı yok. Bu ayrım şart — enjekte edilip **sonra** dejenere olan oositin
   ve `blast_durum()`'un `WHERE`'ine `AND NOT (_ICSI_YAPILMADI)` eklendi;
   ikisi de zaten yalnızca `ivf_icsi`'de (ya da `fet_kultur` gibi ondan gelen
   embriyolarla) çalışıyor, güvenli.
+**Dejenere işaretlenen yumurta sonraki aşamalarda GÖRÜNÜR ama KİLİTLİDİR**
+(v6.139, kullanıcının isteği: "dejenere işaretlenen yumurta ileriki menülerde
+yumurtanın kutucuğunda Dej. kısaltmasıyla gösterilsin ve işlem yapılamasın.
+Yani cleavage ve Blast embriyo yazılamasın"). Süzgeç `_DEJENERE`.
+- **`specimen.durum`'a DEĞİL `olay` tablosuna bakıyor** — `_ICSI_YAPILMADI`'nın
+  gerekçesinin başka bir yüzü, ama sebebi farklı: `durum` her aşamada
+  **üzerine yazılıyor** (`cleavage_kaydet()` `gun2`, `vit_kaydet()`
+  `dondurulmus`), yani dejenere bir örneğe bir kez kayıt girilse süzgeç
+  sessizce susardı. Olay kalıcı: `icsi_sonuc='degenere'` ya da
+  `fert_sonuc='degenere'`. Yeni bir "şu durumda mı" süzgeci yazarken hep sor:
+  bu alanın üzerine sonradan yazılıyor mu?
+- **Gizlemek DEĞİL kilitlemek**: numara şeridinde `10-Dej.` yazar (kutu `deg`
+  sınıfını alır), üstte uyarı çıkar, form yerine bilgi kartı basılır
+  (`metin("dejenere_form_yok")`). Gizlemek "o yumurta hiç yoktu" derdi.
+- **Var olan kayıt dokunulmaz**: koşul `{% elif sp.dejenere and not kayit %}` —
+  v6.105'in fertilizasyondaki deseninin aynısı. Yoksa yanlışlıkla dejenere
+  işaretlenen bir embriyonun kaydı bir daha düzeltilemezdi.
+- **Asıl engel sunucuda**: `_dejenere_engel()` yalnızca **yeni** kayıt
+  açılmasını reddeder, var olanın güncellenmesini değil.
+- **`_ICSI_YAPILMADI` ile karıştırma**: enjekte edilmeden dejenere denen
+  yumurta buraya girmiyor, onu zaten o süzgeç yakalıyor ve cleavage/
+  blastokistte hiç göstermiyor (kullanıcı 2026-09-22'de "şu an nasılsa öyle
+  kalsın" dedi — v6.105 gevşetilmedi).
+- **Vitrifikasyona ayrı bir şey eklenmedi**: `_DEGERLENDIRILMIS` (v6.137)
+  zaten kaydı olmayanı eliyor, dejenere yumurtaya kayıt açılamadığı için
+  oraya hiç ulaşamıyor.
+
+**Enjekte edilmeyen yumurta fertilizasyon şeridinde kendi maturasyonunu
+yazar** (v6.139, kullanıcının seçimi). Önceden hepsi `∅` idi, hangisi olduğu
+görünmüyordu; artık GV / MI / Dej. / Atr. Jinja global `mat_kisa(kod)`:
+yalnızca uzun iki etiketin (`degenere`, `atretik`) kısaltması
+`metinler.py`'de (`mat_kisa_<kod>`), MII/MI/GV kendi `liste_degeri`
+etiketiyle basılıyor — "kodu değil etiketi göster" kuralı. Şeritte `|upper`
+kullanma, bu fonksiyonu çağır. **Bu kısaltmalar yalnızca ICSI ve
+fertilizasyonda**: enjekte edilmeyen yumurta cleavage/blastokistte zaten
+görünmüyor.
+
 - **Aynı ekranda ikinci bir süzgeç var: `_DEGERLENDIRILMIS`** (v6.137,
   kullanıcının isteği: "bir önceki blastokist menüsünde kaydı yapılmamış
   embriyoyu gösterme"). Örneğin iptal edilmemiş bir cleavage/blastokist
@@ -2117,11 +2154,41 @@ bir tablo ya da arama değil, var olan yabancı anahtarın okunması.
   doğru davranış yeni hasta açmak değil, o kayda sperm dondurma eklemek.
 - **Androloji uyarısı yalnızca bağlı sperm yokken çıkar** (`sd_baglanti`
   boşken) — bağlandıktan sonra zaten bağlı kaydın kendi kartı var.
-- **Kapsamadığı durum, bilinçli**: erkek hasta kendi ayrı dosya
+- **Kapsamadığı durum v6.139'da kapandı**: erkek hasta kendi ayrı dosya
   numarasıyla kayıtlıysa (onkoloji öncesi, çiftin dosyasından bağımsız)
-  dosya no tutmaz, uyarıların hiçbiri çıkmaz. O durum **elle eşlemenin**
-  kapsamı (v6.86) ve o yol değişmedi — bu sürüm yanına kesin olan ikinci
-  bir yol koydu.
+  dosya no tutmuyordu ve hiçbir uyarı çıkmıyordu. Artık çiftin kaydına
+  **`hasta.es_dosya_no`** yazılabiliyor (`goc_045`) — aşağıya bak. Elle
+  eşleme yolu (v6.86, androloji ekranı) değişmedi.
+
+**Eşin kendi dosya numarası `hasta.es_dosya_no`'da** (v6.139, `goc_045`,
+kullanıcının isteği: "Hasta kartında eşin dosya numarasının girilebileceği
+yer olsun. Eğer eş erkek olarak sperm dondurma kaydı daha önce yapıldıysa
+uyarı versin").
+- **FK DEĞİL, düz sayı**: eş henüz kayıtlı olmayabilir (numara önce yazılır,
+  kayıt sonra açılır) ve `hasta`'nın benzersizliği `UNIQUE (lab_id, dosya_no)`
+  üzerinde, tek kolona FK verilemez. "Kayıtlı mı" her seferinde
+  `dosya_no_sahibi()` ile soruluyor — türetilmiş, saklanmıyor.
+- **Rakam olmayan değer NULL'a düşer, form reddedilmez** (`_dosya_no_sayi()`).
+- **Göç çalışmamışsa alan INSERT/UPDATE'ten tümden çıkar**
+  (`es_dosya_no_var()`) — `cycle_alanlari()`'nın koruması, yoksa göçü
+  çalıştırmamış makinede **hasta açmak tümden bozulur** (tuzak #3).
+- **Canlı uyarı yine `/hasta/kontrol`** — ikinci bir rota açma (v6.125'in
+  kuralı). Üç hali var: spermi var / kayıtlı ama spermi yok / hiç kayıtlı
+  değil.
+- Hasta kartında **ayrı bir kart** ("Eşin dondurulmuş spermi"): kayıtlar
+  başka bir `hasta` satırına ait, kendi kayıtlarıyla aynı kartta gösterilmez.
+
+**Dondurulmuş spermi tedaviye bağlama iki ekranda, mantık tek yerde**
+(v6.139): `sperm_tedaviye_bagla()` / `sperm_baglanti_kaldir()`. Androloji
+ekranı (v6.86, arayarak bulur) ve hasta kartı (kayıt zaten gözün önünde)
+ikisi de bunları çağırıyor — iki kopya olsaydı biri `tasiyici.durum`'u
+güncellemeyi unuturdu. Üçüncü bir yerde bağlama yazarsan bu ikisini çağır.
+- **Hasta kartındaki seçici yalnızca BU hastanın tedavilerini gösterir**;
+  başka bir hastanın tedavisine bağlamak yanlış hasta riski taşır, o iş
+  androloji ekranının arama akışında kaldı.
+- **Yalnızca androloji aşaması olan tipler seçilebilir**
+  (`"androloji" in TIP_ASAMALARI[...]`) — FET'e bağlanan sperm hiçbir ekranda
+  görünmezdi. Tip adını elle yazma, `TIP_ASAMALARI`'na bak.
 
 **Yalnızca sperm dondurma amacıyla açılmış hasta Tüm Hastalar'da
 görünmez, aranınca görünür** (v6.98, kullanıcının isteği). Ölçü **türetilmiş**

@@ -31,8 +31,15 @@
   <a href="/cycle/{{ c.id }}/fert?oosit={{ o.cycle_sira_no }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %}
             {% if o.fert %}dolu{% endif %}
-            {% if o.fert == 'degenere' or o.fert == 'kayip' or o.icsi_yapilmadi %}deg{% endif %}">
-    <b>{{ o.cycle_sira_no }}</b>{% if o.pn %}<i>-{{ o.pn }}PN</i>{% elif o.fert %}<i>-—</i>{% elif o.icsi_yapilmadi %}<i>-∅</i>{% endif %}
+            {% if o.dejenere or o.fert == 'kayip' or o.icsi_yapilmadi %}deg{% endif %}">
+    {#- Kutucuktaki kısaltma (v6.139, kullanıcının isteği). Dejenere her şeyin
+        önünde: "2PN" yazıp dejenere olduğunu söylememek yanlış bilgi olurdu.
+        Enjekte edilmeyen yumurta artık "∅" değil KENDİ maturasyonunu yazıyor
+        (GV / MI / Dej. / Atr.) -- kullanıcının seçimi, "∅" hangisi olduğunu
+        söylemiyordu. Bu kısaltmalar yalnızca burada ve ICSI'de: enjekte
+        edilmeyen yumurta cleavage/blastokistte zaten hiç görünmüyor
+        (v6.105, kullanıcı "şu an nasılsa öyle kalsın" dedi). -#}
+    <b>{{ o.cycle_sira_no }}</b>{% if o.dejenere %}<i>-{{ metin("mat_kisa_degenere") }}</i>{% elif o.pn %}<i>-{{ o.pn }}PN</i>{% elif o.fert %}<i>-—</i>{% elif o.icsi_yapilmadi and o.mat %}<i>-{{ mat_kisa(o.mat) }}</i>{% elif o.icsi_yapilmadi %}<i>-∅</i>{% endif %}
   </a>
   {% endfor %}
 </div>
@@ -53,12 +60,13 @@
    yalnızca durum gösterilir (v6.105, kullanıcının isteği). #}
 <div class="uyari">
   {{ metin("icsi_yapilmadi") }}
-  {%- if sp.mat %} ({{ metin("maturasyon_kucuk") }}: {{ sp.mat|upper }}){% endif %}.
+  {#- `|upper` "DEGENERE" basıyordu; artık listenin kendi etiketi (v6.139). -#}
+  {%- if sp.mat %} ({{ metin("maturasyon_kucuk") }}: {{ mat_kisa(sp.mat) }}){% endif %}.
 </div>
 {% elif sp.icsi != 'basarili' %}
 <div class="uyari">
   {{ metin("icsi_kaydi_yok") }}
-  {%- if sp.mat %} ({{ metin("maturasyon_kucuk") }}: {{ sp.mat|upper }}){% endif %}.
+  {%- if sp.mat %} ({{ metin("maturasyon_kucuk") }}: {{ mat_kisa(sp.mat) }}){% endif %}.
   {{ metin("yine_de_fert_girilebilir") }}
 </div>
 {% endif %}

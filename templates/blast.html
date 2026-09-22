@@ -39,8 +39,10 @@
   {% for o in oositler %}
   <a href="/cycle/{{ c.id }}/blast?gun={{ gun }}&oosit={{ o.id }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kayit_id %}dolu{% endif %}
-            {% if o.gen == 'arrest' %}deg{% endif %}">
-    <b>{{ o.cycle_sira_no }}</b>{% if o.skor %}<i>-{{ o.skor }}</i>{% endif %}
+            {% if o.gen == 'arrest' or o.dejenere %}deg{% endif %}">
+    {#- Dejenere yumurta listede kalır ama "Dej." yazar ve formu açılmaz
+        (v6.139) -- cleavage'deki satırın aynısı. -#}
+    <b>{{ o.cycle_sira_no }}</b>{% if o.dejenere %}<i>-{{ metin("mat_kisa_degenere") }}</i>{% elif o.skor %}<i>-{{ o.skor }}</i>{% endif %}
   </a>
   {% endfor %}
 </div>
@@ -50,7 +52,9 @@
   <span class="hed">{{ ornek_adi('blast', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
-{% if sp.pn and sp.pn != '2' %}
+{% if sp.dejenere %}
+<div class="uyari">{{ metin("dejenere_uyari") }}</div>
+{% elif sp.pn and sp.pn != '2' %}
 <div class="uyari">{{ metin("fert_kontrolunde_npn").format(n=sp.pn) }}</div>
 {% endif %}
 
@@ -94,6 +98,11 @@
   {{ metin("fotograf_ekle") }}</a>
 <a class="dugme ikincil tehlike-bag"
    href="/specimen/{{ sp.id }}/blast-sil?gun={{ gun }}&cycle={{ c.id }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
+
+{% elif sp.dejenere and not kayit %}
+{# Dejenere yumurtaya embriyo kaydı girilmiyor (v6.139) -- cleavage'deki
+   gerekçenin aynısı, asıl engel sunucuda (`_dejenere_engel`). #}
+<div class="kart"><div class="bos">{{ metin("dejenere_form_yok") }}</div></div>
 
 {% else %}
 <form method="post" action="/cycle/{{ c.id }}/blast" id="blform">

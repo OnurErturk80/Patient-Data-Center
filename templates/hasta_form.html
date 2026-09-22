@@ -44,6 +44,17 @@
       <input id="es_dogum_tarihi" name="es_dogum_tarihi" type="date"
              min="1900-01-01" value="{{ v.es_dogum_tarihi or '' }}">
     </div>
+    {# Eşin KENDİ dosya numarası (v6.139). Zorunlu değil ve var olmayan bir
+       numara da kabul ediliyor: eş sonradan kaydedilebilir. Uyarı yalnızca
+       erken haber, asıl bağ hasta kartında `dosya_no_sahibi()` ile
+       kuruluyor (türetilmiş, saklanmıyor). #}
+    <div class="alan">
+      <label for="es_dosya_no">{{ metin("es_dosya_no") }}</label>
+      <input id="es_dosya_no" name="es_dosya_no" type="number" inputmode="numeric"
+             autocomplete="off" value="{{ v.es_dosya_no or '' }}">
+      <div class="ipucu">{{ metin("es_dosya_no_ipucu") }}</div>
+      <div class="uyari" id="essperm" hidden style="margin-top:8px"></div>
+    </div>
     <div class="alan">
       <label for="notlar">{{ metin("not") }}</label>
       <textarea id="notlar" name="notlar">{{ v.notlar or '' }}</textarea>
@@ -70,5 +81,37 @@ alan.addEventListener('input', () => {
     } else { kutu.hidden = true; }
   }, 350);
 });
+
+// Eşin dosya numarası: aynı `/hasta/kontrol` uç noktası (v6.125'in kuralı --
+// ikinci bir rota açma), yalnızca sorulan soru farklı: "bu numarada
+// dondurulmuş sperm var mı". Tuzak #10: alan basılmadıysa betik sessizce
+// çıksın, aşağıdaki başka betikler ölmesin.
+const esAlan = document.getElementById('es_dosya_no');
+const esKutu = document.getElementById('essperm');
+if (esAlan && esKutu) {
+  let esZaman;
+  esAlan.addEventListener('input', () => {
+    clearTimeout(esZaman);
+    esZaman = setTimeout(async () => {
+      if (!esAlan.value) { esKutu.hidden = true; return; }
+      const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(esAlan.value));
+      const s = await y.json();
+      if (s.var && s.sperm_sayisi) {
+        esKutu.innerHTML =
+          {{ metin("es_sperm_uyari")|tojson }}.replace('{n}', s.sperm_sayisi) +
+          ' <strong>' + s.ad_soyad + '</strong> &mdash; <a href="/hasta/' + s.id +
+          '">' + {{ metin("kaydi_ac")|tojson }} + '</a>';
+        esKutu.hidden = false;
+      } else if (s.var) {
+        esKutu.innerHTML = '<strong>' + s.ad_soyad + '</strong> &mdash; <a href="/hasta/' +
+          s.id + '">' + {{ metin("kaydi_ac")|tojson }} + '</a>';
+        esKutu.hidden = false;
+      } else {
+        esKutu.textContent = {{ metin("es_kayitli_degil")|tojson }};
+        esKutu.hidden = false;
+      }
+    }, 350);
+  });
+}
 </script>
 {% endblock %}

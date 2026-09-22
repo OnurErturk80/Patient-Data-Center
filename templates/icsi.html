@@ -32,7 +32,9 @@
      class="sn {% if o.id == sp.id %}aktif{% endif %}
             {% if o.mat %}dolu{% endif %}
             {% if o.mat == 'degenere' or o.icsi == 'degenere' %}deg{% endif %}">
-    <b>{{ o.cycle_sira_no }}</b>{% if o.mat %}<i>-{{ o.mat|upper }}</i>{% endif %}
+    {#- `|upper` uzun etiketi ("DEGENERE") dar kutucuğa sığdıramıyordu;
+        `mat_kisa()` kısaltmayı veriyor (v6.139). -#}
+    <b>{{ o.cycle_sira_no }}</b>{% if o.mat %}<i>-{{ mat_kisa(o.mat) }}</i>{% endif %}
   </a>
   {% endfor %}
 </div>

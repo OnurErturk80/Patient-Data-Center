@@ -176,6 +176,16 @@ METINLER = {
     "es_adi": {"tr": "Eş adı", "en": "Partner name"},
     "es_dogum_tarihi": {"tr": "Eş doğum tarihi", "en": "Partner date of birth"},
     "es_telefon": {"tr": "Eş telefonu", "en": "Partner phone"},
+    # Eşin kendi dosya numarası (v6.139). v6.125'in kapsamadığı durum:
+    # erkek hasta çiftin dosyasından bağımsız bir numarayla kayıtlı.
+    "es_dosya_no": {"tr": "Eşin dosya numarası", "en": "Partner file no"},
+    "es_dosya_no_ipucu": {
+        "tr": "Eşin kendi hasta kaydı varsa (örn. onkoloji öncesi sperm "
+              "dondurma) numarasını yaz — dondurulmuş spermi hasta kartında "
+              "görünür ve tedaviye bağlanabilir.",
+        "en": "If the partner has his own patient record (e.g. sperm frozen "
+              "before oncology treatment), enter his file number — his frozen "
+              "sperm then appears on this card and can be linked to a cycle."},
     "hastayi_kaydet": {"tr": "Hastayı kaydet", "en": "Save patient"},
     "mukerrer_dosya_no": {"tr": "Bu dosya no zaten kayıtlı:",
                           "en": "This file no is already registered:"},
@@ -283,6 +293,20 @@ METINLER = {
     "sperm_bagli_yok": {"tr": "Bu tedaviye bağlı dondurulmuş sperm yok.",
                         "en": "No frozen sperm linked to this treatment."},
     "sperm_baglantisini_kaldir": {"tr": "Bağlantıyı kaldır", "en": "Remove link"},
+    # Hasta kartından tedaviye bağlama (v6.139)
+    "esin_dondurulmus_spermi": {"tr": "Eşin dondurulmuş spermi",
+                                "en": "Partner's frozen sperm"},
+    "es_kayitli_degil": {
+        "tr": "Bu dosya numarasıyla kayıtlı bir hasta yok.",
+        "en": "No patient is registered with this file number."},
+    "es_sperm_uyari": {
+        "tr": "Eşin kendi dosya numarasında {n} dondurulmuş sperm kaydı var.",
+        "en": "The partner's own file number has {n} frozen sperm record(s)."},
+    "tedaviye_bagla": {"tr": "Tedaviye bağla", "en": "Link to treatment"},
+    "tedavi_sec": {"tr": "Tedavi seç", "en": "Choose treatment"},
+    "baglanacak_tedavi_yok": {
+        "tr": "Bağlamak için önce bu hastaya bir tedavi açılmalı.",
+        "en": "Open a treatment for this patient first, then link."},
     "sperm_baglama_ipucu": {
         "tr": "Başka bir hastaya ait, daha önce dondurulmuş bir sperm "
               "örneğini bu tedaviyle ilişkilendir — örn. eşi için "
@@ -635,6 +659,18 @@ METINLER = {
         "tr": "ICSI yapılmadığı için bu yumurtaya fertilizasyon kaydı girilmiyor.",
         "en": "No fertilization record is entered for this oocyte because "
               "ICSI was not performed."},
+    # Dejenere / maturasyon kısaltmaları (v6.139). Numara şeridindeki
+    # kutucuk dar; yalnızca uzun iki etiketin kısaltması var, MII/MI/GV
+    # kendi `liste_degeri` etiketiyle basılıyor (app._mat_kisa).
+    "mat_kisa_degenere": {"tr": "Dej.", "en": "Deg."},
+    "mat_kisa_atretik": {"tr": "Atr.", "en": "Atr."},
+    "dejenere_uyari": {
+        "tr": "Bu yumurta dejenere olarak işaretlendi.",
+        "en": "This oocyte was marked as degenerate."},
+    "dejenere_form_yok": {
+        "tr": "Dejenere olduğu için bu yumurtaya embriyo kaydı girilmiyor.",
+        "en": "No embryo record is entered for this oocyte because it is "
+              "degenerate."},
     "maturasyon_kucuk": {"tr": "maturasyon", "en": "maturation"},
     "yine_de_fert_girilebilir": {
         "tr": "Yine de fertilizasyon kaydı girebilirsin.",
