@@ -1527,6 +1527,27 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
 - **Protokol notu kısa kalmalı**: resmî formun NOTLAR kutusuna basılıyor,
   kutu `white-space: pre` — uzun satır sarmıyor, kesiliyor. Satırlar 68
   karakterde sarılı. Nota yeni satır eklersen formu açıp bak (tuzak #5).
+- **Dondurulan embriyonun skoru serbest nottan çözümlenip aşama ekranına
+  yazılıyor** (v6.131, kullanıcının isteği: "4BB blastokist dondurulmuş
+  yazıyor ise blastokist bölümüne fotoğrafsız 4BB embriyo kaydet").
+  `3AA`→`bl_genisleme/icm/te`, `KAVG2`→`kavitasyon`+derece,
+  `4HG2`→`cl_hucre_sayisi`+`cl_skor`. Yapılabilmesinin sebebi yazımın
+  `app.blast_skor()`'un ürettiğiyle birebir aynı olması; tanınmayan parça
+  atılmıyor, olayın notuna ham haliyle giriyor. `bl_skor_kaynagi='elle'`
+  — skor bir insanın notu, otomatik hesap ezmemeli.
+- **Vitrifikasyon kaydı AÇILMIYOR, bilerek.** Vitrifikasyon ekranının
+  "Dondurulmuş" listesi `selectattr('tasiyici_id')` ile kuruluyor:
+  taşıyıcısız bir vitrifikasyon olayı orada görünmez, istatistikte
+  görünür — iki yer birbirini tutmaz. Taşıyıcı etiketi tüpün üstündeki
+  gerçek ad, kaynak kayıtta yok ve `UNIQUE` olduğu için sonradan
+  değiştirilemiyor. Embriyolar skorlarıyla aday listesinde çıkıyor,
+  dondurmayı kullanıcı gerçek etiket ve konumla ekrandan yapıyor.
+  **Yeni bir içeri almada da taşıyıcı uydurma.**
+- **`tamamla` kipi**: aktarılmış tedavileri baştan almadan günceller
+  (`python3 aktar_access.py tamamla <dosya.csv>`). `_dondurma_kayitlari()`
+  idempotent — var olan değerlendirmeyi `UPDATE` ediyor, ikinci satır
+  açmıyor. Betiğe nottan okunan yeni bir alan eklersen aynı işlevin içine
+  koy, yoksa daha önce aktarmış kullanıcı ona ulaşamaz.
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
   verisi. README/CLAUDE.md'ye hasta adı/dosya numarası yazma.
 

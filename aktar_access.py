@@ -521,6 +521,103 @@ def _gizli_notu_coz(metin: str) -> tuple:
     return tel, endikasyon, kalan
 
 
+# --------------------------------------------- dondurma notunun çözümlenmesi
+#
+# Kaynak kayıt dondurulan örneğin **skorunu yalnızca serbest NOTLAR metninde**
+# tutuyor ("1 ADET D5 EMBRİYO (4BB HATCHED) ... DONDURULARAK SAKLANDI").
+# Kullanıcının isteği (2026-09-22): "4BB blastokist dondurulmuş yazıyor ise
+# blastokist bölümüne fotoğrafsız 4BB embriyo kaydet".
+#
+# Bu, serbest metinden **klinik veri** çıkarmak -- normalde kaçınılan şey. İki
+# gerekçeyle yapılıyor: (1) yazım programın kendi skor biçiminin birebir aynısı
+# (`app.blast_skor()` de "4BB", "KAV2" üretiyor), yani eşleme yorum değil
+# çeviri; (2) tanınmayan her parça **olduğu gibi olayın notuna** yazılıyor ve
+# `liste` kipi yazmadan önce hepsini tek tek basıyor.
+#
+# Tanınan yazımlar (hepsi gerçek kayıtlardan):
+#   3AA, 4BB HATCHED      -> blastokist: genişleme + ICM + TE
+#   KAVG2                 -> kavitasyon + derece 2   (M/EM/ARR aynı desen)
+#   4HG2, 3HG2            -> cleavage: hücre sayısı + G skoru
+#   2*M2, 3*M2            -> dondurulan OOSİT grubu (tüp başına adet)
+_OOSIT_GRUBU = re.compile(r"^(\d+)\s*\*\s*M\s*(?:2|II)$")
+_CLEAVAGE = re.compile(r"^(\d+)\s*H\s*G?\s*([1-4])")
+_BLAST = re.compile(r"^([1-6])\s*([ABC])\s*([ABC])")
+_BLAST_DISI = re.compile(r"^(KAV|EM|ARR|M)\s*G?\s*([1-3])?(?![A-Z0-9])")
+# `app.BLAST_KISA`'nın tersi -- oradaki kısaltmalar kâğıda da böyle yazılıyor.
+_KISALTMA = {"KAV": "kavitasyon", "M": "morula", "EM": "erken_morula",
+             "ARR": "arrest"}
+
+
+def _skor_coz(parca: str):
+    """Tek bir skor yazısını programın alanlarına çevirir. Tanımazsa None."""
+    t = _sade(parca)
+    if not t:
+        return None
+    m = _OOSIT_GRUBU.match(t)
+    if m:
+        return {"tur": "oosit", "adet": int(m.group(1)), "ham": parca.strip()}
+    m = _CLEAVAGE.match(t)
+    if m:
+        return {"tur": "cleavage", "hucre": int(m.group(1)),
+                "skor": "G" + m.group(2), "ham": parca.strip()}
+    m = _BLAST.match(t)
+    if m:
+        return {"tur": "blast", "genisleme": m.group(1),
+                "icm": m.group(2).lower(), "te": m.group(3).lower(),
+                "skor": m.group(1) + m.group(2) + m.group(3), "ham": parca.strip()}
+    m = _BLAST_DISI.match(t)
+    if m:
+        kod = _KISALTMA[m.group(1)]
+        derece = m.group(2)
+        return {"tur": "blast", "genisleme": kod, "derece": derece,
+                "skor": m.group(1) + (derece or ""), "ham": parca.strip()}
+    return None
+
+
+def _dondurma_coz(notlar: str, asama: str = "") -> dict:
+    """Dondurma cümlesini çözümler. Dondurma yoksa boş sözlük.
+
+    Yalnızca "... DONDURULARAK SAKLANDI" cümlesinin **öncesine** bakıyor:
+    bir kayıtta o cümleden sonra ilgisiz metin geliyor ("SPERM MORFOLOJİSİ
+    KÖTÜ, ... MOTİLİTE %0") ve oradaki sayılar skor sanılmamalı.
+    """
+    sade = _sade(notlar)
+    kesim = len(sade)
+    for soz in _DONDURMA_SOZU:
+        yer = sade.find(soz)
+        if yer >= 0:
+            kesim = min(kesim, yer)
+    if kesim == len(sade):
+        return {}
+    cumle = sade[:kesim]
+    ham_cumle = notlar[:kesim] if len(notlar) >= kesim else notlar
+
+    gun = _asama_gunu(asama)
+    if gun is None:
+        m = re.search(r"\bD\s*([1-7])\b", cumle)
+        gun = int(m.group(1)) if m else None
+
+    def _ilk(kalip):
+        m = re.search(kalip, cumle)
+        return int(m.group(1)) if m else None
+
+    ogeler = []
+    for grup in re.findall(r"\(([^)]*)\)", ham_cumle):
+        for parca in grup.split("-"):
+            coz = _skor_coz(parca)
+            if coz:
+                ogeler.append(coz)
+            elif parca.strip():
+                ogeler.append({"tur": "taninmadi", "ham": parca.strip()})
+    return {
+        "gun": gun,
+        "oosit_mi": "OOSIT" in cumle or "YUMURTA" in cumle,
+        "adet": _ilk(r"(\d+)\s*ADET"),
+        "tup": _ilk(r"(\d+)\s*TUPTE"),
+        "ogeler": ogeler,
+    }
+
+
 def _not_kur(r: dict) -> str:
     """Tedavinin protokol notu -- ekranda **ve resmî formda** görünen metin.
 
@@ -719,29 +816,9 @@ def _oositleri_ac(b, r, cycle_id, cycle_no, kid, rapor):
               notlar="Anormal fertilizasyon; PN sayısı kaynak kayıtta yok.")
         o[2] = "kontrol_edildi"
 
-    # --- Dondurma: 2PN olanlardan (embriyo haline gelenler) baştan
-    donan = min(r["dondurulan"] or 0, len(kalan))
-    if donan:
-        gun = _asama_gunu(r["dondurma_asama"])
-        t_gun = _gun_ekle(opu, gun) if (opu and gun) else None
-        t_deg = _zaman(t_gun, "09:00:00") if t_gun else t_fert
-        t_vit = _zaman(t_gun, "12:00:00") if t_gun else t_fert
-        for o in [x for x in kalan if x[2] == "zigot"][:donan]:
-            # Kaynak kayıt embriyonun aşamasını YALNIZCA dondurulanlar için
-            # söylüyor ("5,GÜN" / "3.GÜN"). O kadarı yazılıyor: gün 5 ve
-            # sonrası blastokist, öncesi cleavage değerlendirmesi. Skor
-            # alanları boş -- kalite yalnızca serbest NOTLAR metninde var
-            # ("(3AA)", "(4HG2)") ve oradan çıkarmak kırılgan olurdu.
-            if gun:
-                _olay(b, kid, o[0], cycle_id,
-                      "blastokist_degerlendirme" if gun >= 5
-                      else "cleavage_degerlendirme", t_deg, gun=gun,
-                      notlar="Dondurma aşamasından türetildi; kaynak kayıtta "
-                             "ayrı bir değerlendirme yok.")
-            _olay(b, kid, o[0], cycle_id, "vitrifikasyon", t_vit,
-                  notlar=f'Aşama: {r["dondurma_asama"] or "kaynak kayıtta yok"}. '
-                         f'Taşıyıcı/konum kaynak kayıtta yok.')
-            o[2] = "dondurulmus"
+    # Dondurulan embriyoların değerlendirmesi `_dondurma_kayitlari()`'nda --
+    # skorlar serbest NOTLAR metninden geliyor ve o iş aktarımdan sonra da
+    # tek başına çalıştırılabilmeli ("tamamla" kipi).
 
     for sid, _mat, durum in oositler:
         if durum:
@@ -749,7 +826,131 @@ def _oositleri_ac(b, r, cycle_id, cycle_no, kid, rapor):
         elif _mat and _mat != "mii":
             _durum_yaz(b, sid, "degenere" if _mat == "degenere" else "immatur")
     rapor.append(f'    {n} oosit, {r["mii"]} MII, {islenen} ICSI, '
-                 f'{r["iki_pn"]} 2PN, {donan} dondurma')
+                 f'{r["iki_pn"]} 2PN')
+
+
+def _degerlendirme_yaz(b, kid, sid, cycle_id, tip, gun, zaman, alanlar, ham):
+    """Aşama değerlendirmesini yazar; varsa **üzerine yazar**, ikinci kayıt açmaz.
+
+    "tamamla" kipi aktarılmış bir tedaviyi ikinci kez işleyebilsin diye
+    idempotent: aynı örneğe aynı tipte iptal edilmemiş bir olay varsa o
+    güncelleniyor.
+    """
+    notu = f"Kaynak kayıttaki yazım: {ham}"
+    var = b.execute("SELECT id FROM olay WHERE specimen_id=? AND tip=? "
+                    "AND iptal_mi=0 ORDER BY id LIMIT 1", (sid, tip)).fetchone()
+    if var:
+        atama = ", ".join(f"{k}=?" for k in alanlar)
+        b.execute(f"UPDATE olay SET {atama}, gun=?, notlar=? WHERE id=?",
+                  list(alanlar.values()) + [gun, notu, var[0]])
+    else:
+        _olay(b, kid, sid, cycle_id, tip, zaman, gun=gun, notlar=notu, **alanlar)
+
+
+# Blastokist dışı kodların `specimen.durum` karşılığı -- `app.blast_kaydet()`
+# ile aynı eşleme. Blastokist (sayı) genişlemelerde durum "blastokist".
+_BLAST_DURUM = {"kavitasyon": "kavitasyon", "arrest": "arrest",
+                "morula": "morula", "erken_morula": "morula"}
+
+
+def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
+    """Nottan çözümlenen dondurma skorlarını aşama ekranlarına yazar.
+
+    Kullanıcının isteği (2026-09-22): "4BB blastokist dondurulmuş yazıyor ise
+    blastokist bölümüne fotoğrafsız 4BB embriyo kaydet". Yani skor artık
+    serbest notta kalmıyor, `bl_genisleme`/`bl_icm`/`bl_te` (ya da cleavage'da
+    `cl_hucre_sayisi`/`cl_skor`) alanlarına giriyor.
+
+    **Vitrifikasyon kaydı burada AÇILMIYOR** ve bu bilinçli: vitrifikasyon
+    ekranının "Dondurulmuş" listesi `tasiyici_id`'ye bakıyor
+    (`selectattr('tasiyici_id')`), yani taşıyıcısız bir vitrifikasyon olayı
+    orada zaten görünmez; taşıyıcının etiketi ise tüpün üstünde yazan gerçek
+    ad, kaynak kayıtta yok ve `UNIQUE` olduğu için sonradan değiştirilemiyor
+    (yalnızca `vit_sil` ile "boşaltıldı"ya düşüyor, etiket kalıyor). Uydurma
+    bir etiket Cryo Haritası'na tüpün gerçekte olmadığı bir ad yazardı.
+    Embriyolar skorlarıyla birlikte vitrifikasyon ekranının **aday**
+    listesinde çıkıyor; dondurmayı kullanıcı orada, gerçek etiket ve konumla
+    yapıyor.
+
+    Bu işlev **idempotent**: hem taze aktarımda hem "tamamla" kipinde
+    çağrılıyor, ikinci çalıştırma yeni kayıt açmıyor.
+    """
+    coz = _dondurma_coz(r["notlar"], r["dondurma_asama"])
+    if not coz:
+        return
+
+    # Daha önceki sürümün açtığı taşıyıcısız vitrifikasyon olayları iptal
+    # ediliyor: istatistikte "donduruldu" derken ekranda "aday" görünüyorlardı.
+    eski = b.execute(
+        "SELECT o.id FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+        "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        "AND o.vit_tasiyici_id IS NULL", (cycle_id,)).fetchall()
+    for (oid,) in eski:
+        b.execute("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, "
+                  "iptal_zamani=?, iptal_sebep=? WHERE id=?",
+                  (kid, _dt.datetime.now().isoformat(" ", "seconds"),
+                   "Tasiyici bilgisi yok; dondurma vitrifikasyon ekranindan "
+                   "gercek etiketle girilecek", oid))
+    if eski:
+        rapor.append(f"    {len(eski)} taşıyıcısız vitrifikasyon kaydı iptal "
+                     f"edildi (dondurmayı ekrandan gireceksin)")
+
+    if coz["oosit_mi"]:
+        gruplar = [o["adet"] for o in coz["ogeler"] if o["tur"] == "oosit"]
+        rapor.append(
+            f'    yumurta dondurma: {coz["adet"] or sum(gruplar)} yumurta'
+            + (f', {coz["tup"] or len(gruplar)} tüpte ' +
+               "+".join(str(g) for g in gruplar) if gruplar else "")
+            + " — taşıyıcı etiketi kaynak kayıtta yok, vitrifikasyon ekranından gir")
+        return
+
+    embriyolar = [o for o in coz["ogeler"] if o["tur"] in ("blast", "cleavage")]
+    if not embriyolar:
+        return
+
+    # Hedef örnekler: önce daha önce dondurulmuş işaretlenenler (tamamla
+    # kipinde aynı embriyolara denk gelsin diye), sonra 2PN olanlar.
+    secili, gorulen = [], set()
+    for sorgu in (
+        "SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
+        "WHERE s.cycle_id=? AND o.tip='vitrifikasyon' "
+        "GROUP BY s.id ORDER BY s.cycle_sira_no",
+        "SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
+        "WHERE s.cycle_id=? AND o.tip='fertilizasyon_kontrolu' "
+        "AND o.iptal_mi=0 AND o.fert_pn_sayisi='2' "
+        "GROUP BY s.id ORDER BY s.cycle_sira_no",
+    ):
+        for (sid,) in b.execute(sorgu, (cycle_id,)).fetchall():
+            if sid not in gorulen and len(secili) < len(embriyolar):
+                gorulen.add(sid)
+                secili.append(sid)
+
+    if len(secili) < len(embriyolar):
+        rapor.append(f"    UYARI: notta {len(embriyolar)} embriyo yazıyor ama "
+                     f"{len(secili)} uygun örnek var; fazlası yazılmadı")
+
+    gun = coz["gun"] or 5
+    t_deg = _zaman(_gun_ekle(r["opu"], gun), "09:00:00") if r["opu"] else None
+    yazilan = []
+    for sid, o in zip(secili, embriyolar):
+        if o["tur"] == "blast":
+            alanlar = {"bl_genisleme": o["genisleme"], "bl_icm": o.get("icm"),
+                       "bl_te": o.get("te"), "bl_derece": o.get("derece"),
+                       "bl_skor": o["skor"], "bl_skor_kaynagi": "elle"}
+            _degerlendirme_yaz(b, kid, sid, cycle_id, "blastokist_degerlendirme",
+                               max(gun, 4), t_deg, alanlar, o["ham"])
+            _durum_yaz(b, sid, _BLAST_DURUM.get(o["genisleme"], "blastokist"))
+        else:
+            alanlar = {"cl_hucre_sayisi": o["hucre"], "cl_skor": o["skor"],
+                       "cl_skor_kaynagi": "elle"}
+            _degerlendirme_yaz(b, kid, sid, cycle_id, "cleavage_degerlendirme",
+                               min(gun, 3), t_deg, alanlar, o["ham"])
+            _durum_yaz(b, sid, f"gun{min(gun, 3)}")
+        yazilan.append(o["ham"])          # kullanıcının kendi yazımı
+    taninmayan = [o["ham"] for o in coz["ogeler"] if o["tur"] == "taninmadi"]
+    rapor.append(f'    dondurulan embriyo skorları: {", ".join(yazilan)} '
+                 f'(gün {gun}, {len(yazilan)} embriyo)'
+                 + (f' — tanınmayan: {", ".join(taninmayan)}' if taninmayan else ""))
 
 
 def _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor):
@@ -848,6 +1049,7 @@ def _satiri_yaz(r) -> list:
             _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor)
         else:
             _oositleri_ac(b, r, cycle_id, cycle_no, kid, rapor)
+            _dondurma_kayitlari(b, r, cycle_id, kid, rapor)
             _androloji(b, r, cycle_id, kid)
         _islem_yapan(b, r, cycle_id)
     return rapor
@@ -891,6 +1093,13 @@ def onizleme(satirlar):
             yeni_hasta += 1
         gorulen.add(r["dosya_no"])
         print(_ozet_satiri(r) + ("   [YENİ HASTA]" if not h else ""))
+        coz = _dondurma_coz(r["notlar"], r["dondurma_asama"])
+        if coz and coz["ogeler"]:
+            # Kullanıcının kendi yazımı basılıyor ("4HG2"), çözümlenmiş kod
+            # değil -- kendi notunda ne yazdığını tanıyabilmeli.
+            ozet = ", ".join(o["ham"] for o in coz["ogeler"])
+            print(f'        dondurulan ({"yumurta" if coz["oosit_mi"] else "embriyo"}'
+                  + (f', gün {coz["gun"]}' if coz["gun"] else "") + f'): {ozet}')
     print(f'\n{len(satirlar) - atlanan} tedavi yazılacak, {yeni_hasta} yeni '
           f'hasta kartı açılacak, {atlanan} satır atlanacak.')
     print("Yazmak için: python3 aktar_access.py <dosya.csv>\n")
@@ -918,19 +1127,57 @@ def aktar(satirlar):
           f'{toplam["atlanan"]} atlandı, {toplam["hata"]} hata.')
 
 
+def tamamla(satirlar):
+    """Zaten aktarılmış tedavilere nottan çözümlenen skorları ekler.
+
+    Aktarım bir kez yapıldıktan sonra betiğin yeni bir sürümü çıktığında
+    baştan almak gerekmesin diye: `_dondurma_kayitlari()` idempotent olduğu
+    için var olan kayıtların üzerine yazıyor, yeni satır açmıyor.
+    """
+    kid = _kullanici_id()
+    sayac = {"islenen": 0, "atlanan": 0, "hata": 0}
+    for r in satirlar:
+        var = _zaten_var(r["kimlik"])
+        if not var:
+            sayac["atlanan"] += 1
+            print(f'#{r["kimlik"]:>3}  aktarılmamış, atlandı')
+            continue
+        rapor = []
+        try:
+            with _db.yazma_islemi() as b:
+                _dondurma_kayitlari(b, r, var["id"], kid, rapor)
+        except Exception as hata:
+            sayac["hata"] += 1
+            print(f'#{r["kimlik"]:>3}  HATA: {hata}')
+            continue
+        sayac["islenen"] += 1
+        if rapor:
+            print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
+            for satir in rapor:
+                print(satir)
+    print(f'\nBitti. {sayac["islenen"]} tedavi gözden geçirildi, '
+          f'{sayac["atlanan"]} atlandı, {sayac["hata"]} hata.')
+
+
 def main():
     arg = sys.argv[1:]
     kip = "aktar"
-    if arg and arg[0] == "liste":
-        kip, arg = "liste", arg[1:]
+    if arg and arg[0] in ("liste", "tamamla"):
+        kip, arg = arg[0], arg[1:]
     if not arg:
         sys.exit("Kullanim:\n"
-                 "  python3 aktar_access.py liste <dosya.csv>   ne yazilacagini gosterir\n"
-                 "  python3 aktar_access.py <dosya.csv>         aktarir")
+                 "  python3 aktar_access.py liste <dosya.csv>     ne yazilacagini gosterir\n"
+                 "  python3 aktar_access.py <dosya.csv>           aktarir\n"
+                 "  python3 aktar_access.py tamamla <dosya.csv>   zaten aktarilmis\n"
+                 "                                                tedavilere nottaki\n"
+                 "                                                skorlari ekler")
     satirlar = satirlari_oku(arg[0])
     satirlar.sort(key=lambda r: (r["tarih"] or "9999-99-99", int(r["kimlik"] or 0)))
     if kip == "liste":
         onizleme(satirlar)
+        return
+    if kip == "tamamla":
+        tamamla(satirlar)
         return
     onizleme(satirlar)
     print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")

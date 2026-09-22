@@ -10175,3 +10175,108 @@ temiz. Ana ekranın "Devam Eden Tedaviler" kartı ağustos işiyle dolmuyor.
 
 Kaynak dosya ve ondan üretilen CSV **depoya girmedi** ve girmemeli: gerçek
 hasta verisi. Bu bölümde de hiçbir hasta adı/dosya numarası yok, bilerek.
+
+# v6.131 — dondurulan embriyonun skoru nottan çıkarılıp aşama ekranlarına yazıldı
+
+Kullanıcının isteği (v6.130'un aktarımını gördükten sonra): "Vitrifikasyon
+yapılan yani dondurulan embriyosu olan hastaların sadece not olarak
+belirtiliyor. Notta embriyo adedi kalitesi ve nasıl dondurulduğu bilgisi
+var. Bunları ilgili menülere yerleştirsen. Yani 4BB blastokist dondurulmuş
+yazıyor ise blastokist bölümüne fotoğrafsız 4BB embriyo kaydedip
+vitrifikasyonda da bunun dondurulduğunu ilgili bölüme yaz."
+
+Haklıydı: v6.130 skoru serbest notta bırakıyordu ve dondurma aşamasından
+yalnızca boş bir değerlendirme olayı üretiyordu ("gün 5 blastokist", skor
+alanları boş).
+
+## Serbest metinden klinik veri — neden bu sefer yapılabilir
+
+Normalde kaçınılan bir şey. İki gerekçeyle yapıldı:
+
+1. **Yazım programın kendi skor biçiminin birebir aynısı.** `app.blast_skor()`
+   blastokistte `genişleme + ICM + TE` ("4BB"), blastokist dışında
+   `kısaltma + derece` ("KAV2") üretiyor; kâğıda da tam böyle yazılmış.
+   Yani eşleme yorum değil, çeviri.
+2. **Tanınmayan hiçbir şey atılmıyor.** Her değerlendirme olayının notuna
+   kullanıcının kendi yazımı olduğu gibi giriyor ("Kaynak kayıttaki yazım:
+   4BB HATCHED"), tanınmayan parça ayrıca raporda listeleniyor ve `liste`
+   kipi yazmadan önce hepsini basıyor.
+
+Tanınan yazımlar (hepsi gerçek kayıtlardan geldi):
+
+| nottaki yazım | programa yazılan |
+|---|---|
+| `3AA` | `bl_genisleme=3`, `bl_icm=a`, `bl_te=a`, `bl_skor=3AA` |
+| `4BB HATCHED` | `bl_genisleme=4`, `bl_icm=b`, `bl_te=b` — "HATCHED" olayın notunda |
+| `KAVG2` | `bl_genisleme=kavitasyon`, `bl_derece=2`, `bl_skor=KAV2` |
+| `4HG2` / `3HG2` | `cl_hucre_sayisi=4/3`, `cl_skor=G2` |
+| `2*M2`, `3*M2` | dondurulan **yumurta** grubu (tüp başına adet) |
+
+Çözümleme yalnızca "... DONDURULARAK SAKLANDI" cümlesinin **öncesine**
+bakıyor: bir kayıtta o cümleden sonra ilgisiz metin geliyor ("SPERM
+MORFOLOJİSİ KÖTÜ ... MOTİLİTE %0") ve oradaki sayılar skor sanılmamalı.
+
+`bl_skor_kaynagi`/`cl_skor_kaynagi` **"elle"** yazılıyor, "otomatik" değil:
+skor bir insanın verdiği not, otomatik hesap onu ezmemeli (v6.122'nin
+"otomatik skorlar kaynak işaretler" kuralı).
+
+## Vitrifikasyon kaydı bilerek AÇILMIYOR
+
+v6.130 taşıyıcısız `vitrifikasyon` olayları yazıyordu. Ölçüldü: bunlar
+**vitrifikasyon ekranında hiç görünmüyor** — "Dondurulmuş" listesi
+`embriyolar|selectattr('tasiyici_id')` ile kuruluyor, taşıyıcısı olmayan
+kayıt "aday" tarafında kalıyor. Yani istatistik "7 donduruldu" derken ekran
+"hiçbiri dondurulmamış" diyordu; iki ayrı yerin birbirini tutmaması,
+saklanan bir sayacın yarattığı soruna benziyor.
+
+Taşıyıcı uydurulamaz:
+- **Etiket tüpün üstünde yazan gerçek ad**, kaynak kayıtta yok (Access'in
+  "TÜP NO" alanı hiç doldurulmamış; notlar yalnızca tüp **sayısını**
+  söylüyor: "2 TÜPTE (3*M2) (3*M2)").
+- `tasiyici.etiket` **`UNIQUE` ve değiştirilemiyor** — düzenleme rotası yok.
+  `vit_sil` yalnızca taşıyıcıyı "boşaltıldı"ya düşürüyor, etiket kalıyor.
+  Yani yanlış bir etiket Cryo Haritası'na kalıcı bir hayalet bırakırdı.
+- Cryo Haritası'nın bütün amacı "bu hastanın embriyosu hangi tüpte, nerede".
+  Oraya gerçekte olmayan bir ad yazmak, boş bırakmaktan kötü.
+
+Bunun yerine embriyolar **skorlarıyla birlikte vitrifikasyon ekranının aday
+listesinde** çıkıyor ("Embriyo 1 · 3AA · gün 5"); kullanıcı orada seçip
+gerçek etiketi ve tank konumunu girerek donduruyor. v6.130'un yazdığı
+taşıyıcısız kayıtlar `tamamla` kipinde iptal ediliyor (silinmiyor — sebebi
+`iptal_sebep`'te yazılı).
+
+Aynı sebeple **yumurta dondurmaya da vitrifikasyon yazılmıyor**; bunun
+yerine notun söylediği sayı ve tüp dağılımı raporda basılıyor
+("6 yumurta, 2 tüpte 3+3"), kullanıcı ekrandan giriyor. Bu, v6.130'da açık
+bırakılan "kaç yumurta donduruldu" sorusunu da yanıtlıyor: sayı nottan
+okunabiliyor, eksik olan yalnızca tüp etiketi.
+
+## `tamamla` kipi — aktarılmış veriyi baştan almadan güncellemek
+
+```
+python aktar_access.py tamamla agustos_2026.csv
+```
+
+Kullanıcı v6.130'u kendi kurulumunda **çalıştırmıştı**; yeni sürüm için
+yedekten dönüp baştan aktarmak gerekmesin diye. Yalnızca nottan çözümlenen
+kayıtları işliyor, var olan değerlendirmeyi **güncelliyor**, ikinci satır
+açmıyor (`_degerlendirme_yaz()` aynı örnek + aynı tipte iptal edilmemiş bir
+olay varsa onu `UPDATE` ediyor). Art arda iki kez çalıştırıldı, ikincisi
+hiçbir şeyi değiştirmedi.
+
+Hedef örnekler önce "daha önce vitrifikasyon kaydı olanlar", sonra 2PN
+olanlar sırasıyla seçiliyor — böylece `tamamla` taze aktarımla aynı
+embriyolara denk geliyor.
+
+## Ölçüm
+
+Yedi dondurma notunun hepsi doğru çözümlendi, tanınmayan parça çıkmadı:
+2×`3AA`, 1×`4BB HATCHED`, 1×`KAVG2`, 3×`4HG2/3HG2`, ve üç yumurta dondurma
+(2 / 6 / 16 yumurta; 1 / 2 / 4 tüp). Ekranlarda doğrulandı: blastokist
+ekranı şeritte "1-3AA 2-3AA" gösteriyor, kartta Genişleme "3 - Tam
+blastokist" / ICM A / TE A / Skor 3AA; cleavage ekranı "1-4H 2-4H 3-3H",
+Hücre sayısı 4, Skor G2; vitrifikasyon ekranı embriyoları "3AA · gün 5"
+etiketiyle aday listesinde gösteriyor. 18 adres 200 döndürdü.
+
+Ağustos sayıları: blastokist 4, cleavage 3, dondurulmuş 0 (taşıyıcı
+girilene kadar — bilinçli).
