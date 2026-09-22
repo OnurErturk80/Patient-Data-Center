@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_cyclesatir.html" as cs %}
+{% import "_etiketsonuc.html" as es %}
 {% block ustbaslik %}{{ metin("hasta_kayitlari") }}{% endblock %}
 {# Geri oku: yalnızca arşiv ayrı bir mod olduğu için farklı (v6.63). Arama
    artık ay görünümünü kapatmıyor, o yüzden geri okunun "arama sonucundan
@@ -39,7 +40,9 @@
 </div>
 {% endif %}
 
-{% if hastalar or not ornekler %}
+{% if tasiyicilar %}{{ es.sonuc(tasiyicilar) }}{% endif %}
+
+{% if hastalar or not (ornekler or tasiyicilar) %}
 <div class="kart">
   <h2>{{ metin("arsiv") }}</h2>
   {% for h in hastalar %}
@@ -175,10 +178,15 @@
 </div>
 {% endif %}
 
+{# Taşıyıcı etiketi sonucu (v6.138). Örnek koduyla aynı yerde ve aynı
+   gerekçeyle: elde bir kod varsa aranan şey odur, hasta satırlarının
+   üstünde dursun. Satır taşıyıcının kendi sayfasına gidiyor. #}
+{% if tasiyicilar %}{{ es.sonuc(tasiyicilar) }}{% endif %}
+
 {# Hasta satırları: arama doluyken sonuç, boşken Tüm Hastalar (alfabetik,
    aktif hastaların tamamı). İsme tıklamak hasta kartını açıyor. #}
 {% set gosterilecek = hastalar if ara else tum_hastalar %}
-{% if gosterilecek or not ornekler %}
+{% if gosterilecek or not (ornekler or tasiyicilar) %}
 <div class="kart" style="margin-top:12px">
   <h2>
     {% if ara %}{{ metin("arama_sonucu") }}

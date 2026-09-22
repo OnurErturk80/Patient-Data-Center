@@ -6,6 +6,7 @@
 {% import "_islem_yapan.html" as iy %}
 {% import "_kucukfoto.html" as kf %}
 {% import "_ornekkart.html" as ok %}
+{% import "_etiketsonuc.html" as es %}
 {% block ustbaslik %}{{ metin("asama_vitrifikasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -17,6 +18,26 @@
 {% block icerik %}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+
+{# Etiket araması (v6.138, kullanıcının isteği: "Vitrifikasyonda etiket kodu
+   ile arama olsun"). Elde tutulan tüpün etiketi burada da aranabiliyor --
+   aranan taşıyıcı bu tedaviye ait olmak zorunda değil, soru "bu etiket
+   kimin". Sonuç satırı cryo sayfalarına gidiyor, o yüzden kutu `cryo` izni
+   olmayana hiç basılmıyor (asıl engel middleware'de, bu yalnızca gizleme).
+   Kendi formu: aşağıdaki dondurma formunun içinde DEĞİL, yoksa Enter'a
+   basmak vitrifikasyonu kaydederdi. #}
+{% if yetkim("cryo") %}
+<form class="arama kucuk" method="get" action="/cycle/{{ c.id }}/vitrifikasyon">
+  <input type="search" name="ara" value="{{ ara }}"
+         placeholder="{{ metin('etiket_ara_ipucu') }}"
+         aria-label="{{ metin('etiket_ara') }}"
+         inputmode="search" autocomplete="off">
+</form>
+{% if ara %}
+{{ es.sonuc(etiket_sonuc, metin("etiket_bulunamadi")) }}
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("aramayi_temizle") }}</a>
+{% endif %}
+{% endif %}
 
 {% set dondurulmus = embriyolar|selectattr('tasiyici_id')|list %}
 {% set vit_ad = ornek_adi('vitrifikasyon', c.cycle_tipi) %}

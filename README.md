@@ -10819,3 +10819,91 @@ yumurtalar", satırlar "Yumurta 3/4/5"; hepsi dondurulmuşsa "Dondurulacak
 yumurta kalmadı."; `ivf_icsi`'de ikisi de eskisi gibi "embriyo". Ana ekran
 listesi 20.09 → 18.09 15:20 → 18.09 12:55 sırasında. 51 ekranlık genel
 tarama temiz.
+
+---
+
+# v6.138 — taşıyıcı etiketi aranabilir oldu
+
+Kullanıcının isteği: *"Vitrifikasyonda etiket kodu ile arama olsun. Ana
+sayfadaki aramada o da aranabilsin."*
+
+Etiket, tüpün üstünde yazan şey — vitrifikasyon ekranının ürettiği
+`<tedavi no>-<SSDD>` (ya da elle yazılmış bir şey) ve laboratuvar genelinde
+benzersiz. Elde tüp varken sorulan soru hep aynı: **bu kimin, içinde ne var,
+nerede duruyor.** O soruyu cevaplayan tek yer `/cryo` haritasıydı; artık iki
+yerden daha soruluyor.
+
+## Tek sorgu, iki ekran
+
+`app.etiket_ara(ara)` — `ornek_kodu_ara()`'nın (v6.35) taşıyıcı hali. İki
+ekran da onu çağırıyor, ikinci bir sorgu yazılmadı; satır da tek yerde
+(`templates/_etiketsonuc.html`, `_cyclesatir.html`'in gerekçesinin aynısı)
+ki aynı şey iki ekranda aynı görünsün.
+
+Satır: etiket · hasta adı ve dosya no · içerik ve konum. Gideceği yer
+(`yol`) **sunucuda** kuruluyor, şablon kategoriye göre adres kurmuyor.
+
+### Neden `durum` süzülmüyor
+
+`/cryo` haritası `durum='dolu'` süzüyor — o bir **envanter** ekranı
+("dolapta bugün ne var"). Bu ise hedefli bir **arama** ("bu etiket kimin").
+Çözülmüş ya da başka bir tedavide kullanılmış bir tüpün etiketi arandığında
+"yok" demek yanlış olurdu; bulunuyor, durumu rozetle söyleniyor. Örnek kodu
+aramasının arşivlenmiş hastayı da bulmasıyla (v6.35) aynı gerekçe.
+
+Rozet ikiye ayrıldı: `bosaltildi` → "boşaltıldı", `kullanildi` → "kullanıldı"
+(v6.86: sperm başka bir tedaviye bağlandı — tüp duruyor, boşalmadı).
+`tasiyici.html`'in eski tek rozeti olduğu gibi kaldı.
+
+### Embriyo ve sperm birlikte
+
+Etiket lab genelinde benzersiz ve elde tutulan tüpün hangi modüle ait olduğu
+aranırken bilinmiyor olabilir. Hasta iki ayrı yoldan bulunuyor — embriyo
+taşıyıcısında vitrifikasyon olayı üzerinden, sperm taşıyıcısında doğrudan
+`sperm_dondurma.hasta_id` üzerinden — ikisi de **bağıntılı alt sorgu**
+(`_ETIKET_HASTA`); JOIN yazılsaydı çok örnekli bir taşıyıcı satırı
+çoğaltırdı. Sperm satırı `/sperm-dondurma/{id}`'ye, embriyo/yumurta satırı
+`/cryo/tasiyici/{id}`'ye gidiyor.
+
+`tr_buyuk()` **uygulanmıyor**: `etiket` büyük harfe sabitlenmiş bir alan
+değil (v6.116'nın kuralı — yalnızca `ad_soyad` karşılaştıran parametre
+büyütülür).
+
+## 1) Vitrifikasyon ekranı
+
+Kutu ekranın en üstünde, `?ara=` ile aynı rotaya GET.
+
+- **Kendi formu; dondurma formunun içinde DEĞİL.** İçinde olsaydı arama
+  kutusunda Enter'a basmak vitrifikasyonu kaydederdi. Ölçüldü: arama
+  sonrası `tasiyici` sayısı değişmiyor, dondurma formu yerinde duruyor.
+- **Bu tedaviyle sınırlı değil.** Aranan tüp çoğu zaman başka bir tedaviye
+  ait; soru zaten "bu etiket kimin".
+- **`cryo` izni yoksa kutu hiç basılmıyor** — sonuç satırı cryo sayfalarına
+  gidiyor. Asıl engel her zamanki gibi middleware'de, bu yalnızca gizleme.
+- Geri oku etkilenmiyor: aynı yol + farklı sorgu, v6.126'nın betiğinin (2)
+  numaralı durumu — ok tedavi ekranına dönüyor.
+
+## 2) Ana ekranın araması
+
+Ana ekranın kutusu zaten `/hastalar`'a gönderiyor; etiket sonucu oraya,
+örnek kodu kartının hemen altına eklendi — aynı gerekçeyle hasta
+satırlarının üstünde: elde bir kod varsa aranan şey odur. Arşiv modunda da
+çalışıyor, kutu orada da aynı kutu. `ara_ipucu` artık "Dosya no, ad, örnek
+kodu veya etiket".
+
+**Tire kapısı yok** (örnek kodunda var, v6.35). Orada gerekçe kodun
+`<dosya no>-<specimen.id>` diye **birleştirilmesi**: tiresiz "3" bütün
+örnekleri listelerdi. Etiket ise gerçek, kayıtlı bir alan — "1400" yazan
+biri gerçekten etiketi 1400 içeren tüpleri arıyor. `/cryo`'nun etiket
+araması da kapısız; sonuç 50 satırla sınırlı ve kart yalnızca eşleşme
+varken basılıyor.
+
+## Ölçüm
+
+Playwright, 1440x1000 ve 390x844: vitrifikasyondan "1400" → 3 taşıyıcı,
+doğru hastalar, `/cryo/tasiyici/…` bağlantıları; dondurma formu ve önerilen
+etiket yerinde; "Aramayı temizle" ve geri ok doğru. Ana ekrandan
+"2026-0025" → dört taşıyıcı, "4 yumurta" (v6.133'ün ayrımı çalışıyor),
+"SP-700001" → sperm kaydı ve `/sperm-dondurma/1`. Bulunamayan etikette
+"Bu etikete uyan taşıyıcı yok." 25 adres 200, JS hatası yok, hiçbir
+genişlikte yatay taşma yok.

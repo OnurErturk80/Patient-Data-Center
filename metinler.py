@@ -406,6 +406,14 @@ METINLER = {
     "etiket": {"tr": "Etiket", "en": "Label"},
     "etiket_benzersiz": {"tr": "Laboratuvar geneli benzersiz olmalı.",
                          "en": "Must be unique across the laboratory."},
+    # Etiket araması (v6.138). İki ekran basıyor: vitrifikasyon ve hasta
+    # kayıtları -- aynı anahtarları kullanıyorlar ki aynı şey aynı görünsün.
+    "etiket_ara": {"tr": "Etiket kodu ile ara", "en": "Search by label code"},
+    "etiket_ara_ipucu": {"tr": "Tüpün üstündeki etiket kodu",
+                         "en": "Label code written on the tube"},
+    "etiket_sonucu": {"tr": "Taşıyıcı etiketi", "en": "Carrier label"},
+    "etiket_bulunamadi": {"tr": "Bu etikete uyan taşıyıcı yok.",
+                          "en": "No carrier matches this label."},
     "renk": {"tr": "Renk", "en": "Colour"},
     "konum": {"tr": "Konum", "en": "Location"},
     "konum_ipucu": {
@@ -465,6 +473,7 @@ METINLER = {
                              "en": "This carrier has been emptied."},
     "bu_tasiyiciyi_coz": {"tr": "Bu taşıyıcıyı çöz", "en": "Thaw this carrier"},
     "tasiyici_bosaltildi": {"tr": "boşaltıldı", "en": "emptied"},
+    "tasiyici_kullanildi": {"tr": "kullanıldı", "en": "used"},
 
     # ---- çözme (thaw) ----
     "konum_girilmemis_uzun": {"tr": "konum girilmemiş",
@@ -1340,8 +1349,8 @@ METINLER = {
         "tr": "ekranına erişim iznin yok. Gerekiyorsa yöneticiye söyle.",
         "en": "— you do not have access to this screen. Ask an administrator "
               "if you need it."},
-    "ara_ipucu": {"tr": "Dosya no, ad veya örnek kodu",
-                  "en": "File no, name or sample code"},
+    "ara_ipucu": {"tr": "Dosya no, ad, örnek kodu veya etiket",
+                  "en": "File no, name, sample code or label"},
     "ornek_kodu_sonucu": {"tr": "Örnek kodu", "en": "Sample code"},
     "durum_aktif": {"tr": "Aktif", "en": "Active"},
     "excel_cikti": {"tr": "Excel çıktısı", "en": "Excel export"},

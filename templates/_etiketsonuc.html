@@ -1,0 +1,36 @@
+{# Etiket araması sonucu (v6.138). İki ekran basıyor -- vitrifikasyon ve
+   hasta kayıtları -- ikisi de aynı görünsün diye satır tek yerde
+   (`_cyclesatir.html`'in gerekçesinin aynısı). Satırın adresi sunucudan
+   geliyor (`app.etiket_ara()` → `t.yol`): sperm kaydı kendi detayına,
+   embriyo/yumurta taşıyıcısı cryo haritasındaki taşıyıcı sayfasına gider.
+   Şablon kategoriye göre adres kurmasın diye. #}
+{% macro sonuc(tasiyicilar, bos_mesaj=None) %}
+<div class="kart">
+  <h2>{{ metin("etiket_sonucu") }}</h2>
+  {% for t in tasiyicilar %}
+  <a class="satir" href="{{ t.yol }}">
+    {# Boşaltılmış/kullanılmış taşıyıcı da bulunur (app.etiket_ara()): arama
+       envanter değil, "bu etiket kimin" sorusu. Durumu rozetle söyleniyor --
+       `kullanildi` (v6.86: sperm başka bir tedaviye bağlandı) "boşaltıldı"
+       değil, tüp duruyor; ikisi ayrı yazıyor. #}
+    <div class="no">{{ t.etiket }}
+      {%- if t.durum == "bosaltildi" %} <span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>
+      {%- elif t.durum == "kullanildi" %} <span class="rozet arsiv">{{ metin("tasiyici_kullanildi") }}</span>
+      {%- endif %}</div>
+    <div class="meta">
+      {% if t.ad_soyad %}{{ t.ad_soyad }}{% if t.dosya_no %} · {{ t.dosya_no }}{% endif %}
+      {%- else %}{{ metin("girilmedi") }}{% endif %}
+    </div>
+    <div class="meta">
+      {% if t.kategori == "sperm" %}{{ metin("sperm_dondurma") }}
+      {%- else %}{{ icerik_sayisi(t.adet, t.icerik_tipi) }}{% endif %}
+      ·
+      {% if t.tam_yol %}{{ t.tam_yol }}
+      {%- else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
+    </div>
+  </a>
+  {% else %}
+  {% if bos_mesaj %}<div class="bos">{{ bos_mesaj }}</div>{% endif %}
+  {% endfor %}
+</div>
+{% endmacro %}

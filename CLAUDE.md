@@ -1111,6 +1111,31 @@ birleştirilip aranıyor, yani tam kod da kuyruğu da (`0001-03`) buluyor.
 - Örnek araması **hastanın arşivlenmiş olmasına bakmaz**; dolaptaki bir
   örneğin dosyası kapanmış olabilir. (Hasta araması eskisi gibi süzer.)
 
+**Taşıyıcı etiketi de aranabilir** (v6.138, kullanıcının isteği:
+"Vitrifikasyonda etiket kodu ile arama olsun. Ana sayfadaki aramada o da
+aranabilsin"). Sorgu tek yerde: `app.etiket_ara(ara)` — `ornek_kodu_ara()`'nın
+taşıyıcı hali. Satır da tek yerde: `templates/_etiketsonuc.html`'in
+`sonuc()` makrosu. İki ekran çağırıyor: vitrifikasyon (`?ara=`, ekranın en
+üstünde) ve `/hastalar` (ana ekranın arama kutusu oraya gönderiyor; örnek
+kodu kartının altında, hasta satırlarının üstünde). Üçüncü bir yerde aynı
+soruyu soracaksan bu ikisini çağır, yeni sorgu/satır yazma.
+- **`durum` süzülmez** — boşaltılmış ve kullanılmış taşıyıcı da bulunur.
+  `/cryo` `durum='dolu'` süzüyor çünkü o bir **envanter** ekranı; bu hedefli
+  bir **arama**, "bu etiket kimin". Durum rozetle söyleniyor ve `bosaltildi`
+  ile `kullanildi` **ayrı yazıyor** (v6.86: kullanılan tüp boşalmadı).
+- **Tire kapısı YOK** (örnek kodunda var). Örnek kodu birleştirilmiş bir
+  değer, etiket ise gerçek bir kolon — "1400" yazan gerçekten onu arıyor.
+  `/cryo`'nun etiket araması da kapısız. Sınır `LIMIT 50`.
+- **Embriyo ve sperm taşıyıcılarını birlikte kapsar**; hasta iki ayrı
+  bağıntılı alt sorgudan geliyor (`_ETIKET_HASTA`) — JOIN çok örnekli
+  taşıyıcı satırını çoğaltırdı. Satırın gideceği yer (`yol`) **sunucuda**
+  kuruluyor, şablon kategoriye göre adres kurmuyor.
+- **`tr_buyuk()` uygulanmaz** — `etiket` büyük harfe sabitlenmiş bir alan
+  değil (v6.116'nın kuralı).
+- **Vitrifikasyondaki kutu dondurma formunun İÇİNDE değil**: içinde olsaydı
+  arama kutusunda Enter'a basmak vitrifikasyonu kaydederdi. Bir ekrana yeni
+  bir arama kutusu koyarken hep sor — o ekranda zaten bir POST formu var mı?
+
 **Hasta kayıtları ay ay + Tüm Hastalar, birlikte** (v6.29, v6.63'te
 genişledi). `/hastalar` **iki sütun**: solda o ayın cycle'ları (satır cycle
 başına), sağda **Tüm Hastalar** — arama boşken aktif hastaların tamamı

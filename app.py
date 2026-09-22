@@ -2536,6 +2536,13 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     bu_ay = (yil == bugun.year and ay == bugun.month)
 
     kayitlar, ornekler = [], []
+    # Taşıyıcı etiketi araması (v6.138, kullanıcının isteği: "Ana sayfadaki
+    # aramada o da aranabilsin" -- ana ekranın arama kutusu bu ekrana
+    # gönderiyor). Hasta durumundan bağımsız: dolaptaki bir tüpün etiketi
+    # okunabiliyorsa bulunabilmeli, hastasının dosyası kapanmış olsa da
+    # (örnek kodu aramasının gerekçesinin aynısı, v6.35). Arşiv modunda da
+    # çalışıyor -- kutu orada da aynı kutu.
+    tasiyicilar = etiket_ara(ara)
     durum = "arsiv" if arsiv else ("aktif" if ara.strip() else None)
     if durum:
         ortak = ("SELECT h.*, (SELECT COUNT(*) FROM cycle WHERE hasta_id = h.id) "
@@ -2606,7 +2613,7 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     return sablon.TemplateResponse(
         request, "hastalar.html",
         {"hastalar": kayitlar, "liste": liste, "tum_hastalar": tum_hastalar,
-         "ornekler": ornekler,
+         "ornekler": ornekler, "tasiyicilar": tasiyicilar,
          "ara": ara, "arsiv": arsiv,
          "yil": yil, "ay": ay, "bu_ay": bu_ay,
          "yillar": _yil_araligi(yil),
@@ -5525,6 +5532,77 @@ def tasiyici_icerigi(tasiyici_id):
         "ORDER BY s.cycle_sira_no", (tasiyici_id,))
 
 
+# Etiket aramasında hasta iki ayrı yoldan bulunuyor: embriyo taşıyıcısında
+# vitrifikasyon olayı üzerinden (olay → specimen → cycle → hasta), sperm
+# taşıyıcısında doğrudan `sperm_dondurma.hasta_id` üzerinden. İkisi de `t`yi
+# dışarıdan okuyan bağıntılı alt sorgu; JOIN yazılsaydı çok örnekli bir
+# taşıyıcı satırı çoğaltırdı. Alan adı iki dalda da aynı (`h8`), o yüzden
+# tek bir `{alan}` yetiyor.
+_ETIKET_HASTA = (
+    "COALESCE("
+    " (SELECT {alan} FROM olay o8 JOIN specimen s8 ON s8.id = o8.specimen_id "
+    "  JOIN cycle c8 ON c8.id = s8.cycle_id JOIN hasta h8 ON h8.id = c8.hasta_id "
+    "  WHERE o8.vit_tasiyici_id = t.id AND o8.tip = 'vitrifikasyon' "
+    "  AND o8.iptal_mi = 0 LIMIT 1), "
+    " (SELECT {alan} FROM sperm_dondurma sd8 JOIN hasta h8 ON h8.id = sd8.hasta_id "
+    "  WHERE sd8.tasiyici_id = t.id AND sd8.iptal_mi = 0 LIMIT 1)) AS {ad} ")
+
+
+def etiket_ara(ara: str) -> list:
+    """Taşıyıcı etiketinden arama: tüpün üstünde yazan kod (v6.138).
+
+    Etiket vitrifikasyon ekranında üretilip (`<tedavi no>-<SSDD>`) ya da elle
+    yazılıp tüpün üstüne geçiyor. Personelin elinde tüp var, "bu ne, kimin,
+    nerede" diye soruyor — `ornek_kodu_ara()`'nın (v6.35) taşıyıcı hali.
+    Kullanıcının isteği (2026-09-22): "Vitrifikasyonda etiket kodu ile arama
+    olsun. Ana sayfadaki aramada o da aranabilsin."
+
+    **Taşıyıcının durumuna bakmaz.** `/cryo` haritası `durum='dolu'` süzüyor
+    çünkü o bir **envanter** ekranı ("dolapta bugün ne var"); bu ise hedefli
+    bir **arama** ("bu etiket kimin"). Boşaltılmış ya da başka bir tedavide
+    kullanılmış bir tüpün etiketi arandığında "yok" demek yanlış olurdu —
+    örnek kodu aramasının arşivlenmiş hastayı da bulmasıyla aynı gerekçe.
+
+    **Embriyo ve sperm taşıyıcılarını birlikte kapsar.** Etiket lab genelinde
+    benzersiz (`vit_kaydet()` mükerrerini reddediyor) ve elde tutulan tüpün
+    hangi modüle ait olduğu aranırken bilinmiyor olabilir. Satırın gideceği
+    yer (`yol`) kategoriye göre seçiliyor: sperm kaydı kendi detayına,
+    embriyo/yumurta taşıyıcısı cryo haritasındaki taşıyıcı sayfasına.
+
+    `tr_buyuk()` **uygulanmaz** — `etiket` büyük harfe sabitlenmiş bir alan
+    değil, personelin yazdığı gibi duruyor (v6.116'nın kuralı: yalnızca
+    `ad_soyad` karşılaştıran parametre büyütülür).
+    """
+    if not ara.strip():
+        return []
+    satirlar = db.sorgu(
+        "SELECT t.id, t.etiket, t.tip, t.renk, t.durum, t.kategori, "
+        "  t.vitrifikasyon_zamani, k.tam_yol, "
+        "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id = t.id "
+        "   AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0) AS adet, "
+        + ICERIK_TIPI + ", "
+        "  (SELECT sd.id FROM sperm_dondurma sd WHERE sd.tasiyici_id = t.id "
+        "   AND sd.iptal_mi = 0 ORDER BY sd.id LIMIT 1) AS sperm_id, "
+        + _ETIKET_HASTA.format(alan="h8.dosya_no", ad="dosya_no") + ", "
+        + _ETIKET_HASTA.format(alan="h8.ad_soyad", ad="ad_soyad") +
+        "FROM tasiyici t LEFT JOIN konum k ON k.id = t.konum_id "
+        "WHERE t.lab_id = ? AND t.etiket LIKE ? "
+        "ORDER BY t.etiket LIMIT 50",
+        (db.LAB_ID, f"%{ara.strip()}%"))
+
+    # sqlite3.Row'a alan eklenemiyor; satır sözlüğe çevrilip `yol` ekleniyor
+    # (`cycle_listesi()`/`_vit_satiri()`'nin deseni). Şablon böylece
+    # kategoriye göre adres kurmuyor, tek bir `t.yol` basıyor.
+    sonuc = []
+    for r in satirlar:
+        d = dict(r)
+        d["yol"] = (f"/sperm-dondurma/{d['sperm_id']}"
+                    if d["kategori"] == "sperm" and d["sperm_id"]
+                    else f"/cryo/tasiyici/{d['id']}")
+        sonuc.append(d)
+    return sonuc
+
+
 # Vitrifikasyon ekranının listesi: bir önceki aşamada (gün 2/3 ya da
 # blastokist) kaydı olan örnekler (v6.137, kullanıcının isteği: "bir önceki
 # blastokist menüsünde kaydı yapılmamış embriyoyu gösterme"). Kaydı olmayan
@@ -5566,7 +5644,8 @@ def _vit_satiri(e: dict) -> dict:
 
 
 @uygulama.get("/cycle/{cycle_id}/vitrifikasyon")
-def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
+def vit_ekran(request: Request, cycle_id: int, hata: str = "",
+              ara: str = ""):
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
                "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
     if not c:
@@ -5636,6 +5715,11 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = ""):
          "gezinme": asama_gezinme(cycle_id, "vitrifikasyon"),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
+         # Etiket araması (v6.138, kullanıcının isteği): elde tutulan tüpün
+         # etiketi bu ekranda da aranabiliyor. Bu cycle'la sınırlı DEĞİL --
+         # aranan tüp çoğu zaman başka bir tedaviye ait, soru zaten "bu
+         # etiket kimin". Aynı sorgu `/hastalar`'ın aramasını da besliyor.
+         "ara": ara, "etiket_sonuc": etiket_ara(ara),
          "onerilen": f"{c['cycle_no']}-{_d.now().strftime('%H%M')}"})
 
 
