@@ -10426,3 +10426,133 @@ kelimeyi kullanıyor. Çözme ekranı: `oosit_cryo` tedavisinde "4 yumurta",
 **`oosit_ad` metnine dokunulmadı** — o hâlâ "Oosit" ve aşama ekranlarında
 öyle görünüyor. Kullanıcı bu ekran için "Yumurta" dedi; aşama ekranlarının
 sözlüğünü değiştirmek ayrı bir karar, sorulmadan yapılmadı.
+
+
+# v6.134 — ekranda "oosit" yazan her yer "yumurta" oldu
+
+Kullanıcının isteği: **"oosit yazan her yeri Yumurta ile değiştir."** v6.133
+taşıyıcının içeriğini ("yumurta"/"embriyo") düzeltmiş ama `oosit_ad`
+metnine bilerek dokunmamıştı — "aşama ekranlarının sözlüğü ayrı bir karar,
+sorulmadan yapılmadı" diye yazılmıştı. Kullanıcı o kararı verdi: her yerde.
+
+## Ölçü: ekranda görünen Türkçe metin — kod tarafı değil
+
+v6.79'un ("cycle" → "tedavi") kuralının aynısı uygulandı. Değişen yalnızca
+kullanıcının gördüğü yazı:
+
+- `metinler.py`'nin **`tr` değerleri** (61 metin). `en` değerlerine
+  dokunulmadı: "oocyte" İngilizce klinik literatürün kendi kelimesi, ayrıca
+  o çeviri zaten yarım ve askıda (bekleyen iş 8).
+- `app.py`'de ekrana basılan iki doğrulama etiketi ("Sağ/Sol over yumurta
+  sayısı") ve `/yonetim`'deki tablo adı ("Örnek (yumurta/embriyo)").
+- `disari.py`'nin dört Excel sütun başlığı.
+- `formlar.py`'nin `/formlar/etiketler` ekranındaki beş açıklaması.
+- `liste_degeri.etiket`'te iki satır (`goc_043`): "Oval oosit" → "Oval
+  yumurta", "Donör oosit" → "Donör yumurta". Yalnızca **hâlâ eski etiketi
+  taşıyan** satır güncelleniyor — yönetici kendi eliyle değiştirmişse
+  üzerine yazılmıyor.
+- `aktar_access.py`'nin protokol notuna yazdığı cümle + daha önce
+  aktarılmış kayıtlar (`goc_044`, aşağıda).
+
+**Değişmeyen (bilerek):**
+
+- **Kod tarafının tamamı**: `specimen.durum='oosit'`, `opu_sag_oosit`/
+  `opu_sol_oosit` kolonları, `?oosit=N` adres parametresi, `oosit_cryo`
+  tedavi kodu, `metin()` **anahtarları** (`oosit_ad`, `oosit_n`,
+  `henuz_oosit_yok_icsi`, …), Jinja değişkenleri (`oositler`), Python
+  fonksiyon adları (`_oositleri_ac`, `_oosit_sayilari`). v6.79'da "cycle"
+  için ne yapıldıysa aynısı: anahtar ve kolon adı değiştirmek göç +
+  şablon + rota zinciri demek, kazancı sıfır.
+- **Resmî formların kâğıt kalıbı.** Embriyoloji Özet'in üstünde hâlâ
+  "OOSİT BİLGİLERİ", "TOPLANAN OOSİT", "İŞLEME ALINAN OOSİT SAYISI"
+  yazıyor — bunlar kalite sisteminden gelen kurum belgesinin kendi
+  yazısı ("kalıba dokunma", v6.37). Kâğıt değişirse
+  `formlar_asil/kalip_uret.py` yeniden çalıştırılır.
+- **Access'ten gelen serbest metin.** Aktarılan tedavilerin notunda
+  laboratuvarın kendi cümleleri var ("EZ OOSİT OLDUĞUNDAN DOLAYI İŞLEM
+  İPTAL EDİLDİ"). O, ağustos ayının kaydının aslı — programın yazdığı
+  cümle değil, düzeltilmedi.
+- **`degisiklik_log`'un kalıcı silme özeti** (`"… 12 oosit · 30 islem …"`).
+  Denetim izi, ekran metni değil; geçmişe dönük yazılmış bir kayıt.
+
+## Türkçe ek çekimi: düz değiştirme olmaz
+
+"oosit" ünsüzle, "yumurta" ünlüyle bitiyor — ekler farklı. Tuzak #1
+("toplu metin değiştirme yapma") burada dilin kendisinden de geliyor:
+
+| eski | düz değiştirme | doğrusu |
+|---|---|---|
+| oosite | ~~yumurtaa~~ | yumurtaya |
+| oositin | ~~yumurtain~~ | yumurtanın |
+| oositi | ~~yumurtai~~ | yumurtayı |
+| oositler | yumurtalar | yumurtalar |
+
+Değiştirme bu yüzden en uzun ekten başlayan bir eşleme listesiyle yapıldı
+ve **61 metnin her biri tek tek okundu**. Sonuç ekrandan doğrulandı:
+"Yumurtayı yeniden değerlendirebilirsin.", "Klinik işlem kaydı olan bir
+yumurta silinmez.", "her dosya kendi yumurta numarasını alır".
+
+`oosit_hazirla_ipucu` bir yan etki olarak **yanlış hale gelmişti**:
+"fotoğrafsız yumurta kaydı açar (Oosit 1, Oosit 2, ...)" diyordu ama
+`ornek_adi()` artık "Yumurta 1" basıyor. İpucu gerçeğe getirildi.
+
+## Form etiketleri yeniden adlandırıldı, eskisi de çalışıyor
+
+`/formlar/etiketler` ekranında yüklenen `.xlsx` formuna yazılacak
+etiketler listeleniyor (v6.40). İkisi "oosit" diyordu:
+`{{toplanan_oosit}}` ve `{{islenen_oosit}}`. Bunlar hem **ekran metni**
+(kullanıcı listeden okuyup kutuya yazıyor) hem **sözleşme** (başka bir
+laboratuvar formunu çoktan yüklemiş olabilir) — ikisi birden.
+
+Çözüm: ekranda görünen ad `{{toplanan_yumurta}}` / `{{islenen_yumurta}}`
+oldu, **eski adlar da kabul edilmeye devam ediyor** ve aynı değeri
+basıyor. `formlar.ESKI_ALAN_ADI` tek satırlık eşleme; `ALAN_ADLARI` (yükleme
+sırasında "tanınmayan etiket" uyarısını veren liste) ikisini de içeriyor,
+`alanlar()` değer sözlüğüne yeni adları ekliyor. **`ozet_verisi()`'nin
+kendi anahtarları ve hücre eşlemeleri (`OZET_KUTULARI`, `ARTLAB_IZGARA`)
+hiç değişmedi** — değişen yalnızca etiketin adı. Ölçüldü: dört adın
+dördü de aynı değeri veriyor (`toplanan_oosit` = `toplanan_yumurta` = 10).
+
+Yeni bir etiket adı değiştireceksen aynı yolu izle: adı değiştir, eskisini
+`ESKI_ALAN_ADI`'na koy. Sessizce kaldırmak, o etiketi kullanan yüklü bir
+formu bir daha basılmaz hale getirirdi — hata da vermez, kutu boş çıkar.
+
+## `goc_044` — aktarılmış tedavilerin protokol notu
+
+`aktar_access.py` her aktardığı tedavinin protokol notuna şunu yazıyordu:
+
+    Program öncesi Access kaydından aktarıldı; oosit kayıtları toplam
+    sayılardan üretildi, tek tek gözlem değildir. [Access kaydı #N]
+
+Bu cümle tedavi kartında **ve** resmî Embriyoloji Özet formunun NOTLAR
+kutusunda basılıyor, yani ekran metni. Betik düzeltildi; göç daha önce
+aktarılmış kayıtları aynı hale getiriyor (kullanıcı ağustos verisini çoktan
+aktardı, göçler açılışta kendiliğinden çalışıyor — elle bir şey gerekmiyor).
+
+**Göç metin içinde arama/değiştirme yapmıyor, paragrafı yeniden üretiyor.**
+Sebep ölçülü: not `textwrap.fill(..., 68)` ile sarılıyor ve "oosit" →
+"yumurta" iki karakter uzun. Düz değiştirme satırı 69-70 karaktere
+çıkarırdı; NOTLAR kutusu `white-space: pre` olduğu için uzun satır sarmaz,
+**sessizce kesilir** (v6.130'un kendi kuralı). Göç notun sonundaki
+"Program öncesi Access kaydından aktarıldı;" ile başlayan paragrafı bulup
+`[Access kaydı #N]` işaretini çıkarıyor ve paragrafı baştan kuruyor;
+üstündeki her şey (kaynak protokol + Access'in serbest metni) olduğu gibi
+kalıyor. İdempotent: ikinci çalıştırma 0 satır güncelliyor.
+
+## Ölçüm
+
+Playwright ile 51 ekran gezildi; `<script>`/`<style>` ve bütün etiketler
+atılıp **basılan yazıda** `[Oo]osit` arandı — hiçbirinde kalmadı. Ayrıca
+elle kontrol edilenler: `/cycle/{id}/fert`, `/blast`, `/cleavage?gun=3`,
+`/cycle/{id}/arsiv-sil`, `/cryo/tasiyici/{id}`, `/cryo/tasiyici/{id}/thaw`,
+`/yedekleme/geri-yukle`, `/cycle/{id}/denudasyon?duzenle=oosit` (hem
+`ivf_icsi` hem `oosit_cryo`) — hepsi temiz.
+
+Resmî formlar bozulmadı: `/form/ozet/{id}` ve `/form/artlab/{id}` 200,
+`/disari/form/...` iki `.xlsx` da geçerli bir ZIP (10 parça, bozuk parça
+yok), `/disari/tumu` ve `/disari/cryo` 200. NOTLAR kutusunun taşması
+ölçüldü: yatay 0px, dikey 0px — yeni cümle kutuya sığıyor (ekran
+görüntüsüyle de bakıldı, v6.109'un dersi).
+
+`goc_044` bu makinede çalıştı: 13 tedavinin notu güncellendi, ikinci
+çalıştırmada 0. Göç çalıştırıcısı açılışta da uyguladı.

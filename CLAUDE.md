@@ -114,7 +114,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..034.py   veritabanı göçleri (sırayla)
+  goc_002..044.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -272,7 +272,7 @@ alan adrese yazıldığı için yalnızca rakam kabul ediliyor.
 
 **Fotoğrafsız örnek boş bir alan bırakmaz** (v6.35). `_kareler.html`
 `yer(ad, sp, ekle_yolu)` makrosu fotoğrafın yerini tutar ve içine örneğin
-**o aşamadaki adını** yazar -- ekranın başlığında ne yazıyorsa o: Oosit,
+**o aşamadaki adını** yazar -- ekranın başlığında ne yazıyorsa o: Yumurta,
 Zigot, Cleavage, Blastokist. Beşi de `ornek_adi(asama, cycle_tipi)`'den
 geliyor; adı makroya sabit yazma, çağıran ekrandan geçir — dil değişince
 isim de değişmeli. Yeni bir aşama ekranında "fotoğraf yok" diye boş kart basma,
@@ -1503,8 +1503,43 @@ detayının üç yeri) ve biri unutulursa ekranlar birbirini tutmaz.
   satır yeter**: bir taşıyıcı tek bir tedavinin örneklerini taşıyor.
 - **Tank satırı ikisini ayrı sayıyor** — bir tankta ikisi birden olabilir,
   orada tek kelime seçilemez; sıfır olmayan basılıyor.
-- `oosit_ad` metni ("Oosit") **değişmedi**: kullanıcı bu ekranlar için
-  "Yumurta" dedi, aşama ekranlarının sözlüğü ayrı bir karar.
+- `oosit_ad` metni v6.133'te dokunulmadan bırakılmıştı; v6.134'te
+  kullanıcı "her yer" dedi ve o da "Yumurta" oldu (aşağıya bak).
+
+**Ekranda "oosit" değil "yumurta" denir** (v6.134, kullanıcının isteği:
+"oosit yazan her yeri Yumurta ile değiştir"). v6.79'un ("cycle" → "tedavi")
+kuralının aynısı: **yalnızca kullanıcının gördüğü Türkçe metin** değişti —
+`metinler.py`'nin `tr` değerleri, `app.py`'nin ekrana basılan etiketleri,
+`disari.py`'nin Excel başlıkları, `formlar.ALAN_ACIKLAMA` açıklamaları,
+`liste_degeri.etiket` (`goc_043`).
+- **Kod tarafı aynen duruyor**: `specimen.durum='oosit'`, `opu_sag_oosit`/
+  `opu_sol_oosit`, `?oosit=N` adres parametresi, `oosit_cryo` tedavi kodu,
+  `metin()` **anahtarları** (`oosit_ad`, `oosit_n`, `henuz_oosit_yok_icsi`),
+  Jinja değişkenleri (`oositler`), fonksiyon adları (`_oositleri_ac`).
+  Yeni ekranda `metin("oosit_ad")`/`ornek_adi()` kullan — anahtarın adına
+  bakıp "Oosit" basacağını sanma, o artık "Yumurta" döndürüyor.
+- **Türkçe eki düz değiştirmeyle tutmaz**: "oosit" ünsüzle, "yumurta"
+  ünlüyle bitiyor — "oosite"→"yumurtaya", "oositin"→"yumurtanın",
+  "oositi"→"yumurtayı". Tuzak #1 burada dilin kendisinden de geliyor;
+  `sed s/oosit/yumurta/g` yazma, metni tek tek oku.
+- **Resmî formun kâğıt kalıbı dışarıda** — "OOSİT BİLGİLERİ", "TOPLANAN
+  OOSİT" kalite sisteminin kendi yazısı ("kalıba dokunma", v6.37).
+  Access'ten gelen serbest metin de öyle (laboratuvarın ağustos kaydının
+  aslı), `degisiklik_log`'un silme özeti de (denetim izi, ekran değil).
+- **Yüklenen form etiketlerinin adı değişirse eskisi de kabul edilmeli**:
+  `{{toplanan_oosit}}`/`{{islenen_oosit}}` → `{{toplanan_yumurta}}`/
+  `{{islenen_yumurta}}`, eskiler `formlar.ESKI_ALAN_ADI` üzerinden hâlâ
+  çalışıyor (`ALAN_ADLARI` ikisini de içeriyor, `alanlar()` yeni adları
+  sözlüğe ekliyor). Etiket hem ekran metni hem başka bir laboratuvarın
+  çoktan yüklediği `.xlsx` ile sözleşme — sessizce kaldırırsan o form
+  hata vermeden **boş** basar. `ozet_verisi()`'nin anahtarları ve hücre
+  eşlemeleri (`OZET_KUTULARI`/`ARTLAB_IZGARA`) değişmedi.
+- **`goc_044`** `aktar_access.py`'nin daha önce yazdığı protokol notlarını
+  düzeltti. Not `textwrap.fill(..., 68)` ile sarılı ve "yumurta" iki
+  karakter uzun — göç metin içinde değiştirme yapmıyor, üretilmiş
+  **paragrafı baştan kuruyor**; düz değiştirme satırı 68'in üstüne
+  çıkarır, NOTLAR kutusu `white-space: pre` olduğu için sessizce keserdi.
+  Aynı nota yeni bir satır eklersen bu hesabı tekrar yap.
 
 > **Eski cryo haritasını Excel'den içeri alma denendi ve GERİ ALINDI**
 > (v6.127/v6.128 yazıldı, v6.129'da revert edildi). Kullanıcının kararı:
@@ -1592,9 +1627,10 @@ kullanılır, kaynak resmin adı asla kullanılmaz.
 
 **Oosit → zigot → embriyo aynı örnektir, kod değişmez.** Soyağacı böyle
 korunur ("bu blastokist hangi oositten çıktı"). Değişen sadece ekrandaki
-isim: `ornek_adi(asama, cycle_tipi)` → Oosit / Zigot / Cleavage / Blastokist /
-Embriyo (oosit cryo'da vitrifikasyon-çözme-transferde yine Oosit). Yeni bir
-aşama ekranı yazarsan "Oosit" diye sabit yazma, bu fonksiyonu kullan.
+isim: `ornek_adi(asama, cycle_tipi)` → Yumurta / Zigot / Cleavage /
+Blastokist / Embriyo (`oosit_cryo`'da vitrifikasyon-çözme-transferde yine
+Yumurta — v6.134'e kadar "Oosit" yazıyordu). Yeni bir aşama ekranı
+yazarsan "Yumurta" diye sabit yazma, bu fonksiyonu kullan.
 
 **Görüntü arşive kopyalanır, kaynağa dokunulmaz.** Kamera klasörü
 (`snapshot/`) temizlense de program görüntüyü `arsiv/`'den gösterir.

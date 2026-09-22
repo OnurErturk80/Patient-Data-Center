@@ -95,7 +95,7 @@ AY_BASLIK = [
     "Dosya no", "Hasta", "Cycle no", "Hastanın kaçıncı cycle'ı", "Tip",
     "Endikasyon", "Protokol", "Gonadotropin", "Toplam doz", "Stim günü",
     "Trigger", "AMH", "AFC", "Folikül", "Endometrium (mm)",
-    "OPU tarihi", "OPU hekimi", "Toplam oosit", "Sağ", "Sol",
+    "OPU tarihi", "OPU hekimi", "Toplam yumurta", "Sağ", "Sol",
     "MII", "ICSI yapılan", "2PN", "Gün 2", "Gün 3", "Blastokist",
     "Donan", "Çözülen", "Transfer", "Durum", "Bitiş sebebi", "Bitiş tarihi",
     "Planlanan tarih", "Hasta durumu",
@@ -251,8 +251,8 @@ def cycle_sayfalari(cycle_id: int):
         ("AFC", c["afc"]),
         ("OPU saati", c["opu_zamani"]),
         ("OPU hekimi", c["opu_hekim"]),
-        ("OPU sağ oosit", c["opu_sag_oosit"]),
-        ("OPU sol oosit", c["opu_sol_oosit"]),
+        ("OPU sağ yumurta", c["opu_sag_oosit"]),
+        ("OPU sol yumurta", c["opu_sol_oosit"]),
         ("Denüdasyon saati", c["denudasyon_zamani"]),
         ("Protokol notu", c["protokol_notu"]),
         ("Durum", _durum(c["durum"])),
@@ -718,7 +718,7 @@ def son_kayitlar(sayfa: int = 1) -> dict:
     }
 
 
-ISTATISTIK_BASLIK = ["Ay", "Cycle", "Oosit", "MII", "ICSI yapılan", "2PN",
+ISTATISTIK_BASLIK = ["Ay", "Cycle", "Yumurta", "MII", "ICSI yapılan", "2PN",
                      "Blastokist", "Transfer edilen cycle", "Klinik gebelik",
                      "M2 oranı (%)", "Fertilizasyon oranı (%)",
                      "Blastokist oranı (%)", "Klinik gebelik oranı (%)"]

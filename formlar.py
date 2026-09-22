@@ -794,18 +794,18 @@ ALAN_ACIKLAMA = [
     ("cycle_no", "Cycle numarası (2026-0001)"),
     ("ornek_kodu", "Cycle'ın örnek kodu kökü (527078-2026-0001)"),
     ("tedavi_protokolu", "Tedavi protokolü"),
-    ("fertilizasyon_yontemi", "Tedavi tipi (IVF/ICSI, FET, oosit cryo)"),
+    ("fertilizasyon_yontemi", "Tedavi tipi (IVF/ICSI, FET, yumurta dondurma)"),
     ("onceki_tedavi", "Önceki tedavi sayısı"),
     ("notlar", "Cycle'ın protokol notu"),
     ("bugun", "Formun basıldığı tarih"),
     ("laboratuvar", "Laboratuvarın adı"),
-    ("— OPU ve oosit —", None),
+    ("— OPU ve yumurta —", None),
     ("opu_tarihi", "OPU tarihi"),
-    ("toplanan_oosit", "Toplanan oosit sayısı"),
+    ("toplanan_yumurta", "Toplanan yumurta sayısı"),
     ("matur_mii", "MII (matür) sayısı"),
     ("immatur", "MI + GV sayısı"),
-    ("dejenere", "Dejenere oosit sayısı"),
-    ("atretik", "Atretik oosit sayısı"),
+    ("dejenere", "Dejenere yumurta sayısı"),
+    ("atretik", "Atretik yumurta sayısı"),
     ("opu_klinisyen", "OPU hekimi"),
     ("opu_embriyolog", "OPU embriyoloğu"),
     ("— Sperm —", None),
@@ -823,7 +823,7 @@ ALAN_ACIKLAMA = [
     ("son_progressif", "Hazırlık sonrası progressif (%)"),
     ("hazirlayan_embriyolog", "Spermi hazırlayan embriyolog"),
     ("— Fertilizasyon —", None),
-    ("islenen_oosit", "İşleme alınan oosit sayısı"),
+    ("islenen_yumurta", "İşleme alınan yumurta sayısı"),
     ("normal_2pn", "2PN sayısı"),
     ("anormal_fertilizasyon", "Anormal fertilizasyon (0/1/3PN)"),
     ("islem_sonrasi_dejenere", "İşlem sonrası dejenere"),
@@ -853,7 +853,15 @@ ALAN_ACIKLAMA = [
 ]
 
 # Başlık satırları (`— Hasta —`) yalnızca ekranda; etiket değil.
-ALAN_ADLARI = [a for a, aciklama in ALAN_ACIKLAMA if aciklama]
+# Etiketin ekranda yazan adı değişti ama laboratuvar formunu çoktan
+# yüklemiş olabilir (v6.40): eski ad da kabul ediliyor ve aynı değeri
+# basıyor. Anahtarın kendisi (`ozet_verisi()`'nin sözlüğü, hücre eşlemeleri)
+# değişmedi -- yalnızca etiketin adı.
+ESKI_ALAN_ADI = {"toplanan_yumurta": "toplanan_oosit",
+                 "islenen_yumurta": "islenen_oosit"}
+
+ALAN_ADLARI = ([a for a, aciklama in ALAN_ACIKLAMA if aciklama]
+               + list(ESKI_ALAN_ADI.values()))
 
 
 def alanlar(cycle_id: int):
@@ -881,4 +889,6 @@ def alanlar(cycle_id: int):
                   "thaw", "transfer"):
         z = cizelge.get(asama)
         v["saat_" + asama] = _gg_aa_yyyy_saat(z)
+    for yeni, eski in ESKI_ALAN_ADI.items():
+        v[yeni] = v.get(eski)
     return v

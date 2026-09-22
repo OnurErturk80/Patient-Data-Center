@@ -1739,7 +1739,7 @@ def yonetim_ekran(request: Request):
 
     sayilar = []
     for tablo, ad in [("hasta", "Hasta"), ("cycle", "Tedavi"),
-                      ("specimen", "Örnek (oosit/embriyo)"), ("goruntu", "Fotoğraf"),
+                      ("specimen", "Örnek (yumurta/embriyo)"), ("goruntu", "Fotoğraf"),
                       ("olay", "Olay"), ("degisiklik_log", "Değişiklik kaydı")]:
         try:
             sayilar.append({"ad": ad,
@@ -6847,8 +6847,8 @@ async def opu_kaydet(request: Request, cycle_id: int):
     try:
         yeni = {
             "opu_zamani": zaman(f.get("opu_zamani"), "OPU zamanı"),
-            "opu_sag_oosit": tam(f.get("opu_sag_oosit"), "Sağ over oosit sayısı"),
-            "opu_sol_oosit": tam(f.get("opu_sol_oosit"), "Sol over oosit sayısı"),
+            "opu_sag_oosit": tam(f.get("opu_sag_oosit"), "Sağ over yumurta sayısı"),
+            "opu_sol_oosit": tam(f.get("opu_sol_oosit"), "Sol over yumurta sayısı"),
         }
     except FormHatasi as e:
         return RedirectResponse(

@@ -15,7 +15,7 @@
 <div class="kart">
   <h2>Bu tedaviye bağlı kayıtlar</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>Oosit / embriyo</dt><dd>{{ s.oosit }}</dd></div>
+    <div class="veri"><dt>Yumurta / embriyo</dt><dd>{{ s.oosit }}</dd></div>
     <div class="veri"><dt>İşlem kaydı</dt><dd>{{ s.olay }}</dd></div>
     <div class="veri"><dt>Bulgu</dt><dd>{{ s.bulgu }}</dd></div>
     <div class="veri"><dt>Fotoğraf</dt><dd>{{ s.goruntu }}</dd></div>
@@ -37,7 +37,7 @@
   <h2>Transfer kayıtları</h2>
   {% for t in transferler %}
   <div class="satir" style="cursor:default">
-    <div class="ad">{{ t.kaynak_cycle }} · oosit {{ t.cycle_sira_no }}</div>
+    <div class="ad">{{ t.kaynak_cycle }} · yumurta {{ t.cycle_sira_no }}</div>
     <div class="meta">
       {{ gg_aa_yyyy_saat(t.zaman) }}{% if t.transfer_cycle and t.transfer_cycle != t.kaynak_cycle %}
       · {{ t.transfer_cycle }} tedavisinde transfer{% endif %}
@@ -76,7 +76,7 @@
   <div id="silUyari" hidden>
     <div class="tehlike">
       <strong>Bu işlem geri alınamaz.</strong><br>
-      {{ s.oosit }} oosit, {{ s.olay }} işlem kaydı ve {{ s.goruntu }} fotoğraf
+      {{ s.oosit }} yumurta, {{ s.olay }} işlem kaydı ve {{ s.goruntu }} fotoğraf
       kalıcı olarak silinecek. Arşivdeki dosyalar diskten kaldırılacak.
       {% if s.tasiyici %}
       Bu tedavinin embriyolarını tutan {{ s.tasiyici }} taşıyıcı boşalacak ve
@@ -127,7 +127,7 @@
   });
   document.getElementById('silform').addEventListener('submit', function (e) {
     if (document.querySelector('input[name="eylem"]:checked').value !== 'sil') return;
-    if (!confirm('{{ s.oosit }} oosit ve {{ s.goruntu }} fotoğraf kalıcı olarak ' +
+    if (!confirm('{{ s.oosit }} yumurta ve {{ s.goruntu }} fotoğraf kalıcı olarak ' +
                  'silinecek. Bu işlem geri alınamaz. Devam edilsin mi?')) {
       e.preventDefault();
     }

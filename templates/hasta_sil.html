@@ -15,7 +15,7 @@
   <h2>Bu hastaya bağlı kayıtlar</h2>
   <dl style="margin:0">
     <div class="veri"><dt>Tedavi</dt><dd>{{ s.cycle }}</dd></div>
-    <div class="veri"><dt>Oosit / embriyo</dt><dd>{{ s.oosit }}</dd></div>
+    <div class="veri"><dt>Yumurta / embriyo</dt><dd>{{ s.oosit }}</dd></div>
     <div class="veri"><dt>İşlem kaydı</dt><dd>{{ s.olay }}</dd></div>
     <div class="veri"><dt>Fotoğraf</dt><dd>{{ s.goruntu }}</dd></div>
     <div class="veri"><dt>Gebelik sonucu</dt><dd>{{ s.gebelik }}</dd></div>
@@ -33,7 +33,7 @@
   <h2>Transfer kayıtları</h2>
   {% for t in transferler %}
   <div class="satir" style="cursor:default">
-    <div class="ad">{{ t.kaynak_cycle }} · oosit {{ t.cycle_sira_no }}</div>
+    <div class="ad">{{ t.kaynak_cycle }} · yumurta {{ t.cycle_sira_no }}</div>
     <div class="meta">
       {{ gg_aa_yyyy_saat(t.zaman) }}{% if t.transfer_cycle and t.transfer_cycle != t.kaynak_cycle %}
       · {{ t.transfer_cycle }} tedavisinde transfer{% endif %}
@@ -72,7 +72,7 @@
   <div id="silUyari" hidden>
     <div class="tehlike">
       <strong>Bu işlem geri alınamaz.</strong><br>
-      {{ s.cycle }} tedavi, {{ s.oosit }} oosit, {{ s.olay }} işlem kaydı ve
+      {{ s.cycle }} tedavi, {{ s.oosit }} yumurta, {{ s.olay }} işlem kaydı ve
       {{ s.goruntu }} fotoğraf kalıcı olarak silinecek. Arşiv klasöründeki
       dosyalar da diskten kaldırılacak.
     </div>

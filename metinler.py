@@ -85,7 +85,7 @@ METINLER = {
     # ---- program ve genel ----
     "program_adi": {"tr": "Patient Data Center", "en": "Patient Data Center"},
     "giris_aciklama": {
-        "tr": "IVF laboratuvarının hasta, tedavi ve oosit kayıtlarını tuttuğu "
+        "tr": "IVF laboratuvarının hasta, tedavi ve yumurta kayıtlarını tuttuğu "
               "program. Klinik içi ağda çalışır, veriler bu cihazın dışına "
               "çıkmaz.",
         "en": "Keeps this IVF lab's patient, cycle and oocyte records. Runs "
@@ -339,15 +339,15 @@ METINLER = {
         "en": "Enter the time of day as well — the OPU and ICSI intervals are "
               "calculated from it."},
     "opu_zamani": {"tr": "OPU zamanı", "en": "OPU time"},
-    "opu_oosit_sayilari": {"tr": "OPU'da toplanan oosit sayıları",
+    "opu_oosit_sayilari": {"tr": "OPU'da toplanan yumurta sayıları",
                            "en": "Oocytes collected at OPU"},
     "sag_overden": {"tr": "Sağ overden toplanan",
                     "en": "Collected from right ovary"},
     "sol_overden": {"tr": "Sol overden toplanan",
                     "en": "Collected from left ovary"},
-    "sag_overden_oosit": {"tr": "Sağ overden toplanan oosit",
+    "sag_overden_oosit": {"tr": "Sağ overden toplanan yumurta",
                           "en": "Oocytes collected from right ovary"},
-    "sol_overden_oosit": {"tr": "Sol overden toplanan oosit",
+    "sol_overden_oosit": {"tr": "Sol overden toplanan yumurta",
                           "en": "Oocytes collected from left ovary"},
     "bos_birakilirsa_null": {
         "tr": "Boş bırakılırsa \"girilmedi\" olarak kalır, sıfır yazılmaz.",
@@ -366,7 +366,7 @@ METINLER = {
     # Oosit → zigot → embriyo aynı örnektir, kod değişmez; değişen sadece
     # ekrandaki isim (CLAUDE.md). O isim buradan geliyor.
     "ornek_ad": {"tr": "Örnek", "en": "Sample"},
-    "oosit_ad": {"tr": "Oosit", "en": "Oocyte"},
+    "oosit_ad": {"tr": "Yumurta", "en": "Oocyte"},
     "zigot_ad": {"tr": "Zigot", "en": "Zygote"},
     "cleavage_ad": {"tr": "Cleavage", "en": "Cleavage"},
     "blastokist_ad": {"tr": "Blastokist", "en": "Blastocyst"},
@@ -545,9 +545,9 @@ METINLER = {
 
     # ---- ICSI ----
     "henuz_oosit_yok_icsi": {
-        "tr": "Bu tedavide henüz oosit yok.",
+        "tr": "Bu tedavide henüz yumurta yok.",
         "en": "There are no oocytes in this cycle yet."},
-    "once_denudasyon": {"tr": "Önce denüdasyon ekranından oositleri oluştur.",
+    "once_denudasyon": {"tr": "Önce denüdasyon ekranından yumurtaları oluştur.",
                         "en": "Create the oocytes from the denudation screen first."},
     "denudasyon_ekrani": {"tr": "Denüdasyon ekranı", "en": "Denudation screen"},
     "n_m_kaydedildi": {"tr": "{n} / {m} kaydedildi", "en": "{n} / {m} recorded"},
@@ -558,9 +558,9 @@ METINLER = {
     "bu_asamada_fotograf_yok": {"tr": "Bu aşamaya ait fotoğraf yok.",
                                 "en": "No photo for this stage."},
     "maturasyon": {"tr": "Maturasyon", "en": "Maturation"},
-    "oosit_bulgulari": {"tr": "Oosit bulguları", "en": "Oocyte findings"},
+    "oosit_bulgulari": {"tr": "Yumurta bulguları", "en": "Oocyte findings"},
     "bulgu_yok": {"tr": "Bulgu yok", "en": "No findings"},
-    "oosit_degerlendirmesi": {"tr": "Oosit değerlendirmesi",
+    "oosit_degerlendirmesi": {"tr": "Yumurta değerlendirmesi",
                               "en": "Oocyte assessment"},
     "temizle": {"tr": "Temizle", "en": "Clear"},
     "tamam": {"tr": "Tamam", "en": "Done"},
@@ -578,15 +578,15 @@ METINLER = {
         "tr": "Şu an dolu geliyor. Geriye dönük kayıt giriyorsan değiştir.",
         "en": "Prefilled with the current time. Change it if you are entering "
               "a record after the fact."},
-    "kaydet_sonraki_oosit": {"tr": "Kaydet ve sonraki oosit",
+    "kaydet_sonraki_oosit": {"tr": "Kaydet ve sonraki yumurta",
                              "en": "Save and next oocyte"},
     "zaman_operator_otomatik": {
         "tr": "Zaman ve operatör otomatik kaydedilir.",
         "en": "Time and operator are recorded automatically."},
-    "oosit_n_fotograf_ekle": {"tr": "Oosit {n} için fotoğraf ekle",
+    "oosit_n_fotograf_ekle": {"tr": "Yumurta {n} için fotoğraf ekle",
                               "en": "Add a photo for oocyte {n}"},
     "secimleri_geri_al": {"tr": "Seçimleri geri al", "en": "Reset selections"},
-    "bu_oositin_kaydini_sil": {"tr": "Bu oositin kaydını sil",
+    "bu_oositin_kaydini_sil": {"tr": "Bu yumurtanın kaydını sil",
                                "en": "Delete this oocyte's record"},
 
     # ---- snapshot / eşleştirme ----
@@ -594,13 +594,13 @@ METINLER = {
                         "en": "{n} frames waiting in the camera folder"},
     "n_kare_bekliyor_tekil": {"tr": "Kamera klasöründe {n} kare bekliyor",
                               "en": "{n} frame waiting in the camera folder"},
-    "kareyi_oosite_ekle": {"tr": "Bu kareyi oosit {n}'e ekle",
+    "kareyi_oosite_ekle": {"tr": "Bu kareyi yumurta {n}'e ekle",
                            "en": "Add this frame to oocyte {n}"},
     "n_karenin_hepsini_ekle": {"tr": "{n} karenin hepsini ekle",
                                "en": "Add all {n} frames"},
-    "oositlere_dagit": {"tr": "oositlere tek tek dağıt ({n} kare)",
+    "oositlere_dagit": {"tr": "yumurtalara tek tek dağıt ({n} kare)",
                         "en": "distribute to oocytes one by one ({n} frames)"},
-    "oositlere_dagit_tekil": {"tr": "oositlere tek tek dağıt ({n} kare)",
+    "oositlere_dagit_tekil": {"tr": "yumurtalara tek tek dağıt ({n} kare)",
                               "en": "distribute to oocytes one by one ({n} frame)"},
     "goruntu_eslestirme": {"tr": "Görüntü eşleştirme", "en": "Match images"},
 
@@ -613,11 +613,11 @@ METINLER = {
     "icsiden_bu_yana_tekil": {
         "tr": "ICSI'den bu yana <strong>{n} saat</strong> · hedef {h} saat",
         "en": "<strong>{n} hour</strong> since ICSI · target {h} hours"},
-    "icsi_kaydi_yok": {"tr": "Bu oosite ICSI kaydı yok",
+    "icsi_kaydi_yok": {"tr": "Bu yumurtaya ICSI kaydı yok",
                        "en": "There is no ICSI record for this oocyte"},
     "icsi_yapilmadi": {"tr": "ICSI yapılmadı", "en": "ICSI was not performed"},
     "icsi_yapilmadi_fert_form_yok": {
-        "tr": "ICSI yapılmadığı için bu oosite fertilizasyon kaydı girilmiyor.",
+        "tr": "ICSI yapılmadığı için bu yumurtaya fertilizasyon kaydı girilmiyor.",
         "en": "No fertilization record is entered for this oocyte because "
               "ICSI was not performed."},
     "maturasyon_kucuk": {"tr": "maturasyon", "en": "maturation"},
@@ -637,7 +637,7 @@ METINLER = {
     "gun_n_degerlendirme": {"tr": "Cleavage · Gün {n}", "en": "Cleavage · Day {n}"},
     "gun_n_buyuk": {"tr": "Gün {n}", "en": "Day {n}"},
     "fert_kontrolunde_npn": {
-        "tr": "Bu oosit fertilizasyon kontrolünde {n}PN idi.",
+        "tr": "Bu yumurta fertilizasyon kontrolünde {n}PN idi.",
         "en": "This oocyte was {n}PN at the fertilization check."},
     "hucre_sayisi": {"tr": "Hücre sayısı", "en": "Cell count"},
     "fragmentasyon": {"tr": "Fragmentasyon (%)", "en": "Fragmentation (%)"},
@@ -658,7 +658,7 @@ METINLER = {
     "su_anki_kayit": {"tr": "Şu anki kayıt:", "en": "Current record:"},
     "elle_girildi": {"tr": "elle girildi", "en": "entered manually"},
     "otomatik": {"tr": "otomatik", "en": "automatic"},
-    "gun_n_kaydini_sil": {"tr": "Bu oositin gün {n} kaydını sil",
+    "gun_n_kaydini_sil": {"tr": "Bu yumurtanın gün {n} kaydını sil",
                           "en": "Delete this oocyte's day {n} record"},
 
     # ---- blastokist ----
@@ -672,7 +672,7 @@ METINLER = {
               "cavitation option or the grade field is missing. Stop the "
               "application and run <code>python goc_010.py</code> and "
               "<code>python goc_011.py</code>."},
-    "henuz_oosit_yok_kisa": {"tr": "Bu tedavide henüz oosit yok.",
+    "henuz_oosit_yok_kisa": {"tr": "Bu tedavide henüz yumurta yok.",
                              "en": "There are no oocytes in this cycle yet."},
     "genisleme": {"tr": "Genişleme", "en": "Expansion"},
     "genisleme_ipucu": {
@@ -802,16 +802,16 @@ METINLER = {
     "dogum_kilosu": {"tr": "Doğum kilosu (kg)", "en": "Birth weight (kg)"},
 
     # ---- fotoğraf ekleme / görüntü silme ----
-    "hangi_oosite": {"tr": "Hangi oosite", "en": "To which oocyte"},
-    "her_dosya_ayri_oosit": {"tr": "Her dosya ayrı oosit olsun (yeni numaralar)",
+    "hangi_oosite": {"tr": "Hangi yumurtaya", "en": "To which oocyte"},
+    "her_dosya_ayri_oosit": {"tr": "Her dosya ayrı yumurta olsun (yeni numaralar)",
                              "en": "Each file its own oocyte (new numbers)"},
-    "oosite_baglama": {"tr": "Oosite bağlama — tedavi arşivine koy",
+    "oosite_baglama": {"tr": "Yumurtaya bağlama — tedavi arşivine koy",
                        "en": "Do not link to an oocyte — put in the cycle archive"},
     "asama": {"tr": "Aşama", "en": "Stage"},
     "dosyalar": {"tr": "Dosyalar", "en": "Files"},
     "foto_ekle_ipucu": {
-        "tr": "Birden fazla seçebilirsin. \"Her dosya ayrı oosit\" seçiliyse her "
-              "dosya kendi oosit numarasını alır; belirli bir oosit seçiliyse "
+        "tr": "Birden fazla seçebilirsin. \"Her dosya ayrı yumurta\" seçiliyse her "
+              "dosya kendi yumurta numarasını alır; belirli bir yumurta seçiliyse "
               "hepsi ona eklenir. En fazla 25 MB, jpg/png/tif/bmp/webp.",
         "en": "You can select more than one. With \"each file its own oocyte\" "
               "every file gets its own oocyte number; if a specific oocyte is "
@@ -820,7 +820,7 @@ METINLER = {
     "yukle": {"tr": "Yükle", "en": "Upload"},
     "goruntuyu_sil": {"tr": "Görüntüyü sil", "en": "Delete image"},
     "goruntu_kalici_silinecek": {
-        "tr": "<strong>Bu görüntü kalıcı olarak silinecek.</strong><br>Oosit "
+        "tr": "<strong>Bu görüntü kalıcı olarak silinecek.</strong><br>Yumurta "
               "kaydı silinmez, yalnızca bu fotoğraf.",
         "en": "<strong>This image will be permanently deleted.</strong><br>The "
               "oocyte record is not deleted, only this photo."},
@@ -854,19 +854,19 @@ METINLER = {
               "and when."},
 
     # ---- oosit silme ----
-    "oositi_sil": {"tr": "Oositi sil", "en": "Delete oocyte"},
+    "oositi_sil": {"tr": "Yumurtayı sil", "en": "Delete oocyte"},
     "ornek_n": {"tr": "Örnek {n}", "en": "Sample {n}"},
-    "oosit_silinemez": {"tr": "<strong>Bu oosit silinemez.</strong>",
+    "oosit_silinemez": {"tr": "<strong>Bu yumurta silinemez.</strong>",
                         "en": "<strong>This oocyte cannot be deleted.</strong>"},
     "oosit_silinemez_sebep": {
         "tr": "{n} işlem kaydı bağlı (maturasyon, ICSI, fertilizasyon gibi). "
-              "Klinik işlem kaydı olan bir oosit silinmez. Önce ilgili işlem "
+              "Klinik işlem kaydı olan bir yumurta silinmez. Önce ilgili işlem "
               "kayıtları iptal edilmeli.",
         "en": "{n} procedure records are linked (maturation, ICSI, "
               "fertilization and the like). An oocyte with clinical procedure "
               "records is not deleted. Cancel those records first."},
     "oosit_kalici_silinecek": {
-        "tr": "<strong>Bu oosit kalıcı olarak silinecek.</strong>",
+        "tr": "<strong>Bu yumurta kalıcı olarak silinecek.</strong>",
         "en": "<strong>This oocyte will be permanently deleted.</strong>"},
     "bagli_n_fotograf_silinir": {
         "tr": "Bağlı {n} fotoğraf da silinir. Kameradan gelenler denüdasyon "
@@ -877,7 +877,7 @@ METINLER = {
               "camera folder are untouched."},
     "bagli_fotograf_yok": {"tr": "Bağlı fotoğraf yok.", "en": "No linked photos."},
     "numara_boslugu": {
-        "tr": "Numara boşluğu oluşabilir: 1, 2, 4 gibi. Verilen oosit "
+        "tr": "Numara boşluğu oluşabilir: 1, 2, 4 gibi. Verilen yumurta "
               "kimlikleri kalıcıdır, geriye dönük numaralandırma yapılmaz.",
         "en": "A gap in the numbering may appear: 1, 2, 4 and so on. Oocyte "
               "identifiers once assigned are permanent; they are never "
@@ -886,7 +886,7 @@ METINLER = {
     # ---- ICSI kaydı silme ----
     "icsi_kaydini_sil": {"tr": "ICSI kaydını sil", "en": "Delete ICSI record"},
     "icsi_kaydi_bulunamadi": {
-        "tr": "Bu oosite ait kaydedilmiş bir ICSI kaydı yok.",
+        "tr": "Bu yumurtaya ait kaydedilmiş bir ICSI kaydı yok.",
         "en": "There is no saved ICSI record for this oocyte."},
     "kaydete_basilmamis": {
         "tr": "Ekranda seçim yaptıysan Kaydet'e basılmamış demektir;",
@@ -895,11 +895,11 @@ METINLER = {
         "tr": "geri dönüp \"Seçimleri geri al\" ile temizleyebilirsin.",
         "en": "go back and clear them with \"Reset selections\"."},
     "icsi_kaydi_temizlenecek": {
-        "tr": "<strong>Bu oositin ICSI kaydı temizlenecek.</strong>",
+        "tr": "<strong>Bu yumurtanın ICSI kaydı temizlenecek.</strong>",
         "en": "<strong>The ICSI record for this oocyte will be cleared.</strong>"},
     "oosit_fotograf_durur": {
-        "tr": "Oosit ve fotoğrafları durur, yalnızca aşağıdaki değerlendirme "
-              "silinir. Oositi yeniden değerlendirebilirsin.",
+        "tr": "Yumurta ve fotoğrafları durur, yalnızca aşağıdaki değerlendirme "
+              "silinir. Yumurtayı yeniden değerlendirebilirsin.",
         "en": "The oocyte and its photos remain; only the assessment below is "
               "deleted. You can assess the oocyte again."},
 
@@ -907,17 +907,17 @@ METINLER = {
     "fert_kaydini_sil": {"tr": "Fertilizasyon kaydını sil",
                          "en": "Delete fertilization record"},
     "fert_kaydi_bulunamadi": {
-        "tr": "Bu oosite ait kaydedilmiş fertilizasyon kaydı yok.",
+        "tr": "Bu yumurtaya ait kaydedilmiş fertilizasyon kaydı yok.",
         "en": "There is no saved fertilization record for this oocyte."},
     "kaydete_basilmamis_kisa": {
         "tr": "Ekranda seçim yaptıysan Kaydet'e basılmamış demektir.",
         "en": "If you made selections on the screen, Save was not pressed."},
     "fert_kaydi_temizlenecek": {
-        "tr": "<strong>Bu oositin fertilizasyon kaydı temizlenecek.</strong>",
+        "tr": "<strong>Bu yumurtanın fertilizasyon kaydı temizlenecek.</strong>",
         "en": "<strong>The fertilization record for this oocyte will be "
               "cleared.</strong>"},
     "fert_sil_aciklama": {
-        "tr": "Oosit, fotoğrafları ve ICSI kaydı durur. Yalnızca aşağıdaki "
+        "tr": "Yumurta, fotoğrafları ve ICSI kaydı durur. Yalnızca aşağıdaki "
               "değerlendirme silinir.",
         "en": "The oocyte, its photos and the ICSI record remain. Only the "
               "assessment below is deleted."},
@@ -925,20 +925,20 @@ METINLER = {
     "pn_skoru": {"tr": "PN skoru", "en": "PN score"},
     "gun_n_kaydini_sil_baslik": {"tr": "Gün {n} kaydını sil",
                                  "en": "Delete day {n} record"},
-    "gun_n_kaydi_bulunamadi": {"tr": "Bu oosite ait kaydedilmiş gün {n} kaydı yok.",
+    "gun_n_kaydi_bulunamadi": {"tr": "Bu yumurtaya ait kaydedilmiş gün {n} kaydı yok.",
                                "en": "There is no saved day {n} record for this "
                                      "oocyte."},
     "gun_n_degerlendirme_temizlenecek": {
         "tr": "<strong>Gün {n} değerlendirmesi temizlenecek.</strong>",
         "en": "<strong>The day {n} assessment will be cleared.</strong>"},
     "diger_asamalar_durur": {
-        "tr": "Oosit, fotoğrafları ve diğer aşamaların kayıtları durur.",
+        "tr": "Yumurta, fotoğrafları ve diğer aşamaların kayıtları durur.",
         "en": "The oocyte, its photos and the records of the other stages "
               "remain."},
     "blast_kaydini_sil": {"tr": "Blastokist kaydını sil",
                           "en": "Delete blastocyst record"},
     "blast_kaydi_bulunamadi": {
-        "tr": "Bu oosite ait gün {n} blastokist kaydı yok.",
+        "tr": "Bu yumurtaya ait gün {n} blastokist kaydı yok.",
         "en": "There is no day {n} blastocyst record for this oocyte."},
     "blast_degerlendirme_temizlenecek": {
         "tr": "<strong>Gün {n} blastokist değerlendirmesi temizlenecek.</strong>",
@@ -977,13 +977,13 @@ METINLER = {
                           "en": "It must be corrected in the settings."},
     "denudasyon_zamani": {"tr": "Denüdasyon zamanı", "en": "Denudation time"},
     "denudasyon_zamani_ipucu": {
-        "tr": "İlk oosit kaydedildiğinde otomatik dolar. Gerekirse düzelt.",
+        "tr": "İlk yumurta kaydedildiğinde otomatik dolar. Gerekirse düzelt.",
         "en": "Filled in automatically when the first oocyte is recorded. "
               "Correct it if needed."},
     "toplandigi_over": {"tr": "Toplandığı over", "en": "Ovary collected from"},
     "belirtme": {"tr": "Belirtme", "en": "Unspecified"},
     "taraf_ipucu": {
-        "tr": "Bundan sonra oluşturulan oositlere bu taraf yazılır. Sağ overi "
+        "tr": "Bundan sonra oluşturulan yumurtalara bu taraf yazılır. Sağ overi "
               "bitirip sola geçerken değiştir.",
         "en": "Oocytes created from now on are recorded with this side. "
               "Change it when you finish the right ovary and move to the left."},
@@ -994,19 +994,19 @@ METINLER = {
         "en": "The copy may be incomplete. Copy them again from the source."},
     "n_goruntu_bekliyor": {"tr": "{n} görüntü bekliyor", "en": "{n} images waiting"},
     "n_goruntu_bekliyor_tekil": {"tr": "{n} görüntü bekliyor", "en": "{n} image waiting"},
-    "oosit_n": {"tr": "Oosit {n}", "en": "Oocyte {n}"},
+    "oosit_n": {"tr": "Yumurta {n}", "en": "Oocyte {n}"},
     "siradaki_goruntu": {"tr": "Sıradaki görüntü", "en": "Next image"},
-    "kaydet_oosit_n": {"tr": "Kaydet → oosit {n}", "en": "Save → oocyte {n}"},
-    "ayni_oosite_ekle": {"tr": "Aynı oosite ekle", "en": "Add to the same oocyte"},
+    "kaydet_oosit_n": {"tr": "Kaydet → yumurta {n}", "en": "Save → oocyte {n}"},
+    "ayni_oosite_ekle": {"tr": "Aynı yumurtaya ekle", "en": "Add to the same oocyte"},
     "atla": {"tr": "Atla", "en": "Skip"},
-    "fotografsiz_oosit": {"tr": "Fotoğrafsız oosit", "en": "Oocyte without photo"},
-    "fotografsiz_oosit_ekle": {"tr": "Fotoğrafsız oosit ekle",
+    "fotografsiz_oosit": {"tr": "Fotoğrafsız yumurta", "en": "Oocyte without photo"},
+    "fotografsiz_oosit_ekle": {"tr": "Fotoğrafsız yumurta ekle",
                                "en": "Add oocyte without photo"},
     "bekleyen_kalmadi": {"tr": "Bekleyen görüntü kalmadı.",
                          "en": "No images left waiting."},
-    "n_oosit_kaydedildi": {"tr": "{n} oosit kaydedildi.",
+    "n_oosit_kaydedildi": {"tr": "{n} yumurta kaydedildi.",
                            "en": "{n} oocytes recorded."},
-    "n_oosit_kaydedildi_tekil": {"tr": "{n} oosit kaydedildi.", "en": "{n} oocyte recorded."},
+    "n_oosit_kaydedildi_tekil": {"tr": "{n} yumurta kaydedildi.", "en": "{n} oocyte recorded."},
     "klasorde_yeni_yok": {"tr": "Klasörde yeni görüntü yok.",
                           "en": "No new images in the folder."},
     "kameradan_kare_al": {"tr": "Kameradan kare alıp sayfayı yenile.",
@@ -1014,21 +1014,21 @@ METINLER = {
     "yenile": {"tr": "Yenile", "en": "Refresh"},
     "son_kaydi_geri_al": {"tr": "Son kaydı geri al", "en": "Undo last record"},
     "elle_fotograf_ekle": {"tr": "Elle fotoğraf ekle", "en": "Add photo manually"},
-    "kaydedilen_oositler": {"tr": "Kaydedilen oositler", "en": "Recorded oocytes"},
-    "henuz_oosit_kaydedilmedi": {"tr": "Henüz oosit kaydedilmedi.",
+    "kaydedilen_oositler": {"tr": "Kaydedilen yumurtalar", "en": "Recorded oocytes"},
+    "henuz_oosit_kaydedilmedi": {"tr": "Henüz yumurta kaydedilmedi.",
                                  "en": "No oocytes recorded yet."},
-    "n_oosit_hazirla": {"tr": "{n} oosit için kayıt hazırla",
+    "n_oosit_hazirla": {"tr": "{n} yumurta için kayıt hazırla",
                         "en": "Prepare {n} oocyte records"},
-    "n_oosit_hazirla_tekil": {"tr": "{n} oosit için kayıt hazırla",
+    "n_oosit_hazirla_tekil": {"tr": "{n} yumurta için kayıt hazırla",
                               "en": "Prepare {n} oocyte record"},
     "oosit_hazirla_ipucu": {
-        "tr": "OPU'da toplanan sayı kadar, fotoğrafsız oosit kaydı açar "
-              "(Oosit 1, Oosit 2, ...). Fotoğrafı sonra tek tek ekleyebilirsin.",
+        "tr": "OPU'da toplanan sayı kadar, fotoğrafsız yumurta kaydı açar "
+              "(Yumurta 1, Yumurta 2, ...). Fotoğrafı sonra tek tek ekleyebilirsin.",
         "en": "Opens as many photo-less oocyte records as OPU collected "
               "(Oocyte 1, Oocyte 2, ...). You can add photos to each one later."},
 
     # ---- cycle detay ----
-    "toplanan_oosit": {"tr": "Toplanan oosit", "en": "Oocytes collected"},
+    "toplanan_oosit": {"tr": "Toplanan yumurta", "en": "Oocytes collected"},
     "sag": {"tr": "sağ", "en": "right"},
     # Rozet/etiket biçimi: cümle başı gibi büyük harfle. `sag`/`sol` küçük
     # harfli, cümle içinde geçtiği için ("sağ 5 · sol 4").
@@ -1056,7 +1056,7 @@ METINLER = {
     "ozet_cleavage": {"tr": "Cleavage sayısı", "en": "Cleavage count"},
     "ozet_blastokist": {"tr": "Blastokist sayısı", "en": "Blastocyst count"},
     "cycle_arsivi": {"tr": "Tedavi arşivi", "en": "Cycle archive"},
-    "oosite_baglanmamis": {"tr": "Oosite bağlanmamış fotoğraflar.",
+    "oosite_baglanmamis": {"tr": "Yumurtaya bağlanmamış fotoğraflar.",
                            "en": "Photos not linked to an oocyte."},
     "arsivi_temizle": {"tr": "arşivi temizle", "en": "clear archive"},
     "fotograf_ekle": {"tr": "Fotoğraf ekle", "en": "Add photo"},
@@ -1089,7 +1089,7 @@ METINLER = {
     "tip_ivf_icsi": {"tr": "IVF/ICSI", "en": "IVF/ICSI"},
     "tip_fet": {"tr": "FET", "en": "FET"},
     "tip_fet_kultur": {"tr": "FET (3→5)", "en": "FET (D3→5)"},
-    "tip_oosit_cryo": {"tr": "Oosit cryo", "en": "Oocyte cryo"},
+    "tip_oosit_cryo": {"tr": "Yumurta Dondurma", "en": "Oocyte cryo"},
     "tip_yumurta_cozme": {"tr": "Yumurta Çözme", "en": "Egg Thaw"},
     "tip_taze": {"tr": "IVF/ICSI", "en": "IVF/ICSI"},
 
@@ -1104,7 +1104,7 @@ METINLER = {
     "opu_hekimi": {"tr": "OPU Hekimi", "en": "OPU Physician"},
 
     # ---- örnek ızgarası ve bilgi kartı (her aşamada aynı düzen) ----
-    "oosit_ekle": {"tr": "Oosit ekle", "en": "Add oocyte"},
+    "oosit_ekle": {"tr": "Yumurta ekle", "en": "Add oocyte"},
     "fotografsiz": {"tr": "fotoğrafsız", "en": "no photo"},
     "buyuk_goster": {"tr": "Büyük göster", "en": "Show larger"},
     "tam_ekran": {"tr": "Tam ekran", "en": "Full screen"},
@@ -1272,7 +1272,7 @@ METINLER = {
     "hasta_kaydi": {"tr": "Hasta kartı", "en": "Patient card"},
     "bitis_dondurma": {"tr": "Dondurma tamamlandı", "en": "Freezing completed"},
     "bitis_dondurma_ipucu": {
-        "tr": "Embriyolar / oositler donduruldu, taze transfer yok.",
+        "tr": "Embriyolar / yumurtalar donduruldu, taze transfer yok.",
         "en": "Embryos / oocytes frozen, no fresh transfer."},
     "bitis_transfer": {"tr": "Transfer yapıldı", "en": "Transfer done"},
     "bitis_transfer_ipucu": {
@@ -1343,7 +1343,7 @@ METINLER = {
     "istatistikler": {"tr": "İstatistikler", "en": "Statistics"},
     "genel_toplam": {"tr": "Genel toplam", "en": "Overall"},
     "oranlar": {"tr": "Oranlar", "en": "Rates"},
-    "oran_mii": {"tr": "M2 oranı (MII / kayıtlı oosit)",
+    "oran_mii": {"tr": "M2 oranı (MII / kayıtlı yumurta)",
                  "en": "M2 rate (MII / recorded oocytes)"},
     "oran_fert": {"tr": "Fertilizasyon oranı (2PN / ICSI)",
                   "en": "Fertilization rate (2PN / ICSI)"},
@@ -1535,7 +1535,7 @@ METINLER = {
         "en": "This operation is irreversibly risky."},
     "geri_yukle_uyari_govde": {
         "tr": "Seçtiğin yedek, o yedeğin alındığı andan bu yana girilmiş "
-              "TÜM hasta, tedavi, oosit ve işlem kayıtlarının üzerine "
+              "TÜM hasta, tedavi, yumurta ve işlem kayıtlarının üzerine "
               "yazar. Devam etmeden önce mevcut veritabanının bir güvenlik "
               "kopyası otomatik alınır (yedek klasörüne "
               "<code>lab_ONCEKI_...</code> adıyla) -- yanlış yedek "
@@ -1825,7 +1825,7 @@ METINLER = {
     "duzenle": {"tr": "Düzenle", "en": "Edit"},
     "dogum_tarihi_kisa": {"tr": "D.T.", "en": "DOB"},
     "yeni_cycle_ac": {"tr": "Yeni tedavi aç", "en": "Open new cycle"},
-    "oosit_kucuk": {"tr": "oosit", "en": "oocytes"},
+    "oosit_kucuk": {"tr": "yumurta", "en": "oocytes"},
     "bu_hastada_cycle_yok": {"tr": "Bu hastada henüz tedavi yok.",
                              "en": "No cycles for this patient yet."},
     "not": {"tr": "Not", "en": "Note"},

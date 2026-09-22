@@ -76,7 +76,7 @@ değişikliği gerekmeden doğru çalışıyor.
 sırayla dağıtılıyor. Her tedavinin protokol notunda bu satır duruyor, yani
 ekranda da resmî formda da görünüyor:
 
-    Oosit kayıtları toplam sayılardan üretildi, tek tek gözlem değildir.
+    Yumurta kayıtları toplam sayılardan üretildi, tek tek gözlem değildir.
 
 Dağıtım kuralı (tek yerde, `_oositleri_ac()`): önce MII'ler, sonra immatür,
 sonra empty zona, dejenere, atretik. ICSI önce MII'lere veriliyor; İŞLEME
@@ -654,7 +654,7 @@ def _not_kur(r: dict) -> str:
                  "embriyoların dondurulduğu tedavi programda yok. "
                  + _isaret(r["kimlik"]))
     else:
-        p.append("Program öncesi Access kaydından aktarıldı; oosit kayıtları "
+        p.append("Program öncesi Access kaydından aktarıldı; yumurta kayıtları "
                  "toplam sayılardan üretildi, tek tek gözlem değildir. "
                  + _isaret(r["kimlik"]))
     return "\n".join(textwrap.fill(satir, 68) for satir in p)
