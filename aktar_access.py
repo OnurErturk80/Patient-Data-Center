@@ -711,6 +711,15 @@ _IPTAL_AYRINTI = (
                          "KLIVAJ ASAMASINDA EMBRIYO ARRE")),
     ("gun5_arrest", ("5. GUN EMBRIYO ARRE", "5.GUN EMBRIYO ARRE",
                      "D5 EMBRIYO ARRE", "D5 ARRE", "BLASTOKIST ARRE")),
+    # v6.149 (mayıs): "OPUDA OOSİT ÇIKMADI", "İNMATÜR OOSİT SEBEBİYLE" --
+    # programdaki sebeplerin (v6.103) adıyla birebir aynı söz, yorum değil.
+    # Arrest/fertilizasyon kalıplarından SONRA: iki sebep birden yazıyorsa
+    # işlemin daha ileri aşamadaki sonu kazanır.
+    ("yumurta_cikmadi", ("OOSIT CIKMA", "YUMURTA CIKMA",
+                         "OOSIT ELDE EDILEME", "YUMURTA ELDE EDILEME")),
+    ("immatur_yumurta", ("IMMATUR OOSIT SEBEB", "INMATUR OOSIT SEBEB",
+                         "IMMATUR YUMURTA SEBEB", "INMATUR YUMURTA SEBEB",
+                         "IMMATUR OLDUG", "INMATUR OLDUG")),
 )
 
 
@@ -739,13 +748,16 @@ _IPTAL_AYRINTI = (
 #   "kalanlar arasında" sayılıyor, yani dondurulmuşlar (`ortuk` grubu).
 #   Temmuzdaki bir FET o (3CB)'yi transfer ediyor -- gerçekten tanktaydı.
 # "REFREEZE YAPILAMADI" (arrest yüzünden dondurulamadı) bir dondurma değil.
+# Parantez içindeki "(REFREEZE)" da fiil değil, etiket (v6.149, mayıs: "(1CB)
+# ŞEKLİNDE (REFREEZE) DONDURULARAK SAKLANDI") -- fiil sayılsaydı skor fiilin
+# ARKASINDA aranıyor, (1CB) kaçıyor ve "(REFREEZE)" tüp sanılıyordu.
 # FET'te bunların çoğu stok cümlesi; ayırt eden `_dondurma_coz()`'ün
 # "fazla" kuralı (çözülen − transfer edilen).
 _DONDURMA_FIILI = re.compile(
     r"DONDUR\w*\s+(?:SAKLAN|KORUN)\w*|DONDURULDU\b|DONDURULMUSTUR\b"
     r"|REFREEZ\w*\s+EDIL(?!EN\b)\w*"
     r"|(?P<sonra>REFREEZ\w*\s+EDILEN\b"
-    r"|REFREEZE?\b(?!\s+(?:EDIL|YAPILA?MA|YAPILMA)))"
+    r"|(?<!\()REFREEZE?\b(?!\s*\))(?!\s+(?:EDIL|YAPILA?MA|YAPILMA)))"
     r"|(?P<ortuk>KULTURE?\s+EDILEN\b)(?=[^.]*\bILE\s+BIR\w*[^.]*\bKALDI)")
 
 
@@ -998,6 +1010,8 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     # dağılırdı. Tek grup oysa zaten tek örnek kuralına düşüyor, sonuç aynı.
     gruplar = []
     for gm in re.finditer(r"\(([^)]*)\)", ham_cumle):
+        if re.fullmatch(r"REFREEZ\w*", _sade(gm.group(1))):
+            continue                    # "(REFREEZE)" etiket, tüp değil
         if (baglam and _TEK_OOSIT.match(_sade(gm.group(1)))
                 and cumle_hizali[:gm.start()].rstrip().endswith("ADET")):
             continue

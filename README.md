@@ -12242,3 +12242,98 @@ kart da artık aynısını basıyor.
 - Bir dosya numarası iki haneli ("99"): Access'te yer tutucu olabilir,
   `liste` "DİKKAT" diyor.
 - v6.146'daki açık soru hâlâ açık.
+
+---
+
+# v6.149 — mayıs 2026 Access kayıtları
+
+Kullanıcının isteği: *"Şimdi diğer claude hesabında yaptığım gibi aynı
+şekilde 2026 mayıs ayı eski hasta kayıtlarını programa ekle."* v6.148'de
+ocak–haziran aktarılırken mayıs dosyası gelmemişti.
+
+Dosya öteki aylarla aynı yapıda: tek tablo (`VERİTABANI`), 92 kolon, 63
+satır. `.accdb` bu oturumda `mdbtools` ile CSV'ye çevrildi
+(`LC_ALL=C.UTF-8 mdb-export dosya.accdb VERİTABANI > mayis.csv` — yerel ayar
+UTF-8 değilse `mdb-export` Türkçe tablo adında "Invalid byte sequence" diye
+duruyor). Kaynak dosya ve CSV depoya girmedi (`.gitignore`); aşağıda
+yalnızca sayılar var.
+
+## Aracın üç düzeltmesi
+
+Önizleme (`liste`) üç yerde yanlış okuyordu; üçü de sessizdi.
+
+**1. Parantez içindeki "(REFREEZE)" fiil sanılıyordu.** Bir FET notu:
+"(1CB) ŞEKLİNDE (REFREEZE) DONDURULARAK SAKLANDI". `_DONDURMA_FIILI`'nin
+yalın `REFREEZE` seçeneği (skor fiilden SONRA yazılır: "REFREEZE (KAVG1)
+KALDI") en soldaki eşleşme olarak bunu yakalıyordu; skor fiilin arkasında
+aranınca (1CB) kaçtı ve tüp olarak ") DONDURULARAK SAKLANDI" yazılacaktı.
+Düzeltme: yalın `REFREEZE` parantez içindeyse fiil değil (`(?<!\()` /
+`(?!\s*\))`), "(REFREEZE)" grubu da tüp sayılmıyor.
+
+**2–3. İki ayrıntılı iptal sebebi hiç tanınmıyordu.** v6.103'ün altı
+sebebinden araç yalnızca üçünü arıyordu (fertilizasyon olmadı, cleavage
+arrest, 5. gün arrest). Mayıs notları öteki ikisini programdaki adıyla
+birebir yazıyor: "OPUDA OOSİT ÇIKMADI" (4 satır) ve "İNMATÜR OOSİT
+SEBEBİYLE" (1 satır). Bunlar genel "İptal"e düşecekti; artık "Yumurta
+Çıkmadı" ve "İmmatür Yumurta". Kalıplar arrest/fertilizasyondan **sonra**
+deneniyor — iki sebep birden yazıyorsa işlemin daha ileri aşamadaki sonu
+kazanır. "EMPTY ZONE" (2 satır) ve "3PN" (1 satır) genel "İptal"de kaldı:
+listede karşılıkları yok (v6.130'un kararı).
+
+**Gerileme denendi.** Öteki ayların CSV'leri bu oturumda yoktu; belgelerde
+geçen gerçek REFREEZE ve dondurma yazımları (fiilden sonra skor, bitmiş fiil,
+"İLE BİRLİKTE ... KALDI", "REFREEZE YAPILAMADI", yumurta ve D3 notları)
+eski ve yeni araçla ayrıştırıldı: hepsi aynı, fark yalnızca hedeflenen
+yazımlarda.
+
+**Önceki aylar:** onlarda da "OOSİT ÇIKMADI" diyen satır varsa genel
+"İptal" olarak aktarıldı. `tamamla` iptal sebebini güncellemiyor; istenirse
+ayrı bir iş.
+
+## Aktarım (test veritabanının kopyasında)
+
+Kullanıcının gerçek veritabanı bu oturumda yoktu. Bu yüzden 63 satırın
+hepsi "yeni hasta" olarak açıldı ve FET'in çözdüğü embriyo hiçbir tüpe
+bağlanamadı. Önceki ayların tüpleri yalnızca kullanıcının makinesinde var;
+bağlama orada olacak.
+
+| | kaynak | program |
+|---|---|---|
+| tedavi | 63 | 63 (32 ivf_icsi, 21 fet, 10 oosit_cryo; 0 hata) |
+| toplanan / MII / ICSI / 2PN | 344 / 247 / 209 / 118 | aynı |
+| transfer | 32 | 32 (30 FET + 2 taze) |
+| dondurulan embriyo | 71 | 71 (2 FET'te 3 yeniden dondurma dahil) |
+| dondurulan yumurta | — | 60 (not metninden), toplam 51 tüp |
+| çözülen | 31 | 33 |
+| iptal | 10 | 4 yumurta çıkmadı, 1 immatür, 1 fert. olmadı, 1 cleavage arrest, 3 genel |
+
+Çözülen farkı kaynağın iki satırından: birinde ÇÖZDÜRÜLEN boş ama bir
+transfer var, ötekinde 2 yazıyor ama 2 transfer ve 1 yeniden dondurma var.
+v6.148'in "transfer + dondurma alttan sınır" kuralı ikisini de doğru sayıyor.
+Tarih düzeltmesi gerekmedi: bütün satırlar 4–21 Mayıs, boş ya da ay dışı
+tarih yok. Uyarı satırı çıkmadı.
+
+- İkinci aktarım 63/63 atladı; ardından `tamamla` hiçbir tabloyu
+  değiştirmedi (sekiz tablo satır satır karşılaştırıldı).
+- `PRAGMA foreign_key_check` ve `integrity_check` temiz.
+- 851 adres 200 döndü: 63 tedavinin her aşama ekranı, hasta kartları, iki
+  resmî form ve Excel'i, bütün taşıyıcı sayfaları, mayıs ay listesi,
+  istatistik, Cryo Excel'i, tam döküm.
+- 126 resmî form sayfası tarayıcıda ölçüldü: JS hatası yok, NOTLAR kutuları
+  kesilmiyor.
+
+## Bilinen, bu sürümde düzeltilmeyen
+
+Embriyoloji Özet'te **19 harflik bir hasta adı ad kutusundan 3 piksel
+taşıyor**, son harf kısmen kesiliyor (128 piksellik kutuya 131 piksel yazı).
+Aktarımla ilgisi yok, programdan girilen uzun bir adda da olur; öteki
+ayların verisinde bu uzunlukta ad çıkmamış. Kimlik bilgisi olduğu için
+ayrıca bildirildi. Çözüm büyük olasılıkla o hücrenin `.tasabilir`
+olması (v6.135'in mekanizması, kalıba dokunmadan).
+
+## Kullanıcının makinesinde
+
+KOMUTLAR.md "Eski Access kayıtları" → "Mayıs 2026". Haziran zaten
+aktarıldıysa mayıstan sonra haziran, temmuz ve ağustos `tamamla` ile yeniden
+geçirilmeli: sonraki ayların FET'lerinin mayısta dondurulan tüpleri ancak o
+zaman bağlanıyor.

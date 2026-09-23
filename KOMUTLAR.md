@@ -202,6 +202,31 @@ python3 aktar_access.py tamamla agustos.csv
 Son iki satır daha önce aktarılmış temmuz ve ağustosu yeni kurallarla
 tamamlıyor — temmuz/ağustos FET'lerinin tüpü ocak–hazirandaysa ona bağlanıyor.
 
+**Mayıs 2026 (v6.149) sonradan geldi.** Tarih düzeltmesi gerekmiyor (63
+satırın hepsinin tarihi mayısta). Ocak–haziranı **henüz aktarmadıysan**
+mayısı nisan ile haziran arasına koy:
+
+```
+python3 aktar_access.py kaynak=NISAN   duzelt=tarih_duzeltme.txt nisan.csv
+python3 aktar_access.py kaynak=MAYIS   mayis.csv
+python3 aktar_access.py kaynak=HAZIRAN duzelt=tarih_duzeltme.txt haziran.csv
+```
+
+**Haziranı zaten aktardıysan** mayısı aktar, sonra ondan sonraki ayları
+`tamamla` ile yeniden geçir — haziran/temmuz/ağustos FET'lerinin mayısta
+dondurulan tüpleri ancak o zaman bağlanıyor ve Cryo Haritası'nda boşalıyor:
+
+```
+python3 aktar_access.py liste   kaynak=MAYIS   mayis.csv
+python3 aktar_access.py         kaynak=MAYIS   mayis.csv
+python3 aktar_access.py tamamla kaynak=HAZIRAN duzelt=tarih_duzeltme.txt haziran.csv
+python3 aktar_access.py tamamla kaynak=TEMMUZ  temmuz.csv
+python3 aktar_access.py tamamla agustos.csv
+```
+
+`kaynak=` etiketi o ayın ilk aktarımındakiyle **aynı** olmalı (`HAZIRAN`,
+`TEMMUZ`; ağustos etiketsiz) — farklı yazılırsa `tamamla` satırları bulamaz.
+
 **`duzelt=` ne işe yarıyor:** Access'te yazım hatasıyla girilmiş tarihlerin
 düzeltmeleri (OPU'su haziran yazan bir ocak tedavisi gibi). Dosyada
 `KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih` satırları var; düzeltme

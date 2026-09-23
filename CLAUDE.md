@@ -20,9 +20,13 @@ re-expansion, FET). Kullanıcı klinik doğruluk konusunda uzman, kod konusunda
 
 **Durum:** çalışır halde. **Gerçek hasta verisi var** — program öncesi
 Access kayıtları (temmuz ve ağustos 2026) `aktar_access.py` ile aktarıldı
-(v6.130, v6.141). Ocak–haziran 2026 (mayıs dosyası gelmedi) v6.148'de
-aktarıma hazırlandı; kullanıcı kendi makinesinde çalıştırıyor — sonraki bir
-işte veri sayısına güvenmeden önce çalıştırıp çalıştırmadığını sor. Göç,
+(v6.130, v6.141). Ocak–haziran 2026 v6.148'de, mayıs 2026 v6.149'da
+(`kaynak=MAYIS`) aktarıma hazırlandı; kullanıcı kendi makinesinde
+çalıştırıyor — sonraki bir işte veri sayısına güvenmeden önce çalıştırıp
+çalıştırmadığını sor. v6.148 kullanıcının veritabanının bir kopyasında
+denendi; v6.149'da o kopya yoktu, mayıs yalnızca test veritabanında denendi —
+FET'in tüpe bağlanması (önceki aylar gerekiyor) ancak kullanıcının
+makinesinde çalışıyor. Göç,
 kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
