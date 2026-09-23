@@ -20,8 +20,10 @@ re-expansion, FET). Kullanıcı klinik doğruluk konusunda uzman, kod konusunda
 
 **Durum:** çalışır halde. **Gerçek hasta verisi var** — program öncesi
 Access kayıtları (temmuz ve ağustos 2026) `aktar_access.py` ile aktarıldı
-(v6.130, v6.141). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
-işte bunu hesaba kat.
+(v6.130, v6.141). Ocak–haziran 2026 (mayıs dosyası gelmedi) v6.148'de
+aktarıma hazırlandı; kullanıcı kendi makinesinde çalıştırıyor — sonraki bir
+işte veri sayısına güvenmeden önce çalıştırıp çalıştırmadığını sor. Göç,
+kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
 
@@ -1920,6 +1922,48 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     Onarımı önermeden önce hatalı aktarımın kopyasında dene ve **her
     tabloyu satır satır** karşılaştır — v6.142'de yalnızca beklenen
     satırların değiştiği böyle gösterildi.
+- **FET'in çözdüğü embriyo, tüpü programdaysa o tüpe bağlanıyor**
+  (v6.148, `_kaynaga_bagla()`, kullanıcının kararı: "Bağla, belirsizi
+  listele"). Embriyolar yine önce FET'in altında açılıyor (v6.130), sonra
+  hastanın dolu tüpleri arasında tek bir eşleşme varsa bütün olayları o
+  tüpün örneklerine taşınıyor, FET'in kendi örnekleri siliniyor, tüp
+  boşaltılıyor — programın kendi çözmesiyle aynı veri. Eşleşme: toplam
+  örnek = çözülen sayı, transferin yazımı kümedeki bir örnekle tutmalı
+  (aynı evrede aynı skor; erken evredeki tüp kültürde ilerlemiş olabilir,
+  ileri evredeki tutmaz), birebir tutan küme önce. **Farklı tedavilerin aynı
+  skorlu tüpleri belirsiz sayılır** — soyağacını değiştirir; aynı tedavinin
+  birebir aynı tüpleri fark etmez, ilki. Belirsiz ya da tutmayan
+  bağlanmıyor, rapor kayıt numarasıyla söylüyor. Bu yüzden **dosyalar tarih
+  sırasıyla aktarılmalı**: tüpün ayı önce.
+- **`tamamla` her kuralın onarım yolu, ikinci çalıştırma hiçbir şeyi
+  değiştirmez** (v6.148'de yedi dosyada satır satır denendi): dondurma →
+  taze transfer → geçersiz canlılık → çözmeye yanlış yazılmış tüp →
+  kaynağa bağlama. Dondurma onarımı var olan tüpü notun grubuyla eşleştiriyor
+  (tüpteki örnek kendi skorundan / olgunluğundan tanınıyor), eksik yeri
+  tamamlıyor, notta olmayanı çıkarıyor; **tüp silinmez, etiketi ve konumu
+  değişmez**. Yeni bir kural eklersen `tamamla`'nın adımlarına da ekle ve
+  aynı "ikinci çalıştırma" karşılaştırmasını yap.
+- **Taze transfer yazılıyor** (v6.148; araç yalnızca FET transferini
+  yazıyordu, IVF/ICSI tedavisi "transfer ile bitti" deyip transfer ekranı boş
+  kalıyordu). Dondurmadan SONRA: ikisi de 2PN'lerden seçiyor.
+- **Kaynağın sayıları tutmayabilir, önce hangisinin korunacağına karar ver:**
+  ICSI toplamı tutmuyorsa 2PN korunuyor (dondurulan/transfer edilen embriyo
+  ona dayanıyor), dejenere kısılıyor; 2PN 0 ama embriyo dondurulmuşsa
+  embriyo döllenme kaydı olmayan enjekte yumurtaya yazılıyor — tanktaki tüp
+  görünmeli (v6.142). Döllenme ya da ICSI **uydurulmuyor**: ICSI sayısı hiç
+  yoksa transfer yazılmıyor, uyarı çıkıyor.
+- **Satırın tipi sayılardan da çıkıyor**: "OOSİT ÇÖZME" Yumurta Çözme
+  (yumurtalar çözme olayıyla, `thaw_cycle_id`); OPU'su yok, ÇÖZDÜRÜLEN dolu
+  bir satır FET (3→5 kültür) (`_satir_tipi()`, PGT kültürü).
+- **Tarihsiz satır** bir önceki kaydın tarihini alır, not "yaklaşık" der,
+  OPU/transfer alanı boş kalır; **yazım hatalı tarih** `duzelt=` dosyasıyla
+  düzeltilir, not eski değeri söyler. Düzeltme dosyası hasta kaydına bağlı,
+  **depoya girmez**. Aynı hastanın aynı günkü dolu satırının boş ikizi atlanır.
+- **"BB"** (D3 listesinde skorsuz embriyo) skor alanları boş bir cleavage
+  değerlendirmesi olarak yazılıyor, yazım notunda: skor uydurulmuyor,
+  "Cleavage sayısı" onu sayıyor.
+- **Access'teki ad programdakinden farklıysa** eşleşme yine dosya
+  numarasıyla, rapor "DİKKAT" diyor (ad rapora yazılmıyor).
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
   verisi. README/CLAUDE.md'ye hasta adı/dosya numarası yazma.
 
@@ -2012,6 +2056,20 @@ yedi yer tek tek yazılı.
     (MII artık yalnızca toplanan yumurtalardan, paydayla aynı süzgeç).
   - Denendi: var olan 120 tedavide ART Lab ızgaraları, Excel dökümleri ve
     istatistik eski kodla birebir aynı; tek fark FET'lerin "Toplanan"ı.
+- **Dondurulan örneğin skoru dondurmanın tedavisinden:
+  `db.bu_tedavinin_skoru(tedavi, o)`** (v6.148). Vitrifikasyon ekranı,
+  taşıyıcı sayfası ve resmî formların dondurma satırı "en son
+  değerlendirme"yi basıyordu; embriyo sonra bir FET (3→5 kültür)'de yeniden
+  değerlendirilince kaynağın ekranı FET'in 5. gün skorunu gösteriyordu. Kural:
+  o tedavide herhangi bir değerlendirme varsa yalnızca onlar, hiç yoksa
+  hepsi (düz FET'te yeniden dondurulan embriyonun FET'te skoru olmaz).
+  **Sıralamayla yazma** (`ORDER BY (bu tedavi) DESC`): tüpün tedavisinde
+  yalnızca cleavage, FET'te blastokist varsa blastokist skorunu soran alt
+  sorgu yine FET'inkini bulur. Bir tüpün/tedavinin dondurduğu örneğin
+  skorunu soran yeni bir yer yazarsan bu koşulu kullan. Tedavinin Excel
+  dökümü bilerek bütün geçmişi basıyor (v6.147). Vitrifikasyon ekranının
+  "Dondurulmuş" kartı da artık `_vit_satiri()`'nin kalitesini basıyor
+  (cleavage'da "5HG3"), yalnızca blastokist skorunu değil.
 - **Bilinen, düzeltilmemiş sorun (v6.146'da bulundu):** değerlendirmeler
   (örnek, gün) başına tek kayıt (`_gun_olay_kaydet()`). Kaynakta 5. gün
   kaydı olan bir embriyo FET (3→5)'e alınıp yine 5. gün değerlendirilirse

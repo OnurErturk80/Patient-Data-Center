@@ -178,10 +178,40 @@ Unutursan betik durur, yazmaz.
 python3 aktar_access.py tamamla kaynak=TEMMUZ temmuz.csv
 ```
 
-Baştan aktarmıyor, yalnızca eksik kalan dondurma kayıtlarını ekliyor; iki
-kez çalıştırmak güvenli. Aktarımdan **hemen sonra** çalıştır: aktarılan bir
+Baştan aktarmıyor: eksik kalan dondurma kayıtlarını ve taze transferleri
+ekliyor, FET'in çözdüğü embriyoyu tüpüne bağlıyor (v6.148); iki kez
+çalıştırmak güvenli. Aktarımdan **hemen sonra** çalıştır: aktarılan bir
 embriyonun skorunu ekranda elle düzelttiysen `tamamla` onu nottaki değerle
 ezer.
+
+**Birden çok ayı aktarırken sıra önemli: eskiden yeniye** (v6.148). FET'te
+çözülen embriyo, dondurulduğu tüp programdaysa ona bağlanıyor; tüpün ayı
+önce aktarılmış olmalı. Ocak–haziran 2026 için:
+
+```
+python3 aktar_access.py kaynak=OCAK    duzelt=tarih_duzeltme.txt ocak.csv
+python3 aktar_access.py kaynak=SUBAT   duzelt=tarih_duzeltme.txt subat.csv
+python3 aktar_access.py kaynak=MART    duzelt=tarih_duzeltme.txt mart.csv
+python3 aktar_access.py kaynak=NISAN   duzelt=tarih_duzeltme.txt nisan.csv
+python3 aktar_access.py kaynak=HAZIRAN duzelt=tarih_duzeltme.txt haziran.csv
+python3 aktar_access.py tamamla kaynak=TEMMUZ temmuz.csv
+python3 aktar_access.py tamamla agustos.csv
+```
+
+(Her birinden önce aynı komutu `liste` ile çalıştırıp bakabilirsin.)
+Son iki satır daha önce aktarılmış temmuz ve ağustosu yeni kurallarla
+tamamlıyor — temmuz/ağustos FET'lerinin tüpü ocak–hazirandaysa ona bağlanıyor.
+
+**`duzelt=` ne işe yarıyor:** Access'te yazım hatasıyla girilmiş tarihlerin
+düzeltmeleri (OPU'su haziran yazan bir ocak tedavisi gibi). Dosyada
+`KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih` satırları var; düzeltme
+yalnızca Access'teki değer hâlâ o ise uygulanıyor, tedavinin notuna
+"... yazıyordu, ... olarak düzeltildi" düşüyor. Dosya hasta kaydına bağlı
+olduğu için depoda değil, CSV'lerle birlikte duruyor.
+
+**Aktarımın sonunda "Elle bakılmalı" listesi çıkar:** çözülen embriyonun
+tüpü birden çok seçenekle tutuyor ya da hastanın dolu tüplerinden hiçbiri
+tutmuyor. Bu FET'ler bağlanmadı; ilgili satırın raporunda seçenekler yazılı.
 
 **"Veritabani guncellemesi eksik (goc_046, goc_047)" derse:** `git pull`'dan
 sonra program yeniden açılmamış demektir. Programı bir kez kapatıp aç —

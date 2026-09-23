@@ -384,6 +384,30 @@ def bu_tedavide(cycle_id: int, o: str = "o") -> str:
     return f"{olay_tedavisi(o)} = {int(cycle_id)}"
 
 
+def bu_tedavinin_skoru(tedavi: str, o: str = "o") -> str:
+    """WHERE parçası: değerlendirme bu tedavide yapılmış -- ya da örneğin bu
+    tedavide hiç değerlendirmesi yok (v6.148).
+
+    Bir tüpün ya da bir tedavinin dondurduğu örneğin skorunu soran yerler
+    (vitrifikasyon ekranı, taşıyıcı sayfası, resmî formların dondurma
+    satırı) "örneğin en son değerlendirmesi"ni alıyordu. Örnek sonra bir
+    FET (3→5 kültür)'de çözülüp yeniden değerlendirilince kaynak tedavinin
+    ekranı FET'in 5. gün skorunu basıyordu: 4. gün morula olarak dondurulan
+    embriyo "3AC · gün 5" görünüyordu (aktarılan kayıtlarda dört örnekte).
+    Sıralamayla çözülmüyor: tüpün tedavisinde yalnızca cleavage, FET'te
+    blastokist kaydı varsa blastokist skorunu soran alt sorgu yine FET'inkini
+    bulurdu. Kural bu yüzden iki tipi birlikte soruyor: bu tedavide herhangi
+    bir değerlendirme varsa yalnızca onlar; hiç yoksa (düz FET'te yeniden
+    dondurulan embriyonun FET'te skoru olmaz) hepsi, eski davranış.
+    `tedavi`: SQL ifadesi -- tamsayı ya da dış sorgudaki bir kolon
+    (`vit_tedavisi('o')` gibi), her zaman koddan gelir. İç alt sorgu `y`.
+    """
+    return (f"({olay_tedavisi(o)} = {tedavi} OR NOT EXISTS (SELECT 1 FROM olay y "
+            f"WHERE y.specimen_id = {o}.specimen_id AND y.iptal_mi = 0 "
+            "AND y.tip IN ('cleavage_degerlendirme', 'blastokist_degerlendirme') "
+            f"AND {olay_tedavisi('y')} = {tedavi}))")
+
+
 def tedavi_ornekleri(cycle_tipi, s: str = "s") -> str:
     """Bu tedavinin aşama ekranlarında görünen örnekler -- SQL koşulu, bir `?`
     (tedavinin kimliği).

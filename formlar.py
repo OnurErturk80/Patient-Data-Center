@@ -393,18 +393,22 @@ def dondurma_tupleri(cycle_id: int) -> list:
     `ogeler` tüpteki **her** örnek için bir giriş taşır; kalitesi
     kaydedilmemişse `None` (yumurta dondurmada hiçbirinin skoru olmaz).
     """
+    # Kalite bu tedavinin değerlendirmesinden, yoksa en sonuncudan (v6.148,
+    # `db.bu_tedavinin_skoru()`): embriyo sonra bir FET'te yeniden
+    # değerlendirildiyse kaynak tedavinin formuna FET'in skoru yazılmasın.
+    bu = f"AND {db.bu_tedavinin_skoru(str(int(cycle_id)), 'x')}"
     satirlar = db.sorgu(
         f"""
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
-               {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC')}
+               {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_skor,
-               {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC')}
+               {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_gun,
                {son_alt('cl_hucre_sayisi', 'cleavage_degerlendirme',
-                        'x.gun DESC')} AS cl_hucre,
-               {son_alt('cl_skor', 'cleavage_degerlendirme', 'x.gun DESC')}
+                        'x.gun DESC', bu)} AS cl_hucre,
+               {son_alt('cl_skor', 'cleavage_degerlendirme', 'x.gun DESC', bu)}
                  AS cl_skor,
-               {son_alt('gun', 'cleavage_degerlendirme', 'x.gun DESC')}
+               {son_alt('gun', 'cleavage_degerlendirme', 'x.gun DESC', bu)}
                  AS cl_gun
           FROM olay o JOIN specimen s ON s.id = o.specimen_id
           LEFT JOIN tasiyici t ON t.id = o.vit_tasiyici_id

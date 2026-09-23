@@ -53,10 +53,14 @@
     {# FET'te (v6.143) liste birden çok kaynak tedaviden gelebilir; numara
        yalnızca kendi tedavisinde tekil (v6.62). #}
     {% if fet %}<div class="veri"><dt>{{ metin("kaynak_cycle") }}</dt><dd>{{ e.kaynak_cycle_no }}</dd></div>{% endif %}
+    {# Kalite `_vit_satiri()`'nden: blastokist skoru, yoksa cleavage yazımı
+       ("5HG3") -- aday listesinin aynısı (v6.137). Kart v6.148'e kadar
+       yalnızca blastokist skorunu basıyordu; gün 3'te dondurulan her embriyo
+       "girilmedi" görünüyordu, oysa kaydı var. #}
     <div class="veri"><dt>{{ metin("skor") }}</dt>
-      <dd {% if not e.skor %}class="yok"{% endif %}>
-        {{ e.skor if e.skor else metin("girilmedi") }}
-        {%- if e.skor and e.gun %} · {{ metin("gun_n").format(n=e.gun) }}{% endif %}</dd></div>
+      <dd {% if not e.kalite %}class="yok"{% endif %}>
+        {{ e.kalite if e.kalite else metin("girilmedi") }}
+        {%- if e.kalite and e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</dd></div>
     <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
       <dd><a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ e.tasiyici_etiket }}</a></dd></div>
     <div class="veri"><dt>{{ metin("konum") }}</dt>

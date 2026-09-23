@@ -6047,8 +6047,12 @@ def tasiyici_icerigi(tasiyici_id):
         f"  (SELECT cv.cycle_tipi FROM cycle cv WHERE cv.id = {db.vit_tedavisi('o')}) "
         "  AS icerik_tipi, "
         "  h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
+        # Skor, dondurmanın YAPILDIĞI tedavideki değerlendirme (v6.148,
+        # `db.bu_tedavinin_skoru()`): örnek sonra bir FET'te yeniden
+        # değerlendirildiyse bu tüpün içeriği o skorla görünmesin.
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        f"   AND {db.bu_tedavinin_skoru(db.vit_tedavisi('o'), 'b')} "
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
         "  COALESCE( "
         "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
@@ -6274,26 +6278,31 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
     # bir embriyonun ilk tüpü kaynak tedavinin ekranında, ikincisi FET'inkinde
     # görünür. `cycle_id` rotadan tamsayı geliyor, metne gömmek güvenli.
     bu_vit = f"AND {db.vit_tedavisi('o')} = {int(cycle_id)} "
+    # Skor bu tedavinin değerlendirmesinden, yoksa en sonuncudan (v6.148,
+    # `db.bu_tedavinin_skoru()`): kaynak tedavinin ekranı, embriyo sonra bir
+    # FET'te yeniden değerlendirilince FET'in skorunu basmasın.
+    bu_b = f"AND {db.bu_tedavinin_skoru(str(int(cycle_id)), 'b')} "
+    bu_cl = f"AND {db.bu_tedavinin_skoru(str(int(cycle_id)), 'cl')} "
     embriyolar = db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
-        "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
+        f"   {bu_b}ORDER BY b.gun DESC LIMIT 1) AS skor, "
         "  (SELECT b.gun FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
-        "   ORDER BY b.gun DESC LIMIT 1) AS gun, "
+        f"   {bu_b}ORDER BY b.gun DESC LIMIT 1) AS gun, "
         # Gün 2/3'te dondurulan embriyonun blastokist skoru yok; kendi
         # cleavage kaydı gösterilsin diye (v6.137) -- yoksa listedeki her
         # gün 3 embriyosu "değerlendirilmemiş" yazardı, oysa kaydı var.
         "  (SELECT cl.cl_hucre_sayisi FROM olay cl WHERE cl.specimen_id=s.id "
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
-        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_hucre, "
+        f"   {bu_cl}ORDER BY cl.gun DESC LIMIT 1) AS cl_hucre, "
         "  (SELECT cl.cl_skor FROM olay cl WHERE cl.specimen_id=s.id "
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
-        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_skor, "
+        f"   {bu_cl}ORDER BY cl.gun DESC LIMIT 1) AS cl_skor, "
         "  (SELECT cl.gun FROM olay cl WHERE cl.specimen_id=s.id "
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
-        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_gun, "
+        f"   {bu_cl}ORDER BY cl.gun DESC LIMIT 1) AS cl_gun, "
         "  (SELECT o.vit_tasiyici_id FROM olay o WHERE o.specimen_id=s.id "
         "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 " + bu_vit +
         "   ORDER BY o.id DESC LIMIT 1) AS tasiyici_id, "

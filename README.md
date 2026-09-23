@@ -12044,3 +12044,201 @@ ekranlarından düşer, kayıtları sahipsiz kalırdı. Önce en son adım.
   doğmuyor: çözülen yumurtanın kaynakta cleavage/blastokist kaydı yok.
 - Tedavi ekranının "Zamanlar" kartı (hCG/OPU/denüdasyon) her tipte basılıyor,
   FET'te de öyleydi; dokunulmadı.
+
+---
+
+# v6.148 — ocak–haziran Access kayıtları; FET'in çözdüğü embriyo tüpüne bağlanıyor
+
+Kullanıcının isteği: *"Bu kayıtları da aynı şekilde programa ekler misin?"*
+(ocak, şubat, mart, nisan, haziran 2026 Access dosyaları; mayıs dosyası
+gelmedi). Kullanıcının dört kararı:
+- **Tüpler:** *"Bağla, belirsizi listele"* — FET'te çözülen embriyo, hastanın
+  programdaki dolu tüpüyle skoruna göre eşleşiyorsa o tüpe bağlanır, tüp Cryo
+  Haritası'nda boşalır; temmuz/ağustosun aktarılmış FET'leri de. Eşleşmeyen
+  ya da birden çok seçenekli olanlar kayıt numarasıyla listelenir.
+- **"OOSİT ÇÖZME" satırları:** önce Yumurta Çözme'ye ICSI ve sonrası
+  eklendi (v6.147), sonra bu satırlar Yumurta Çözme olarak aktarıldı.
+- **Tarihsiz satır:** *"Yakın kaydın tarihine yaz"* — Access'teki bir önceki
+  kaydın tarihi, not "yaklaşık" diyor; OPU/transfer alanı boş kalıyor.
+- **Yazım hatalı tarih:** *"Önerdiğin tarihlerle aktar"* — düzeltmeler ayrı
+  bir dosyada (`duzelt=`), not "... yazıyordu, ... olarak düzeltildi" diyor.
+
+Kaynak dosyalar ve düzeltme dosyası depoya girmedi (gerçek hasta verisi);
+aşağıda yalnızca sayılar var.
+
+## Dondurma notu artık daha çok yazımı tanıyor
+
+Ocak–haziran notları aynı işi çok farklı yazmış. v6.147'ye kadar tanınmayan,
+her biri gerçek kayıtlardan:
+- **Fiiller:** "DONDURULMUŞTUR", "DONDURULARAK KORUNMUŞTUR", "REFREEZE
+  EDİLDİ/EDİLEREK", yazım hatalı "DONDURULRAK", "DONDURULARK". Tanınmasaydı
+  altmışa yakın dondurma (yedi tüplük biri dahil) hiç yazılmayacaktı.
+- **Nesnenin yeri:** "REFREEZ EDİLEN (4CC) İLE BİRLİKTE ... KALDI",
+  "REFREEZE (KAVG1) KALDI" — skor fiilden **sonra**. Fiilsiz yazım da var:
+  "KÜLTÜRE EDİLEN 2 ADET D5 EMBRİYOSU (3CB) (2CC) İLE BİRLİKTE TOPLAMDA 3
+  TÜPTE 6 ADET EMBRİYOSU KALDI". Bunun gerçekten dondurma olduğunu temmuzdaki
+  bir FET'in o (3CB)'yi transfer etmesi gösteriyor; rapor bunu ayrıca söylüyor.
+- **Cümle sınırı:** yalnızca fiilin cümlesine bakılıyor, aynı cümlede önce
+  transfer geçiyorsa ondan sonrası. "(1BB) TRANSFER EDİLDİ. GERİDE KALAN ...
+  (1CC-1CC) ŞEKLİNDE DONDURULARAK SAKLANDI" notunda transfer edilen 1BB
+  dondurulmuş sayılıyordu.
+- **FET'te stok cümlesi dondurma değil:** "GERİDE 8 ADET ... DONDURULARAK
+  SAKLANMIŞTIR" depoda kalanları anlatıyor. Karar yapılandırılmış alandan:
+  çözülen − transfer edilen = 0 ise o FET'te dondurulacak embriyo yoktu
+  (v6.142'nin dersi, serbest metinden önce yapılandırılmış veri).
+- **Yumurta:** "1*M1" (MI yumurta, kendi havuzundan), "5M2", "(M2)"; "6 ADET
+  (M2) OOSİT (3*M2) (3*M2)"daki "(M2)" tüp değil, sayının niteliği.
+- **"BB"** (D3 listelerinde bir embriyonun yerini tutan yazım): skorsuz
+  dondurulmuş embriyo; skor alanları boş bir cleavage değerlendirmesi
+  yazılıyor, yazım notunda. Skor uydurulmuyor ama "Cleavage sayısı" onu
+  sayıyor.
+- Gün "D5"in yanında "3.GÜN" / "5,GÜN" yazımından da okunuyor.
+- Eski ve yeni ayrıştırıcı bütün notlarda karşılaştırıldı: temmuz ve
+  ağustosta değişen yalnızca bu kurallara giren satırlar.
+
+## Var olan tüpler onarılıyor (`tamamla`)
+
+Eski araç "BB"yi ve MI yumurtayı tanımıyordu: temmuzun üç tüpünde birer
+embriyo, üç tüpünde birer MI yumurta eksik yazılmıştı, bir tüpte "((4CB"
+yazım hatası yüzünden bir blastokist düşmüştü, bir FET'in yeniden dondurması
+hiç yazılmamıştı. `_dondurma_kayitlari()` artık notun gruplarını var olan
+tüplerle sırayla eşleştiriyor: tüpteki örnek kendi kaydından (skoru, yumurtada
+olgunluğu) tanınıyor, eksik yer tamamlanıyor, notta olmayan örnek tüpten
+çıkıyor. **Tüp silinmiyor, etiketi ve konumu değişmiyor** — kullanıcı Cryo
+Haritası'ndan konum girmiş olabilir.
+
+## Taze transfer yazılıyor
+
+Araç yalnızca FET transferini yazıyordu. IVF/ICSI'de embriyo aynı tedavide
+transfer edildiğinde tedavi "transfer ile bitti" diyor ama transfer ekranı,
+istatistiğin transfer sayısı ve gebelik ekranı boş kalıyordu. Ocak–haziranda
+24, temmuzda 1 satır. Transfer edilen embriyo 2PN'lerden, dondurulmayanlardan
+seçiliyor; EMBRİYO1/2 kutusundaki skor o günün değerlendirmesi. Kutuların
+yazımı ("8" + "1") "81" diye birleşiyordu, artık "8HG1".
+
+## Kaynağın kendi tutarsızlıkları
+
+- **ICSI toplamı** 12 satırda tutmuyor (İŞLEME ALINAN ≠ 2PN + anormal +
+  intakt + dejenere). Birinde 11 ICSI'nin 10'u dejenere yazılmış ama 5'i 2PN
+  ve ikisi dondurulmuş. 2PN, anormal ve intakt korunuyor, dejenere kalana
+  kısılıyor; rapor söylüyor. Tutan satırda dağıtım v6.130'dakiyle aynı.
+- **2PN sayısı 0 ama embriyo dondurulmuş** (dört satır; birinin embriyolarını
+  ağustostaki bir FET çözmüş, yani tüpler gerçekten tankta). Embriyo enjekte
+  edilmiş ama döllenme kaydı olmayan yumurtaya yazılıyor, rapor söylüyor.
+  Tankta duran tüpün programda görünmemesi (v6.142) boş bir döllenme
+  sayısından pahalı.
+- **Viabilite** dokuz satırda 100'ü aşıyor ("9080", "1001000"): embriyo
+  başına değerler bitişik yazılmış gibi. Bölünmüyor; alan boş, ham değer
+  çözmenin notunda. Temmuzun üç kaydı `tamamla` ile düzeltildi (ekranda
+  "%9080" yazıyordu).
+- **Ad**: 13 satırda aynı dosya numarası farklı yazılmış adla geliyor; hepsi
+  aynı kişi (bir harf, yer değiştirmiş ad, aynı doğum tarihi). Eşleşme yine
+  dosya numarasıyla, programdaki ad korunuyor, rapor "DİKKAT" diyor.
+
+## Yeni satır türleri
+
+- **"OOSİT ÇÖZME"** Yumurta Çözme (7 satır): yumurtalar çözme olayıyla
+  açılıyor (`thaw_cycle_id` bu tedavi), olgunluk, ICSI, döllenme, dondurma ve
+  transfer IVF/ICSI'deki gibi. Çözme günü transfer günü − transfer aşaması.
+- **PGT kültürü** (3 satır): protokolü boş ya da ilaç adı, OPU'su yok,
+  ÇÖZDÜRÜLEN dolu, not "çözme sonrası kültüre edilen ... PGT ... dondurularak
+  saklandı" — FET (3→5 kültür). `ivf_icsi` sayılsaydı yumurta toplanmış gibi
+  görünürdü. Karar sayılardan, nottaki kelimeden değil.
+- **Tarihsiz** 11 satır, **boş kopya** 1 satır (aynı hastanın aynı günkü dolu
+  satırının içi boş ikizi, atlandı), **yazım hatalı tarih** 5 satır.
+- FET tiplerinde "Toplanan" yazılmıyor (`opu_sag_oosit`): Yumurta Çözme
+  satırının TOPLANAN OOSİT'i çözülen yumurta sayısı.
+- İptal kalıpları: "D2/D3 EMBRİYO ARRESTİ", "KLİVAJ ARRESTİ" → Cleavage
+  Arrest, "D5 ... ARRESTİ" → 5. Gün Arrest.
+
+## FET'in çözdüğü embriyo tüpüne bağlanıyor
+
+`_kaynaga_bagla()`. v6.130'dan beri FET'te çözülen embriyo FET'in kendi
+altında açılıyordu, çünkü dondurulduğu tedavi programda yoktu. Ocak–haziran
+gelince çoğunun kaynağı programda: tüp Cryo Haritası'nda hâlâ "dolu"
+görünürdü, soyağacı ("bu embriyo hangi tedaviden") kopuk kalırdı.
+- **Adaylar:** hastanın dolu, çözmeden önce dondurulmuş, tek tedavinin
+  içeriğini taşıyan tüpleri (yumurta çözmede yumurta tüpleri).
+- **Eşleşme:** toplam örneği çözülen sayıya eşit tüp kümeleri (bir tüp bütün
+  olarak çözülür) ve transfer edilen embriyonun yazımı kümedeki bir örnekle
+  tutmalı. Aynı evrede skor aynı olmalı; tüpteki örnek daha erken evredeyse
+  (gün 3 tüpü, gün 5 transferi) kültürde ilerlemiş olabilir, tutar; ileri
+  evredeyse tutmaz (blastokist tüpü, gün 3 transferi). Skoru birebir tutan
+  küme, "kültürde ilerlemiş olabilir" diye tutandan önce gelir — yoksa her
+  FET'te bir kavitasyon tüpü belirsizlik yaratıyordu (provada üç kayıt).
+- **Tek küme** → bağlanıyor. Aynı tedavinin içeriği birebir aynı tüpleri
+  ("(4AA) (4AA)") ayırt edilemez, fark da etmez: ilki. **Farklı tedavilerin**
+  aynı skorlu tüpleri belirsiz sayılıyor — hangi tedavinin embriyosu olduğu
+  soyağacını değiştirir.
+- **Bağlamak:** FET'in kendi örneklerinin bütün olayları tüpteki örneğe
+  taşınıyor (`olay.cycle_id` örneğin kendi tedavisi), çözmeye tüp yazılıyor,
+  FET'in boş kalan örnekleri siliniyor, tüp programın kendi çözmesindeki gibi
+  boşaltılıyor. Protokol notunun "tedavi programda yok" cümlesi kaynağın
+  numarasıyla yeniden kuruluyor.
+- **Provada:** 50 çözme bağlandı (biri Yumurta Çözme; ocak–haziran 37,
+  temmuz/ağustos 13); 16'sı
+  listelendi (4 birden çok seçenek, 12 dolu tüpler tutmuyor); geri kalanın
+  tüpü programda yok (program öncesi dondurma). Tutarlılık: nisandaki bir
+  FET'in "tutmuyor" dediği blastokist tüpünü temmuzdaki FET çözüyor; martın
+  fiilsiz yeniden dondurması temmuzdaki bir transferin kaynağı oldu.
+
+## goc_046'nın bir yan etkisi
+
+goc_046 eski çözmelere tüpünü geriye dönük yazarken, çözmeden önce dondurması
+olmayan örneğe "herhangi bir tüpünü" yazıyor. Program öncesi FET embriyosunun
+tek tüpü yeniden dondurulduğu tüp olabilir; göç yeniden dondurmadan sonra
+çalıştıysa o tüp "çözülmüş" görünür, dondurma geri alınamaz, bir sonraki
+FET'e aday olmaz (prova kopyasında bir tüpte). `tamamla` bunu düzeltiyor:
+bir FET kendi dondurduğu tüpü çözemez. Göç değiştirilmedi (kuralı: eski göç
+değiştirilmez); kullanıcının veritabanında büyük olasılıkla yok, çünkü orada
+göç yeniden dondurmadan önce çalıştı.
+
+## Programda: dondurulan örneğin skoru dondurmanın tedavisinden
+
+Bağlama, programda gizli duran bir hatayı görünür yaptı. Vitrifikasyon
+ekranı, taşıyıcı sayfası ve resmî formların dondurma satırı "örneğin en son
+değerlendirmesi"ni basıyordu. Embriyo sonra bir FET (3→5 kültür)'de
+yeniden değerlendirilince kaynak tedavinin ekranı FET'in skorunu gösteriyordu:
+4. gün morula olarak dondurulan embriyo "3AC · gün 5". Programın kendi
+girdiği veride de olurdu. `db.bu_tedavinin_skoru()`: o tedavide herhangi bir
+değerlendirme varsa yalnızca onlar, hiç yoksa (düz FET'te yeniden dondurulan
+embriyonun FET'te skoru olmaz) hepsi — eski davranış. Sıralamayla
+çözülmüyordu: tüpün tedavisinde yalnızca cleavage, FET'te blastokist varsa
+blastokist skorunu soran alt sorgu yine FET'inkini bulurdu. Tedavinin Excel
+dökümü bilerek dokunulmadı (v6.147: bütün geçmişi basıyor).
+
+Vitrifikasyon ekranının "Dondurulmuş" kartı da yalnızca blastokist skorunu
+basıyordu: gün 3'te dondurulan her embriyo "girilmedi" görünüyordu, oysa
+kaydı var. v6.137 aday listesi için cleavage yazımını ("5HG3") eklemişti,
+kart da artık aynısını basıyor.
+
+## Deneme (kullanıcının veritabanı kopyasında)
+
+- Beş dosya tarih sırasıyla aktarıldı (443 tedavi, 289 yeni hasta), temmuz
+  ve ağustos `tamamla` ile tamamlandı; 433 yeni tüp (temmuzun iki eksik
+  tüpü dahil). Hata yok.
+- **İkinci çalıştırma hiçbir şeyi değiştirmedi**: yedi dosyaya `tamamla` ve
+  bir dosyanın aktarımı yeniden; her tablo satır satır karşılaştırıldı.
+- Bütünlük: yabancı anahtar ve SQLite bütünlük denetimi temiz; yetim olay,
+  kendi tedavisine yazılmamış olay, içi boş "dolu" tüp, çözülmüş "dolu" tüp,
+  aynı tedavide iki tüpteki örnek, iki kez transfer, bağlanmış FET'te kalan
+  kendi örneği, saatsiz olay, 100'ü aşan canlılık: hiç. 127 çok tedavili
+  hastanın hepsi tarih sırasıyla numaralı.
+- 8392 ekran adresi (bütün tedavilerin bütün aşama ekranları, iki resmî
+  form ve Excel, bütün taşıyıcı ve hasta sayfaları, ay listeleri,
+  istatistik) açıldı: hiçbiri hata vermedi. 549 aktarılmış tedavinin Özet
+  formunda NOTLAR kutusu tarayıcıda ölçüldü: en uzunu 11 satır, hiçbiri
+  kesilmiyor.
+- v6.147 (104 kontrol), v6.146 (25) ve v6.144 (42) denemeleri yeniden geçti.
+
+## Bilinen / yazılmayan
+
+- **Mayıs dosyası yok.** Mayısta çözülen tüpler programda hâlâ "dolu".
+- Parantezsiz iki dondurma ("2 ADET M2 OOSİT", "2 TÜPTE 4 ADET D5
+  EMBRİYOSU"): tüplere dağılım bilinmiyor, yazılmadı, uyarı çıkıyor.
+- Bir satırda notta 6 dondurulan embriyo var, 5 2PN — biri yazılmadı.
+- Bir satırda iki embriyo transfer edilmiş ama ICSI/2PN sayısı hiç
+  girilmemiş: transfer yazılmadı (döllenme uydurulmuyor).
+- Bir dosya numarası iki haneli ("99"): Access'te yer tutucu olabilir,
+  `liste` "DİKKAT" diyor.
+- v6.146'daki açık soru hâlâ açık.
