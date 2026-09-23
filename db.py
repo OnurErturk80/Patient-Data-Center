@@ -142,6 +142,40 @@ def cozulen_yumurta_islenir(cycle_tipi) -> bool:
             and "icsi" in TIP_ASAMALARI.get(cycle_tipi, ()))
 
 
+# Cleavage'da birleşme (v6.157, goc_048, kullanıcının cevabı: "BB birleşme
+# başlangıcı demek. Birleşme olarak yazılsın ... embriyo kalitesi Birleşme G2
+# gibi olabilsin"). Birleşmede hücre sayısı yok; kalitenin yazımında hücre
+# sayısının yerinde bu söz duruyor. Resmî formlar hep Türkçe basıldığı için
+# (kurum belgesi) sabit burada; `formlar.py` ve `disari.py` de soruyor.
+BIRLESME = "Birleşme"
+
+
+def cl_hucre_ifadesi(x: str = "x") -> str:
+    """Cleavage değerlendirmesinin "hücre" yeri -- SQL ifadesi (v6.157):
+    birleşmede `BIRLESME` sözü, yoksa hücre sayısı. `x`: olay tablosunun
+    takma adı. Göç (goc_048) yoksa yalnızca hücre sayısı. Formların ızgarası,
+    Excel ve kalite yazımı hücre sayısını buradan okuyor -- birleşme boş
+    hücre gibi kaybolmasın."""
+    if kolon_var("olay", "cl_birlesme"):
+        return (f"(CASE WHEN {x}.cl_birlesme = 1 THEN '{BIRLESME}' "
+                f"ELSE {x}.cl_hucre_sayisi END)")
+    # Parantezli: `formlar._sutun()` parantezle başlayanı ifade sayıyor, önüne
+    # "x." eklemiyor -- göçsüz veritabanında "x.x.cl_hucre_sayisi" olurdu.
+    return f"({x}.cl_hucre_sayisi)"
+
+
+def cleavage_yazimi(hucre, skor):
+    """Cleavage kalitesinin laboratuvarın yazımıyla hali: "8HG2", "8H",
+    "Birleşme G2", "Birleşme" (v6.157). `hucre`: `cl_hucre_ifadesi()`'nin
+    değeri (sayı ya da `BIRLESME`). Değerlendirme yoksa None -- uydurulmuyor.
+    Kalite yazan her yer (vitrifikasyon, resmî formlar) bunu çağırsın."""
+    if hucre == BIRLESME:
+        return f"{BIRLESME} {skor}" if skor else BIRLESME
+    if hucre is None:
+        return None
+    return f"{hucre}H{skor}" if skor else f"{hucre}H"
+
+
 def cozme_tedavisi_mi(cycle_tipi) -> bool:
     """Bu tipte bir tedavi için çözme yapılabilir mi -- tipin aşamalarında
     çözme var mı (v6.155). IVF/ICSI'de yok: çözme ayrı bir FET tedavisi."""

@@ -124,7 +124,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..047.py   veritabanı göçleri (sırayla)
+  goc_002..048.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -2061,9 +2061,11 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   OPU/transfer alanı boş kalır; **yazım hatalı tarih** `duzelt=` dosyasıyla
   düzeltilir, not eski değeri söyler. Düzeltme dosyası hasta kaydına bağlı,
   **depoya girmez**. Aynı hastanın aynı günkü dolu satırının boş ikizi atlanır.
-- **"BB"** (D3 listesinde skorsuz embriyo) skor alanları boş bir cleavage
-  değerlendirmesi olarak yazılıyor, yazım notunda: skor uydurulmuyor,
-  "Cleavage sayısı" onu sayıyor.
+- **"BB" = birleşme başlangıcı** (kullanıcının cevabı, v6.157): "BB",
+  "BİRLEŞME G1", "BİRLEŞMEG3" hücre sayısı boş, `cl_birlesme=1` bir cleavage
+  değerlendirmesi olarak yazılıyor, grade yazılıysa o da. v6.148–v6.156
+  arası skorsuz embriyo diye yazılmıştı, goc_048 onları düzeltti.
+  Tüp eşleştirmesinde anahtarı hâlâ "bilinmiyor" (`_degerlendirme_anahtari()`).
 - **Access'teki ad programdakinden farklıysa** eşleşme yine dosya
   numarasıyla, rapor "DİKKAT" diyor (ad rapora yazılmıyor).
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
@@ -2221,6 +2223,23 @@ boyunca herkes bekler. `journal_mode` WAL, bekleme 15 sn (README v6.6).
 **`lab.db` ağ sürücüsüne konmaz.** SMB/NFS'te dosya kilitleme güvenilmez
 (bozulma riski) ve WAL hiç çalışmaz. İkinci makine programı çalıştırmaz,
 tarayıcıdan mini PC'ye bağlanır. `arsiv/` ağa taşınabilir (`yerel_kur.py`).
+
+**Cleavage'da "Birleşme"** (v6.157, goc_048, kullanıcının isteği: "Birleşme
+seçilince hücre sayısı kaybolsun, grade ve fragmantasyon gözüksün ...
+Birleşme G2 gibi"). `olay.cl_birlesme` = 1: hücre sayısı yok (sunucu
+birleşmede yazmıyor, ekran kutuyu gizliyor). Simetri ekranda kalıyor —
+kullanıcı yalnızca hücre sayısının kaybolmasını istedi.
+- **Kalitenin yazımı tek yerde: `db.cleavage_yazimi(hucre, skor)`** —
+  "8HG2" / "Birleşme G2". Hücre yerini okuyan SQL `db.cl_hucre_ifadesi(x)`
+  (birleşmede `db.BIRLESME` sözü): vitrifikasyon, resmî formların
+  dondurma/transfer/ızgara hücreleri, tedavi Excel'i. Yeni bir yerde
+  cleavage kalitesi basacaksan `cl_hucre_sayisi`'nı çıplak okuma —
+  birleşme boş hücre gibi kaybolur. `formlar.son_alt()`/`gun_alt()`
+  parantezli ifadeyi olduğu gibi alıyor.
+- Numara şeridinde "3-Bir.", bilgi kartında "Hücre sayısı: Birleşme".
+- Otomatik A/B/C skoru hücre sayısı istiyor, birleşmede yok: grade elle.
+- Resmî formun NOTLAR satırı kaliteyi ve tüp parantezini bölmüyor
+  (`formlar._sar()`).
 
 **Otomatik skorlar kaynak işaretler.** Elle skor girilirse
 `cl_skor_kaynagi='elle'` yazılır, otomatik hesap onu ezmez.

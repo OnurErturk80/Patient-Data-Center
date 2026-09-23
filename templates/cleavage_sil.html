@@ -26,8 +26,11 @@
   <h2>{{ metin("silinecek_kayit") }}</h2>
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("hucre_sayisi") }}</dt>
+      {% if kayit and kayit.cl_birlesme %}<dd>{{ metin("birlesme") }}</dd></div>
+      {% else %}
       <dd {% if not (kayit and kayit.cl_hucre_sayisi is not none) %}class="yok"{% endif %}>
         {{ kayit.cl_hucre_sayisi if kayit and kayit.cl_hucre_sayisi is not none else metin("yok_kucuk") }}</dd></div>
+      {% endif %}
     <div class="veri"><dt>{{ metin("simetri") }}</dt>
       <dd {% if not (kayit and kayit.cl_simetri) %}class="yok"{% endif %}>
         {{ etiketler.get(kayit.cl_simetri, kayit.cl_simetri) if kayit and kayit.cl_simetri else metin("yok_kucuk") }}</dd></div>

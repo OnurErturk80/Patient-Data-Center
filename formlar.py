@@ -26,6 +26,7 @@ yanlış veri yazmak, boş bırakmaktan kötü.
 """
 
 import datetime as _dt
+import re
 import textwrap
 
 import db
@@ -149,14 +150,22 @@ def _ad_soyad_ayir(tam):
     return parcalar[-1], " ".join(parcalar[:-1])
 
 
+def _sutun(alan):
+    """Alt sorgunun seçtiği şey: kolon adıysa `x.<ad>`, parantezle başlayan
+    bir ifadeyse olduğu gibi (v6.157: birleşmede hücre sayısının yerine
+    `db.BIRLESME`, `db.cl_hucre_ifadesi('x')`). İkisi de koddan gelir."""
+    return alan if alan.startswith("(") else f"x.{alan}"
+
+
 def gun_alt(alan, tip, gun, ek=""):
     """Bir örneğin belirli gündeki değerlendirmesinden tek alan (alt sorgu).
 
     Dış sorguda örnek tablosu `s` diye adlandırılmış olmalı. `disari.py` de
     aynı parçaları kullanıyor — tek yerde dursun diye burada. `ek`:
     `son_alt()`'taki gibi, `AND ...` diye başlayan ek koşul (v6.147).
+    `alan` bir kolon adı ya da parantezli bir ifade (`db.cl_hucre_ifadesi()`).
     """
-    return (f"(SELECT x.{alan} FROM olay x WHERE x.specimen_id = s.id "
+    return (f"(SELECT {_sutun(alan)} FROM olay x WHERE x.specimen_id = s.id "
             f"AND x.tip = '{tip}' AND x.gun = {gun} AND x.iptal_mi = 0 {ek} "
             "ORDER BY x.id DESC LIMIT 1)")
 
@@ -184,7 +193,7 @@ def son_alt(alan, tip, sira="x.id DESC", ek=""):
     her zaman yeterli değil -- ör. BU tüpten yapılan çözme, BU tedavide
     yapılan dondurma. Koşul metni koddan gelir, adresten değil.
     """
-    return (f"(SELECT x.{alan} FROM olay x WHERE x.specimen_id = s.id "
+    return (f"(SELECT {_sutun(alan)} FROM olay x WHERE x.specimen_id = s.id "
             f"AND x.tip = '{tip}' AND x.iptal_mi = 0 {ek} "
             f"ORDER BY {sira} LIMIT 1)")
 
@@ -356,7 +365,7 @@ def _transfer_edilenler(cycle_id):
         "  (SELECT b.bl_genisleme FROM olay b WHERE b.specimen_id = s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS bl_genisleme, "
-        "  (SELECT cl.cl_hucre_sayisi FROM olay cl WHERE cl.specimen_id = s.id "
+        f"  (SELECT {db.cl_hucre_ifadesi('cl')} FROM olay cl WHERE cl.specimen_id = s.id "
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
         "   ORDER BY cl.gun DESC LIMIT 1) AS hucre, "
         "  (SELECT cl.cl_skor FROM olay cl WHERE cl.specimen_id = s.id "
@@ -407,7 +416,7 @@ def dondurma_tupleri(cycle_id: int) -> list:
                  AS bl_skor,
                {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_gun,
-               {son_alt('cl_hucre_sayisi', 'cleavage_degerlendirme',
+               {son_alt(db.cl_hucre_ifadesi('x'), 'cleavage_degerlendirme',
                         'x.gun DESC', bu)} AS cl_hucre,
                {son_alt('cl_skor', 'cleavage_degerlendirme', 'x.gun DESC', bu)}
                  AS cl_skor,
@@ -436,20 +445,29 @@ def dondurma_tupleri(cycle_id: int) -> list:
     return tupler
 
 
+def _sar(metin, genislik=68):
+    """NOTLAR satırını sarar (`textwrap.fill`, 68 -- kutu `white-space: pre`,
+    uzun satır sessizce kesilir, v6.130). Bir kalite ve bir tüp parantezi
+    ortasından bölünmez (v6.157): "(Birleşme G3)" iki satıra düşüp
+    "(Birleşme" / "G3)" okunuyordu. Bölünmeyecek boşluklar geçici olarak
+    bölünmez boşluk oluyor -- textwrap onu kelimenin parçası sayıyor."""
+    nb = "\u00a0"
+    metin = metin.replace(f"{db.BIRLESME} G", f"{db.BIRLESME}{nb}G")
+    metin = re.sub(r"\([^()]*\)", lambda m: m.group(0).replace(" ", nb), metin)
+    return textwrap.fill(metin, genislik).replace(nb, " ")
+
+
 def _dondurma_kalitesi(r):
     """Dondurulan bir örneğin kalitesi -- laboratuvarın kendi yazımıyla.
 
     Blastokistte `bl_skor` ("3AA", "KAV2"); cleavage'da hücre sayısı + skor
-    ("8HG2"). İkisi de kullanıcının Access notlarında aynen böyle yazılıydı,
+    ("8HG2"; birleşmede "Birleşme G2", v6.157, `db.cleavage_yazimi()`). İkisi de kullanıcının Access notlarında aynen böyle yazılıydı,
     `aktar_access.py` de tam bu kalıbı çözümlüyor -- form da aynı dili
     konuşsun diye. Kaydı yoksa `None`, uydurulmuyor.
     """
     if r["bl_skor"]:
         return r["bl_skor"]
-    if r["cl_hucre"] is not None:
-        return f"{r['cl_hucre']}H{r['cl_skor']}" if r["cl_skor"] \
-            else f"{r['cl_hucre']}H"
-    return None
+    return db.cleavage_yazimi(r["cl_hucre"], r["cl_skor"])
 
 
 def tup_metni(tup) -> str:
@@ -594,7 +612,7 @@ def dondurma_notu(cycle_id: int, cycle_tipi, tupler) -> str | None:
     parcalar.append(f"{len(tupler)} tüp")
     satir = ("Dondurulan: " + ", ".join(parcalar) + ": "
              + " ".join(tup_metni(t) for t in tupler))
-    return textwrap.fill(satir, 68)
+    return _sar(satir)
 
 
 # ------------------------------------------------ çözülen örnekler (v6.152)
@@ -632,7 +650,7 @@ def _ornek_kalitesi(specimen_id, tedavi_id=None):
         f"""
         SELECT {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_skor,
-               {son_alt('cl_hucre_sayisi', 'cleavage_degerlendirme',
+               {son_alt(db.cl_hucre_ifadesi('x'), 'cleavage_degerlendirme',
                         'x.gun DESC', bu)} AS cl_hucre,
                {son_alt('cl_skor', 'cleavage_degerlendirme', 'x.gun DESC', bu)}
                  AS cl_skor
@@ -811,10 +829,10 @@ def cozme_notu_satiri(cycle_id: int, cycle_tipi, cozulenler) -> str | None:
         sonra = [s for s, var in (("transfer", o["transfer"]),
                                   ("yeniden donduruldu", o["yeniden"])) if var]
         ogeler.append(", ".join([parca] + sonra))
-    satirlar = [textwrap.fill(bas + ": " + "; ".join(ogeler), 68)]
+    satirlar = [_sar(bas + ": " + "; ".join(ogeler))]
     kalan = _kalan_dondurulmus(cycle_id)
     if kalan:
-        satirlar.append(textwrap.fill(kalan, 68))
+        satirlar.append(_sar(kalan))
     return "\n".join(satirlar)
 
 
@@ -887,7 +905,8 @@ def ozet_verisi(cycle_id: int):
         r = tr[i]
         if alan == "asama":
             return (_et(h, "bl_genisleme", r["bl_genisleme"])
-                    or (f"{r['hucre']} hücre" if r["hucre"] else None))
+                    or (db.BIRLESME if r["hucre"] == db.BIRLESME
+                        else f"{r['hucre']} hücre" if r["hucre"] else None))
         return r["bl_skor"] or _et(h, "simetri", r["cl_skor"]) or r["cl_skor"]
 
     anormal = sum(n for k, n in pn.items() if k and k != "2")
@@ -1125,9 +1144,9 @@ def artlab_verisi(cycle_id: int):
                {son_alt('mat_deger', 'maturasyon_kontrolu', ek=bu)} AS mat,
                {son_alt('fert_pn_sayisi', 'fertilizasyon_kontrolu', ek=bu)} AS pn,
                {son_alt('fert_sonuc', 'fertilizasyon_kontrolu', ek=bu)} AS fert,
-               {gun_alt('cl_hucre_sayisi', 'cleavage_degerlendirme', 2, bu)} AS g2_hucre,
+               {gun_alt(db.cl_hucre_ifadesi('x'), 'cleavage_degerlendirme', 2, bu)} AS g2_hucre,
                {gun_alt('cl_skor', 'cleavage_degerlendirme', 2, bu)} AS g2_skor,
-               {gun_alt('cl_hucre_sayisi', 'cleavage_degerlendirme', 3, bu)} AS g3_hucre,
+               {gun_alt(db.cl_hucre_ifadesi('x'), 'cleavage_degerlendirme', 3, bu)} AS g3_hucre,
                {gun_alt('cl_skor', 'cleavage_degerlendirme', 3, bu)} AS g3_skor,
                {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', ek=bu)} AS bl,
                {son_alt('zaman', 'transfer', ek=bu)} AS tr_zaman,

@@ -44,7 +44,7 @@
     {#- Dejenere yumurta listede kalır ama "Dej." yazar ve formu açılmaz
         (v6.139, kullanıcının isteği). Hücre sayısı varsa o eski kayıttır --
         dejenere işaretinden önce girilmiş olabilir, gizlenmiyor. -#}
-    <b>{{ o.cycle_sira_no }}</b>{% if o.dejenere %}<i>-{{ metin("mat_kisa_degenere") }}</i>{% elif o.hucre is not none %}<i>-{{ o.hucre }}H</i>{% endif %}
+    <b>{{ o.cycle_sira_no }}</b>{% if o.dejenere %}<i>-{{ metin("mat_kisa_degenere") }}</i>{% elif o.hucre is string %}<i>-{{ metin("birlesme_kisa") }}</i>{% elif o.hucre is not none %}<i>-{{ o.hucre }}H</i>{% endif %}
   </a>
   {% endfor %}
 </div>
@@ -85,7 +85,7 @@
      ornek_adi('cleavage', c.cycle_tipi) ~ ' ' ~ sp.cycle_sira_no
        ~ ' · ' ~ metin("gun_n_buyuk").format(n=gun),
      [
-       (metin("hucre_sayisi"), kayit.cl_hucre_sayisi),
+       (metin("hucre_sayisi"), metin("birlesme") if kayit.cl_birlesme else kayit.cl_hucre_sayisi),
        (metin("fragmentasyon_kisa"), yuzde(kayit.cl_fragmentasyon)),
        (metin("simetri"), liste_etiket('simetri', kayit.cl_simetri)),
        (metin("bulgular"), bk.bulgu_metni(bulgular, secili_bulgular)),
@@ -115,8 +115,21 @@
   <input type="hidden" name="gun" value="{{ gun }}">
 
   <div class="kart">
+    {# Birleşme (v6.157, kullanıcının isteği: "Birleşme seçilince hücre sayısı
+       kaybolsun, grade ve fragmantasyon gözüksün ... Birleşme G2 gibi").
+       Seçilince hücre sayısı kutusu gizleniyor; sunucu da birleşmede hücre
+       sayısı yazmıyor. Göç (goc_048) yoksa seçenek basılmıyor. #}
+    {% if birlesme_var %}
+    <div class="secenek" style="margin-bottom:10px">
+      <label class="sec {% if kayit and kayit.cl_birlesme %}secili{% endif %}">
+        <input type="checkbox" name="cl_birlesme" value="1" id="cl_birlesme"
+               {% if kayit and kayit.cl_birlesme %}checked{% endif %}>
+        <span>{{ metin("birlesme") }}</span>
+      </label>
+    </div>
+    {% endif %}
     <div class="alan ikili">
-      <div>
+      <div id="hucreKutusu"{% if kayit and kayit.cl_birlesme %} hidden{% endif %}>
         <label for="cl_hucre_sayisi">{{ metin("hucre_sayisi") }}</label>
         <input id="cl_hucre_sayisi" name="cl_hucre_sayisi" type="number"
                inputmode="numeric" min="1" max="64"
@@ -233,6 +246,13 @@
   // yok. Erken cik -- yoksa null uzerinde addEventListener patlardi
   // ve sayfanin geri kalan betikleri de calismazdi.
   if (!document.getElementById('clform')) return;
+  // Birleşme seçilince hücre sayısı kutusu kaybolur (v6.157).
+  var birlesme = document.getElementById('cl_birlesme');
+  if (birlesme) {
+    birlesme.addEventListener('change', function () {
+      document.getElementById('hucreKutusu').hidden = birlesme.checked;
+    });
+  }
   document.querySelectorAll('.secenek').forEach(function (grup) {
     grup.addEventListener('change', function () {
       grup.querySelectorAll('.sec').forEach(function (l) {

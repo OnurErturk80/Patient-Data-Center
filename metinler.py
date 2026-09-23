@@ -617,6 +617,10 @@ METINLER = {
         "en": "FET (3→5) thaws cleavage embryos only; this straw holds a "
               "blastocyst."},
     "blastokist_tupu": {"tr": "Blastokist", "en": "Blastocyst"},
+    # Cleavage'da birleşme (v6.157) -- kalite "Birleşme G2". Kısası numara
+    # şeridinde ("3-Bir."), "8H"nin yerinde.
+    "birlesme": {"tr": "Birleşme", "en": "Compaction"},
+    "birlesme_kisa": {"tr": "Bir.", "en": "Comp."},
     "yeni_tedavi_baslat": {"tr": "Yeni tedavi başlat: {n}",
                            "en": "Start new cycle: {n}"},
     "tedavi_seciniz": {"tr": "— Tedavi seç —", "en": "— Choose a cycle —"},

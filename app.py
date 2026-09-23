@@ -5573,7 +5573,8 @@ def cleavage_durum(cycle_id: int, gun: int, cycle_tipi=None):
         "  (SELECT o.fert_pn_sayisi FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0 "
         "   ORDER BY o.id DESC LIMIT 1) AS pn, "
-        "  (SELECT o.cl_hucre_sayisi FROM olay o WHERE o.specimen_id = s.id "
+        # Birleşmede sayı yerine `db.BIRLESME` (v6.157); şerit kısaltıyor.
+        f"  (SELECT {db.cl_hucre_ifadesi('o')} FROM olay o WHERE o.specimen_id = s.id "
         "   AND o.tip='cleavage_degerlendirme' AND o.gun = ? AND o.iptal_mi=0 "
         "   ORDER BY o.id DESC LIMIT 1) AS hucre, "
         "  (SELECT o.id FROM olay o WHERE o.specimen_id = s.id "
@@ -5657,6 +5658,8 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
         # kullanıcının isteği: "G1,G2,G3,G4 şeklinde seçilebilsin") --
         # simetri'nin aynı `liste_degeri` deseni, goc_041.
         "skorlar": db.liste("cleavage_skor"),
+        # Birleşme seçeneği (v6.157) göç (goc_048) varken basılıyor.
+        "birlesme_var": db.kolon_var("olay", "cl_birlesme"),
         "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
         "hedef_saat": db.ayar("gun3_kontrol_saat", "68") if gun == 3 else None,
     }
@@ -5723,13 +5726,18 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
         return RedirectResponse(burasi, status_code=303)
 
     kid = request.state.kullanici["id"]
+    # Birleşme (v6.157, kullanıcının isteği): hücre sayısı sayılamıyor, ekran
+    # kutuyu gizliyor; gizli kutuda kalmış bir değer de yazılmıyor. Göç
+    # (goc_048) yoksa kutu ekranda yok, alan hiç yazılmıyor (tuzak #3).
+    birlesme_var = db.kolon_var("olay", "cl_birlesme")
+    birlesme = birlesme_var and f.get("cl_birlesme") == "1"
     try:
-        hucre = tam(f.get("cl_hucre_sayisi"), "Hücre sayısı")
+        hucre = None if birlesme else tam(f.get("cl_hucre_sayisi"), "Hücre sayısı")
         frag = sayi(f.get("cl_fragmentasyon"), "Fragmentasyon")
     except FormHatasi:
         return RedirectResponse(burasi, status_code=303)
     simetri = f.get("cl_simetri") or None
-    if hucre is None and not simetri and frag is None:
+    if hucre is None and not simetri and frag is None and not birlesme:
         return RedirectResponse(burasi, status_code=303)
 
     elle_skor = (f.get("cl_skor") or "").strip().upper() or None
@@ -5743,10 +5751,13 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
                                 status_code=303)
     # olay.cycle_id örneğin KENDİ tedavisi (v6.62; Yumurta Çözme'de, v6.147,
     # rotanınki değil).
+    alanlar = {"cl_hucre_sayisi": hucre, "cl_simetri": simetri,
+               "cl_fragmentasyon": frag, "cl_skor": skor,
+               "cl_skor_kaynagi": kaynak}
+    if birlesme_var:
+        alanlar["cl_birlesme"] = 1 if birlesme else None
     _gun_olay_kaydet(specimen_id, sp["cycle_id"], "cleavage_degerlendirme", gun,
-                     {"cl_hucre_sayisi": hucre, "cl_simetri": simetri,
-                      "cl_fragmentasyon": frag, "cl_skor": skor,
-                      "cl_skor_kaynagi": kaynak}, kid, simdi)
+                     alanlar, kid, simdi)
 
     asama = f"gun{gun}"
     yeni_b = set(f.getlist("bulgu"))
@@ -6334,15 +6345,14 @@ def _vit_satiri(e: dict) -> dict:
     """Vitrifikasyon listesinde bir satırın kalitesi ve günü.
 
     Blastokist skoru varsa o; yoksa gün 2/3 kaydından hücre sayısı + skor
-    ("4HG2"). Kaydı hiç olmayan örnek zaten listeye girmiyor (v6.137), ama
+    ("4HG2"; birleşmede "Birleşme G2", v6.157, `db.cleavage_yazimi()`). Kaydı hiç olmayan örnek zaten listeye girmiyor (v6.137), ama
     `oosit_cryo`'da süzgeç uygulanmadığı için orada ikisi de boş kalabilir --
     şablon o zaman "değerlendirilmemiş" basıyor, doğru olan da o.
     """
     if e.get("skor"):
         e["kalite"], e["kalite_gun"] = e["skor"], e.get("gun")
     elif e.get("cl_hucre") is not None:
-        e["kalite"] = (f"{e['cl_hucre']}H{e['cl_skor']}" if e.get("cl_skor")
-                       else f"{e['cl_hucre']}H")
+        e["kalite"] = db.cleavage_yazimi(e["cl_hucre"], e.get("cl_skor"))
         e["kalite_gun"] = e.get("cl_gun")
     else:
         e["kalite"], e["kalite_gun"] = None, None
@@ -6384,7 +6394,7 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         # Gün 2/3'te dondurulan embriyonun blastokist skoru yok; kendi
         # cleavage kaydı gösterilsin diye (v6.137) -- yoksa listedeki her
         # gün 3 embriyosu "değerlendirilmemiş" yazardı, oysa kaydı var.
-        "  (SELECT cl.cl_hucre_sayisi FROM olay cl WHERE cl.specimen_id=s.id "
+        f"  (SELECT {db.cl_hucre_ifadesi('cl')} FROM olay cl WHERE cl.specimen_id=s.id "
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
         f"   {bu_cl}ORDER BY cl.gun DESC LIMIT 1) AS cl_hucre, "
         "  (SELECT cl.cl_skor FROM olay cl WHERE cl.specimen_id=s.id "

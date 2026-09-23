@@ -850,15 +850,16 @@ def _gizli_notu_coz(metin: str) -> tuple:
 #   4HG2, 3HG2, 8G2       -> cleavage: hücre sayısı + G skoru
 #   2*M2, 5M2, 1*M1       -> dondurulan YUMURTA grubu (adet + olgunluk, v6.148:
 #                            yıldızsız yazım ve MI yumurta da)
-#   BB, BİRLEŞME G1       -> skoru bilinmeyen embriyo (v6.148): D3 listelerinde
-#                            bir embriyonun yerini tutuyor, sayılıyor ama
-#                            değerlendirmesi yazılmıyor, ham hali notta
+#   BB, BİRLEŞME G1       -> birleşme (v6.157; kullanıcı: "BB birleşme
+#                            başlangıcı demek"): hücre sayısı yok, grade
+#                            yazılıysa o. v6.148-v6.156 arası skorsuz
+#                            embriyo diye yazılıyordu, goc_048 düzeltiyor
 _OOSIT_GRUBU = re.compile(r"^(\d+)\s*\*?\s*M\s*(2|II|1|I)$")
 _TEK_OOSIT = re.compile(r"^M\s*(2|II|1|I)$")        # "(M2)" -- yalnız yumurta notunda
 _CLEAVAGE = re.compile(r"^(\d+)\s*(?:H\s*G?|G)\s*([1-4])")
 _BLAST = re.compile(r"^([1-6])\s*([ABC])\s*([ABC])")
 _BLAST_DISI = re.compile(r"^(KAV|EM|ARR|MOR|M)\s*G?\s*([1-3])?(?![A-Z0-9])")
-_YUVA = re.compile(r"^(?:BB|BIRLESME\w*)$")
+_YUVA = re.compile(r"^(?:BB|BIRLESME(?:\s*BASLANGICI)?\s*G?\s*([1-4])|BIRLESME\w*)$")
 # `app.BLAST_KISA`'nın tersi -- oradaki kısaltmalar kâğıda da böyle yazılıyor.
 _KISALTMA = {"KAV": "kavitasyon", "M": "morula", "MOR": "morula",
              "EM": "erken_morula", "ARR": "arrest"}
@@ -901,9 +902,12 @@ def _skor_coz(parca: str, yumurta: bool = False):
 
 
 def _yuva_coz(parca: str):
-    """Skoru bilinmeyen ama bir embriyonun yerini tutan yazım ("BB")."""
-    if _YUVA.match(_sade(parca)):
-        return {"tur": "embriyo", "ham": parca.strip()}
+    """Hücre sayısı olmayan embriyo yazımı: "BB" / "BİRLEŞME G1" -- birleşme
+    başlangıcı (v6.157, kullanıcının cevabı). Grade yazılıysa `skor`."""
+    m = _YUVA.match(_sade(parca))
+    if m:
+        return {"tur": "embriyo", "birlesme": True, "ham": parca.strip(),
+                "skor": f"G{m.group(1)}" if m.group(1) else None}
     return None
 
 
@@ -1500,8 +1504,13 @@ def _oge_alanlari(o, gun=None) -> tuple:
     """
     if o["tur"] == "embriyo":
         if gun is not None and gun <= 3:
-            return "cleavage_degerlendirme", {
-                "cl_hucre_sayisi": None, "cl_skor": None, "cl_skor_kaynagi": None}
+            # Birleşme (v6.157): hücre sayısı yok, grade yazılıysa o. Göç
+            # (goc_048) yoksa kolon yazılmıyor -- eski davranış, skorsuz.
+            alan = {"cl_hucre_sayisi": None, "cl_skor": o.get("skor"),
+                    "cl_skor_kaynagi": "elle" if o.get("skor") else None}
+            if o.get("birlesme") and _db.kolon_var("olay", "cl_birlesme"):
+                alan["cl_birlesme"] = 1
+            return "cleavage_degerlendirme", alan
         return None
     if o["tur"] == "blast":
         return "blastokist_degerlendirme", {
@@ -1556,8 +1565,10 @@ def _degerlendirme_anahtari(b, sid, tedavi):
         return None, None
     if o[0] == "blastokist_degerlendirme":
         return o[1], _EVRE_SIRASI.get(o[4], 4)
-    if o[2] is None and not o[3]:
-        return None, None       # skorsuz ("BB"): bilinmiyor, her şeyle tutar
+    if o[2] is None:
+        # Hücre sayısı yok ("BB", birleşme -- grade'i olsa da, v6.157):
+        # anahtarı bilinmiyor, her şeyle tutar. v6.148'deki davranış.
+        return None, None
     return (f"{o[2]}{o[3]}" if o[2] is not None and o[3] else None), 1
 
 

@@ -12805,3 +12805,53 @@ seçeneği ve "Yeni tedavi başlat: FET (3→5)" yok, sebep yazıyor; zorla
 gönderilen çözme ve yeni tedavi isteği reddedildi, hiçbir satır yazılmadı.
 Cleavage tüpü FET (3→5) için çözüldü. Var olan çözmesi olan blastokist
 tüpünde FET (3→5) seçili geldi. Telefonda (390px) yatay kayma yok.
+
+# v6.157 — Cleavage'da "Birleşme"
+
+Kullanıcı (v6.150'deki soruya cevap): "BB birleşme başlangıcı demek.
+Birleşme olarak yazılsın. Cleavage bölümüne kalitede Birleşme ekle.
+Birleşme seçilince hücre sayısı kaybolsun, grade ve fragmantasyon
+gözüksün. Yani embriyo kalitesi Birleşme G2 gibi olabilsin."
+
+## Ne değişti
+
+- **`goc_048`: `olay.cl_birlesme`** (1 = birleşme). Cleavage ekranında
+  "Birleşme" düğmesi; seçilince hücre sayısı kutusu kayboluyor, sunucu
+  birleşmede hücre sayısı yazmıyor (gizli kutuda kalmış değer de).
+  Fragmantasyon, grade (G1–G4), bulgular, saat yerinde. **Simetri de
+  yerinde** — kullanıcı yalnızca hücre sayısını saydı; birleşmede anlamı
+  yoksa kaldırılması tek satır.
+- **Kalitenin yazımı tek yerde: `db.cleavage_yazimi()`** — "Birleşme G2",
+  grade yoksa "Birleşme". Hücre yerini okuyan sorgular
+  `db.cl_hucre_ifadesi()` ile: vitrifikasyon listesi, resmî formların
+  dondurma satırı (Özet NOTLAR, ART Lab FREEZE), çözülen ve transfer edilen
+  embriyonun kalitesi (THAW, Uterus grade, Özet EMBRİYO1/2 "Birleşme"),
+  ART Lab ızgarasının 40-45 / 72 saat hücre kutusu, tedavi Excel'i.
+- Numara şeridi "3-Bir.", bilgi kartı ve silme ekranı "Birleşme".
+- Otomatik A/B/C skoru hücre sayısı istiyor; birleşmede hesaplanmıyor,
+  grade elle seçiliyor.
+- NOTLAR satırı artık kaliteyi ve tüp parantezini ortasından bölmüyor
+  (`formlar._sar()`): "(Birleşme G3)" iki satıra düşüp "(Birleşme" / "G3)"
+  okunuyordu. Eski satırların sarma yeri yalnızca bir parantez ortadan
+  bölünüyorsa değişir.
+
+## Access kayıtları
+
+- `aktar_access.py` "BB", "BİRLEŞME G1", "BİRLEŞMEG3"ü birleşme olarak
+  yazıyor, grade varsa onu da (önce skorsuz embriyo, v6.148). "BİRLEŞME G1"
+  boşluklu yazımı önce hiç tanınmıyordu. Tüp eşleştirmesi değişmedi:
+  hücre sayısı olmayan değerlendirmenin anahtarı hâlâ "bilinmiyor".
+- **Daha önce aktarılmış olanları `goc_048` düzeltiyor**, program açılınca
+  kendiliğinden: notu "Kaynak kayıttaki yazım: BB" (ya da BİRLEŞME…) olan,
+  hücre sayısı boş değerlendirmeler birleşme oluyor, yazımdaki grade boş
+  grade'in yerine giriyor. Ekrandan girilmiş kayıtlara dokunmuyor.
+
+## Deneme
+
+Deneme veritabanında: göç açılışta uygulandı, aktarılmış "BİRLEŞMEG3"
+→ birleşme + G3, ekrandan girilmiş hücresiz kayıt dokunulmadı. Ekrandan
+birleşme G2 kaydedildi (gizli kutudaki 8 yazılmadı), birleşme kaldırılıp
+6 hücre kaydedildi. Vitrifikasyon "Birleşme G3 · gün 3", ART Lab ızgarası
+"Birleşme" (kutuya sığıyor: 68/68 ve 63/63 px), FREEZE "(Birleşme G3)",
+Özet NOTLAR bölünmeden. Excel çıktıları 200, hata yok. Telefonda (390px)
+yatay kayma yok.
