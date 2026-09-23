@@ -224,7 +224,9 @@ YUMURTA ÇÖZME, PGT KÜLTÜRÜ, TARİHSİZ SATIR (v6.148)
 
 import csv
 import datetime as _dt
+import glob
 import itertools
+import os
 import re
 import sys
 import textwrap
@@ -2744,6 +2746,19 @@ def main():
                  "               ornek: python3 aktar_access.py kaynak=TEMMUZ temmuz.csv\n"
                  "  duzelt=<dosya>  yazim hatali tarihlerin duzeltmeleri (satir:\n"
                  "               KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih)")
+    # Dosya yoksa Python'un hata dökümü yerine ne olduğunu söyle: Windows
+    # uzantıyı gizlediği için "temmuz" görünen dosya "temmuz_2026.csv" ya da
+    # "temmuz.csv.csv" olabiliyor (kullanıcının başına geldi, v6.150).
+    for yol, ne in ((arg[0], "CSV dosyasi"), (duzelt, "duzeltme dosyasi")):
+        if yol and not os.path.isfile(yol):
+            buradakiler = sorted(glob.glob("*.csv")) + sorted(glob.glob("*.txt"))
+            sys.exit(f"{ne} bulunamadi: {yol}\n"
+                     f"Calisilan klasor: {os.getcwd()}\n"
+                     "Bu klasordeki .csv/.txt dosyalari:\n"
+                     + ("".join(f"  {a}\n" for a in buradakiler)
+                        or "  (hic yok -- dosyalar baska bir klasorde)\n")
+                     + "Komutta dosyanin adini yukaridaki gibi yaz; adinda "
+                       "bosluk varsa tirnak icine al: \"temmuz 2026.csv\"")
     satirlar = satirlari_oku(arg[0])
     # Önce yazım hatası düzeltmeleri, sonra tarihsiz satırlara yakın kaydın
     # tarihi (düzeltilen tarih komşusuna da doğru geçsin), sonra boş kopyalar.
