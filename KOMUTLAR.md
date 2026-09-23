@@ -281,6 +281,8 @@ güncellemeler açılışta kendiliğinden uygulanır — sonra komutu tekrar
 ```
 python3 teshis.py                    # genel kontrol
 python3 teshis_silme.py 527078       # bu hasta neden silinemiyor
+python3 teshis_form.py               # FET formunda çözme görünmüyor: listele
+python3 teshis_form.py 2026-0123     # o tedaviyi adım adım incele
 python3 liste_duzenle.py             # seçim listelerini gör / temizle
 python3 tarih_duzelt.py liste        # bozuk tarih var mı (dokunmaz)
 python3 yerel_kur.py                 # bu makinenin klasör yollarını ayarla

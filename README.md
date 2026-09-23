@@ -12573,3 +12573,36 @@ Kullanıcının gerçek verisinde denenmedi (kopya yok): Access'ten aktarılan
 FET'lerde çözülen embriyonun skoru ya aktarılan tüpten ya da FET'in kendi
 altına açılan örneklerden geliyor (v6.148); skor kayıtlı değilse parantez
 sayı ya da `?` basar.
+
+---
+
+# v6.153 — `teshis_form.py`: FET formunda çözme neden görünmüyor
+
+Kullanıcı v6.152'den sonra "şu an bir şey değişmedi, formlarda görünmüyor"
+dedi. Veritabanı bende yok; test kopyasında formlar doluyor. Sebep ancak
+kullanıcının makinesinde görülebilir, o yüzden salt okuyan bir araç yazıldı.
+
+Bilinen iki aday:
+
+1. **Program yeniden başlatılmadı** (tuzak #5): formlar Python kodu,
+   `git pull` programı açıkken yapılırsa eski kod çalışmaya devam ediyor.
+   Araç diskteki kodun sürümünü basıyor.
+2. **Çözme FET'e değil kaynak tedaviye yazılmış.** Çözme ekranı Cryo
+   Haritası'ndan açıldığında "Çözme hangi tedavi için" seçimi embriyonun
+   kaynak (ICSI) tedavisine düşüyor (`thaw_ekran()`: adreste `?cycle=` yoksa
+   önceki kayıt, o da yoksa kaynak). Değiştirilmeden kaydedilen çözme
+   ICSI'nin formunda çıkar, FET'inkinde değil — v6.152'den önce de
+   "formlara işlem geçmiyor" şikâyetinin sebebi bu olabilir.
+
+`python3 teshis_form.py` bütün çözme tedavilerini "çözme N, transfer N"
+diye listeliyor ve çözmesi olmayanları işaretliyor. `python3 teshis_form.py
+<tedavi no>` o tedavi için kaydedilmiş çözmeleri, transferleri, hastanın
+başka tedaviye yazılmış çözmelerini ve formun göreceği değerleri basıyor.
+**Transferden hemen önceki çözme** başka tedaviye yazılmışsa satır
+"BU TEDAVIDE TRANSFER EDILMIS ama cozmesi ... tedavisine yazilmis" diyor;
+aynı embriyonun daha önceki, doğru yazılmış çözmeleri işaretlenmiyor
+(ilk yazışta işaretleniyordu, test kopyasında görüldü, düzeltildi).
+
+Hiçbir şey değiştirmiyor, hasta adı basmıyor. İkinci sebep çıkarsa
+onarım (ve varsayılan seçimin değişip değişmeyeceği) kullanıcıyla
+konuşulup ayrıca yazılacak.

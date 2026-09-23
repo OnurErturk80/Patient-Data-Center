@@ -132,6 +132,7 @@ Patient Data Center/
   teshis.py         genel sorun teşhisi
   tarih_duzelt.py   yılı bozuk tarihleri bulur, sorarak düzeltir
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
+  teshis_form.py    FET formunda çözme neden görünmüyor — yalnızca okur
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
@@ -1028,6 +1029,13 @@ kalıptan**: `form_kalip.json`.
   - Izgaranın "Transfer" satırındaki **F = Freeze** (o embriyo transfer
     edilmedi, donduruldu), ✓ = transfer. Kullanıcı sordu, anlamı ekranda
     yazmıyor.
+- **"Formda görünmüyor" derse önce `teshis_form.py`** (v6.153). Bilinen
+  iki sebep: program `git pull`'dan sonra yeniden başlatılmamış (tuzak #5)
+  ya da çözme FET'e değil kaynak ICSI'ye yazılmış — çözme ekranı Cryo
+  Haritası'ndan açılınca "hangi tedavi için" seçimi embriyonun kaynak
+  tedavisine düşüyor (`thaw_ekran()`'ın varsayılanı). Araç ikisini de ve
+  "bu tedavide transfer edilmiş ama çözmesi başka tedaviye yazılmış"
+  embriyoyu gösteriyor; hasta adı basmıyor.
 - **Taşma/küçülme kararı sayfanın verisine bağlı** (v6.152):
   `formlar.tasan_hucreleri(ad, deger)` / `sigdir_hucreleri(ad, deger)`,
   app ikisini de sayfa sayfa çağırıyor. FREEZE yanındaki THAW boşsa taşar,
