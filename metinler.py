@@ -489,6 +489,16 @@ METINLER = {
     "tasiyiciya_git": {"tr": "Taşıyıcıya git", "en": "Go to carrier"},
     # Taşıyıcı detayında: bu tüpten çözülüp sonra başka tüpe dondurulan örnek.
     "yeniden_donduruldu": {"tr": "Yeniden donduruldu", "en": "Re-frozen"},
+    # Hasta kartının tedavi satırı (v6.151): bu tedavide yeniden dondurma
+    # yapıldı / bu tedavide çözülen tüp daha önce yeniden dondurulmuştu.
+    "yeniden_dondurma_rozet": {"tr": "Yeniden dondurma", "en": "Re-freeze"},
+    "tup_etiketli": {"tr": "tüp {n}", "en": "tube {n}"},
+    "n_tedavide_cozuldu": {"tr": "{n}. tedavide çözüldü",
+                           "en": "thawed in cycle {n}"},
+    "yeniden_dondurulmus_tup_cozuldu": {
+        "tr": "Yeniden dondurulmuş tüp çözüldü",
+        "en": "Thawed a re-frozen tube"},
+    "n_tedaviden": {"tr": "{n}. tedaviden", "en": "from cycle {n}"},
     "degerlendirilmemis": {"tr": "değerlendirilmemiş", "en": "not assessed"},
     "gun_n": {"tr": "gün {n}", "en": "day {n}"},
     "ayni_tasiyici_ipucu": {

@@ -12428,3 +12428,44 @@ bulundu:
   yazılıyor (hücre sayısı ve grade boş). Mayısta bir tane var
   ("BİRLEŞMEG3"). "BB"nin laboratuvarın yazımında ne demek olduğu kullanıcıya
   soruldu; cevap gelene kadar dokunulmadı.
+
+---
+
+# v6.151 — hasta kartında yeniden dondurma görünüyor
+
+Kullanıcının isteği: "Hasta kartı bölümünde hastanın bütün tedavileri
+göründüğü gibi eğer refreeze yapıldıysa görünsün istiyorum."
+
+Yeniden dondurma v6.143'ten beri kayıtlı (FET'te çözülüp transfer
+edilmeyen embriyo aynı tedavide yeniden donduruluyor, `vit_cycle_id`). Tüp
+sayfası bunu söylüyordu; hastanın tedavi listesi söylemiyordu. Artık
+`/hasta/{id}`'nin Tedaviler kartında:
+
+- **Yeniden dondurmanın yapıldığı tedavi** satırında "Yeniden dondurma"
+  rozeti ve bir satır: `Yeniden donduruldu: 2 embriyo · tüp 0002-1430 →
+  3. tedavide çözüldü`. Tüp sonradan çözülmediyse ok kısmı yok.
+- **O tüpü çözen tedavi** satırında: `Yeniden dondurulmuş tüp çözüldü:
+  0002-1430 (2. tedaviden)`.
+
+Yani FET'ten FET'e zincir kartta iki yönden okunuyor. Satırın kendisi
+tedaviye giden bir bağlantı, içine ikinci bir `<a>` konamıyor; öteki
+tedavinin numarası düz metin ("3. tedavi"), kart zaten aynı ekranda.
+
+**Yeniden dondurmanın ölçüsü türetilmiş**, işaret tutulmuyor:
+`app.hastanin_yeniden_dondurmalari()` bir dondurmayı, aynı örneğin ondan
+önce (kimlik sırası, v6.143'ün kuralı) iptal edilmemiş bir çözmesi varsa
+yeniden dondurma sayıyor. **Tek istisna Yumurta Çözme**: orada çözülen
+yumurta, dondurulan onun ICSI'sinden gelişen embriyo — aynı örnek ama
+yeniden dondurma değil. Ayrım `db.yumurta_mi()`'nin iki aşamadaki cevabıyla
+(çözülen tür ≠ dondurulan tür → sayılmıyor), tip adı elle yazılmadı.
+
+Göç (goc_046) çalışmamışsa işlev boş dönüyor, kart eskisi gibi.
+
+### Deneme
+
+Test kopyasında: ICSI → tüp A → 2. tedavide (FET) çözme, bir transfer, iki
+embriyo tüp B'ye → 3. tedavide (FET) tüp B çözme. Ayrıca Yumurta
+Dondurma → Yumurta Çözme → embriyo dondurma. Kart: 2. tedavi rozetli ve
+"→ 3. tedavide çözüldü", 3. tedavi "2. tedaviden", 1., 4. ve 5. tedaviler
+değişmedi. Göçsüz veritabanında işlev boş döndü. 390 ve 1440 piksel
+genişlikte sayfa yana kaymıyor.

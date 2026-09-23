@@ -2809,8 +2809,85 @@ def hasta_detay(request: Request, hasta_id: int):
         {"hasta": hasta, "cycles": cycles,
          "sperm_kayitlari": hastanin_sperm_kayitlari(hasta_id),
          "es_sahibi": es_sahibi, "es_sperm": es_sperm,
-         "baglanabilir": baglanabilir}
+         "baglanabilir": baglanabilir,
+         "yeniden": hastanin_yeniden_dondurmalari(cycles)}
     )
+
+
+def hastanin_yeniden_dondurmalari(cycles) -> dict:
+    """Hasta kartının tedavi satırları için yeniden dondurmalar (v6.151).
+
+    Kullanıcının isteği: "Hasta kartı bölümünde hastanın bütün tedavileri
+    göründüğü gibi eğer refreeze yapıldıysa görünsün." Yeniden dondurma
+    v6.143'ten beri kayıtlı; görünmediği yer hasta kartıydı.
+
+    Yeniden dondurma = daha önce çözülmüş bir örneğin dondurması (ölçü kimlik
+    sırası, saat değil -- v6.143'ün "önce en son adım" kuralı). Türetilmiş,
+    işaret tutulmuyor. **Çözülen şey ile dondurulan şey aynı türde olmalı**:
+    Yumurta Çözme'de çözülen yumurtadan gelişip dondurulan embriyo yeniden
+    dondurma değil (`db.yumurta_mi()` iki aşamada farklı cevap veriyor).
+
+    Dönen sözlük tedavi kimliğine göre:
+    - `dondurulan`: bu tedavide yeniden dondurulan tüpler -- etiket, kaç
+      örnek, sonradan hangi tedavi(ler)de çözüldüğü;
+    - `cozulen`: bu tedavide çözülen, daha önce yeniden dondurulmuş tüpler --
+      hangi tedavide dondurulduğu. İki satır birbirini gösteriyor: FET'ten
+      FET'e zincir kartta iki yönden okunur.
+    Göç çalışmamışsa boş (tuzak #3).
+    """
+    if not cycles or not db.yeniden_dondurma_var():
+        return {}
+    idler = [c["id"] for c in cycles]
+    tipler = {c["id"]: c["cycle_tipi"] for c in cycles}
+    sira = {c["id"]: c["hasta_cycle_no"] for c in cycles}
+    yer = ",".join("?" * len(idler))
+    vt = db.vit_tedavisi("v")
+    satirlar = db.sorgu(
+        f"SELECT {vt} AS vit_cid, v.vit_tasiyici_id AS tid, t.etiket, "
+        "v.specimen_id, "
+        "(SELECT COALESCE(c.thaw_cycle_id, s.cycle_id) FROM olay c "
+        " WHERE c.specimen_id = v.specimen_id AND c.tip = 'thaw' "
+        " AND c.iptal_mi = 0 AND c.id < v.id ORDER BY c.id DESC LIMIT 1) "
+        "  AS onceki_cozme_cid "
+        "FROM olay v JOIN specimen s ON s.id = v.specimen_id "
+        "LEFT JOIN tasiyici t ON t.id = v.vit_tasiyici_id "
+        f"WHERE v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 AND {vt} IN ({yer}) "
+        "ORDER BY v.id", idler)
+    tupler = {}   # tid -> {...}; aynı tüpteki örnekler tek satır
+    for r in satirlar:
+        if r["onceki_cozme_cid"] is None:
+            continue  # ilk dondurma
+        cozme_tipi = tipler.get(r["onceki_cozme_cid"])
+        if cozme_tipi is None:  # başka hastanın tedavisi -- olmamalı
+            c = db.tek("SELECT cycle_tipi FROM cycle WHERE id = ?",
+                       (r["onceki_cozme_cid"],))
+            cozme_tipi = c["cycle_tipi"] if c else None
+        if (db.yumurta_mi(cozme_tipi, "thaw")
+                != db.yumurta_mi(tipler[r["vit_cid"]], "vitrifikasyon")):
+            continue  # yumurta çözüldü, embriyo donduruldu
+        anahtar = r["tid"] if r["tid"] is not None else ("yok", r["vit_cid"])
+        tup = tupler.setdefault(anahtar, {
+            "tid": r["tid"], "etiket": r["etiket"], "vit_cid": r["vit_cid"],
+            "ornekler": set(), "cozuldu": []})
+        tup["ornekler"].add(r["specimen_id"])
+    sonuc = {}
+    for tup in tupler.values():
+        if tup["tid"] is not None:
+            for c in db.sorgu(
+                    "SELECT DISTINCT thaw_cycle_id FROM olay "
+                    "WHERE thaw_tasiyici_id = ? AND tip = 'thaw' AND iptal_mi = 0 "
+                    "AND thaw_cycle_id IS NOT NULL ORDER BY thaw_cycle_id",
+                    (tup["tid"],)):
+                cid = c["thaw_cycle_id"]
+                tup["cozuldu"].append({"cid": cid, "no": sira.get(cid)})
+                sonuc.setdefault(cid, {"dondurulan": [], "cozulen": []})[
+                    "cozulen"].append({"etiket": tup["etiket"],
+                                       "cid": tup["vit_cid"],
+                                       "no": sira.get(tup["vit_cid"])})
+        tup["adet"] = len(tup["ornekler"])
+        sonuc.setdefault(tup["vit_cid"], {"dondurulan": [], "cozulen": []})[
+            "dondurulan"].append(tup)
+    return sonuc
 
 
 @uygulama.post("/hasta/{hasta_id}/sperm-dondurma/{sperm_dondurma_id}/bagla")

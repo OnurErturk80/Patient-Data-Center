@@ -2049,6 +2049,13 @@ yedi yer tek tek yazılı.
 - **Göç çalışmamışsa eski davranış** (`db.kolon_var()`,
   `db.cozme_tupu_var()`, `db.yeniden_dondurma_var()`); FET'in vitrifikasyon
   ekranı göç uyarısı basar.
+- **Hasta kartının tedavi satırı yeniden dondurmayı söylüyor** (v6.151,
+  `app.hastanin_yeniden_dondurmalari()`): dondurulan tedavide rozet + tüp +
+  "→ N. tedavide çözüldü", çözen tedavide "N. tedaviden". Ölçü türetilmiş:
+  aynı örneğin daha önce (kimlik sırası) bir çözmesi var. Yumurta Çözme'nin
+  embriyo dondurması sayılmıyor (`db.yumurta_mi()` çözmede ve dondurmada
+  farklı cevap veriyor). Yeni bir yerde "bu yeniden dondurma mı" diye
+  soracaksan bu işlevin koşulunu kullan.
 - **Zaman çizelgesi ve tedavi ekranının özet kutusu da işlemin yapıldığı
   tedaviye bakıyor** (v6.146, kullanıcının isteği). v6.143'te kapsam
   dışıydı. Kural `db.olay_tedavisi()`/`db.tedavide_yapilan()`'da, aşağıdaki
