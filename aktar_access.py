@@ -55,6 +55,14 @@ ezebilir, bu kip ezmez):
 
     python3 aktar_access.py iptal kaynak=OCAK ocak.csv
 
+**Yalnızca FET transfer kalitesi: `transfer`** (v6.154). v6.153'e kadar
+araç FET'te transfer edilen embriyonun kaynaktaki hücre/kalite kutularını
+(EMBRİYO1/2) yalnızca transfer notuna yazıyordu; resmî formların transfer
+bölümü boş kalıyordu. Bu kip yalnızca o değerlendirmeyi yazar, başka hiçbir
+şeye dokunmaz:
+
+    python3 aktar_access.py transfer kaynak=MAYIS mayis.csv
+
 ------------------------------------------------------------------------
 ACCESS'TEN CSV NASIL ÇIKAR
 
@@ -2067,6 +2075,75 @@ def _fet_embriyolari(b, r, cycle_id, cycle_no, kid, rapor):
                  + (" (tarih yaklaşık)" if r["tarih_yaklasik"] and not r["transfer"] else ""))
 
 
+def _fet_transfer_kalitesi(b, r, cycle_id, kid, rapor):
+    """FET'te transfer edilen embriyonun kalitesi, aşama ekranına (v6.154).
+
+    Kullanıcının bildirdiği: "FET tedavileri hâlâ formlara işlenmiyor."
+    Kaynağın "EMBRİYO1/2 HÜCRE/AŞAMA" + "KALİTE" kutuları FET'te yalnızca
+    transfer olayının notuna yazılıyordu; hiçbir değerlendirme açılmadığı
+    için Özet'in EMBRİYO1/2 kutuları, TRANSFER AŞAMASI ve ART Lab'ın "Uterus
+    grade"i boş basılıyordu. Taze transferin (`_taze_transfer()`) zaten
+    yaptığı şey: kutudaki skor o embriyonun o günkü değerlendirmesi.
+
+    - Embriyolar transfer sırasıyla (`_fet_embriyolari()` onları sırayla
+      açıp ilk N'ini transfer ediyor; `_kaynaga_bagla()` taşısa da olayların
+      kimlik sırası aynı kalıyor).
+    - Saat çözme (09:00) ile transfer (12:00) arasında, 11:00: değerlendirme
+      çözmeden sonra olmalı ki FET'in işi sayılsın (`db.olay_tedavisi()`).
+    - **Aynı gün, aynı tipte değerlendirmesi olan embriyoya yazılmıyor**:
+      tüpüne bağlanmış embriyonun kaynak tedavideki kaydıyla çakışırdı
+      (değerlendirme örnek+gün başına tek kayıt, v6.146'nın açık sorunu).
+      O embriyonun kalitesi zaten kaynağından görünüyor.
+    - **Bu tedavide o tipte değerlendirmesi olan embriyoya dokunulmuyor**
+      (ekranda girilmiş ya da elle düzeltilmiş olabilir; `tamamla`'nın
+      skoru ezme riski burada yok). Yani ikinci çalıştırma hiçbir şey
+      değiştirmez ve rapor da bir şey yazmaz.
+    """
+    if r["tip"] not in ("fet", "fet_kultur") or not r["transfer_adet"]:
+        return
+    kaliteler = _transfer_kaliteleri(r)
+    if not any(kaliteler):
+        return
+    trler = b.execute(
+        "SELECT o.specimen_id, o.zaman FROM olay o WHERE o.tip='transfer' "
+        "AND o.iptal_mi=0 AND o.tr_cycle_id=? ORDER BY o.id",
+        (cycle_id,)).fetchall()
+    asama_gunu = _asama_gunu(r["transfer_asama"])
+    ham = [_kalite_yazimi(h, k) for h, k in (r["emb1"], r["emb2"])]
+    yazilan, atlanan = [], []
+    for i, tr in enumerate(trler[:len(kaliteler)]):
+        o = kaliteler[i]
+        if not o:
+            continue
+        gun = asama_gunu or (5 if o["tur"] == "blast" else 3)
+        alan = _oge_alanlari(o, gun)
+        if not alan:
+            continue
+        deg_tipi, alanlar = alan
+        sid = tr["specimen_id"]
+        baska = b.execute(
+            "SELECT 1 FROM olay o WHERE o.specimen_id=? AND o.tip=? AND o.gun=? "
+            f"AND o.iptal_mi=0 AND NOT ({_db.bu_tedavide(cycle_id, 'o')}) LIMIT 1",
+            (sid, deg_tipi, gun)).fetchone()
+        if baska:
+            atlanan.append(ham[i] or "?")
+            continue
+        if b.execute(
+                "SELECT 1 FROM olay o WHERE o.specimen_id=? AND o.tip=? "
+                f"AND o.iptal_mi=0 AND {_db.bu_tedavide(cycle_id, 'o')} LIMIT 1",
+                (sid, deg_tipi)).fetchone():
+            continue
+        _degerlendirme_yaz(b, kid, sid, cycle_id, deg_tipi, gun,
+                           _zaman(tr["zaman"][:10], "11:00:00"), alanlar,
+                           o["ham"], onek=_KAYNAK_YAZIMI + " (transfer)")
+        yazilan.append(ham[i] or "?")
+    if yazilan:
+        rapor.append(f'    transfer edilen embriyo kalitesi: {", ".join(yazilan)}')
+    if atlanan:
+        rapor.append(f'    transfer kalitesi yazılmadı ({", ".join(atlanan)}): '
+                     "embriyonun kaynak tedavisinde aynı günün kaydı var")
+
+
 # Hastanın bir çözmeyle karşılaştırılacak en çok tüp sayısı. Alt kümeler
 # tek tek deneniyor (2^N); bu labda bir hastanın en çok 7 tüpü var.
 _BAGLA_EN_COK_TUP = 14
@@ -2438,6 +2515,10 @@ def _satiri_yaz(r) -> list:
         # Çözülen örneği dondurulduğu tüpe bağla (v6.148) -- bütün olaylar
         # yazıldıktan sonra, çünkü onları taşıyor.
         durum = _kaynaga_bagla(b, r, cycle_id, kid, rapor)
+        # FET'te transfer edilen embriyonun kalitesi (v6.154) -- bağlamadan
+        # SONRA: bağlanan embriyonun kaynaktaki aynı günün kaydıyla
+        # çakışmasın diye o kayda bakıyor.
+        _fet_transfer_kalitesi(b, r, cycle_id, kid, rapor)
         _tedavi_sirasi(b, hasta_id, cycle_id, rapor)
     return rapor, durum
 
@@ -2635,6 +2716,32 @@ def _iptal_sebebi_duzelt(b, r, cycle_id, kid, rapor):
     rapor.append(f"    iptal sebebi: iptal → {sebep}")
 
 
+def fet_transfer_kalitelerini_yaz(satirlar):
+    """Yalnızca FET transfer kalitesi: `tamamla`'nın 6. adımı, tek başına
+    (v6.154). `iptal` kipiyle aynı gerekçe: `tamamla` dondurma skorlarını
+    nottaki değerle yeniden yazıyor, elle düzeltilmiş skoru ezebilir; bu kip
+    yalnızca FET'te transfer edilen, o gün değerlendirmesi olmayan
+    embriyolara kaynağın EMBRİYO1/2 kutusunu yazıyor. İkinci çalıştırma
+    hiçbir şey değiştirmez."""
+    kid = _kullanici_id()
+    degisen = 0
+    for r in satirlar:
+        var = _zaten_var(r["kimlik"])
+        if not var:
+            continue
+        rapor = []
+        if var["cycle_tipi"] != r["tip"]:
+            r = dict(r, tip=var["cycle_tipi"])
+        with _db.yazma_islemi() as b:
+            _fet_transfer_kalitesi(b, r, var["id"], kid, rapor)
+        if rapor:
+            degisen += 1
+            print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
+            for satir in rapor:
+                print(satir)
+    print(f"\nBitti. {degisen} FET tedavisine transfer kalitesi yazildi.")
+
+
 def iptal_sebeplerini_duzelt(satirlar):
     """Yalnızca iptal sebebi: `tamamla`'nın 5. adımı, tek başına (v6.150).
 
@@ -2673,7 +2780,8 @@ def tamamla(satirlar):
     3. geçersiz çözme canlılığı, çözmeye yanlış yazılmış tüp (goc_046);
     4. çözülen örneği dondurulduğu tüpe bağlama;
     5. iptal sebebi: genel "iptal" kalmış tedavi, not bugün tanınan ayrıntılı
-       bir sebep söylüyorsa (v6.150: "OOSİT ÇIKMADI", "İNMATÜR OOSİT").
+       bir sebep söylüyorsa (v6.150: "OOSİT ÇIKMADI", "İNMATÜR OOSİT");
+    6. FET'te transfer edilen embriyonun kalitesi (v6.154).
     **Hemen çalıştır**: değerlendirme nottaki değerle güncelleniyor, aktarılan
     bir skoru ekranda elle düzelttiysen `tamamla` o düzeltmeyi ezer (v6.142).
     """
@@ -2701,6 +2809,7 @@ def tamamla(satirlar):
                 _cozme_tupu_duzelt(b, r, var["id"], rapor)
                 durum = _kaynaga_bagla(b, r, var["id"], kid, rapor)
                 _iptal_sebebi_duzelt(b, r, var["id"], kid, rapor)
+                _fet_transfer_kalitesi(b, r, var["id"], kid, rapor)
         except Exception as hata:
             sayac["hata"] += 1
             print(f'#{r["kimlik"]:>3}  HATA: {hata}')
@@ -2728,7 +2837,7 @@ def main():
         else:
             arg.append(a)
     kip = "aktar"
-    if arg and arg[0] in ("liste", "tamamla", "iptal"):
+    if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer"):
         kip, arg = arg[0], arg[1:]
     if not arg:
         sys.exit("Kullanim:\n"
@@ -2739,6 +2848,9 @@ def main():
                  "                                                skorlari ekler\n"
                  "  python3 aktar_access.py iptal <dosya.csv>     yalnizca iptal\n"
                  "                                                sebeplerini gunceller\n"
+                 "  python3 aktar_access.py transfer <dosya.csv>  yalnizca FET'te\n"
+                 "                                                transfer edilen\n"
+                 "                                                embriyonun kalitesi\n"
                  "\n"
                  "  kaynak=<AD>  ikinci bir Access dosyasi aktarilirken sart:\n"
                  "               her dosya kendi kayitlarini 1'den numaraliyor,\n"
@@ -2802,6 +2914,9 @@ def main():
         return
     if kip == "iptal":
         iptal_sebeplerini_duzelt(satirlar)
+        return
+    if kip == "transfer":
+        fet_transfer_kalitelerini_yaz(satirlar)
         return
     onizleme(satirlar, kopyalar, tutmayan)
     print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")

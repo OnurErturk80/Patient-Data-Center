@@ -12606,3 +12606,63 @@ aynı embriyonun daha önceki, doğru yazılmış çözmeleri işaretlenmiyor
 Hiçbir şey değiştirmiyor, hasta adı basmıyor. İkinci sebep çıkarsa
 onarım (ve varsayılan seçimin değişip değişmeyeceği) kullanıcıyla
 konuşulup ayrıca yazılacak.
+
+---
+
+# v6.154 — FET formlarında transfer edilen embriyo
+
+Kullanıcı: "FET tedavileri hâlâ formlara işlenmiyor." `teshis_form.py`
+çıktısı gelmeden sebep, yüklenen mayıs Access dosyası bir deneme
+veritabanına aktarılarak bulundu (dosya ve CSV depoya girmedi).
+
+## Sebep
+
+Access'teki FET satırlarında transfer edilen embriyonun hücre/aşama ve
+kalitesi var (`EMBRİYO1 HÜCRE/AŞAMA` = "8H", `KALİTE` = "G1"; ya da "3" +
+"BB"). `aktar_access.py` bunu FET'te **yalnızca transfer olayının notuna**
+yazıyordu; embriyonun hiçbir değerlendirmesi yoktu. Resmî formlar kaliteyi
+değerlendirmelerden okuduğu için:
+
+- Özet'in EMBRİYO1/2 HÜCRE-AŞAMA ve KALİTE kutuları, EMBRİYO TRANSFER
+  AŞAMASI boş;
+- ART Lab'ın "Uterus grade" kutusu (v6.152) `? x2`.
+
+Taze transferde (`_taze_transfer()`, v6.148) aynı kutular zaten
+değerlendirme olarak yazılıyordu; FET'te unutulmuştu. Çözme sayısı,
+canlılık ve notlar (v6.152) mayıs verisinde de doğru geliyordu —
+eksik olan transfer bölümüydü.
+
+## Düzeltme
+
+`_fet_transfer_kalitesi()`: transfer edilen embriyolara, transfer sırasıyla,
+kutudaki skor o günün değerlendirmesi olarak yazılıyor (blastokistte gün 5,
+cleavage'da 3 ya da kaynağın "N.GÜN" aşaması; saat 11:00 — çözmeden sonra,
+transferden önce, `db.olay_tedavisi()` onu FET'in işi saysın diye).
+
+- **Aktarımda** kaynağa bağlamadan (`_kaynaga_bagla()`) sonra çalışıyor.
+- **Dokunmadığı iki durum**: bu tedavide o tipte değerlendirmesi olan
+  embriyo (ekrandan girilmiş ya da düzeltilmiş olabilir) ve kaynak
+  tedavisinde **aynı günün** kaydı olan embriyo (tüpüne bağlanmış;
+  değerlendirme örnek+gün başına tek kayıt, v6.146'nın açık sorunu —
+  kalitesi zaten kaynağından görünüyor).
+- `tamamla`'nın 6. adımı ve **dar kip `transfer`** (`iptal`'in gerekçesi:
+  `tamamla` elle düzeltilmiş dondurma skorunu ezebilir, bu kip ezmez).
+
+Özet'in "EMBRİYO TRANSFER AŞAMASI" kutusu yalnızca blastokist evresini
+basıyordu; cleavage embriyosunda artık günü ("3. gün").
+
+## Deneme (mayıs, deneme veritabanı)
+
+- Önceden aktarılmış kopyada `transfer` kipi: 21 FET'e 30 değerlendirme
+  (25 blastokist, 5 cleavage); tablolar satır satır karşılaştırıldı, başka
+  hiçbir satır değişmedi. İkinci çalıştırma: "0 FET", fark yok.
+- Baştan aktarım: aynı 1020 olay; ardından `tamamla` hiçbir şeyi
+  değiştirmedi.
+- Örnek: 3. gün FET'i — Özet "3. gün · 8 hücre G1 · 7 hücre G2", ART Lab
+  THAW `(8HG1-7HG2)`, Uterus grade `8HG1 x1`, `7HG2 x1`. Blastokist FET'i —
+  "3 - Tam blastokist · 3BB", `3BB x1 · %100`.
+- 63 tedavinin Özet, ART Lab ve Excel çıktısı (189 adres) hatasız.
+
+Tüpüne bağlanmış (kaynağı programda olan) embriyo yolu mayıs verisinde
+yok (21 FET'in hiçbirinin tüpü programda değil); o dal yalnızca koşulla
+korunuyor, gerçek veride denenmedi.

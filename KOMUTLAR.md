@@ -239,6 +239,26 @@ python3 aktar_access.py tamamla agustos.csv
 `kaynak=` etiketi o ayın ilk aktarımındakiyle **aynı** olmalı (`HAZIRAN`,
 `TEMMUZ`; ağustos etiketsiz) — farklı yazılırsa `tamamla` satırları bulamaz.
 
+**FET formlarında transfer edilen embriyo boşsa (v6.154).** v6.153'e kadar
+araç FET'te transfer edilen embriyonun hücre sayısını ve kalitesini
+(Access'teki EMBRİYO1/2 kutuları) programa yazmıyordu; Embriyoloji Özet'in
+"Embriyo transferi" kutuları ve ART Lab'ın "Uterus grade"i boş çıkıyordu.
+`transfer` kipi yalnızca bunu yazar, başka hiçbir şeye dokunmaz. Önce
+`git pull`, sonra aktardığın her ay için bir kez (mayıs dahil):
+
+```
+python3 aktar_access.py transfer kaynak=OCAK    duzelt=tarih_duzeltme.txt ocak.csv
+python3 aktar_access.py transfer kaynak=SUBAT   duzelt=tarih_duzeltme.txt subat.csv
+python3 aktar_access.py transfer kaynak=MART    duzelt=tarih_duzeltme.txt mart.csv
+python3 aktar_access.py transfer kaynak=NISAN   duzelt=tarih_duzeltme.txt nisan.csv
+python3 aktar_access.py transfer kaynak=MAYIS   mayis.csv
+python3 aktar_access.py transfer kaynak=HAZIRAN duzelt=tarih_duzeltme.txt haziran.csv
+python3 aktar_access.py transfer kaynak=TEMMUZ  temmuz.csv
+python3 aktar_access.py transfer agustos.csv
+```
+
+İkinci kez çalıştırmak bir şey değiştirmez ("0 FET tedavisine ... yazildi").
+
 **İptal sebeplerini onarmak (v6.150).** v6.149'a kadar araç "OOSİT ÇIKMADI"
 ve "İNMATÜR OOSİT" notlarını tanımıyordu; o tedaviler genel "İptal" olarak
 kaldı. `iptal` kipi yalnızca hâlâ genel "iptal"de kalanların sebebini

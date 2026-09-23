@@ -2012,6 +2012,14 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   tamamlıyor, notta olmayanı çıkarıyor; **tüp silinmez, etiketi ve konumu
   değişmez**. Yeni bir kural eklersen `tamamla`'nın adımlarına da ekle ve
   aynı "ikinci çalıştırma" karşılaştırmasını yap.
+- **FET'te transfer edilen embriyonun kalitesi yazılıyor** (v6.154,
+  `_fet_transfer_kalitesi()`; kullanıcı: "FET tedavileri hâlâ formlara
+  işlenmiyor"). Kaynağın EMBRİYO1/2 kutuları FET'te yalnızca transfer
+  notuna gidiyordu — değerlendirme yoktu, Özet'in EMBRİYO1/2 ve TRANSFER
+  AŞAMASI kutuları, ART Lab'ın "Uterus grade"i boş basılıyordu. Kaynağa
+  bağlamadan SONRA çalışıyor; bu tedavide o tipte değerlendirmesi olana ve
+  kaynak tedavisinde aynı günün kaydı olana dokunmuyor (v6.146'nın örnek+gün
+  çakışması). Dar kip: `transfer` (elle düzeltilmiş skoru ezmez).
 - **Taze transfer yazılıyor** (v6.148; araç yalnızca FET transferini
   yazıyordu, IVF/ICSI tedavisi "transfer ile bitti" deyip transfer ekranı boş
   kalıyordu). Dondurmadan SONRA: ikisi de 2PN'lerden seçiyor.

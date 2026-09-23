@@ -361,7 +361,10 @@ def _transfer_edilenler(cycle_id):
         "   ORDER BY cl.gun DESC LIMIT 1) AS hucre, "
         "  (SELECT cl.cl_skor FROM olay cl WHERE cl.specimen_id = s.id "
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
-        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_skor "
+        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_skor, "
+        "  (SELECT cl.gun FROM olay cl WHERE cl.specimen_id = s.id "
+        "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
+        "   ORDER BY cl.gun DESC LIMIT 1) AS cl_gun "
         "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
         "WHERE o.tip='transfer' AND o.iptal_mi=0 "
         "  AND COALESCE(o.tr_cycle_id, s.cycle_id) = ? "
@@ -941,7 +944,12 @@ def ozet_verisi(cycle_id: int):
         "anormal_fertilizasyon": anormal or None,
         "fert_embriyolog": _yapan(cycle_id, "fert") or _yapan(cycle_id, "icsi"),
         # --- transfer ---
-        "transfer_asamasi": _asama_ozeti(tr, "bl_genisleme"),
+        # Blastokistte evre; cleavage embriyosunda (blastokist kaydı yok) gün
+        # -- "3. gün" (v6.154). Önceden 3. gün transferinde kutu boştu.
+        "transfer_asamasi": _asama_ozeti(tr, "bl_genisleme") or ", ".join(
+            f"{g}. gün" for g in sorted({r["cl_gun"] for r in tr
+                                         if r["cl_gun"] and not r["bl_genisleme"]})
+        ) or None,
         "transfer_tarihi": _gg_aa_yyyy(tr[0]["zaman"]) if tr else None,
         "transfer_sayisi": len(tr) or None,
         "transfer_klinisyen": None,              # programda tutulmuyor
