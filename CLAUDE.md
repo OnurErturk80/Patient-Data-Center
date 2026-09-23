@@ -2049,9 +2049,20 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   seçtiğine dokunmuyor), `degisiklik_log`'a düşüyor. Log satırı `b` ile
   yazılıyor: `guvenlik.degisiklikleri_yaz()` kendi bağlantısını açar,
   `yazma_islemi()`'nin kilidi içinde bekler. Öteki dar kipler:
-  `transfer` (v6.154) ve `bagla` (v6.160: yalnızca kaynağa bağlama — eski
-  bir yıl SONRADAN aktarılınca sonraki ayların FET'leri o tüplere bununla
-  bağlanıyor).
+  `transfer` (v6.154) ve `bagla` (v6.160: yalnızca kaynağa bağlama; v6.163'ten
+  beri dosyasız, bütün veritabanı).
+- **Her aktarımın sonunda bütün aktarılmış FET'ler yeniden deneniyor**
+  (v6.163, kullanıcının isteği: "her yeni aktarım yaptığımda eski
+  kayıtlardan bağlantılı hasta varsa tedavileri bağla"):
+  `butun_fetleri_bagla()`, CSV'siz — FET'in bilgisi veritabanından
+  (`_vt_satiri()`: transfer notundaki "Embriyo: 3AA"), çözme tarihi
+  sırasıyla (aynı tüpü isteyebilecek iki FET'ten önce çözen önce alır).
+  Bağlanınca FET'in transfer günü değerlendirmesi kaynağın aynı tip+gün
+  kaydıyla çakışıyorsa iptal (v6.154'ün kuralı, sonradan bağlanana da).
+  **Bilinen sınır**: bir FET o gün tek tutan tüpe bağlanır; daha eski bir
+  dönem SONRADAN aktarılıp ikinci bir tutan tüp getirirse bağ geri
+  alınmaz (tarih sırasıyla aktarılsaydı "belirsiz" denirdi — denemede
+  176 FET'ten birinde oldu).
 - **Etiket her dosyada tekil, yıllar arasında da** (v6.160): 2026'nın ayları
   `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`… Aynı etiketi
   başka yılın dosyasına verme.

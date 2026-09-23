@@ -69,13 +69,13 @@ artık tek tüp); tüpü olan tedaviye dokunmaz:
 
     python3 aktar_access.py dondurma kaynak=OCAK duzelt=tarih_duzeltme.txt ocak.csv
 
-**Yalnızca FET'i tüpüne bağlama: `bagla`** (v6.160). Daha eski bir ay
-sonradan aktarıldıysa (2026 aktarılmışken 2025) sonraki ayların FET'leri
-o tüplere ancak şimdi bağlanabilir. `tamamla` da bağlıyor ama dondurma
-skorlarını yeniden yazıyor; bu kip yalnızca bağlar. Sonraki her ay için,
-eskiden yeniye, o ayın ilk aktarımındaki etiketle:
+**FET'leri tüpüne bağlama: `bagla`** (v6.160, v6.163'ten beri dosyasız).
+Daha eski bir ay sonradan aktarıldıysa (2026 aktarılmışken 2025) önceki
+FET'ler o tüplere ancak şimdi bağlanabilir. **Her aktarımın sonunda bu
+kendiliğinden yapılıyor**; bir kez elle de çalıştırılabilir, veritabanındaki
+bütün aktarılmış FET'lere bakar, dosya istemez:
 
-    python3 aktar_access.py bagla kaynak=OCAK duzelt=tarih_duzeltme.txt ocak.csv
+    python3 aktar_access.py bagla
 
 ------------------------------------------------------------------------
 ACCESS'TEN CSV NASIL ÇIKAR
@@ -2482,6 +2482,24 @@ def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
                       (tupu[kaynak_sid], kaynak_sid, cycle_id))
         b.execute("UPDATE specimen SET durum=? WHERE id=?", (durum, kaynak_sid))
         b.execute("DELETE FROM specimen WHERE id=?", (kendi_sid,))
+    # Taşınan örneklerde FET'in transfer günü değerlendirmesi (v6.154, nottan)
+    # kaynağın AYNI tip ve gündeki kaydıyla çakışıyorsa FET'inki iptal
+    # (v6.163). `_fet_transfer_kalitesi()` bağlı embriyoya zaten yazmıyor;
+    # önce yazılıp sonra bağlanan (2026 aktarılmışken 2025 gelince) aynı
+    # kurala getiriliyor -- değerlendirme örnek+gün başına tek (v6.146).
+    for kaynak_sid in eslesme.values():
+        for oid, dtip, dgun in b.execute(
+                "SELECT o.id, o.tip, o.gun FROM olay o WHERE o.specimen_id=? "
+                "AND o.iptal_mi=0 AND o.notlar LIKE ? AND o.tip IN (?, ?)",
+                (kaynak_sid, _KAYNAK_YAZIMI + " (transfer):%")
+                + _DEGERLENDIRMELER).fetchall():
+            if b.execute(
+                    "SELECT 1 FROM olay o WHERE o.specimen_id=? AND o.tip=? "
+                    "AND o.gun=? AND o.iptal_mi=0 AND o.id<>? "
+                    f"AND NOT ({_db.bu_tedavide(cycle_id, 'o')}) LIMIT 1",
+                    (kaynak_sid, dtip, dgun, oid)).fetchone():
+                _iptal(b, kid, oid, "Kaynak tedavide ayni gunun kaydi var "
+                                    "(tupune baglandi)")
     for i in alt:
         b.execute("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?",
                   (adaylar[i]["tid"],))
@@ -2754,6 +2772,10 @@ def aktar(satirlar):
     print(f'\nBitti. {toplam["tedavi"]} tedavi aktarıldı, '
           f'{toplam["atlanan"]} atlandı, {toplam["hata"]} hata.')
     _bagla_ozeti(sonuclar)
+    # Daha önce aktarılmış FET'ler: çözdükleri tüp bu dosyayla gelmiş
+    # olabilir (v6.163). Bu dosyanın FET'leri zaten yukarıda denendi.
+    print("\nDaha önce aktarılmış FET'ler yeni gelen tüplerle eşleştiriliyor...")
+    butun_fetleri_bagla(yalnizca_ozet=True)
 
 
 def _canlilik_duzelt(b, r, cycle_id, rapor):
@@ -2849,36 +2871,78 @@ def fet_transfer_kalitelerini_yaz(satirlar):
     print(f"\nBitti. {degisen} FET tedavisine transfer kalitesi yazildi.")
 
 
-def kaynaga_bagla(satirlar):
-    """Yalnızca çözülen örneği dondurulduğu tüpe bağlama: `tamamla`'nın 4.
-    adımı, tek başına (v6.160).
+def _vt_satiri(b, cycle_id, tip) -> dict:
+    """Aktarılmış bir FET'in `_kaynaga_bagla()`'nın istediği bilgisi,
+    CSV'siz: veritabanından (v6.163). Gereken yalnızca tip, transfer sayısı
+    ve transfer edilen embriyoların yazımı -- yazım transfer olayının
+    notunda ("Embriyo: 3AA", `_fet_embriyolari()`), `_kalite_yazimi()`'nin
+    biçiminde, yani `_kalite_coz()` onu yeniden tanıyor."""
+    yazimlar = []
+    for (notu,) in b.execute(
+            "SELECT o.notlar FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+            "WHERE o.tip='transfer' AND o.iptal_mi=0 AND o.tr_cycle_id=? "
+            "ORDER BY s.cycle_sira_no, o.id", (cycle_id,)).fetchall():
+        m = re.search(r"Embriyo:\s*(.+)$", notu or "")
+        yazimlar.append(m.group(1).strip() if m else "")
+    emb = [("", y) for y in yazimlar[:2]] + [("", "")] * 2
+    return {"tip": tip, "emb1": emb[0], "emb2": emb[1],
+            "transfer_adet": len(yazimlar)}
 
-    Daha eski bir ay SONRADAN aktarıldığında (2026 aktarılmışken 2025) 2026
-    FET'lerinin çözdüğü embriyonun tüpü artık programda; aktarıldıkları gün
-    yoktu, "tüpü programda yok" diye kendi altlarında kaldılar. `tamamla` da
-    bağlıyor ama dondurma skorlarını nottaki değerle yeniden yazıyor, elle
-    düzeltilmiş skoru ezebilir (v6.142) -- bu kip yalnızca bağlıyor. Bağlı
-    olana, belirsize ve tutmayana dokunmuyor; ikinci çalıştırma hiçbir şey
+
+def butun_fetleri_bagla(yalnizca_ozet=False):
+    """Veritabanındaki BÜTÜN aktarılmış FET'leri tüpüne bağlamayı dener
+    (v6.163, kullanıcının isteği: "aktardığım bütün tedavileri birbirine
+    bağla ... her yeni aktarım yaptığımda eski kayıtlardan bağlantılı hasta
+    varsa tedavileri bağla").
+
+    Aylar karışık sırayla aktarılıyor (2026 önce, 2025 sonra): bir FET
+    aktarıldığı gün çözdüğü tüp programda yoktu, sonradan geldi. Bu işlev
+    CSV'ye bakmıyor -- hâlâ kendi embriyolarını taşıyan (bağlanmamış) her
+    aktarılmış FET'i **çözme tarihi sırasıyla** `_kaynaga_bagla()`'dan
+    geçiriyor: aynı tüpü isteyebilecek iki FET'ten önce çözen önce alır.
+    Kurallar aynı: tek eşleşme bağlanır, belirsiz ve tutmayan listelenir.
+    Her aktarımın sonunda kendiliğinden çalışıyor (`aktar()`); ayrıca
+    `bagla` kipi. Bağlı olana dokunmuyor, ikinci çalıştırma hiçbir şey
     değiştirmez."""
     kid = _kullanici_id()
+    yer = ",".join("?" * len(FET_TIPLERI))
+    fetler = _db.sorgu(
+        "SELECT c.id, c.cycle_no, c.cycle_tipi, c.protokol_notu, MIN(o.zaman) t "
+        "FROM cycle c JOIN olay o ON o.thaw_cycle_id=c.id AND o.tip='thaw' "
+        "AND o.iptal_mi=0 JOIN specimen s ON s.id=o.specimen_id AND s.cycle_id=c.id "
+        f"WHERE c.lab_id=? AND c.cycle_tipi IN ({yer}) "
+        "AND c.protokol_notu LIKE '%[Access kayd%' "
+        "GROUP BY c.id ORDER BY t, c.id", (_db.LAB_ID, *FET_TIPLERI))
     sonuclar = []
-    for r in satirlar:
-        var = _zaten_var(r["kimlik"])
-        if not var:
-            continue
-        if var["cycle_tipi"] != r["tip"]:
-            r = dict(r, tip=var["cycle_tipi"])
+    for f in fetler:
+        m = re.search(r"\[Access kaydı\s+([^\]]+)\]",
+                      (f["protokol_notu"] or "").replace("\n", " "))
+        etiket = m.group(1) if m else f["cycle_no"]
         rapor = []
-        with _db.yazma_islemi() as b:
-            durum = _kaynaga_bagla(b, r, var["id"], kid, rapor)
+        try:
+            with _db.yazma_islemi() as b:
+                durum = _kaynaga_bagla(b, _vt_satiri(b, f["id"], f["cycle_tipi"]),
+                                       f["id"], kid, rapor)
+        except Exception as hata:            # biri ötekileri durdurmasın
+            print(f'{f["cycle_no"]} ({etiket})  HATA: {hata}')
+            continue
         if durum:
-            sonuclar.append((r["kimlik"], durum))
-        if durum in ("bagli", "belirsiz", "tutmuyor"):
-            print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
+            sonuclar.append((etiket, durum))
+        if durum in ("bagli", "belirsiz", "tutmuyor") and not (
+                yalnizca_ozet and durum != "bagli"):
+            print(f'{f["cycle_no"]} ({etiket})')
             for satir in rapor:
                 print(satir)
-    print("\nBitti.")
-    _bagla_ozeti(sonuclar)
+    bagli = sum(1 for _k, d in sonuclar if d == "bagli")
+    elle = [(k, d) for k, d in sonuclar if d in ("belirsiz", "tutmuyor")]
+    print(f"\nBütün aktarılmış FET'ler: {len(fetler)} tanesi henüz tüpüne "
+          f"bağlı değildi, {bagli} tanesi şimdi bağlandı, "
+          f"{sum(1 for _k, d in sonuclar if d == 'yok')} tanesinin tüpü "
+          f"programda yok (dondurma program öncesi).")
+    if elle:
+        print("Elle bakılmalı (Access kaydı):")
+        for k, d in elle:
+            print(f'  {k}  {"birden çok tüp seçeneği" if d == "belirsiz" else "dolu tüpler tutmuyor"}')
 
 
 def eksik_dondurmalari_yaz(satirlar):
@@ -3017,6 +3081,14 @@ def main():
     kip = "aktar"
     if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer", "bagla", "dondurma"):
         kip, arg = arg[0], arg[1:]
+    if kip == "bagla":
+        # v6.163: CSV'ye bakmıyor, veritabanındaki bütün aktarılmış FET'ler.
+        # Eski yazım (`bagla kaynak=X dosya.csv`) da çalışsın: dosya yok sayılır.
+        if not _db.kolon_var("cycle", "hasta_cycle_no_elle"):
+            sys.exit("Veritabani guncellemesi eksik. Programi bir kez kapatip ac, "
+                     "sonra tekrar dene.")
+        butun_fetleri_bagla()
+        return
     if not arg:
         sys.exit("Kullanim:\n"
                  "  python3 aktar_access.py liste <dosya.csv>     ne yazilacagini gosterir\n"
@@ -3031,9 +3103,9 @@ def main():
                  "                                                embriyonun kalitesi\n"
                  "  python3 aktar_access.py dondurma <dosya.csv>  yalnizca hic tupu\n"
                  "                                                yazilmamis dondurma\n"
-                 "  python3 aktar_access.py bagla <dosya.csv>     yalnizca FET'in\n"
-                 "                                                cozdugu embriyoyu\n"
-                 "                                                tupune baglar\n"
+                 "  python3 aktar_access.py bagla                 aktarilmis butun\n"
+                 "                                                FET'leri tupune\n"
+                 "                                                baglar (dosya gerekmez)\n"
                  "\n"
                  "  kaynak=<AD>  ikinci bir Access dosyasi aktarilirken sart:\n"
                  "               her dosya kendi kayitlarini 1'den numaraliyor,\n"
@@ -3101,9 +3173,6 @@ def main():
         return
     if kip == "transfer":
         fet_transfer_kalitelerini_yaz(satirlar)
-        return
-    if kip == "bagla":
-        kaynaga_bagla(satirlar)
         return
     if kip == "dondurma":
         eksik_dondurmalari_yaz(satirlar)

@@ -245,12 +245,11 @@ python3 aktar_access.py tamamla agustos.csv
 1. **Etiket `...2025`**: `OCAK`, `SUBAT`, `MART`, `NISAN`, `MAYIS` 2026'da
    kullanıldı. Aynı etiket verilirse 2025'in satırları 2026'nınkilerle
    çakışır (betik durur). CSV'lerin adı da 2026'nınkilerle karışmasın.
-2. **Sonra 2026'yı `bagla` ile geçir**: 2026 FET'lerinin bir kısmı 2025'te
-   dondurulan embriyoyu çözdü. Aktarıldıkları gün o tüp programda yoktu;
-   `bagla` onları şimdi tüpüne bağlıyor ve tüp Cryo Haritası'nda boşalıyor.
-   Yalnızca bağlar, başka hiçbir şeye dokunmaz; iki kez çalıştırmak
-   güvenli. `tamamla` KULLANMA: aylar önce aktarılmış tedavide elle
-   düzelttiğin bir skoru nottaki değerle ezer.
+2. **FET'ler tüpüne kendiliğinden bağlanıyor** (v6.163): her aktarımın
+   sonunda program veritabanındaki BÜTÜN aktarılmış FET'lere bakıp yeni
+   gelen tüplerle tutanları bağlıyor (2025'te dondurulup 2025'in ileri bir
+   ayında ya da 2026'da çözülen embriyo). Ayrıca bir şey çalıştırmak
+   gerekmiyor.
 
 Önce `git pull` ve programı bir kez kapatıp aç. Yedek al. Ocak 2025'te bir
 kaydın tarihi düzeltme istiyor: `tarih_duzeltme.txt`'ye satırı ekle (satır
@@ -263,16 +262,17 @@ python3 aktar_access.py       kaynak=SUBAT2025 subat2025.csv
 python3 aktar_access.py       kaynak=MART2025  mart2025.csv
 python3 aktar_access.py       kaynak=NISAN2025 nisan2025.csv
 python3 aktar_access.py       kaynak=MAYIS2025 mayis2025.csv
-
-python3 aktar_access.py bagla kaynak=OCAK    duzelt=tarih_duzeltme.txt ocak.csv
-python3 aktar_access.py bagla kaynak=SUBAT   duzelt=tarih_duzeltme.txt subat.csv
-python3 aktar_access.py bagla kaynak=MART    duzelt=tarih_duzeltme.txt mart.csv
-python3 aktar_access.py bagla kaynak=NISAN   duzelt=tarih_duzeltme.txt nisan.csv
-python3 aktar_access.py bagla kaynak=MAYIS   mayis.csv
-python3 aktar_access.py bagla kaynak=HAZIRAN duzelt=tarih_duzeltme.txt haziran.csv
-python3 aktar_access.py bagla kaynak=TEMMUZ  temmuz.csv
-python3 aktar_access.py bagla agustos.csv
 ```
+
+**Aylar zaten aktarıldıysa (v6.163'ten önce), bir kez:**
+
+```
+python3 aktar_access.py bagla
+```
+
+Dosya istemez: veritabanındaki bütün aktarılmış FET'leri çözme tarihi
+sırasıyla dener, bağladıklarını ve "elle bakılmalı" olanları Access kayıt
+numarasıyla yazar. Bağlı olana dokunmaz, iki kez çalıştırmak güvenli.
 
 **v6.161:** "2 ADET M2 OOSİT DONDURULARAK SAKLANDI" gibi tüp sayısı yazmayan
 yumurta dondurması artık tek tüp. 2026'da da böyle bir satır vardı ve tüpü
@@ -295,10 +295,7 @@ python3 aktar_access.py dondurma agustos.csv
 (`kaynak=SUBAT2025 subat2025.csv` ...), ama not–MII düzeltmesi (iki Yumurta
 Dondurma satırı) aktarılmış tedaviye uygulanmıyor — o durumda söyle.
 
-`bagla` satırlarındaki etiketler ve dosyalar 2026'nın ilk aktarımındakilerle
-**aynı** olmalı (ağustos etiketsiz). Rapor bağlananları, "elle bakılmalı"
-olanları kayıt numarasıyla söylüyor: bir tüpte duran embriyo sayısı ya da
-skoru çözülenle tutmuyorsa ya da iki tüp birden tutuyorsa bağlamıyor.
+`dondurma` satırlarındaki etiketler 2026'nın ilk aktarımındakilerle **aynı** olmalı (ağustos etiketsiz).
 
 **FET formlarında transfer edilen embriyo boşsa (v6.154).** v6.153'e kadar
 araç FET'te transfer edilen embriyonun hücre sayısını ve kalitesini

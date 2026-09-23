@@ -13089,3 +13089,48 @@ yeniden başlatılmadı" diyor. `git pull` yapılmadıysa ikisi de eski sürüm�
 gösteriyor — kullanıcı sürümü sohbetteki numarayla karşılaştırabiliyor.
 README paketlenmiş kurulumda yoksa kart basılmıyor. Panel salt okunur
 kaldı (v6.12).
+
+---
+
+# v6.163 — Aktarılmış bütün FET'ler tüpüne kendiliğinden bağlanıyor
+
+Kullanıcının isteği: *"Aktardığım bütün tedavileri birbirine bağla. 2025'te
+dondurulmuş embriyoları 2025 yılının ileri tarihinde ve 2026'da çözmüş
+olabilirim. Ben her yeni aktarım yaptığımda eski kayıtlardan bağlantılı
+hasta varsa tedavileri bağla."* 2025 ocak–mayıs ve 2026'nın tümü zaten
+aktarılmış; 2026 önce aktarıldığı için 2026 FET'lerinin 2025 tüpleri o gün
+programda yoktu.
+
+## Ne değişti
+
+- **`butun_fetleri_bagla()`**: veritabanında hâlâ kendi embriyolarını
+  taşıyan (tüpüne bağlanmamış) bütün aktarılmış FET'leri, çözme tarihi
+  sırasıyla `_kaynaga_bagla()`'dan geçiriyor. CSV istemiyor: eşleştirmenin
+  ihtiyacı olan transfer yazımı transfer olayının notunda duruyor
+  ("Embriyo: 3AA", `_vt_satiri()`).
+- **Her aktarımın sonunda kendiliğinden** (`aktar()`): önce yeni dosyanın
+  FET'leri (eskisi gibi), sonra bütün eski FET'ler. Özet satırı kaç FET'in
+  bağlandığını ve kaçının tüpü programda olmadığını söylüyor.
+- **`bagla` kipi dosyasız**: `python3 aktar_access.py bagla` — zaten
+  aktarılmış aylar için bir kez. Eski yazım (`bagla kaynak=X x.csv`) da
+  çalışıyor, dosya yok sayılıyor.
+- **Sonradan bağlanan FET'in transfer değerlendirmesi**: v6.154 FET'te
+  transfer edilen embriyonun kalitesini o günün değerlendirmesi olarak
+  yazıyor, ama tüpüne bağlı embriyoya (kaynağında aynı gün kaydı varsa)
+  yazmıyordu. Önce yazılıp sonra bağlanan FET'te iki kayıt çakışırdı; artık
+  bağlanırken FET'inki iptal ediliyor. Sonuç tarih sırasıyla aktarılmışla
+  aynı (denendi).
+
+## Deneme (mayıs 2026 aktarılmış test kopyası + 2025'in beş ayı)
+
+- **Tarih sırasıyla** (ocak→mayıs): 29 FET bağlandı (27'si 2025 içinde,
+  2'si 2026 mayıs FET'i 2025 tüplerine).
+- **Ters sırayla** (mayıs→ocak, kullanıcının durumuna benzer): 30 FET
+  bağlandı. Bağlanan tüpler Access kayıt numarasıyla karşılaştırıldı:
+  29'u birebir aynı. Fark tek FET: tarih sırasında iki tüp seçeneği vardı
+  ("belirsiz", bağlanmadı); ters sırada öteki seçeneğin ayı henüz yoktu ve
+  tek tutan tüpe bağlandı. **Bilinen sınır**: bağ sonradan gelen bir tüp
+  yüzünden geri alınmıyor. Mümkünse dönemler eskiden yeniye aktarılmalı.
+- Transfer günü değerlendirmeleri iki sırada da aynı (iptal edilenler hariç
+  tutulunca birebir).
+- İkinci `bagla`: tablo tablo karşılaştırıldı, hiçbir şey değişmedi.
