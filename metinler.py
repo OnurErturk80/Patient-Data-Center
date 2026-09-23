@@ -611,6 +611,12 @@ METINLER = {
               "program tarafından verilir.",
         "en": "A thaw is a separate treatment. A new cycle is opened and "
               "numbered by the program."},
+    "fet_kultur_yalniz_cleavage": {
+        "tr": "FET (3→5)'te yalnızca cleavage embriyosu çözülür; bu tüpte "
+              "blastokist var.",
+        "en": "FET (3→5) thaws cleavage embryos only; this straw holds a "
+              "blastocyst."},
+    "blastokist_tupu": {"tr": "Blastokist", "en": "Blastocyst"},
     "yeni_tedavi_baslat": {"tr": "Yeni tedavi başlat: {n}",
                            "en": "Start new cycle: {n}"},
     "tedavi_seciniz": {"tr": "— Tedavi seç —", "en": "— Choose a cycle —"},

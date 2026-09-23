@@ -12770,3 +12770,38 @@ değişmedi; ayrım yalnızca IVF/ICSI için.
 Aynı gün v6.146'nın açık sorusu da kapandı: "FET (3→5)'te blastokist değil
 cleavage embriyosu çözülüyor." Kaynağın 5. gün kaydının üzerine yazılma
 durumu klinikte doğmuyor; uyarı ya da ayrı kayıt eklenmedi.
+
+# v6.156 — FET (3→5)'te yalnızca cleavage tüpü çözülür
+
+Kullanıcı: "FET (3→5)'te sadece cleavage tüplerinin çözülmesine izin ver."
+(Aynı gün: "FET (3→5)'te blastokist değil cleavage embriyosu çözülüyor" —
+v6.146'nın açık sorusunun cevabı.)
+
+## Kural
+
+- **Blastokist tüpü**: içinde dondurmanın yapıldığı tedavide blastokist
+  değerlendirmesi olan bir örnek var (`tasiyici_icerigi()`'nin yeni
+  `blastokist` kolonu; skorla aynı kural, `db.bu_tedavinin_skoru()`).
+  Skor boş olabildiği için (kavitasyon evresi) ayrı bir soru — 4. gün
+  değerlendirmesi de blastokist ekranında girildiği için o tüp de
+  blastokist sayılıyor.
+- **Evresi bilinmeyen tüp** (hiç değerlendirmesi yok, skoru okunamamış
+  eski kayıt) kapalı değil: blastokist olduğu gösterilemiyor.
+- Tip listesi `db.CLEAVAGE_COZEN_TIPLER` (bugün yalnızca `fet_kultur`).
+  Kapı `thaw_tedavi_tipleri()`'nde: tedavi seçici, "Yeni tedavi başlat"
+  düğmeleri ve kaydetmenin doğrulaması aynı listeden geçiyor, yani sunucu
+  da reddediyor.
+- FET (3→5)'in çözme ekranında blastokist tüpünün "Çöz" düğmesi yerine
+  "Blastokist" rozeti ve sebebi; o tedaviden tüpün çözme ekranına
+  gelinirse ekranın üstünde aynı sebep.
+- **Var olan kayıt dokunulmaz** (v6.139'un kuralı): bu tüpten bir FET
+  (3→5) için zaten çözme yazılmışsa kapı açık kalıyor, düzeltilebilsin.
+
+## Deneme
+
+Deneme veritabanında bir FET (3→5), bir blastokist ve bir cleavage tüpü:
+blastokist tüpü listede rozetle, düğmesiz; tüpün ekranında FET (3→5)
+seçeneği ve "Yeni tedavi başlat: FET (3→5)" yok, sebep yazıyor; zorla
+gönderilen çözme ve yeni tedavi isteği reddedildi, hiçbir satır yazılmadı.
+Cleavage tüpü FET (3→5) için çözüldü. Var olan çözmesi olan blastokist
+tüpünde FET (3→5) seçili geldi. Telefonda (390px) yatay kayma yok.

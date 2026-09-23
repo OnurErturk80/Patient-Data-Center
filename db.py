@@ -80,6 +80,13 @@ LAB_ID = 1          # v1 tek laboratuvar
 # Yeni bir "örneği başka tedaviden gelen" tip eklersen buraya ekle.
 FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")
 
+# Yalnızca cleavage embriyosu çözen tipler (v6.156, kullanıcının isteği:
+# "FET (3→5)'te sadece cleavage tüplerinin çözülmesine izin ver"). FET (3→5)
+# gün 2/3 embriyosunu çözüp gün 5'e kadar kültürlüyor; blastokist tüpü bu
+# tiple çözülemez. Tüpün evresi `app.tasiyici_icerigi()`'nin `blastokist`
+# kolonunda. Yeni bir "yalnızca cleavage" tipi eklersen buraya ekle.
+CLEAVAGE_COZEN_TIPLER = ("fet_kultur",)
+
 # Tedavi tipine göre aşamalar, GÖSTERİM SIRASIYLA (v6.62). v6.147'den beri
 # burada: `formlar.py` ve `disari.py` de soruyor ("bu tipte çözülen yumurtaya
 # ICSI yapılıyor mu", `cozulen_yumurta_islenir()`) ve `app`'i import edemez --

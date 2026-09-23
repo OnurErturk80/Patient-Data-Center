@@ -37,6 +37,9 @@
       <div class="meta">
         {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
       </div>
+      {% if t.cleavage_kapali %}
+      <div class="meta">{{ metin("fet_kultur_yalniz_cleavage") }}</div>
+      {% endif %}
       {% if t.kaynak_cycle and t.kaynak_cycle != c.cycle_no %}
       <div class="meta">{{ metin("donduruldugu_cycle") }}: {{ t.kaynak_cycle }}</div>
       {% endif %}
@@ -44,7 +47,9 @@
         <a href="/cryo/tasiyici/{{ t.id }}?cycle={{ c.id }}">{{ metin("icerigi_gor") }}</a>
       </div>
     </div>
-    {% if yetkim("thaw") %}<a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw?cycle={{ c.id }}">{{ metin("coz_dugme") }}</a>{% endif %}
+    {# FET (3→5)'te blastokist tüpü çözülemez (v6.156): düğme yerine sebep. #}
+    {% if t.cleavage_kapali %}<span class="rozet">{{ metin("blastokist_tupu") }}</span>
+    {% elif yetkim("thaw") %}<a class="minidugme" href="/cryo/tasiyici/{{ t.id }}/thaw?cycle={{ c.id }}">{{ metin("coz_dugme") }}</a>{% endif %}
   </div>
   {% else %}
   <div class="bos">

@@ -176,7 +176,14 @@ Tedavi tipine göre hangi aşamaların görüneceği değişir:
 - `fet_kultur` → çözme, **blastokist**, transfer, vitrifikasyon, gebelik
   (v6.62, `goc_031`; vitrifikasyon v6.143).
   "FET (3→5 kültür)" — gün 2/3 embriyosu çözülüp gün 5'e kadar kültürlenip
-  öyle transfer ediliyor; `fet`'ten farkı yalnızca araya giren blastokist
+  öyle transfer ediliyor. **Yalnızca cleavage tüpü çözülür** (v6.156,
+  kullanıcının isteği): blastokist tüpü (dondurmanın tedavisinde blastokist
+  değerlendirmesi olan örnek, `tasiyici_icerigi()`'nin `blastokist`
+  kolonu) `thaw_tedavi_tipleri()`'nde bu tipe kapanıyor — seçici, yeni
+  tedavi düğmesi ve sunucu aynı listeden. Tip listesi
+  `db.CLEAVAGE_COZEN_TIPLER`. Evresi bilinmeyen tüp açık; bu tüpten zaten
+  yazılmış bir FET (3→5) çözmesi varsa kapı açık (var olan kayıt
+  dokunulmaz, `tup_cleavage_tipine_kapali()`); `fet`'ten farkı yalnızca araya giren blastokist
   değerlendirmesi. **Sıra `ivf_icsi`'nin tersi**: orada blastokist
   dondurmadan (vitrifikasyon) önce gelir, burada çözme blastokistten önce
   gelir — embriyo zaten dondurulmuş halde geliyor.
@@ -2178,8 +2185,8 @@ yedi yer tek tek yazılı.
   kaydının üzerine yazılırdı. **Kullanıcının cevabı (2026-09-23): "FET
   (3→5)'te blastokist değil cleavage embriyosu çözülüyor"** — yani bu
   durum klinikte doğmuyor; ne uyarı ne ayrı kayıt eklendi. FET (3→5)'e
-  blastokist tüpü alınmasını program engellemiyor; bunu engellemek ayrı
-  bir klinik karar, kullanıcı istemedi.
+  blastokist tüpü alınması v6.156'dan beri engelleniyor (kullanıcının
+  isteği).
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)

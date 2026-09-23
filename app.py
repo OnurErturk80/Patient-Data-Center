@@ -6137,6 +6137,13 @@ def tasiyici_icerigi(tasiyici_id):
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         f"   AND {db.bu_tedavinin_skoru(db.vit_tedavisi('o'), 'b')} "
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
+        # Tüpe blastokist olarak mı konmuş (v6.156): dondurmanın tedavisinde
+        # blastokist değerlendirmesi var -- skorla aynı kural. Skor boş
+        # olabilir (kavitasyon evresi), o yüzden ayrı bir soru.
+        "  EXISTS (SELECT 1 FROM olay bb WHERE bb.specimen_id=s.id "
+        "   AND bb.tip='blastokist_degerlendirme' AND bb.iptal_mi=0 "
+        f"   AND {db.bu_tedavinin_skoru(db.vit_tedavisi('o'), 'bb')}) "
+        "  AS blastokist, o.vit_tasiyici_id AS tasiyici_id, "
         "  COALESCE( "
         "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
         "     AND g.asama='blastokist' ORDER BY g.id DESC LIMIT 1), "
@@ -7260,8 +7267,34 @@ def thaw_tedavi_tipleri(icerik) -> list:
     Sıra `TIP_ASAMALARI`'nın sırası -- ilki "yeni tedavi aç" düğmesinin ilki.
     """
     yumurta = _tup_yumurta_mi(icerik)
+    blast = tup_cleavage_tipine_kapali(icerik)
     return [t for t in TIP_ASAMALARI
-            if db.cozme_tedavisi_mi(t) and db.yumurta_mi(t, "thaw") == yumurta]
+            if db.cozme_tedavisi_mi(t) and db.yumurta_mi(t, "thaw") == yumurta
+            and not (blast and t in db.CLEAVAGE_COZEN_TIPLER)]
+
+
+def tup_cleavage_tipine_kapali(icerik) -> bool:
+    """Bu tüp FET (3→5)'te çözülemez mi (v6.156, kullanıcının isteği:
+    "FET (3→5)'te sadece cleavage tüplerinin çözülmesine izin ver").
+
+    Tüpte blastokist olarak dondurulmuş bir örnek varsa kapalı. Evresi
+    bilinmeyen tüp (hiç değerlendirmesi yok -- skoru okunamamış eski bir
+    kayıt) kapalı değil: blastokist olduğu gösterilemiyor. Var olan kayıt
+    dokunulmaz (v6.139'un kuralı): bu tüpten bir FET (3→5) için zaten
+    çözme yazılmışsa o çözme düzeltilebilsin diye kapı açık kalıyor.
+    """
+    if not icerik or not any(r["blastokist"] for r in icerik):
+        return False
+    if db.cozme_tupu_var():
+        yer = ",".join("?" * len(db.CLEAVAGE_COZEN_TIPLER))
+        var = db.tek(
+            "SELECT 1 FROM olay z JOIN cycle cz ON cz.id = z.thaw_cycle_id "
+            "WHERE z.tip='thaw' AND z.iptal_mi=0 AND z.thaw_tasiyici_id=? "
+            f"AND cz.cycle_tipi IN ({yer}) LIMIT 1",
+            (icerik[0]["tasiyici_id"], *db.CLEAVAGE_COZEN_TIPLER))
+        if var:
+            return False
+    return True
 
 
 def thaw_cycle_secenekleri(icerik):
@@ -7332,6 +7365,13 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
     if not secili:
         aktif = [r["id"] for r in secenekler if r["durum"] == "aktif"]
         secili = aktif[0] if len(aktif) == 1 else 0
+    # FET (3→5)'in ekranından blastokist tüpüne gelindiyse o tedavi listede
+    # yok (v6.156); sebebi yazılmazsa personel neden seçemediğini anlamaz.
+    if cycle and cycle not in gecerli and not hata:
+        gelinen = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle,))
+        if gelinen and gelinen["cycle_tipi"] in db.CLEAVAGE_COZEN_TIPLER \
+                and tup_cleavage_tipine_kapali(icerik):
+            hata = metinler.t("fet_kultur_yalniz_cleavage")
 
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
@@ -7631,6 +7671,14 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         "JOIN cycle c2 ON c2.id = s.cycle_id "
         "LEFT JOIN konum k ON k.id=t.konum_id "
         f"WHERE {kosul} ORDER BY t.durum DESC, t.etiket", par)
+
+    # FET (3→5)'te blastokist tüpü çözülemez (v6.156): "Çöz" yerine sebebi.
+    # Liste kısa (hastanın tüpleri), tüp başına içerik sorgusu sorun değil.
+    if c["cycle_tipi"] in db.CLEAVAGE_COZEN_TIPLER:
+        tasiyicilar = [
+            {**dict(t), "cleavage_kapali": t["durum"] == "dolu"
+             and tup_cleavage_tipine_kapali(tasiyici_icerigi(t["id"]))}
+            for t in tasiyicilar]
 
     # Bu cycle için yapılmış çözmeler. Transfere ulaşmayan (canlı çıkmayan)
     # embriyo da burada görünür — FET'in kaydı budur (README v6.7).
