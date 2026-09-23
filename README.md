@@ -12855,3 +12855,35 @@ birleşme G2 kaydedildi (gizli kutudaki 8 yazılmadı), birleşme kaldırılıp
 "Birleşme" (kutuya sığıyor: 68/68 ve 63/63 px), FREEZE "(Birleşme G3)",
 Özet NOTLAR bölünmeden. Excel çıktıları 200, hata yok. Telefonda (390px)
 yatay kayma yok.
+
+# v6.158 — Birleşmede simetri de gizli; ART Lab'ın ikinci sayfası
+
+Kullanıcı: "Simetri de gizlensin. Bir de yumurta sayısı çok olan
+tedavilerde ART lab formu ikinci sayfaya geçiyor. Ama ikinci sayfayı
+göremiyorum. Birinci sayfanın altında küçük bir resim olarak duruyor. Onu
+birinci sayfa gibi görünür yap."
+
+## Birleşmede simetri
+
+v6.157'de yalnızca hücre sayısı gizleniyordu. Artık "Birleşme" seçilince
+simetri kartı da kayboluyor; sunucu birleşmede simetriyi yazmıyor (gizli
+kartta seçili kalmış değer de), bilgi kartı ve silme ekranı simetri
+satırını basmıyor. Kalan: fragmantasyon, grade, bulgular, saat.
+
+## Çok sayfalı formun ekranda görünüşü
+
+Yumurta 13'ü geçince kalıp ikinci kez basılıyor (v6.37). Ekranda her kâğıt
+`formlariSigdir()` ile ekrana sığdırılıyor (v6.108) ve kullanılabilir
+yükseklik **o kâğıdın kendi tepesinden** ekranın altına kalan yerdi. İkinci
+kâğıdın tepesi birincinin altında, kalan yer neredeyse sıfır → ikinci sayfa
+küçücük bir resim gibi basılıyordu. Tek sayfalı formlarda hiç görünmediği
+için v6.108'in denemesi yakalamamıştı.
+
+Artık kullanılabilir yükseklik ilk kâğıdın **belge içindeki** tepesinden
+(üst bant ve düğmeler; kaydırmadan bağımsız) ölçülüyor ve bütün sayfalar
+**aynı oranla** küçülüyor: her sayfa tek başına bir ekran, birincisi gibi.
+Yazdırmaya etkisi yok (`@media print` ölçeği zaten kaldırıyor).
+
+Deneme: 17 yumurtalı bir tedavinin ART Lab'ı 1280×900, 1920×1080 ve
+390×844'te iki sayfa birebir aynı boyda (ör. 718×522 / 718×522), yatay
+kayma yok.

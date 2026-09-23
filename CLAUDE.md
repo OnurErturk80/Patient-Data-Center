@@ -922,6 +922,10 @@ kalıptan**: `form_kalip.json`.
   hepsi birlikte küçülür, oranlar bozulmaz, kâğıdın kendisi
   (`form_kalip.json`, "kalıba dokunma" kuralı) hiç değişmez. `resize` ve
   `orientationchange`'de yeniden hesaplanıyor; `<img class="kalipgorsel">`
+  (**v6.158: çok sayfalı formda bütün sayfalar AYNI oranla, kullanılabilir
+  yükseklik ilk kâğıdın belge içindeki tepesinden** — her sayfa kendi
+  tepesinden ölçülünce ikinci sayfa ilkinin altında küçücük kalıyordu,
+  kullanıcı bildirdi)
   (amblem) geç yüklenip doğal boyu değiştirebildiği için `load` olayında da
   tekrar çalışıyor. **Yükseklik hesabı `getBoundingClientRect().top`'a
   dayanıyor** — bu, sarmalayıcının SAYFA YÜKLENDİĞİNDEKİ konumu; kaydırma
@@ -2226,9 +2230,10 @@ tarayıcıdan mini PC'ye bağlanır. `arsiv/` ağa taşınabilir (`yerel_kur.py`
 
 **Cleavage'da "Birleşme"** (v6.157, goc_048, kullanıcının isteği: "Birleşme
 seçilince hücre sayısı kaybolsun, grade ve fragmantasyon gözüksün ...
-Birleşme G2 gibi"). `olay.cl_birlesme` = 1: hücre sayısı yok (sunucu
-birleşmede yazmıyor, ekran kutuyu gizliyor). Simetri ekranda kalıyor —
-kullanıcı yalnızca hücre sayısının kaybolmasını istedi.
+Birleşme G2 gibi"). `olay.cl_birlesme` = 1: hücre sayısı ve simetri yok
+(v6.158'de simetri de, kullanıcının isteği: "Simetri de gizlensin") —
+sunucu birleşmede ikisini de yazmıyor, ekran kutularını gizliyor, bilgi
+kartı ve silme ekranı simetri satırını basmıyor.
 - **Kalitenin yazımı tek yerde: `db.cleavage_yazimi(hucre, skor)`** —
   "8HG2" / "Birleşme G2". Hücre yerini okuyan SQL `db.cl_hucre_ifadesi(x)`
   (birleşmede `db.BIRLESME` sözü): vitrifikasyon, resmî formların

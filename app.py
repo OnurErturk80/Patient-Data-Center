@@ -5736,7 +5736,9 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
         frag = sayi(f.get("cl_fragmentasyon"), "Fragmentasyon")
     except FormHatasi:
         return RedirectResponse(burasi, status_code=303)
-    simetri = f.get("cl_simetri") or None
+    # Birleşmede simetri de yok (v6.158): ekran gizliyor, gizli kutuda
+    # seçili kalmış bir değer de yazılmıyor.
+    simetri = None if birlesme else (f.get("cl_simetri") or None)
     if hucre is None and not simetri and frag is None and not birlesme:
         return RedirectResponse(burasi, status_code=303)
 

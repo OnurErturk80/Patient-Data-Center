@@ -85,27 +85,40 @@
   // önce kontrol ettiğim ekranda kesik gözüküyor"). Artık "sayfaya sığdır"
   // önizlemesi gibi ikisinden KÜÇÜK olan oran kullanılıyor, kâğıdın tamamı
   // tek ekranda görünüyor.
+  //
+  // v6.158: yumurta 13'ü geçince kâğıt iki sayfa basılıyor ve ikinci sayfa
+  // ilkinin altında küçücük bir resim gibi görünüyordu (kullanıcı bildirdi).
+  // Sebep: her sayfa, KENDİ tepesinden ekranın altına kalan yüksekliğe
+  // sığdırılıyordu -- ikinci sayfanın tepesi birincinin altında olduğu için
+  // kalan yükseklik neredeyse sıfırdı. Artık kullanılabilir yükseklik
+  // sayfanın başlığından (ilk kâğıdın belge içindeki tepesi) ölçülüyor ve
+  // bütün sayfalar AYNI oranla küçülüyor: her sayfa tek başına bir ekran,
+  // birincisi gibi. Belge konumu (`+ scrollY`) kaydırmadan bağımsız.
   function formlariSigdir() {
+    var sayfalar = [];
     document.querySelectorAll('.kalipolcek').forEach(function (sarmalayici) {
       var kap = sarmalayici.querySelector('.kalipkap');
       if (!kap) return;
       kap.style.transform = 'none';
-      var dogalGenislik = kap.scrollWidth;
-      var dogalYukseklik = kap.scrollHeight;
-      if (!dogalGenislik || !dogalYukseklik) return;
-      var mevcutGenislik = sarmalayici.clientWidth;
-      // Sayfanın bu kâğıttan önceki kısmı (üst bant, düğmeler, önceki
-      // kâğıtlar) ne kadar yer kaplıyorsa geri kalan ekran yüksekliği o
-      // kadar -- altta birkaç piksel boşluk bırakılıyor.
-      var tepe = sarmalayici.getBoundingClientRect().top;
-      var mevcutYukseklik = window.innerHeight - tepe - 16;
-      var genOran = mevcutGenislik < dogalGenislik
-        ? mevcutGenislik / dogalGenislik : 1;
-      var yukOran = (mevcutYukseklik > 0 && mevcutYukseklik < dogalYukseklik)
-        ? mevcutYukseklik / dogalYukseklik : 1;
-      var oran = Math.min(genOran, yukOran);
-      kap.style.transform = 'scale(' + oran + ')';
-      sarmalayici.style.height = Math.ceil(dogalYukseklik * oran) + 'px';
+      if (!kap.scrollWidth || !kap.scrollHeight) return;
+      sayfalar.push({s: sarmalayici, k: kap, g: kap.scrollWidth, y: kap.scrollHeight});
+    });
+    if (!sayfalar.length) return;
+    // Sayfanın ilk kâğıttan önceki kısmı (üst bant, düğmeler) ne kadar yer
+    // kaplıyorsa geri kalan ekran yüksekliği o kadar -- altta birkaç piksel
+    // boşluk bırakılıyor.
+    var tepe = sayfalar[0].s.getBoundingClientRect().top + window.scrollY;
+    var mevcutYukseklik = window.innerHeight - tepe - 16;
+    var oran = 1;
+    sayfalar.forEach(function (p) {
+      var mevcutGenislik = p.s.clientWidth;
+      if (mevcutGenislik < p.g) oran = Math.min(oran, mevcutGenislik / p.g);
+      if (mevcutYukseklik > 0 && mevcutYukseklik < p.y)
+        oran = Math.min(oran, mevcutYukseklik / p.y);
+    });
+    sayfalar.forEach(function (p) {
+      p.k.style.transform = 'scale(' + oran + ')';
+      p.s.style.height = Math.ceil(p.y * oran) + 'px';
     });
   }
   // Kimlik kutusuna sığmayan ad kesilmesin, küçülsün (v6.150): `.sigdir`

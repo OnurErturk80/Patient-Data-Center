@@ -87,7 +87,9 @@
      [
        (metin("hucre_sayisi"), metin("birlesme") if kayit.cl_birlesme else kayit.cl_hucre_sayisi),
        (metin("fragmentasyon_kisa"), yuzde(kayit.cl_fragmentasyon)),
+     ] + ([] if kayit.cl_birlesme else [
        (metin("simetri"), liste_etiket('simetri', kayit.cl_simetri)),
+     ]) + [
        (metin("bulgular"), bk.bulgu_metni(bulgular, secili_bulgular)),
        (metin("skor"), liste_etiket('cleavage_skor', kayit.cl_skor)),
        (metin("islem_saati"), gg_aa_yyyy_saat(kayit.zaman)),
@@ -144,7 +146,8 @@
     </div>
   </div>
 
-  <div class="kart">
+  {# Birleşmede simetri de gizli (v6.158, kullanıcının isteği). #}
+  <div class="kart" id="simetriKutusu"{% if kayit and kayit.cl_birlesme %} hidden{% endif %}>
     <h2>{{ metin("simetri") }}</h2>
     <div class="secenek">
       {% for s in simetriler %}
@@ -246,11 +249,12 @@
   // yok. Erken cik -- yoksa null uzerinde addEventListener patlardi
   // ve sayfanin geri kalan betikleri de calismazdi.
   if (!document.getElementById('clform')) return;
-  // Birleşme seçilince hücre sayısı kutusu kaybolur (v6.157).
+  // Birleşme seçilince hücre sayısı ve simetri kaybolur (v6.157, v6.158).
   var birlesme = document.getElementById('cl_birlesme');
   if (birlesme) {
     birlesme.addEventListener('change', function () {
       document.getElementById('hucreKutusu').hidden = birlesme.checked;
+      document.getElementById('simetriKutusu').hidden = birlesme.checked;
     });
   }
   document.querySelectorAll('.secenek').forEach(function (grup) {

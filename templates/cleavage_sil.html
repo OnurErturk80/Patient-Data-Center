@@ -31,9 +31,11 @@
       <dd {% if not (kayit and kayit.cl_hucre_sayisi is not none) %}class="yok"{% endif %}>
         {{ kayit.cl_hucre_sayisi if kayit and kayit.cl_hucre_sayisi is not none else metin("yok_kucuk") }}</dd></div>
       {% endif %}
+    {% if not (kayit and kayit.cl_birlesme) %}
     <div class="veri"><dt>{{ metin("simetri") }}</dt>
       <dd {% if not (kayit and kayit.cl_simetri) %}class="yok"{% endif %}>
         {{ etiketler.get(kayit.cl_simetri, kayit.cl_simetri) if kayit and kayit.cl_simetri else metin("yok_kucuk") }}</dd></div>
+    {% endif %}
     <div class="veri"><dt>{{ metin("fragmentasyon") }}</dt>
       <dd {% if not (kayit and kayit.cl_fragmentasyon is not none) %}class="yok"{% endif %}>
         {{ yuzde(kayit.cl_fragmentasyon) if kayit and kayit.cl_fragmentasyon is not none else metin("yok_kucuk") }}</dd></div>
