@@ -11888,3 +11888,159 @@ Değerlendirmeler (örnek, gün) başına **tek kayıt** tutuluyor
   dondurulmuş bir embriyo bu tiple çözülürse oluyor.
 - Nasıl ele alınacağı klinik bir karar: uyarmak mı, ayrı kayıt mı? Kullanıcıya
   soruluyor.
+
+# v6.147 — Yumurta Çözme'de ICSI'den gebeliğe bütün aşamalar
+
+Kullanıcının isteği: *"yumurta çözme tedavisinde denüdasyon haricinde diğer
+bütün işlemler IVF/ICSI cycle tedavisi ile aynı olmalıydı."* v6.102'de
+Yumurta Çözme yalnızca çözmeydi; o günkü karar "çözmeden sonra ICSI
+gerekiyorsa ayrı bir tedavi açılır" idi. Kullanıcı kararını değiştirdi.
+(Ocak–haziran Access kayıtlarındaki yedi "OOSİT ÇÖZME" satırı bu değişikliği
+bekliyor, onlar bir sonraki sürümde aktarılacak.)
+
+## Aşamalar
+
+Çözme → Androloji → ICSI → Fertilizasyon → Cleavage → Blastokist →
+Vitrifikasyon → Transfer → Gebelik.
+- **Denüdasyon yok**: yumurta dondurulmadan önce soyuldu.
+- **OPU da yok**: bu tedavide yumurta toplanmıyor, `fet`'in gerekçesi.
+- Göç gerekmedi: tip zaten vardı, yalnızca aşama listesi değişti.
+- `TIP_ASAMALARI` `db.py`'ye taşındı (`app.TIP_ASAMALARI` aynı sözlük):
+  resmî formlar ve Excel de "bu tipte çözülen yumurtaya ICSI yapılıyor mu"
+  diye soruyor (`db.cozulen_yumurta_islenir()`), `app`'i import edemiyorlar.
+
+## Çözülen yumurta başka bir tedavinin örneği
+
+Yumurtanın `specimen.cycle_id`'si Yumurta Dondurma, hiç değişmiyor. Bunun
+aşama ekranlarında dört sonucu var:
+- **Örnekler `thaw_cycle_id` ile bulunuyor**: `db.tedavi_ornekleri()` (v6.62'de
+  blastokist için yazılmış `_blast_kosul()`; artık ICSI, fertilizasyon ve
+  cleavage de kullanıyor).
+- **Seçim `specimen.id` ile**, dört ekranda (v6.62'de yalnızca blastokistte):
+  liste iki ayrı Yumurta Dondurma'nın yumurtalarını taşıyabilir, sıra no orada
+  tekil değil. Eski adres (`?oosit=3`) tek tedavili listede hâlâ çalışıyor.
+  "Kaydet → sıradaki" listenin sırasıyla (`_sonraki_ornek()`) — cleavage'da
+  eski sorgu enjekte edilmemiş, listede olmayan bir yumurtaya atlayıp ekranı
+  başa döndürebiliyordu, o da düzeldi.
+- **Olay örneğin kendi tedavisine yazılıyor** (CLAUDE.md kuralı): ICSI,
+  fertilizasyon ve cleavage POST'ları rotanın `cycle_id`'sini yazıyordu
+  (IVF/ICSI'de ikisi aynıydı). Fotoğraf da yumurtanın kendi arşivine.
+- **Silme ekranları tedaviyi taşıyor** (`?cycle=`), sunucu doğruluyor
+  (`_hedef_tedavi()`).
+
+## Maturasyon iki kez soruluyor, iki ayrı kayıt
+
+Denüdasyonda (Yumurta Dondurma, v6.96) ve çözmeden sonra ICSI ekranında.
+ICSI ekranı eskisi gibi "yumurtanın son maturasyonu"na baksaydı çözülen her
+yumurtayı kaydedilmiş sanıp formu açmazdı; kaydetse kaynağın kaydının üzerine
+yazardı (Yumurta Dondurma'nın M2 sayısı ve formu bozulurdu).
+- ICSI ekranı yalnızca BU tedavinin maturasyonunu okuyor ve güncelliyor
+  (`_tedavi_ek()` → `db.olay_tedavisi()`, v6.146'nın kuralı).
+- ICSI silmesi de yalnızca bu tedavininkini iptal ediyor. ICSI aşaması
+  olmayan bir tedaviye düşerse (adressiz eski bir bağlantı çözülen yumurtayı
+  kendi tedavisine götürür) hiçbir şey iptal etmiyor — denemede gerçekten
+  kaynağın maturasyonunu da iptal ediyordu, bu engel o yüzden var.
+
+## İşlem saati çözmeden önce olamaz
+
+FET tiplerinin dört aşama ekranı (ICSI, fertilizasyon, cleavage, blastokist)
+bu tedavideki çözmeden önceki bir saati reddediyor, sebebini ve çözme saatini
+yazıyor ("İşlem saati bu tedavideki çözmeden (20.09.2026 09:00) önce olamaz").
+- Neden: `olay_tedavisi()` saate bakıyor. Öyle bir kayıt kaynak tedavinin
+  sayılırdı; ICSI ekranı yazdığını göremez, her kaydette yeni bir maturasyon
+  açardı.
+- Saati sessizce değiştirmek (bozuk yılın "şu ana düşmesi" gibi) düşünüldü,
+  seçilmedi: yanlış yazılan saat çoğu zaman çözme saatinin kendisi.
+- Bilinen sınır: reddedilince yazılanlar forma geri gelmiyor, kayıtlı
+  değerler basılıyor.
+
+## Çözmede dejenere çıkan yumurta
+
+ICSI şeridinde "Dej.", form yerine bilgi kartı, sunucu yeni kayıt açmıyor
+(v6.139'un "gizlemek değil kilitlemek" kuralı). Yalnızca bu tedavinin çözmesi
+sayılıyor. Enjekte edilmediği için cleavage ve blastokistte zaten görünmüyor.
+
+## Vitrifikasyon ve transfer
+
+- **Dondurulacaklar**: bu tedavi için çözülüp transfer edilmeyen (FET'in
+  koşulu, v6.143) + enjekte edilmiş (v6.105) + cleavage/blastokist
+  değerlendirmesi olan (v6.137). Dondurma kaydı sayılacaksa BU tedavininki
+  olmalı: kaynağın yumurta dondurması sayılsaydı enjekte edilip hiç
+  değerlendirilmemiş yumurta da listeye girerdi.
+  - Koşul tek yerde (`_vit_adaylari()`), kayıt da aynısını soruyor. IVF/ICSI'de
+    kayıt tarafı bugüne kadar yalnızca "bu tedavinin örneği mi" diye
+    bakıyordu, ekranın iki süzgecini artık o da uyguluyor.
+  - Dondurmanın `vit_cycle_id`'si bu tedavi (goc_046), tüp Cryo Haritası'na
+    giriyor.
+- **Yumurta transfer adayı değil.** Çözülen yumurta 'cozuldu' durumuna
+  geçiyor — çözülen embriyonunkiyle aynı değer — ve hastanın bütün transfer
+  ekranlarında aday olarak görünüyordu. Ölçü: yumurta donduran bir tipin
+  örneği ve hiç ICSI'si yok. Döllenince aday.
+
+## Yumurta mı embriyo mu
+
+- `db.yumurta_mi(tip, asama)`: Yumurta Çözme'de çözülen yumurta, ICSI'den
+  sonra dondurulan ya da transfer edilen embriyo.
+- **Taşıyıcının içeriği dondurmanın yapıldığı tedavinin tipinden**
+  (`icerik_tipi_sql()`, `tasiyici_icerigi().icerik_tipi`); önce örneğin kendi
+  tedavisinden bakılıyordu ve Yumurta Çözme'de dondurulan embriyonun tüpü
+  "yumurta" diyecekti. Sabit bir SQL metni değil fonksiyon: `vit_cycle_id`
+  eski bir yedekte yok (tuzak #15).
+- Çözme ekranı yumurta tüpünde artık "Yumurta N" yazıyor (önce hep
+  "Embriyo").
+
+## Tedavi ekranı, resmî formlar, Excel
+
+- **Özet kutusu**: "Toplanan"ın yerinde "Çözülen yumurta sayısı" (kırılımında
+  canlı), sonra M2 (ICSI ekranındaki), döllenen, cleavage, blastokist.
+- **Resmî formlar**:
+  - ART Lab'ın yumurta ızgarası Yumurta Çözme'de çözülen yumurtalar
+    (`formlar.yumurta_kosulu()`).
+  - Izgaranın her hücresi ve formların sayımları BU tedavide yapılan
+    işlemden (`db.bu_tedavide()`, `db.tedavide_yapilan()`). Yoksa ICSI,
+    döllenme, "F/✓" işaretleri Yumurta Dondurma'nın formuna da yazılırdı.
+  - Özet formunun "Toplanan"ı FET tiplerinde boş. Aktarılan FET'lerin
+    embriyoları FET'in altında duruyor (v6.130), kutu çözülen embriyo
+    sayısını "toplanan yumurta" diye basıyordu.
+- **Ay listesi**: M2'den blastokiste sayılar işlemin yapıldığı tedaviden
+  (`db.tedavide_yapilan_ifade("c.id")`), FET tiplerinde "Toplam yumurta /
+  Sağ / Sol" boş.
+- **Tedavinin Excel dökümü** bir geçmiş: hücreleri örneğin son kaydı,
+  bilerek kısıtlanmadı. FET tiplerinde satırlara bu tedavi için çözülenler
+  eklendi (önce yalnızca aktarılanlar vardı).
+- **İstatistik**: MII yalnızca toplanan yumurtalardan (paydayla aynı süzgeç).
+  Sayılar örneğin kendi tedavisinin ayına yazılmaya devam ediyor; çözülen
+  yumurtanın ICSI'si toplandığı ayda.
+
+## Çözmeyi geri almak
+
+Çözmeden sonra girilmiş HER kayıt engel (ICSI, değerlendirme, transfer),
+yalnızca yeniden dondurma değil. Çözme gidince yumurta tedavinin
+ekranlarından düşer, kayıtları sahipsiz kalırdı. Önce en son adım.
+
+## Deneme
+
+- **Uçtan uca** (104 kontrol, sentetik "DENEME" hastası):
+  - Yumurta Dondurma'da 4 yumurta, denüdasyonda MII, iki tüp;
+  - Yumurta Çözme'de tüp A çözüldü (2 canlı, 1 dejenere), ICSI (MII
+    enjekte, MI enjekte edilmedi), fertilizasyon 2PN, gün 3, blastokist
+    4AA, dondurma; tüp B çözüldü, gün 3'te transfer;
+  - çözmeden önceki saat reddedildi, dejenere yumurtaya kayıt yazılmadı,
+    kaynağın maturasyonu hiçbir adımda değişmedi;
+  - özet kutusu, zaman çizelgesi, iki resmî form, Excel dökümü ve ay
+    listesi iki tedavide de doğru;
+  - silme ve geri alma akışları, IVF/ICSI'nin aynı ekranlarda eski gibi
+    çalıştığı, bütün tedavilerin aşama ekranları ve taşıyıcı sayfaları.
+- **Var olan 120 tedavi**: eski ve yeni kodun formları, Excel dökümleri, ay
+  listeleri ve istatistiği karşılaştırıldı. Tek fark 33 FET'in Özet'indeki
+  "Toplanan" ve ay listesindeki yumurta sütunları (ikisi de boş kaldı).
+- v6.144 ve v6.146 denemeleri yeniden geçti. Ekranlar telefonda ve
+  masaüstünde açıldı: yatay taşma yok, betik hatası yok.
+
+## Değişmeyen
+
+- v6.146'daki açık soru (FET (3→5 kültür)'te aynı gün değerlendirmesi
+  kaynağın kaydının üzerine yazılıyor) hâlâ açık. Yumurta Çözme'de o sorun
+  doğmuyor: çözülen yumurtanın kaynakta cleavage/blastokist kaydı yok.
+- Tedavi ekranının "Zamanlar" kartı (hCG/OPU/denüdasyon) her tipte basılıyor,
+  FET'te de öyleydi; dokunulmadı.

@@ -80,21 +80,77 @@ LAB_ID = 1          # v1 tek laboratuvar
 # Yeni bir "örneği başka tedaviden gelen" tip eklersen buraya ekle.
 FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")
 
+# Tedavi tipine göre aşamalar, GÖSTERİM SIRASIYLA (v6.62). v6.147'den beri
+# burada: `formlar.py` ve `disari.py` de soruyor ("bu tipte çözülen yumurtaya
+# ICSI yapılıyor mu", `cozulen_yumurta_islenir()`) ve `app`'i import edemez --
+# `FET_TIPLERI`'nin aynı gerekçesi. `app.TIP_ASAMALARI` bu sözlüğün kendisi.
+TIP_ASAMALARI = {
+    "ivf_icsi": ["opu", "androloji", "denudasyon", "icsi", "fert", "cleavage",
+                 "blast", "vitrifikasyon", "thaw", "transfer", "gebelik"],
+    # FET'te oosit toplanmaz — embriyo baska bir cycle'dan gelir.
+    # Vitrifikasyon (v6.143, kullanicinin istegi): cozulup transfer edilmeyen
+    # embriyo AYNI tedavide yeniden dondurulabiliyor. Transferden SONRA:
+    # dondurulan sey transferin fazlasi. Ekran FET'te bu tedavi icin cozulen
+    # embriyolari listeliyor (vit_ekran), dondurma yeni bir kayit oluyor --
+    # ilk dondurmanin uzerine yazmiyor (goc_046).
+    "fet": ["thaw", "transfer", "vitrifikasyon", "gebelik"],
+    # FET (3->5 kultur, v6.62, goc_031): gun 2/3 embriyosu cozulup gun 5'e
+    # kadar kulturleniyor, sonra transfer ediliyor -- araya "blast" giriyor.
+    # SIRA BURADA thaw'i blast'tan ONCE koyuyor; ivf_icsi'de tam tersi (blast
+    # sonra dondurma). Ikisi de ayni ASAMA_SIRASI'ndan besleniyor ama
+    # gosterim sirasi buradaki liste sirasindan geliyor (app.cycle_asamalari),
+    # yoksa fet_kultur'da blast thaw'dan once cikardi.
+    # Yeniden dondurma burada da transferden sonra (v6.143): gun 5'e
+    # kulturlenip transfer edilmeyen blastokistin dondurulmasi.
+    "fet_kultur": ["thaw", "blast", "transfer", "vitrifikasyon", "gebelik"],
+    "oosit_cryo": ["opu", "denudasyon", "vitrifikasyon", "thaw"],
+    # Yumurta Çözme (v6.102, goc_039): oosit_cryo'da dondurulmuş bir
+    # yumurtanın AYRI bir tedavide çözülmesi. v6.102'de yalnızca çözmeydi;
+    # v6.147'de kullanıcı kararını değiştirdi: "yumurta çözme tedavisinde
+    # denüdasyon haricinde diğer bütün işlemler IVF/ICSI cycle tedavisi ile
+    # aynı olmalıydı". Denüdasyon yok (yumurta dondurulmadan önce soyuldu),
+    # OPU da yok (bu tedavide yumurta toplanmıyor -- `fet`'in gerekçesi).
+    # Çözme başta: yumurta önce çözülüyor, ICSI ondan sonra.
+    "yumurta_cozme": ["thaw", "androloji", "icsi", "fert", "cleavage",
+                      "blast", "vitrifikasyon", "transfer", "gebelik"],
+}
 
-def yumurta_mi(cycle_tipi) -> bool:
+
+def cozulen_yumurta_islenir(cycle_tipi) -> bool:
+    """Bu tipte ICSI ve sonrası ÇÖZÜLEN yumurtayla mı yapılıyor (v6.147).
+
+    Bugün yalnızca Yumurta Çözme. Aşama ekranları çözülen örnekleri zaten
+    `tedavi_ornekleri()` ile buluyor; bu soru resmî formların ve tedavinin
+    Excel'inin yumurta ızgarası için: orada `fet`/`fet_kultur`'un çözülen
+    embriyoları sütun olarak basılmıyor (yumurta ızgarası onların değil), bu
+    tipin çözülen yumurtaları basılıyor -- ICSI'leri, döllenmeleri bu
+    tedavide.
+    """
+    return (cycle_tipi in FET_TIPLERI
+            and "icsi" in TIP_ASAMALARI.get(cycle_tipi, ()))
+
+
+def yumurta_mi(cycle_tipi, asama=None) -> bool:
     """Bu tedavide dondurulan/çözülen örnek yumurta mı, embriyo mu?
 
-    Yalnızca `oosit_cryo`'da yumurta dondurulur — `ivf_icsi`'nin
+    Yumurta yalnızca `oosit_cryo`'da dondurulur — `ivf_icsi`'nin
     vitrifikasyon ekranı zaten enjekte edilmiş (embriyo olmuş) örnekleri
     listeliyor (`_ICSI_YAPILMADI` süzgeci). Yumurta donduran yeni bir cycle
     tipi eklersen burayı genişlet.
+
+    **Yumurta Çözme'de cevap aşamaya bağlı** (v6.147): çözülen şey yumurta
+    (`asama='thaw'`), ama ICSI'den sonra dondurulan ya da transfer edilen şey
+    embriyo. Aşama verilmezse (taşıyıcının içeriği, resmî formdaki dondurma
+    notu) soru "bu tedavide dondurulan ne" -- Yumurta Çözme'de embriyo.
 
     `FET_TIPLERI` ile aynı gerekçeyle burada (v6.135): `app.py` ekranda
     (`ornek_adi()`, `icerik_sayisi()`, v6.133) soruyor, `formlar.py` da
     resmî formda soruyor ("2 embriyo" mu "12 yumurta" mı donduruldu) ve
     `app`'i import edemez — app zaten formlar'ı import ediyor.
     """
-    return cycle_tipi == "oosit_cryo"
+    if cycle_tipi == "oosit_cryo":
+        return True
+    return asama == "thaw" and cozulen_yumurta_islenir(cycle_tipi)
 
 # Kilitli veritabanında ne kadar beklenecek. Klinikte birkaç telefon aynı anda
 # kayıt girer; varsayılan 5 sn kısa kalabiliyor.
@@ -298,14 +354,51 @@ def tedavide_yapilan(cycle_id, o: str = "o") -> tuple:
     `kosul, p = db.tedavide_yapilan(cid)` → `... WHERE {kosul} ...`, `p` o
     sırada parametrelere eklenir.
     """
-    adaylar = f"{o}.specimen_id IN (SELECT id FROM specimen WHERE cycle_id = ?)"
-    p = [cycle_id]
+    return _tedavide_yapilan(o, "?", [cycle_id])
+
+
+def tedavide_yapilan_ifade(tedavi: str, o: str = "o") -> str:
+    """`tedavide_yapilan()`'ın bağıntılı alt sorgu hali (v6.147): tedavinin
+    kimliği parametre değil, dış sorgudaki bir ifade (ay listesinde `c.id`).
+    İfade her zaman koddan gelir."""
+    return _tedavide_yapilan(o, tedavi, [])[0]
+
+
+def _tedavide_yapilan(o, t, p1) -> tuple:
+    adaylar = f"{o}.specimen_id IN (SELECT id FROM specimen WHERE cycle_id = {t})"
+    p = list(p1)
     if kolon_var("olay", "thaw_cycle_id"):
         adaylar = (f"({adaylar} OR {o}.specimen_id IN (SELECT tc.specimen_id "
                    "FROM olay tc WHERE tc.tip = 'thaw' AND tc.iptal_mi = 0 "
-                   "AND tc.thaw_cycle_id = ?))")
-        p.append(cycle_id)
-    return f"{adaylar} AND {olay_tedavisi(o)} = ?", p + [cycle_id]
+                   f"AND tc.thaw_cycle_id = {t}))")
+        p += p1
+    return f"{adaylar} AND {olay_tedavisi(o)} = {t}", p + p1
+
+
+def bu_tedavide(cycle_id: int, o: str = "o") -> str:
+    """Bu olay BU tedavide mi yapıldı -- örneği zaten bilinen bir alt sorgu
+    için kısa koşul (v6.147). `tedavide_yapilan()`'ın aday süzgeci olmadan:
+    örnek dış sorgudan geliyor. Tedavinin kimliği tamsayıya çevrilip metne
+    gömülüyor (rotadan `int` geliyor); böylece çok alt sorgulu bir SELECT'te
+    parametre sırası karışmıyor."""
+    return f"{olay_tedavisi(o)} = {int(cycle_id)}"
+
+
+def tedavi_ornekleri(cycle_tipi, s: str = "s") -> str:
+    """Bu tedavinin aşama ekranlarında görünen örnekler -- SQL koşulu, bir `?`
+    (tedavinin kimliği).
+
+    Kendi örneği olan tiplerde `s.cycle_id = ?`. `FET_TIPLERI`'nde örnek
+    başka bir tedaviden geliyor (`specimen.cycle_id` hiç değişmez): bu
+    tedavi için çözülenler, `thaw_cycle_id` ile. v6.62'de blastokist ekranı
+    için yazılmıştı (`_blast_kosul`); v6.147'den beri Yumurta Çözme'nin ICSI,
+    fertilizasyon ve cleavage ekranları da, resmî formların ve Excel'in
+    yumurta ızgarası da (`cozulen_yumurta_islenir()`) buradan okuyor.
+    """
+    if cycle_tipi in FET_TIPLERI:
+        return (f"{s}.id IN (SELECT tz.specimen_id FROM olay tz "
+                "WHERE tz.tip = 'thaw' AND tz.iptal_mi = 0 AND tz.thaw_cycle_id = ?)")
+    return f"{s}.cycle_id = ?"
 
 
 def cozme_tupu_var() -> bool:

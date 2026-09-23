@@ -18,7 +18,7 @@
     <div class="veri"><dt>{{ metin("konum") }}</dt>
       <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or metin("girilmemis") }}</dd></div>
     <div class="veri"><dt>{{ metin("asama_vitrifikasyon") }}</dt><dd>{{ gg_aa_yyyy_saat(t.vitrifikasyon_zamani) if t.vitrifikasyon_zamani else '—' }}</dd></div>
-    <div class="veri"><dt>{{ metin("icerik") }}</dt><dd>{{ icerik_sayisi(icerik|length, icerik[0].cycle_tipi if icerik else None) }}</dd></div>
+    <div class="veri"><dt>{{ metin("icerik") }}</dt><dd>{{ icerik_sayisi(icerik|length, icerik[0].icerik_tipi if icerik else None) }}</dd></div>
   </dl>
 </div>
 
@@ -37,13 +37,13 @@
 
 {% if icerik|length > 1 %}
 <div class="uyari">
-  {{ metin("tasiyicida_n_yumurta" if yumurta_mi(icerik[0].cycle_tipi)
+  {{ metin("tasiyicida_n_yumurta" if yumurta_mi(icerik[0].icerik_tipi)
            else "tasiyicida_n_embriyo").format(n=icerik|length) }}
 </div>
 {% endif %}
 
 <div class="kart">
-  <h2>{{ metin("icindeki_yumurtalar" if icerik and yumurta_mi(icerik[0].cycle_tipi)
+  <h2>{{ metin("icindeki_yumurtalar" if icerik and yumurta_mi(icerik[0].icerik_tipi)
              else "icindeki_embriyolar") }}</h2>
   {% for e in icerik %}
   <div class="fsatir">
@@ -54,7 +54,7 @@
       <div class="meta">
         {# Örneğin adı tedavi tipinden (CLAUDE.md: "Yumurta diye sabit yazma") --
            `oosit_n` v6.134'ten beri "Yumurta N" basıyordu, embriyo tüpünde de. #}
-        {{ e.cycle_no }} · {{ (ornek_adi('vitrifikasyon', e.cycle_tipi) ~ ' ' ~ e.cycle_sira_no)|lower }}{% if e.skor %} · {{ e.skor }}{% endif %}
+        {{ e.cycle_no }} · {{ (ornek_adi('vitrifikasyon', e.icerik_tipi) ~ ' ' ~ e.cycle_sira_no)|lower }}{% if e.skor %} · {{ e.skor }}{% endif %}
       </div>
       {# Bu tüpten çözülüp başka bir tüpe yeniden dondurulduysa (v6.143) --
          geçmiş iki yönden izlenebilsin. #}

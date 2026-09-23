@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("fert_kaydini_sil") }}{% endblock %}
-{% block geri %}<a class="geri" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ hedef_cycle }}/fert?oosit={{ sp.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
 <div class="kimlik">
   <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
@@ -15,7 +15,7 @@
   {{ metin("fert_kaydi_bulunamadi") }}<br>
   {{ metin("kaydete_basilmamis_kisa") }}
 </div></div>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">{{ metin("geri_don") }}</a>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/fert?oosit={{ sp.id }}">{{ metin("geri_don") }}</a>
 {% else %}
 
 <div class="tehlike">
@@ -49,8 +49,9 @@
 </div>
 
 <form method="post" action="/specimen/{{ sp.id }}/fert-sil">
+  <input type="hidden" name="cycle" value="{{ hedef_cycle }}">
   <button class="dugme tehlikeli" type="submit">{{ metin("fert_kaydini_sil") }}</button>
 </form>
-<a class="dugme ikincil" href="/cycle/{{ sp.cycle_id }}/fert?oosit={{ sp.cycle_sira_no }}">{{ metin("vazgec") }}</a>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/fert?oosit={{ sp.id }}">{{ metin("vazgec") }}</a>
 {% endif %}
 {% endblock %}

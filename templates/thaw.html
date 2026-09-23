@@ -63,7 +63,9 @@
 
   {% for e in icerik %}
   <div class="kart">
-    <h2>{{ e.dosya_no }} · {{ e.ad_soyad }} · {{ metin("embriyo_ad") }} {{ e.cycle_sira_no }}
+    {# Yumurta tüpünde "Yumurta" (v6.147): içerik dondurmanın yapıldığı
+       tedavinin tipinden (`icerik_tipi`), taşıyıcı sayfasının aynı kuralı. #}
+    <h2>{{ e.dosya_no }} · {{ e.ad_soyad }} · {{ metin("oosit_ad" if yumurta_mi(e.icerik_tipi) else "embriyo_ad") }} {{ e.cycle_sira_no }}
         {% if e.skor %}· {{ e.skor }}{% endif %}</h2>
 
     <div class="fotoikili">

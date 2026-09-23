@@ -158,18 +158,25 @@ Tedavi tipine göre hangi aşamaların görüneceği değişir:
   dondurmadan (vitrifikasyon) önce gelir, burada çözme blastokistten önce
   gelir — embriyo zaten dondurulmuş halde geliyor.
 - `oosit_cryo` → OPU, denüdasyon, vitrifikasyon, çözme
-- `yumurta_cozme` → yalnızca **çözme** (v6.102, `goc_039`, kullanıcının
-  isteği). `oosit_cryo`'da dondurulmuş bir yumurtanın, FET'in embriyo için
-  yaptığı gibi, AYRI bir tedavide çözülmesi — **OPU yok, çözülen örnek bu
-  tedavide toplanmadı**. `FET_TIPLERI`'ne eklendi (aşağıya bak): taşıyıcı/
-  örnek listeleri `specimen.cycle_id` ile değil `olay.thaw_cycle_id` ile
-  aranıyor, `fet`/`fet_kultur` ile aynı mekanizma. Kullanıcının kararı:
-  çözmeden sonra ICSI/fertilizasyon gerekiyorsa ayrı bir tedavi açılır, bu
-  tedavi genişletilmez — bilinçli olarak minimal tutuldu.
+- `yumurta_cozme` → **çözme, androloji, ICSI, fertilizasyon, cleavage,
+  blastokist, vitrifikasyon, transfer, gebelik** (v6.147; v6.102'de,
+  `goc_039`, yalnızca çözmeydi). `oosit_cryo`'da dondurulmuş bir yumurtanın,
+  FET'in embriyo için yaptığı gibi, AYRI bir tedavide çözülmesi — **OPU yok,
+  çözülen örnek bu tedavide toplanmadı**; denüdasyon da yok (yumurta
+  dondurulmadan önce soyuldu). Kullanıcının v6.147'deki sözü: "yumurta
+  çözme tedavisinde denüdasyon haricinde diğer bütün işlemler IVF/ICSI cycle
+  tedavisi ile aynı olmalıydı" — v6.102'nin "ICSI gerekiyorsa ayrı bir
+  tedavi açılır" kararını kendisi değiştirdi. `FET_TIPLERI`'nde (aşağıya
+  bak): örnekler `specimen.cycle_id` ile değil `olay.thaw_cycle_id` ile
+  aranıyor. Aşama ekranlarının bundan çıkan kuralları aşağıdaki "Yumurta
+  Çözme'de ICSI ve sonrası" bölümünde.
 
-Aşama sırası ve tip-aşama eşlemesi `app.py` içinde `ASAMA_SIRASI` ve
-`TIP_ASAMALARI`. Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
-hazırlık sonrası) yalnızca `ivf_icsi`'de. Şema/listeler: README v6.2, `goc_019`.
+`ASAMA_SIRASI` `app.py`'de; tip-aşama eşlemesi `TIP_ASAMALARI` v6.147'den
+beri `db.py`'de (`app.TIP_ASAMALARI` aynı sözlük) — `formlar.py` ve
+`disari.py` de soruyor, `app`'i import edemezler (`FET_TIPLERI`'nin
+gerekçesi). Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
+hazırlık sonrası) `ivf_icsi`'de ve Yumurta Çözme'de. Şema/listeler: README
+v6.2, `goc_019`.
 
 **ICSI'de "enjekte edilmedi" işaretlenen oosit sonraki aşamalara sızmaz**
 (v6.105, kullanıcının isteği). ICSI ekranının "Enjekte edildi mi?" kutusu
@@ -240,10 +247,10 @@ görünmüyor.
   UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
   (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**
   oosit için doğru çıkardı (hiçbirinin `icsi` olayı olamaz) ve ekranı
-  bomboş bırakırdı. `vit_ekran()` bu yüzden süzgeci yalnızca
-  `c["cycle_tipi"] == "ivf_icsi"` iken ekliyor. Yeni bir yerde
-  `_ICSI_YAPILMADI` kullanırsan aynı soruyu sor: bu ekran yalnızca
-  `ivf_icsi`'de mi çalışıyor, yoksa ICSI'siz bir tip de mi paylaşıyor?
+  bomboş bırakırdı. `_vit_adaylari()` bu yüzden süzgeci yalnızca tipin
+  ICSI aşaması varken ekliyor (`"icsi" in TIP_ASAMALARI[...]`: `ivf_icsi`
+  ve v6.147'den beri Yumurta Çözme). Yeni bir yerde `_ICSI_YAPILMADI`
+  kullanırsan aynı soruyu sor: bu ekranı ICSI'siz bir tip de paylaşıyor mu?
 
 **`oosit_cryo`'da maturasyon/bulgu değerlendirmesi denüdasyon ekranında
 yapılır** (v6.96, kullanıcının isteği). `ivf_icsi`'de bu soru ICSI
@@ -271,19 +278,22 @@ Taşıyıcı/örnek listeleri `specimen.cycle_id` ile değil, `olay.thaw_cycle_i
 "embriyo" diyor ama mekanizma tamamen genel: `cycle_thaw_listesi()`'nin
 taşıyıcı sorgusu embriyo/oosit ayrımı yapmıyor, `yumurta_cozme` eklenirken
 hiç değişmedi. Yeni bir `FET_TIPLERI` üyesi eklersen `cycle_thaw_listesi()`,
-`_blast_kosul()` ve `vit_ekran()`'in FET dalı (`_FET_DONDURULABILIR`)
-otomatik kapsar — `fet_tipi_mi()` kullanmayan yeni bir `== "fet"` kontrolü
+`db.tedavi_ornekleri()` (v6.147'ye kadar `_blast_kosul()`) ve
+`_vit_adaylari()`'nın FET dalı (`_FET_DONDURULABILIR`) otomatik kapsar — `fet_tipi_mi()` kullanmayan yeni bir `== "fet"` kontrolü
 yazma. `cycle_thaw.html`'deki vitrifikasyon bağlantısı v6.143'ten beri
 `fet_tipi_mi()`'ye değil **tipin aşamalarına** bakıyor (`vit_var`,
-`TIP_ASAMALARI`): FET'te de vitrifikasyon var, `yumurta_cozme`'de yok.
+`TIP_ASAMALARI`): FET'te de vitrifikasyon var.
 
-**Blastokist ekranında seçim `specimen.id` ile, `cycle_sira_no` ile DEĞİL**
-(v6.62, yalnızca bu ekranda). `fet_kultur`'da birden çok cycle'ın embriyoları
-aynı listede olabiliyor ve `cycle_sira_no` yalnızca **kendi** cycle'ı içinde
-tekil (`UNIQUE(cycle_id, cycle_sira_no)`) — iki cycle'da da "1. embriyo"
-olabilir. ICSI/fert/cleavage buna dokunmadı, onlar hiç birden fazla cycle'ın
-embriyosunu aynı ekranda göstermiyor; oradaki `?oosit=<cycle_sira_no>`
-deseni (README v6.35) hâlâ güvenli.
+**Aşama ekranlarında seçim `specimen.id` ile, `cycle_sira_no` ile DEĞİL**
+(v6.62'de blastokistte; v6.147'den beri ICSI, fertilizasyon ve cleavage'da
+da). `fet_kultur`'da ve Yumurta Çözme'de birden çok tedavinin örnekleri aynı
+listede olabiliyor ve `cycle_sira_no` yalnızca **kendi** tedavisinde tekil
+(`UNIQUE(cycle_id, cycle_sira_no)`) — iki tedavide de "1. yumurta" olabilir.
+Seçimi `_secili_ornek()` yapıyor: v6.147'den önceki adres (`?oosit=3`)
+liste tek tedavinin örnekleriyse hâlâ kabul ediliyor (açık kalmış bir
+sekmenin tazelemesi). "Kaydet → sıradaki" listenin kendi sırasını izliyor
+(`_sonraki_ornek()`), sıra no karşılaştırmasını değil. Denüdasyon kendi
+örneklerini gösterdiği için `?oosit=<cycle_sira_no>` ile kaldı.
 
 **`olay.cycle_id` her zaman specimen'in KENDİ cycle'ı, ekranın cycle'ı
 değil** — `thaw` ve `transfer` olaylarının zaten yaptığı şey
@@ -293,7 +303,56 @@ aynısını yapıyor. "Hangi tedavi için" sorusu ayrı bir alanda (`thaw_cycle_
 embriyonun **kendi** cycle'ının arşiv klasörüne gidiyor
 (`/cycle/{{ sp.cycle_id }}/foto-ekle`, `thaw.html`'in zaten yaptığı gibi),
 görüntülenen ekranın cycle'ına değil — iki klasöre bölünmüş bir embriyo
-geçmişi olmasın diye.
+geçmişi olmasın diye. v6.147'den beri ICSI, fertilizasyon ve cleavage
+POST'ları da öyle (önce rotanın `cycle_id`'sini yazıyorlardı; `ivf_icsi`'de
+ikisi aynı değerdi).
+
+**Yumurta Çözme'de ICSI ve sonrası: çözülen yumurta başka tedavinin örneği**
+(v6.147, kullanıcının isteği; README v6.147). Yumurtanın `specimen.cycle_id`'si
+Yumurta Dondurma; ekranlar onu `db.tedavi_ornekleri()` ile buluyor.
+- **Maturasyon iki kez soruluyor, iki ayrı kayıt.** Denüdasyonda (Yumurta
+  Dondurma, v6.96) ve çözmeden sonra ICSI ekranında. ICSI ekranı yalnızca
+  BU tedavinin maturasyonunu okuyor ve güncelliyor (`_tedavi_ek()`,
+  `db.olay_tedavisi()` üzerinden); kaynağınki ezilmiyor, kaynağın özeti ve
+  formu değişmiyor. FET tipinde kaynağında da bulunabilen bir olay tipini
+  okuyan/yazan yeni bir ekran yazarsan aynı süzgeci kullan.
+- **İşlem saati bu tedavideki çözmeden önce olamaz** (`_cozmeden_once()`,
+  FET tiplerinin dört aşama POST'unda). Reddedilir, ekrana sebebi ve çözme
+  saati yazılır (`?hata=cozmeden_once`, `ASAMA_HATALARI` beyaz listesi —
+  tuzak #9). Sessizce değiştirmek yerine reddediliyor; gerekçe:
+  `olay_tedavisi()` saate bakıyor, kayıt kaynağın sayılırdı ve ICSI ekranı
+  yazılanı göremeyip her kayıtta yeni bir maturasyon açardı. Bilinen sınır:
+  yazılan değerler forma geri gelmiyor, kayıtlı değerler basılıyor.
+- **Çözmede dejenere çıkan yumurta** ICSI şeridinde "Dej." ile kalıyor,
+  formu açılmıyor, sunucu da yeni kayıt açmıyor (`_cozme_dejenere_sql()`,
+  v6.139'un "gizlemek değil kilitlemek" kuralı). Yalnızca BU tedavinin
+  çözmesi sayılıyor. Enjekte edilmediği için cleavage/blastokistte hiç
+  görünmüyor (`_ICSI_YAPILMADI`).
+- **Silme ekranları `?cycle=` taşıyor** ve `_hedef_tedavi()` doğruluyor:
+  örnek o tedavi için çözülmüş olmalı. Adres yalnızca dönüşü değil hangi
+  kaydın silineceğini de belirliyor. ICSI silmesi ICSI aşaması olmayan bir
+  tedaviye düşerse (adressiz eski bağlantı, Yumurta Dondurma) hiçbir şey
+  iptal etmiyor — orada maturasyon denüdasyonda yazıldı. Geri alınınca
+  yumurta çözmenin durumuna dönüyor (`_cozme_oncesi_durum()`), `oosit`'e
+  değil.
+- **Vitrifikasyon adayları** `_vit_adaylari()`'nda, ekran ve kayıt aynı
+  koşulu soruyor: FET'in koşulu (bu tedavi için çözülüp transfer edilmeyen)
+  + enjekte edilmiş (v6.105) + değerlendirilmiş (v6.137), dondurma kaydı BU
+  tedavininki olmalı (`_degerlendirilmis_burada()`: kaynağın yumurta
+  dondurması sayılmıyor). Dondurmanın `vit_cycle_id`'si bu tedavi (goc_046).
+- **Yumurta transfer adayı değil** (`transfer_adaylari()`): yumurta donduran
+  bir tipin örneği ve hiç ICSI'si yok. Önce çözülen yumurta 'cozuldu'
+  durumuyla hastanın bütün transfer ekranlarında listeleniyordu.
+- **Yumurta mı embriyo mu: `db.yumurta_mi(tip, asama)`** — Yumurta Çözme'de
+  çözülen yumurta (`asama='thaw'`), dondurulan/transfer edilen embriyo.
+- **Çözmeyi geri almak**: çözmeden sonra girilmiş HER kayıt engel (ICSI,
+  değerlendirme, transfer), yalnızca yeniden dondurma değil
+  (`_cozme_geri_alma_engeli()`). Önce en son adım.
+- Formlar, Excel ve istatistik: aşağıdaki "Bir olayın yapıldığı tedavi"
+  maddesi.
+- v6.146'daki açık soru (FET (3→5)'te aynı gün değerlendirmesi kaynağın
+  üzerine yazılıyor) Yumurta Çözme'de doğmuyor: çözülen yumurtanın kaynakta
+  cleavage/blastokist kaydı yok.
 
 Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, transfer yok).
 
@@ -539,11 +598,13 @@ olan 120 tedavinin 480 sayısı değişmedi (denendi).
 - **Hangi satırın gösterileceği cycle tipine göre değişir.** `cycle_ozet()`
   çağırana `cycle_asamalari()`'nin zaten hesapladığı kod kümesini alıyor
   (kendi başına tekrar hesaplamıyor) — "Toplanan" yalnızca `opu` aşaması
-  varsa, "M2" yalnızca `denudasyon` varsa (ICSI ekranında mı yoksa
+  varsa, "M2" `denudasyon` ya da `icsi` varsa (ICSI ekranında mı yoksa
   `oosit_cryo`'da denüdasyon ekranında mı sorulduğu fark etmez, ikisi de
   aynı `olay.tip` yazıyor — v6.96), "Döllenen" yalnızca `fert`, "Cleavage"
-  yalnızca `cleavage`, "Blastokist" yalnızca `blast` aşaması varsa. `fet`/
-  `yumurta_cozme` gibi bu aşamaların HİÇBİRİ olmayan bir tipte özet listesi
+  yalnızca `cleavage`, "Blastokist" yalnızca `blast` aşaması varsa. Yumurta
+  Çözme'de "Toplanan"ın yerinde "Çözülen yumurta sayısı" (kırılımında
+  canlı, v6.147, `db.cozulen_yumurta_islenir()`). `fet` gibi bu
+  aşamaların HİÇBİRİ olmayan bir tipte özet listesi
   tamamen boş döner ve kart hiç basılmaz — "0 M2" yazmak "ölçülmedi"
   ile "sıfır çıktı"yı karıştırırdı, bu yanlış bilgi olurdu. Yeni bir cycle
   tipi eklersen (bkz. "Embriyo Dondurma ve Sperm Dondurma" bölümündeki dört
@@ -1687,9 +1748,18 @@ cycle_tipi)` ("4 yumurta"/"4 embriyo") ya da `yumurta_mi(cycle_tipi)`
 kullan — `say("n_embriyo", ...)` yazma, altı yerde aynı etiket var
 (cryo haritası tank+taşıyıcı satırı, çözme ekranının iki listesi, taşıyıcı
 detayının üç yeri) ve biri unutulursa ekranlar birbirini tutmaz.
-- Taşıyıcının içeriğinin tedavi tipini `ICERIK_TIPI` alt sorgusu veriyor
-  (üç sorguda metin olarak paylaşılıyor, taşıyıcı hepsinde `t`). **İlk
-  satır yeter**: bir taşıyıcı tek bir tedavinin örneklerini taşıyor.
+- Taşıyıcının içeriğinin tedavi tipini `icerik_tipi_sql()` alt sorgusu
+  veriyor (beş sorguda paylaşılıyor, taşıyıcı hepsinde `t`); taşıyıcı
+  sayfası ve çözme ekranı `tasiyici_icerigi()`'nin `icerik_tipi`'ne bakıyor.
+  **İlk satır yeter**: bir taşıyıcı tek bir tedavinin örneklerini taşıyor.
+  **Ölçü dondurmanın YAPILDIĞI tedavinin tipi** (v6.147, `db.vit_tedavisi()`),
+  örneğin kendi tedavisininki değil: Yumurta Çözme'de çözülen yumurtadan
+  gelişip dondurulan embriyonun kendi tedavisi Yumurta Dondurma, eski ölçü
+  tüpe "yumurta" derdi. Sabit değil fonksiyon: `vit_cycle_id` eski bir
+  yedekte yok, cevap her istekte soruluyor (tuzak #15).
+- **`yumurta_mi(tip, asama)`**: Yumurta Çözme'de aşamaya bağlı (v6.147) —
+  çözülen yumurta, ICSI'den sonra dondurulan/transfer edilen embriyo.
+  Aşama verilmezse soru "bu tedavide dondurulan ne".
 - **Tank satırı ikisini ayrı sayıyor** — bir tankta ikisi birden olabilir,
   orada tek kelime seçilemez; sıfır olmayan basılıyor.
 - `oosit_ad` metni v6.133'te dokunulmadan bırakılmıştı; v6.134'te
@@ -1926,6 +1996,22 @@ yedi yer tek tek yazılı.
   `{{saat_*}}` etiketleri de oradan) ve özet kutusu bu koşulu kullanıyor.
   Tedavi başına bir işlemi soran yeni bir sayım/saat yazarsan `s.cycle_id`
   değil bu koşul — yoksa FET'in işi kaynak ICSI'ye yazılır.
+- **v6.147'den beri resmî formlar ve ay listesi de** (Yumurta Çözme'nin
+  ICSI'si yoksa kaynak Yumurta Dondurma'ya yazılırdı):
+  - resmî formların sayımları (`formlar._bu_tedavide_say()`/`_adet()`) ve
+    yumurta ızgarasının her hücresi (`db.bu_tedavide(cid, 'x')` —
+    örneği dış sorgudan gelen alt sorgu için kısa koşul). Izgaranın
+    satırları `formlar.yumurta_kosulu()`: kendi örnekleri, Yumurta Çözme'de
+    çözülen yumurtalar (`db.cozulen_yumurta_islenir()`); `fet`/`fet_kultur`'un
+    ızgarası değişmedi. Özet formunun "Toplanan"ı FET tiplerinde boş.
+  - ay listesinin M2'den blastokiste sayıları (`db.tedavide_yapilan_ifade("c.id")`,
+    bağıntılı alt sorgu hali); FET tiplerinde "Toplam yumurta/Sağ/Sol" boş.
+  - **Tedavinin Excel dökümü bilerek değil**: bir geçmiş, hücreleri örneğin
+    son kaydı; FET tiplerinde yalnızca satırlara bu tedavi için çözülenler
+    eklendi. İstatistik ekranı da örneğin kendi tedavisinin ayına yazıyor
+    (MII artık yalnızca toplanan yumurtalardan, paydayla aynı süzgeç).
+  - Denendi: var olan 120 tedavide ART Lab ızgaraları, Excel dökümleri ve
+    istatistik eski kodla birebir aynı; tek fark FET'lerin "Toplanan"ı.
 - **Bilinen, düzeltilmemiş sorun (v6.146'da bulundu):** değerlendirmeler
   (örnek, gün) başına tek kayıt (`_gun_olay_kaydet()`). Kaynakta 5. gün
   kaydı olan bir embriyo FET (3→5)'e alınıp yine 5. gün değerlendirilirse
@@ -2255,8 +2341,9 @@ satırı üretmiyor.
   tablo yeniden kurulur (`goc_031`'in `fet_kultur` için yaptığı, `goc_039`
   `yumurta_cozme` için tekrarladı — aynı regex/rename dansı, kopyala). Dört
   adım: (1) CHECK'i genişlet (tablo yeniden kurma), (2) `liste_degeri`'ne
-  `sira=MAX+1` ile ekle (dropdown oradan besleniyor), (3) `TIP_KODLARI` +
-  `TIP_ASAMALARI`, (4) `metinler.py`'ye `tip_<kod>` anahtarı.
+  `sira=MAX+1` ile ekle (dropdown oradan besleniyor), (3) `TIP_KODLARI`
+  (`app.py`) + `TIP_ASAMALARI` (v6.147'den beri `db.py`), (4) `metinler.py`'ye
+  `tip_<kod>` anahtarı.
 
 **Sperm dondurma tüp bebek tedavisi olmayan hastalar için de yapılabilir,
 tek ekranda kaydediliyor** (v6.85'te başladı, v6.86'da bugünkü haline geldi

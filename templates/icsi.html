@@ -19,22 +19,31 @@
 {% endblock %}
 {% block icerik %}
 
+{# Adresten gelen hata anahtarı sunucuda beyaz listeden geçti (v6.147). #}
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+
 {% if not oositler %}
+{# Yumurta Çözme'de (v6.147) yumurta denüdasyondan değil çözmeden geliyor. #}
 <div class="kart"><div class="bos">
-  {{ metin("henuz_oosit_yok_icsi") }}<br>{{ metin("once_denudasyon") }}
+  {% if fet_tipi_mi(c.cycle_tipi) %}{{ metin("henuz_cozulen_yumurta_yok") }}<br>{{ metin("once_cozme") }}
+  {% else %}{{ metin("henuz_oosit_yok_icsi") }}<br>{{ metin("once_denudasyon") }}{% endif %}
 </div></div>
-<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("denudasyon_ekrani") }}</a>
+{% if fet_tipi_mi(c.cycle_tipi) %}<a class="dugme" href="/cycle/{{ c.id }}/thaw">{{ metin("cozme_ekrani") }}</a>
+{% else %}<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("denudasyon_ekrani") }}</a>{% endif %}
 {% else %}
 
 <div class="serit">
   {% for o in oositler %}
-  <a href="/cycle/{{ c.id }}/icsi?oosit={{ o.cycle_sira_no }}"
+  {#- Seçim specimen.id ile (v6.147): Yumurta Çözme'de liste birden çok
+      tedavinin yumurtalarını taşıyabilir, sıra no orada tekil değil. -#}
+  <a href="/cycle/{{ c.id }}/icsi?oosit={{ o.id }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %}
             {% if o.mat %}dolu{% endif %}
-            {% if o.mat == 'degenere' or o.icsi == 'degenere' %}deg{% endif %}">
+            {% if o.mat == 'degenere' or o.icsi == 'degenere' or o.cozme_dejenere %}deg{% endif %}">
     {#- `|upper` uzun etiketi ("DEGENERE") dar kutucuğa sığdıramıyordu;
-        `mat_kisa()` kısaltmayı veriyor (v6.139). -#}
-    <b>{{ o.cycle_sira_no }}</b>{% if o.mat %}<i>-{{ mat_kisa(o.mat) }}</i>{% endif %}
+        `mat_kisa()` kısaltmayı veriyor (v6.139). Çözmede dejenere çıkan
+        yumurta (v6.147) kaydı yoksa "Dej." yazar. -#}
+    <b>{{ o.cycle_sira_no }}</b>{% if o.mat %}<i>-{{ mat_kisa(o.mat) }}</i>{% elif o.cozme_dejenere %}<i>-{{ metin("mat_kisa_degenere") }}</i>{% endif %}
   </a>
   {% endfor %}
 </div>
@@ -44,25 +53,29 @@
   <span class="hed">{{ ornek_adi('icsi', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
 </div>
 
-{{ snap.blok(sp, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no, bekleyen) }}
+{% if sp.cozme_dejenere %}
+<div class="uyari">{{ metin("cozmede_dejenere_uyari") }}</div>
+{% endif %}
+
+{{ snap.blok(sp, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.id, bekleyen) }}
 
 {% if sp.ilk_goruntu %}
 <div class="foto">
   <img src="/dosya/{{ sp.ilk_goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
   <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
 </div>
-{{ kr.serit(kareler, sp, c, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no) }}
+{{ kr.serit(kareler, sp, c, 'icsi', '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.id) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ sp.ilk_goruntu }}/sil?geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
+  <a href="/goruntu/{{ sp.ilk_goruntu }}/sil?geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.id }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.id }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
 {{ kr.yer(ornek_adi('icsi', c.cycle_tipi), sp,
-          '/cycle/' ~ c.id ~ '/foto-ekle?specimen_id=' ~ sp.id
-          ~ '&asama=icsi&geri=/cycle/' ~ c.id ~ '/icsi%3Foosit%3D' ~ sp.cycle_sira_no) }}
+          '/cycle/' ~ sp.cycle_id ~ '/foto-ekle?specimen_id=' ~ sp.id
+          ~ '&asama=icsi&geri=/cycle/' ~ c.id ~ '/icsi%3Foosit%3D' ~ sp.id) }}
 {% endif %}
 
-{% set geri_yol = '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.cycle_sira_no %}
+{% set geri_yol = '/cycle/' ~ c.id ~ '/icsi?oosit=' ~ sp.id %}
 {% if mat and not duzenle %}
 {# --- kaydedilmis: bilgi karti --- #}
 {{ bk.kart(
@@ -82,10 +95,16 @@
      metin("kaydedildi_rozet")) }}
 
 <a class="dugme ikincil" style="margin-top:12px"
-   href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">
+   href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.id }}">
   {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/icsi-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
+   href="/specimen/{{ sp.id }}/icsi-sil?cycle={{ c.id }}">{{ metin("bu_oositin_kaydini_sil") }}</a>
+
+{% elif sp.cozme_dejenere and not mat %}
+{# Bu tedavideki çözmede dejenere çıkan yumurtaya ICSI kaydı girilmez
+   (v6.147) -- v6.139'un "gizlemek değil kilitlemek" kuralı; asıl engel
+   sunucuda (`icsi_kaydet()`). #}
+<div class="kart"><div class="bos">{{ metin("cozmede_dejenere_form_yok") }}</div></div>
 
 {% else %}
 {# --- kayit yok ya da duzenleniyor: form --- #}
@@ -201,13 +220,13 @@
 </div>
 
 <a class="dugme ikincil" style="margin-top:12px"
-   href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.cycle_sira_no }}">
+   href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=icsi&geri=/cycle/{{ c.id }}/icsi%3Foosit%3D{{ sp.id }}">
   {{ metin("oosit_n_fotograf_ekle").format(n=sp.cycle_sira_no) }}</a>
 <a class="dugme ikincil"
    href="{{ geri_yol }}">{{ metin("vazgec_duzenleme") if duzenle else metin("secimleri_geri_al") }}</a>
 {% if mat %}
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/icsi-sil">{{ metin("bu_oositin_kaydini_sil") }}</a>
+   href="/specimen/{{ sp.id }}/icsi-sil?cycle={{ c.id }}">{{ metin("bu_oositin_kaydini_sil") }}</a>
 {% endif %}
 {% endif %}
 

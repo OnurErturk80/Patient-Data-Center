@@ -108,13 +108,23 @@ def ay_sayfalari(ay: str, baslik: str):
     Ayın ölçüsü ekrandakiyle aynı: OPU tarihi, yoksa cycle'ın açıldığı tarih
     (FET'te OPU olmuyor — bkz. CLAUDE.md "Hasta kayıtları ay ay").
 
-    Aşama sayıları cycle'ın **kendi** örneklerinden geliyor; çözme ve transfer
-    ise tedavinin yapıldığı cycle'dan (`thaw_cycle_id` / `tr_cycle_id`). Bir
-    FET cycle'ında oosit yoktur ama transfer vardır — sayının doğru cycle'da
-    görünmesi böyle sağlanıyor. Dondurma da (v6.143): FET'te yeniden
-    dondurulan embriyo o FET'in "Donan"ına yazılır, kaynak tedavininkine
-    değil (`db.vit_tedavisi()`).
+    Yumurta sayısı (toplanan, sağ/sol) cycle'ın **kendi** örneklerinden;
+    çözme ve transfer tedavinin yapıldığı cycle'dan (`thaw_cycle_id` /
+    `tr_cycle_id`). Bir FET cycle'ında oosit yoktur ama transfer vardır —
+    sayının doğru cycle'da görünmesi böyle sağlanıyor. Dondurma da (v6.143):
+    FET'te yeniden dondurulan embriyo o FET'in "Donan"ına yazılır, kaynak
+    tedavininkine değil (`db.vit_tedavisi()`). **M2'den blastokiste aşama
+    sayıları da v6.147'den beri işlemin yapıldığı tedaviden**
+    (`db.tedavide_yapilan_ifade()`, tedavi ekranının özet kutusuyla aynı
+    koşul): Yumurta Çözme'de çözülen yumurtanın ICSI'si o satıra yazılır,
+    yumurtanın toplandığı Yumurta Dondurma'nınkine değil.
     """
+    bu = db.tedavide_yapilan_ifade("c.id")
+    # FET tiplerinde yumurta toplanmıyor: "Yumurta" sütunu boş (v6.147). Program
+    # öncesi aktarılan FET'in embriyoları FET'in kendi altında (v6.130);
+    # sayılsaydı çözülen embriyolar toplanan yumurta gibi görünürdü --
+    # istatistikteki `fet_dislama`'nın aynı gerekçesi.
+    fet = "c.cycle_tipi IN (%s)" % ",".join("'%s'" % t for t in db.FET_TIPLERI)
     h = _etiket_haritasi()
     bitis_var = _kolon_var("cycle", "bitis_sebebi")
     plan_var = _kolon_var("cycle", "planlanan_tarih")
@@ -126,35 +136,32 @@ def ay_sayfalari(ay: str, baslik: str):
         f"""
         SELECT c.*, {bitis}, {plan},
                h.dosya_no, h.ad_soyad, h.durum AS hasta_durum,
-               (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id) AS oosit,
+               CASE WHEN {fet} THEN NULL ELSE
+               (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id) END AS oosit,
+               CASE WHEN {fet} THEN NULL ELSE
                (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id
-                 AND s.taraf = 'sag') AS sag,
+                 AND s.taraf = 'sag') END AS sag,
+               CASE WHEN {fet} THEN NULL ELSE
                (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id
-                 AND s.taraf = 'sol') AS sol,
+                 AND s.taraf = 'sol') END AS sol,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE s.cycle_id = c.id AND o.iptal_mi = 0
+                WHERE {bu} AND o.iptal_mi = 0
                   AND o.tip = 'maturasyon_kontrolu' AND o.mat_deger = 'mii') AS mii,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE s.cycle_id = c.id AND o.iptal_mi = 0
+                WHERE {bu} AND o.iptal_mi = 0
                   AND o.tip = 'icsi') AS icsi,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE s.cycle_id = c.id AND o.iptal_mi = 0
+                WHERE {bu} AND o.iptal_mi = 0
                   AND o.tip = 'fertilizasyon_kontrolu'
                   AND o.fert_pn_sayisi = '2') AS ikipn,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE s.cycle_id = c.id AND o.iptal_mi = 0
+                WHERE {bu} AND o.iptal_mi = 0
                   AND o.tip = 'cleavage_degerlendirme' AND o.gun = 2) AS gun2,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE s.cycle_id = c.id AND o.iptal_mi = 0
+                WHERE {bu} AND o.iptal_mi = 0
                   AND o.tip = 'cleavage_degerlendirme' AND o.gun = 3) AS gun3,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE s.cycle_id = c.id AND o.iptal_mi = 0
+                WHERE {bu} AND o.iptal_mi = 0
                   AND o.tip = 'blastokist_degerlendirme') AS blast,
                (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
                  JOIN specimen s ON s.id = o.specimen_id
@@ -274,6 +281,15 @@ def cycle_sayfalari(cycle_id: int):
                       r["yapan_ad"]))
 
     # --- 2. sayfa: örnekler ---
+    # Satırlar tedavinin örnekleri; FET tiplerinde bu tedavi için ÇÖZÜLENLER
+    # de (v6.147, `db.tedavi_ornekleri()`): Yumurta Çözme'nin yumurtaları ve
+    # FET'in embriyoları kaynak tedavinin örnekleri, eskiden FET'in dökümü
+    # yalnızca program öncesi aktarılanları gösteriyordu. Hücreler örneğin
+    # bütün geçmişi (son kayıt) -- döküm bir geçmiş; resmî formlardan farkı
+    # bu, orada yalnızca o tedavide yapılan işlem basılıyor.
+    fet = c["cycle_tipi"] in db.FET_TIPLERI
+    satir_kosulu = (f"({db.tedavi_ornekleri(c['cycle_tipi'])} OR s.cycle_id = ?)"
+                    if fet else "s.cycle_id = ?")
     ornekler = db.sorgu(
         f"""
         SELECT s.id, s.cycle_sira_no, s.taraf, s.durum,
@@ -310,9 +326,10 @@ def cycle_sayfalari(cycle_id: int):
                (SELECT group_concat(x.notlar, ' | ') FROM olay x
                  WHERE x.specimen_id = s.id AND x.iptal_mi = 0
                    AND x.notlar IS NOT NULL AND x.notlar <> '') AS notlar
-          FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no
+          FROM specimen s WHERE {satir_kosulu}
+          ORDER BY s.cycle_id, s.cycle_sira_no
         """,
-        (cycle_id,))
+        (cycle_id, cycle_id) if fet else (cycle_id,))
 
     # Taşıyıcı etiketi ve konumu: örnek başına sorgu atmak yerine tek okuma.
     tasiyicilar = {r["id"]: (r["etiket"], r["tam_yol"]) for r in db.sorgu(
@@ -518,7 +535,13 @@ def istatistikler(ay: str = "") -> dict:
     oosit = _tek(f"SELECT COUNT(*) n FROM specimen s "
                  f"JOIN cycle c2 ON c2.id = s.cycle_id "
                  f"WHERE {ornek_kosul}{fet_dislama}", (db.LAB_ID,))
-    mii = _olay("maturasyon_kontrolu", "AND o.mat_deger = 'mii'")
+    # MII de yalnızca TOPLANAN yumurtalardan (v6.147): oranın paydası
+    # "kayıtlı oosit" FET tiplerini dışlıyor, pay dışlamasaydı Yumurta
+    # Çözme'nin program öncesi aktarılan (kendi altına açılan) yumurtaları
+    # oranı %100'ün üstüne bile çıkarabilirdi. Programda çözülen yumurta
+    # Yumurta Dondurma'nın örneği, zaten orada bir kez sayılıyor (DISTINCT).
+    mii = _olay("maturasyon_kontrolu", "AND o.mat_deger = 'mii' AND s.cycle_id IN "
+                "(SELECT c2.id FROM cycle c2 WHERE 1=1" + fet_dislama + ")")
     icsi = _olay("icsi")
     ikipn = _olay("fertilizasyon_kontrolu", "AND o.fert_pn_sayisi = '2'")
     blast = _olay("blastokist_degerlendirme")

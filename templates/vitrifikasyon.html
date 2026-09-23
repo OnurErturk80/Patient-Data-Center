@@ -74,7 +74,8 @@
 
 {% set adaylar = embriyolar|rejectattr('tasiyici_id')|list %}
 {% if not adaylar %}
-<div class="kart"><div class="bos">{{ metin("fet_dondurulacak_yok") if fet
+<div class="kart"><div class="bos">{{ metin("yumurtadan_dondurulacak_yok") if yumurtadan
+  else metin("fet_dondurulacak_yok") if fet
   else metin("dondurulacak_yumurta_kalmadi" if yumurta_mi(c.cycle_tipi)
              else "dondurulacak_kalmadi") }}</div></div>
 {% else %}
@@ -101,7 +102,8 @@
     </label>
     {% endfor %}
     <div class="alan" style="border:0">
-      {% if fet %}<div class="ipucu">{{ metin("yeniden_dondurma_ipucu") }}</div>{% endif %}
+      {% if yumurtadan %}<div class="ipucu">{{ metin("yumurtadan_dondurma_ipucu") }}</div>
+      {% elif fet %}<div class="ipucu">{{ metin("yeniden_dondurma_ipucu") }}</div>{% endif %}
       <div class="ipucu">{{ metin("ayni_tasiyici_ipucu") }}</div>
     </div>
   </div>

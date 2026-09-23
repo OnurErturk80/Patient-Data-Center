@@ -436,6 +436,22 @@ METINLER = {
         "en": "No embryo was thawed and left untransferred in this cycle. An "
               "embryo to re-freeze must first be thawed for this cycle on "
               "the Thaw screen."},
+    # Yumurta Çözme (v6.147): dondurulan, bu tedavide çözülen yumurtadan
+    # ICSI ile gelişen embriyo -- FET'in "yeniden dondurma" metni ona uymuyor.
+    "yumurtadan_dondurulacak_yok": {
+        "tr": "Dondurulacak embriyo yok. Bu tedavide çözülen yumurtalardan "
+              "gelişen embriyolar cleavage ya da blastokist ekranında "
+              "değerlendirildikten sonra burada listelenir.",
+        "en": "No embryos to freeze. Embryos developed from the oocytes thawed "
+              "in this cycle are listed here once assessed on the cleavage or "
+              "blastocyst screen."},
+    "yumurtadan_dondurma_ipucu": {
+        "tr": "Bu tedavide çözülen yumurtalardan gelişen, transfer edilmeyen "
+              "embriyolar. Dondurulan embriyo yeni bir taşıyıcıya girer; "
+              "yumurtanın ilk taşıyıcısının kaydı geçmiş olarak kalır.",
+        "en": "Embryos developed from the oocytes thawed in this cycle and not "
+              "transferred. A frozen embryo goes into a new carrier; the "
+              "oocyte's first carrier record stays as history."},
     "yeniden_dondurma_ipucu": {
         "tr": "Bu tedavi için çözülüp transfer edilmeyen embriyolar. "
               "Dondurulan embriyo yeni bir taşıyıcıya girer; ilk taşıyıcının "
@@ -458,6 +474,13 @@ METINLER = {
         "en": "This carrier has been thawed. Deleting the freezing record "
               "would mean it was never frozen, but the thaw record remains. "
               "Undo the thaw record first."},
+    # v6.147: çözmeden sonra girilmiş başka bir kayıt (ICSI, değerlendirme,
+    # transfer) varsa çözme geri alınmıyor -- önce en son adım.
+    "thaw_geri_alma_sonraki_kayit": {
+        "tr": "Bu çözmeden sonra bu örneğe başka kayıtlar girilmiş (ICSI, "
+              "değerlendirme ya da transfer). Önce onları geri al.",
+        "en": "Other records were entered for this sample after this thaw (ICSI, "
+              "assessment or transfer). Undo those first."},
     "thaw_geri_alma_yeniden_dondurulmus": {
         "tr": "Bu embriyo çözüldükten sonra yeniden dondurulmuş. Önce yeniden "
               "dondurma kaydını geri al.",
@@ -636,6 +659,25 @@ METINLER = {
     "once_denudasyon": {"tr": "Önce denüdasyon ekranından yumurtaları oluştur.",
                         "en": "Create the oocytes from the denudation screen first."},
     "denudasyon_ekrani": {"tr": "Denüdasyon ekranı", "en": "Denudation screen"},
+    # Yumurta Çözme (v6.147): ICSI/fertilizasyon/cleavage ekranlarının
+    # yumurtaları bu tedavi için çözülenler.
+    "henuz_cozulen_yumurta_yok": {
+        "tr": "Bu tedavide henüz çözülen yumurta yok.",
+        "en": "No oocytes have been thawed in this cycle yet."},
+    "once_cozme": {"tr": "Önce çözme ekranından yumurtaları çöz.",
+                   "en": "Thaw the oocytes from the thaw screen first."},
+    "cozmede_dejenere_uyari": {
+        "tr": "Bu yumurta çözmede dejenere çıktı.",
+        "en": "This oocyte was degenerate at thaw."},
+    "cozmede_dejenere_form_yok": {
+        "tr": "Çözmede dejenere çıktığı için bu yumurtaya ICSI kaydı girilmiyor.",
+        "en": "No ICSI record is entered for this oocyte because it was "
+              "degenerate at thaw."},
+    "hata_cozmeden_once": {
+        "tr": "İşlem saati bu tedavideki çözmeden ({z}) önce olamaz. Saati "
+              "düzeltip yeniden kaydet.",
+        "en": "The procedure time cannot be before the thaw in this cycle "
+              "({z}). Correct the time and save again."},
     "n_m_kaydedildi": {"tr": "{n} / {m} kaydedildi", "en": "{n} / {m} recorded"},
     "bu_fotografi_sil_uzun": {"tr": "Bu fotoğrafı sil", "en": "Delete this photo"},
     # v6.35'ten beri hiçbir şablon çağırmıyor: fotoğrafsız örneğin yerini
@@ -1148,6 +1190,8 @@ METINLER = {
     "embriyoloji_ozeti": {"tr": "Embriyoloji özeti", "en": "Embryology summary"},
     "ozet_folikul": {"tr": "Folikül sayısı", "en": "Follicle count"},
     "ozet_toplanan": {"tr": "Toplanan yumurta sayısı", "en": "Oocytes collected"},
+    # Yumurta Çözme'de "Toplanan"ın yerinde (v6.147).
+    "ozet_cozulen": {"tr": "Çözülen yumurta sayısı", "en": "Oocytes thawed"},
     "ozet_m2": {"tr": "M2 (olgun) yumurta sayısı", "en": "M2 (mature) oocyte count"},
     "ozet_dollenen": {"tr": "Döllenen yumurta (2PN) sayısı",
                       "en": "Fertilized oocytes (2PN) count"},

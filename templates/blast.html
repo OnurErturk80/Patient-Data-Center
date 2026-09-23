@@ -19,6 +19,9 @@
 {% endblock %}
 {% block icerik %}
 
+{# Adresten gelen hata anahtarı sunucuda beyaz listeden geçti (v6.147). #}
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+
 {% if eksik_goc %}
 <div class="uyari">
   {{ metin("blast_goc_gerekli")|safe }}

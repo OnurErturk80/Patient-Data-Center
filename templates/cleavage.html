@@ -24,15 +24,21 @@
   <a href="/cycle/{{ c.id }}/cleavage?gun=3" class="{% if gun == 3 %}aktif{% endif %}">{{ metin("gun_n_buyuk").format(n=3) }}</a>
 </div>
 
+{# Adresten gelen hata anahtarı sunucuda beyaz listeden geçti (v6.147). #}
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+
 {% if not oositler %}
+{# Yumurta Çözme'de (v6.147) yumurta denüdasyondan değil çözmeden geliyor. #}
 <div class="kart"><div class="bos">
-  {{ metin("henuz_oosit_yok_icsi") }}<br>{{ metin("once_denudasyon") }}
+  {% if fet_tipi_mi(c.cycle_tipi) %}{{ metin("henuz_cozulen_yumurta_yok") }}<br>{{ metin("once_cozme") }}
+  {% else %}{{ metin("henuz_oosit_yok_icsi") }}<br>{{ metin("once_denudasyon") }}{% endif %}
 </div></div>
 {% else %}
 
 <div class="serit">
   {% for o in oositler %}
-  <a href="/cycle/{{ c.id }}/cleavage?gun={{ gun }}&oosit={{ o.cycle_sira_no }}"
+  {#- Seçim specimen.id ile (v6.147), ICSI ekranının gerekçesi. -#}
+  <a href="/cycle/{{ c.id }}/cleavage?gun={{ gun }}&oosit={{ o.id }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kayit_id %}dolu{% endif %}
             {% if o.dejenere %}deg{% endif %}">
     {#- Dejenere yumurta listede kalır ama "Dej." yazar ve formu açılmaz
@@ -54,26 +60,26 @@
 <div class="uyari">{{ metin("fert_kontrolunde_npn").format(n=sp.pn) }}</div>
 {% endif %}
 
-{{ snap.blok(sp, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no, bekleyen) }}
+{{ snap.blok(sp, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.id, bekleyen) }}
 
 {% if sp.goruntu %}
 <div class="foto">
   <img src="/dosya/{{ sp.goruntu }}" alt="{{ metin('oosit_n').format(n=sp.cycle_sira_no) }}">
   <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
 </div>
-{{ kr.serit(kareler, sp, c, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no) }}
+{{ kr.serit(kareler, sp, c, 'gun' ~ gun, '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.id) }}
 <div class="fotoalt">
-  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
-  <a href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">{{ metin("fotograf_ekle") }}</a>
+  <a href="/goruntu/{{ sp.goruntu }}/sil?geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.id }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.id }}">{{ metin("fotograf_ekle") }}</a>
 </div>
 {% else %}
 {{ kr.yer(ornek_adi('cleavage', c.cycle_tipi), sp,
-          '/cycle/' ~ c.id ~ '/foto-ekle?specimen_id=' ~ sp.id
+          '/cycle/' ~ sp.cycle_id ~ '/foto-ekle?specimen_id=' ~ sp.id
           ~ '&asama=gun' ~ gun ~ '&geri=/cycle/' ~ c.id ~ '/cleavage%3Fgun%3D' ~ gun
-          ~ '%26oosit%3D' ~ sp.cycle_sira_no) }}
+          ~ '%26oosit%3D' ~ sp.id) }}
 {% endif %}
 
-{% set geri_yol = '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.cycle_sira_no %}
+{% set geri_yol = '/cycle/' ~ c.id ~ '/cleavage?gun=' ~ gun ~ '&oosit=' ~ sp.id %}
 {% if kayit and not duzenle %}
 {{ bk.kart(
      ornek_adi('cleavage', c.cycle_tipi) ~ ' ' ~ sp.cycle_sira_no
@@ -90,10 +96,10 @@
      metin("kaydedildi_rozet")) }}
 
 <a class="dugme ikincil" style="margin-top:12px"
-   href="/cycle/{{ c.id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.cycle_sira_no }}">
+   href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=gun{{ gun }}&geri=/cycle/{{ c.id }}/cleavage%3Fgun%3D{{ gun }}%26oosit%3D{{ sp.id }}">
   {{ metin("fotograf_ekle") }}</a>
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/cleavage-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
+   href="/specimen/{{ sp.id }}/cleavage-sil?gun={{ gun }}&cycle={{ c.id }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
 
 {% elif sp.dejenere and not kayit %}
 {# Dejenere yumurtaya embriyo kaydı girilmiyor (v6.139, kullanıcının isteği:
@@ -215,7 +221,7 @@
    href="{{ geri_yol }}">{{ metin("vazgec_duzenleme") if duzenle else metin("secimleri_geri_al") }}</a>
 {% if kayit %}
 <a class="dugme ikincil tehlike-bag"
-   href="/specimen/{{ sp.id }}/cleavage-sil?gun={{ gun }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
+   href="/specimen/{{ sp.id }}/cleavage-sil?gun={{ gun }}&cycle={{ c.id }}">{{ metin("gun_n_kaydini_sil").format(n=gun) }}</a>
 {% endif %}
 {% endif %}
 

@@ -310,7 +310,7 @@ ASAMA_ORNEK_ADI = {
 }
 
 
-def _yumurta_mi(cycle_tipi) -> bool:
+def _yumurta_mi(cycle_tipi, asama=None) -> bool:
     """Bu tedavide dondurulan/çözülen örnek yumurta mı, embriyo mu?
 
     Tek yerde duruyor çünkü iki soruyu birden yanıtlıyor: aşama ekranında
@@ -319,20 +319,21 @@ def _yumurta_mi(cycle_tipi) -> bool:
     — `ivf_icsi`'nin vitrifikasyon ekranı zaten enjekte edilmiş (embriyo
     olmuş) örnekleri listeliyor (`_ICSI_YAPILMADI` süzgeci). Yumurta
     donduran yeni bir cycle tipi eklersen burayı genişlet, ikisi birden
-    doğru olur.
+    doğru olur. Yumurta Çözme'de cevap aşamaya bağlı (v6.147): çözülen
+    yumurta, ICSI'den sonra dondurulan/transfer edilen embriyo.
 
     **Kararın kendisi v6.135'ten beri `db.py`'de** — `formlar.py` de aynı
     soruyu soruyor (resmî formda "2 embriyo" mu "12 yumurta" mı donduruldu)
     ve `app`'i import edemez, `FET_TIPLERI`'nin aynı gerekçesi.
     """
-    return db.yumurta_mi(cycle_tipi)
+    return db.yumurta_mi(cycle_tipi, asama)
 
 
 def _ornek_adi(asama, cycle_tipi=None):
     """Bu aşamada örneğe ne deniyor: Oosit / Zigot / Cleavage / Blastokist / Embriyo."""
     anahtar = ASAMA_ORNEK_ADI.get(asama, "ornek_ad")
     if anahtar is None:
-        anahtar = "oosit_ad" if _yumurta_mi(cycle_tipi) else "embriyo_ad"
+        anahtar = "oosit_ad" if _yumurta_mi(cycle_tipi, asama) else "embriyo_ad"
     return metinler.t(anahtar)
 
 
@@ -4779,6 +4780,148 @@ _DEJENERE = (
 )
 
 
+# ------------------------------------------- aşama ekranlarının ortak parçaları
+#
+# Yumurta Çözme'de (v6.147) ICSI, fertilizasyon, cleavage ve blastokist
+# ekranları BAŞKA bir tedavinin yumurtalarını gösteriyor: bu tedavi için
+# çözülenleri (`db.tedavi_ornekleri()`). Buradaki parçalar bunun getirdiği
+# üç soruyu tek yerde yanıtlıyor: adresteki örnek hangisi (sıra no tek
+# tedavide tekil), bir kayıt BU tedavinin mi, işlem saati çözmeden önce mi.
+
+
+def _secili_ornek(oositler, oosit):
+    """Adresteki `?oosit=` hangi örnek -- yoksa listenin ilki (v6.35).
+
+    Seçim `specimen.id` ile (v6.62'de blastokistte, v6.147'den beri ICSI,
+    fertilizasyon ve cleavage'da da): liste birden çok tedavinin
+    yumurtalarını taşıyabiliyor ve `cycle_sira_no` yalnızca kendi tedavisinde
+    tekil -- iki tedavide de "1." yumurta olabilir, o alanla eşleşmek yanlış
+    yumurtayı seçerdi. v6.147'den önceki adres sıra numarası taşıyordu (açık
+    kalmış bir sekmenin tazelemesi): liste tek tedavinin örnekleriyse numara
+    orada hâlâ tekil, kabul ediliyor.
+    """
+    if oosit:
+        sp = next((o for o in oositler if str(o["id"]) == oosit), None)
+        if (sp is None and oosit.isdigit()
+                and len({o["cycle_id"] for o in oositler}) == 1):
+            sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit),
+                      None)
+        if sp is not None:
+            return sp
+    return oositler[0]
+
+
+def _sonraki_ornek(oositler, specimen_id, bos_mu):
+    """"Kaydet → sıradaki" (v6.35): listede bu örnekten SONRAKİ ilk boş örnek.
+
+    Listenin kendi sırası izleniyor, sıra no karşılaştırması değil (v6.62'de
+    blastokistte, v6.147'den beri dört ekranda) -- liste birden çok tedaviden
+    gelebiliyor. `bos_mu(o)`: o örneğe bu ekranda henüz kayıt girilmemiş mi.
+    """
+    idx = next((i for i, o in enumerate(oositler) if o["id"] == specimen_id),
+               None)
+    if idx is None:
+        return None
+    return next((o for o in oositler[idx + 1:] if bos_mu(o)), None)
+
+
+def _tedavi_ek(cycle_tipi, cycle_id, o="o") -> str:
+    """Aşama ekranının olay alt sorgusuna: kayıt BU tedavide mi yapıldı (v6.147).
+
+    Yalnızca FET tiplerinde bir şey ekliyor. Yumurta Çözme'de çözülen
+    yumurtanın kaynağında (Yumurta Dondurma'nın denüdasyonunda, v6.96) bir
+    maturasyon kaydı var; ICSI ekranı onu kendi kaydı sanıp üzerine yazsaydı
+    kaynağın kaydı bozulurdu. Kendi örneğini gösteren tiplerde koşul boş --
+    orada her değerlendirme zaten o tedavinin, sorgu eskisiyle aynı kalıyor.
+    Ölçü `db.olay_tedavisi()`: işlemden önceki son çözme bu tedavi için mi.
+    """
+    if cycle_tipi not in FET_TIPLERI:
+        return ""
+    return f" AND {db.bu_tedavide(cycle_id, o)}"
+
+
+def _cozme_dejenere_sql(cycle_tipi, cycle_id) -> str:
+    """Örnek BU tedavideki çözmede dejenere mi çıktı -- SELECT'e 0/1 ifadesi.
+
+    Yalnızca FET tiplerinde anlamlı; ICSI ekranı böyle bir yumurtayı listede
+    tutuyor ama kilitliyor (v6.139'un "gizlemek değil kilitlemek" kuralı):
+    ölü yumurtaya maturasyon/enjeksiyon yazılmaz. Başka bir tedavideki çözme
+    sayılmıyor: aynı embriyo sonra başka bir tedavide dejenere çıktıysa bu
+    tedavinin geçmişi değişmez.
+    """
+    if cycle_tipi not in FET_TIPLERI:
+        return "0"
+    return ("CASE WHEN EXISTS (SELECT 1 FROM olay d WHERE d.specimen_id = s.id "
+            "AND d.tip = 'thaw' AND d.iptal_mi = 0 AND d.thaw_sagkalim = 'degenere' "
+            f"AND d.thaw_cycle_id = {int(cycle_id)}) THEN 1 ELSE 0 END")
+
+
+def _bu_tedavideki_cozme(specimen_id, cycle_id):
+    """Örneğin BU tedavi için yapılan (en son) çözmesi, yoksa None."""
+    if not thaw_cycle_var():
+        return None
+    return db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='thaw' "
+                  "AND iptal_mi=0 AND thaw_cycle_id=? ORDER BY id DESC LIMIT 1",
+                  (specimen_id, cycle_id))
+
+
+def _cozmeden_once(specimen_id, cycle_id, cycle_tipi, zaman) -> bool:
+    """FET tiplerinde işlem saati bu tedavideki çözmeden ÖNCE mi (v6.147).
+
+    Kayıt o zaman bu tedavinin sayılmazdı (`db.olay_tedavisi()` saate
+    bakıyor): zaman çizelgesi onu kaynağa yazar, ICSI ekranı yazılan
+    maturasyonu göremez ve her kayıtta yeni bir tane açardı. Ekran bu yüzden
+    reddediyor ve sebebini yazıyor (`hata=cozmeden_once`); saati sessizce
+    değiştirmiyor.
+    """
+    if cycle_tipi not in FET_TIPLERI:
+        return False
+    cz = _bu_tedavideki_cozme(specimen_id, cycle_id)
+    return bool(cz and cz["zaman"] and str(zaman) < str(cz["zaman"]))
+
+
+# Aşama ekranlarının adresten gelen hata anahtarları (tuzak #9: beyaz liste).
+ASAMA_HATALARI = ("cozmeden_once",)
+
+
+def _asama_hatasi(hata, sp, cycle_id) -> str:
+    """Adresteki `?hata=` için ekrana basılacak metin -- tanınmıyorsa boş."""
+    if hata not in ASAMA_HATALARI or not sp:
+        return ""
+    cz = _bu_tedavideki_cozme(sp["id"], cycle_id)
+    return metinler.t("hata_cozmeden_once").format(
+        z=gg_aa_yyyy_saat(cz["zaman"]) if cz else "")
+
+
+def _hedef_tedavi(sp, cycle) -> int:
+    """Silme ekranının ait olduğu tedavi: adresteki, örnek orada görünüyorsa.
+
+    Yumurta Çözme'de (v6.147) silme bağlantısı örneğin KENDİ tedavisinden
+    değil, çözüldüğü tedaviden geliyor -- blastokistin `?cycle=` deseni
+    (v6.62). Burada adres yalnızca dönüşü değil hangi kaydın silineceğini de
+    belirliyor, o yüzden doğrulanıyor: örnek o tedavi için çözülmüş olmalı.
+    Değilse örneğin kendi tedavisi (eski davranış).
+    """
+    if cycle and cycle != sp["cycle_id"] and _bu_tedavideki_cozme(sp["id"], cycle):
+        return cycle
+    return sp["cycle_id"]
+
+
+def _cozme_oncesi_durum(specimen_id, cycle_id) -> str:
+    """Bir kayıt geri alınınca örneğin döneceği durum.
+
+    Kendi tedavisinde yumurta 'oosit' durumuna döner (eski davranış).
+    Çözüldüğü tedavide ise çözmenin yazdığı duruma: 'cozuldu', 'kismi_hasar'
+    (thaw_kaydet()'in kuralı) -- yoksa transfer adayları listesi onu yine
+    "dondurulmuş" ya da "yumurta" sanardı.
+    """
+    cz = _bu_tedavideki_cozme(specimen_id, cycle_id)
+    if not cz:
+        return "oosit"
+    return "cozuldu" if cz["thaw_sagkalim"] == "canli" else (cz["thaw_sagkalim"]
+                                                               or "cozuldu")
+
+
 def asama_goruntuleri(specimen_id, asama):
     """Bir oositin belirli bir aşamadaki tüm kareleri."""
     if not specimen_id:
@@ -4788,8 +4931,16 @@ def asama_goruntuleri(specimen_id, asama):
         (specimen_id, asama))
 
 
-def icsi_durum(cycle_id: int):
-    """Cycle'daki oositler ve ICSI kayıt durumları."""
+def icsi_durum(cycle_id: int, cycle_tipi=None):
+    """Tedavinin yumurtaları ve ICSI kayıt durumları.
+
+    Yumurta Çözme'de (v6.147) yumurtalar bu tedavi için çözülenler, maturasyon
+    ve ICSI de BU tedavininki (`_tedavi_ek()`): çözülen yumurtanın kaynağında
+    denüdasyonda yazılmış bir maturasyon var, o "bu yumurta ICSI ekranında
+    kaydedildi" demek değil. `cozme_dejenere`: bu tedavideki çözmede dejenere
+    çıktı -- listede kalır, kilitli.
+    """
+    ek = _tedavi_ek(cycle_tipi, cycle_id)
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
@@ -4800,11 +4951,13 @@ def icsi_durum(cycle_id: int):
         "  AS goruntu_idler, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id) AS kare, "
         "  (SELECT o.mat_deger FROM olay o WHERE o.specimen_id = s.id "
-        "   AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0 "
+        f"   AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0{ek} "
         "   ORDER BY o.id DESC LIMIT 1) AS mat, "
         "  (SELECT o.icsi_sonuc FROM olay o WHERE o.specimen_id = s.id "
-        "   AND o.tip='icsi' AND o.iptal_mi=0 ORDER BY o.id DESC LIMIT 1) AS icsi "
-        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        f"   AND o.tip='icsi' AND o.iptal_mi=0{ek} ORDER BY o.id DESC LIMIT 1) AS icsi, "
+        f"  {_cozme_dejenere_sql(cycle_tipi, cycle_id)} AS cozme_dejenere "
+        f"FROM specimen s WHERE {db.tedavi_ornekleri(cycle_tipi)} "
+        "ORDER BY s.cycle_id, s.cycle_sira_no",
         (cycle_id,),
     )
 
@@ -4851,7 +5004,7 @@ def olay_kaydet_veya_guncelle(specimen_id, cycle_id, tip, alanlar, kullanici_id,
 
 @uygulama.get("/cycle/{cycle_id}/icsi")
 def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
-               duzenle: int = 0):
+               duzenle: int = 0, hata: str = ""):
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -4860,7 +5013,7 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
         return RedirectResponse("/hastalar", status_code=303)
 
     from datetime import datetime as _d
-    oositler = icsi_durum(cycle_id)
+    oositler = icsi_durum(cycle_id, c["cycle_tipi"])
     if not oositler:
         return sablon.TemplateResponse(
             request, "icsi.html",
@@ -4874,19 +5027,17 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
         )
 
     # Hangi oosit gösterilecek: adreste yazan, yoksa **ilki** (v6.35).
-    sp = None
-    if oosit:
-        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
-    if sp is None:
-        sp = oositler[0]
+    sp = _secili_ornek(oositler, oosit)
 
+    # Maturasyon ve ICSI BU tedavininki (v6.147, `icsi_durum()`'un belgesi).
+    ek = _tedavi_ek(c["cycle_tipi"], cycle_id)
     mat = db.tek(
-        "SELECT * FROM olay WHERE specimen_id=? AND tip='maturasyon_kontrolu' "
-        "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sp["id"],)
+        "SELECT o.* FROM olay o WHERE o.specimen_id=? AND o.tip='maturasyon_kontrolu' "
+        f"AND o.iptal_mi=0{ek} ORDER BY o.id DESC LIMIT 1", (sp["id"],)
     )
     ic = db.tek(
-        "SELECT * FROM olay WHERE specimen_id=? AND tip='icsi' AND iptal_mi=0 "
-        "ORDER BY id DESC LIMIT 1", (sp["id"],)
+        "SELECT o.* FROM olay o WHERE o.specimen_id=? AND o.tip='icsi' "
+        f"AND o.iptal_mi=0{ek} ORDER BY o.id DESC LIMIT 1", (sp["id"],)
     )
     secili = {
         r["bulgu_kodu"] for r in db.sorgu(
@@ -4906,6 +5057,7 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
             "bulgular": db.liste("bulgu_icsi"),
             "maturasyonlar": db.liste("maturasyon"),
             "zorluklar": db.liste("gecis_zorlugu"), "duzenle": duzenle,
+            "hata": _asama_hatasi(hata, sp, cycle_id),
         },
     )
 
@@ -4917,17 +5069,38 @@ async def icsi_kaydet(request: Request, cycle_id: int):
     sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
     if not sp:
         return RedirectResponse(f"/cycle/{cycle_id}/icsi", status_code=303)
+    c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
+    tip = c["cycle_tipi"] if c else None
+    burasi = f"/cycle/{cycle_id}/icsi?oosit={sp['id']}"
 
     kid = request.state.kullanici["id"]
     mat = f.get("mat_deger") or None
     if not mat:
-        return RedirectResponse(
-            f"/cycle/{cycle_id}/icsi?oosit={sp['cycle_sira_no']}", status_code=303
-        )
+        return RedirectResponse(burasi, status_code=303)
+
+    # Bu tedavideki çözmede dejenere çıkan yumurtaya kayıt açılmaz (v6.147) --
+    # ekran formu basmıyor, asıl engel burada. Var olan kayıt düzeltilebilir
+    # (`_dejenere_engel()`'in kuralı).
+    ek = _tedavi_ek(tip, cycle_id, "olay")
+    if tip in FET_TIPLERI and db.tek(
+            "SELECT 1 x FROM specimen s WHERE s.id = ? AND "
+            + _cozme_dejenere_sql(tip, cycle_id) + " = 1", (specimen_id,)) \
+            and not db.tek("SELECT 1 x FROM olay WHERE specimen_id=? AND "
+                           "tip='maturasyon_kontrolu' AND iptal_mi=0" + ek,
+                           (specimen_id,)):
+        return RedirectResponse(burasi, status_code=303)
 
     simdi = islem_zamani(f.get("islem_zamani"))
+    if _cozmeden_once(specimen_id, cycle_id, tip, simdi):
+        return RedirectResponse(burasi + "&duzenle=1&hata=cozmeden_once",
+                                status_code=303)
+    # olay.cycle_id örneğin KENDİ tedavisi (v6.62 kuralı; Yumurta Çözme'de
+    # rotanınki değil). Hangi kaydın güncelleneceği: BU tedavininki (v6.147)
+    # -- kaynağın denüdasyon maturasyonu ezilmesin.
+    ek_kosul = ek[len(" AND "):] if ek else ""
     olay_kaydet_veya_guncelle(
-        specimen_id, cycle_id, "maturasyon_kontrolu", {"mat_deger": mat}, kid, simdi
+        specimen_id, sp["cycle_id"], "maturasyon_kontrolu", {"mat_deger": mat},
+        kid, simdi, ek_kosul=ek_kosul
     )
 
     # Bulgular: küme olarak yazılır
@@ -4953,15 +5126,16 @@ async def icsi_kaydet(request: Request, cycle_id: int):
     enjekte = f.get("enjekte") == "evet"
     if enjekte:
         olay_kaydet_veya_guncelle(
-            specimen_id, cycle_id, "icsi",
+            specimen_id, sp["cycle_id"], "icsi",
             {"icsi_gecis_zorlugu": f.get("gecis_zorlugu") or None,
              "icsi_sonuc": f.get("icsi_sonuc") or "basarili"}, kid, simdi,
+            ek_kosul=ek_kosul,
         )
         yeni_durum = ("degenere" if f.get("icsi_sonuc") == "degenere" else "enjekte")
     else:
         # Enjekte edilmediyse varsa eski ICSI kaydını iptal et
         eski = db.tek("SELECT id FROM olay WHERE specimen_id=? AND tip='icsi' "
-                      "AND iptal_mi=0", (specimen_id,))
+                      "AND iptal_mi=0" + ek, (specimen_id,))
         if eski:
             db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
                    "iptal_sebep='enjekte edilmedi olarak degistirildi' WHERE id=?",
@@ -4970,23 +5144,17 @@ async def icsi_kaydet(request: Request, cycle_id: int):
 
     db.yaz("UPDATE specimen SET durum=? WHERE id=?", (yeni_durum, specimen_id))
 
-    # Sıradaki kaydedilmemiş oosite geç
-    sonraki = db.tek(
-        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
-        "AND s.cycle_sira_no > ? AND NOT EXISTS "
-        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
-        " AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0) "
-        "ORDER BY s.cycle_sira_no LIMIT 1",
-        (cycle_id, sp["cycle_sira_no"]),
-    )
+    # Sıradaki kaydedilmemiş oosite geç -- listenin sırasıyla (v6.147).
+    sonraki = _sonraki_ornek(icsi_durum(cycle_id, tip), specimen_id,
+                             lambda o: not o["mat"] and not o["cozme_dejenere"])
     hedef = f"/cycle/{cycle_id}/icsi"
     if sonraki:
-        hedef += f"?oosit={sonraki['n']}"
+        hedef += f"?oosit={sonraki['id']}"
     return RedirectResponse(hedef, status_code=303)
 
 
 @uygulama.get("/specimen/{specimen_id}/icsi-sil")
-def icsi_sil_ekran(request: Request, specimen_id: str):
+def icsi_sil_ekran(request: Request, specimen_id: str, cycle: int = 0):
     sp = db.tek(
         "SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
         "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
@@ -4994,37 +5162,63 @@ def icsi_sil_ekran(request: Request, specimen_id: str):
     )
     if not sp:
         return RedirectResponse("/hastalar", status_code=303)
+    # Yumurta Çözme'de (v6.147) bağlantı çözüldüğü tedaviden geliyor; silinen
+    # de o tedavinin kaydı (`_hedef_tedavi()`).
+    hedef_cycle = _hedef_tedavi(sp, cycle)
+    hc = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (hedef_cycle,))
+    # ICSI aşaması olmayan tedavide (Yumurta Dondurma) "ICSI kaydını sil"
+    # yok: orada maturasyon denüdasyonda yazıldı (v6.96), bu ekranın silmesi
+    # onu da götürürdü. Adressiz eski bir bağlantı çözülen yumurtayı kendi
+    # tedavisine düşürdüğünde (v6.147) böyle olur -- tedavi ekranına dön.
+    if not hc or "icsi" not in TIP_ASAMALARI.get(hc["cycle_tipi"], ()):
+        return RedirectResponse(f"/cycle/{hedef_cycle}", status_code=303)
+    ek = _tedavi_ek(hc["cycle_tipi"], hedef_cycle)
 
     etiketler = {r["kod"]: r["etiket"]
                  for r in db.sorgu("SELECT kod, etiket FROM liste_degeri WHERE lab_id=?",
                                    (db.LAB_ID,))}
-    mat = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='maturasyon_kontrolu' "
-                 "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (specimen_id,))
-    ic = db.tek("SELECT * FROM olay WHERE specimen_id=? AND tip='icsi' AND iptal_mi=0 "
-                "ORDER BY id DESC LIMIT 1", (specimen_id,))
+    mat = db.tek("SELECT o.* FROM olay o WHERE o.specimen_id=? "
+                 f"AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0{ek} "
+                 "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+    ic = db.tek("SELECT o.* FROM olay o WHERE o.specimen_id=? AND o.tip='icsi' "
+                f"AND o.iptal_mi=0{ek} ORDER BY o.id DESC LIMIT 1", (specimen_id,))
     bulgular = [etiketler.get(r["bulgu_kodu"], r["bulgu_kodu"]) for r in db.sorgu(
         "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
         (specimen_id,))]
     return sablon.TemplateResponse(
         request, "icsi_sil.html",
-        {"sp": sp, "mat": mat, "ic": ic, "bulgular": bulgular, "etiketler": etiketler},
+        {"sp": sp, "mat": mat, "ic": ic, "bulgular": bulgular, "etiketler": etiketler,
+         "hedef_cycle": hedef_cycle},
     )
 
 
 @uygulama.post("/specimen/{specimen_id}/icsi-sil")
-def icsi_sil(request: Request, specimen_id: str):
+async def icsi_sil(request: Request, specimen_id: str):
+    f = dict(await request.form())
     sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
     if not sp:
         return RedirectResponse("/hastalar", status_code=303)
+    try:
+        hedef_cycle = _hedef_tedavi(sp, int(f.get("cycle") or 0))
+    except ValueError:
+        hedef_cycle = sp["cycle_id"]
+    hc = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (hedef_cycle,))
+    # Ekrandaki engelin aynısı (`icsi_sil_ekran()`): ICSI aşaması olmayan
+    # tedavide hiçbir şey iptal edilmez.
+    if not hc or "icsi" not in TIP_ASAMALARI.get(hc["cycle_tipi"], ()):
+        return RedirectResponse(f"/cycle/{hedef_cycle}", status_code=303)
+    ek = _tedavi_ek(hc["cycle_tipi"], hedef_cycle, "olay")
 
     from datetime import datetime as _d
     simdi = _d.now().isoformat(" ", "seconds")
     kid = request.state.kullanici["id"]
 
-    # Olay kayitlari silinmez, iptal isaretlenir — denetim izi korunur
+    # Olay kayitlari silinmez, iptal isaretlenir — denetim izi korunur.
+    # Yumurta Çözme'de yalnızca BU tedavinin kaydı (v6.147): kaynağın
+    # denüdasyonda yazdığı maturasyon yerinde kalır.
     for o in db.sorgu(
         "SELECT id, tip FROM olay WHERE specimen_id=? AND iptal_mi=0 "
-        "AND tip IN ('maturasyon_kontrolu','icsi')", (specimen_id,)
+        "AND tip IN ('maturasyon_kontrolu','icsi')" + ek, (specimen_id,)
     ):
         db.yaz(
             "UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
@@ -5043,19 +5237,25 @@ def icsi_sil(request: Request, specimen_id: str):
         db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? AND asama='icsi'",
                (specimen_id,))
 
+    # Kendi tedavisinde 'oosit'e, çözüldüğü tedavide (FET tipleri) çözmenin
+    # durumuna döner.
+    onceki = (_cozme_oncesi_durum(specimen_id, hedef_cycle)
+              if hc["cycle_tipi"] in FET_TIPLERI else "oosit")
     guvenlik.degisiklikleri_yaz(
-        "specimen", specimen_id, sp, {"durum": "oosit"}, kid
+        "specimen", specimen_id, sp, {"durum": onceki}, kid
     )
-    db.yaz("UPDATE specimen SET durum='oosit' WHERE id=?", (specimen_id,))
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (onceki, specimen_id))
 
     return RedirectResponse(
-        f"/cycle/{sp['cycle_id']}/icsi?oosit={sp['cycle_sira_no']}", status_code=303
+        f"/cycle/{hedef_cycle}/icsi?oosit={sp['id']}", status_code=303
     )
 
 
 # ----------------------------------------------------------------- fertilizasyon
 
-def fert_durum(cycle_id: int):
+def fert_durum(cycle_id: int, cycle_tipi=None):
+    """Tedavinin yumurtaları ve fertilizasyon kayıtları. Yumurta Çözme'de
+    (v6.147) bu tedavi için çözülenler (`db.tedavi_ornekleri()`)."""
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
@@ -5079,14 +5279,15 @@ def fert_durum(cycle_id: int):
         "   ORDER BY o.id DESC LIMIT 1) AS fert, "
         f"  CASE WHEN {_ICSI_YAPILMADI} THEN 1 ELSE 0 END AS icsi_yapilmadi, "
         f"  CASE WHEN {_DEJENERE} THEN 1 ELSE 0 END AS dejenere "
-        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no",
+        f"FROM specimen s WHERE {db.tedavi_ornekleri(cycle_tipi)} "
+        "ORDER BY s.cycle_id, s.cycle_sira_no",
         (cycle_id,),
     )
 
 
 @uygulama.get("/cycle/{cycle_id}/fert")
 def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
-               duzenle: int = 0):
+               duzenle: int = 0, hata: str = ""):
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -5094,7 +5295,7 @@ def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
     if not c:
         return RedirectResponse("/hastalar", status_code=303)
 
-    oositler = fert_durum(cycle_id)
+    oositler = fert_durum(cycle_id, c["cycle_tipi"])
     from datetime import datetime as _d
     ortak = {
         "c": c, "oositler": oositler,
@@ -5115,11 +5316,7 @@ def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
              "gecen": None, "kareler": []},
         )
 
-    sp = None
-    if oosit:
-        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
-    if sp is None:
-        sp = oositler[0]                    # v6.35 -- bkz. ICSI ekranı
+    sp = _secili_ornek(oositler, oosit)     # v6.35 -- bkz. ICSI ekranı
 
     kayit = db.tek(
         "SELECT * FROM olay WHERE specimen_id=? AND tip='fertilizasyon_kontrolu' "
@@ -5141,7 +5338,8 @@ def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
 
     return sablon.TemplateResponse(
         request, "fert.html",
-        {**ortak, "sp": sp, "kayit": kayit, "secili_bulgular": secili, "gecen": gecen},
+        {**ortak, "sp": sp, "kayit": kayit, "secili_bulgular": secili, "gecen": gecen,
+         "hata": _asama_hatasi(hata, sp, cycle_id)},
     )
 
 
@@ -5152,13 +5350,14 @@ async def fert_kaydet(request: Request, cycle_id: int):
     sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
     if not sp:
         return RedirectResponse(f"/cycle/{cycle_id}/fert", status_code=303)
+    c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
+    tip = c["cycle_tipi"] if c else None
+    burasi = f"/cycle/{cycle_id}/fert?oosit={sp['id']}"
 
     kid = request.state.kullanici["id"]
     sonuc = f.get("fert_sonuc") or None
     if not sonuc:
-        return RedirectResponse(
-            f"/cycle/{cycle_id}/fert?oosit={sp['cycle_sira_no']}", status_code=303
-        )
+        return RedirectResponse(burasi, status_code=303)
 
     pn = f.get("fert_pn_sayisi") or None
     skor = f.get("fert_pn_skoru") or None
@@ -5168,8 +5367,13 @@ async def fert_kaydet(request: Request, cycle_id: int):
         skor = None                 # Z sınıflaması yalnız 2PN için tanımlı
 
     simdi = islem_zamani(f.get("islem_zamani"))
+    if _cozmeden_once(specimen_id, cycle_id, tip, simdi):
+        return RedirectResponse(burasi + "&duzenle=1&hata=cozmeden_once",
+                                status_code=303)
+    # olay.cycle_id örneğin KENDİ tedavisi (v6.62; Yumurta Çözme'de, v6.147,
+    # rotanınki değil).
     olay_kaydet_veya_guncelle(
-        specimen_id, cycle_id, "fertilizasyon_kontrolu",
+        specimen_id, sp["cycle_id"], "fertilizasyon_kontrolu",
         {"fert_sonuc": sonuc, "fert_pn_sayisi": pn, "fert_pn_skoru": skor}, kid, simdi,
     )
     yeni_b = set(f.getlist("bulgu"))
@@ -5198,22 +5402,16 @@ async def fert_kaydet(request: Request, cycle_id: int):
         durum = f"{pn}pn" if pn else "kontrol_edildi"
     db.yaz("UPDATE specimen SET durum=? WHERE id=?", (durum, specimen_id))
 
-    sonraki = db.tek(
-        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
-        "AND s.cycle_sira_no > ? AND NOT EXISTS "
-        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
-        " AND o.tip='fertilizasyon_kontrolu' AND o.iptal_mi=0) "
-        "ORDER BY s.cycle_sira_no LIMIT 1",
-        (cycle_id, sp["cycle_sira_no"]),
-    )
+    sonraki = _sonraki_ornek(fert_durum(cycle_id, tip), specimen_id,
+                             lambda o: not o["fert"])
     hedef = f"/cycle/{cycle_id}/fert"
     if sonraki:
-        hedef += f"?oosit={sonraki['n']}"
+        hedef += f"?oosit={sonraki['id']}"
     return RedirectResponse(hedef, status_code=303)
 
 
 @uygulama.get("/specimen/{specimen_id}/fert-sil")
-def fert_sil_ekran(request: Request, specimen_id: str):
+def fert_sil_ekran(request: Request, specimen_id: str, cycle: int = 0):
     sp = db.tek(
         "SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
         "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
@@ -5231,15 +5429,22 @@ def fert_sil_ekran(request: Request, specimen_id: str):
         "AND asama='fertilizasyon_kontrolu'", (specimen_id,))]
     return sablon.TemplateResponse(
         request, "fert_sil.html",
-        {"sp": sp, "kayit": kayit, "bulgular": bulgular, "etiketler": etiketler},
+        {"sp": sp, "kayit": kayit, "bulgular": bulgular, "etiketler": etiketler,
+         # Yumurta Çözme'de (v6.147) ekran çözüldüğü tedaviden açılıyor.
+         "hedef_cycle": _hedef_tedavi(sp, cycle)},
     )
 
 
 @uygulama.post("/specimen/{specimen_id}/fert-sil")
-def fert_sil(request: Request, specimen_id: str):
+async def fert_sil(request: Request, specimen_id: str):
+    f = dict(await request.form())
     sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
     if not sp:
         return RedirectResponse("/hastalar", status_code=303)
+    try:
+        hedef_cycle = _hedef_tedavi(sp, int(f.get("cycle") or 0))
+    except ValueError:
+        hedef_cycle = sp["cycle_id"]
     from datetime import datetime as _d
     simdi = _d.now().isoformat(" ", "seconds")
     kid = request.state.kullanici["id"]
@@ -5259,19 +5464,23 @@ def fert_sil(request: Request, specimen_id: str):
         db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? "
                "AND asama='fertilizasyon_kontrolu'", (specimen_id,))
 
+    hc = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (hedef_cycle,))
     onceki = "enjekte" if db.tek(
         "SELECT id FROM olay WHERE specimen_id=? AND tip='icsi' AND iptal_mi=0",
-        (specimen_id,)) else "oosit"
+        (specimen_id,)) else (_cozme_oncesi_durum(specimen_id, hedef_cycle)
+                              if hc and hc["cycle_tipi"] in FET_TIPLERI else "oosit")
     guvenlik.degisiklikleri_yaz("specimen", specimen_id, sp, {"durum": onceki}, kid)
     db.yaz("UPDATE specimen SET durum=? WHERE id=?", (onceki, specimen_id))
 
     return RedirectResponse(
-        f"/cycle/{sp['cycle_id']}/fert?oosit={sp['cycle_sira_no']}", status_code=303)
+        f"/cycle/{hedef_cycle}/fert?oosit={sp['id']}", status_code=303)
 
 
 # ----------------------------------------------------------------- cleavage
 
-def cleavage_durum(cycle_id: int, gun: int):
+def cleavage_durum(cycle_id: int, gun: int, cycle_tipi=None):
+    """Tedavinin embriyoları ve o günün cleavage kayıtları. Yumurta Çözme'de
+    (v6.147) bu tedavi için çözülen yumurtalardan gelişenler."""
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
@@ -5291,8 +5500,9 @@ def cleavage_durum(cycle_id: int, gun: int):
         # "gösterilsin ve işlem yapılamasın" dedi -- gizlemek "hiç yoktu" der
         # gibi olurdu, oysa o yumurta toplandı ve dejenere oldu.
         f"  CASE WHEN {_DEJENERE} THEN 1 ELSE 0 END AS dejenere "
-        f"FROM specimen s WHERE s.cycle_id = ? AND NOT ({_ICSI_YAPILMADI}) "
-        "ORDER BY s.cycle_sira_no",
+        f"FROM specimen s WHERE {db.tedavi_ornekleri(cycle_tipi)} "
+        f"AND NOT ({_ICSI_YAPILMADI}) "
+        "ORDER BY s.cycle_id, s.cycle_sira_no",
         (f"gun{gun}", f"gun{gun}", gun, gun, cycle_id),
     )
 
@@ -5343,7 +5553,7 @@ def cleavage_skor(hucre, simetri, frag, gun):
 
 @uygulama.get("/cycle/{cycle_id}/cleavage")
 def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "",
-                   duzenle: int = 0):
+                   duzenle: int = 0, hata: str = ""):
     if gun not in (2, 3):
         gun = 3
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -5352,7 +5562,7 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
         return RedirectResponse("/hastalar", status_code=303)
 
     from datetime import datetime as _d
-    oositler = cleavage_durum(cycle_id, gun)
+    oositler = cleavage_durum(cycle_id, gun, c["cycle_tipi"])
     ortak = {
         "c": c, "gun": gun, "oositler": oositler,
         "gezinme": asama_gezinme(cycle_id, "cleavage"),
@@ -5372,11 +5582,7 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
             request, "cleavage.html",
             {**ortak, "sp": None, "kayit": None, "secili_bulgular": set(), "kareler": []})
 
-    sp = None
-    if oosit:
-        sp = next((o for o in oositler if str(o["cycle_sira_no"]) == oosit), None)
-    if sp is None:
-        sp = oositler[0]                    # v6.35 -- bkz. ICSI ekranı
+    sp = _secili_ornek(oositler, oosit)     # v6.35 -- bkz. ICSI ekranı
 
     kayit = _gun_olay(sp["id"], "cleavage_degerlendirme", gun)
     secili = {r["bulgu_kodu"] for r in db.sorgu(
@@ -5385,7 +5591,8 @@ def cleavage_ekran(request: Request, cycle_id: int, gun: int = 3, oosit: str = "
     return sablon.TemplateResponse(
         request, "cleavage.html",
         {**ortak, "sp": sp, "kayit": kayit, "secili_bulgular": secili,
-         "kareler": asama_goruntuleri(sp["id"], f"gun{gun}")})
+         "kareler": asama_goruntuleri(sp["id"], f"gun{gun}"),
+         "hata": _asama_hatasi(hata, sp, cycle_id)})
 
 
 
@@ -5423,27 +5630,24 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
     sp = db.tek("SELECT * FROM specimen WHERE id=?", (specimen_id,))
     if not sp:
         return RedirectResponse(f"/cycle/{cycle_id}/cleavage?gun={gun}", status_code=303)
+    c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
+    tip = c["cycle_tipi"] if c else None
+    burasi = f"/cycle/{cycle_id}/cleavage?gun={gun}&oosit={sp['id']}"
 
     # Dejenere yumurtaya embriyo kaydı yazılamaz (v6.139) -- ekran zaten
     # formu basmıyor, bu sunucu tarafındaki asıl engel.
     if _dejenere_engel(sp["id"], gun, "cleavage_degerlendirme"):
-        return RedirectResponse(
-            f"/cycle/{cycle_id}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
-            status_code=303)
+        return RedirectResponse(burasi, status_code=303)
 
     kid = request.state.kullanici["id"]
     try:
         hucre = tam(f.get("cl_hucre_sayisi"), "Hücre sayısı")
         frag = sayi(f.get("cl_fragmentasyon"), "Fragmentasyon")
     except FormHatasi:
-        return RedirectResponse(
-            f"/cycle/{cycle_id}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
-            status_code=303)
+        return RedirectResponse(burasi, status_code=303)
     simetri = f.get("cl_simetri") or None
     if hucre is None and not simetri and frag is None:
-        return RedirectResponse(
-            f"/cycle/{cycle_id}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
-            status_code=303)
+        return RedirectResponse(burasi, status_code=303)
 
     elle_skor = (f.get("cl_skor") or "").strip().upper() or None
     otomatik = cleavage_skor(hucre, simetri, frag, gun)
@@ -5451,7 +5655,12 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
     kaynak = "elle" if elle_skor else ("otomatik" if otomatik else None)
 
     simdi = islem_zamani(f.get("islem_zamani"))
-    _gun_olay_kaydet(specimen_id, cycle_id, "cleavage_degerlendirme", gun,
+    if _cozmeden_once(specimen_id, cycle_id, tip, simdi):
+        return RedirectResponse(burasi + "&duzenle=1&hata=cozmeden_once",
+                                status_code=303)
+    # olay.cycle_id örneğin KENDİ tedavisi (v6.62; Yumurta Çözme'de, v6.147,
+    # rotanınki değil).
+    _gun_olay_kaydet(specimen_id, sp["cycle_id"], "cleavage_degerlendirme", gun,
                      {"cl_hucre_sayisi": hucre, "cl_simetri": simetri,
                       "cl_fragmentasyon": frag, "cl_skor": skor,
                       "cl_skor_kaynagi": kaynak}, kid, simdi)
@@ -5474,21 +5683,20 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
 
     db.yaz("UPDATE specimen SET durum=? WHERE id=?", (f"gun{gun}", specimen_id))
 
-    sonraki = db.tek(
-        "SELECT s.cycle_sira_no n FROM specimen s WHERE s.cycle_id=? "
-        "AND s.cycle_sira_no > ? AND NOT EXISTS "
-        "(SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
-        " AND o.tip='cleavage_degerlendirme' AND o.gun=? AND o.iptal_mi=0) "
-        "ORDER BY s.cycle_sira_no LIMIT 1",
-        (cycle_id, sp["cycle_sira_no"], gun))
+    # Sıradaki: listenin sırasıyla (v6.147). v6.147'ye kadar sorgu bütün
+    # örneklere bakıyordu, enjekte edilmemiş (listede olmayan) bir yumurtaya
+    # da atlayabiliyordu; liste yalnızca ekranda görünenleri taşıyor.
+    sonraki = _sonraki_ornek(cleavage_durum(cycle_id, gun, tip), specimen_id,
+                             lambda o: not o["kayit_id"] and not o["dejenere"])
     hedef = f"/cycle/{cycle_id}/cleavage?gun={gun}"
     if sonraki:
-        hedef += f"&oosit={sonraki['n']}"
+        hedef += f"&oosit={sonraki['id']}"
     return RedirectResponse(hedef, status_code=303)
 
 
 @uygulama.get("/specimen/{specimen_id}/cleavage-sil")
-def cleavage_sil_ekran(request: Request, specimen_id: str, gun: int = 3):
+def cleavage_sil_ekran(request: Request, specimen_id: str, gun: int = 3,
+                       cycle: int = 0):
     sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
                 "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
                 "WHERE s.id = ?", (specimen_id,))
@@ -5503,7 +5711,9 @@ def cleavage_sil_ekran(request: Request, specimen_id: str, gun: int = 3):
     return sablon.TemplateResponse(
         request, "cleavage_sil.html",
         {"sp": sp, "gun": gun, "kayit": kayit, "bulgular": bulgular,
-         "etiketler": etiketler})
+         "etiketler": etiketler,
+         # Yumurta Çözme'de (v6.147) ekran çözüldüğü tedaviden açılıyor.
+         "hedef_cycle": _hedef_tedavi(sp, cycle)})
 
 
 @uygulama.post("/specimen/{specimen_id}/cleavage-sil")
@@ -5513,6 +5723,10 @@ async def cleavage_sil(request: Request, specimen_id: str):
     sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
     if not sp:
         return RedirectResponse("/hastalar", status_code=303)
+    try:
+        hedef_cycle = _hedef_tedavi(sp, int(f.get("cycle") or 0))
+    except ValueError:
+        hedef_cycle = sp["cycle_id"]
     from datetime import datetime as _d
     simdi = _d.now().isoformat(" ", "seconds")
     kid = request.state.kullanici["id"]
@@ -5532,7 +5746,7 @@ async def cleavage_sil(request: Request, specimen_id: str):
         db.yaz("DELETE FROM specimen_bulgu WHERE specimen_id=? AND asama=?",
                (specimen_id, asama))
     return RedirectResponse(
-        f"/cycle/{sp['cycle_id']}/cleavage?gun={gun}&oosit={sp['cycle_sira_no']}",
+        f"/cycle/{hedef_cycle}/cleavage?gun={gun}&oosit={sp['id']}",
         status_code=303)
 
 
@@ -5545,22 +5759,12 @@ BLAST_KISA = {"erken_morula": "EM", "morula": "M",
               "kavitasyon": "KAV", "arrest": "ARR"}
 
 
-def _blast_kosul(cycle_tipi):
-    """Blast ekranında "bu cycle'ın embriyoları" hangi sorguyla bulunur.
-
-    fet_kultur'da embriyo ÖNCEKİ bir cycle'dan gelir (specimen.cycle_id hâlâ
-    o eski cycle'ı gösterir, hiç değişmez); burada aranan "hangi embriyolar
-    BU tedavi için çözüldü" sorusu, thaw olayının thaw_cycle_id'siyle
-    yanıtlanıyor — `/cycle/{id}/thaw` ekranının aynı mantığı (v6.62).
-    """
-    if cycle_tipi in FET_TIPLERI:
-        return ("s.id IN (SELECT o.specimen_id FROM olay o "
-                "WHERE o.tip='thaw' AND o.iptal_mi=0 AND o.thaw_cycle_id=?)")
-    return "s.cycle_id = ?"
-
-
 def blast_durum(cycle_id: int, gun: int, cycle_tipi=None):
-    kosul = _blast_kosul(cycle_tipi)
+    """Blast ekranının embriyoları. fet_kultur'da (v6.62) ve Yumurta Çözme'de
+    (v6.147) embriyo ÖNCEKİ bir tedaviden gelir (`specimen.cycle_id` hiç
+    değişmez); aranan "hangi örnekler BU tedavi için çözüldü" --
+    `db.tedavi_ornekleri()`, `/cycle/{id}/thaw` ekranının aynı mantığı."""
+    kosul = db.tedavi_ornekleri(cycle_tipi)
     return db.sorgu(
         "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
         "  COALESCE( "
@@ -5584,7 +5788,7 @@ def blast_durum(cycle_id: int, gun: int, cycle_tipi=None):
         "   ORDER BY o.id DESC LIMIT 1) AS kayit_id, "
         f"  CASE WHEN {_DEJENERE} THEN 1 ELSE 0 END AS dejenere "
         f"FROM specimen s WHERE {kosul} AND NOT ({_ICSI_YAPILMADI}) "
-        "ORDER BY s.cycle_sira_no",
+        "ORDER BY s.cycle_id, s.cycle_sira_no",
         (f"gun{gun}", f"gun{gun}", gun, gun, gun, cycle_id),
     )
 
@@ -5603,7 +5807,7 @@ def blast_skor(genisleme, icm, te, derece=None):
 
 @uygulama.get("/cycle/{cycle_id}/blast")
 def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = "",
-                duzenle: int = 0):
+                duzenle: int = 0, hata: str = ""):
     if gun not in BLAST_GUNLERI:
         gun = 5
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -5649,17 +5853,14 @@ def blast_ekran(request: Request, cycle_id: int, gun: int = 5, oosit: str = "",
     # yalnız KENDİ cycle'ı içinde tekil (UNIQUE(cycle_id, cycle_sira_no)) --
     # iki cycle'da da "1." embriyo olabilir, o alanla eşleşmek yanlış
     # embriyoyu seçebilirdi (bu işin en pahalı hatası).
-    sp = None
-    if oosit:
-        sp = next((o for o in oositler if str(o["id"]) == oosit), None)
-    if sp is None:
-        sp = oositler[0]                    # v6.35 -- bkz. ICSI ekranı
+    sp = _secili_ornek(oositler, oosit)     # v6.35 -- bkz. ICSI ekranı
 
     kayit = _gun_olay(sp["id"], "blastokist_degerlendirme", gun)
     return sablon.TemplateResponse(
         request, "blast.html",
         {**ortak, "sp": sp, "kayit": kayit,
-         "kareler": asama_goruntuleri(sp["id"], f"gun{gun}")})
+         "kareler": asama_goruntuleri(sp["id"], f"gun{gun}"),
+         "hata": _asama_hatasi(hata, sp, cycle_id)})
 
 
 @uygulama.post("/cycle/{cycle_id}/blast")
@@ -5702,6 +5903,10 @@ async def blast_kaydet(request: Request, cycle_id: int):
 
     kid = request.state.kullanici["id"]
     simdi = islem_zamani(f.get("islem_zamani"))
+    if _cozmeden_once(specimen_id, cycle_id, c["cycle_tipi"] if c else None, simdi):
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/blast?gun={gun}&oosit={sp['id']}&duzenle=1"
+            "&hata=cozmeden_once", status_code=303)
     # olay.cycle_id specimen'in KENDİ cycle'ı (route'un cycle_id'si değil) --
     # thaw ve transfer olaylarının da yaptığı gibi (v6.62): fet_kultur'da bu
     # ekranın cycle'ı ile specimen'in cycle'ı farklı, "hangi tedavi için"
@@ -5725,11 +5930,9 @@ async def blast_kaydet(request: Request, cycle_id: int):
     # (v6.62) -- cycle_sira_no üzerinden karşılaştırma DEĞİL: fet_kultur'da
     # o alan yalnız kendi cycle'ı içinde tekil, iki cycle'da da "1." embriyo
     # olabilir ve ham karşılaştırma yanlış sırayı/embriyoyu bulabilirdi.
-    sonraki = None
-    oositler = blast_durum(cycle_id, gun, c["cycle_tipi"] if c else None)
-    idx = next((i for i, o in enumerate(oositler) if o["id"] == specimen_id), None)
-    if idx is not None:
-        sonraki = next((o for o in oositler[idx + 1:] if not o["kayit_id"]), None)
+    sonraki = _sonraki_ornek(
+        blast_durum(cycle_id, gun, c["cycle_tipi"] if c else None), specimen_id,
+        lambda o: not o["kayit_id"])
     hedef = f"/cycle/{cycle_id}/blast?gun={gun}"
     if sonraki:
         hedef += f"&oosit={sonraki['id']}"
@@ -5813,23 +6016,36 @@ def konum_bul_veya_olustur(seviyeler):
          temiz[3] or None, tam_yol))
 
 
-# Taşıyıcının içinde ne olduğunu (yumurta mı embriyo mu) söyleyen alt sorgu.
-# Bir taşıyıcı tek bir tedavinin örneklerini taşıyor -- hem ekrandaki
-# vitrifikasyon kaydı tek seferde tek cycle'dan seçim yapıyor hem de
-# `aktar_access.py` tüp başına tek grup yazıyor -- o yüzden ilk satır yeter.
-# Taşıyıcı üç sorguda da `t` diye adlandığı için metin olarak paylaşılıyor.
-ICERIK_TIPI = (
-    "(SELECT c9.cycle_tipi FROM olay o9 "
-    " JOIN specimen s9 ON s9.id = o9.specimen_id "
-    " JOIN cycle c9 ON c9.id = s9.cycle_id "
-    " WHERE o9.vit_tasiyici_id = t.id AND o9.tip = 'vitrifikasyon' "
-    " AND o9.iptal_mi = 0 LIMIT 1) AS icerik_tipi")
+def icerik_tipi_sql() -> str:
+    """Taşıyıcının içinde ne olduğunu (yumurta mı embriyo mu) söyleyen alt sorgu.
+
+    Bir taşıyıcı tek bir tedavinin örneklerini taşıyor -- hem ekrandaki
+    vitrifikasyon kaydı tek seferde tek cycle'dan seçim yapıyor hem de
+    `aktar_access.py` tüp başına tek grup yazıyor -- o yüzden ilk satır yeter.
+    Taşıyıcı üç sorguda da `t` diye adlandığı için metin olarak paylaşılıyor.
+
+    **Ölçü dondurmanın YAPILDIĞI tedavinin tipi** (v6.147, `db.vit_tedavisi()`),
+    örneğin kendi tedavisininki değil: Yumurta Çözme'de çözülen yumurtadan
+    gelişip dondurulan embriyonun kendi tedavisi Yumurta Dondurma -- eski ölçü
+    tüpe "yumurta" derdi. Fonksiyon, sabit değil: göç çalışmamış (ya da eski
+    bir yedekten geri yüklenmiş) veritabanında `vit_cycle_id` yok, cevap her
+    istekte soruluyor (tuzak #15).
+    """
+    return ("(SELECT c9.cycle_tipi FROM olay o9 "
+            f" JOIN cycle c9 ON c9.id = {db.vit_tedavisi('o9')} "
+            " WHERE o9.vit_tasiyici_id = t.id AND o9.tip = 'vitrifikasyon' "
+            " AND o9.iptal_mi = 0 LIMIT 1) AS icerik_tipi")
 
 
 def tasiyici_icerigi(tasiyici_id):
     return db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.durum, o.zaman, o.id AS olay_id, "
         "  c.id AS cycle_id, c.cycle_no, c.cycle_tipi, "
+        # İçindeki yumurta mı embriyo mu: dondurmanın YAPILDIĞI tedavinin tipi
+        # (v6.147, `icerik_tipi_sql()`'in gerekçesi) -- `cycle_tipi` örneğin
+        # kendi tedavisi, çözülen yumurtadan gelişen embriyoda Yumurta Dondurma.
+        f"  (SELECT cv.cycle_tipi FROM cycle cv WHERE cv.id = {db.vit_tedavisi('o')}) "
+        "  AS icerik_tipi, "
         "  h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
@@ -5905,7 +6121,7 @@ def etiket_ara(ara: str) -> list:
         "  t.vitrifikasyon_zamani, k.tam_yol, "
         "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id = t.id "
         "   AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0) AS adet, "
-        + ICERIK_TIPI + ", "
+        + icerik_tipi_sql() + ", "
         "  (SELECT sd.id FROM sperm_dondurma sd WHERE sd.tasiyici_id = t.id "
         "   AND sd.iptal_mi = 0 ORDER BY sd.id LIMIT 1) AS sperm_id, "
         + _ETIKET_HASTA.format(alan="h8.dosya_no", ad="dosya_no") + ", "
@@ -5952,7 +6168,7 @@ _DEGERLENDIRILMIS = (
 # FET'in vitrifikasyon ekranında listelenen embriyolar (v6.143, kullanıcının
 # isteği: "Çözülen embriyo aynı FET tedavisinde yeniden dondurulabilsin").
 # `specimen.cycle_id` onların KAYNAK tedavisi, hiç değişmiyor; "bu FET'e ait"
-# sorusunu çözme kaydının `thaw_cycle_id`'si yanıtlıyor (`_blast_kosul()`'ün
+# sorusunu çözme kaydının `thaw_cycle_id`'si yanıtlıyor (`db.tedavi_ornekleri()`'nin
 # ve `/cycle/{id}/thaw`'ın aynı mantığı). Liste:
 #   * bu tedavi için çözülen ve dejenere çıkmayan -- kısmi hasarlı da
 #     listede, çünkü laboratuvar onu transfere de uygun sayıyor
@@ -5972,6 +6188,52 @@ _FET_DONDURULABILIR = (
     "     OR EXISTS (SELECT 1 FROM olay v WHERE v.specimen_id=s.id "
     "                AND v.tip='vitrifikasyon' AND v.iptal_mi=0 "
     "                AND v.vit_cycle_id=?))")
+
+
+def _degerlendirilmis_burada(cycle_id) -> str:
+    """`_DEGERLENDIRILMIS`'in Yumurta Çözme hali (v6.147): dondurma kaydı BU
+    tedavininki olmalı. Çözülen yumurtanın kaynağında (Yumurta Dondurma) bir
+    vitrifikasyon kaydı zaten var; genel süzgeç onu görüp enjekte edilmiş ama
+    hiç değerlendirilmemiş yumurtayı da listeye alırdı."""
+    return ("EXISTS (SELECT 1 FROM olay o WHERE o.specimen_id = s.id "
+            "AND o.iptal_mi = 0 AND (o.tip IN ('cleavage_degerlendirme', "
+            "'blastokist_degerlendirme') OR (o.tip = 'vitrifikasyon' AND "
+            f"{db.vit_tedavisi('o')} = {int(cycle_id)})))")
+
+
+def _vit_adaylari(c) -> tuple:
+    """Vitrifikasyon ekranında listelenen örnekler -- `(SQL koşulu, parametreler)`.
+
+    Ekran ve kayıt (`vit_kaydet()`) aynı koşulu kullanıyor: ekranda gizlemek
+    yetmez, eski bir sekmedeki form da reddedilmeli (v6.143).
+    - Kendi örneği olan tipler: tedavinin örnekleri; ICSI aşaması varsa
+      enjekte edilmemiş örnek hiç görünmüyor (v6.105), embriyo aşaması varsa
+      hiç değerlendirilmemiş örnek de (v6.137). İkisi de `oosit_cryo`'da
+      uygulanmıyor -- orada ICSI de cleavage/blastokist de yok, her yumurta
+      elenir ve ekran bomboş kalırdı (`_ICSI_YAPILMADI`'nın belgesi).
+    - FET tipleri: bu tedavi için çözülüp transfer edilmeyenler
+      (`_FET_DONDURULABILIR`, v6.143). FET'te öteki iki süzgeç anlamsız:
+      çözülen embriyo zaten bir kez dondurulmuştu, program öncesi aktarılan
+      FET embriyolarının hiç değerlendirmesi yok (v6.130). **Yumurta
+      Çözme'de ikisi de geçerli** (v6.147): çözülen yumurtaydı, dondurulan
+      ise ICSI'den sonra gelişen embriyo -- `ivf_icsi`'nin kuralı, yalnızca
+      dondurma kaydı bu tedavininki olmalı (`_degerlendirilmis_burada()`).
+    Aşama soruları tip adıyla değil `TIP_ASAMALARI` ile soruluyor.
+    """
+    tip, cid = c["cycle_tipi"], c["id"]
+    asamalar = TIP_ASAMALARI.get(tip, ())
+    if fet_tipi_mi(tip):
+        kosul, par = _FET_DONDURULABILIR, (cid, cid)
+        if "icsi" in asamalar:
+            kosul += (" AND NOT (" + _ICSI_YAPILMADI + ") AND ("
+                      + _degerlendirilmis_burada(cid) + ")")
+        return kosul, par
+    kosul = "s.cycle_id=?"
+    if "icsi" in asamalar:
+        kosul += " AND NOT (" + _ICSI_YAPILMADI + ")"
+    if "blast" in asamalar:
+        kosul += " AND (" + _DEGERLENDIRILMIS + ")"
+    return kosul, (cid,)
 
 
 def _vit_satiri(e: dict) -> dict:
@@ -6006,31 +6268,8 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
     # FET'te yeniden dondurma goc_046'yı istiyor (iki kolon); çalışmamışsa
     # ekran açılır ama liste boş ve üstte göç uyarısı (tuzak #3).
     goc_gerekli = fet and not db.yeniden_dondurma_var()
-    if fet:
-        # v6.143: bu tedavi için çözülüp transfer edilmeyen embriyolar
-        # (`_FET_DONDURULABILIR`'in belgesi). ivf_icsi'nin iki süzgeci
-        # (`_ICSI_YAPILMADI`, `_DEGERLENDIRILMIS`) burada anlamsız: çözülen
-        # embriyo zaten bir kez dondurulmuştu. Program öncesi aktarılan FET
-        # embriyolarının hiç değerlendirmesi yok (v6.130); süzgeç onları
-        # elerdi.
-        kosul, par = ("0", ()) if goc_gerekli else (_FET_DONDURULABILIR,
-                                                    (cycle_id, cycle_id))
-    else:
-        # ICSI yapılmadı işaretlenen örnek burada hiç görünmesin (v6.105) --
-        # yalnızca ivf_icsi'de: oosit_cryo'da maturasyon denüdasyonda
-        # değerlendirilir (v6.96) ve ICSI aşaması hiç yoktur, o cycle_tipi'nde
-        # _ICSI_YAPILMADI HER örnek için doğru çıkar (yanlışlıkla hepsini
-        # süzerdi) -- bkz. _ICSI_YAPILMADI'nin belgesi.
-        kosul = ("s.cycle_id=? AND NOT (" + _ICSI_YAPILMADI + ")"
-                 if c["cycle_tipi"] == "ivf_icsi" else "s.cycle_id=?")
-        # Embriyo aşaması olan tiplerde, o aşamalarda HİÇ değerlendirilmemiş
-        # örnek listeye girmesin (v6.137, kullanıcının isteği) -- aynı
-        # `_ICSI_YAPILMADI` sorusu: bu süzgeç `oosit_cryo`'da UYGULANMAZ,
-        # orada cleavage/blastokist aşaması hiç yok, her yumurta elenir ve
-        # ekran bomboş kalırdı.
-        if "blast" in TIP_ASAMALARI.get(c["cycle_tipi"], ()):
-            kosul += " AND (" + _DEGERLENDIRILMIS + ")"
-        par = (cycle_id,)
+    # Listenin koşulu tek yerde, `vit_kaydet()` de aynısını soruyor.
+    kosul, par = ("0", ()) if goc_gerekli else _vit_adaylari(c)
     # Satırın tüpü: BU tedavide yapılan dondurma (v6.143). Yeniden dondurulan
     # bir embriyonun ilk tüpü kaynak tedavinin ekranında, ikincisi FET'inkinde
     # görünür. `cycle_id` rotadan tamsayı geliyor, metne gömmek güvenli.
@@ -6093,6 +6332,9 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
          "fet": fet, "goc_gerekli": goc_gerekli,
+         # Yumurta Çözme (v6.147): dondurulan, çözülen yumurtadan gelişen
+         # embriyo -- FET'in "yeniden dondurma" metinleri ona uymuyor.
+         "yumurtadan": db.cozulen_yumurta_islenir(c["cycle_tipi"]),
          # Etiket araması (v6.138, kullanıcının isteği): elde tutulan tüpün
          # etiketi bu ekranda da aranabiliyor. Bu cycle'la sınırlı DEĞİL --
          # aranan tüp çoğu zaman başka bir tedaviye ait, soru zaten "bu
@@ -6125,21 +6367,18 @@ async def vit_kaydet(request: Request, cycle_id: int):
 
     # Seçilenler ÖNCE doğrulanıyor, taşıyıcı SONRA açılıyor (v6.143): hiçbiri
     # uygun değilse -- eski bir sekmedeki form, bu arada transfer edilmiş bir
-    # embriyo -- Cryo Haritası'nda içi boş bir "dolu" tüp kalmasın. FET'te
-    # ekrandaki koşulun aynısı (`_FET_DONDURULABILIR`); gizlemek yetmez.
+    # embriyo -- Cryo Haritası'nda içi boş bir "dolu" tüp kalmasın. Koşul
+    # ekrandakinin aynısı (`_vit_adaylari()`); gizlemek yetmez.
     # Güncellenecek kayıt BU tedavide yapılan dondurma (v6.143): örnek bu
     # tedavide zaten dondurulduysa o kayıt güncellenir (başka tüpe taşıma,
     # eski davranış); başka bir tedavideki dondurması -- FET'te yeniden
     # dondurulan embriyonun ilk tüpü -- hiç ellenmez, yeni kayıt açılır.
     bu_vit = f"{db.vit_tedavisi('olay')} = ?"
     uygunlar = []
+    kosul, par = _vit_adaylari(c)
     for sid in secilen:
-        if fet:
-            sp = db.tek("SELECT s.* FROM specimen s WHERE s.id=? AND "
-                        + _FET_DONDURULABILIR, (sid, cycle_id, cycle_id))
-        else:
-            sp = db.tek("SELECT * FROM specimen WHERE id=? AND cycle_id=?",
-                        (sid, cycle_id))
+        sp = db.tek("SELECT s.* FROM specimen s WHERE s.id=? AND (" + kosul + ")",
+                    (sid, *par))
         # Çözülmüş bir tüpün dondurma kaydı TAŞINAMAZ (v6.143): eski bir
         # sekmedeki form, bu arada dondurulup çözülen bir örneği gönderirse
         # kayıt yeni tüpe taşınır, çözmenin tüpü içeriksiz kalırdı -- geçmiş
@@ -6217,7 +6456,7 @@ def cryo_harita(request: Request, ara: str = ""):
             "  k.tam_yol, t.vitrifikasyon_zamani, "
             "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
             "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
-            + ICERIK_TIPI +
+            + icerik_tipi_sql() +
             " FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
             "LEFT JOIN olay o ON o.vit_tasiyici_id=t.id AND o.iptal_mi=0 "
             "LEFT JOIN specimen s ON s.id=o.specimen_id "
@@ -6241,7 +6480,7 @@ def cryo_harita(request: Request, ara: str = ""):
             "  t.vitrifikasyon_zamani, "
             "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
             "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
-            + ICERIK_TIPI +
+            + icerik_tipi_sql() +
             " FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
             "WHERE t.lab_id=? AND t.durum='dolu' AND t.kategori='embriyo' "
             "ORDER BY k.tam_yol, t.etiket",
@@ -7093,12 +7332,22 @@ def _cozme_geri_alma_engeli(kayit):
     Önce en son adım geri alınır: çözmeden SONRA açılmış bir dondurma varsa
     (FET'te yeniden dondurma) çözmeyi silmek "hiç çözülmedi" demek olurdu ama
     embriyo o arada başka bir tüpe girmiş. Kimlik sırası, saat değil.
+
+    v6.147'den beri çözmeden sonra açılmış HER kayıt engel: Yumurta Çözme'de
+    çözülen yumurtanın ICSI'si, döllenmesi, değerlendirmesi, transferi.
+    Çözme gidince örnek o tedavinin ekranlarından düşer, kayıtları sahipsiz
+    kalır -- zaman çizelgesi onları kaynak tedaviye yazardı
+    (`db.olay_tedavisi()`).
     """
-    if not (kayit and db.cozme_tupu_var()):
+    if not kayit:
         return None
-    sonra = db.tek("SELECT 1 FROM olay WHERE specimen_id=? AND tip='vitrifikasyon' "
+    if db.cozme_tupu_var() and db.tek(
+            "SELECT 1 FROM olay WHERE specimen_id=? AND tip='vitrifikasyon' "
+            "AND iptal_mi=0 AND id > ?", (kayit["specimen_id"], kayit["id"])):
+        return "thaw_geri_alma_yeniden_dondurulmus"
+    sonra = db.tek("SELECT 1 FROM olay WHERE specimen_id=? AND tip <> 'thaw' "
                    "AND iptal_mi=0 AND id > ?", (kayit["specimen_id"], kayit["id"]))
-    return "thaw_geri_alma_yeniden_dondurulmus" if sonra else None
+    return "thaw_geri_alma_sonraki_kayit" if sonra else None
 
 
 @uygulama.get("/specimen/{specimen_id}/thaw-sil")
@@ -7185,7 +7434,7 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         "   JOIN cycle c3 ON c3.id=s4.cycle_id "
         "   WHERE o4.vit_tasiyici_id=t.id AND o4.tip='vitrifikasyon' "
         "   AND o4.iptal_mi=0) AS kaynak_cycle, "
-        + ICERIK_TIPI +
+        + icerik_tipi_sql() +
         " FROM tasiyici t "
         "JOIN olay o ON o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
         "JOIN specimen s ON s.id=o.specimen_id "
@@ -7246,7 +7495,17 @@ TRANSFERE_UYGUN = ("blastokist", "morula", "kavitasyon", "cozuldu", "kismi_hasar
 
 
 def transfer_adaylari(hasta_id: int):
-    """Bu hastanın transfer edilebilir embriyoları — taze ve çözülmüş."""
+    """Bu hastanın transfer edilebilir embriyoları — taze ve çözülmüş.
+
+    **Yumurta transfer adayı değil** (v6.147). Yumurta Dondurma'da
+    dondurulan yumurta çözülünce 'cozuldu' durumuna geçiyor -- embriyonunkiyle
+    aynı değer -- ve Yumurta Çözme'nin transfer aşaması gelince listede
+    görünmeye başlıyordu. Ölçü: yumurta donduran bir tedavinin örneği
+    (`db.yumurta_mi()`) ve hiç ICSI'si yok. ICSI'den sonra embriyo olur,
+    döllenince (zigot, gün 2/3, blastokist) aday.
+    """
+    yumurta_tipleri = ", ".join(
+        f"'{t}'" for t in TIP_ASAMALARI if db.yumurta_mi(t)) or "''"
     return db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.durum, s.cycle_id, c.cycle_no, "
         "  c.hasta_cycle_no, "
@@ -7269,6 +7528,9 @@ def transfer_adaylari(hasta_id: int):
         "   'zigot','gun2','gun3') "
         "AND NOT EXISTS (SELECT 1 FROM olay o WHERE o.specimen_id=s.id "
         "                AND o.tip='transfer' AND o.iptal_mi=0) "
+        f"AND NOT (c.cycle_tipi IN ({yumurta_tipleri}) "
+        "         AND NOT EXISTS (SELECT 1 FROM olay i WHERE i.specimen_id=s.id "
+        "                         AND i.tip='icsi' AND i.iptal_mi=0)) "
         "ORDER BY c.hasta_cycle_no, s.cycle_sira_no", (hasta_id,))
 
 
@@ -7698,32 +7960,10 @@ ASAMA_SIRASI = [
 ]
 
 
-TIP_ASAMALARI = {
-    "ivf_icsi": ["opu", "androloji", "denudasyon", "icsi", "fert", "cleavage",
-                 "blast", "vitrifikasyon", "thaw", "transfer", "gebelik"],
-    # FET'te oosit toplanmaz — embriyo baska bir cycle'dan gelir.
-    # Vitrifikasyon (v6.143, kullanicinin istegi): cozulup transfer edilmeyen
-    # embriyo AYNI tedavide yeniden dondurulabiliyor. Transferden SONRA:
-    # dondurulan sey transferin fazlasi. Ekran FET'te bu tedavi icin cozulen
-    # embriyolari listeliyor (vit_ekran), dondurma yeni bir kayit oluyor --
-    # ilk dondurmanin uzerine yazmiyor (goc_046).
-    "fet": ["thaw", "transfer", "vitrifikasyon", "gebelik"],
-    # FET (3->5 kultur, v6.62, goc_031): gun 2/3 embriyosu cozulup gun 5'e
-    # kadar kulturleniyor, sonra transfer ediliyor -- araya "blast" giriyor.
-    # SIRA BURADA thaw'i blast'tan ONCE koyuyor; ivf_icsi'de tam tersi (blast
-    # sonra dondurma). Ikisi de ayni ASAMA_SIRASI'ndan besleniyor ama
-    # gosterim sirasi buradaki liste sirasindan geliyor (asagida
-    # cycle_asamalari), yoksa fet_kultur'da blast thaw'dan once cikardi.
-    # Yeniden dondurma burada da transferden sonra (v6.143): gun 5'e
-    # kulturlenip transfer edilmeyen blastokistin dondurulmasi.
-    "fet_kultur": ["thaw", "blast", "transfer", "vitrifikasyon", "gebelik"],
-    "oosit_cryo": ["opu", "denudasyon", "vitrifikasyon", "thaw"],
-    # Yumurta Çözme (v6.102, goc_039): oosit_cryo'da dondurulmuş bir
-    # yumurtanın AYRI bir tedavide çözülmesi -- yalnızca çözme aşaması,
-    # kullanıcının kararı (ICSI/fertilizasyon gerekiyorsa ayrı bir tedavi
-    # açılır, bu tedavi genişletilmez).
-    "yumurta_cozme": ["thaw"],
-}
+# Tedavi tipine göre aşamalar, gösterim sırasıyla. Sözlük v6.147'den beri
+# `db.py`'de (`formlar.py` ve `disari.py` de soruyor, `app`'i import
+# edemezler -- `FET_TIPLERI`'nin aynı gerekçesi); her tipin gerekçesi orada.
+TIP_ASAMALARI = db.TIP_ASAMALARI
 
 
 def cycle_asamalari(cycle_tipi: str):
@@ -7799,10 +8039,24 @@ def cycle_ozet(cycle: dict, kodlar: set) -> list:
                 f'{metinler.t("sag")} {sag or 0} · {metinler.t("sol")} {sol or 0}'
             )
         satirlar.append(satir)
+    # Yumurta Çözme (v6.147): yumurta toplanmıyor, çözülüyor -- "Toplanan"ın
+    # yerinde çözülen yumurta sayısı, kırılımında kaçının canlı çıktığı.
+    if db.cozulen_yumurta_islenir(cycle["cycle_tipi"]) and "thaw" in kodlar:
+        cozulen = db.sorgu(
+            "SELECT o.specimen_id, MAX(CASE WHEN o.thaw_sagkalim = 'canli' "
+            "THEN 1 ELSE 0 END) canli FROM olay o WHERE o.tip = 'thaw' "
+            "AND o.iptal_mi = 0 AND o.thaw_cycle_id = ? GROUP BY o.specimen_id",
+            (cycle["id"],)) if thaw_cycle_var() else []
+        satirlar.append({
+            "anahtar": "ozet_cozulen", "sayi": len(cozulen),
+            "kirilim": f'{metinler.t("canli")} {sum(r["canli"] for r in cozulen)}'
+            if cozulen else None})
     # oosit_cryo'da maturasyon denüdasyonda, ivf_icsi'de ICSI ekranında
     # soruluyor (v6.96) ama ikisi de aynı olay.tip='maturasyon_kontrolu'yu
-    # yazıyor — "denudasyon" aşaması ikisinde de var, tek koşul yeter.
-    if "denudasyon" in kodlar:
+    # yazıyor — "denudasyon" aşaması ikisinde de var. Yumurta Çözme'de
+    # denüdasyon yok, ICSI ekranı var (v6.147); sayılan yine BU tedavide
+    # yapılan maturasyon (`bu_tedavide`), kaynağın denüdasyonundaki değil.
+    if "denudasyon" in kodlar or "icsi" in kodlar:
         satirlar.append({
             "anahtar": "ozet_m2",
             "sayi": _olay("maturasyon_kontrolu", "AND o.mat_deger='mii'"),

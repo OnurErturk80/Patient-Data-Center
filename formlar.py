@@ -149,15 +149,31 @@ def _ad_soyad_ayir(tam):
     return parcalar[-1], " ".join(parcalar[:-1])
 
 
-def gun_alt(alan, tip, gun):
+def gun_alt(alan, tip, gun, ek=""):
     """Bir örneğin belirli gündeki değerlendirmesinden tek alan (alt sorgu).
 
     Dış sorguda örnek tablosu `s` diye adlandırılmış olmalı. `disari.py` de
-    aynı parçaları kullanıyor — tek yerde dursun diye burada.
+    aynı parçaları kullanıyor — tek yerde dursun diye burada. `ek`:
+    `son_alt()`'taki gibi, `AND ...` diye başlayan ek koşul (v6.147).
     """
     return (f"(SELECT x.{alan} FROM olay x WHERE x.specimen_id = s.id "
-            f"AND x.tip = '{tip}' AND x.gun = {gun} AND x.iptal_mi = 0 "
+            f"AND x.tip = '{tip}' AND x.gun = {gun} AND x.iptal_mi = 0 {ek} "
             "ORDER BY x.id DESC LIMIT 1)")
+
+
+def yumurta_kosulu(c) -> str:
+    """Resmî formların ve tedavi Excel'inin yumurta ızgarası hangi örneklerden
+    -- SQL koşulu (örnek tablosu `s`), bir `?`: tedavinin kimliği (v6.147).
+
+    Tedavinin kendi örnekleri; Yumurta Çözme'de bu tedavi için çözülen
+    yumurtalar (`db.cozulen_yumurta_islenir()`) -- ICSI'leri, döllenmeleri
+    bu tedavide. `fet`/`fet_kultur`'un ızgarası değişmedi: çözülen embriyo
+    yumurta ızgarasının bir sütunu değil.
+    """
+    tip = c["cycle_tipi"]
+    if db.cozulen_yumurta_islenir(tip):
+        return db.tedavi_ornekleri(tip)
+    return "s.cycle_id = ?"
 
 
 def son_alt(alan, tip, sira="x.id DESC", ek=""):
@@ -288,21 +304,42 @@ def cizelge_saati(cizelge, asama):
 # ------------------------------------------------- embriyoloji özet formu
 
 
+def _bu_tedavide_say(cycle_id, alan, tip, ek=""):
+    """Bu tedavide YAPILAN o tipteki olaylar, bir alanın değerine göre
+    sayılmış (DISTINCT örnek) -- `{deger: n}` (v6.147).
+
+    v6.147'ye kadar ölçü örneğin kendi tedavisiydi (`s.cycle_id`): Yumurta
+    Çözme'de çözülen yumurtanın ICSI'si, döllenmesi kaynak Yumurta
+    Dondurma'nın resmî formuna yazılır, Yumurta Çözme'ninki boş kalırdı.
+    Koşul `db.tedavide_yapilan()` -- zaman çizelgesiyle aynı (v6.146).
+    """
+    kosul, p = db.tedavide_yapilan(cycle_id)
+    return {r["d"]: r["n"] for r in db.sorgu(
+        f"SELECT o.{alan} d, COUNT(DISTINCT o.specimen_id) n FROM olay o "
+        f"WHERE o.tip = ? AND o.iptal_mi = 0 {ek} AND {kosul} "
+        f"GROUP BY o.{alan}", [tip] + p)}
+
+
 def _oosit_sayilari(cycle_id):
     """Maturasyon kodlarına göre oosit sayıları (mii / mi / gv / …)."""
-    return {r["mat_deger"]: r["n"] for r in db.sorgu(
-        "SELECT o.mat_deger, COUNT(DISTINCT o.specimen_id) n FROM olay o "
-        "JOIN specimen s ON s.id = o.specimen_id "
-        "WHERE s.cycle_id = ? AND o.tip = 'maturasyon_kontrolu' "
-        "AND o.iptal_mi = 0 GROUP BY o.mat_deger", (cycle_id,))}
+    return _bu_tedavide_say(cycle_id, "mat_deger", "maturasyon_kontrolu")
 
 
 def _pn_sayilari(cycle_id):
-    return {r["fert_pn_sayisi"]: r["n"] for r in db.sorgu(
-        "SELECT o.fert_pn_sayisi, COUNT(DISTINCT o.specimen_id) n FROM olay o "
-        "JOIN specimen s ON s.id = o.specimen_id "
-        "WHERE s.cycle_id = ? AND o.tip = 'fertilizasyon_kontrolu' "
-        "AND o.iptal_mi = 0 GROUP BY o.fert_pn_sayisi", (cycle_id,))}
+    return _bu_tedavide_say(cycle_id, "fert_pn_sayisi", "fertilizasyon_kontrolu")
+
+
+def _bu_tedavide_adet(cycle_id, tip_kosulu) -> int:
+    """Bu tedavide yapılan, koşulu tutan olayların DISTINCT örnek sayısı."""
+    kosul, p = db.tedavide_yapilan(cycle_id)
+    return db.tek(
+        "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
+        f"WHERE o.iptal_mi = 0 AND ({tip_kosulu}) AND {kosul}", p)["n"]
+
+
+# İşlemden sonra dejenere olan yumurta: ICSI sırasında ya da fert kontrolünde.
+_DEJ_ISLEM = ("(o.tip='icsi' AND o.icsi_sonuc='degenere') OR "
+              "(o.tip='fertilizasyon_kontrolu' AND o.fert_sonuc='degenere')")
 
 
 def _transfer_edilenler(cycle_id):
@@ -470,7 +507,7 @@ def _freeze_satirlari(tupler) -> list:
             + [f"+{len(tupler) - n + 1} tüp"])
 
 
-def _bulgu_notu(cycle_id: int, h) -> str:
+def _bulgu_notu(c, h) -> str:
     """Yumurta bulguları, ART Lab'ın alttaki geniş "Yorum:" satırı için.
 
     "1: Vakuol, Geniş PVS · 3: Kalın zona" -- hangi yumurtanın bulgusu
@@ -480,14 +517,17 @@ def _bulgu_notu(cycle_id: int, h) -> str:
 
     Bulgu iki aşamada da girilebiliyor -- `ivf_icsi`'de ICSI ekranında,
     `oosit_cryo`'da denüdasyonda (v6.96) -- bu yüzden aşama süzülmüyor;
-    aynı bulgu iki aşamada da işaretliyse bir kez yazılıyor.
+    aynı bulgu iki aşamada da işaretliyse bir kez yazılıyor. Yumurtalar
+    ızgaranınkiler (`yumurta_kosulu()`, v6.147): Yumurta Çözme'de çözülen
+    yumurtaların bulguları -- dondurmadan önce denüdasyonda işaretlenenler de,
+    yumurtanın kendi morfolojisi.
     """
     bulgular = {}
     for r in db.sorgu(
             "SELECT s.cycle_sira_no, sb.bulgu_kodu FROM specimen_bulgu sb "
             "JOIN specimen s ON s.id = sb.specimen_id "
-            "WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no, sb.id",
-            (cycle_id,)):
+            f"WHERE {yumurta_kosulu(c)} ORDER BY s.cycle_id, s.cycle_sira_no, sb.id",
+            (c["id"],)):
         liste = bulgular.setdefault(r["cycle_sira_no"], [])
         e = _et(h, "bulgu_icsi", r["bulgu_kodu"])
         if e and e not in liste:
@@ -544,17 +584,9 @@ def ozet_verisi(cycle_id: int):
             analiz[r["asama"]] = r
     bazal, sonrasi = analiz.get("bazal"), analiz.get("hazirlik_sonrasi")
 
-    islenen = db.tek(
-        "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
-        "JOIN specimen s ON s.id=o.specimen_id "
-        "WHERE s.cycle_id=? AND o.tip='icsi' AND o.iptal_mi=0", (cycle_id,))["n"]
-    dejenere_sonrasi = db.tek(
-        "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
-        "JOIN specimen s ON s.id=o.specimen_id "
-        "WHERE s.cycle_id=? AND o.iptal_mi=0 AND "
-        "((o.tip='icsi' AND o.icsi_sonuc='degenere') OR "
-        " (o.tip='fertilizasyon_kontrolu' AND o.fert_sonuc='degenere'))",
-        (cycle_id,))["n"]
+    # Bu tedavide YAPILAN ICSI (v6.147, `_bu_tedavide_say()`'ın gerekçesi).
+    islenen = _bu_tedavide_adet(cycle_id, "o.tip='icsi'")
+    dejenere_sonrasi = _bu_tedavide_adet(cycle_id, _DEJ_ISLEM)
 
     tr = _transfer_edilenler(cycle_id)
     tupler = dondurma_tupleri(cycle_id)
@@ -607,7 +639,10 @@ def ozet_verisi(cycle_id: int):
         "tedavi_protokolu": _et(h, "protokol_tipi", c["protokol_tipi"]),
         # --- oosit ---
         "opu_tarihi": _gg_aa_yyyy(c["opu_zamani"]),
-        "toplanan_oosit": db.tek(
+        # FET tiplerinde yumurta toplanmıyor (v6.147): program öncesi aktarılan
+        # FET'in embriyoları FET'in kendi altına açılıyor (v6.130), sayılsaydı
+        # kutu çözülen embriyoları "toplanan yumurta" diye basardı.
+        "toplanan_oosit": None if c["cycle_tipi"] in db.FET_TIPLERI else db.tek(
             "SELECT COUNT(*) n FROM specimen WHERE cycle_id=?", (cycle_id,))["n"],
         "matur_mii": mat.get("mii"),
         "immatur": (mat.get("mi") or 0) + (mat.get("gv") or 0) or None,
@@ -793,25 +828,30 @@ def artlab_verisi(cycle_id: int):
     h = _etiketler()
     cizelge = zaman_cizelgesi(cycle_id)
 
+    # Her hücre BU tedavide yapılan işlemden (v6.147): Yumurta Çözme'de
+    # yumurtanın kaynağındaki maturasyon değil ICSI ekranındaki; kaynak
+    # tedavinin formunda da sonradan başka bir tedavide yapılan ICSI,
+    # transfer, yeniden dondurma yok. Kendi tedavisinde her şeyi yapılan
+    # örnekte sonuç eskisiyle aynı.
+    bu = f"AND {db.bu_tedavide(cycle_id, 'x')}"
     ornekler = db.sorgu(
         f"""
         SELECT s.id, s.cycle_sira_no, s.taraf,
-               {son_alt('mat_deger', 'maturasyon_kontrolu')} AS mat,
-               {son_alt('fert_pn_sayisi', 'fertilizasyon_kontrolu')} AS pn,
-               {son_alt('fert_sonuc', 'fertilizasyon_kontrolu')} AS fert,
-               {gun_alt('cl_hucre_sayisi', 'cleavage_degerlendirme', 2)} AS g2_hucre,
-               {gun_alt('cl_skor', 'cleavage_degerlendirme', 2)} AS g2_skor,
-               {gun_alt('cl_hucre_sayisi', 'cleavage_degerlendirme', 3)} AS g3_hucre,
-               {gun_alt('cl_skor', 'cleavage_degerlendirme', 3)} AS g3_skor,
-               {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC')} AS bl,
-               {son_alt('zaman', 'transfer')} AS tr_zaman,
-               {son_alt('zaman', 'vitrifikasyon',
-                        ek=f"AND {db.vit_tedavisi('x')} = s.cycle_id")}
-                 AS vit_zaman
-          FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no
+               {son_alt('mat_deger', 'maturasyon_kontrolu', ek=bu)} AS mat,
+               {son_alt('fert_pn_sayisi', 'fertilizasyon_kontrolu', ek=bu)} AS pn,
+               {son_alt('fert_sonuc', 'fertilizasyon_kontrolu', ek=bu)} AS fert,
+               {gun_alt('cl_hucre_sayisi', 'cleavage_degerlendirme', 2, bu)} AS g2_hucre,
+               {gun_alt('cl_skor', 'cleavage_degerlendirme', 2, bu)} AS g2_skor,
+               {gun_alt('cl_hucre_sayisi', 'cleavage_degerlendirme', 3, bu)} AS g3_hucre,
+               {gun_alt('cl_skor', 'cleavage_degerlendirme', 3, bu)} AS g3_skor,
+               {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', ek=bu)} AS bl,
+               {son_alt('zaman', 'transfer', ek=bu)} AS tr_zaman,
+               {son_alt('zaman', 'vitrifikasyon', ek=bu)} AS vit_zaman
+          FROM specimen s WHERE {yumurta_kosulu(c)}
+          ORDER BY s.cycle_id, s.cycle_sira_no
         """, (cycle_id,))
 
-    bulgu_notu = _bulgu_notu(cycle_id, h)
+    bulgu_notu = _bulgu_notu(c, h)
 
     sutunlar = []
     for o in ornekler:
@@ -856,13 +896,7 @@ def artlab_verisi(cycle_id: int):
     transfer = len(_transfer_edilenler(cycle_id))
     # Kâğıttaki FERTİLİZASYON bloğunun "Dej" sütunu: işlemden **sonra**
     # dejenere olan oosit (ICSI sırasında ya da fert kontrolünde görülen).
-    dej_islem = db.tek(
-        "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
-        "JOIN specimen s ON s.id=o.specimen_id "
-        "WHERE s.cycle_id=? AND o.iptal_mi=0 AND "
-        "((o.tip='icsi' AND o.icsi_sonuc='degenere') OR "
-        " (o.tip='fertilizasyon_kontrolu' AND o.fert_sonuc='degenere'))",
-        (cycle_id,))["n"]
+    dej_islem = _bu_tedavide_adet(cycle_id, _DEJ_ISLEM)
 
     return {
         "cycle_id": cycle_id,
