@@ -1678,6 +1678,17 @@ METINLER = {
               "örnek, {goruntu} fotoğraf kaydı.",
         "en": "Restored: {hasta} patients, {cycle} treatments, {specimen} "
               "specimens, {goruntu} photo records."},
+    # v6.145, kullanıcının isteği: "Geri yüklemeden sonra da kendisi yapsın."
+    "geri_yukleme_goc_uygulandi": {
+        "tr": "Yedek eski bir sürümdendi: {n} veritabanı güncellemesi hemen "
+              "uygulandı, programı yeniden açmana gerek yok.",
+        "en": "The backup was from an older version: {n} database update(s) "
+              "were applied right away, no restart needed."},
+    "geri_yukleme_goc_hata": {
+        "tr": "Bir veritabanı güncellemesi uygulanamadı ({ad}); ayrıntısı "
+              "Yönetici panelinde. Bazı ekranlar eksik davranabilir.",
+        "en": "A database update could not be applied ({ad}); details are on "
+              "the admin panel. Some screens may behave incompletely."},
 
     # v6.121, kullanıcının isteği: "Yedekleme bölümünde Yedekleme olsun.
     # Klasörlerin altında zor bulunuyor." -- eylemler `/klasorler`'den
@@ -1721,6 +1732,11 @@ METINLER = {
     "goc_guncel": {"tr": "Veritabanı güncel.", "en": "The database is up to date."},
     "goc_uygulandi": {"tr": "Bu açılışta {n} güncelleme uygulandı.",
                       "en": "{n} update(s) applied at this start."},
+    # v6.145: geri yükleme de göçleri çalıştırıyor, kart en son çalışmayı
+    # gösteriyor.
+    "goc_uygulandi_geri_yukleme": {
+        "tr": "Son geri yüklemede {n} güncelleme uygulandı.",
+        "en": "{n} update(s) applied at the last restore."},
     "goc_hata": {
         "tr": "Bir güncelleme uygulanamadı. Program çalışmaya devam ediyor "
               "ama bazı ekranlar eksik davranabilir; aşağıdaki adı not alıp "

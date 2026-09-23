@@ -13,6 +13,10 @@ takas ya tam olur ya hiç olmaz.
 (`lab_ONCEKI_<tarih>.db`, `tasi.py`'nin aynı adlandırması) — yanlış yedek
 seçilirse geri dönülebilsin.
 
+**Takastan hemen sonra eksik veritabanı güncellemeleri uygulanır** (v6.145,
+`_gocleri_uygula()`): yedek eski bir sürümden olabilir, program yeniden
+açılmayı beklemesin (CLAUDE.md tuzak #15).
+
 Uygulama çalışırken de güvenli **olması beklenir**: `db.baglan()` her
 istekte kendi bağlantısını açıp kapatıyor (kalıcı bir bağlantı havuzu yok),
 o yüzden takas anında açık bir dosya tutamacı genelde olmaz. Yine de tam o
@@ -41,6 +45,7 @@ from datetime import datetime
 from pathlib import Path
 
 import db
+import goc
 import yedek
 
 DB_ADI = "lab.db"
@@ -148,6 +153,9 @@ def geri_yukle(yedek_dosyasi: Path) -> dict:
             + (f" Önceki hâlin yedeği duruyor: {onceki_yedek.name}."
                if onceki_yedek else ""))
 
+    # Yedek eski bir sürümden olabilir: açılışta olanı şimdi yap (v6.145).
+    goc_sonucu = _gocleri_uygula()
+
     b = sqlite3.connect(f"file:{db.DB_YOLU}?mode=ro", uri=True)
     try:
         sayilar = {}
@@ -164,7 +172,38 @@ def geri_yukle(yedek_dosyasi: Path) -> dict:
              f"({sayilar.get('hasta')} hasta, {sayilar.get('cycle')} cycle, "
              f"{sayilar.get('specimen')} örnek, {sayilar.get('goruntu')} "
              "fotoğraf)")
-    return {"onceki_yedek": onceki_yedek, **sayilar}
+    return {"onceki_yedek": onceki_yedek, **sayilar, "goc": goc_sonucu}
+
+
+def _gocleri_uygula() -> dict:
+    """Geri yüklenen veritabanına eksik güncellemeleri uygular (v6.145).
+
+    Kullanıcının isteği: "Geri yüklemeden sonra da kendisi yapsın." Göçler
+    yalnızca açılışta çalışıyordu; eski bir yedek geri yüklenince program
+    yeniden açılana kadar yeni kolonlara dayanan ekranlar "no such column"
+    ile hata veriyordu (denendi: v6.143 öncesi bir yedekte FET'in
+    vitrifikasyon ekranı). Çalıştırıcı açılıştakinin aynısı, süreç içinde:
+    `goc.calistir()` -- `subprocess` yazma, paketlenmiş programda o satır
+    göçü değil programı yeniden başlatır.
+
+    Sonra saklanmış kolon/tablo cevapları unutuluyor (`db.sema_bilgisini_unut`,
+    tuzak #15) -- ekrandan geri yükleme programın kendi sürecinde çalışıyor,
+    terminalden çalışınca zararsız. Bir göç patlarsa geri yükleme yine tamam
+    sayılır (yedek yerinde, önceki hâlin kopyası duruyor); hata sonuçta,
+    ekran ve Yönetici paneli onu gösteriyor.
+    """
+    try:
+        sonuc = goc.calistir()
+    except Exception as e:                 # geri yükleme yine tamam sayılsın
+        sonuc = {"calisti": [], "hatali": [("geri_yukleme", repr(e))],
+                 "bekleyen": [], "elle": [], "atlandi": ""}
+    db.sema_bilgisini_unut()
+    if sonuc.get("calisti"):
+        yedek.yaz(f"Geri yüklenen veritabanına {len(sonuc['calisti'])} "
+                  f"güncelleme uygulandı: {', '.join(sonuc['calisti'])}")
+    for ad, _mesaj in sonuc.get("hatali", []):
+        yedek.yaz(f"Geri yüklenen veritabanında güncelleme uygulanamadı: {ad}")
+    return sonuc
 
 
 def main():
@@ -202,6 +241,12 @@ def main():
              f"{sonuc['specimen']} örnek, {sonuc['goruntu']} fotoğraf.")
         if sonuc["onceki_yedek"]:
             print(f"Önceki hâlin yedeği: {sonuc['onceki_yedek'].name}")
+        g = sonuc["goc"]
+        if g.get("calisti"):
+            print(f"Yedek eski bir sürümdendi: {len(g['calisti'])} veritabanı "
+                  f"güncellemesi uygulandı ({', '.join(g['calisti'])}).")
+        for ad, mesaj in g.get("hatali", []):
+            print(f"UYARI: güncelleme uygulanamadı: {ad}\n{mesaj}")
         return
 
     sys.exit(__doc__)

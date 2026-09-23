@@ -11764,3 +11764,59 @@ temmuz tedavisi "2. tedavi", ağustos tedavisi "1. tedavi" idi.
   - Geçici çözüm: geri yüklemeden sonra programı bir kez kapatıp açmak.
   - Kalıcı çözüm geri yüklemenin ardından göçleri çalıştırıp saklanmış
     cevapları unutmak olur. Ayrı iş.
+
+---
+
+# v6.145 — geri yüklemeden sonra güncellemeler kendiliğinden
+
+Kullanıcının isteği: *"Geri yüklemeden sonra da kendisi yapsın."* v6.144'te
+bulunmuştu: çalışan programa eski bir yedek geri yüklenince, program yeniden
+açılana kadar yeni kolonlara dayanan ekranlar hata veriyordu (v6.143 öncesi
+bir yedekte FET'in vitrifikasyon ekranı `no such column: o.vit_cycle_id` ile
+500). İki ayrı eksik vardı:
+
+1. **Göçler yalnızca açılışta çalışıyordu.** Geri yüklenen yedeğin eksik
+   güncellemeleri ancak bir sonraki açılışta uygulanıyordu.
+2. **Program şema cevaplarını saklıyordu.** "Bu kolon var mı" sorusunun ilk
+   cevabı yedi ayrı yerde tutuluyordu: `db.kolon_var()` ve `app.py`'de altı
+   değişken. Saklanmış "var" cevabı, kolonu olmayan veritabanında sorguyu
+   patlatıyordu.
+
+## Ne değişti
+
+- **`geri_yukle.geri_yukle()` takastan hemen sonra göçleri çalıştırıyor**
+  (`_gocleri_uygula()`). Çalıştırıcı açılıştakinin aynısı: `goc.calistir()`,
+  süreç içinde. Ekrandan ve terminalden (`geri_yukle.py`) geri yükleme aynı
+  işlevden geçiyor.
+- **Saklanmış cevaplar tek yerde.** `yetki_tablosu_var()`,
+  `sifre_istegi_tablosu_var()`, `es_dosya_no_var()`, `thaw_cycle_var()` ve
+  `opu_hekim_var()` artık kendi değişkenlerinde değil, `db.kolon_var()` ve
+  yeni `db.tablo_var()`'da saklıyor. `db.sema_bilgisini_unut()` hepsini
+  unutturuyor. Beş değişkeni tek tek sıfırlamak da olurdu, ama ileride
+  eklenecek altıncısı unutulurdu (tuzak #4'ün deseni). Tek kalan ayrı
+  saklama tazelemenin tablo listesi; onu `veritabani_yenilendi()`
+  unutturuyor.
+- **Ekran söylüyor:** *"Geri yüklendi: … Yedek eski bir sürümdendi: 2
+  veritabanı güncellemesi hemen uygulandı, programı yeniden açmana gerek
+  yok."* Uygulanacak güncelleme yoksa bu cümle çıkmıyor. Yönetici panelinin
+  göç kartı en son çalışmayı gösteriyor: "Son geri yüklemede N güncelleme
+  uygulandı." `yedek.log` hangi güncellemelerin uygulandığını yazıyor.
+- **Bir göç patlarsa** geri yükleme yine tamam sayılıyor: yedek yerinde,
+  önceki hâlin kopyası duruyor. Mesaj ve panel hatayı gösteriyor; açılıştaki
+  davranışın aynısı.
+
+## Deneme
+
+- **Gerçek "Yedekten geri yükle" ekranı**, çalışan programda, yeniden
+  başlatmadan:
+  - goc_046 öncesi bir yedek geri yüklendi, iki güncelleme hemen uygulandı;
+  - önceden 500 veren FET vitrifikasyon ekranı açıldı;
+  - tazeleme yoklaması, Yönetici paneli ve on ekran çalıştı;
+  - yeni tedavi açıldı ve tarih sırasına göre numaralandı;
+  - aynı sürümden bir yedek geri yüklenince güncelleme cümlesi çıkmadı, panel
+    "Veritabanı güncel." dedi.
+- **Terminalden `geri_yukle.py`:** güncellemeleri uyguladı ve söyledi.
+- **Taşınan kontroller için gerileme denemesi:**
+  - v6.144'ün 42 kontrolü yeniden geçti;
+  - yönetici 27, yönetici olmayan kullanıcı 9 adreste sorunsuz, JS hatası
+    yok.

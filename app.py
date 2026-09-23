@@ -659,16 +659,12 @@ def yol_modulu(yol: str):
     return None
 
 
-_YETKI_TABLOSU = None
-
-
 def yetki_tablosu_var() -> bool:
-    """`goc_026` çalıştırıldı mı. Çalışmadıysa kimse ekran kaybetmez (tuzak #3)."""
-    global _YETKI_TABLOSU
-    if _YETKI_TABLOSU is None:
-        _YETKI_TABLOSU = bool(db.tek(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='yetki'"))
-    return _YETKI_TABLOSU
+    """`goc_026` çalıştırıldı mı. Çalışmadıysa kimse ekran kaybetmez (tuzak #3).
+
+    Cevap `db.tablo_var()`'da saklanıyor -- geri yüklemeden sonra unutulsun
+    diye kendi değişkeninde değil (v6.145, tuzak #15)."""
+    return db.tablo_var("yetki")
 
 
 def kullanici_yetkileri(k) -> set:
@@ -718,7 +714,9 @@ _DEGISIM_TABLOLARI = None
 
 
 def _degisim_tablolari(b):
-    """Taranacak tablolar. Bir kez bulunup saklanıyor — şema değişmiyor."""
+    """Taranacak tablolar. Bir kez bulunup saklanıyor — şema yalnızca göçle
+    değişiyor; yedekten geri yüklemeden sonra `veritabani_yenilendi()`
+    listeyi unutturuyor (v6.145)."""
     global _DEGISIM_TABLOLARI
     if _DEGISIM_TABLOLARI is None:
         _DEGISIM_TABLOLARI = [
@@ -1019,22 +1017,15 @@ def sifre_gecerli(yeni: str, tekrar: str):
     return None
 
 
-_SIFRE_ISTEGI_TABLOSU = None
-
-
 def sifre_istegi_tablosu_var() -> bool:
     """`goc_030` çalıştırıldı mı.
 
     Çalışmadıysa şifre değiştirme **eski gibi** anında geçer: göçü
     çalıştırmamış bir makinede personelin şifre değiştirmesini tümden
     engellemek, onay akışının çözdüğü sorundan pahalı olurdu (tuzak #3).
+    Cevap `db.tablo_var()`'da saklanıyor (v6.145, tuzak #15).
     """
-    global _SIFRE_ISTEGI_TABLOSU
-    if _SIFRE_ISTEGI_TABLOSU is None:
-        _SIFRE_ISTEGI_TABLOSU = bool(db.tek(
-            "SELECT 1 FROM sqlite_master WHERE type='table' "
-            "AND name='sifre_istegi'"))
-    return _SIFRE_ISTEGI_TABLOSU
+    return db.tablo_var("sifre_istegi")
 
 
 def bekleyen_sifre_istekleri():
@@ -1474,6 +1465,24 @@ def yedekleme_geri_yukle_ekran(request: Request, hata: str = ""):
     })
 
 
+def veritabani_yenilendi(goc_sonucu: dict) -> None:
+    """Yedekten geri yüklemeden sonra programın kendi hafızası (v6.145).
+
+    Açılışta olanın geri yüklemedeki karşılığı: göçleri `geri_yukle`
+    uyguladı (`_gocleri_uygula()`), burada çalışan programın sakladığı şema
+    cevapları unutuluyor -- kolon/tablo cevapları `db.py`'de, tazelemenin
+    tablo listesi burada -- ve Yönetici panelinin göç kartı bu sonucu
+    gösteriyor. Şema cevabı saklayan yeni bir yer açacaksan `db.kolon_var()`/
+    `db.tablo_var()`'ı kullan; kendi değişkenini açarsan onu da burada
+    unutturman gerekir (tuzak #15).
+    """
+    global GOC_SONUCU, _DEGISIM_TABLOLARI
+    GOC_SONUCU = {**goc_sonucu, "geri_yukleme": True}
+    _goc_ozeti(GOC_SONUCU)
+    _DEGISIM_TABLOLARI = None
+    db.sema_bilgisini_unut()
+
+
 @uygulama.post("/yedekleme/geri-yukle")
 async def yedekleme_geri_yukle(request: Request):
     """Onay üç kademeli: (1) seçilen yedeğin dosya adını yazmak, (2) "GERİ
@@ -1522,11 +1531,21 @@ async def yedekleme_geri_yukle(request: Request):
     except Exception as e:
         return hata(f"{metinler.t('geri_yukleme_basarisiz')}: {e}")
 
+    # Yedek eski bir sürümden olabilir: göçler az önce uygulandı, saklanmış
+    # şema cevapları şimdi unutuluyor -- programı yeniden açmaya gerek yok.
+    g = sonuc.get("goc") or {}
+    veritabani_yenilendi(g)
+
     mesaj = (metinler.t("geri_yuklendi_ozet")
              .replace("{hasta}", str(sonuc.get("hasta")))
              .replace("{cycle}", str(sonuc.get("cycle")))
              .replace("{specimen}", str(sonuc.get("specimen")))
              .replace("{goruntu}", str(sonuc.get("goruntu"))))
+    if g.get("calisti"):
+        mesaj += " " + metinler.say("geri_yukleme_goc_uygulandi", len(g["calisti"]))
+    if g.get("hatali"):
+        mesaj += " " + metinler.t("geri_yukleme_goc_hata").replace(
+            "{ad}", ", ".join(ad for ad, _ in g["hatali"]))
     return RedirectResponse("/yedekleme?gymesaj=" + quote(mesaj), status_code=303)
 
 
@@ -6332,22 +6351,16 @@ def dosya_no_sahibi(dosya_no) -> dict | None:
     return dict(r) if r else None
 
 
-_ES_DOSYA_NO_KOLONU = None
-
-
 def es_dosya_no_var() -> bool:
     """`goc_045` çalıştırıldı mı (v6.139).
 
     Çalışmadıysa hasta kaydetmek/güncellemek **eskisi gibi** çalışır, yalnızca
     eşin dosya numarası alanı yok sayılır. `cycle_alanlari()`'nın (v6.33)
     aynı koruması: göçü çalıştırmamış bir makinede hasta açmayı tümden
-    bozmak, alanın kendisinden çok daha pahalı olurdu (tuzak #3).
+    bozmak, alanın kendisinden çok daha pahalı olurdu (tuzak #3). Cevap
+    `db.kolon_var()`'da saklanıyor (v6.145, tuzak #15).
     """
-    global _ES_DOSYA_NO_KOLONU
-    if _ES_DOSYA_NO_KOLONU is None:
-        _ES_DOSYA_NO_KOLONU = any(
-            r["name"] == "es_dosya_no" for r in db.sorgu("PRAGMA table_info(hasta)"))
-    return _ES_DOSYA_NO_KOLONU
+    return db.kolon_var("hasta", "es_dosya_no")
 
 
 def sperm_tedaviye_bagla(sperm_dondurma_id: int, cycle_id: int) -> bool:
@@ -6891,21 +6904,14 @@ async def vit_sil(request: Request, specimen_id: str):
 
 # ----------------------------------------------------------------- thaw
 
-_THAW_CYCLE_KOLONU = None
-
-
 def thaw_cycle_var() -> bool:
     """`goc_024` çalıştırıldı mı — `olay.thaw_cycle_id` kolonu var mı.
 
-    Göç çalıştırılmadan ekranlar 500 vermesin diye (tuzak #3). Bir kez bakılır;
-    kolon sonradan eklenirse uygulama yeniden başlatılır.
+    Göç çalıştırılmadan ekranlar 500 vermesin diye (tuzak #3). Bir kez
+    bakılıp `db.kolon_var()`'da saklanıyor; yedekten geri yüklemeden sonra
+    unutuluyor (v6.145, tuzak #15).
     """
-    global _THAW_CYCLE_KOLONU
-    if _THAW_CYCLE_KOLONU is None:
-        _THAW_CYCLE_KOLONU = any(
-            r["name"] == "thaw_cycle_id"
-            for r in db.sorgu("PRAGMA table_info(olay)"))
-    return _THAW_CYCLE_KOLONU
+    return db.kolon_var("olay", "thaw_cycle_id")
 
 
 def thaw_cycle_secenekleri(icerik):
@@ -7614,20 +7620,14 @@ async def denudasyon_zaman(request: Request, cycle_id: int):
 
 # ----------------------------------------------------------------------- OPU
 
-_OPU_HEKIM_KOLONU = None
-
-
 def opu_hekim_var() -> bool:
     """`goc_025` çalıştırıldı mı — `cycle.opu_hekim` kolonu var mı.
 
-    Göç çalıştırılmadan ekran 500 vermesin diye (tuzak #3). Bir kez bakılır;
-    kolon sonradan eklenirse uygulama yeniden başlatılır.
+    Göç çalıştırılmadan ekran 500 vermesin diye (tuzak #3). Bir kez
+    bakılıp `db.kolon_var()`'da saklanıyor; yedekten geri yüklemeden sonra
+    unutuluyor (v6.145, tuzak #15).
     """
-    global _OPU_HEKIM_KOLONU
-    if _OPU_HEKIM_KOLONU is None:
-        _OPU_HEKIM_KOLONU = any(
-            r["name"] == "opu_hekim" for r in db.sorgu("PRAGMA table_info(cycle)"))
-    return _OPU_HEKIM_KOLONU
+    return db.kolon_var("cycle", "opu_hekim")
 
 
 @uygulama.get("/cycle/{cycle_id}/opu")

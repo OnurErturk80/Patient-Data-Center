@@ -98,7 +98,8 @@
   <div class="alan" style="border:0">
     <div class="ipucu">
       {% if goc.atlandi == "veritabani-yok" %}{{ metin("goc_veritabani_yok") }}
-      {% elif goc.calisti %}{{ say("goc_uygulandi", goc.calisti|length) }}
+      {% elif goc.calisti %}{{ say("goc_uygulandi_geri_yukleme" if goc.geri_yukleme
+                                   else "goc_uygulandi", goc.calisti|length) }}
       {% elif not goc_bekleyen and not goc.hatali %}{{ metin("goc_guncel") }}
       {% endif %}
     </div>

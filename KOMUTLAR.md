@@ -73,11 +73,11 @@ python  yedek.py E:\yedek        # Windows, klinik
 
 Hedef **farklı bir diskte** olmalı — aynı disk bozulursa yedek de gider.
 
-**Yedekten geri yükledikten sonra programı bir kez kapatıp aç.** Geri
-yükleme (`/yedekleme` → "Yedekten geri yükle") eski bir yedeği yerine
-koyuyor ama o yedeğin eksik güncellemeleri ancak açılışta uygulanıyor. Kapatıp
-açmazsan bazı ekranlar (ör. FET'in vitrifikasyonu) o arada hata verebilir
-(CLAUDE.md tuzak #15).
+**Yedekten geri yükledikten sonra programı yeniden açmana gerek yok**
+(v6.145). Geri yükleme (`/yedekleme` → "Yedekten geri yükle") yedek eski bir
+sürümdense eksik veritabanı güncellemelerini hemen kendisi uygular ve
+mesajında kaç tane uygulandığını söyler. Terminalden geri yükleme de
+(`python3 geri_yukle.py geri-yukle <dosya>`) aynısını yapar.
 
 ---
 

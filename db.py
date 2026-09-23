@@ -199,15 +199,43 @@ _KOLONLAR = {}
 def kolon_var(tablo: str, kolon: str) -> bool:
     """`tablo.kolon` var mı -- göçü çalışmamış makinede ekran 500 vermesin.
 
-    Bir kez bakılıp saklanıyor (`thaw_cycle_var()`'ın deseni). Göçler açılışta
-    ilk istekten ÖNCE çalışıyor (v6.49), ilk bakış onlardan sonraya düşer --
-    bu yüzden modül yüklenirken ÇAĞIRMA, "yok" cevabı saklanırdı. Tablo ve
-    kolon adı her zaman koddan gelir, adresten değil (PRAGMA parametre almaz).
+    Bir kez bakılıp saklanıyor. Göçler açılışta ilk istekten ÖNCE çalışıyor
+    (v6.49), ilk bakış onlardan sonraya düşer -- bu yüzden modül yüklenirken
+    ÇAĞIRMA, "yok" cevabı saklanırdı. Yedekten geri yüklemeden sonra
+    `sema_bilgisini_unut()` bunu unutturuyor (v6.145). Tablo ve kolon adı her
+    zaman koddan gelir, adresten değil (PRAGMA parametre almaz).
     """
     if (tablo, kolon) not in _KOLONLAR:
         _KOLONLAR[(tablo, kolon)] = any(
             r["name"] == kolon for r in sorgu(f"PRAGMA table_info({tablo})"))
     return _KOLONLAR[(tablo, kolon)]
+
+
+def tablo_var(tablo: str) -> bool:
+    """`tablo` var mı -- `kolon_var()`'ın tablo hali (v6.145).
+
+    Aynı yerde saklanıyor, yani geri yüklemeden sonra onunla birlikte
+    unutuluyor. `yetki` (goc_026) ve `sifre_istegi` (goc_030) soruluyor.
+    """
+    anahtar = (tablo, None)
+    if anahtar not in _KOLONLAR:
+        _KOLONLAR[anahtar] = tek(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (tablo,)) is not None
+    return _KOLONLAR[anahtar]
+
+
+def sema_bilgisini_unut() -> None:
+    """Saklanmış kolon ve tablo cevaplarını unutur (v6.145, tuzak #15).
+
+    Çalışan programın altındaki veritabanı değiştiğinde çağrılıyor: yedekten
+    geri yükleme eski bir sürümün veritabanını koyuyor, göçler onu
+    güncelliyor, sonra buradaki "var/yok" cevaplarının hepsi yeniden
+    soruluyor. Şema cevabı saklayan yeni bir yer açacaksan kendi değişkenini
+    açma, `kolon_var()`/`tablo_var()`'ı kullan: geri yükleme yalnızca
+    buradakini unutturuyor.
+    """
+    _KOLONLAR.clear()
 
 
 def vit_tedavisi(o: str = "o") -> str:

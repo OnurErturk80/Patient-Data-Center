@@ -57,7 +57,8 @@ doğrudan veriliyor. Geliştirmede de aynı yol: `python3 baslat.py`.
 - Paket denendi: kaynak klasörünün dışında, `PYTHONPATH` temizlenmiş halde
   27 göç uygulandı ve 22 adres 200 verdi.
 
-**Göçler açılışta kendiliğinden çalışır** (v6.49). Elle bir şey yapmak
+**Göçler açılışta kendiliğinden çalışır** (v6.49) — yedekten geri
+yüklemeden hemen sonra da (v6.145, tuzak #15). Elle bir şey yapmak
 gerekmiyor; `python3 goc_hepsi.py` yalnızca terminalden kontrol etmek için.
 - **Çalıştırıcı tek yerde: `goc.py`.** Göçler **süreç içinde** çalışıyor
   (`import goc_029` demek onu çalıştırmak demek). `subprocess.run([sys.executable,
@@ -1644,6 +1645,14 @@ alındığı andaki hâline döndürüyor, aradan girilmiş her şey kayboluyor.
   dönülünce o yedekten sonra açılmış `oturum` satırları artık yok, geri
   yükleyen yönetici dahil herkes bir sonraki istekte `/giris`'e düşebilir.
   Beklenen davranış, ayrı bir işlem gerektirmiyor.
+- **Geri yükleme eski yedeğin eksik güncellemelerini hemen uygular**
+  (v6.145, kullanıcının isteği: "Geri yüklemeden sonra da kendisi
+  yapsın"). Program yeniden açılmadan: göçler, saklanmış şema cevaplarını
+  unutma, Yönetici panelinin göç kartı ("Son geri yüklemede N güncelleme
+  uygulandı"). Ekran mesajı ve `yedek.log` kaç güncelleme uygulandığını
+  söylüyor. Bir göç patlarsa geri yükleme yine tamam: yedek yerinde,
+  önceki hâlin kopyası duruyor, hata panelde. Terminaldeki
+  `geri_yukle.py` de aynı işlevden geçiyor. Ayrıntı tuzak #15.
 
 **İki yerden gelinen ekranın geri oku sabit olamaz.** Taşıyıcı ekranına hem
 cryo haritasından hem çözme ekranından giriliyor; `?cycle=N` ile hangisinden
@@ -2579,21 +2588,27 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
       tersi yönü: orada dış kabın ölçüsü doğru çıkıp içerik kayıyordu,
       burada içerik doğru görünüp görünmez bir öge sayfayı uzatıyor.
 
-15. **Kolonun varlığını saklayan kontrol, yedekten geri yüklemeden sonra
-    yalan söyler** (v6.144'te bulundu). Göçler yalnızca açılışta çalışıyor;
-    `/yedekleme/geri-yukle` çalışan programın altındaki veritabanını eski
-    bir yedekle değiştiriyor ve göç çalıştırmıyor. `db.kolon_var()`,
-    `thaw_cycle_var()`, `opu_hekim_var()` cevabı ilk soruşta saklıyor —
-    saklanmış "var" cevabı, kolonu olmayan geri yüklenmiş veritabanında
-    sorguyu "no such column" ile patlatıyor. Denendi: v6.143 öncesi bir
-    yedek geri yüklenince FET'in vitrifikasyon ekranı program yeniden
-    açılana kadar 500 veriyor. **Düzeltilmedi**; geçici çözüm geri
-    yüklemeden sonra programı kapatıp açmak.
+15. **Şema cevabını kendi değişkeninde saklama — geri yükleme onu
+    yalanlar** (v6.144'te bulundu, v6.145'te düzeltildi). Çalışan programın
+    altındaki veritabanını `/yedekleme/geri-yukle` eski bir yedekle
+    değiştiriyor. v6.145'e kadar göçler yalnızca açılışta çalışıyordu ve
+    `db.kolon_var()`, `thaw_cycle_var()`, `opu_hekim_var()` gibi kontroller
+    ilk cevabı saklıyordu. Saklanmış "var" cevabı kolonu olmayan geri
+    yüklenmiş veritabanında sorguyu "no such column" ile patlatıyordu;
+    denendi: v6.143 öncesi bir yedekte FET'in vitrifikasyon ekranı program
+    yeniden açılana kadar 500 veriyordu.
+    - **Bugün:** `geri_yukle.geri_yukle()` takastan hemen sonra göçleri
+      çalıştırıyor (`_gocleri_uygula()`, açılıştaki `goc.calistir()`'ın
+      aynısı). Ekrandan geri yüklemede `veritabani_yenilendi()` saklanmış
+      cevapları unutturuyor ve Yönetici panelinin göç kartını güncelliyor.
+    - **Kural:** şema cevabı saklayacaksan `db.kolon_var()`/`db.tablo_var()`
+      kullan. İkisi tek yerde saklıyor, `db.sema_bilgisini_unut()` hepsini
+      unutturuyor. Kendi `_..._KOLONU` değişkenini açarsan
+      `veritabani_yenilendi()`'ye de ekle (tazelemenin tablo listesi
+      `_DEGISIM_TABLOLARI` orada), yoksa bu hata geri gelir.
     - Çekirdek bir akışın (tedavi açma gibi) INSERT/UPDATE'ine giren yeni
-      kolonun kontrolünü **saklama**, her seferinde sor
+      kolonu her seferinde sormak daha da sağlam
       (`_planlanan_kolonu_var()`, `_elle_no_kolonu_var()`) — PRAGMA ucuz.
-    - Kalıcı çözüm: geri yüklemenin ardından `goc.calistir()` ve saklanmış
-      cevapları unutmak (`db._KOLONLAR`, app'teki `_..._KOLONU` değişkenleri).
 
 ---
 
