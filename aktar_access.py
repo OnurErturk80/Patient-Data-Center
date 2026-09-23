@@ -63,6 +63,14 @@ bölümü boş kalıyordu. Bu kip yalnızca o değerlendirmeyi yazar, başka hi�
 
     python3 aktar_access.py transfer kaynak=MAYIS mayis.csv
 
+**Yalnızca FET'i tüpüne bağlama: `bagla`** (v6.160). Daha eski bir ay
+sonradan aktarıldıysa (2026 aktarılmışken 2025) sonraki ayların FET'leri
+o tüplere ancak şimdi bağlanabilir. `tamamla` da bağlıyor ama dondurma
+skorlarını yeniden yazıyor; bu kip yalnızca bağlar. Sonraki her ay için,
+eskiden yeniye, o ayın ilk aktarımındaki etiketle:
+
+    python3 aktar_access.py bagla kaynak=OCAK duzelt=tarih_duzeltme.txt ocak.csv
+
 ------------------------------------------------------------------------
 ACCESS'TEN CSV NASIL ÇIKAR
 
@@ -943,6 +951,12 @@ def _gun_bul(metin: str):
     return int(m.group(1)) if m else None
 
 
+def _tek_tup(cumle: str) -> bool:
+    """Cümle tüp sayısını 1 diye yazıyor mu: "1 TÜPTE", "1TÜPTE", "TEK TÜPTE".
+    Metin `_KATLA`'lı."""
+    return bool(re.search(r"(?<!\d)1\s*TUPTE|\bTEK\s+TUPTE", cumle))
+
+
 def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
                   dondurulan=None, fazla=None) -> dict:
     """Dondurma cümlesini çözümler. Dondurma yoksa boş sözlük.
@@ -1055,7 +1069,22 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         else:
             tek = {"tur": "embriyo", "ham": ham_cumle.strip() or "skorsuz"}
         gruplar, ogeler = [[tek]], [tek]
-    sayilan = [o for o in ogeler if o["tur"] != "taninmadi"]
+    elif (not gruplar and adet and adet > 1 and _tek_tup(cumle)
+          and not (re.search(r"\bM\s*(1|I)\b", cumle)
+                   and re.search(r"\bM\s*(2|II)\b", cumle))):
+        # Parantezsiz ama tüp sayısı 1 (v6.160): "5 ADET M2 OOSİT 1 TÜPTE
+        # DONDURULARAK SAKLANDI" -- dağılım bilinmiyor değil, hepsi o tüpte.
+        # Olgunluk karışıksa ("M1" ve "M2" birlikte, sayısı yazmıyor) hangi
+        # yumurtanın hangisi olduğu bilinmez, uydurulmuyor (uyarı çıkıyor).
+        if baglam:
+            tek = [{"tur": "oosit", "adet": adet,
+                    "mat": "mi" if re.search(r"\bM\s*(1|I)\b", cumle) else "mii",
+                    "ham": ham_cumle.strip()}]
+        else:
+            tek = [{"tur": "embriyo", "ham": ham_cumle.strip() or "skorsuz"}
+                   for _ in range(adet)]
+        gruplar, ogeler = [tek], list(tek)
+    sayilan =[o for o in ogeler if o["tur"] != "taninmadi"]
     return {
         "gun": gun,
         "oosit_mi": baglam or (bool(sayilan)
@@ -1620,6 +1649,20 @@ def _dondurma_havuzu(b, r, cycle_id, oosit_mi) -> dict:
             anahtar = "mii" if mat == "mii" else ("mi" if mat in ("mi", "gv") else None)
             if anahtar:
                 havuz[anahtar].append(sid)
+        # Olgunluğu kaynakta HİÇ sayılmamış yumurta (v6.160): "1 ADET OOSİT
+        # DONDURULARAK SAKLANDI", MII/İMMATÜR kutuları boş. Tankta duruyor;
+        # olgunluk boş kalıyor, uydurulmuyor. Yalnızca kaynağın sayılarının
+        # (MII + immatür + empty zona + dejenere + atretik) ÖTESİNDEKİ
+        # yumurtalar: empty zona da maturasyon kaydı olmadan açılıyor
+        # (`_oositleri_ac()`), ama içinde yumurta yok -- dondurulamaz.
+        sayilan = (r["mii"] + r["immatur"] + r["empty_zona"] + r["dejenere"]
+                   + r["atretik"])
+        havuz["olcusuz"] = [sid for (sid,) in b.execute(
+            "SELECT s.id FROM specimen s WHERE s.cycle_id=? AND s.cycle_sira_no > ? "
+            f"AND {transfersiz} AND NOT EXISTS (SELECT 1 FROM olay m "
+            "WHERE m.specimen_id=s.id AND m.tip IN ('maturasyon_kontrolu', 'icsi') "
+            "AND m.iptal_mi=0) ORDER BY s.cycle_sira_no",
+            (cycle_id, sayilan)).fetchall()]
         return havuz
     if r["tip"] in FET_TIPLERI and not _db.cozulen_yumurta_islenir(r["tip"]):
         sorgu = ("SELECT s.id FROM specimen s JOIN olay o ON o.specimen_id=s.id "
@@ -1810,6 +1853,7 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
         vit_notu = _db.KAYNAK_DONDURMA_NOTU + "; konum girilmedi."
 
     yeni_tup, onarilan, yazilan, eksik, yer_sayisi, yedekten = [], [], [], 0, 0, 0
+    olcusuzden = 0
     for i, grup in enumerate(coz["gruplar"]):
         yerler = _yerler(grup, oosit_mi)
         if not yerler:
@@ -1856,6 +1900,10 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
                 sid = next((s for s in havuz.get("yedek", [])
                             if s not in kullanilan), None)
                 yedekten += bool(sid)
+            if sid is None and oosit_mi:
+                sid = next((s for s in havuz.get("olcusuz", [])
+                            if s not in kullanilan), None)
+                olcusuzden += bool(sid)
             if sid is None:
                 eksik += 1
                 continue
@@ -1908,6 +1956,9 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     if yedekten:
         rapor.append(f"    UYARI: kaynakta 2PN sayısı dondurulandan az -- {yedekten} "
                      "embriyo 2PN kaydı olmayan enjekte yumurtaya yazıldı")
+    if olcusuzden:
+        rapor.append(f"    UYARI: kaynakta olgunluğu yazılmamış {olcusuzden} yumurta "
+                     "dondurulmuş yazıldı (olgunluk boş)")
     if eksik:
         rapor.append(f"    UYARI: notta {yer_sayisi} örnek yazıyor ama "
                      f"{yer_sayisi - eksik} uygun kayıt var; fazlası yazılmadı")
@@ -2753,6 +2804,38 @@ def fet_transfer_kalitelerini_yaz(satirlar):
     print(f"\nBitti. {degisen} FET tedavisine transfer kalitesi yazildi.")
 
 
+def kaynaga_bagla(satirlar):
+    """Yalnızca çözülen örneği dondurulduğu tüpe bağlama: `tamamla`'nın 4.
+    adımı, tek başına (v6.160).
+
+    Daha eski bir ay SONRADAN aktarıldığında (2026 aktarılmışken 2025) 2026
+    FET'lerinin çözdüğü embriyonun tüpü artık programda; aktarıldıkları gün
+    yoktu, "tüpü programda yok" diye kendi altlarında kaldılar. `tamamla` da
+    bağlıyor ama dondurma skorlarını nottaki değerle yeniden yazıyor, elle
+    düzeltilmiş skoru ezebilir (v6.142) -- bu kip yalnızca bağlıyor. Bağlı
+    olana, belirsize ve tutmayana dokunmuyor; ikinci çalıştırma hiçbir şey
+    değiştirmez."""
+    kid = _kullanici_id()
+    sonuclar = []
+    for r in satirlar:
+        var = _zaten_var(r["kimlik"])
+        if not var:
+            continue
+        if var["cycle_tipi"] != r["tip"]:
+            r = dict(r, tip=var["cycle_tipi"])
+        rapor = []
+        with _db.yazma_islemi() as b:
+            durum = _kaynaga_bagla(b, r, var["id"], kid, rapor)
+        if durum:
+            sonuclar.append((r["kimlik"], durum))
+        if durum in ("bagli", "belirsiz", "tutmuyor"):
+            print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
+            for satir in rapor:
+                print(satir)
+    print("\nBitti.")
+    _bagla_ozeti(sonuclar)
+
+
 def iptal_sebeplerini_duzelt(satirlar):
     """Yalnızca iptal sebebi: `tamamla`'nın 5. adımı, tek başına (v6.150).
 
@@ -2848,7 +2931,7 @@ def main():
         else:
             arg.append(a)
     kip = "aktar"
-    if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer"):
+    if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer", "bagla"):
         kip, arg = arg[0], arg[1:]
     if not arg:
         sys.exit("Kullanim:\n"
@@ -2862,6 +2945,9 @@ def main():
                  "  python3 aktar_access.py transfer <dosya.csv>  yalnizca FET'te\n"
                  "                                                transfer edilen\n"
                  "                                                embriyonun kalitesi\n"
+                 "  python3 aktar_access.py bagla <dosya.csv>     yalnizca FET'in\n"
+                 "                                                cozdugu embriyoyu\n"
+                 "                                                tupune baglar\n"
                  "\n"
                  "  kaynak=<AD>  ikinci bir Access dosyasi aktarilirken sart:\n"
                  "               her dosya kendi kayitlarini 1'den numaraliyor,\n"
@@ -2928,6 +3014,9 @@ def main():
         return
     if kip == "transfer":
         fet_transfer_kalitelerini_yaz(satirlar)
+        return
+    if kip == "bagla":
+        kaynaga_bagla(satirlar)
         return
     onizleme(satirlar, kopyalar, tutmayan)
     print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")

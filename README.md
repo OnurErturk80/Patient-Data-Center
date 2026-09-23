@@ -12926,3 +12926,97 @@ programda girilmiş bir FET'te (çözme, transfer, yeniden dondurma, tankta
 başka tüp) "Dondurulan: 1 embriyo ... (4AA)", "Çözülen: 2 embriyo, 1 tüp:
 (4AA-4AA); 1 transfer, 1 yeniden donduruldu", "Kalan dondurulmuş: 2
 embriyo, 2 tüp: bu tedavide dondurulan 1 tüp, (1)".
+
+---
+
+# v6.160 — ocak–mayıs 2025 Access kayıtları; `bagla` kipi
+
+Kullanıcının isteği: *"şimdi 2025 yılına geçiyorum. Bu kayıtları daha önce
+belirlediğimiz gibi programa yerleştir."* Beş dosya (ocak, şubat, mart,
+nisan, mayıs 2025), 2026'nınkilerle aynı yapıda: tek tablo `VERİTABANI`,
+92 kolon; 89 + 66 + 84 + 69 + 109 = 417 satır. `.accdb` v6.149'daki gibi
+`mdb-export` ile CSV'ye çevrildi. Kaynak dosyalar, CSV'ler ve tarih
+düzeltmesi depoya girmedi; aşağıda yalnızca sayılar var.
+
+## Etiketler yıl taşıyor
+
+2026 `OCAK` … `TEMMUZ` etiketleriyle aktarıldı. 2025'in dosyaları aynı adı
+alsaydı ilk satırları 2026'nın aynı numaralı satırlarıyla çakışırdı (araç
+durur, v6.141). 2025 için `kaynak=OCAK2025` … `MAYIS2025`.
+
+## Bir tarih düzeltmesi
+
+Ocak 2025'te bir **Yumurta Çözme** satırının OPU TARİHİ 07.11.2022. Öteki
+yumurta çözme satırları o alana çözme gününü yazıyor; bu satırınki büyük
+olasılıkla yumurtaların toplandığı gün. Olduğu gibi aktarılsaydı tedavinin
+lab numarası 2022-… olur ve hastanın tedavi sırası 2022'ye kayardı. Kayıt
+Access'te 3 ve 6 ocak kayıtlarının arasında girilmiş: v6.148'in kararıyla
+("yakın kaydın tarihi") 03.01.2025'e düzeltilmesi önerildi, `duzelt=` ile
+(not "07.11.2022 yazıyordu, 03.01.2025 olarak düzeltildi" diyor).
+Öteki 416 satırın tarihi kendi ayında; iki satır tarihsiz ("yaklaşık").
+
+## Aracın iki düzeltmesi (yalnızca yumurta dondurma notları)
+
+**1. "N ADET M2 OOSİT 1 TÜPTE" okunmuyordu.** Parantez grubu olmayan
+dondurma v6.148'den beri yalnızca tek örnekse yazılıyordu: birden çok
+örneğin tüplere dağılımı bilinmiyor. Tüp sayısı 1 yazıyorsa dağılım
+bellidir. İki satır (5'er yumurta) artık tek tüp olarak yazılıyor.
+Tüp sayısı yazmayan ("2 ADET M2 OOSİT DONDURULARAK SAKLANDI", bir satır)
+ve olgunluğu karışık olan (M1 ile M2 birlikte, sayısız) hâlâ yazılmıyor,
+uyarı çıkıyor.
+
+**2. Olgunluğu kaynakta hiç sayılmamış yumurta dondurulamıyordu.** Bir
+Yumurta Dondurma satırında 1 yumurta toplanmış, MII/İMMATÜR kutuları boş,
+not "1 ADET OOSİT DONDURULARAK SAKLANDI. (M1-M2 ? ZONAFREE)". Dondurma
+havuzu yalnızca MII ya da MI kaydı olan yumurtaya bakıyordu; tank tüpü
+programa hiç girmeyecekti. Havuza, kaynağın sayılarının (MII + immatür +
+empty zona + dejenere + atretik) ÖTESİNDEKİ yumurtalar eklendi; olgunluğu
+boş kalıyor, rapor söylüyor. **Empty zona dışarıda**: onlar da maturasyon
+kaydı olmadan açılıyor (`_oositleri_ac()`), ilk yazışta havuza girdiler ve
+denemede empty zona iki "yumurta" dondurulmuş yazıldı. Sınır bu yüzden
+sayıların ötesi.
+
+Gerileme: 2025'in beş dosyası ve 2026 mayıs, eski ve yeni araçla `liste`
+çıktısı karşılaştırıldı — fark yalnızca bu iki satırda.
+
+## `bagla` kipi
+
+2026'nın ayları kullanıcının makinesinde zaten aktarılmış. 2026 FET'lerinin
+bir kısmı 2025'te dondurulan embriyoyu çözdü; aktarıldıkları gün tüp
+programda yoktu, embriyolar FET'in kendi altında kaldı (v6.130) ve tüp
+2025'ten sonra Cryo Haritası'nda "dolu" görünecekti. `tamamla` bağlıyor
+ama dondurma skorlarını nottaki değerle yeniden yazıyor — aylar önce
+aktarılmış tedavide elle düzeltilmiş bir skoru ezer (v6.142). `bagla`
+`tamamla`'nın 4. adımını (`_kaynaga_bagla()`) tek başına çalıştırıyor,
+`iptal`/`transfer` kiplerinin deseni. 2026'nın ayları eskiden yeniye,
+ilk aktarımdaki etiketle.
+
+## Deneme (test veritabanının kopyasında)
+
+Kullanıcının veritabanı bu oturumda yoktu; deneme mayıs 2026'nın aktarıldığı
+test kopyasında yapıldı.
+- Beş ay sırayla: 417 tedavi, 0 hata. 313 yeni hasta; aynı dosya numaralı
+  hastalarda 2025 tedavileri 2026'nınkinden önce numaralandı
+  (`1: 2025-…, 2: 2026-…`).
+- FET'in kaynağa bağlanması 2025 içinde: 27 FET 2025'te dondurulan tüpüne
+  bağlandı, 139'unun tüpü programda yok (2025'ten önce dondurulmuş), 10'u
+  "elle bakılmalı" (2'si belirsiz, 8'inde tüpteki sayı/skor tutmuyor).
+- `bagla kaynak=MAYIS` (2026): 2 FET 2025 tüpüne bağlandı; ikinci
+  çalıştırma tablo tablo karşılaştırıldı, hiçbir satır değişmedi.
+- 2025'in 417 tedavisi + bağlanan iki FET: tedavi ekranı, iki resmî form,
+  Excel dökümleri, vitrifikasyon/çözme/transfer ekranları, Cryo Haritası,
+  istatistik — 3358 istek, hepsi 200. NOTLAR'da örnek kodu yok, "Dondurulan"
+  hiçbirinde iki kez yok (v6.159).
+- `teshis.py`, `tarih_duzelt.py`: bozuk tarih yok.
+
+## Bilinen / yazılmayan
+
+- **Kaynağın olgunluk sayısı notla tutmuyor, iki satır.** Yumurta
+  Dondurma'da MII 4 / immatür 3 ama not 6 M2 + 1 M1 donduruyor; bir
+  başkasında MII 3 / immatür 6, not 5 M2. Büyük olasılıkla kültürde
+  olgunlaşan (MI → MII) yumurtalar; notun yazımı da ayırıyor ("(3*M2-2M2)").
+  MI kaydı olan yumurta M2 yerine konmuyor, tüp eksik sayıyla yazıldı ve
+  uyarı çıkıyor. Kullanıcıya soruldu; cevaba göre `tamamla` eksik yeri
+  doldurabilir.
+- Tüp sayısı yazmayan bir yumurta dondurması (2 yumurta) yazılmadı.
+- v6.148'deki "Parantezsiz iki dondurma" kararı değişmedi.

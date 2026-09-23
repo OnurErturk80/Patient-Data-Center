@@ -26,7 +26,9 @@ Access kayıtları (temmuz ve ağustos 2026) `aktar_access.py` ile aktarıldı
 çalıştırmadığını sor. v6.148 kullanıcının veritabanının bir kopyasında
 denendi; v6.149'da o kopya yoktu, mayıs yalnızca test veritabanında denendi —
 FET'in tüpe bağlanması (önceki aylar gerekiyor) ancak kullanıcının
-makinesinde çalışıyor. Göç,
+makinesinde çalışıyor. **Ocak–mayıs 2025** v6.160'ta hazırlandı
+(`kaynak=OCAK2025` … `MAYIS2025` — 2026'nın etiketleri çakışırdı), ardından
+2026'nın ayları `bagla` ile geçiriliyor; yine kullanıcı çalıştırıyor. Göç,
 kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -2043,7 +2045,22 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   genel `'iptal'` iken ayrıntılı sebebi yazıyor (kullanıcının ekrandan
   seçtiğine dokunmuyor), `degisiklik_log`'a düşüyor. Log satırı `b` ile
   yazılıyor: `guvenlik.degisiklikleri_yaz()` kendi bağlantısını açar,
-  `yazma_islemi()`'nin kilidi içinde bekler.
+  `yazma_islemi()`'nin kilidi içinde bekler. Öteki dar kipler:
+  `transfer` (v6.154) ve `bagla` (v6.160: yalnızca kaynağa bağlama — eski
+  bir yıl SONRADAN aktarılınca sonraki ayların FET'leri o tüplere bununla
+  bağlanıyor).
+- **Etiket her dosyada tekil, yıllar arasında da** (v6.160): 2026'nın ayları
+  `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`… Aynı etiketi
+  başka yılın dosyasına verme.
+- **Parantezsiz ama tek tüplü dondurma yazılıyor** (v6.160): "5 ADET M2
+  OOSİT 1 TÜPTE" — dağılım belli. Tüp sayısı yazmıyorsa ya da olgunluk
+  karışıksa ("M1 M2", sayısız) hâlâ yazılmıyor, uyarı çıkıyor.
+- **Olgunluğu kaynakta hiç sayılmamış yumurta dondurulabiliyor** (v6.160,
+  havuzun `olcusuz`'u): MII/immatür kutuları boş, not "1 ADET OOSİT
+  DONDURULARAK SAKLANDI". Yalnızca kaynağın sayılarının ÖTESİNDEKİ
+  yumurtalar — empty zona da maturasyon kaydı olmadan açılıyor, içinde
+  yumurta yok. MI yazılmış yumurta M2 yerine KONMUYOR (açık soru, README
+  v6.160).
 - **İptal kalıpları** (`_IPTAL_AYRINTI`): fertilizasyon olmadı, cleavage
   arrest, 5. gün arrest, v6.149'dan beri "OOSİT ÇIKMADI" → Yumurta Çıkmadı,
   "İNMATÜR OOSİT SEBEBİYLE" → İmmatür Yumurta. Programdaki sebebin adıyla
