@@ -1804,10 +1804,10 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     kullanilan = {sid for *_x, uyeler in mevcut for sid, _o in uyeler}
     ek_vit = {"vit_cycle_id": cycle_id} if baska_tedaviden else {}
     if tip in FET_TIPLERI and not _db.cozulen_yumurta_islenir(tip):
-        vit_notu = ("Kaynak kayıttaki dondurma notundan aktarıldı (çözme sonrası "
+        vit_notu = (_db.KAYNAK_DONDURMA_NOTU + " (çözme sonrası "
                     "yeniden dondurma); konum girilmedi.")
     else:
-        vit_notu = "Kaynak kayıttaki dondurma notundan aktarıldı; konum girilmedi."
+        vit_notu = _db.KAYNAK_DONDURMA_NOTU + "; konum girilmedi."
 
     yeni_tup, onarilan, yazilan, eksik, yer_sayisi, yedekten = [], [], [], 0, 0, 0
     for i, grup in enumerate(coz["gruplar"]):

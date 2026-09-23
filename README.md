@@ -12887,3 +12887,42 @@ Yazdırmaya etkisi yok (`@media print` ölçeği zaten kaldırıyor).
 Deneme: 17 yumurtalı bir tedavinin ART Lab'ı 1280×900, 1920×1080 ve
 390×844'te iki sayfa birebir aynı boyda (ör. 718×522 / 718×522), yatay
 kayma yok.
+
+# v6.159 — Özet NOTLAR'ında kod yok, embriyo bilgisi bir kez
+
+Kullanıcı: "Embriyoloji özet formunun notlar bölümünde bazı tedavilerde
+embriyo bilgisi yazarken sadece oosit kodu yazılan tedaviler gördüm. Bir de
+bazı tedavilerde de embriyo bilgisi iki kere yazılıyor. ... Yazı kod
+yazmasın. Tüp içinde embriyo bilgisi parantez ile belirtilsin. Embriyo
+bilgisi tek sefer yazılsın, ikinci kere tekrar etmesin."
+
+Mayıs aktarımının deneme kopyasında 63 tedavinin NOTLAR'ı basılıp
+bakıldı; üç ayrı sebep çıktı:
+
+1. **Kod** — v6.152'nin "Çözülen:" satırı her embriyoyu örnek koduyla
+   yazıyordu ("2026-0004-01 8HG1 Canlı, transfer"). Artık tüp tüp parantez,
+   "Dondurulan:" satırıyla aynı yazım: "Çözülen: 2 embriyo, 1 tüp:
+   (8HG1-7HG2); 2 transfer". Sağkalım ve canlılık zaten ÇÖZDÜRME SONRASI
+   VİABİLİTE kutusunda; ne olduğu sayıyla.
+2. **İki kez** — Access'ten aktarılan tedavinin protokol notu dondurmayı
+   kendi cümlesiyle anlatıyor ("2 ADET D3 EMBRİYOSU (8HG1-8HG1) ŞEKLİNDE
+   DONDURULARAK SAKLANDI") ve v6.135'in "Dondurulan:" satırı aynı tüpleri
+   yeniden yazıyordu. Aktarımın o nottan yazdığı dondurmalar bir notla
+   işaretli (`db.KAYNAK_DONDURMA_NOTU`); notu Access kaydı olan tedavide o
+   tüpler "Dondurulan:" satırına girmiyor. Programda dondurulan tüpler
+   yazılıyor. Denemede 32 satırın 32'si Access notunun tekrarıydı.
+   "Kalan dondurulmuş:" da bu tedavide dondurulan tüpleri artık tekrar
+   etmiyor ("bu tedavide dondurulan 1 tüp"), ötekileri etiketle (kod)
+   değil içindekiyle yazıyor.
+3. **Yanlış "yok"** — "Kalan dondurulmuş embriyo yok." aktarılmış FET'lerde
+   de basılıyordu; oysa kaynak tüpler programda değil (notun kendisi "GERİDE
+   7 TÜPTE 7 ADET D5 EMBRİYOSU KALDI" diyor). Çözülen bir embriyonun
+   dondurması programda yoksa satır artık hiç yazılmıyor.
+
+ART Lab'ın FREEZE/THAW/TRANSFER kutuları değişmedi (notu yok, tekrar yok).
+
+Deneme: mayıs kopyasında 63 tedavide NOTLAR'da tek bir örnek kodu kalmadı;
+programda girilmiş bir FET'te (çözme, transfer, yeniden dondurma, tankta
+başka tüp) "Dondurulan: 1 embriyo ... (4AA)", "Çözülen: 2 embriyo, 1 tüp:
+(4AA-4AA); 1 transfer, 1 yeniden donduruldu", "Kalan dondurulmuş: 2
+embriyo, 2 tüp: bu tedavide dondurulan 1 tüp, (1)".

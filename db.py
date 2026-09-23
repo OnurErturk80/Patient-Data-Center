@@ -149,6 +149,11 @@ def cozulen_yumurta_islenir(cycle_tipi) -> bool:
 # (kurum belgesi) sabit burada; `formlar.py` ve `disari.py` de soruyor.
 BIRLESME = "Birleşme"
 
+# `aktar_access.py`'nin nottan yazdığı dondurmaların `olay.notlar` başı
+# (v6.159). O tüpler Access notunun kendi cümlesinde zaten yazılı; resmî
+# formun NOTLAR kutusu onları ikinci kez yazmasın diye `formlar.py` soruyor.
+KAYNAK_DONDURMA_NOTU = "Kaynak kayıttaki dondurma notundan aktarıldı"
+
 
 def cl_hucre_ifadesi(x: str = "x") -> str:
     """Cleavage değerlendirmesinin "hücre" yeri -- SQL ifadesi (v6.157):

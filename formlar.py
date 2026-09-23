@@ -401,7 +401,9 @@ def dondurma_tupleri(cycle_id: int) -> list:
     tedavide dondurulmuş gibi yazılmaz -- resmî forma yanlış bilgi yazmak
     boş bırakmaktan kötü.
 
-    Her öğe: `{"etiket", "ogeler": [kalite|None], "gunler": [int]}`.
+    Her öğe: `{"etiket", "ogeler": [kalite|None], "gunler": [int],
+    "aktarim": bool}` -- `aktarim`: tüp `aktar_access.py`'nin Access notundan
+    yazdığı bir dondurma (v6.159; `db.KAYNAK_DONDURMA_NOTU`).
     `ogeler` tüpteki **her** örnek için bir giriş taşır; kalitesi
     kaydedilmemişse `None` (yumurta dondurmada hiçbirinin skoru olmaz).
     """
@@ -412,6 +414,7 @@ def dondurma_tupleri(cycle_id: int) -> list:
     satirlar = db.sorgu(
         f"""
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
+               o.notlar LIKE ? || '%' AS aktarim,
                {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_skor,
                {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
@@ -427,7 +430,7 @@ def dondurma_tupleri(cycle_id: int) -> list:
          WHERE {db.vit_tedavisi('o')} = ? AND o.tip='vitrifikasyon'
            AND o.iptal_mi = 0
          ORDER BY o.vit_tasiyici_id, s.cycle_sira_no
-        """, (cycle_id,))
+        """, (db.KAYNAK_DONDURMA_NOTU, cycle_id))
 
     tupler, sira = [], {}
     for r in satirlar:
@@ -436,9 +439,12 @@ def dondurma_tupleri(cycle_id: int) -> list:
         anahtar = r["tup"] or 0
         if anahtar not in sira:
             sira[anahtar] = len(tupler)
-            tupler.append({"etiket": r["etiket"], "ogeler": [], "gunler": []})
+            tupler.append({"etiket": r["etiket"], "ogeler": [], "gunler": [],
+                           "aktarim": True})
         t = tupler[sira[anahtar]]
         t["ogeler"].append(_dondurma_kalitesi(r))
+        # Tüp Access notundan mı yazıldı (v6.159): hepsi öyleyse evet.
+        t["aktarim"] = t["aktarim"] and bool(r["aktarim"])
         gun = r["bl_gun"] if r["bl_skor"] or r["bl_gun"] else r["cl_gun"]
         if gun and gun not in t["gunler"]:
             t["gunler"].append(gun)
@@ -750,7 +756,7 @@ def cozme_viabilitesi(cozulenler) -> str | None:
     return " · ".join(p for p in (parca, oranlar) if p) or None
 
 
-def _kalan_dondurulmus(cycle_id: int) -> str:
+def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
     """Bu tedaviden sonra hastanın tankta kalan örnekleri, NOTLAR için.
 
     Ölçü **bu tedavinin son işleminin anı** -- bugünün tankı değil: form
@@ -759,7 +765,21 @@ def _kalan_dondurulmus(cycle_id: int) -> str:
     çözülmemiş örnekler. Tüpü yalnızca çözme boşaltıyor; bir dondurmanın
     çözülüp çözülmediği kimlik sırasıyla (dondurmadan sonraki bir çözme,
     v6.143'ün kuralı), yani yeniden dondurulan embriyonun ilk tüpü sayılmıyor.
+
+    v6.159 (kullanıcının isteği: "Yazı kod yazmasın. Tüp içinde embriyo
+    bilgisi parantez ile belirtilsin. Embriyo bilgisi tek sefer yazılsın"):
+    - Tüpler etiketle (kodla) değil içindekiyle yazılıyor: "(4AA) (3BB)".
+    - **Bu tedavide dondurulan tüpler tekrar edilmiyor** -- "Dondurulan:"
+      satırında ya da Access notunda zaten yazılı; "bu tedavide dondurulan
+      2 tüp" diye sayılıyor.
+    - **Bilinmiyorsa hiç yazılmıyor.** Çözülen bir embriyonun dondurması
+      programda yoksa (kaynak tedavisi Access'ten aktarılmamış FET, v6.130)
+      hastanın tankı programda eksik: "Kalan dondurulmuş embriyo yok"
+      demek yanlış olurdu -- o tedavilerin notu "GERİDE 7 TÜPTE 7 ADET D5
+      EMBRİYOSU KALDI" derken form "yok" basıyordu.
     """
+    if any(o["tup"] is None for o in cozulenler):
+        return ""
     kosul, par = db.tedavide_yapilan(cycle_id)
     son = db.tek(
         f"SELECT MAX(o.zaman) z FROM olay o JOIN specimen s "
@@ -771,11 +791,10 @@ def _kalan_dondurulmus(cycle_id: int) -> str:
     vt = db.vit_tedavisi("v")
     satirlar = db.sorgu(
         f"""
-        SELECT v.vit_tasiyici_id AS tup, tz.etiket, v.specimen_id,
+        SELECT v.vit_tasiyici_id AS tup, v.specimen_id, {vt} AS vit_cid,
                (SELECT cycle_tipi FROM cycle WHERE id = {vt}) AS tip
           FROM olay v JOIN specimen s ON s.id = v.specimen_id
           JOIN cycle c ON c.id = s.cycle_id
-          LEFT JOIN tasiyici tz ON tz.id = v.vit_tasiyici_id
          WHERE c.hasta_id = ? AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0
            AND v.zaman <= ?
            AND NOT EXISTS (SELECT 1 FROM olay z WHERE z.specimen_id = v.specimen_id
@@ -783,12 +802,19 @@ def _kalan_dondurulmus(cycle_id: int) -> str:
                  AND z.zaman <= ?)
          ORDER BY v.zaman, v.id
         """, (c["hasta_id"], t, t))
-    gruplar = {}   # "embriyo"/"yumurta" -> {tüp -> etiket}, örnek sayısı
+    # "embriyo"/"yumurta" -> örnek sayısı, bu tedavide dondurulan tüpler,
+    # öteki tüpler (tüp -> içindekilerin kalitesi, sırasıyla)
+    gruplar = {}
     for r in satirlar:
         ad = "yumurta" if db.yumurta_mi(r["tip"]) else "embriyo"
-        g = gruplar.setdefault(ad, {"tupler": {}, "adet": 0})
+        g = gruplar.setdefault(ad, {"adet": 0, "burada": set(), "oteki": {}})
         g["adet"] += 1
-        g["tupler"].setdefault(r["tup"] or 0, r["etiket"])
+        tup = r["tup"] or ("tupsuz", r["vit_cid"])
+        if r["vit_cid"] == cycle_id:
+            g["burada"].add(tup)
+        else:
+            g["oteki"].setdefault(tup, []).append(
+                _ornek_kalitesi(r["specimen_id"], r["vit_cid"]))
     if not gruplar:
         return "Kalan dondurulmuş embriyo yok."
     parcalar = []
@@ -796,11 +822,15 @@ def _kalan_dondurulmus(cycle_id: int) -> str:
         g = gruplar.get(ad)
         if not g:
             continue
-        etiketler = [e for e in g["tupler"].values() if e]
-        p = f"{g['adet']} {ad}, {len(g['tupler'])} tüp"
-        if etiketler:
-            p += " (" + ", ".join(etiketler) + ")"
-        parcalar.append(p)
+        tup_sayisi = len(g["burada"]) + len(g["oteki"])
+        icerik = []
+        if g["burada"]:
+            icerik.append(f"bu tedavide dondurulan {len(g['burada'])} tüp")
+        if g["oteki"]:
+            icerik.append(" ".join(tup_metni({"ogeler": o})
+                                   for o in g["oteki"].values()))
+        parcalar.append(f"{g['adet']} {ad}, {tup_sayisi} tüp: "
+                        + ", ".join(icerik))
     return "Kalan dondurulmuş: " + "; ".join(parcalar) + "."
 
 
@@ -808,29 +838,32 @@ def cozme_notu_satiri(cycle_id: int, cycle_tipi, cozulenler) -> str | None:
     """NOTLAR'a giren çözme satırları (v6.152, kullanıcının isteği: "Hangi
     embriyo çözüldü, geriye dondurulmuş embriyo kaldı mı bilgisi yazsın").
 
-    "Çözülen: 3 embriyo, 1 tüp (0001-0910): 2026-0001-01 3AA Canlı %90,
-    transfer; 2026-0001-02 3AB Canlı, yeniden donduruldu; ..." ve altında
-    "Kalan dondurulmuş: ...". Örnek, ekranlardaki örnek kodunun kendisiyle
-    (`specimen.id`: kaynak tedavinin lab no'su + sırası) -- hangi embriyonun
-    çözüldüğü soyağacıyla okunuyor. 68 karakterde sarılı (v6.130'un kuralı).
+    "Çözülen: 3 embriyo, 1 tüp: (3BB-1CC-KAV3); 1 transfer, 2 yeniden
+    donduruldu" ve altında "Kalan dondurulmuş: ...".
+
+    v6.159 (kullanıcının isteği: "Yazı kod yazmasın. Tüp içinde embriyo
+    bilgisi parantez ile belirtilsin. Embriyo bilgisi tek sefer yazılsın"):
+    v6.152'de her embriyo örnek koduyla yazılıyordu ("2026-0004-01 8HG1
+    Canlı, transfer"); kalitesi kayıtlı olmayan embriyoda satırda yalnızca
+    kod kalıyordu. Artık tüp tüp parantez (`tup_metni()`, "Dondurulan:"
+    satırıyla aynı yazım), ne olduklarıysa yalnızca sayıyla -- kalite
+    parantezde bir kez yazılı. Sağkalım ve canlılık oranı ÇÖZDÜRME SONRASI
+    VİABİLİTE kutusunda. 68 karakterde sarılı (v6.130'un kuralı).
     """
     if not cozulenler:
         return None
     ad = "yumurta" if db.yumurta_mi(cycle_tipi, "thaw") else "embriyo"
     tupler = cozulen_tupler(cozulenler)
-    etiketler = [t["etiket"] for t in tupler if t["etiket"]]
-    bas = f"Çözülen: {len(cozulenler)} {ad}, {len(tupler)} tüp"
-    if etiketler:
-        bas += " (" + ", ".join(etiketler) + ")"
-    ogeler = []
-    for o in cozulenler:
-        parca = " ".join(p for p in (o["kod"], o["kalite"], o["sagkalim"],
-                                     o["canlilik"]) if p)
-        sonra = [s for s, var in (("transfer", o["transfer"]),
-                                  ("yeniden donduruldu", o["yeniden"])) if var]
-        ogeler.append(", ".join([parca] + sonra))
-    satirlar = [_sar(bas + ": " + "; ".join(ogeler))]
-    kalan = _kalan_dondurulmus(cycle_id)
+    satir = (f"Çözülen: {len(cozulenler)} {ad}, {len(tupler)} tüp: "
+             + " ".join(tup_metni(t) for t in tupler))
+    sonuc = [f"{n} {ne}" for n, ne in (
+        (sum(1 for o in cozulenler if o["transfer"]), "transfer"),
+        (sum(1 for o in cozulenler if o["yeniden"]), "yeniden donduruldu"))
+        if n]
+    if sonuc:
+        satir += "; " + ", ".join(sonuc)
+    satirlar = [_sar(satir)]
+    kalan = _kalan_dondurulmus(cycle_id, cozulenler)
     if kalan:
         satirlar.append(_sar(kalan))
     return "\n".join(satirlar)
@@ -887,7 +920,17 @@ def ozet_verisi(cycle_id: int):
     # Dondurulan embriyolar da NOTLAR'a (v6.135, kullanıcının isteği).
     # Sıra klinik akış: protokol -> dondurma -> çözme -> iptal sebebi.
     # Çözülen örneklerin satırı (v6.152) çözme notunun hemen önünde.
-    don_notu = dondurma_notu(cycle_id, c["cycle_tipi"], tupler)
+    # Embriyo bilgisi tek sefer (v6.159, kullanıcının isteği: "bazı
+    # tedavilerde embriyo bilgisi iki kere yazılıyor"). Access'ten aktarılan
+    # tedavinin protokol notu dondurmayı kendi cümlesiyle zaten anlatıyor
+    # ("2 ADET D3 EMBRİYOSU (8HG1-8HG1) ŞEKLİNDE DONDURULARAK SAKLANDI") --
+    # o nottan yazılmış tüpler "Dondurulan:" satırında tekrar edilmiyor.
+    # Programda dondurulan tüpler yazılıyor. ART Lab'ın FREEZE kutuları
+    # bütün tüpleri basmaya devam ediyor (orada not yok).
+    access_notu = "[Access kaydı" in (c["protokol_notu"] or "")
+    don_notu = dondurma_notu(
+        cycle_id, c["cycle_tipi"],
+        [t for t in tupler if not (access_notu and t["aktarim"])])
 
     def _asama_ozeti(satirlar, alan):
         """Dondurma/transfer aşaması: kayıtlardaki farklı aşamalar, virgülle."""

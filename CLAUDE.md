@@ -1051,6 +1051,18 @@ kalıptan**: `form_kalip.json`.
     satırından sonra "Çözülen: ..." ve "Kalan dondurulmuş: ..."
     (`_kalan_dondurulmus()`: bu tedavinin **son işleminin anındaki** tank,
     bugünkü değil — form aylar sonra basılsa da o günü söylesin).
+  - **NOTLAR'da kod yok, embriyo bilgisi bir kez** (v6.159, kullanıcının
+    isteği: "Yazı kod yazmasın. Tüp içinde embriyo bilgisi parantez ile
+    belirtilsin. Embriyo bilgisi tek sefer yazılsın"). "Çözülen: 2
+    embriyo, 1 tüp: (8HG1-7HG2); 2 transfer" — örnek kodu yok, ne olduğu
+    sayıyla. "Kalan dondurulmuş" tüpleri etiketle değil içindekiyle yazıyor,
+    bu tedavide dondurulanları tekrar etmiyor ("bu tedavide dondurulan 1
+    tüp"), çözülen embriyonun dondurması programda yoksa (aktarılmış FET)
+    **hiç yazılmıyor** — "yok" demek yanlış olurdu. Access'ten aktarılan
+    tedavide notun kendi dondurma cümlesi ile aynı tüpler "Dondurulan:"
+    satırına girmiyor (`dondurma_tupleri()`'nin `aktarim` bayrağı,
+    `db.KAYNAK_DONDURMA_NOTU`: aktarımın dondurma olayına yazdığı not).
+    ART Lab'ın kutuları değişmedi.
   - ART Lab: THAW ve TRANSFER da FREEZE gibi dört kutu (`_ARTLAB_DORT_KUTU`).
     THAW tüp tüp parantez (`tup_metni()`), TRANSFER'in "Uterus grade (x
     sayı)"sı "3AA x2 · %90-%85" (`_transfer_satirlari()`).
