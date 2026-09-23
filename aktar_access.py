@@ -63,6 +63,12 @@ bölümü boş kalıyordu. Bu kip yalnızca o değerlendirmeyi yazar, başka hi�
 
     python3 aktar_access.py transfer kaynak=MAYIS mayis.csv
 
+**Yalnızca eksik tüp: `dondurma`** (v6.161). Aracın okuyamadığı için hiç
+tüpü yazılmamış dondurmayı yazar ("2 ADET M2 OOSİT DONDURULARAK SAKLANDI"
+artık tek tüp); tüpü olan tedaviye dokunmaz:
+
+    python3 aktar_access.py dondurma kaynak=OCAK duzelt=tarih_duzeltme.txt ocak.csv
+
 **Yalnızca FET'i tüpüne bağlama: `bagla`** (v6.160). Daha eski bir ay
 sonradan aktarıldıysa (2026 aktarılmışken 2025) sonraki ayların FET'leri
 o tüplere ancak şimdi bağlanabilir. `tamamla` da bağlıyor ama dondurma
@@ -1069,11 +1075,16 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         else:
             tek = {"tur": "embriyo", "ham": ham_cumle.strip() or "skorsuz"}
         gruplar, ogeler = [[tek]], [tek]
-    elif (not gruplar and adet and adet > 1 and _tek_tup(cumle)
+    elif (not gruplar and adet and adet > 1
+          and (_tek_tup(cumle) or (baglam and _ilk(r"(\d+)\s*TUPTE") is None))
           and not (re.search(r"\bM\s*(1|I)\b", cumle)
                    and re.search(r"\bM\s*(2|II)\b", cumle))):
         # Parantezsiz ama tüp sayısı 1 (v6.160): "5 ADET M2 OOSİT 1 TÜPTE
         # DONDURULARAK SAKLANDI" -- dağılım bilinmiyor değil, hepsi o tüpte.
+        # Yumurtada tüp sayısı HİÇ yazmıyorsa da tek tüp (v6.161,
+        # kullanıcının cevabı: "2 ADET M2 OOSİT DONDURULARAK SAKLANDI tek
+        # tüptür"). Embriyoda bu varsayılmıyor; "2 TÜPTE 4 ADET" gibi birden
+        # çok tüpün dağılımı da hâlâ bilinmiyor.
         # Olgunluk karışıksa ("M1" ve "M2" birlikte, sayısı yazmıyor) hangi
         # yumurtanın hangisi olduğu bilinmez, uydurulmuyor (uyarı çıkıyor).
         if baglam:
@@ -1117,6 +1128,33 @@ def _satir_dondurmasi(r) -> dict:
                          r["dondurulan"], fazla)
 
 
+def olgunlugu_nottan_duzelt(satirlar) -> None:
+    """Dondurma notu MII sayısından çok M2 donduruyorsa not kazanır (v6.161).
+
+    Kullanıcının cevabı: iki satırda MII/İMMATÜR kutuları notla tutmuyordu
+    (MII 4 / immatür 3, not 6 M2 + 1 M1 donduruyor; MII 3, not "(3*M2-2M2)"),
+    "bunlar yanlış yazılmıştır, en son yazılanı kullan" -- en son yazılan
+    dondurma notu. Fark immatürden MII'ye geçiyor, toplam değişmiyor;
+    immatür yetmezse kalan eksik kalıyor ve dondurma uyarısı çıkıyor
+    (uydurulacak yumurta yok). Yalnızca yumurtanın bu tedavide toplandığı
+    tipler: FET/Yumurta Çözme'de dondurulan yumurta başka tedavinin.
+    Not "MII Access'te N yazıyordu" diyor (`_not_kur()`)."""
+    for r in satirlar:
+        r["olgunluk_duzeltme"] = None
+        if r["tip"] in FET_TIPLERI:
+            continue
+        coz = _satir_dondurmasi(r)
+        if not coz or not coz.get("oosit_mi"):
+            continue
+        m2 = sum(o["adet"] for o in coz["ogeler"]
+                 if o["tur"] == "oosit" and o["mat"] == "mii")
+        fark = min(m2 - r["mii"], r["immatur"])
+        if fark > 0:
+            r["olgunluk_duzeltme"] = (r["mii"], r["immatur"])
+            r["mii"] += fark
+            r["immatur"] -= fark
+
+
 def _not_kur(r: dict) -> str:
     """Tedavinin protokol notu -- ekranda **ve resmî formda** görünen metin.
 
@@ -1148,6 +1186,10 @@ def _not_kur(r: dict) -> str:
     for alan, eski, yeni in r["duzeltme"]:
         p.append(f"{alan} tarihi Access'te {_gg(eski)} yazıyordu, "
                  f"{_gg(yeni)} olarak düzeltildi.")
+    if r.get("olgunluk_duzeltme"):
+        mii, imm = r["olgunluk_duzeltme"]
+        p.append(f"Access'te MII {mii}, immatür {imm} yazıyordu; dondurma "
+                 f"notuna göre MII {r['mii']}, immatür {r['immatur']} alındı.")
     # İşaret KENDİ satırında: cümlenin sonuna eklenirse `textwrap` onu
     # ortasından bölüyor ("[Access kaydı\nTEMMUZ#9]") ve `_zaten_var()`in
     # `LIKE` deseni tutmuyor -- yani aktarım idempotent olmaktan çıkıyor,
@@ -2610,6 +2652,9 @@ def _ozet_satiri(r) -> str:
         ek += "   [tarih yok: yaklaşık]"
     for alan, eski, yeni in r["duzeltme"]:
         ek += f"   [{alan} {_gg(eski)} → {_gg(yeni)}]"
+    if r.get("olgunluk_duzeltme"):
+        ek += f'   [MII {r["olgunluk_duzeltme"][0]} → {r["mii"]}, nottan]'
+
     return (f'#{r["kimlik"]:>3}  dosya {r["dosya_no"]:<10} {r["tip"]:<14}'
             f'{r["tarih"] or "tarihsiz":<11} {icerik:<52} {son}{ek}')
 
@@ -2836,6 +2881,45 @@ def kaynaga_bagla(satirlar):
     _bagla_ozeti(sonuclar)
 
 
+def eksik_dondurmalari_yaz(satirlar):
+    """Yalnızca HİÇ tüpü yazılmamış dondurma: `tamamla`'nın 1. adımı, dar
+    halde (v6.161).
+
+    Araç bir dondurma notunu okuyamadığında tüp açmıyor, uyarıyordu
+    ("2 ADET M2 OOSİT DONDURULARAK SAKLANDI": kullanıcının cevabı "tek
+    tüptür"). Kural sonradan değişince o tedavinin tüpü ancak `tamamla` ile
+    yazılır, `tamamla` ise öteki tedavilerde elle düzeltilmiş skorları
+    nottaki değerle ezer (v6.142). Bu kip yalnızca bu tedavide taşıyıcılı
+    hiçbir dondurması olmayan satırlara dokunuyor; tüpü olana hiç. İkinci
+    çalıştırma hiçbir şey değiştirmez."""
+    kid = _kullanici_id()
+    yazilan = 0
+    for r in satirlar:
+        var = _zaten_var(r["kimlik"])
+        if not var:
+            continue
+        if var["cycle_tipi"] != r["tip"]:
+            r = dict(r, tip=var["cycle_tipi"])
+        coz = _satir_dondurmasi(r)
+        if not coz or not coz["gruplar"]:
+            continue
+        with _db.yazma_islemi() as b:
+            if b.execute(
+                    "SELECT 1 FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+                    "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+                    f"AND o.vit_tasiyici_id IS NOT NULL AND {_db.vit_tedavisi('o')} = ?",
+                    (var["id"],)).fetchone():
+                continue
+            rapor = []
+            _dondurma_kayitlari(b, r, var["id"], kid, rapor)
+        if rapor:
+            yazilan += 1
+            print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
+            for satir in rapor:
+                print(satir)
+    print(f"\nBitti. {yazilan} tedaviye eksik dondurma yazildi.")
+
+
 def iptal_sebeplerini_duzelt(satirlar):
     """Yalnızca iptal sebebi: `tamamla`'nın 5. adımı, tek başına (v6.150).
 
@@ -2931,7 +3015,7 @@ def main():
         else:
             arg.append(a)
     kip = "aktar"
-    if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer", "bagla"):
+    if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer", "bagla", "dondurma"):
         kip, arg = arg[0], arg[1:]
     if not arg:
         sys.exit("Kullanim:\n"
@@ -2945,6 +3029,8 @@ def main():
                  "  python3 aktar_access.py transfer <dosya.csv>  yalnizca FET'te\n"
                  "                                                transfer edilen\n"
                  "                                                embriyonun kalitesi\n"
+                 "  python3 aktar_access.py dondurma <dosya.csv>  yalnizca hic tupu\n"
+                 "                                                yazilmamis dondurma\n"
                  "  python3 aktar_access.py bagla <dosya.csv>     yalnizca FET'in\n"
                  "                                                cozdugu embriyoyu\n"
                  "                                                tupune baglar\n"
@@ -2974,6 +3060,7 @@ def main():
     tutmayan = (duzeltmeleri_uygula(satirlar, duzeltmeleri_oku(duzelt), KAYNAK)
                 if duzelt else [])
     tarihleri_tamamla(satirlar)
+    olgunlugu_nottan_duzelt(satirlar)
     kopyalar = bos_kopyalari_ayikla(satirlar)
     satirlar.sort(key=lambda r: (r["tarih"] or "9999-99-99", int(r["kimlik"] or 0)))
     cakisan = _carpismalar(satirlar)
@@ -3017,6 +3104,9 @@ def main():
         return
     if kip == "bagla":
         kaynaga_bagla(satirlar)
+        return
+    if kip == "dondurma":
+        eksik_dondurmalari_yaz(satirlar)
         return
     onizleme(satirlar, kopyalar, tutmayan)
     print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")

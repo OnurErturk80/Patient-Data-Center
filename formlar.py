@@ -524,15 +524,6 @@ _ARTLAB_YORUM_SATIR = 36
 # Kırpmak yerine taşırmak bilinçli: kesilen bir skor yanlış bilgi olurdu.
 
 
-def _dort_kutu(metinler_, birim) -> list:
-    """Özet bloğunun dört kutulu sütunları (satır 28-31): fazlası son kutuda
-    sayıyla ("+3 tüp") -- sessizce kırpmak kaç tane olduğunu gizlerdi."""
-    n = len(_ARTLAB_FREEZE_SATIR)
-    if len(metinler_) <= n:
-        return list(metinler_)
-    return list(metinler_[:n - 1]) + [f"+{len(metinler_) - n + 1} {birim}"]
-
-
 def _transfer_satirlari(cycle_id, cozulenler) -> list:
     """ART Lab'ın "Uterus grade (x sayı)" kutuları (v6.152).
 
@@ -554,20 +545,6 @@ def _transfer_satirlari(cycle_id, cozulenler) -> list:
         yuzdeler = "-".join(x for x in oranlar if x)
         satirlar.append(f"{m} · {yuzdeler}" if yuzdeler else m)
     return satirlar
-
-
-def _freeze_satirlari(tupler) -> list:
-    """FREEZE sütununun kutuları: her satır bir tüp.
-
-    Dört kutudan fazla tüp varsa son kutu kalanı sayıyla söylüyor
-    ("+3 tüp") -- sessizce kırpmak "toplam dört tüp var" derdi. Tam liste
-    zaten Embriyoloji Özet'in NOTLAR kutusunda duruyor.
-    """
-    n = len(_ARTLAB_FREEZE_SATIR)
-    if len(tupler) <= n:
-        return [tup_metni(t) for t in tupler]
-    return ([tup_metni(t) for t in tupler[:n - 1]]
-            + [f"+{len(tupler) - n + 1} tüp"])
 
 
 def _bulgu_notu(c, h) -> str:
@@ -1274,9 +1251,10 @@ def artlab_verisi(cycle_id: int):
         # FREEZE sütunu artık sayı değil, **tüp tüp parantezler** (v6.135,
         # kullanıcının isteği: "Parantezler içine embriyoları yaz, birden çok
         # tüp varsa alt satırlarına"). Kâğıtta bu sütunda dört kutu var
-        # (28-31); tüp sayısı bunu aşarsa son kutu kalanı sayıyla söylüyor --
-        # kırpıp susmak kaç tüp olduğunu gizlerdi.
-        "freeze_satirlari": _freeze_satirlari(tupler),
+        # (28-31); dördü aşan tüpler İKİNCİ KÂĞIDIN aynı kutularında devam
+        # ediyor (v6.161, kullanıcının isteği -- önce son kutu "+2 tüp"
+        # diyordu), `artlab_dolgu()`. Liste burada kırpılmıyor.
+        "freeze_satirlari": [tup_metni(t) for t in tupler],
         # Kâğıdın altındaki geniş "Yorum:" satırına eklenir (v6.135).
         "bulgu_notu": bulgu_notu,
         # THAW ve TRANSFER sütunları da dört kutu (v6.152, kullanıcının
@@ -1284,10 +1262,8 @@ def artlab_verisi(cycle_id: int):
         # tüpler FREEZE'in parantezleriyle; TRANSFER'in "Uterus grade (x
         # sayı)" kutularında transfer edilen embriyoların kalitesi, sayısı ve
         # çözmedeki canlılık oranı.
-        "thaw_satirlari": _dort_kutu(
-            [tup_metni(t) for t in cozulen_tupler(cozulenler)], "tüp"),
-        "transfer_satirlari": _dort_kutu(
-            _transfer_satirlari(cycle_id, cozulenler), "grade"),
+        "thaw_satirlari": [tup_metni(t) for t in cozulen_tupler(cozulenler)],
+        "transfer_satirlari": _transfer_satirlari(cycle_id, cozulenler),
         # ART Lab'da NOTLAR gibi bir kutu yok; iptal sebebi kalıbın dışına,
         # en alta ayrı bir şerit olarak ekleniyor (v6.104) -- bkz. app.py
         # form_ekrani()/form_excel(), form_kalip.olcu()/hucre_adresi().
@@ -1390,9 +1366,18 @@ def artlab_dolgu(v: dict) -> list:
     kalan oositler oraya yazılıyor. Özet ve işlem saatleri **yalnızca ilk
     sayfada**: aynı toplamı iki kere basmak hangisinin doğru olduğunu
     sorduruyor.
+
+    FREEZE, THAW ve TRANSFER'in dört kutusu ise sayfadan sayfaya **devam
+    ediyor** (v6.161, kullanıcının isteği: "ikinci kâğıt var, orada freeze
+    bölümünde devam etsin"): 5. tüp ikinci kâğıdın ilk FREEZE kutusunda.
+    Oosit 13'ü geçmese de dördü aşan tüp varsa ikinci kâğıt basılıyor --
+    kâğıtta da öyle doldurulurdu.
     """
     sutunlar = v["sutunlar"]
-    sayfa_sayisi = max(1, -(-len(sutunlar) // ARTLAB_SUTUN))
+    kutu = len(_ARTLAB_FREEZE_SATIR)
+    en_uzun = max([len(v.get(a) or []) for _s, a in _ARTLAB_DORT_KUTU] + [0])
+    sayfa_sayisi = max(1, -(-len(sutunlar) // ARTLAB_SUTUN),
+                       -(-en_uzun // kutu))
     cizelge = v.get("cizelge") or []
     sayfalar = []
 
@@ -1430,10 +1415,6 @@ def artlab_dolgu(v: dict) -> list:
         if sayfa == 0:
             for satir, c, anahtar in _ARTLAB_OZET:
                 d[(satir, c)] = _yaz(v.get(anahtar))
-            for sutun, anahtar in _ARTLAB_DORT_KUTU:
-                for satir, metin in zip(_ARTLAB_FREEZE_SATIR,
-                                        v.get(anahtar) or []):
-                    d[(satir, sutun)] = metin
             for satir, c, anahtar in _ARTLAB_OZET_EK:
                 ek[(satir, c)] = v.get(anahtar)
             for satir, asama in _ARTLAB_ISLEM:
@@ -1441,6 +1422,12 @@ def artlab_dolgu(v: dict) -> list:
                 if z:
                     d[(satir, _ISLEM_TARIH)] = _gg_aa_yyyy(z)
                     d[(satir, _ISLEM_SAAT)] = z[11:16]
+
+        # Dört kutulu sütunlar: bu sayfanın payı (ilk sayfa 1-4, ikinci 5-8).
+        for sutun, anahtar in _ARTLAB_DORT_KUTU:
+            pay = (v.get(anahtar) or [])[sayfa * kutu:(sayfa + 1) * kutu]
+            for satir, metin in zip(_ARTLAB_FREEZE_SATIR, pay):
+                d[(satir, sutun)] = metin
 
         sayfalar.append((d, {k: x for k, x in ek.items()
                              if x is not None and str(x) != ""}))

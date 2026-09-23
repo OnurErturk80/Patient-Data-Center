@@ -13013,10 +13013,59 @@ test kopyasında yapıldı.
 
 - **Kaynağın olgunluk sayısı notla tutmuyor, iki satır.** Yumurta
   Dondurma'da MII 4 / immatür 3 ama not 6 M2 + 1 M1 donduruyor; bir
-  başkasında MII 3 / immatür 6, not 5 M2. Büyük olasılıkla kültürde
-  olgunlaşan (MI → MII) yumurtalar; notun yazımı da ayırıyor ("(3*M2-2M2)").
-  MI kaydı olan yumurta M2 yerine konmuyor, tüp eksik sayıyla yazıldı ve
-  uyarı çıkıyor. Kullanıcıya soruldu; cevaba göre `tamamla` eksik yeri
-  doldurabilir.
-- Tüp sayısı yazmayan bir yumurta dondurması (2 yumurta) yazılmadı.
+  başkasında MII 3 / immatür 6, not 5 M2. Kullanıcıya soruldu — v6.161.
+- Tüp sayısı yazmayan bir yumurta dondurması (2 yumurta) yazılmadı —
+  v6.161.
 - v6.148'deki "Parantezsiz iki dondurma" kararı değişmedi.
+
+---
+
+# v6.161 — ART Lab'da FREEZE ikinci kâğıtta devam ediyor; iki aktarım cevabı
+
+## ART Lab: dördü aşan tüp ikinci kâğıtta
+
+Kullanıcının isteği: *"Dondurulan embriyo tüp 3'ten fazla ise ART Lab
+formunda freeze yerine tamamı sığmayınca +1 veya +2 şeklinde yazılmış.
+Halbuki ikinci kâğıt var, orada freeze bölümünde devam etsin."*
+FREEZE sütununun dört kutusu var (v6.135); dördü aşınca son kutu kalanı
+sayıyla söylüyordu ("+2 tüp"), yani ekranda üç tüp + sayı görünüyordu.
+Artık liste kırpılmıyor (`artlab_verisi()`), `artlab_dolgu()` her sayfaya
+dörder tane dağıtıyor: 5.–8. tüp ikinci kâğıdın aynı kutularında. THAW ve
+TRANSFER'in dört kutusu da aynı kuralla (v6.152'den beri aynı "+N"
+davranışı vardı). Oosit 13'ü geçmese de dördü aşan tüp ikinci kâğıdı
+açıyor — kâğıtta da öyle doldurulurdu. Özet bloğunun öteki kutuları ve
+işlem saatleri hâlâ yalnızca ilk kâğıtta.
+
+Deneme (2025 aktarımının kopyası, 482 tedavi): ART Lab dolgusu eski ve yeni
+kodla karşılaştırıldı, yalnızca dörtten çok tüpü olan 10 tedavi değişti.
+8 tüplü bir tedavinin ikinci kâğıdında 5.–8. tüpler ekranda görüldü; bu 10
+tedavinin form sayfası, Excel'i ve Özet formu 200.
+
+## Aktarım: kullanıcının iki cevabı
+
+**"2 ADET M2 OOSİT DONDURULARAK SAKLANDI tek tüptür."** Yumurta dondurma
+notunda tüp sayısı hiç yazmıyorsa artık tek tüp (v6.160 yalnızca "1 TÜPTE"
+yazanı tek tüp sayıyordu). Embriyoda varsayılmıyor; "2 TÜPTE 4 ADET" gibi
+çok tüplü ama dağılımı yazmayan not hâlâ yazılmıyor.
+
+**Olgunluk sayısı notla tutmuyorsa: "yanlış yazılmıştır, en son yazılanı
+kullan".** En son yazılan dondurma notu. `olgunlugu_nottan_duzelt()`
+satırlar okunduktan sonra çalışıyor: notun M2 sayısı MII'den çoksa fark
+immatürden MII'ye geçiyor (toplam değişmiyor), protokol notu "Access'te MII
+4, immatür 3 yazıyordu; dondurma notuna göre MII 6, immatür 1 alındı"
+diyor, `liste` satırı "[MII 4 → 6, nottan]". İki satırda uyarı kalktı,
+tüpler notun sayısıyla yazıldı. Yalnızca yumurtanın bu tedavide toplandığı
+tiplerde; immatür yetmezse fark eksik kalır ve dondurma uyarısı çıkar.
+
+**Dar kip `dondurma`.** 2026'da da (v6.148) "2 ADET M2 OOSİT" bir satır
+vardı, tüpü yazılmadı. `tamamla` yazardı ama öteki tedavilerde elle
+düzeltilmiş skorları ezer; `dondurma` yalnızca bu tedavide taşıyıcılı hiç
+dondurması olmayan satıra yazıyor. v6.160 ile aktarılmış 2025 kopyasında
+beş ay geçirildi: yalnızca o satıra bir tüp açıldı; ikinci çalıştırma
+tablo tablo karşılaştırıldı, hiçbir şey değişmedi. Not–MII düzeltmesi
+aktarılmış tedaviye uygulanmıyor (yumurtalar aktarım anında açılıyor).
+
+Gerileme: 2025'in beş dosyası ve 2026 mayıs, `liste` çıktısı eski ve yeni
+araçla karşılaştırıldı — fark yalnızca bu üç satırda. Baştan aktarım
+(beş ay): 417 tedavi, 0 hata; tek uyarı olgunluğu kaynakta hiç yazılmamış
+yumurtanın bilgisi.

@@ -1041,7 +1041,10 @@ kalıptan**: `form_kalip.json`.
     uzun satır sarmaz, **sessizce kesilir** (v6.130'un kuralı). NOTLAR
     sırası: protokol → dondurma → çözme → iptal sebebi.
   - ART Lab'da FREEZE sütununun **dört kutusu** (satır 28-31) tüp tüp
-    doluyor; dörtten çoksa son kutu kalanı sayıyla söylüyor ("+3 tüp").
+    doluyor; dördü aşan tüpler **ikinci kâğıdın** aynı kutularında devam
+    ediyor (v6.161, kullanıcının isteği; v6.160'a kadar son kutu "+3 tüp"
+    diyordu). THAW ve TRANSFER de aynı. Oosit 13'ü geçmese de dördü aşan
+    tüp ikinci kâğıdı açıyor (`artlab_dolgu()`'nun sayfa sayısı).
 - **Çözülen örnekler de iki forma tek yerden** (v6.152, kullanıcının
   isteği: "FET çözme tedavilerinde formlara işlem geçmiyor").
   `formlar.cozulen_ornekler(cycle_id)` — her çözülen örnek: kodu
@@ -2053,14 +2056,24 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`… Aynı etiketi
   başka yılın dosyasına verme.
 - **Parantezsiz ama tek tüplü dondurma yazılıyor** (v6.160): "5 ADET M2
-  OOSİT 1 TÜPTE" — dağılım belli. Tüp sayısı yazmıyorsa ya da olgunluk
-  karışıksa ("M1 M2", sayısız) hâlâ yazılmıyor, uyarı çıkıyor.
+  OOSİT 1 TÜPTE" — dağılım belli. **Yumurtada tüp sayısı hiç yazmıyorsa
+  da tek tüp** (v6.161, kullanıcının cevabı: "2 ADET M2 OOSİT DONDURULARAK
+  SAKLANDI tek tüptür"); embriyoda bu varsayılmıyor. "2 TÜPTE 4 ADET" gibi
+  dağılımı yazmayan çok tüp ve olgunluğu karışık olan ("M1 M2", sayısız)
+  hâlâ yazılmıyor, uyarı çıkıyor. Dar onarım kipi `dondurma`: yalnızca
+  hiç tüpü olmayan tedaviye yazar.
 - **Olgunluğu kaynakta hiç sayılmamış yumurta dondurulabiliyor** (v6.160,
   havuzun `olcusuz`'u): MII/immatür kutuları boş, not "1 ADET OOSİT
   DONDURULARAK SAKLANDI". Yalnızca kaynağın sayılarının ÖTESİNDEKİ
   yumurtalar — empty zona da maturasyon kaydı olmadan açılıyor, içinde
-  yumurta yok. MI yazılmış yumurta M2 yerine KONMUYOR (açık soru, README
-  v6.160).
+  yumurta yok.
+- **Dondurma notu MII sayısıyla çelişirse not kazanır** (v6.161,
+  kullanıcının cevabı: "yanlış yazılmıştır, en son yazılanı kullan"):
+  `olgunlugu_nottan_duzelt()`, notun M2 sayısı MII'den çoksa fark
+  immatürden MII'ye geçer, not "Access'te MII 4 ... yazıyordu" der. Aktarım
+  anında çalışıyor (yumurtalar o an açılıyor); daha önce aktarılmış
+  tedavinin maturasyon kayıtlarına dokunmuyor. MI yazılmış yumurta yine M2
+  yerine konmuyor — sayı baştan doğru açılıyor.
 - **İptal kalıpları** (`_IPTAL_AYRINTI`): fertilizasyon olmadı, cleavage
   arrest, 5. gün arrest, v6.149'dan beri "OOSİT ÇIKMADI" → Yumurta Çıkmadı,
   "İNMATÜR OOSİT SEBEBİYLE" → İmmatür Yumurta. Programdaki sebebin adıyla

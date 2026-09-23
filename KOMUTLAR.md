@@ -274,6 +274,27 @@ python3 aktar_access.py bagla kaynak=TEMMUZ  temmuz.csv
 python3 aktar_access.py bagla agustos.csv
 ```
 
+**v6.161:** "2 ADET M2 OOSİT DONDURULARAK SAKLANDI" gibi tüp sayısı yazmayan
+yumurta dondurması artık tek tüp. 2026'da da böyle bir satır vardı ve tüpü
+yazılmamıştı; yalnızca hiç tüpü olmayan tedaviye yazan `dondurma` kipiyle
+2026'nın aylarını bir kez geçir (tüpü olana dokunmaz, iki kez çalıştırmak
+güvenli):
+
+```
+python3 aktar_access.py dondurma kaynak=OCAK    duzelt=tarih_duzeltme.txt ocak.csv
+python3 aktar_access.py dondurma kaynak=SUBAT   duzelt=tarih_duzeltme.txt subat.csv
+python3 aktar_access.py dondurma kaynak=MART    duzelt=tarih_duzeltme.txt mart.csv
+python3 aktar_access.py dondurma kaynak=NISAN   duzelt=tarih_duzeltme.txt nisan.csv
+python3 aktar_access.py dondurma kaynak=MAYIS   mayis.csv
+python3 aktar_access.py dondurma kaynak=HAZIRAN duzelt=tarih_duzeltme.txt haziran.csv
+python3 aktar_access.py dondurma kaynak=TEMMUZ  temmuz.csv
+python3 aktar_access.py dondurma agustos.csv
+```
+
+2025'i **zaten v6.160 ile aktardıysan** aynı kip 2025 için de gerekli
+(`kaynak=SUBAT2025 subat2025.csv` ...), ama not–MII düzeltmesi (iki Yumurta
+Dondurma satırı) aktarılmış tedaviye uygulanmıyor — o durumda söyle.
+
 `bagla` satırlarındaki etiketler ve dosyalar 2026'nın ilk aktarımındakilerle
 **aynı** olmalı (ağustos etiketsiz). Rapor bağlananları, "elle bakılmalı"
 olanları kayıt numarasıyla söylüyor: bir tüpte duran embriyo sayısı ya da
