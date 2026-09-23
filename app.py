@@ -4292,7 +4292,10 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
     # `tasan`: ART Lab'ın dar FREEZE kutusu, yazısı sığmazsa sağdaki boş
     # kutulara akıyor (v6.135, kullanıcının kararı) -- kesilmesindense.
     tasan = formlar.ARTLAB_TASAN_HUCRELER if ad == "artlab" else None
-    sayfalar = [form_kalip.satirlar(kalip, deger, ek, tasan=tasan)
+    # `sigdir`: kimlik kutularında sığmayan ad küçülüyor (v6.150).
+    sigdir = formlar.sigdir_hucreleri(ad)
+    sayfalar = [form_kalip.satirlar(kalip, deger, ek, tasan=tasan,
+                                    sigdir=sigdir)
                 for deger, ek in dolgu(v)]
     return sablon.TemplateResponse(
         request, "form.html",
@@ -4319,7 +4322,7 @@ def form_excel(request: Request, ad: str, cycle_id: int):
     sayfalar = [
         form_kalip.yerlesim(
             kalip, sayfa_adi if len(parcalar) == 1 else f"{sayfa_adi} {i}",
-            deger, ek)
+            deger, ek, sigdir=formlar.sigdir_hucreleri(ad))
         for i, (deger, ek) in enumerate(parcalar, start=1)
     ]
     if ad == "artlab" and v.get("iptal_notu"):

@@ -108,6 +108,28 @@
       sarmalayici.style.height = Math.ceil(dogalYukseklik * oran) + 'px';
     });
   }
+  // Kimlik kutusuna sığmayan ad kesilmesin, küçülsün (v6.150): `.sigdir`
+  // hücrelerde punto kutuya sığana kadar düşüyor, en çok yarısına kadar
+  // (~40 harflik ad; Excel'in "sığacak şekilde küçült"ünün sınırı yok).
+  // Ölçüm `transform`dan etkilenmiyor (scrollWidth düzen ölçüsü), o yüzden
+  // formlariSigdir'den önce ya da sonra çalışması fark etmiyor. Yazdırma
+  // puntoları değiştirmiyor ama kutu genişliği değişiyor (aşağıda).
+  function adlariSigdir() {
+    document.querySelectorAll('.kalip td.sigdir').forEach(function (td) {
+      td.style.fontSize = '';
+      var boy = parseFloat(getComputedStyle(td).fontSize);
+      var alt = boy * 0.5;
+      while (td.scrollWidth > td.clientWidth + 1 && boy > alt) {
+        boy -= 0.25;
+        td.style.fontSize = boy + 'px';
+      }
+    });
+  }
+  adlariSigdir();
+  // Çıktıda kutu genişliği ekrandakinden farklı; yazdırmadan önce yeniden
+  // ölç, sonra ekrana göre geri al.
+  window.addEventListener('beforeprint', adlariSigdir);
+  window.addEventListener('afterprint', adlariSigdir);
   window.addEventListener('resize', formlariSigdir);
   window.addEventListener('orientationchange', formlariSigdir);
   formlariSigdir();

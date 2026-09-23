@@ -482,7 +482,11 @@ def _kalip_xf(stil: dict, fontlar: list, kenarlar: list) -> str:
     if y:
         hiza.append(f'horizontal="{y}"')
     hiza.append('vertical="%s"' % _DIKEY.get(stil.get("dikey", 1), "center"))
-    if stil.get("sar"):
+    if stil.get("sigdir"):
+        # Sığmayan yazı hücrede küçülür (v6.150, kimlik kutuları).
+        # Excel'de wrapText ile birlikte kullanılamıyor, ikisinden biri.
+        hiza.append('shrinkToFit="1"')
+    elif stil.get("sar"):
         hiza.append('wrapText="1"')
     return (f'<xf numFmtId="0" fontId="{fid}" fillId="0" borderId="{kid}" '
             'xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">'

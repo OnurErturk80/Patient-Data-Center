@@ -47,6 +47,14 @@ uygulanıyor; ikinci kez çalıştırmak hiçbir şeyi değiştirmez:
     python3 aktar_access.py tamamla kaynak=TEMMUZ temmuz.csv
     python3 aktar_access.py tamamla agustos.csv
 
+**Yalnızca iptal sebebi: `iptal`** (v6.150). v6.149'a kadar araç "Yumurta
+Çıkmadı" / "İmmatür Yumurta" sebeplerini tanımıyordu, o notlar genel
+"İptal" oldu. Bu kip yalnızca hâlâ genel "iptal"de kalan tedavinin sebebini
+günceller, başka hiçbir şeye dokunmaz (`tamamla` elle düzeltilmiş skoru
+ezebilir, bu kip ezmez):
+
+    python3 aktar_access.py iptal kaynak=OCAK ocak.csv
+
 ------------------------------------------------------------------------
 ACCESS'TEN CSV NASIL ÇIKAR
 
@@ -2597,6 +2605,60 @@ def _cozme_tupu_duzelt(b, r, cycle_id, rapor):
                      "tüpü yazılmıştı (goc_046)")
 
 
+def _iptal_sebebi_duzelt(b, r, cycle_id, kid, rapor):
+    """Genel "iptal" ile kapanmış tedaviye nottaki ayrıntılı sebebi yazar.
+
+    v6.149'a kadar araç "Yumurta Çıkmadı" / "İmmatür Yumurta" sebeplerini
+    tanımıyordu; o notlar genel "İptal"e düştü. **Yalnızca sebep hâlâ genel
+    "iptal" ise** değiştiriliyor -- kullanıcı ekrandan başka bir sebep
+    seçtiyse (`/cycle/{id}/bitir`) ona dokunulmaz. Değişiklik geçmişine de
+    yazılıyor, ekranda elle yapılan değişiklik gibi.
+    """
+    sebep = _iptal_sebebi(r["notlar"])
+    if not sebep or sebep == "iptal":
+        return
+    c = b.execute("SELECT durum, bitis_sebebi FROM cycle WHERE id=?",
+                  (cycle_id,)).fetchone()
+    if not c or c["durum"] != "iptal" or c["bitis_sebebi"] != "iptal":
+        return
+    b.execute("UPDATE cycle SET bitis_sebebi=? WHERE id=?", (sebep, cycle_id))
+    # `guvenlik.degisiklikleri_yaz()` kendi bağlantısını açıyor; burası
+    # `yazma_islemi()`'nin kilidi içinde, o yüzden aynı bağlantıdan yazılıyor.
+    b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+              "eski_deger, yeni_deger, kullanici_id, zaman) "
+              "VALUES (?,?,?,?,?,?,?,?)",
+              (_db.LAB_ID, "cycle", str(cycle_id), "bitis_sebebi", "iptal",
+               sebep, kid,
+               _dt.datetime.now().isoformat(" ", "seconds")))
+    rapor.append(f"    iptal sebebi: iptal → {sebep}")
+
+
+def iptal_sebeplerini_duzelt(satirlar):
+    """Yalnızca iptal sebebi: `tamamla`'nın 5. adımı, tek başına (v6.150).
+
+    `tamamla` dondurulan embriyoların değerlendirmesini nottaki değerle
+    yeniden yazıyor -- aylar önce aktarılmış bir tedavide ekrandan elle
+    düzeltilmiş bir skoru ezer (v6.142). Sebebi onarmak için o riski almaya
+    gerek yok: bu kip `cycle.bitis_sebebi` dışında hiçbir şeye dokunmuyor.
+    İkinci çalıştırma hiçbir şey değiştirmez.
+    """
+    kid = _kullanici_id()
+    degisen = 0
+    for r in satirlar:
+        var = _zaten_var(r["kimlik"])
+        if not var:
+            continue
+        rapor = []
+        with _db.yazma_islemi() as b:
+            _iptal_sebebi_duzelt(b, r, var["id"], kid, rapor)
+        if rapor:
+            degisen += 1
+            print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
+            for satir in rapor:
+                print(satir)
+    print(f"\nBitti. {degisen} tedavinin iptal sebebi guncellendi.")
+
+
 def tamamla(satirlar):
     """Zaten aktarılmış tedavileri aracın bugünkü kurallarıyla tamamlar.
 
@@ -2607,7 +2669,9 @@ def tamamla(satirlar):
        "BB" embriyoları ve MI yumurtaları, FET'in yeniden dondurması);
     2. taze transfer (v6.148: araç IVF/ICSI transferini hiç yazmıyordu);
     3. geçersiz çözme canlılığı, çözmeye yanlış yazılmış tüp (goc_046);
-    4. çözülen örneği dondurulduğu tüpe bağlama.
+    4. çözülen örneği dondurulduğu tüpe bağlama;
+    5. iptal sebebi: genel "iptal" kalmış tedavi, not bugün tanınan ayrıntılı
+       bir sebep söylüyorsa (v6.150: "OOSİT ÇIKMADI", "İNMATÜR OOSİT").
     **Hemen çalıştır**: değerlendirme nottaki değerle güncelleniyor, aktarılan
     bir skoru ekranda elle düzelttiysen `tamamla` o düzeltmeyi ezer (v6.142).
     """
@@ -2634,6 +2698,7 @@ def tamamla(satirlar):
                 _canlilik_duzelt(b, r, var["id"], rapor)
                 _cozme_tupu_duzelt(b, r, var["id"], rapor)
                 durum = _kaynaga_bagla(b, r, var["id"], kid, rapor)
+                _iptal_sebebi_duzelt(b, r, var["id"], kid, rapor)
         except Exception as hata:
             sayac["hata"] += 1
             print(f'#{r["kimlik"]:>3}  HATA: {hata}')
@@ -2661,7 +2726,7 @@ def main():
         else:
             arg.append(a)
     kip = "aktar"
-    if arg and arg[0] in ("liste", "tamamla"):
+    if arg and arg[0] in ("liste", "tamamla", "iptal"):
         kip, arg = arg[0], arg[1:]
     if not arg:
         sys.exit("Kullanim:\n"
@@ -2670,6 +2735,8 @@ def main():
                  "  python3 aktar_access.py tamamla <dosya.csv>   zaten aktarilmis\n"
                  "                                                tedavilere nottaki\n"
                  "                                                skorlari ekler\n"
+                 "  python3 aktar_access.py iptal <dosya.csv>     yalnizca iptal\n"
+                 "                                                sebeplerini gunceller\n"
                  "\n"
                  "  kaynak=<AD>  ikinci bir Access dosyasi aktarilirken sart:\n"
                  "               her dosya kendi kayitlarini 1'den numaraliyor,\n"
@@ -2717,6 +2784,9 @@ def main():
                  "da `python3 goc_hepsi.py` calistir, sonra tekrar dene.")
     if kip == "tamamla":
         tamamla(satirlar)
+        return
+    if kip == "iptal":
+        iptal_sebeplerini_duzelt(satirlar)
         return
     onizleme(satirlar, kopyalar, tutmayan)
     print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")

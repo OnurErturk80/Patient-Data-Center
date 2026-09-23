@@ -227,6 +227,25 @@ python3 aktar_access.py tamamla agustos.csv
 `kaynak=` etiketi o ayın ilk aktarımındakiyle **aynı** olmalı (`HAZIRAN`,
 `TEMMUZ`; ağustos etiketsiz) — farklı yazılırsa `tamamla` satırları bulamaz.
 
+**İptal sebeplerini onarmak (v6.150).** v6.149'a kadar araç "OOSİT ÇIKMADI"
+ve "İNMATÜR OOSİT" notlarını tanımıyordu; o tedaviler genel "İptal" olarak
+kaldı. `iptal` kipi yalnızca hâlâ genel "iptal"de kalanların sebebini
+günceller, başka hiçbir şeye dokunmaz — ekrandan elle seçtiğin bir sebep ve
+elle düzelttiğin skorlar olduğu gibi kalır. Aktardığın her ay için bir kez:
+
+```
+python3 aktar_access.py iptal kaynak=OCAK    duzelt=tarih_duzeltme.txt ocak.csv
+python3 aktar_access.py iptal kaynak=SUBAT   duzelt=tarih_duzeltme.txt subat.csv
+python3 aktar_access.py iptal kaynak=MART    duzelt=tarih_duzeltme.txt mart.csv
+python3 aktar_access.py iptal kaynak=NISAN   duzelt=tarih_duzeltme.txt nisan.csv
+python3 aktar_access.py iptal kaynak=HAZIRAN duzelt=tarih_duzeltme.txt haziran.csv
+python3 aktar_access.py iptal kaynak=TEMMUZ  temmuz.csv
+python3 aktar_access.py iptal agustos.csv
+```
+
+Mayıs v6.149'la aktarıldıysa gerekmiyor (sebepler zaten doğru yazıldı).
+İki kez çalıştırmak güvenli.
+
 **`duzelt=` ne işe yarıyor:** Access'te yazım hatasıyla girilmiş tarihlerin
 düzeltmeleri (OPU'su haziran yazan bir ocak tedavisi gibi). Dosyada
 `KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih` satırları var; düzeltme

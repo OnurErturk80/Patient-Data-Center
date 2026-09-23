@@ -1028,6 +1028,18 @@ kalıptan**: `form_kalip.json`.
   yapmak gerekmedi. `tasan` `deger`/`ek` gibi **doldurma tarafından**
   geliyor, kalıp değişmiyor. Yeni bir dar kutuya uzun bir değer yazarsan
   önce ölç (`scrollWidth > clientWidth`), sonra taşıt.
+- **Kenardaki kutuda taşırma olmaz, küçült** (v6.150, kullanıcının
+  isteği). Özet'in EŞİNİN ADI kutusu formun sağ kenarında: 19 harflik bir
+  ad 3px taşıp son harfi kesiliyordu, `.tasabilir` yazıyı kâğıdın dışına
+  çıkarırdı. Kimlik kutuları (`formlar.sigdir_hucreleri(ad)`: Özet'in
+  SOYADI/ADI/EŞİNİN ADI, ART Lab'ın Adı/Eşinin adı) `.sigdir` alıyor:
+  `form.html`'in `adlariSigdir()`'i puntoyu kutuya sığana kadar düşürüyor
+  (en çok yarısına, ~40 harf), `beforeprint`/`afterprint`'te yeniden
+  ölçüyor (çıktıda kutu daha geniş). Excel'de aynı hücreler stilin bir
+  **kopyasıyla** `shrinkToFit` alıyor (`form_kalip.yerlesim(sigdir=)`,
+  `excel._kalip_xf`) — kalıbın stil listesi önbellekte paylaşılıyor,
+  kendisine ekleme. Karar sırası: sağında boş kutu varsa taşır, yoksa
+  küçült, **asla kesme** — kimlik bilgisi kesik basılmaz.
 - **ART Lab'ın "Yorum"u iki ayrı yer** — karıştırma. Izgaranın en alt
   satırı **oosit başına** ve çok dar (blastokist skoru orada, v6.37);
   kâğıdın altındaki "Raporu dolduran … Yorum:" satırı ise sayfa
@@ -1942,7 +1954,21 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
 - **`tamamla` her kuralın onarım yolu, ikinci çalıştırma hiçbir şeyi
   değiştirmez** (v6.148'de yedi dosyada satır satır denendi): dondurma →
   taze transfer → geçersiz canlılık → çözmeye yanlış yazılmış tüp →
-  kaynağa bağlama. Dondurma onarımı var olan tüpü notun grubuyla eşleştiriyor
+  kaynağa bağlama → iptal sebebi (v6.150).
+- **Dar onarım kipleri de var: `iptal`** (v6.150). `tamamla` dondurma
+  değerlendirmesini nottaki değerle yeniden yazıyor — aylar önce aktarılmış
+  bir tedavide elle düzeltilmiş skoru ezer. Yalnızca bir alanı onarman
+  gerekiyorsa (iptal sebebi gibi) bütün `tamamla`'yı önerme; o adımı tek
+  başına çalıştıran bir kip yaz. `iptal` yalnızca `bitis_sebebi` hâlâ
+  genel `'iptal'` iken ayrıntılı sebebi yazıyor (kullanıcının ekrandan
+  seçtiğine dokunmuyor), `degisiklik_log`'a düşüyor. Log satırı `b` ile
+  yazılıyor: `guvenlik.degisiklikleri_yaz()` kendi bağlantısını açar,
+  `yazma_islemi()`'nin kilidi içinde bekler.
+- **İptal kalıpları** (`_IPTAL_AYRINTI`): fertilizasyon olmadı, cleavage
+  arrest, 5. gün arrest, v6.149'dan beri "OOSİT ÇIKMADI" → Yumurta Çıkmadı,
+  "İNMATÜR OOSİT SEBEBİYLE" → İmmatür Yumurta. Programdaki sebebin adıyla
+  **birebir aynı söz** olmalı, yorum değil; empty zone ve 3PN'in listede
+  karşılığı yok, genel iptal kalıyor. Dondurma onarımı var olan tüpü notun grubuyla eşleştiriyor
   (tüpteki örnek kendi skorundan / olgunluğundan tanınıyor), eksik yeri
   tamamlıyor, notta olmayanı çıkarıyor; **tüp silinmez, etiketi ve konumu
   değişmez**. Yeni bir kural eklersen `tamamla`'nın adımlarına da ekle ve

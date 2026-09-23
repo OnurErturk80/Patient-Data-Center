@@ -12337,3 +12337,94 @@ KOMUTLAR.md "Eski Access kayıtları" → "Mayıs 2026". Haziran zaten
 aktarıldıysa mayıstan sonra haziran, temmuz ve ağustos `tamamla` ile yeniden
 geçirilmeli: sonraki ayların FET'lerinin mayısta dondurulan tüpleri ancak o
 zaman bağlanıyor.
+
+---
+
+# v6.150 — resmî formda sığmayan ad küçülüyor; eski iptallerin sebebi
+
+Kullanıcının isteği: *"İkisini de düzelt."* v6.149'un sonunda bildirilen iki
+sorun.
+
+## 1. Kimlik kutusunda sığmayan ad küçülüyor
+
+Embriyoloji Özet'in EŞİNİN ADI kutusu 128 piksel; 19 harflik bir ad 131
+piksel tutup son harfi kesiliyordu. v6.135'in çözümü (`.tasabilir`, yazı
+sağdaki boş kutulara akar) burada olmaz: kutu formun **sağ kenarında**,
+taşan yazı kâğıdın dışına çıkardı. Kâğıda elle yazarken de sığmayan ad
+küçük yazılır — program da öyle yapıyor.
+
+- **Hangi hücreler**: `formlar.sigdir_hucreleri(ad)`. Özet'te SOYADI, ADI,
+  EŞİNİN ADI; ART Lab'da Adı ve Eşinin adı (yedi sütun genişliğinde, bugün
+  sığıyor — kural iki formda aynı olsun diye).
+- **Ekranda ve çıktıda**: hücre `.sigdir` alıyor; `form.html`'in
+  `adlariSigdir()`'i puntoyu kutuya sığana kadar 0,25 piksel adımlarla
+  düşürüyor, en çok yarısına (~40 harflik ad). Çıktıda kutu ekrandakinden
+  geniş (ölçüldü: 128 → 249 piksel), o yüzden `beforeprint`'te yeniden
+  ölçülüyor, `afterprint`'te ekrana göre geri alınıyor.
+- **Excel'de**: aynı hücreler "sığacak şekilde küçült" (`shrinkToFit`)
+  alıyor. Kalıbın stil listesi önbellekte paylaşılıyor; `yerlesim()` listenin
+  **kopyasına** o stilin küçülen bir eşini ekliyor, kalıba dokunmuyor.
+  `shrinkToFit` ile `wrapText` Excel'de birlikte kullanılamıyor, küçülen
+  hücrede sarma kapalı.
+- Kalıp (`form_kalip.json`) değişmedi.
+
+### Ölçüm
+
+Mayıs verisinin 63 tedavisinde iki form (126 sayfa): kesilen hücre 0 (önce
+1), JS hatası yok. 19 harflik ad 11,1 piksele indi (kutu 128, yazı 129 —
+1 piksellik tolerans içinde). Uç örnek olarak 32 harflik uydurma bir eş adı
+6,4 piksele inip sığdı (%60'lık ilk alt sınırda 4 piksel taşıyordu, sınır
+%50'ye indirildi). Çıktı düzeninde (249 piksel) aynı adlar tam puntoyla
+sığdı. Excel: `H8` hücresi `shrinkToFit="1"` hizalamasıyla, dosya geçerli
+ZIP.
+
+## 2. Eski iptallerin sebebi: `iptal` kipi
+
+v6.149 araca "OOSİT ÇIKMADI" → Yumurta Çıkmadı ve "İNMATÜR OOSİT" →
+İmmatür Yumurta kalıplarını ekledi, ama ondan önce aktarılan aylarda aynı
+notlar genel "İptal" olarak kaldı.
+
+- `tamamla`'ya beşinci adım eklendi (`_iptal_sebebi_duzelt()`), ayrıca
+  **yalnızca bu adımı** çalıştıran yeni bir kip: `iptal`. Sebep: `tamamla`
+  dondurma değerlendirmesini nottaki değerle yeniden yazıyor (v6.142), yani
+  aylar önce aktarılmış bir tedavide ekrandan elle düzeltilmiş bir skoru
+  ezer. İptal sebebini onarmak için o riski almaya gerek yok.
+- **Yalnızca sebep hâlâ genel `'iptal'` ise** değiştiriliyor. Kullanıcı
+  ekrandan başka bir sebep seçtiyse dokunulmuyor. Değişiklik
+  `degisiklik_log`'a yazılıyor (`iptal → yumurta_cikmadi`).
+- Log satırı aracın kendi bağlantısından yazılıyor: `guvenlik.
+  degisiklikleri_yaz()` ayrı bir bağlantı açıyor ve `yazma_islemi()`'nin
+  `BEGIN IMMEDIATE` kilidi içinde 15 saniye beklerdi.
+
+### Deneme (test kopyasında, mayıs verisiyle)
+
+Mayısın beş ayrıntılı iptali eski araç yazmış gibi genel "iptal"e çevrildi,
+birine de sanki ekrandan seçilmiş gibi "PN Arrest" yazıldı:
+- `iptal` kipi dördünü güncelledi, "PN Arrest"e dokunmadı, üç empty zone /
+  3PN iptali genel kaldı; `degisiklik_log`'a dört satır.
+- Başka hiçbir tablo değişmedi (hasta, specimen, olay, taşıyıcı, işlemi
+  yapan ve tedavinin öteki alanları karşılaştırıldı).
+- İkinci çalıştırma: "0 tedavinin iptal sebebi güncellendi".
+- `tamamla` da aynı sonucu verdi, ikinci çalıştırması 0.
+- Tedavi ekranı ve ART Lab formu "Yumurta Çıkmadı İptal" basıyor.
+
+## Kullanıcının makinesinde
+
+KOMUTLAR.md "Eski Access kayıtları" → "İptal sebeplerini onarmak": aktarılan
+her ay için bir `iptal` komutu.
+
+## Açık: 3. gün dondurulan embriyoların cleavage kaydı
+
+Kullanıcı aynı mesajda bildirdi: eski tedavilerde 3. gün dondurulan
+embriyoların cleavage aşamasında hücre sayısı ve grade yok. Test kopyasında
+aracın bugünkü hali doğru yazıyor (mayısta 8HG1 → gün 3, 8 hücre, G1, ekranda
+görünüyor). Kullanıcının veritabanında boş kalmış olabilecek iki yol
+bulundu:
+- **Ağustos, v6.130'la aktarıldıysa ve sonra `tamamla` çalışmadıysa**: o
+  sürüm 3. gün dondurmasını skor alanları boş yazıyordu. Test kopyasında
+  değerlendirmeler boşaltılıp `tamamla` çalıştırıldı, 11 embriyonun 11'i
+  hücre sayısı ve grade'le doldu.
+- **"BB" ve "BİRLEŞME" yazımları** v6.148'den beri bilerek skorsuz
+  yazılıyor (hücre sayısı ve grade boş). Mayısta bir tane var
+  ("BİRLEŞMEG3"). "BB"nin laboratuvarın yazımında ne demek olduğu kullanıcıya
+  soruldu; cevap gelene kadar dokunulmadı.

@@ -304,7 +304,8 @@ def _yazi(kalip_metni: str, deger, ekleme) -> str:
     return kalip_metni
 
 
-def satirlar(kaynak, deger=None, ek=None, alan=None, tasan=None) -> dict:
+def satirlar(kaynak, deger=None, ek=None, alan=None, tasan=None,
+             sigdir=None) -> dict:
     """Şablonun bastığı ızgara: sütun genişlikleri + satır satır hücreler.
 
     Ölçek: kâğıdın kendi punto ve satır yükseklikleri A4'e sığmıyor (Excel
@@ -318,10 +319,15 @@ def satirlar(kaynak, deger=None, ek=None, alan=None, tasan=None) -> dict:
     kendi davranışını taklit ediyor (dolu hücrenin yazısı boş komşusuna
     akar). **Kalıbın kendisiyle ilgisi yok**, `deger`/`ek` gibi doldurma
     tarafından geliyor -- kâğıt değişmiyor (v6.135).
+
+    `sigdir`: sığmayan yazısı **küçülen** hücreler (`.sigdir`, v6.150) --
+    kutu kâğıdın kenarındaysa taşırmak yazıyı kâğıdın dışına çıkarırdı.
+    Puntoyu `form.html`'in betiği düşürüyor.
     """
     k = _kalip_al(kaynak)
     deger, ek, alan = deger or {}, ek or {}, alan or {}
     tasan = tasan or set()
+    sigdir = sigdir or set()
 
     toplam = sum(h or 15.0 for h in k["satir_yuksekligi"])
     sayfa_yon, hedef = _sayfa_olcusu(kaynak)
@@ -339,7 +345,8 @@ def satirlar(kaynak, deger=None, ek=None, alan=None, tasan=None) -> dict:
                 "metin": etiketleri_doldur(
                     _yazi(metin, deger.get((r, c)), ek.get((r, c))), alan),
                 "sinif": ((_sinif(stil) if stil else "")
-                          + (" tasabilir" if (r, c) in tasan else "")).strip(),
+                          + (" tasabilir" if (r, c) in tasan else "")
+                          + (" sigdir" if (r, c) in sigdir else "")).strip(),
                 "satir_yayilim": rs,
                 "sutun_yayilim": cs,
             })
@@ -366,10 +373,28 @@ def satirlar(kaynak, deger=None, ek=None, alan=None, tasan=None) -> dict:
             "olcek": round(olcek, 4), "yon": sayfa_yon}
 
 
-def yerlesim(kaynak, sayfa_adi: str, deger=None, ek=None, alan=None) -> dict:
-    """Aynı kalıbı `excel.kitap()`'ın yerleşim sayfası olarak kurar."""
+def yerlesim(kaynak, sayfa_adi: str, deger=None, ek=None, alan=None,
+             sigdir=None) -> dict:
+    """Aynı kalıbı `excel.kitap()`'ın yerleşim sayfası olarak kurar.
+
+    `sigdir`: `satirlar()`'daki gibi, sığmayan yazısı küçülen hücreler. O
+    hücrelerin stilinin bir kopyası "sığacak şekilde küçült" alıyor
+    (`excel._kalip_xf`). Kalıbın stil listesi önbellekte paylaşılıyor --
+    **kopyası** genişletiliyor, kendisine dokunulmuyor.
+    """
     k = _kalip_al(kaynak)
     deger, ek, alan = deger or {}, ek or {}, alan or {}
+    sigdir = sigdir or set()
+    stiller = list(k["stiller"])
+    kucuk = {}                  # kalıp stil no -> küçülen kopyasının no'su
+
+    def _stil(r, c, stil_no):
+        if (r, c) not in sigdir:
+            return stil_no
+        if stil_no not in kucuk:
+            stiller.append({**k["stiller"][stil_no], "sigdir": True})
+            kucuk[stil_no] = len(stiller) - 1
+        return kucuk[stil_no]
 
     hucreler, birlesik = {}, []
     for r, satir in enumerate(k["satirlar"]):
@@ -380,7 +405,7 @@ def yerlesim(kaynak, sayfa_adi: str, deger=None, ek=None, alan=None) -> dict:
             hucreler[adres] = (
                 etiketleri_doldur(
                     _yazi(metin, deger.get((r, c)), ek.get((r, c))), alan),
-                stil_no)
+                _stil(r, c, stil_no))
             if rs > 1 or cs > 1:
                 birlesik.append(f"{adres}:{_adres(r + rs - 1, c + cs - 1)}")
                 # Excel kenarlığı HÜCRE bazında çiziyor, birleştirme onu
@@ -412,7 +437,7 @@ def yerlesim(kaynak, sayfa_adi: str, deger=None, ek=None, alan=None) -> dict:
         "hucreler": hucreler,
         "birlesik": birlesik,
         "gorseller": gorseller,
-        "stiller": k["stiller"],
+        "stiller": stiller,
         # Excel sütun genişliği karakter cinsinden; kâğıttaki 1/256 karakter.
         "genislikler": {c + 1: round(g / 256.0, 2)
                         for c, g in enumerate(k["sutun"])},

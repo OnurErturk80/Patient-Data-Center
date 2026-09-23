@@ -760,6 +760,18 @@ _OZET_SOL, _OZET_SAG = 2, 7
 # dokunulmadı, yalnızca bu satır numarası düzeltildi.
 _OZET_NOTLAR = (71, 2)
 
+# Hasta kimliği kutuları: uzun bir ad kutuya sığmazsa kesilmesin, **küçülsün**
+# (v6.150). Özet'in EŞİNİN ADI kutusu formun sağ kenarında -- sağa taşırmak
+# (`.tasabilir`, v6.135) yazıyı kâğıdın dışına çıkarırdı; kâğıda elle
+# yazarken de sığmayan ad küçük yazılır. Ekranda form.html'in betiği puntoyu
+# düşürüyor, Excel'de hücre "sığacak şekilde küçült" alıyor.
+OZET_SIGDIR_HUCRELER = {
+    (satir - 1, sutun)
+    for satir, sol, sag in OZET_KUTULARI
+    for anahtar, sutun in ((sol, _OZET_SOL), (sag, _OZET_SAG))
+    if anahtar in ("soyadi", "adi", "esinin_adi")
+}
+
 
 def _yaz(v):
     """Kutuya basılacak metin. None ve boş, boş kutu olarak çıkar."""
@@ -966,6 +978,17 @@ _ARTLAB_OZET_EK = [
     (29, 0, "bazal_motil"), (30, 0, "bazal_normal"),
     (29, 2, "son_motil"), (30, 2, "son_normal"),
 ]
+
+# ART Lab'ın ad kutuları (Adı, Eşinin adı) yedi sütun genişliğinde, bugün
+# sığıyor; kural iki formda aynı olsun diye yine de işaretli (v6.150).
+ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2)}
+
+
+def sigdir_hucreleri(ad: str) -> set:
+    """Formun, sığmayan yazısı küçülen kimlik hücreleri (v6.150)."""
+    return {"ozet": OZET_SIGDIR_HUCRELER,
+            "artlab": ARTLAB_SIGDIR_HUCRELER}.get(ad, set())
+
 
 ARTLAB_TASAN_HUCRELER = (
     {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
