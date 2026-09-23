@@ -531,7 +531,11 @@ fert_pn_sayisi='2'`den, cleavage/blastokist ise ilgili
 (bir örnek gün 2 VE gün 3'te değerlendirilmişse iki kez sayılmasın diye).
 Ayrı bir sayaç sütunu yok — aşama ekranlarından biri düzeltilir/iptal
 edilirse özet otomatik doğru kalır, cryo haritası ve istatistik
-ekranındaki "türetilmiş sayı" gerekçesinin aynısı.
+ekranındaki "türetilmiş sayı" gerekçesinin aynısı. **v6.146'dan beri
+sayılan, bu tedavide YAPILAN işlemler** (`db.tedavide_yapilan()`, aynı
+sayfadaki zaman çizelgesiyle aynı koşul): FET (3→5 kültür)'te çözülen
+embriyonun blastokisti FET'in kutusunda, kaynak ICSI'ninkinde değil. Var
+olan 120 tedavinin 480 sayısı değişmedi (denendi).
 - **Hangi satırın gösterileceği cycle tipine göre değişir.** `cycle_ozet()`
   çağırana `cycle_asamalari()`'nin zaten hesapladığı kod kümesini alıyor
   (kendi başına tekrar hesaplamıyor) — "Toplanan" yalnızca `opu` aşaması
@@ -1049,6 +1053,10 @@ OPU'dan bu yana. Kullanıcının isteği — formdaki "24 saat / 40-45 saat /
 - **Sıra zamana göre**, klinik akış sırasına göre değil: aynı gün önce
   transfer edip sonra dondurmak olağan, akış sırası eksi saat gösterirdi.
 - Zamanı girilmemiş aşama çizelgede yok.
+- **Saatler işlemin yapıldığı tedaviden** (v6.146, `db.tedavide_yapilan()`).
+  FET'in çizelgesinde kendi çözme/transferi/yeniden dondurması var. Kaynak
+  ICSI'ninkinde FET'in işleri yok; ICSI'nin resmî formundaki İŞLEM saatleri
+  de öyle.
 - **`.cizelge` dört-beş sütun + `nowrap` hücreler (tarih/saat gibi geniş
   değerler) yüzünden tek `.sutun`un genişliğinde kolayca taşıyor** — taşan
   kısım kartın dışında **sessizce kesik** kalıyordu (v6.113, kullanıcı
@@ -1897,10 +1905,35 @@ yedi yer tek tek yazılı.
 - **Göç çalışmamışsa eski davranış** (`db.kolon_var()`,
   `db.cozme_tupu_var()`, `db.yeniden_dondurma_var()`); FET'in vitrifikasyon
   ekranı göç uyarısı basar.
-- **Kapsam dışı kalan:** zaman çizelgesi (`formlar._olay_ilk()`) saatleri
-  örneğin kaynak tedavisinden topluyor — FET'in çizelgesi boş, kaynak
-  ICSI'ninkinde FET'in çözme/transferi görünüyor. Bu sürümden önce de
-  böyleydi, ayrı iş olarak önerildi.
+- **Zaman çizelgesi ve tedavi ekranının özet kutusu da işlemin yapıldığı
+  tedaviye bakıyor** (v6.146, kullanıcının isteği). v6.143'te kapsam
+  dışıydı. Kural `db.olay_tedavisi()`/`db.tedavide_yapilan()`'da, aşağıdaki
+  "Bir olayın yapıldığı tedavi" maddesine bak.
+
+**Bir olayın yapıldığı tedavi: `db.olay_tedavisi(o)`** (v6.146).
+- Çözme `thaw_cycle_id`'den, transfer `tr_cycle_id`'den, dondurma
+  `vit_cycle_id`'den (`vit_tedavisi()`) alınıyor; boşsa kendi tedavisi.
+- Öteki işlemlerin (değerlendirmelerin) "hangi tedavide" alanı yok. Ölçü
+  embriyonun o andaki tedavisi: işlemden ÖNCEKİ son çözme hangi tedavi
+  içinse o, çözülmemişse kendi tedavisi. FET (3→5 kültür)'te çözülen
+  embriyonun blastokist değerlendirmesi FET'in işi.
+- Ölçü **saat**, kimlik değil: değerlendirme kaydı güncellenince kimliği
+  eski kalıyor, saati güncelleniyor.
+- "Bu tedavide yapılan olaylar" koşulu `db.tedavide_yapilan(cid)` →
+  `(kosul, parametreler)`. Adaylar tedavinin kendi örnekleri ile bu tedavi
+  için çözülenler.
+- Zaman çizelgesi (ART Lab'ın İŞLEM saatleri ve yüklenen formların
+  `{{saat_*}}` etiketleri de oradan) ve özet kutusu bu koşulu kullanıyor.
+  Tedavi başına bir işlemi soran yeni bir sayım/saat yazarsan `s.cycle_id`
+  değil bu koşul — yoksa FET'in işi kaynak ICSI'ye yazılır.
+- **Bilinen, düzeltilmemiş sorun (v6.146'da bulundu):** değerlendirmeler
+  (örnek, gün) başına tek kayıt (`_gun_olay_kaydet()`). Kaynakta 5. gün
+  kaydı olan bir embriyo FET (3→5)'e alınıp yine 5. gün değerlendirilirse
+  kaynağın kaydının **üzerine yazılıyor** (skor ve saat). Olağan kullanımda
+  olmuyor: FET (3→5)'e 2/3. gün embriyosu alınıyor, kaynağında blastokist
+  kaydı yok. Blastokist evresinde dondurulmuş bir embriyo bu tiple
+  çözülürse olur. Nasıl ele alınacağı (uyarmak mı, ayrı kayıt mı) klinik
+  bir karar — v6.146'da kullanıcıya soruldu, cevabı gelince buraya yaz.
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)

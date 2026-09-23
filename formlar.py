@@ -194,12 +194,20 @@ _CIZELGE = [
 
 
 def _olay_ilk(cycle_id, tip, gun=None):
-    """Bu cycle'ın örneklerinde o tipteki **ilk** olayın zamanı."""
+    """Bu tedavide YAPILAN o tipteki **ilk** olayın zamanı (v6.146).
+
+    v6.146'ya kadar örneğin kendi tedavisine bakıyordu (`specimen.cycle_id`):
+    FET'in çizelgesi boş kalıyor, kaynak ICSI'ninkinde FET'te yapılan çözme,
+    transfer ve yeniden dondurma görünüyordu -- ICSI'nin resmî formundaki
+    İŞLEM saatleri de öyle. Koşul artık `db.tedavide_yapilan()` -- tedavi
+    ekranının özet kutusuyla aynı.
+    """
+    bu_tedavide, p = db.tedavide_yapilan(cycle_id)
     kosul = "AND o.gun = ?" if gun is not None else ""
-    p = [cycle_id, tip] + ([gun] if gun is not None else [])
     r = db.tek(
-        "SELECT MIN(o.zaman) z FROM olay o JOIN specimen s ON s.id=o.specimen_id "
-        f"WHERE s.cycle_id=? AND o.tip=? AND o.iptal_mi=0 {kosul}", p)
+        f"SELECT MIN(o.zaman) z FROM olay o WHERE o.tip = ? AND o.iptal_mi = 0 "
+        f"{kosul} AND {bu_tedavide}",
+        [tip] + ([gun] if gun is not None else []) + p)
     return r["z"] if r else None
 
 

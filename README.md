@@ -11820,3 +11820,71 @@ bir yedekte FET'in vitrifikasyon ekranı `no such column: o.vit_cycle_id` ile
   - v6.144'ün 42 kontrolü yeniden geçti;
   - yönetici 27, yönetici olmayan kullanıcı 9 adreste sorunsuz, JS hatası
     yok.
+
+---
+
+# v6.146 — zaman çizelgesi işlemin yapıldığı tedaviye bağlı
+
+Kullanıcının isteği: *"Zaman çizelgesini de işlemin yapıldığı tedaviye
+bağla."* v6.143'te kapsam dışı bırakılmıştı. `formlar._olay_ilk()` saatleri
+örneğin **kendi** tedavisinden topluyordu (`specimen.cycle_id`). Bir embriyo
+FET'te çözülünce:
+- FET'in çizelgesi bomboş kalıyordu;
+- kaynak ICSI'nin çizelgesinde FET'te yapılan çözme ve transfer görünüyordu;
+- ICSI'nin resmî ART Lab formundaki İŞLEM saatleri de öyleydi. Yüklenen
+  formların `{{saat_thaw}}`/`{{saat_transfer}}` etiketleri de o yüzden
+  ICSI'ye FET'in saatini basıyordu.
+
+## Kural: `db.olay_tedavisi()`
+
+- **Çözme, transfer, dondurma** "hangi tedavide" sorusunu kendi alanında
+  yanıtlıyor: `thaw_cycle_id`, `tr_cycle_id`, `vit_cycle_id` (v6.143). Boşsa
+  kendi tedavisi.
+- **Değerlendirmelerin böyle bir alanı yok.** Ölçü embriyonun o andaki
+  tedavisi: işlemden önceki son çözme hangi tedavi içinse o, çözülmemişse
+  kendi tedavisi. FET (3→5 kültür)'te çözülen 3. gün embriyosunun blastokist
+  değerlendirmesi böylece FET'in çizelgesine düşüyor.
+  - Ölçü saat, kimlik değil: `_gun_olay_kaydet()` kaydı güncellerken kimliği
+    koruyor, saati değiştiriyor.
+- **"Bu tedavide yapılan olaylar"** koşulu tek yerde: `db.tedavide_yapilan()`.
+  Adaylar tedavinin kendi örnekleri ile bu tedavi için çözülenler.
+
+## Özet kutusu da aynı koşulla
+
+Tedavi ekranının üstündeki "Embriyoloji özeti" kutusu da `s.cycle_id` ile
+sayıyordu. FET (3→5)'te blastokist değerlendirmesi yapılmış olsa da kutu
+"Blastokist sayısı 0" diyordu. Çizelge düzelince aynı sayfada birbirini
+tutmayan iki bilgi olacaktı, bu yüzden `cycle_ozet()` de aynı koşula
+bağlandı.
+
+## Deneme
+
+- **Var olan kayıtlar:** 120 tedavinin çizelgesi eski ve yeni kuralla birebir
+  aynı, 480 özet sayısı da aynı. Programda açılmış FET yoktu; aktarılan
+  FET'lerin embriyoları zaten FET'in kendi altında.
+- **FET** (ekranlardan):
+  - tüp çözüldü (20.09 09:00) ve transfer edildi (12:00);
+  - FET'in çizelgesinde iki satır, arada 3 saat;
+  - kaynak ICSI'nin çizelgesi değişmedi;
+  - eski kuralın çözmeyi ICSI'ye yazdığı da gösterildi;
+  - ART Lab İŞLEM saatleri ve `{{saat_thaw}}` ICSI'de boş, FET'te dolu.
+- **FET (3→5 kültür)** (3. günde dondurulmuş embriyoyla):
+  - çözme (21.09 09:00) ve FET'te 5. gün blastokisti (23.09 10:00);
+  - çizelgede arada 49 saat;
+  - özet kutusu 0'dan 1'e çıktı;
+  - kaynak ICSI'nin çizelgesi ve sayıları değişmedi.
+- Eski/yeni farkı yalnızca bu iki FET'te ve kaynaklarında çıktı. İlgili
+  ekranlar, formlar ve Excel çıktısı açıldı.
+
+## Yan yolda bulunan (düzeltilmedi)
+
+Değerlendirmeler (örnek, gün) başına **tek kayıt** tutuluyor
+(`_gun_olay_kaydet()`, v6.62'den beri).
+- Kaynak tedavide 5. gün blastokist kaydı olan bir embriyo FET (3→5
+  kültür)'e alınıp yine 5. gün değerlendirilirse, kaynağın kaydının
+  **üzerine yazılıyor**. Denendi: kaynaktaki 4BB (24.08) → 4AA (23.09).
+- Olağan kullanımda olmuyor: FET (3→5)'e 2/3. gün embriyosu alınıyor,
+  kaynağında blastokist kaydı yok. Yalnızca blastokist evresinde
+  dondurulmuş bir embriyo bu tiple çözülürse oluyor.
+- Nasıl ele alınacağı klinik bir karar: uyarmak mı, ayrı kayıt mı? Kullanıcıya
+  soruluyor.

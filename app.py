@@ -7775,12 +7775,16 @@ def cycle_ozet(cycle: dict, kodlar: set) -> list:
     "0 M2" basmak yanlış bilgi verir (hiç ölçülmedi, sıfır değil) — bu
     yüzden "0" değil, satır hiç yok.
     """
+    # Bu tedavide YAPILAN işlemler (v6.146): FET (3→5 kültür)'te çözülen
+    # embriyonun blastokisti FET'in sayısı, kaynak ICSI'ninki değil -- aynı
+    # sayfadaki zaman çizelgesiyle aynı koşul (`db.tedavide_yapilan()`).
+    bu_tedavide, p = db.tedavide_yapilan(cycle["id"])
+
     def _olay(tip, ek=""):
         return db.tek(
             "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
-            "JOIN specimen s ON s.id = o.specimen_id "
-            f"WHERE s.cycle_id = ? AND o.tip = ? AND o.iptal_mi = 0 {ek}",
-            (cycle["id"], tip),
+            f"WHERE o.tip = ? AND o.iptal_mi = 0 {ek} AND {bu_tedavide}",
+            (tip, *p),
         )["n"]
 
     satirlar = [{

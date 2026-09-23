@@ -257,6 +257,57 @@ def vit_tedavisi(o: str = "o") -> str:
     return f"{o}.cycle_id"
 
 
+def olay_tedavisi(o: str = "o") -> str:
+    """Bir olayın YAPILDIĞI tedavi -- SQL ifadesi (v6.146).
+
+    Kullanıcının isteği: "Zaman çizelgesini de işlemin yapıldığı tedaviye
+    bağla." `olay.cycle_id` her zaman örneğin KENDİ tedavisi (CLAUDE.md:
+    "Embriyo cycle değiştirmez"); "hangi tedavide yapıldı":
+    - çözme `thaw_cycle_id`'de, transfer `tr_cycle_id`'de, dondurma
+      `vit_cycle_id`'de (`vit_tedavisi()`) -- boşsa kendi tedavisi;
+    - öteki işlemlerde (değerlendirmeler) alan yok: ölçü embriyonun o andaki
+      tedavisi, yani işlemden ÖNCEKİ son çözme hangi tedavi içinse o. FET
+      (3→5 kültür)'te çözülen embriyonun blastokist değerlendirmesi FET'in
+      işi. Çözülmemişse kendi tedavisi. Ölçü saat: değerlendirme kaydı
+      güncellenince yerinde kalıyor (kimliği eskiyebilir), saati güncelleniyor.
+
+    `o`: sorgudaki olay tablosunun takma adı; alt sorgunun kendi takma adı
+    `t`, dış sorguda `t` kullanma. Göç çalışmamışsa (goc_024) çözme bilinmiyor:
+    her şey kendi tedavisi, eski davranış.
+    """
+    if not kolon_var("olay", "thaw_cycle_id"):
+        return f"{o}.cycle_id"
+    sonra = ("COALESCE((SELECT COALESCE(t.thaw_cycle_id, t.cycle_id) FROM olay t "
+             f"WHERE t.specimen_id = {o}.specimen_id AND t.tip = 'thaw' "
+             f"AND t.iptal_mi = 0 AND t.zaman <= {o}.zaman "
+             f"ORDER BY t.zaman DESC, t.id DESC LIMIT 1), {o}.cycle_id)")
+    return (f"CASE WHEN {o}.tip = 'thaw' THEN COALESCE({o}.thaw_cycle_id, {o}.cycle_id) "
+            f"WHEN {o}.tip = 'transfer' THEN COALESCE({o}.tr_cycle_id, {o}.cycle_id) "
+            f"WHEN {o}.tip = 'vitrifikasyon' THEN {vit_tedavisi(o)} "
+            f"ELSE {sonra} END")
+
+
+def tedavide_yapilan(cycle_id, o: str = "o") -> tuple:
+    """Bu tedavide YAPILAN olaylar -- `(SQL koşulu, parametreler)` (v6.146).
+
+    Adaylar tedavinin kendi örnekleri ile bu tedavi için çözülenler (bu
+    tedavide yapılmış bir işlem ancak onlardan birinin olabilir), karar
+    `olay_tedavisi()`. Zaman çizelgesi (`formlar._olay_ilk()`) ve tedavi
+    ekranının özet kutusu (`app.cycle_ozet()`) soruyor -- ikisi aynı sayfada,
+    biri öbürüyle çelişmesin diye koşul tek yerde. Kullanım:
+    `kosul, p = db.tedavide_yapilan(cid)` → `... WHERE {kosul} ...`, `p` o
+    sırada parametrelere eklenir.
+    """
+    adaylar = f"{o}.specimen_id IN (SELECT id FROM specimen WHERE cycle_id = ?)"
+    p = [cycle_id]
+    if kolon_var("olay", "thaw_cycle_id"):
+        adaylar = (f"({adaylar} OR {o}.specimen_id IN (SELECT tc.specimen_id "
+                   "FROM olay tc WHERE tc.tip = 'thaw' AND tc.iptal_mi = 0 "
+                   "AND tc.thaw_cycle_id = ?))")
+        p.append(cycle_id)
+    return f"{adaylar} AND {olay_tedavisi(o)} = ?", p + [cycle_id]
+
+
 def cozme_tupu_var() -> bool:
     """Çözme kaydı hangi tüpü boşalttığını biliyor mu (`olay.thaw_tasiyici_id`,
     goc_046). Bilmiyorsa bir örneğin tek dondurması, tek çözmesi var sayılır
