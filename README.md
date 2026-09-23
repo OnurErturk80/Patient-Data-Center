@@ -12763,3 +12763,10 @@ varsa; yumurtada Yumurta Çözme). Taşınanlar:
 Yumurta Dondurma'nın (`oosit_cryo`) kendi çözme aşaması duruyor.
 v6.147'den beri dondurulmuş yumurta Yumurta Çözme tedavisinde çözülüyor;
 aynı ayrım orada da istenir mi, kullanıcıya sorulacak.
+
+**Cevap (2026-09-23):** "Yumurta dondurmada çözme kalkmasın." Kod
+değişmedi; ayrım yalnızca IVF/ICSI için.
+
+Aynı gün v6.146'nın açık sorusu da kapandı: "FET (3→5)'te blastokist değil
+cleavage embriyosu çözülüyor." Kaynağın 5. gün kaydının üzerine yazılma
+durumu klinikte doğmuyor; uyarı ya da ayrı kayıt eklenmedi.

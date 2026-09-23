@@ -165,8 +165,9 @@ Tedavi tipine göre hangi aşamaların görüneceği değişir:
   (FET: bu tedavi için çözülenler, IVF/ICSI: kendi çözülmemişleri). Eski
   kayıtları `cozme_ayir.py` ayırır (README v6.155). Yeni bir yerde "bu
   tedavi için çözme yapılabilir mi" diye soracaksan tip adı yazma,
-  `cozme_tedavisi_mi()`'ye sor. Yumurta Dondurma'nın kendi çözmesi hâlâ
-  duruyor — aynı ayrım orada istenir mi kullanıcıya sorulacak.
+  `cozme_tedavisi_mi()`'ye sor. **Yumurta Dondurma'nın kendi çözmesi
+  KALIYOR** (kullanıcının kararı, 2026-09-23: "Yumurta dondurmada çözme
+  kalkmasın") — ayrım yalnızca IVF/ICSI için; oraya uygulama.
 - `fet` → çözme, transfer, **vitrifikasyon**, gebelik (**OPU yok** — oosit
   toplanmaz, embriyo başka bir cycle'dan gelir, aynı gün transfer edilir).
   Vitrifikasyon v6.143'ten beri (kullanıcının isteği): çözülüp transfer
@@ -372,9 +373,10 @@ Yumurta Dondurma; ekranlar onu `db.tedavi_ornekleri()` ile buluyor.
   (`_cozme_geri_alma_engeli()`). Önce en son adım.
 - Formlar, Excel ve istatistik: aşağıdaki "Bir olayın yapıldığı tedavi"
   maddesi.
-- v6.146'daki açık soru (FET (3→5)'te aynı gün değerlendirmesi kaynağın
-  üzerine yazılıyor) Yumurta Çözme'de doğmuyor: çözülen yumurtanın kaynakta
-  cleavage/blastokist kaydı yok.
+- v6.146'daki soru (FET (3→5)'te aynı gün değerlendirmesi kaynağın
+  üzerine yazılıyor) kapandı: FET (3→5)'te cleavage embriyosu çözülüyor
+  (kullanıcı, 2026-09-23). Yumurta Çözme'de de doğmuyor: çözülen yumurtanın
+  kaynakta cleavage/blastokist kaydı yok.
 
 Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, transfer yok).
 
@@ -2170,14 +2172,14 @@ yedi yer tek tek yazılı.
   dökümü bilerek bütün geçmişi basıyor (v6.147). Vitrifikasyon ekranının
   "Dondurulmuş" kartı da artık `_vit_satiri()`'nin kalitesini basıyor
   (cleavage'da "5HG3"), yalnızca blastokist skorunu değil.
-- **Bilinen, düzeltilmemiş sorun (v6.146'da bulundu):** değerlendirmeler
-  (örnek, gün) başına tek kayıt (`_gun_olay_kaydet()`). Kaynakta 5. gün
-  kaydı olan bir embriyo FET (3→5)'e alınıp yine 5. gün değerlendirilirse
-  kaynağın kaydının **üzerine yazılıyor** (skor ve saat). Olağan kullanımda
-  olmuyor: FET (3→5)'e 2/3. gün embriyosu alınıyor, kaynağında blastokist
-  kaydı yok. Blastokist evresinde dondurulmuş bir embriyo bu tiple
-  çözülürse olur. Nasıl ele alınacağı (uyarmak mı, ayrı kayıt mı) klinik
-  bir karar — v6.146'da kullanıcıya soruldu, cevabı gelince buraya yaz.
+- **Kapandı (v6.146'da bulunmuştu):** değerlendirmeler (örnek, gün)
+  başına tek kayıt (`_gun_olay_kaydet()`). Kaynakta 5. gün kaydı olan bir
+  embriyo FET (3→5)'e alınıp yine 5. gün değerlendirilirse kaynağın
+  kaydının üzerine yazılırdı. **Kullanıcının cevabı (2026-09-23): "FET
+  (3→5)'te blastokist değil cleavage embriyosu çözülüyor"** — yani bu
+  durum klinikte doğmuyor; ne uyarı ne ayrı kayıt eklendi. FET (3→5)'e
+  blastokist tüpü alınmasını program engellemiyor; bunu engellemek ayrı
+  bir klinik karar, kullanıcı istemedi.
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)
