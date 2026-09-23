@@ -242,6 +242,86 @@ def yeniden_dondurma_var() -> bool:
     return kolon_var("olay", "vit_cycle_id") and cozme_tupu_var()
 
 
+# ------------------------------------------------- hastanın tedavi sırası
+
+def _kolonlari(b, tablo: str) -> set:
+    """Tablonun kolonları, VERİLEN bağlantıyla ve saklamadan.
+
+    `kolon_var()` cevabı saklıyor; bir göçün içinden çağrılsaydı sonraki bir
+    göçün ekleyeceği kolon için "yok" saklanırdı (goc_047 bu işlevleri
+    kullanıyor). Tablo adı her zaman koddan gelir.
+    """
+    return {r[1] for r in b.execute(f"PRAGMA table_info({tablo})")}
+
+
+def tedavi_tarihi(b, c: str = "c") -> str:
+    """Bir tedavinin işlem günü -- SQL ifadesi (v6.144).
+
+    Hastanın tedavileri bu sırayla numaralanıyor (`tedavileri_sirala()`).
+    Yumurta toplanan tedavide OPU, yoksa hCG; FET'te çözme ya da transfer --
+    `olay.cycle_id` örneğin KENDİ tedavisi, "hangi tedavide yapıldı"
+    `thaw_cycle_id`/`tr_cycle_id`'de; hiçbiri girilmemişse planlanan tarih, o
+    da yoksa kaydın açıldığı an (aktarılan eski kayıtlarda o an zaten
+    tedavinin tarihine çekili, aktar_access). Yalnızca gün karşılaştırılıyor:
+    saatler farklı biçimlerde yazılmış olabilir, aynı gün iki tedavi olmaz.
+    `date()` okuyamadığı değeri NULL yapar, sıradaki alana düşülür.
+
+    `b`: bağlantı (kolonlar ona sorulur), `c`: sorgudaki cycle takma adı.
+    """
+    parca = [f"date({c}.opu_zamani)", f"date({c}.hcg_zamani)"]
+    bag = [f"o.{k} = {c}.id" for k in ("thaw_cycle_id", "tr_cycle_id")
+           if k in _kolonlari(b, "olay")]
+    if bag:
+        parca.append("(SELECT date(MIN(o.zaman)) FROM olay o "
+                     "WHERE o.iptal_mi = 0 AND (" + " OR ".join(bag) + "))")
+    if "planlanan_tarih" in _kolonlari(b, "cycle"):
+        parca.append(f"date({c}.planlanan_tarih)")
+    parca.append(f"date({c}.olusturma_zamani)")
+    return "COALESCE(" + ", ".join(parca) + ")"
+
+
+def tedavileri_sirala(b, hasta_id) -> list:
+    """Hastanın tedavilerini işlem günlerine göre numaralar (v6.144, goc_047).
+
+    Kullanıcının isteği (2026-09-23): "Bir daha aynı hastaya eski tedavi
+    kaydı eklenirse tarih sırasına göre en eski tedavi 1. tedavi olarak
+    eklensin. Bu daha sonra hep uygulansın." Numara eskiden açılışta
+    "en yüksek + 1" veriliyordu; temmuzun Access kayıtları ağustostan SONRA
+    aktarılınca temmuz tedavisi 2., ağustos 1. oldu.
+
+    Programın verdiği numara bir önceki tedavininkinin bir fazlası (ilk
+    tedavi 1). **Elle yazılan numara korunur** (`hasta_cycle_no_elle`:
+    hasta başka merkezde de tedavi gördüyse gerçek deneme sayısı, README
+    v0.8) -- bir önceki tedavinin numarasından büyük olduğu sürece; değilse
+    tarih sırası kazanır ve numara bir öncekinin bir fazlası olur. Elle
+    yazılan değer silinmiyor: çakışma kalkınca (önceki tedavinin tarihi
+    düzeltildi, yanlış açılan tedavi silindi) numara ona döner.
+
+    Tedavinin tarihini değiştiren her yazmadan sonra çağrılmalı. `b` yazma
+    işleminin bağlantısı, commit çağıranın işi. Döner: değişenler,
+    `[(cycle_id, cycle_no, eski, yeni), ...]`.
+
+    goc_047 çalışmamışsa hiçbir şeye dokunmaz (tuzak #3): elle yazılan
+    numarayı ayırt edemeden sıralamak onu ezerdi. Numara o zaman eskisi
+    gibi açılıştaki öneride kalır.
+    """
+    if "hasta_cycle_no_elle" not in _kolonlari(b, "cycle"):
+        return []
+    satirlar = b.execute(
+        "SELECT c.id, c.cycle_no, c.hasta_cycle_no, c.hasta_cycle_no_elle "
+        "FROM cycle c WHERE c.hasta_id = ? "
+        f"ORDER BY {tedavi_tarihi(b, 'c')}, c.id", (hasta_id,)).fetchall()
+    degisen, onceki = [], 0
+    for cid, cycle_no, eski, yazilan in satirlar:
+        yeni = yazilan if yazilan is not None and yazilan > onceki else onceki + 1
+        if eski != yeni:
+            b.execute("UPDATE cycle SET hasta_cycle_no = ? WHERE id = ?",
+                      (yeni, cid))
+            degisen.append((cid, cycle_no, eski, yeni))
+        onceki = yeni
+    return degisen
+
+
 # ----------------------------------------------------------------- yerel ayar
 
 YEREL_DOSYA = VERI_KOK / "yerel_ayar.json"

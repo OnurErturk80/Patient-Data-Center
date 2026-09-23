@@ -324,12 +324,20 @@ METINLER = {
     "kacinci_cycle": {"tr": "Kaçıncı tedavi", "en": "Patient's cycle no"},
     "cycle_no_ipucu": {
         "tr": "Lab kayıt no otomatik atandı; gerekirse değiştirebilirsin. "
-              "Kaçıncı tedavi hastanın denemesidir — başka merkezdeki "
-              "tedavileri de sayıyorsan elle değiştir.",
+              "Kaçıncı tedavi tarih sırasından verilir: en eski tedavi 1. "
+              "Hasta başka merkezde de tedavi gördüyse gerçek deneme sayısını "
+              "yaz — elle yazdığın numara korunur, sonraki tedaviler ondan "
+              "devam eder.",
         "en": "The lab record no was assigned automatically; change it if you "
-              "need to. The patient's cycle no counts this patient's attempts "
-              "— edit it by hand if you also count treatments at another "
-              "centre."},
+              "need to. The patient's cycle no follows the date order: the "
+              "oldest cycle is 1. If the patient was also treated at another "
+              "centre, type the real attempt number — a number you type is "
+              "kept and later cycles continue from it."},
+    "kacinci_elle": {
+        "tr": "Elle yazılan numara: {n}. Kutuyu boşaltırsan numarayı tarih "
+              "sırası verir.",
+        "en": "Number typed by hand: {n}. Clear the box to let the date order "
+              "set it."},
     "tedavi_tipi": {"tr": "Tedavi tipi", "en": "Treatment type"},
     "fet_ipucu": {
         "tr": "FET seçilirse laboratuvar aşamaları gösterilmez; doğrudan "

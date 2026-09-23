@@ -2912,6 +2912,18 @@ def cycle_alanlari() -> list:
     return [a for a in CYCLE_ALANLARI if a != "planlanan_tarih"]
 
 
+def _elle_no_kolonu_var() -> bool:
+    """goc_047 çalıştırıldı mı -- `cycle.hasta_cycle_no_elle` var mı (v6.144).
+
+    `_planlanan_kolonu_var()` gibi her seferinde soruluyor, `db.kolon_var()`
+    gibi saklanmıyor: yedekten geri yüklenen eski bir veritabanında kolon
+    yok ve göçler ancak program yeniden açılınca çalışıyor. Saklanmış bir
+    "var" cevabı o arada tedavi açmayı "no such column" ile bozardı.
+    """
+    return any(r["name"] == "hasta_cycle_no_elle"
+               for r in db.sorgu("PRAGMA table_info(cycle)"))
+
+
 def cycle_formu_oku(f: dict) -> dict:
     return {
         "cycle_no": (f.get("cycle_no") or "").strip(),
@@ -2949,20 +2961,77 @@ def cycle_listeleri():
 
 
 def sonraki_hasta_cycle_no(hasta_id: int) -> int:
-    """Hastanın kaçıncı cycle'ı olacağı — en yüksek numaranın bir fazlası."""
+    """Yeni tedavinin kutuya önerilen numarası — en yüksek numaranın bir fazlası.
+
+    Yalnızca öneri (v6.144): kaydedilince numarayı tarih sırası veriyor
+    (`db.tedavileri_sirala()`), eski bir tedavi girildiyse araya yerleşiyor.
+    """
     r = db.tek(
         "SELECT MAX(hasta_cycle_no) m FROM cycle WHERE hasta_id = ?", (hasta_id,)
     )
     return (r["m"] or 0) + 1
 
 
+def tedavi_sirasini_logla(degisen, kullanici_id, haric=None):
+    """Kayan numaraları değişiklik geçmişine yazar (v6.144) — "1. tedavi neden
+    2. oldu" sorusunun cevabı orada. `haric`: kaydı zaten günlüğe giren tedavi."""
+    for cid, _no, eski, yeni in degisen:
+        if cid != haric:
+            guvenlik.degisiklikleri_yaz("cycle", cid, {"hasta_cycle_no": eski},
+                                        {"hasta_cycle_no": yeni}, kullanici_id)
+
+
+def tedavi_sirasini_duzelt(hasta_id, kullanici_id) -> list:
+    """Hastanın tedavilerini tarih sırasıyla yeniden numaralar (v6.144).
+
+    Tedavinin işlem gününü değiştiren yazmalardan sonra çağrılıyor: OPU
+    saati, çözme ve transfer (FET'in günü onlardan geliyor), kalıcı silme.
+    Tedavi formu bunu kendi işleminin içinde yapıyor (elle yazılan numarayı
+    doğrulamak için). Günü değiştiren yeni bir yazma yolu açarsan
+    (`db.tedavi_tarihi()`'ne bak) orada da çağır — yoksa numaralar tarih
+    sırasından ayrı düşer. Numara türetilmiş bir bilgi: güncellenemezse asıl
+    kayıt geri alınmıyor, sebep günlüğe yazılıyor, bir sonraki kayıtta düzelir.
+    """
+    if not hasta_id:
+        return []
+    try:
+        with db.yazma_islemi() as b:
+            degisen = db.tedavileri_sirala(b, hasta_id)
+    except sqlite3.Error:
+        _gunluk.exception("Tedavi sırası güncellenemedi (hasta %s)", hasta_id)
+        return []
+    tedavi_sirasini_logla(degisen, kullanici_id)
+    return degisen
+
+
+def _elle_no_dogrula(b, cycle_id, elle):
+    """Elle yazılan "Kaçıncı tedavi" tarih sırasıyla bağdaşıyor mu (v6.144).
+
+    Bağdaşmıyorsa `FormHatasi` — çağıran işlemin içinde, yani kayıt geri
+    alınıyor ve form yazılanlarla yeniden basılıyor (v6.21). Sıralama elle
+    yazılanı yalnızca bir önceki tedavinin numarasından büyükse tutuyor.
+    """
+    if elle is None:
+        return
+    etkin = b.execute("SELECT hasta_cycle_no FROM cycle WHERE id = ?",
+                      (cycle_id,)).fetchone()[0]
+    if etkin != elle:
+        raise FormHatasi(
+            f"Kaçıncı tedavi {elle} olamaz: tarih sırasına göre bu tedaviden "
+            f"önce gelen tedavi hastanın {etkin - 1}. tedavisi. En az {etkin} "
+            "yaz ya da kutuyu boş bırak — boş kalırsa numarayı tarih sırası verir.")
+
+
 @uygulama.get("/hasta/{hasta_id}/cycle/yeni")
 def cycle_yeni(request: Request, hasta_id: int):
     hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
+    oneri = sonraki_hasta_cycle_no(hasta_id)
     return sablon.TemplateResponse(
         request, "cycle_form.html",
         {"hasta": hasta,
-         "v": {"hasta_cycle_no": sonraki_hasta_cycle_no(hasta_id),
+         # Öneri gizli alanda da gidiyor (v6.144): kutu değiştirilmediyse
+         # numarayı tarih sırası verir, değiştirildiyse elle yazılmıştır.
+         "v": {"hasta_cycle_no": oneri, "hasta_cycle_no_oneri": oneri,
                "cycle_no": sonraki_lab_no()},
          "duzenleme": False, "hata": None,
          "hedef": f"/hasta/{hasta_id}/cycle/yeni", **cycle_listeleri()},
@@ -2999,14 +3068,35 @@ async def cycle_kaydet(request: Request, hasta_id: int):
             f"'{d['cycle_no']}' numaralı tedavi zaten var "
             f"(dosya {ayni['dosya_no']}, {ayni['ad_soyad']}). Farklı bir numara gir."
         )
+    if d["hasta_cycle_no"] is not None and d["hasta_cycle_no"] < 1:
+        return formu_goster("Kaçıncı tedavi en az 1 olabilir.")
 
+    # Kaçıncı tedavi (v6.144): kutuda programın önerisi duruyorsa ya da kutu
+    # boşsa numarayı tarih sırası verir; kullanıcı değiştirdiyse elle
+    # yazılmıştır ve korunur. Gizli alan yoksa sekme bu sürümden önce açılmış.
+    oneri = ((f.get("hasta_cycle_no_oneri") or "").strip()
+             or sonraki_hasta_cycle_no(hasta_id))
+    elle = (None if d["hasta_cycle_no"] is None
+            or str(d["hasta_cycle_no"]) == str(oneri).strip()
+            else d["hasta_cycle_no"])
     alanlar = cycle_alanlari()
+    degerler = [d[a] for a in alanlar]
+    if _elle_no_kolonu_var():
+        alanlar = alanlar + ["hasta_cycle_no_elle"]
+        degerler.append(elle)
     try:
-        yeni_id = db.yaz(
-            f"INSERT INTO cycle (lab_id, hasta_id, {', '.join(alanlar)}) "
-            f"VALUES (?, ?, {', '.join('?' * len(alanlar))})",
-            (db.LAB_ID, hasta_id, *[d[a] for a in alanlar]),
-        )
+        # Açmak ve numaralamak tek işlem: elle yazılan numara tarih sırasıyla
+        # bağdaşmıyorsa tedavi hiç açılmamış olur.
+        with db.yazma_islemi() as b:
+            yeni_id = b.execute(
+                f"INSERT INTO cycle (lab_id, hasta_id, {', '.join(alanlar)}) "
+                f"VALUES (?, ?, {', '.join('?' * len(alanlar))})",
+                (db.LAB_ID, hasta_id, *degerler),
+            ).lastrowid
+            degisen = db.tedavileri_sirala(b, hasta_id)
+            _elle_no_dogrula(b, yeni_id, elle)
+    except FormHatasi as e:
+        return formu_goster(str(e))
     except sqlite3.IntegrityError:
         # Yukarıdaki kontrolle bu INSERT arasında başkası aynı numarayı almış
         # olabilir (iki personel aynı anda cycle açıyor). Yeni numara öner.
@@ -3015,6 +3105,8 @@ async def cycle_kaydet(request: Request, hasta_id: int):
             f"'{d['cycle_no']}' numarasını az önce başka bir kullanıcı aldı. "
             f"Sıradaki boş numara yazıldı: {f['cycle_no']} — kontrol edip kaydet."
         )
+    # Eski bir tedavi girildiyse sonrakilerin numarası kaydı: geçmişte görünsün.
+    tedavi_sirasini_logla(degisen, request.state.kullanici["id"], haric=yeni_id)
     return RedirectResponse(f"/cycle/{yeni_id}", status_code=303)
 
 
@@ -3110,12 +3202,42 @@ async def cycle_guncelle(request: Request, cycle_id: int):
     )
     if ayni:
         return formu_goster(f"'{d['cycle_no']}' numaralı başka bir tedavi var.")
+    if d["hasta_cycle_no"] is not None and d["hasta_cycle_no"] < 1:
+        return formu_goster("Kaçıncı tedavi en az 1 olabilir.")
 
-    db.yaz(
-        f"UPDATE cycle SET {', '.join(a + '=?' for a in cycle_alanlari())} WHERE id=?",
-        (*[d[a] for a in cycle_alanlari()], cycle_id),
-    )
-    guvenlik.degisiklikleri_yaz("cycle", cycle_id, eski, d, request.state.kullanici["id"])
+    # Kaçıncı tedavi (v6.144): kutudaki numaraya dokunulmadıysa elle yazılmış
+    # olup olmadığı da değişmez; değiştirildiyse o sayı elle yazılmıştır,
+    # boşaltıldıysa numarayı tarih sırası verir. OPU tarihi değişince
+    # numara kayabilir -- o yüzden kaydetmekle numaralamak tek işlem.
+    alanlar = cycle_alanlari()
+    degerler = [d[a] for a in alanlar]
+    yeni_elle = None
+    if _elle_no_kolonu_var():
+        if d["hasta_cycle_no"] is None:
+            elle = None
+        elif d["hasta_cycle_no"] == eski["hasta_cycle_no"]:
+            elle = eski["hasta_cycle_no_elle"]
+        else:
+            elle = yeni_elle = d["hasta_cycle_no"]
+        alanlar = alanlar + ["hasta_cycle_no_elle"]
+        degerler.append(elle)
+    try:
+        with db.yazma_islemi() as b:
+            b.execute(
+                f"UPDATE cycle SET {', '.join(a + '=?' for a in alanlar)} WHERE id=?",
+                (*degerler, cycle_id))
+            degisen = db.tedavileri_sirala(b, eski["hasta_id"])
+            _elle_no_dogrula(b, cycle_id, yeni_elle)
+    except FormHatasi as e:
+        return formu_goster(str(e))
+
+    kid = request.state.kullanici["id"]
+    # Geçmişe numaranın kutudaki değil son hali yazılıyor: OPU tarihi
+    # değişip tedavi kaydıysa o da görünsün.
+    d["hasta_cycle_no"] = db.tek("SELECT hasta_cycle_no FROM cycle WHERE id = ?",
+                                 (cycle_id,))["hasta_cycle_no"]
+    guvenlik.degisiklikleri_yaz("cycle", cycle_id, eski, d, kid)
+    tedavi_sirasini_logla(degisen, kid, haric=cycle_id)
     return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
 
 
@@ -3799,6 +3921,8 @@ async def cycle_sil(request: Request, cycle_id: int):
             cycle_tamamen_sil(cycle_id, kid)
         except Exception as e:
             return hata(f"Silme sırasında hata: {type(e).__name__}: {e}")
+        # Yanlış açılmış bir tedavi silindi: sonrakiler bir öne kayar (v6.144).
+        tedavi_sirasini_duzelt(hasta_id, kid)
         return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
 
     guvenlik.degisiklikleri_yaz("cycle", cycle_id, c, {"durum": "iptal"}, kid)
@@ -6930,6 +7054,11 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     if t["konum_id"]:
         db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
 
+    # FET'in günü çözme günü (v6.144): geriye tarihli bir çözme tedaviyi
+    # hastanın öteki tedavilerinin önüne alabilir.
+    for hid in {e["hasta_id"] for e in icerik}:
+        tedavi_sirasini_duzelt(hid, kid)
+
     # Bir cycle ekranından gelindiyse oraya dön — sonuç orada listelenir
     if f.get("geri_cycle") and secili_cycle:
         return RedirectResponse(f"/cycle/{secili_cycle}/thaw", status_code=303)
@@ -7002,6 +7131,9 @@ def thaw_sil(request: Request, specimen_id: str):
                "iptal_sebep='Thaw kaydi temizlendi' WHERE id=?",
                (kid, _d.now().isoformat(" ", "seconds"), k["id"]))
     db.yaz("UPDATE specimen SET durum='dondurulmus' WHERE id=?", (specimen_id,))
+    # Çözme gidince FET'in günü değişebilir (v6.144).
+    h = db.tek("SELECT hasta_id FROM cycle WHERE id=?", (sp["cycle_id"],))
+    tedavi_sirasini_duzelt(h and h["hasta_id"], kid)
 
     hedef = f"/cryo/tasiyici/{vit['vit_tasiyici_id']}" if vit and vit["vit_tasiyici_id"] else "/cryo"
     return RedirectResponse(hedef, status_code=303)
@@ -7199,6 +7331,8 @@ async def transfer_kaydet(request: Request, cycle_id: int):
             kid, simdi)
         db.yaz("UPDATE specimen SET durum='transfer_edildi' WHERE id=?", (sid,))
 
+    # FET'in günü transfer günü de olabilir (v6.144, `db.tedavi_tarihi()`).
+    tedavi_sirasini_duzelt(c["hasta_id"], kid)
     return RedirectResponse(f"/cycle/{cycle_id}/transfer", status_code=303)
 
 
@@ -7249,6 +7383,9 @@ def transfer_sil(request: Request, specimen_id: str):
         else:
             onceki = "gun3"
     db.yaz("UPDATE specimen SET durum=? WHERE id=?", (onceki, specimen_id))
+    # Transfer gidince FET'in günü değişebilir (v6.144).
+    h = db.tek("SELECT hasta_id FROM cycle WHERE id=?", (hedef_cycle,))
+    tedavi_sirasini_duzelt(h and h["hasta_id"], kid)
     return RedirectResponse(f"/cycle/{hedef_cycle}/transfer", status_code=303)
 
 
@@ -7538,6 +7675,9 @@ async def opu_kaydet(request: Request, cycle_id: int):
     kolonlar = ", ".join(f"{k}=?" for k in yeni)
     db.yaz(f"UPDATE cycle SET {kolonlar} WHERE id=?",
            (*yeni.values(), cycle_id))
+    # OPU günü tedavinin günü: eski bir tedavinin OPU'su girildiyse numara
+    # tarih sırasına göre kayar (v6.144).
+    tedavi_sirasini_duzelt(c["hasta_id"], request.state.kullanici["id"])
     return RedirectResponse(f"/cycle/{cycle_id}/opu", status_code=303)
 
 

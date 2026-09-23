@@ -29,10 +29,17 @@
         <label for="hasta_cycle_no">{{ metin("kacinci_cycle") }}</label>
         <input id="hasta_cycle_no" name="hasta_cycle_no" type="number"
                inputmode="numeric" min="1" value="{{ d('hasta_cycle_no') }}">
+        {# Programın önerisi (v6.144): kutu değiştirilmeden kaydedilirse
+           numarayı tarih sırası verir, değiştirildiyse elle yazılmıştır. #}
+        {% if not duzenleme %}<input type="hidden" name="hasta_cycle_no_oneri"
+               value="{{ d('hasta_cycle_no_oneri') }}">{% endif %}
       </div>
     </div>
     <div class="alan" style="padding-top:0;border:0">
       <div class="ipucu">{{ metin("cycle_no_ipucu") }}</div>
+      {% if duzenleme and v.get('hasta_cycle_no_elle') is not none %}
+      <div class="ipucu">{{ say("kacinci_elle", v.get('hasta_cycle_no_elle')) }}</div>
+      {% endif %}
     </div>
     <div class="alan">
       <label for="cycle_tipi">{{ metin("tedavi_tipi") }}</label>

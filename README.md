@@ -11622,3 +11622,145 @@ beş ekran: yatay taşma yok.
   dondurma). Ayrı bir iş olarak önerildi.
 - `yumurta_cozme` (çözülen yumurta) yeniden dondurmaya açılmadı — istek
   embriyo içindi.
+
+---
+
+# v6.144 — hastanın tedavileri tarih sırasıyla numaralanıyor
+
+Kullanıcının isteği: *"sonradan eklenen hasta kayıtlarında işlem tarihi yeni
+olan son tedavi olarak eklensin. Bir daha aynı hastaya eski tedavi kaydı
+eklenirse tarih sırasına göre en eski tedavi 1. tedavi olarak eklensin. Bu
+daha sonra hep uygulansın."*
+
+"Kaçıncı tedavi" (`hasta_cycle_no`) tedavi açılırken "hastanın en yüksek
+numarası + 1" diye veriliyordu: yeni açılan tedavinin hep en yenisi olduğu
+varsayımı. v0.8'in niyeti aslında tarih sırasıydı (`goc_005` var olan
+kayıtları OPU/hCG zamanına göre numaralamıştı); "+1" yalnızca bir kısayoldu.
+Program öncesi Access kayıtları onu bozdu: temmuz dosyası ağustostan SONRA
+aktarıldı (v6.141). Kopyada ölçüldü: iki ayda da tedavisi olan üç hastanın
+temmuz tedavisi "2. tedavi", ağustos tedavisi "1. tedavi" idi.
+
+## Kural
+
+- **Tedavinin günü** `db.tedavi_tarihi()`: yumurta toplanan tedavide OPU,
+  yoksa hCG; FET'te çözme ya da transfer (`thaw_cycle_id`/`tr_cycle_id` —
+  `olay.cycle_id` örneğin kendi tedavisi); hiçbiri yoksa planlanan tarih, o da
+  yoksa kaydın açıldığı an. Aktarılan eski kayıtlarda açılış anı zaten
+  tedavinin tarihine çekili (v6.130). Yalnızca gün karşılaştırılıyor.
+- **Programın verdiği numara bir önceki tedavininkinin bir fazlası**, ilk
+  tedavi 1 — kullanıcının istediği bu.
+- **Elle yazılan numara korunur** (`cycle.hasta_cycle_no_elle`). v0.8'den beri
+  kutu elle değiştirilebiliyor: "hasta başka merkezde tedavi görmüşse gerçek
+  deneme sayısını girersin". Bir önceki tedavinin numarasından büyükse
+  tutuluyor; değilse tarih sırası kazanıyor. Elle yazılan değer silinmiyor:
+  çakışma kalkınca (önceki tedavinin tarihi düzeltildi, yanlış açılan tedavi
+  silindi) numara ona dönüyor.
+- **Neden ayrı bir kolon.** İki gerçek durum var:
+  1. Hasta başka merkezde iki deneme yapmış; ilk tedaviye 3 yazılmış.
+  2. Embriyolog programdaki eylül tedavisine temmuz ve ağustosu sayarak 3
+     yazmış, o kayıtlar sonradan Access'ten aktarılmış.
+
+  "İlk tedavinin numarasını koru" kuralı (2)'de temmuzu 3., ağustosu 4.,
+  eylülü 5. yapardı — aynı iki tedavi iki kez sayılır. "Hep 1'den başla"
+  kuralı (1)'i silerdi. Elle yazılanı o tedavinin kendi bilgisi saymak ikisini
+  de doğru çözüyor; ikisi de denendi. Bedeli: elle yazılmış bir numaranın
+  önünde boşluk kalabiliyor (1., 3., 4. — aradaki 2. başka merkezdeki deneme).
+  Gerçek veride hiç elle yazılmış numara bulunmadı.
+- Kural tek yerde: `db.tedavileri_sirala()`. Program, aktarım aracı ve göç aynı
+  işlevi çağırıyor.
+
+## Nerede uygulanıyor
+
+- **Tedavi formu** (açma ve düzenleme): kaydetmek ve numaralamak tek işlem.
+  Elle yazılan numara tarih sırasıyla bağdaşmazsa hiçbir şey kaydedilmiyor,
+  form yazılanlarla geri geliyor: *"Kaçıncı tedavi 2 olamaz: tarih sırasına
+  göre bu tedaviden önce gelen tedavi hastanın 4. tedavisi. En az 5 yaz ya da
+  kutuyu boş bırak…"*. Hangisi elle yazılmış:
+  - yeni tedavide kutudaki değer programın önerisinden farklıysa (öneri gizli
+    alanda da gidiyor; iki kişi aynı anda tedavi açarsa bayat öneri elle
+    yazılmış sanılmasın diye);
+  - düzenlemede kutudaki değer bugünkü numaradan farklıysa.
+
+  Boş kutu tarih sırası demek. Düzenleme ekranı elle yazılmış numarayı
+  söylüyor.
+- **OPU ekranı, çözme ve transfer (kayıt ve geri alma), kalıcı silme**:
+  `tedavi_sirasini_duzelt()` çağırılıyor. Numara türetilmiş bir bilgi.
+  Güncellenemezse asıl kayıt geri alınmıyor, sebep günlüğe yazılıyor, bir
+  sonraki kayıtta düzeliyor.
+- **Kayan her numara değişiklik geçmişine yazılıyor** (`hasta_cycle_no 1 → 2`)
+  — "bu tedavi neden 2. oldu" sorusunun cevabı orada.
+- **Aktarım aracı** her satırın sonunda numaralıyor. Rapor satırı *"hastanın
+  1. tedavisi — tarih sırasına göre kayanlar: 2026-0xxx 1.→2."* diyor. Göç
+  yoksa araç hiçbir şey yazmadan duruyor: yoksa eski tedavi eski kuralla
+  "en yüksek + 1" alırdı.
+- **Lab kayıt no (2026-0xxx) değişmiyor.** Tüp etiketinde, örnek kodunda ve
+  arşiv klasöründe yazıyor.
+
+## goc_047
+
+- `cycle.hasta_cycle_no_elle` kolonunu ekliyor.
+- Kolon ilk eklendiğinde eski elle yazılanları buluyor. Program numarayı
+  açılışta "o ana kadarki en yüksek + 1" diye öneriyordu; tedaviler açılış
+  sırasıyla (kimlik) dizildiğinde bu kurala uymayan numara elle yazılmıştır.
+  Sonraki çalıştırmalarda bu kural uygulanmıyor: numaralar artık tarih
+  sırasında, açılış sırasına bakmak onları elle yazılmış sanırdı.
+- Silinmiş bir tedavinin bıraktığı boşluk da kurala uymuyor ve elle yazılmış
+  sayılıyor. O numara bugünkü haliyle kalıyor; bu sürümden önce de öyleydi.
+- Sonra her hastayı numaralıyor. İdempotent.
+- **Göç çalışmamışsa eski davranış** (tuzak #3): `db.tedavileri_sirala()`
+  hiçbir şeye dokunmuyor. Elle yazılanı ayırt edemeden sıralamak onu ezerdi.
+- **Tedavi formu kolonun varlığını saklamıyor** (`_elle_no_kolonu_var()`,
+  `_planlanan_kolonu_var()`'ın deseni). Yedekten geri yüklenen eski bir
+  veritabanında kolon yok ve göçler ancak program yeniden açılınca çalışıyor.
+  Saklanmış bir "var" cevabı o arada tedavi açmayı "no such column" ile
+  bozardı. Denendi.
+
+## Deneme
+
+- **Göç, temmuz aktarımından sonraki kopyada:** 3 hastanın 6 tedavisi yeniden
+  numaralandı, başka hiçbir şey değişmedi. İkinci çalıştırma hiçbir şey
+  yapmadı. Program açılışta göçü kendisi uyguladı.
+- **Aktarım aracı gerçek sırayla:** ağustos kopyasına temmuz aktarıldı.
+  - Üç hastanın rapor satırında "kayanlar" çıktı.
+  - Sonuç, göçün sonucuyla 120 tedavide birebir aynı.
+  - İkinci çalıştırma her satırı atladı.
+  - Göçten önce araç çıkış kodu 1 ile durdu, hiçbir şey yazmadı.
+- **Dokuz yapay vaka:**
+  - başka merkezdeki denemeler için elle yazılmış numara;
+  - silinmiş tedavinin boşluğu;
+  - aynı numara iki kez;
+  - boş numara;
+  - bildirilen durum (ağustos önce aktarılmış);
+  - Access kayıtlarını zaten sayan elle numara (çift sayım yok);
+  - elle numaradan sonra iki eski kayıt (tarih sırası kazanıyor, elle yazılan
+    saklanıyor);
+  - FET'in geriye tarihli çözmesi;
+  - planlanan tarih.
+- **Programın kendi ekranlarıyla 42 kontrol:**
+  - eski tedavinin araya girmesi ve geçmişe yazılması;
+  - elle numaranın reddi (hiçbir şey kaydedilmedi, kutu yerinde) ve kabulü;
+  - sonraki önerinin ondan devam etmesi;
+  - kutuyu boşaltma;
+  - düzenleme formunda OPU tarihini değiştirme;
+  - düzenlemede elle numara, reddi ve tarihle birlikte kabulü;
+  - OPU ekranı;
+  - FET'te geriye tarihli çözmenin tedaviyi araya alması; transfer ve geri
+    almalar; çözme geri alınınca tedavinin en sona dönmesi;
+  - kalıcı silme;
+  - resmî formun "Önceki tedavi sayısı".
+- **Göç yokken** numaralar eski kuralla kaldı, ekranlar hatasız açıldı.
+- **Çalışan programda eski bir yedek geri yüklenince** tedavi açma bozulmadı.
+- **26 adres ve Excel çıktıları** 200 döndü, JS hatası yok. Telefon ve
+  masaüstünde yatay taşma yok.
+
+## Yan yolda bulunan
+
+- **Düzeltilmedi, önceden vardı:** yedekten geri yüklemeden sonra göçler
+  çalışmıyor, ve programın kolon kontrollerinin çoğu cevabı saklıyor
+  (`db.kolon_var()`, `thaw_cycle_var()`, `opu_hekim_var()`).
+  - Denendi: çalışan programa v6.143 öncesi bir yedek geri yüklenince FET'in
+    vitrifikasyon ekranı, program yeniden açılana kadar `no such column:
+    o.vit_cycle_id` ile 500 veriyor.
+  - Geçici çözüm: geri yüklemeden sonra programı bir kez kapatıp açmak.
+  - Kalıcı çözüm geri yüklemenin ardından göçleri çalıştırıp saklanmış
+    cevapları unutmak olur. Ayrı iş.

@@ -73,6 +73,12 @@ python  yedek.py E:\yedek        # Windows, klinik
 
 Hedef **farklı bir diskte** olmalı — aynı disk bozulursa yedek de gider.
 
+**Yedekten geri yükledikten sonra programı bir kez kapatıp aç.** Geri
+yükleme (`/yedekleme` → "Yedekten geri yükle") eski bir yedeği yerine
+koyuyor ama o yedeğin eksik güncellemeleri ancak açılışta uygulanıyor. Kapatıp
+açmazsan bazı ekranlar (ör. FET'in vitrifikasyonu) o arada hata verebilir
+(CLAUDE.md tuzak #15).
+
 ---
 
 ## Göçler (şema güncelleme)
@@ -152,6 +158,11 @@ python3 aktar_access.py kaynak=TEMMUZ temmuz.csv
 `AKTAR` yazınca uyguluyor. İki kez çalıştırmak güvenli: aktarılmış satır
 atlanıyor.
 
+**Eski bir ayı sonradan aktarmak sorun değil** (v6.144): hastanın tedavileri
+tarih sırasına göre yeniden numaralanır, en eski tedavi 1. olur. Rapor bunu
+söyler: `hastanın 1. tedavisi — tarih sırasına göre kayanlar: 2026-0xxx 1.→2.`
+Lab kayıt numaraları (2026-0xxx) değişmez.
+
 **`kaynak=<AD>` ne işe yarıyor:** her Access dosyası kendi kayıtlarını
 1'den numaralandırıyor. Etiket olmadan ikinci dosyanın ilk satırları
 birincinin numaralarıyla çakışır ve "zaten aktarılmış" sanılıp **sessizce
@@ -172,8 +183,8 @@ kez çalıştırmak güvenli. Aktarımdan **hemen sonra** çalıştır: aktarıl
 embriyonun skorunu ekranda elle düzelttiysen `tamamla` onu nottaki değerle
 ezer.
 
-**"Veritabani guncellemesi eksik (goc_046)" derse:** `git pull`'dan sonra
-program yeniden açılmamış demektir. Programı bir kez kapatıp aç —
+**"Veritabani guncellemesi eksik (goc_046, goc_047)" derse:** `git pull`'dan
+sonra program yeniden açılmamış demektir. Programı bir kez kapatıp aç —
 güncellemeler açılışta kendiliğinden uygulanır — sonra komutu tekrar
 çalıştır. Araç bu durumda hiçbir şey yazmadan durur.
 

@@ -821,9 +821,28 @@ def _cycle_ac(b, r, hasta_id, rapor) -> tuple:
          r["opu_hekim"], r["toplanan"] or None, durum, bitis,
          _zaman(bitis_zamani, "16:00:00"), _zaman(tarih, "08:30:00")))
     cycle_id = b.execute("SELECT last_insert_rowid()").fetchone()[0]
-    rapor.append(f'    tedavi {cycle_no} ({sira}. tedavi, {r["tip"]}) — '
+    # `sira` yalnızca geçici: son numarayı satırın sonunda tarih sırası
+    # veriyor (`_tedavi_sirasi()`), rapordaki numara oradan.
+    rapor.append(f'    tedavi {cycle_no} ({r["tip"]}) — '
                  f'{durum}{" / " + bitis if bitis else ""}')
     return cycle_id, cycle_no
+
+
+def _tedavi_sirasi(b, hasta_id, cycle_id, rapor):
+    """Hastanın tedavilerini tarih sırasıyla numaralar (v6.144).
+
+    Kullanıcının isteği: eski bir tedavi sonradan aktarılırsa araya
+    yerleşsin, en eski tedavi 1. olsun. Kural programınki, tek yerde:
+    `db.tedavileri_sirala()`. Satırın bütün kayıtları yazıldıktan sonra
+    çağrılıyor -- FET'in günü çözme kaydından geliyor.
+    """
+    degisen = _db.tedavileri_sirala(b, hasta_id)
+    no = b.execute("SELECT hasta_cycle_no FROM cycle WHERE id=?",
+                   (cycle_id,)).fetchone()[0]
+    kayan = [f"{c} {e}.→{y}." for cid, c, e, y in degisen if cid != cycle_id]
+    rapor.append(f"    hastanın {no}. tedavisi"
+                 + (f" — tarih sırasına göre kayanlar: {', '.join(kayan)}"
+                    if kayan else ""))
 
 
 def _specimen_ac(b, cycle_id, cycle_no, sira, durum, zaman) -> str:
@@ -1280,6 +1299,7 @@ def _satiri_yaz(r) -> list:
             _dondurma_kayitlari(b, r, cycle_id, kid, rapor)
             _androloji(b, r, cycle_id, kid)
         _islem_yapan(b, r, cycle_id)
+        _tedavi_sirasi(b, hasta_id, cycle_id, rapor)
     return rapor
 
 
@@ -1436,11 +1456,15 @@ def main():
     # Yazmadan önce: araç göçleri kendisi çalıştırmıyor, program açılışta
     # çalıştırıyor (v6.49). `git pull`'dan sonra program yeniden açılmadıysa
     # FET'in yeniden dondurması `vit_cycle_id`'yi (goc_046) yazarken işlemin
-    # ortasında patlardı -- baştan, hiçbir şey yazmadan söyle.
-    if not _db.yeniden_dondurma_var():
-        sys.exit("Veritabani guncellemesi eksik (goc_046). Programi bir kez "
-                 "kapatip ac -- guncellemeler acilista uygulanir -- ya da "
-                 "`python3 goc_hepsi.py` calistir, sonra tekrar dene.")
+    # ortasında patlardı; goc_047 yoksa eski tedavi araya yerleşmez, eski
+    # kural gibi "en yüksek + 1" alırdı -- baştan, hiçbir şey yazmadan söyle.
+    eksik = [ad for ad, var in (
+        ("goc_046", _db.yeniden_dondurma_var()),
+        ("goc_047", _db.kolon_var("cycle", "hasta_cycle_no_elle"))) if not var]
+    if eksik:
+        sys.exit(f"Veritabani guncellemesi eksik ({', '.join(eksik)}). Programi "
+                 "bir kez kapatip ac -- guncellemeler acilista uygulanir -- ya "
+                 "da `python3 goc_hepsi.py` calistir, sonra tekrar dene.")
     if kip == "tamamla":
         tamamla(satirlar)
         return

@@ -117,7 +117,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..046.py   veritabanı göçleri (sırayla)
+  goc_002..047.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -448,6 +448,40 @@ fark etti). `hasta_cycle_no` ("Kaçıncı tedavi") tedavi tipinden bağımsız h
 zaman atanıyor — yeni bir hasta-tedavi listesi sıralaması yazarsan klinik
 tarih alanına değil, bu artan sıra numarasına güven (aynı desen
 `/cycle/{id}/vitrifikasyon`'un kaynak tedavi seçicisinde de var).
+v6.144'ten beri numaranın kendisi tarih sırasından geliyor (aşağıdaki
+madde), yani bu sıralama zaten tarih sırası — NULL sorunu olmadan.
+
+**Hastanın tedavileri tarih sırasıyla numaralanır** (v6.144, `goc_047`,
+kullanıcının isteği: "eski tedavi kaydı eklenirse tarih sırasına göre en
+eski tedavi 1. tedavi olarak eklensin. Bu daha sonra hep uygulansın").
+Numara eskiden açılışta "en yüksek + 1"di; temmuzun Access kayıtları
+ağustostan sonra aktarılınca temmuz tedavisi 2., ağustos 1. oldu.
+- **Kural tek yerde: `db.tedavileri_sirala(b, hasta_id)`**, tedavinin günü
+  `db.tedavi_tarihi(b, c)`: OPU, yoksa hCG; FET'te çözme ya da transfer
+  (`thaw_cycle_id`/`tr_cycle_id`); yoksa planlanan tarih; yoksa açılış anı.
+  Program, `aktar_access.py` ve göç aynı işlevi çağırıyor, ikinci bir kopya
+  yazma. Programın verdiği numara bir öncekinin bir fazlası (ilk 1).
+- **Elle yazılan numara korunur** (`cycle.hasta_cycle_no_elle`, README
+  v0.8: başka merkezdeki denemeler). Bir önceki tedavinin numarasından
+  büyükse tutuluyor, değilse tarih sırası kazanıyor; değer silinmiyor.
+  "Hep 1'den" ya da "ilk numarayı koru" gibi tek bir taban YAZMA: ilki
+  başka merkezdeki denemeleri siler, ikincisi Access kayıtlarını zaten
+  sayan bir elle numarayı aktarımdan sonra iki kez sayar (README v6.144).
+- **Tedavinin gününü değiştiren her yazmadan sonra numarala.** Bugün:
+  tedavi formu (kaydetme ile numaralama tek işlem, elle numara
+  `_elle_no_dogrula()` ile reddedilebiliyor), OPU ekranı, çözme ve transfer
+  (kayıt + geri alma), kalıcı tedavi silme (`tedavi_sirasini_duzelt()`),
+  aktarım aracı (`_tedavi_sirasi()`). `db.tedavi_tarihi()`'ne yeni bir alan
+  eklersen o alanı yazan yola da çağrıyı ekle — yoksa numaralar tarih
+  sırasından sessizce ayrı düşer. Kayan numaralar değişiklik geçmişine
+  yazılıyor (`tedavi_sirasini_logla()`).
+- **Formda "elle mi"**: yeni tedavide kutu programın önerisinden (gizli
+  `hasta_cycle_no_oneri`) farklıysa, düzenlemede bugünkü numaradan
+  farklıysa. Boş kutu = tarih sırası.
+- **Göç yoksa hiçbir şeye dokunmaz** (tuzak #3); formdaki kolon kontrolü
+  (`_elle_no_kolonu_var()`) **saklanmıyor** — tuzak #15.
+- **Lab kayıt no (`cycle_no`, 2026-0xxx) asla yeniden numaralanmaz**: tüp
+  etiketinde, örnek kodunda (`specimen.id`) ve arşiv klasöründe yazıyor.
 
 **Cycle ekranı klinik özettir, fotoğraf yoktur** (v6.20). Fotoğraflar aşama
 ekranlarında, tek tek ve büyük bakılacak yerde. Cycle ekranına küçük resim
@@ -1777,6 +1811,11 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   sessizce dönülüyordu). **Kural: dondurulmuş bir örneği yazamıyorsan
   söyle** — tankta duran ama Cryo Haritası'nda görünmeyen bir tüp bu işin
   en sinsi kayıplarından.
+- **Aktarılan tedavi tarih sırasına yerleşir** (v6.144): her satırın
+  sonunda `db.tedavileri_sirala()`, rapor "hastanın N. tedavisi — tarih
+  sırasına göre kayanlar: …" diyor. Araç goc_047 yoksa da duruyor. Aynı
+  dosyanın satırları zaten tarih sırasıyla yazılıyor (`main()` sıralıyor);
+  sorun ayrı dosyaların sırasıydı (ağustos önce, temmuz sonra).
 - **"UYARI: notta N örnek ... M uygun kayıt var" iki ayrı sebebi taşıyor**:
   kaynağın kendi tutarsızlığı (2PN'den çok dondurulan embriyo) ya da
   aracın notu yanlış okuması. v6.141 ikisini karıştırıp aracın hatasını
@@ -2539,6 +2578,22 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
       (`getBoundingClientRect().right > clientWidth`) — v6.109'un dersinin
       tersi yönü: orada dış kabın ölçüsü doğru çıkıp içerik kayıyordu,
       burada içerik doğru görünüp görünmez bir öge sayfayı uzatıyor.
+
+15. **Kolonun varlığını saklayan kontrol, yedekten geri yüklemeden sonra
+    yalan söyler** (v6.144'te bulundu). Göçler yalnızca açılışta çalışıyor;
+    `/yedekleme/geri-yukle` çalışan programın altındaki veritabanını eski
+    bir yedekle değiştiriyor ve göç çalıştırmıyor. `db.kolon_var()`,
+    `thaw_cycle_var()`, `opu_hekim_var()` cevabı ilk soruşta saklıyor —
+    saklanmış "var" cevabı, kolonu olmayan geri yüklenmiş veritabanında
+    sorguyu "no such column" ile patlatıyor. Denendi: v6.143 öncesi bir
+    yedek geri yüklenince FET'in vitrifikasyon ekranı program yeniden
+    açılana kadar 500 veriyor. **Düzeltilmedi**; geçici çözüm geri
+    yüklemeden sonra programı kapatıp açmak.
+    - Çekirdek bir akışın (tedavi açma gibi) INSERT/UPDATE'ine giren yeni
+      kolonun kontrolünü **saklama**, her seferinde sor
+      (`_planlanan_kolonu_var()`, `_elle_no_kolonu_var()`) — PRAGMA ucuz.
+    - Kalıcı çözüm: geri yüklemenin ardından `goc.calistir()` ve saklanmış
+      cevapları unutmak (`db._KOLONLAR`, app'teki `_..._KOLONU` değişkenleri).
 
 ---
 
