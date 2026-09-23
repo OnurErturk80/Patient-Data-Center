@@ -276,6 +276,18 @@ hiçbir şey olmaz, hata da vermez. Terminalde `Ctrl+C`, sonra tekrar
 
 Çakışma (`conflict`) çıkarsa **dur**, Claude Code'a sor.
 
+**Programın çalıştığı makine her zaman `main` dalında durmalı.** Bütün
+Claude hesapları işlerini `main`'e getiriyor (CLAUDE.md, "Git: tek ortak
+hat"). Hangi dalda olduğunu görmek ve `main`'e dönmek:
+
+```
+git branch                           # başında * olan satır şu anki dal
+git checkout main                    # main değilse main'e geç
+git pull origin main
+```
+
+Sonra programı yeniden başlat.
+
 ---
 
 ## Sık sorunlar

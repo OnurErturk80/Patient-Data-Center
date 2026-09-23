@@ -2916,3 +2916,34 @@ kodlara birleştirildi, endikasyon listesi 19 → 17 satır. Hiçbir cycle etkil
 - Yeni bir sürüm bitince `README.md`'ye o sürümün bölümünü ekle: ne değişti ve
   **neden**. Bu dosya projenin hafızası.
 - Klinik bir varsayım yapman gerekiyorsa yapma — kullanıcıya sor. O embriyolog.
+
+## Git: tek ortak hat `main` (birden çok Claude hesabı)
+
+Kullanıcı projeyi **birden çok Claude hesabından/oturumundan** ilerletiyor.
+2026-09-23'te bir hesabın işi (v6.123–v6.148, 31 commit) ayrı bir
+`claude/...` dalında kaldı, `main`'e hiç girmedi; öteki hesap `main`'de
+v6.122'deydi ve yeni iş eklese iki hat birbirinden ayrılacaktı. O gün
+`main` o dala ileri sarıldı (fast-forward, hiçbir commit kaybolmadı).
+Tekrarlanmasın diye kural — **her hesap, her oturum** için geçerli:
+
+1. **Ortak hat `main`.** Klinikteki makine ve Mac `git pull origin main`
+   ile güncelleniyor (`KOMUTLAR.md`); `main`'e girmeyen iş kullanıcının
+   programına hiç ulaşmaz.
+2. **Oturumun başında, bir şey değiştirmeden önce:** `git fetch origin`,
+   sonra `git branch -r` ile uzak dalların hepsine bak ve
+   `git log --oneline main..origin/<dal>` ile `main`'de olmayan commit var
+   mı kontrol et. Varsa bu, başka bir hesabın işi — **önce onu `main`'e
+   al** (`git merge --ff-only origin/<dal>`; ileri sarma olmuyorsa normal
+   `git merge`, çakışmayı çöz), `main`'i push et, sonra kendi işine başla.
+   README'nin son sürüm numarasına da bak: yeni sürüm numarası ondan devam
+   eder, iki hesap aynı numarayı vermesin.
+3. **Oturuma ayrı bir `claude/...` dalı atanmışsa:** o dalı güncel
+   `main`'den başlat, işi orada yap, iş bitince **hem o dala hem `main`'e**
+   push et (`git push origin HEAD:main` — `main` o dalın gerisindeyse bu bir
+   ileri sarmadır). Dalı `main`'in önünde bırakıp oturumu kapatma.
+4. **Asla:** `--force` push, `main` üzerinde rebase/amend, bir başkasının
+   dalını silmek. Dallar birleştirmeden sonra da dursun; silmek kullanıcının
+   kararı.
+5. `git push` "rejected / non-fast-forward" derse öteki hesap bu arada push
+   etmiş demektir: `git pull origin main` (birleştir), programı çalıştırıp
+   dene, sonra tekrar push.
