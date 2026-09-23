@@ -1011,6 +1011,37 @@ kalıptan**: `form_kalip.json`.
     sırası: protokol → dondurma → çözme → iptal sebebi.
   - ART Lab'da FREEZE sütununun **dört kutusu** (satır 28-31) tüp tüp
     doluyor; dörtten çoksa son kutu kalanı sayıyla söylüyor ("+3 tüp").
+- **Çözülen örnekler de iki forma tek yerden** (v6.152, kullanıcının
+  isteği: "FET çözme tedavilerinde formlara işlem geçmiyor").
+  `formlar.cozulen_ornekler(cycle_id)` — her çözülen örnek: kodu
+  (`specimen.id`), tüpü, tüpe konduğu andaki kalitesi (önceki dondurmanın
+  tedavisinden, `bu_tedavinin_skoru()`), sağkalımı, canlılık oranı
+  (`thaw_canlilik`), bu tedavide transfer mi yeniden dondurma mı.
+  - Özet: ÇÖZDÜRÜLEN sayısı; VİABİLİTE `cozme_viabilitesi()` ("2 Canlı,
+    1 Dejenere · %90-%85" — ortalama alınmıyor); NOTLAR'a dondurma
+    satırından sonra "Çözülen: ..." ve "Kalan dondurulmuş: ..."
+    (`_kalan_dondurulmus()`: bu tedavinin **son işleminin anındaki** tank,
+    bugünkü değil — form aylar sonra basılsa da o günü söylesin).
+  - ART Lab: THAW ve TRANSFER da FREEZE gibi dört kutu (`_ARTLAB_DORT_KUTU`).
+    THAW tüp tüp parantez (`tup_metni()`), TRANSFER'in "Uterus grade (x
+    sayı)"sı "3AA x2 · %90-%85" (`_transfer_satirlari()`).
+  - Izgaranın "Transfer" satırındaki **F = Freeze** (o embriyo transfer
+    edilmedi, donduruldu), ✓ = transfer. Kullanıcı sordu, anlamı ekranda
+    yazmıyor.
+- **Taşma/küçülme kararı sayfanın verisine bağlı** (v6.152):
+  `formlar.tasan_hucreleri(ad, deger)` / `sigdir_hucreleri(ad, deger)`,
+  app ikisini de sayfa sayfa çağırıyor. FREEZE yanındaki THAW boşsa taşar,
+  doluysa küçülür; THAW hep küçülür (sağı TRANSFER); TRANSFER taşar
+  (sağındaki Deselect grade programda yok). Yeni bir dolu komşu eklersen
+  bu iki işlevi güncelle, sabit kümeye güvenme.
+- **Yazdırırken form tek A4'e sığdırılıyor** (v6.152, `form.html`
+  `baskiyaSigdir()`). Kâğıdın NOTLAR kutusu iki satır boyunda; 3 satırı
+  aşan not satırları uzatıp formu **ikinci sayfaya** taşıyordu (ölçüldü:
+  4 satırda 2 sayfa — Access'ten gelen protokol notları zaten aşıyordu).
+  `beforeprint`'te `.kalipkap` kalıbın kendi boyuna (`data-yukseklik`)
+  `zoom` ile küçülüyor, `afterprint`'te geri. Kesme yok, Excel'in "sayfaya
+  sığdır"ının aynısı. Test ederken Playwright `pdf()` `beforeprint`'i
+  kendisi atmıyor — olayı elle gönder.
 - **Sayıyı forma basmadan önce `_sayi()`'den geçir** (v6.136). Yüzde/hacim
   kolonları SQLite'ta REAL; 85 değeri "85.0" diye geliyordu ve ART Lab'ın
   "% Motil" kutusuna (32px) "%  85.0" (40px) sığmayıp **sessizce

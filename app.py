@@ -4368,11 +4368,13 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
     # Ekranda basılan ızgara ile Excel'e giden ızgara **aynı kalıptan** geliyor.
     # `tasan`: ART Lab'ın dar FREEZE kutusu, yazısı sığmazsa sağdaki boş
     # kutulara akıyor (v6.135, kullanıcının kararı) -- kesilmesindense.
-    tasan = formlar.ARTLAB_TASAN_HUCRELER if ad == "artlab" else None
-    # `sigdir`: kimlik kutularında sığmayan ad küçülüyor (v6.150).
-    sigdir = formlar.sigdir_hucreleri(ad)
-    sayfalar = [form_kalip.satirlar(kalip, deger, ek, tasan=tasan,
-                                    sigdir=sigdir)
+    # `sigdir`: sağı dolu ya da kenardaki kutuda yazı küçülüyor (v6.150).
+    # İkisi de sayfanın dolgusuna bakıyor (v6.152): FET'te FREEZE'in yanındaki
+    # THAW kutusu da dolu olabiliyor.
+    sayfalar = [form_kalip.satirlar(
+                    kalip, deger, ek,
+                    tasan=formlar.tasan_hucreleri(ad, deger),
+                    sigdir=formlar.sigdir_hucreleri(ad, deger))
                 for deger, ek in dolgu(v)]
     return sablon.TemplateResponse(
         request, "form.html",
@@ -4399,7 +4401,7 @@ def form_excel(request: Request, ad: str, cycle_id: int):
     sayfalar = [
         form_kalip.yerlesim(
             kalip, sayfa_adi if len(parcalar) == 1 else f"{sayfa_adi} {i}",
-            deger, ek, sigdir=formlar.sigdir_hucreleri(ad))
+            deger, ek, sigdir=formlar.sigdir_hucreleri(ad, deger))
         for i, (deger, ek) in enumerate(parcalar, start=1)
     ]
     if ad == "artlab" and v.get("iptal_notu"):

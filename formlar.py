@@ -497,6 +497,38 @@ _ARTLAB_YORUM_SATIR = 36
 # Kırpmak yerine taşırmak bilinçli: kesilen bir skor yanlış bilgi olurdu.
 
 
+def _dort_kutu(metinler_, birim) -> list:
+    """Özet bloğunun dört kutulu sütunları (satır 28-31): fazlası son kutuda
+    sayıyla ("+3 tüp") -- sessizce kırpmak kaç tane olduğunu gizlerdi."""
+    n = len(_ARTLAB_FREEZE_SATIR)
+    if len(metinler_) <= n:
+        return list(metinler_)
+    return list(metinler_[:n - 1]) + [f"+{len(metinler_) - n + 1} {birim}"]
+
+
+def _transfer_satirlari(cycle_id, cozulenler) -> list:
+    """ART Lab'ın "Uterus grade (x sayı)" kutuları (v6.152).
+
+    Kâğıdın başlığı "grade (x sayı)": aynı kalitede embriyolar tek satırda
+    sayılarıyla -- "3AA x2 · %90-%85". Kalite embriyonun transferdeki son
+    değerlendirmesi; canlılık oranı bu tedavideki çözmeden (taze transferde
+    çözme yok, oran da yok). Kalitesi kayıtlı olmayan embriyo "?" ile, kutu
+    boş kalıp "transfer yok" demesin.
+    """
+    oran = {o["kod"]: o["canlilik"] for o in cozulenler}
+    gruplar = {}
+    for r in _transfer_edilenler(cycle_id):
+        k = _ornek_kalitesi(r["id"]) or "?"
+        g = gruplar.setdefault(k, [])
+        g.append(oran.get(r["id"]))
+    satirlar = []
+    for k, oranlar in gruplar.items():
+        m = f"{k} x{len(oranlar)}"
+        yuzdeler = "-".join(x for x in oranlar if x)
+        satirlar.append(f"{m} · {yuzdeler}" if yuzdeler else m)
+    return satirlar
+
+
 def _freeze_satirlari(tupler) -> list:
     """FREEZE sütununun kutuları: her satır bir tüp.
 
@@ -562,6 +594,227 @@ def dondurma_notu(cycle_id: int, cycle_tipi, tupler) -> str | None:
     return textwrap.fill(satir, 68)
 
 
+# ------------------------------------------------ çözülen örnekler (v6.152)
+#
+# Kullanıcının isteği: "FET çözme tedavilerinde formlara işlem geçmiyor."
+# İki form da yalnızca çözülen embriyoların SAYISINI basıyordu; hangi
+# embriyonun çözüldüğü, canlılığı, transfer mi yeniden dondurma mı olduğu ve
+# geriye dondurulmuş embriyo kalıp kalmadığı hiçbir yerde yazmıyordu. Soru
+# tek yerde cevaplanıyor -- Özet'in kutuları ve NOTLAR'ı, ART Lab'ın THAW ve
+# TRANSFER sütunları buradan okuyor, birbirini tutsunlar diye
+# (`dondurma_tupleri()`'nin gerekçesi).
+
+
+def _yuzde(x):
+    """Canlılık oranı: 90.0 -> "%90", 87.5 -> "%87.5". Yuvarlama yok."""
+    if x is None or x == "":
+        return None
+    try:
+        f = float(x)
+    except (TypeError, ValueError):
+        return f"%{x}"
+    return f"%{int(f)}" if f.is_integer() else f"%{f:g}"
+
+
+def _ornek_kalitesi(specimen_id, tedavi_id=None):
+    """Bir örneğin kalitesi, `_dondurma_kalitesi()`'nin yazımıyla.
+
+    `tedavi_id` verilirse o tedavinin değerlendirmesi (`db.bu_tedavinin_skoru()`,
+    v6.148) -- çözülen embriyonun tüpe konduğu andaki skoru, dondurmanın
+    yapıldığı tedaviden. Verilmezse en son değerlendirme.
+    """
+    bu = (f"AND {db.bu_tedavinin_skoru(str(int(tedavi_id)), 'x')}"
+          if tedavi_id is not None else "")
+    r = db.tek(
+        f"""
+        SELECT {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
+                 AS bl_skor,
+               {son_alt('cl_hucre_sayisi', 'cleavage_degerlendirme',
+                        'x.gun DESC', bu)} AS cl_hucre,
+               {son_alt('cl_skor', 'cleavage_degerlendirme', 'x.gun DESC', bu)}
+                 AS cl_skor
+          FROM specimen s WHERE s.id = ?
+        """, (specimen_id,))
+    return _dondurma_kalitesi(r) if r else None
+
+
+def cozulen_ornekler(cycle_id: int) -> list:
+    """Bu tedavi için çözülen örnekler, çözme sırasıyla.
+
+    "Bu tedavi için" = `COALESCE(thaw_cycle_id, specimen.cycle_id)`, Özet'in
+    v6.102'den beri kullandığı koşul. Her öğe: örnek kodu (`specimen.id`),
+    tüp (çözmenin boşalttığı taşıyıcı, v6.143; yoksa önceki dondurmanınki),
+    tüpe konduğu andaki kalite, sağkalım etiketi, canlılık oranı ve bu
+    tedavide ne olduğu (transfer / yeniden dondurma).
+    """
+    tup_kolonu = ("o.thaw_tasiyici_id" if db.cozme_tupu_var() else "NULL")
+    satirlar = db.sorgu(
+        f"""
+        SELECT o.id, o.specimen_id, o.zaman, o.thaw_sagkalim, o.thaw_canlilik,
+               {tup_kolonu} AS cozme_tupu, s.cycle_sira_no
+          FROM olay o JOIN specimen s ON s.id = o.specimen_id
+         WHERE o.tip = 'thaw' AND o.iptal_mi = 0
+           AND COALESCE(o.thaw_cycle_id, s.cycle_id) = ?
+         ORDER BY o.zaman, o.id
+        """, (cycle_id,))
+    h = _etiketler()
+    vt = db.vit_tedavisi("v")
+    sonuc = []
+    for r in satirlar:
+        # Tüpe konduğu dondurma: bu çözmeden ÖNCEKİ son dondurma (kimlik
+        # sırası, v6.143'ün kuralı). Access'ten aktarılan FET'in kendi altına
+        # açılan embriyolarının dondurması yok (v6.130) -- tüpsüz, kalite
+        # son değerlendirmeden.
+        v = db.tek(
+            f"SELECT v.vit_tasiyici_id, {vt} AS vit_cid, t.etiket "
+            "FROM olay v LEFT JOIN tasiyici t ON t.id = v.vit_tasiyici_id "
+            "WHERE v.specimen_id = ? AND v.tip = 'vitrifikasyon' "
+            "AND v.iptal_mi = 0 AND v.id < ? ORDER BY v.id DESC LIMIT 1",
+            (r["specimen_id"], r["id"]))
+        tup = r["cozme_tupu"] or (v["vit_tasiyici_id"] if v else None)
+        etiket = v["etiket"] if v and v["vit_tasiyici_id"] == tup else None
+        if tup and not etiket:
+            t = db.tek("SELECT etiket FROM tasiyici WHERE id = ?", (tup,))
+            etiket = t["etiket"] if t else None
+        transfer = db.tek(
+            "SELECT 1 FROM olay x JOIN specimen s ON s.id = x.specimen_id "
+            "WHERE x.specimen_id = ? AND x.tip = 'transfer' AND x.iptal_mi = 0 "
+            "AND COALESCE(x.tr_cycle_id, s.cycle_id) = ? AND x.id > ?",
+            (r["specimen_id"], cycle_id, r["id"])) is not None
+        yeniden = db.tek(
+            f"SELECT 1 FROM olay v WHERE v.specimen_id = ? "
+            f"AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
+            f"AND {vt} = ? AND v.id > ?",
+            (r["specimen_id"], cycle_id, r["id"])) is not None
+        sonuc.append({
+            "kod": r["specimen_id"],
+            "tup": tup,
+            "etiket": etiket,
+            "kalite": _ornek_kalitesi(r["specimen_id"],
+                                      v["vit_cid"] if v else None),
+            "sagkalim": _et(h, "thaw_sagkalim", r["thaw_sagkalim"]),
+            "canlilik": _yuzde(r["thaw_canlilik"]),
+            "transfer": transfer,
+            "yeniden": yeniden,
+        })
+    return sonuc
+
+
+def cozulen_tupler(cozulenler) -> list:
+    """Çözülen örnekler tüp tüp -- `dondurma_tupleri()`'nin biçimiyle, ki
+    `tup_metni()` ikisini de aynı parantezle bassın."""
+    tupler, sira = [], {}
+    for o in cozulenler:
+        anahtar = o["tup"] or 0
+        if anahtar not in sira:
+            sira[anahtar] = len(tupler)
+            tupler.append({"etiket": o["etiket"], "ogeler": [], "gunler": []})
+        tupler[sira[anahtar]]["ogeler"].append(o["kalite"])
+    return tupler
+
+
+def cozme_viabilitesi(cozulenler) -> str | None:
+    """ÇÖZDÜRME SONRASI VİABİLİTE kutusu: "2 Canlı, 1 Dejenere · %90-%80".
+
+    Sağkalım etiketleri sayılarıyla (ekrandaki seçenekler), girilmişse
+    canlılık oranları embriyo embriyo, çözme sırasıyla. Ortalama alınmıyor:
+    resmî forma programın hesapladığı bir sayı değil, girilen yazılsın.
+    """
+    sayim = {}
+    for o in cozulenler:
+        if o["sagkalim"]:
+            sayim[o["sagkalim"]] = sayim.get(o["sagkalim"], 0) + 1
+    parca = ", ".join(f"{n} {e}" for e, n in sayim.items())
+    oranlar = "-".join(o["canlilik"] for o in cozulenler if o["canlilik"])
+    return " · ".join(p for p in (parca, oranlar) if p) or None
+
+
+def _kalan_dondurulmus(cycle_id: int) -> str:
+    """Bu tedaviden sonra hastanın tankta kalan örnekleri, NOTLAR için.
+
+    Ölçü **bu tedavinin son işleminin anı** -- bugünün tankı değil: form
+    aylar sonra basılsa da o gün ne kaldığını söylesin. O ana kadar
+    dondurulmuş (bu tedavide yeniden dondurulan dahil) ve o ana kadar
+    çözülmemiş örnekler. Tüpü yalnızca çözme boşaltıyor; bir dondurmanın
+    çözülüp çözülmediği kimlik sırasıyla (dondurmadan sonraki bir çözme,
+    v6.143'ün kuralı), yani yeniden dondurulan embriyonun ilk tüpü sayılmıyor.
+    """
+    kosul, par = db.tedavide_yapilan(cycle_id)
+    son = db.tek(
+        f"SELECT MAX(o.zaman) z FROM olay o JOIN specimen s "
+        f"ON s.id = o.specimen_id WHERE o.iptal_mi = 0 AND {kosul}", par)
+    c = db.tek("SELECT hasta_id FROM cycle WHERE id = ?", (cycle_id,))
+    if not son or not son["z"] or not c:
+        return ""
+    t = son["z"]
+    vt = db.vit_tedavisi("v")
+    satirlar = db.sorgu(
+        f"""
+        SELECT v.vit_tasiyici_id AS tup, tz.etiket, v.specimen_id,
+               (SELECT cycle_tipi FROM cycle WHERE id = {vt}) AS tip
+          FROM olay v JOIN specimen s ON s.id = v.specimen_id
+          JOIN cycle c ON c.id = s.cycle_id
+          LEFT JOIN tasiyici tz ON tz.id = v.vit_tasiyici_id
+         WHERE c.hasta_id = ? AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0
+           AND v.zaman <= ?
+           AND NOT EXISTS (SELECT 1 FROM olay z WHERE z.specimen_id = v.specimen_id
+                 AND z.tip = 'thaw' AND z.iptal_mi = 0 AND z.id > v.id
+                 AND z.zaman <= ?)
+         ORDER BY v.zaman, v.id
+        """, (c["hasta_id"], t, t))
+    gruplar = {}   # "embriyo"/"yumurta" -> {tüp -> etiket}, örnek sayısı
+    for r in satirlar:
+        ad = "yumurta" if db.yumurta_mi(r["tip"]) else "embriyo"
+        g = gruplar.setdefault(ad, {"tupler": {}, "adet": 0})
+        g["adet"] += 1
+        g["tupler"].setdefault(r["tup"] or 0, r["etiket"])
+    if not gruplar:
+        return "Kalan dondurulmuş embriyo yok."
+    parcalar = []
+    for ad in ("embriyo", "yumurta"):
+        g = gruplar.get(ad)
+        if not g:
+            continue
+        etiketler = [e for e in g["tupler"].values() if e]
+        p = f"{g['adet']} {ad}, {len(g['tupler'])} tüp"
+        if etiketler:
+            p += " (" + ", ".join(etiketler) + ")"
+        parcalar.append(p)
+    return "Kalan dondurulmuş: " + "; ".join(parcalar) + "."
+
+
+def cozme_notu_satiri(cycle_id: int, cycle_tipi, cozulenler) -> str | None:
+    """NOTLAR'a giren çözme satırları (v6.152, kullanıcının isteği: "Hangi
+    embriyo çözüldü, geriye dondurulmuş embriyo kaldı mı bilgisi yazsın").
+
+    "Çözülen: 3 embriyo, 1 tüp (0001-0910): 2026-0001-01 3AA Canlı %90,
+    transfer; 2026-0001-02 3AB Canlı, yeniden donduruldu; ..." ve altında
+    "Kalan dondurulmuş: ...". Örnek, ekranlardaki örnek kodunun kendisiyle
+    (`specimen.id`: kaynak tedavinin lab no'su + sırası) -- hangi embriyonun
+    çözüldüğü soyağacıyla okunuyor. 68 karakterde sarılı (v6.130'un kuralı).
+    """
+    if not cozulenler:
+        return None
+    ad = "yumurta" if db.yumurta_mi(cycle_tipi, "thaw") else "embriyo"
+    tupler = cozulen_tupler(cozulenler)
+    etiketler = [t["etiket"] for t in tupler if t["etiket"]]
+    bas = f"Çözülen: {len(cozulenler)} {ad}, {len(tupler)} tüp"
+    if etiketler:
+        bas += " (" + ", ".join(etiketler) + ")"
+    ogeler = []
+    for o in cozulenler:
+        parca = " ".join(p for p in (o["kod"], o["kalite"], o["sagkalim"],
+                                     o["canlilik"]) if p)
+        sonra = [s for s, var in (("transfer", o["transfer"]),
+                                  ("yeniden donduruldu", o["yeniden"])) if var]
+        ogeler.append(", ".join([parca] + sonra))
+    satirlar = [textwrap.fill(bas + ": " + "; ".join(ogeler), 68)]
+    kalan = _kalan_dondurulmus(cycle_id)
+    if kalan:
+        satirlar.append(textwrap.fill(kalan, 68))
+    return "\n".join(satirlar)
+
+
 def ozet_verisi(cycle_id: int):
     """Embriyoloji Özet Formu'nun (DH.FR.91) bütün kutuları.
 
@@ -599,6 +852,10 @@ def ozet_verisi(cycle_id: int):
         "JOIN specimen s ON s.id=o.specimen_id "
         "WHERE o.tip='thaw' AND o.iptal_mi=0 "
         "AND COALESCE(o.thaw_cycle_id, s.cycle_id)=?", (cycle_id,))
+    # Çözülen örnekler tek tek (v6.152): hangisi, canlılığı, ne oldu, geriye
+    # ne kaldı. Sayı ve viabilite kutusu da buradan -- NOTLAR'la tutsun diye.
+    cozulenler = cozulen_ornekler(cycle_id)
+    cozulen_satiri = cozme_notu_satiri(cycle_id, c["cycle_tipi"], cozulenler)
     # Çözme notu (v6.102): taşıyıcıdaki tüm örnekler için aynı değer
     # yazıldığından (thaw.html'in tek, paylaşılan not alanı) ilk dolu olanı
     # yeterli. Protokol notunun altına eklenir, üzerine yazmaz.
@@ -608,6 +865,7 @@ def ozet_verisi(cycle_id: int):
     iptal_notu = _iptal_notu(c)
     # Dondurulan embriyolar da NOTLAR'a (v6.135, kullanıcının isteği).
     # Sıra klinik akış: protokol -> dondurma -> çözme -> iptal sebebi.
+    # Çözülen örneklerin satırı (v6.152) çözme notunun hemen önünde.
     don_notu = dondurma_notu(cycle_id, c["cycle_tipi"], tupler)
 
     def _asama_ozeti(satirlar, alan):
@@ -699,12 +957,13 @@ def ozet_verisi(cycle_id: int):
         # blastokist genişleme etiketi ("Tam blastokist") basılıyordu -- o
         # bilgi artık NOTLAR'daki parantezlerde, skoruyla birlikte duruyor.
         "dondurma_asamasi": dondurma_gunleri(tupler),
-        "cozdurulen_sayi": len(cozulen) or None,
-        "cozdurme_viabilite": ", ".join(
-            sorted({_et(h, "thaw_sagkalim", r["thaw_sagkalim"]) or ""
-                    for r in cozulen} - {""})) or None,
+        "cozdurulen_sayi": len(cozulenler) or None,
+        # v6.152: sağkalım etiketleri sayılarıyla + girilmişse canlılık
+        # oranları (önceden yalnızca farklı etiketler: "Canlı").
+        "cozdurme_viabilite": cozme_viabilitesi(cozulenler),
         "notlar": "\n".join(
-            p for p in (c["protokol_notu"], don_notu, cozme_notu, iptal_notu)
+            p for p in (c["protokol_notu"], don_notu, cozulen_satiri,
+                        cozme_notu, iptal_notu)
             if p) or None,
         # --- başlık / künye ---
         "cycle_no": c["cycle_no"],
@@ -769,7 +1028,9 @@ OZET_SIGDIR_HUCRELER = {
     (satir - 1, sutun)
     for satir, sol, sag in OZET_KUTULARI
     for anahtar, sutun in ((sol, _OZET_SOL), (sag, _OZET_SAG))
-    if anahtar in ("soyadi", "adi", "esinin_adi")
+    # ÇÖZDÜRME SONRASI VİABİLİTE de sağ kenarda (v6.152): "2 Canlı,
+    # 1 Dejenere · %90-%85" uzayabiliyor.
+    if anahtar in ("soyadi", "adi", "esinin_adi", "cozdurme_viabilite")
 }
 
 
@@ -904,12 +1165,7 @@ def artlab_verisi(cycle_id: int):
     bazal, sonrasi = analiz.get("bazal"), analiz.get("hazirlik_sonrasi")
 
     tupler = dondurma_tupleri(cycle_id)
-    cozulen = db.tek(
-        "SELECT COUNT(DISTINCT o.specimen_id) n FROM olay o "
-        "JOIN specimen s ON s.id=o.specimen_id WHERE o.tip='thaw' "
-        "AND o.iptal_mi=0 AND COALESCE(o.thaw_cycle_id, s.cycle_id)=?",
-        (cycle_id,))["n"]
-    transfer = len(_transfer_edilenler(cycle_id))
+    cozulenler = cozulen_ornekler(cycle_id)
     # Kâğıttaki FERTİLİZASYON bloğunun "Dej" sütunu: işlemden **sonra**
     # dejenere olan oosit (ICSI sırasında ya da fert kontrolünde görülen).
     dej_islem = _bu_tedavide_adet(cycle_id, _DEJ_ISLEM)
@@ -953,8 +1209,15 @@ def artlab_verisi(cycle_id: int):
         "freeze_satirlari": _freeze_satirlari(tupler),
         # Kâğıdın altındaki geniş "Yorum:" satırına eklenir (v6.135).
         "bulgu_notu": bulgu_notu,
-        "thaw": cozulen or None,
-        "transfer": transfer or None,
+        # THAW ve TRANSFER sütunları da dört kutu (v6.152, kullanıcının
+        # isteği): önceden ikisi de yalnızca bir sayıydı. THAW'da çözülen
+        # tüpler FREEZE'in parantezleriyle; TRANSFER'in "Uterus grade (x
+        # sayı)" kutularında transfer edilen embriyoların kalitesi, sayısı ve
+        # çözmedeki canlılık oranı.
+        "thaw_satirlari": _dort_kutu(
+            [tup_metni(t) for t in cozulen_tupler(cozulenler)], "tüp"),
+        "transfer_satirlari": _dort_kutu(
+            _transfer_satirlari(cycle_id, cozulenler), "grade"),
         # ART Lab'da NOTLAR gibi bir kutu yok; iptal sebebi kalıbın dışına,
         # en alta ayrı bir şerit olarak ekleniyor (v6.104) -- bkz. app.py
         # form_ekrani()/form_excel(), form_kalip.olcu()/hucre_adresi().
@@ -969,7 +1232,15 @@ _ARTLAB_OZET = [
     (31, 5, "oosit_dej"),                                 # Mll / Ml / Pl / Dej
     (28, 6, "oosit_dej_islem"),                           # Dej (fertilizasyon)
     (28, 8, "pn0"), (28, 9, "pn1"), (28, 10, "pn2"), (28, 11, "pn3"),
-    (28, 14, "thaw"), (28, 16, "transfer"),   # FREEZE ayrı: dört kutu, aşağıda
+    # FREEZE, THAW ve TRANSFER ayrı: dört kutu, `_ARTLAB_DORT_KUTU` (v6.152).
+]
+
+# Dört kutulu sütunlar: (sütun, verinin anahtarı). Satırlar 28-31.
+_ARTLAB_THAW_SUTUN, _ARTLAB_TRANSFER_SUTUN = 14, 16
+_ARTLAB_DORT_KUTU = [
+    (_ARTLAB_FREEZE_SUTUN, "freeze_satirlari"),
+    (_ARTLAB_THAW_SUTUN, "thaw_satirlari"),
+    (_ARTLAB_TRANSFER_SUTUN, "transfer_satirlari"),
 ]
 
 # "% Motil" ve "% Normal" kutularında kâğıtta zaten yazı var; sayı onun
@@ -984,20 +1255,48 @@ _ARTLAB_OZET_EK = [
 ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2)}
 
 
-def sigdir_hucreleri(ad: str) -> set:
-    """Formun, sığmayan yazısı küçülen kimlik hücreleri (v6.150)."""
-    return {"ozet": OZET_SIGDIR_HUCRELER,
-            "artlab": ARTLAB_SIGDIR_HUCRELER}.get(ad, set())
+def sigdir_hucreleri(ad: str, deger=None) -> set:
+    """Formun, sığmayan yazısı küçülen hücreleri (v6.150).
+
+    `deger`: sayfanın dolgusu (`*_dolgu()`'nun `d`'si). ART Lab'ın dört
+    kutulu sütunlarında karar veriye bağlı (v6.152): sağındaki kutu doluysa
+    taşmak onun yazısının üstüne binerdi -- küçülür; boşsa taşar
+    (`tasan_hucreleri()`). Karar sırası v6.150'nin: taşır, olmazsa küçült,
+    asla kesme.
+    """
+    if ad == "artlab":
+        deger = deger or {}
+        return (ARTLAB_SIGDIR_HUCRELER
+                | {(r, _ARTLAB_THAW_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
+                | {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR
+                   if deger.get((r, _ARTLAB_THAW_SUTUN))})
+    return {"ozet": OZET_SIGDIR_HUCRELER}.get(ad, set())
 
 
+def tasan_hucreleri(ad: str, deger=None) -> set:
+    """Sığmayan yazısı sağdaki BOŞ kutuya taşan hücreler (v6.135, v6.152).
+
+    FREEZE yalnızca yanındaki THAW kutusu boşsa taşar (FET'te ikisi birden
+    dolu olabiliyor); TRANSFER'in sağındaki "Deselect grade" programda
+    tutulmuyor, hep boş -- taşar. THAW'ın sağı TRANSFER, taşmaz, küçülür.
+    """
+    if ad != "artlab":
+        return set()
+    deger = deger or {}
+    return (ARTLAB_TASAN_HUCRELER
+            | {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR
+               if not deger.get((r, _ARTLAB_THAW_SUTUN))}
+            | {(r, _ARTLAB_TRANSFER_SUTUN) for r in _ARTLAB_FREEZE_SATIR})
+
+
+# FREEZE/THAW/TRANSFER'in taşma kararı veriye bağlı, `tasan_hucreleri()`.
 ARTLAB_TASAN_HUCRELER = (
-    {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
     # "% Motil" / "% Normal" kutuları da dar (32px): kâğıttaki "%" ile
     # değerin ikisi birden aynı hücreye giriyor. `_sayi()` ".0"ı düşürdüğü
     # için iki haneli değer tam sığıyor ("%  85" = 32px); %100 ya da gerçekten
     # kesirli bir değer 5px taşıyor ve komşunun 2px dolgusuna akıyor --
     # kesilmesindense (v6.136).
-    | {(r, c) for r, c, _ in _ARTLAB_OZET_EK})
+    {(r, c) for r, c, _ in _ARTLAB_OZET_EK})
 
 # "İŞLEM / Tarih / Sa." bloğu: kâğıttaki beş satır ve çizelgedeki karşılığı.
 _ARTLAB_ISLEM = [
@@ -1061,9 +1360,10 @@ def artlab_dolgu(v: dict) -> list:
         if sayfa == 0:
             for satir, c, anahtar in _ARTLAB_OZET:
                 d[(satir, c)] = _yaz(v.get(anahtar))
-            for satir, metin in zip(_ARTLAB_FREEZE_SATIR,
-                                    v.get("freeze_satirlari") or []):
-                d[(satir, _ARTLAB_FREEZE_SUTUN)] = metin
+            for sutun, anahtar in _ARTLAB_DORT_KUTU:
+                for satir, metin in zip(_ARTLAB_FREEZE_SATIR,
+                                        v.get(anahtar) or []):
+                    d[(satir, sutun)] = metin
             for satir, c, anahtar in _ARTLAB_OZET_EK:
                 ek[(satir, c)] = v.get(anahtar)
             for satir, asama in _ARTLAB_ISLEM:

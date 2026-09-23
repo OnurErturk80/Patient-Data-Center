@@ -39,7 +39,7 @@
 {% for s in sayfalar %}
 <div class="kagit{% if yon == 'yatay' %} yatay{% endif %}">
   <div class="kalipolcek">
-  <div class="kalipkap">
+  <div class="kalipkap" data-yukseklik="{{ s.satirlar|sum(attribute='yukseklik') }}">
   {#- Amblem tablonun üstüne biniyor: yeri kâğıttaki sabitleyiciden
       (Excel'in client anchor'ı) hesaplandı, satırlarla aynı ölçekte. -#}
   {%- for g in s.gorseller %}
@@ -125,11 +125,37 @@
       }
     });
   }
+  // Kâğıt bir A4'e göre ölçekli (`s.olcek`); ama satırlar içerikle
+  // uzayabiliyor -- NOTLAR kutusu kâğıtta iki satır boyunda, protokol notu,
+  // dondurma ve çözme satırları (v6.152) onu uzatınca form ikinci sayfaya
+  // taşıyordu. Yazdırırken kâğıt, kalıbın kendi boyuna (`data-yukseklik`,
+  // pt) sığacak kadar BÜTÜN olarak küçülüyor -- Excel'in "sayfaya sığdır"ının
+  // aynısı. Hiçbir satır kesilmiyor, oranlar bozulmuyor. Ölçü düzen boyu
+  // (`scrollHeight`, ekrandaki `transform`dan etkilenmez).
+  function baskiyaSigdir() {
+    document.querySelectorAll('.kalipkap').forEach(function (kap) {
+      kap.style.zoom = '';
+      var hedef = parseFloat(kap.dataset.yukseklik) * 4 / 3;
+      var gercek = kap.scrollHeight;
+      if (hedef > 0 && gercek > hedef + 1) {
+        kap.style.zoom = hedef / gercek;
+      }
+    });
+  }
+  function baskiBitti() {
+    document.querySelectorAll('.kalipkap').forEach(function (kap) {
+      kap.style.zoom = '';
+    });
+    adlariSigdir();
+  }
   adlariSigdir();
   // Çıktıda kutu genişliği ekrandakinden farklı; yazdırmadan önce yeniden
   // ölç, sonra ekrana göre geri al.
-  window.addEventListener('beforeprint', adlariSigdir);
-  window.addEventListener('afterprint', adlariSigdir);
+  window.addEventListener('beforeprint', function () {
+    adlariSigdir();
+    baskiyaSigdir();
+  });
+  window.addEventListener('afterprint', baskiBitti);
   window.addEventListener('resize', formlariSigdir);
   window.addEventListener('orientationchange', formlariSigdir);
   formlariSigdir();

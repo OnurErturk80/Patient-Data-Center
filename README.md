@@ -12469,3 +12469,107 @@ Dondurma → Yumurta Çözme → embriyo dondurma. Kart: 2. tedavi rozetli ve
 "→ 3. tedavide çözüldü", 3. tedavi "2. tedaviden", 1., 4. ve 5. tedaviler
 değişmedi. Göçsüz veritabanında işlev boş döndü. 390 ve 1440 piksel
 genişlikte sayfa yana kaymıyor.
+
+---
+
+# v6.152 — FET formları: çözülen embriyolar, canlılık, kalan tüpler
+
+Kullanıcının isteği: "FET çözme tedavilerinde formlara işlem geçmiyor. Art
+lab formunda Thaw bölümüne çözülen embriyolar eklensin. Transfer edilen
+embriyolar da transfer bölümünde Uterus grade (x sayı) bölümüne canlılık
+yüzdesi yanına yazılarak eklensin. Embriyoloji Özet Formunda da ÇÖZDÜRÜLEN
+EMBRİYO SAYISI ... ÇÖZDÜRME SONRASI VİABİLİTE ... Notlar bölümüne de
+çözülen embriyoların bilgisi eklensin. Hangi embriyo çözüldü geriye
+dondurulmuş embriyo kaldı mı bilgisi yazsın."
+
+Bir de soru: ART Lab'ın ızgarasındaki "Transfer" satırında bazı yumurtaların
+altında **F** yazıyor. **F = Freeze**: o embriyo transfer edilmedi,
+donduruldu. ✓ transfer edildi demek, boş kutu ikisi de olmadı demek. Bu
+v6.37'den beri böyle; anlamı formda yazmıyor. Değiştirilmedi, istenirse
+başka bir işarete çevrilebilir.
+
+## Tek kaynak: `formlar.cozulen_ornekler()`
+
+İki form da çözmeden yalnızca bir **sayı** basıyordu (Özet'te çözülen sayı
+ve farklı sağkalım etiketleri, ART Lab'ın THAW ve TRANSFER kutularında
+birer sayı). Artık her çözülen örnek için şunlar tek yerde toplanıyor:
+
+- kodu (`specimen.id`, "2026-0001-02": kaynak tedavinin lab no'su + sırası —
+  hangi embriyo olduğu soyağacıyla okunuyor);
+- tüpü (çözmenin boşalttığı taşıyıcı, v6.143);
+- tüpe konduğu andaki kalitesi (önceki dondurmanın tedavisinin
+  değerlendirmesi, `db.bu_tedavinin_skoru()` — v6.148'in kuralı);
+- sağkalımı ve çözme ekranındaki canlılık oranı (`thaw_canlilik`);
+- bu tedavide ne oldu: transfer / yeniden donduruldu.
+
+Özet'in kutuları ve NOTLAR'ı, ART Lab'ın THAW ve TRANSFER sütunları
+buradan okuyor; `dondurma_tupleri()`'nin gerekçesiyle, birbirini tutsunlar
+diye.
+
+## Embriyoloji Özet
+
+- **ÇÖZDÜRÜLEN EMBRİYO SAYISI**: çözülen örnek sayısı.
+- **ÇÖZDÜRME SONRASI VİABİLİTE**: "2 Canlı, 1 Dejenere · %90-%85" —
+  sağkalım etiketleri sayılarıyla, girilmişse canlılık oranları embriyo
+  embriyo. Ortalama alınmıyor: resmî forma programın hesapladığı değil,
+  girilen sayı yazılsın. Kutu sağ kenarda; uzarsa küçülüyor (v6.150).
+- **NOTLAR**, dondurma satırının altına:
+  `Çözülen: 3 embriyo, 1 tüp (0001-0910): 2026-0001-01 3AA Canlı %90,
+  transfer; 2026-0001-02 3AB Canlı %85, yeniden donduruldu; ...`
+  ve `Kalan dondurulmuş: 2 embriyo, 1 tüp (0002-1430).` (yoksa "Kalan
+  dondurulmuş embriyo yok."). Hastanın yumurta tüpleri ayrıca sayılıyor.
+  **Ölçü bu tedavinin son işleminin anı**, bugünkü tank değil: form aylar
+  sonra basılsa da o gün geriye ne kaldığını söylesin. O ana kadar
+  dondurulmuş (bu tedavide yeniden dondurulan dahil), o ana kadar
+  çözülmemiş örnekler.
+
+## ART Lab
+
+- **THAW**: FREEZE gibi dört kutu, her satır bir tüp, aynı parantez yazımı
+  (`tup_metni()`): `(3AA-3AB-4BB)`.
+- **TRANSFER → Uterus grade (x sayı)**: kâğıdın başlığındaki gibi kalite ve
+  sayı, yanında çözmedeki canlılık: `3AA x2 · %90-%85`. Taze transferde
+  çözme yok, oran da yok: `3AA x1`. Kalitesi kayıtlı değilse `?`.
+- Önceden bu iki kutuda duran sayılar kalktı; sayı parantezlerden ve
+  "x N"den okunuyor.
+
+## Taşma ve küçülme artık sayfanın verisine bağlı
+
+FREEZE'in yazısı sağdaki THAW kutusuna taşıyordu (v6.135, kullanıcının
+kararı). FET'te THAW da dolu — taşan yazı onun üstüne binerdi.
+`tasan_hucreleri(ad, deger)` / `sigdir_hucreleri(ad, deger)` sayfanın
+dolgusuna bakıyor: FREEZE yanı boşsa taşar, doluysa küçülür; THAW hep
+küçülür (sağı TRANSFER); TRANSFER taşar (sağındaki "Deselect grade"
+programda tutulmuyor). Excel'de de aynı: küçülen hücre stilin kopyasıyla
+`shrinkToFit`, taşan hücreyi Excel kendisi taşırıyor.
+
+## Yazdırırken tek sayfa
+
+Ölçüldü: kâğıdın NOTLAR kutusu iki satır boyunda ve Özet 3 satırı aşan
+notta **iki sayfaya** basılıyordu (4 satır = 2 sayfa). Access'ten aktarılan
+tedavilerin protokol notları zaten bunu aşıyordu; çözme satırları FET'lerde
+daha da uzatıyor. `form.html`'in `baskiyaSigdir()`'i yazdırmadan önce
+kâğıdı, kalıbın kendi boyuna (`data-yukseklik`) sığacak kadar `zoom` ile
+bütün olarak küçültüyor — Excel'in "sayfaya sığdır"ı gibi, hiçbir satır
+kesilmiyor. Yazdırma bitince geri alınıyor. 13 satırlık notta da tek sayfa.
+
+### Deneme
+
+Test kopyasında: ICSI → tüp A (3AA-3AB-4BB) → 2. tedavide (FET) üçü çözüldü
+(%90/%85/%80), biri transfer, ikisi tüp B'ye yeniden donduruldu → 3. tedavide
+tüp B çözüldü (biri %95 transfer, biri dejenere); ayrıca hastanın bir yumurta
+tüpü. Özet ve ART Lab ekranda, PDF'de ve Excel'de açıldı:
+
+- 2. tedavi Özet: "3 · 3 Canlı · %90-%85-%80", NOTLAR'da üç embriyo
+  ve "Kalan dondurulmuş: 2 embriyo, 1 tüp (0002-1430); 1 yumurta, 1 tüp".
+- ART Lab: FREEZE `(3AB-4BB)` (THAW dolu olduğu için küçüldü), THAW
+  `(3AA-3AB-4BB)`, TRANSFER `3AA x1 · %90`.
+- 3. tedavi: "1 Canlı, 1 Dejenere · %95", "Kalan dondurulmuş embriyo yok."
+- Çözmesi olmayan ICSI tedavisinin formları değişmedi.
+- Beş tedavinin dört çıktısı (iki form, iki Excel) hatasız; Özet PDF'i
+  uzun notla tek sayfa.
+
+Kullanıcının gerçek verisinde denenmedi (kopya yok): Access'ten aktarılan
+FET'lerde çözülen embriyonun skoru ya aktarılan tüpten ya da FET'in kendi
+altına açılan örneklerden geliyor (v6.148); skor kayıtlı değilse parantez
+sayı ya da `?` basar.
