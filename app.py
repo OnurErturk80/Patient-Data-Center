@@ -1777,6 +1777,27 @@ def klasorler_kaydet(request: Request,
     return RedirectResponse("/klasorler?kaydedildi=1", status_code=303)
 
 
+def kod_surumu():
+    """Diskteki programın sürümü: README'deki en büyük "# v6.xxx" başlığı.
+
+    `git pull` yeni kodu diske koyar ama çalışan program eski Python'la devam
+    eder (tuzak #5) -- kullanıcı "hâlâ eskisi gibi" der, sebep görünmez
+    (v6.162: ART Lab'da "+2 tüp"). Açılışta okunan (`CALISAN_SURUM`) ile şu
+    an diskteki farklıysa Yönetici paneli "yeniden başlat" diyor. README
+    paketlenmiş kurulumda yoksa None: panel satırı basmıyor.
+    """
+    try:
+        metin_ = (KOK / "README.md").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    surumler = [tuple(int(x) for x in m.groups())
+                for m in re.finditer(r"^# v(\d+)\.(\d+)\b", metin_, re.M)]
+    return "v%d.%d" % max(surumler) if surumler else None
+
+
+CALISAN_SURUM = kod_surumu()
+
+
 @uygulama.get("/yonetim")
 def yonetim_ekran(request: Request):
     """Yönetici paneli — sistemin durumu tek ekranda, hepsi salt okunur.
@@ -1837,7 +1858,8 @@ def yonetim_ekran(request: Request):
          "toplam_kullanici": sum(r["n"] for r in kullanicilar),
          "aktif_kullanici": sum(r["n"] for r in kullanicilar if r["aktif_mi"]),
          "yonetici_sayisi": aktif_yonetici_sayisi(),
-         "sifre_istegi": len(bekleyen_sifre_istekleri())})
+         "sifre_istegi": len(bekleyen_sifre_istekleri()),
+         "calisan_surum": CALISAN_SURUM, "diskteki_surum": kod_surumu()})
 
 
 @uygulama.get("/kullanicilar")

@@ -13069,3 +13069,23 @@ Gerileme: 2025'in beş dosyası ve 2026 mayıs, `liste` çıktısı eski ve yeni
 araçla karşılaştırıldı — fark yalnızca bu üç satırda. Baştan aktarım
 (beş ay): 417 tedavi, 0 hata; tek uyarı olgunluğu kaynakta hiç yazılmamış
 yumurtanın bilgisi.
+
+---
+
+# v6.162 — Yönetici panelinde çalışan program sürümü
+
+Kullanıcı: *"Hâlâ +2 tüp yazıyor."* v6.161'den sonra ART Lab'ın FREEZE
+kutusuna "+N tüp" yazan hiçbir kod kalmadı (arandı; test sunucusunda 8 tüplü
+tedavinin 5.–8. tüpü ikinci kâğıtta görüldü). Kullanıcının programı eski
+kodla çalışıyordu: `git pull` yapılmamış ya da program yeniden
+başlatılmamış — tuzak #5, formun verisi Python'da (`formlar.py`) ve Python
+yalnızca açılışta okunuyor.
+
+Her seferinde tahmin etmemek için Yönetici paneline **Program sürümü**
+kartı eklendi (`app.kod_surumu()`): README'deki en büyük "# v6.xxx"
+başlığı, açılışta bir kez okunuyor (`CALISAN_SURUM`) ve panel her açıldığında
+diskteki yeniden okunuyor. İkisi farklıysa kart "Program güncellendi ama
+yeniden başlatılmadı" diyor. `git pull` yapılmadıysa ikisi de eski sürümü
+gösteriyor — kullanıcı sürümü sohbetteki numarayla karşılaştırabiliyor.
+README paketlenmiş kurulumda yoksa kart basılmıyor. Panel salt okunur
+kaldı (v6.12).

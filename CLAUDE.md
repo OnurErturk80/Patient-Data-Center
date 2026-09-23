@@ -2846,6 +2846,11 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      **ilk sorulacak şey bu**; ölçmenin yolu eski commit'i yeni şablonlarla
      çalıştırmak (bire bir yeniden üretildi). Test ederken de kendi sunucunu
      yeniden başlat — yoksa aynı tuzağa sen düşersin.
+   - **Ölçmek artık kolay** (v6.162): Yönetici panelinin "Program sürümü"
+     kartı çalışan sürümü (`app.CALISAN_SURUM`, açılışta README'nin en
+     büyük "# v6.xxx" başlığı) ve diskteki farklıysa "yeniden başlatılmadı"
+     uyarısını gösteriyor. Kullanıcı "hâlâ eskisi gibi" derse önce oraya
+     baktır; sürüm yeni sürüm bölümü README'ye eklenince kendiliğinden artar.
 
 6. **Serbest metin bir kolonu sabit bir listeyle eşleştirirken dikkat.**
    `kullanici.rol` serbest metin; `androlog` diye elle yazılmış bir rol vardı.

@@ -1817,6 +1817,14 @@ METINLER = {
     # Açılışta çalışan göçlerin durumu (v6.49).
     "goc_durumu": {"tr": "Veritabanı güncellemeleri", "en": "Database updates"},
     "goc_guncel": {"tr": "Veritabanı güncel.", "en": "The database is up to date."},
+    "program_surumu": {"tr": "Program sürümü", "en": "Program version"},
+    "calisan_surum": {"tr": "Çalışan", "en": "Running"},
+    "diskteki_surum": {"tr": "Güncellenen (diskte)", "en": "Updated (on disk)"},
+    "surum_yeniden_baslat": {
+        "tr": "Program güncellendi ama yeniden başlatılmadı: yeni kod çalışmıyor. "
+              "Programı kapatıp açın.",
+        "en": "The program was updated but not restarted: the new code is not "
+              "running. Close and reopen the program."},
     "goc_uygulandi": {"tr": "Bu açılışta {n} güncelleme uygulandı.",
                       "en": "{n} update(s) applied at this start."},
     # v6.145: geri yükleme de göçleri çalıştırıyor, kart en son çalışmayı

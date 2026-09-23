@@ -106,6 +106,23 @@
   </div>
 </div>
 
+{# Çalışan program ile diskteki kod aynı mı (v6.162). `git pull` sonrası
+   program yeniden başlatılmazsa eski kod çalışır, hiçbir hata çıkmaz. #}
+{% if calisan_surum %}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("program_surumu") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("calisan_surum") }}</dt><dd>{{ calisan_surum }}</dd></div>
+    {% if diskteki_surum and diskteki_surum != calisan_surum %}
+    <div class="veri"><dt>{{ metin("diskteki_surum") }}</dt><dd>{{ diskteki_surum }}</dd></div>
+    {% endif %}
+  </dl>
+  {% if diskteki_surum and diskteki_surum != calisan_surum %}
+  <div class="ipucu" style="color:var(--uyari);margin-top:6px">{{ metin("surum_yeniden_baslat") }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="kart" style="margin-top:12px">
   <h2>Veritabanı</h2>
   <dl style="margin:0">
