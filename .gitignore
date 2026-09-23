@@ -17,6 +17,9 @@ program.log.*
 *.accdb
 *.mdb
 *.csv
+# Access kayıtlarının tarih düzeltmeleri (aktar_access.py duzelt=): kayıt
+# numaraları hasta verisine bağlı (v6.148).
+tarih_duzeltme*.txt
 
 # Makineye özel ayar
 yerel_ayar.json
