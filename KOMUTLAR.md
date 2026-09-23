@@ -142,6 +142,18 @@ Program öncesi tutulan Access kayıtlarını programa alır. `.accdb` okunmuyor
 — Access'ten **CSV** olarak dışa aktar (beş adımlık yönerge betiğin
 başında, `python3 -c "import aktar_access; print(aktar_access.__doc__)"`).
 
+**CSV'ler başka bir klasördeyse** (ör. masaüstündeki "Hasta Kayıtları"),
+o klasörde kal ve betiğe **tam yol** ver — `can't open file ...
+aktar_access.py` hatası betiğin o klasörde olmadığını söylüyor. Veritabanı
+betiğin kendi klasöründen bulunuyor, komutun çalıştığı klasörden değil;
+CSV ve `tarih_duzeltme.txt` ise çalıştığın klasörden okunuyor. Windows'ta:
+
+```
+cd /d "C:\Users\...\Desktop\Hasta Kayıtları"
+set P=C:\...\Patient Data Center
+python3 "%P%\aktar_access.py" liste kaynak=TEMMUZ temmuz.csv
+```
+
 **Önce `liste` ile bak, hiçbir şeye dokunmuyor:**
 
 ```
