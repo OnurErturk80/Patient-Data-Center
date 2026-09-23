@@ -17,6 +17,24 @@
 </div>
 {% endif %}
 
+{# Yeni tedavi (v6.155): çözme ayrı bir FET / Yumurta Çözme tedavisi --
+   IVF/ICSI'nin kendisine yazılmıyor. Düğmeler çözme formunun DIŞINDA:
+   form içinde form olamaz. Uygun tedavi yoksa çözme formu hiç basılmıyor,
+   önce tedavi açılıyor. #}
+{% if yeni_tipler %}
+<div class="kart">
+  {% if not cycle_secenekleri %}<div class="uyari">{{ metin("cozme_tedavi_yok") }}</div>{% endif %}
+  {% for tip in yeni_tipler %}
+  <form method="post" action="/cryo/tasiyici/{{ t.id }}/yeni-tedavi" style="display:inline-block;margin:0 8px 8px 0">
+    <input type="hidden" name="tip" value="{{ tip }}">
+    <button class="dugme{% if cycle_secenekleri %} ikincil{% endif %}" type="submit">{{ metin("yeni_tedavi_baslat").format(n=tip_kisa(tip)) }}</button>
+  </form>
+  {% endfor %}
+  <div class="ipucu">{{ metin("cozme_yeni_tedavi_ipucu") }}</div>
+</div>
+{% endif %}
+
+{% if cycle_secenekleri or not yeni_tipler %}
 <form method="post" action="/cryo/tasiyici/{{ t.id }}/thaw" id="thawform">
 
   {% if geri_cycle %}<input type="hidden" name="geri_cycle" value="{{ geri_cycle }}">{% endif %}
@@ -27,7 +45,8 @@
     {% if cycle_secenekleri %}
     <div class="alan">
       <label for="thaw_cycle">{{ metin("cozme_hangi_tedavi") }}</label>
-      <select id="thaw_cycle" name="thaw_cycle">
+      <select id="thaw_cycle" name="thaw_cycle" required>
+        {% if not secili_cycle %}<option value="" selected>{{ metin("tedavi_seciniz") }}</option>{% endif %}
         {% for s in cycle_secenekleri %}
         <option value="{{ s.id }}" {% if s.id == secili_cycle %}selected{% endif %}>
           {{ s.cycle_no }}{% if s.hasta_cycle_no %} ({{ say("n_cycle_sirali", s.hasta_cycle_no) }}){% endif %}
@@ -140,6 +159,7 @@
   <button class="dugme" type="submit">{{ metin("cozmeyi_kaydet") }}</button>
   {% endif %}
 </form>
+{% endif %}
 
 <a class="dugme ikincil" href="/cryo/tasiyici/{{ t.id }}{% if geri_cycle %}?cycle={{ geri_cycle }}{% endif %}">{{ metin("vazgec") }}</a>
 

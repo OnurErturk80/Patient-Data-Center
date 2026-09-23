@@ -133,6 +133,7 @@ Patient Data Center/
   tarih_duzelt.py   yılı bozuk tarihleri bulur, sorarak düzeltir
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
   teshis_form.py    FET formunda çözme neden görünmüyor — yalnızca okur
+  cozme_ayir.py     IVF/ICSI'ye yazılmış çözmeleri FET'e taşır (v6.155)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
@@ -151,7 +152,21 @@ Patient Data Center/
 (gün 4-7) → Vitrifikasyon → Çözme → Transfer → Gebelik sonucu`
 
 Tedavi tipine göre hangi aşamaların görüneceği değişir:
-- `ivf_icsi` → 11 aşamanın hepsi (OPU ve androloji dahil)
+- `ivf_icsi` → **çözme hariç** 10 aşama (OPU ve androloji dahil).
+  **Çözme yok** (v6.155, kullanıcının kararı: "ivf/icsi tedavisi içinde
+  çözme bölümü olmamalıydı"): bu tedavide dondurulan embriyonun çözülmesi
+  AYRI bir FET tedavisidir. v6.155'e kadar çözme ekranı seçim yoksa
+  kaynak tedaviyi seçiyordu, FET'in işi ICSI'nin formuna yazılıyordu.
+  Bugün: `db.cozme_tedavisi_mi(tip)` (tipin aşamalarında çözme var mı);
+  çözme ekranı yalnızca `thaw_tedavi_tipleri()`'nin tiplerini sunar, seçim
+  yoksa kaynağa düşmez, sunucu seçimsiz kaydı reddeder; ekrandaki "Yeni
+  tedavi başlat: FET" `POST /cryo/tasiyici/{id}/yeni-tedavi` ile tedavi
+  açar; transfer ekranı `transfer_adaylari(hasta, tedavi)` ile süzülür
+  (FET: bu tedavi için çözülenler, IVF/ICSI: kendi çözülmemişleri). Eski
+  kayıtları `cozme_ayir.py` ayırır (README v6.155). Yeni bir yerde "bu
+  tedavi için çözme yapılabilir mi" diye soracaksan tip adı yazma,
+  `cozme_tedavisi_mi()`'ye sor. Yumurta Dondurma'nın kendi çözmesi hâlâ
+  duruyor — aynı ayrım orada istenir mi kullanıcıya sorulacak.
 - `fet` → çözme, transfer, **vitrifikasyon**, gebelik (**OPU yok** — oosit
   toplanmaz, embriyo başka bir cycle'dan gelir, aynı gün transfer edilir).
   Vitrifikasyon v6.143'ten beri (kullanıcının isteği): çözülüp transfer
@@ -1031,9 +1046,10 @@ kalıptan**: `form_kalip.json`.
     yazmıyor.
 - **"Formda görünmüyor" derse önce `teshis_form.py`** (v6.153). Bilinen
   iki sebep: program `git pull`'dan sonra yeniden başlatılmamış (tuzak #5)
-  ya da çözme FET'e değil kaynak ICSI'ye yazılmış — çözme ekranı Cryo
-  Haritası'ndan açılınca "hangi tedavi için" seçimi embriyonun kaynak
-  tedavisine düşüyor (`thaw_ekran()`'ın varsayılanı). Araç ikisini de ve
+  ya da çözme FET'e değil kaynak ICSI'ye yazılmış — v6.155'e kadar çözme
+  ekranının "hangi tedavi için" seçimi embriyonun kaynak tedavisine
+  düşüyordu (bugün düşmüyor, eski kayıtları `cozme_ayir.py` ayırır). Araç
+  ikisini de ve
   "bu tedavide transfer edilmiş ama çözmesi başka tedaviye yazılmış"
   embriyoyu gösteriyor; hasta adı basmıyor.
 - **Taşma/küçülme kararı sayfanın verisine bağlı** (v6.152):

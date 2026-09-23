@@ -404,6 +404,7 @@ sablon.env.globals["mat_kisa"] = _mat_kisa
 sablon.env.globals["ornek_adi"] = _ornek_adi
 sablon.env.globals["yumurta_mi"] = _yumurta_mi
 sablon.env.globals["icerik_sayisi"] = _icerik_sayisi
+sablon.env.globals["cozme_tedavisi_mi"] = db.cozme_tedavisi_mi
 sablon.env.globals["ornek_kodu"] = _ornek_kodu
 
 
@@ -7244,20 +7245,50 @@ def thaw_cycle_var() -> bool:
     return db.kolon_var("olay", "thaw_cycle_id")
 
 
+def _tup_yumurta_mi(icerik) -> bool:
+    """Taşıyıcıda yumurta mı var, embriyo mu -- dondurmanın yapıldığı
+    tedavinin tipinden (`icerik_tipi`, v6.147). Bir tüp tek tedavinin."""
+    return bool(icerik) and db.yumurta_mi(icerik[0]["icerik_tipi"])
+
+
+def thaw_tedavi_tipleri(icerik) -> list:
+    """Bu tüpün çözülebileceği tedavi tipleri (v6.155).
+
+    Çözmesi olan tipler (`db.cozme_tedavisi_mi()`: IVF/ICSI değil) ve
+    tüpün içeriğiyle aynı türü çözenler: embriyo tüpü FET / FET (3→5),
+    yumurta tüpü Yumurta Çözme (ve Yumurta Dondurma'nın kendi çözmesi).
+    Sıra `TIP_ASAMALARI`'nın sırası -- ilki "yeni tedavi aç" düğmesinin ilki.
+    """
+    yumurta = _tup_yumurta_mi(icerik)
+    return [t for t in TIP_ASAMALARI
+            if db.cozme_tedavisi_mi(t) and db.yumurta_mi(t, "thaw") == yumurta]
+
+
 def thaw_cycle_secenekleri(icerik):
-    """Bu taşıyıcı hangi cycle'lar için çözülebilir — hastanın tüm cycle'ları.
+    """Bu taşıyıcı hangi tedaviler için çözülebilir (v6.155).
+
+    v6.155'e kadar hastanın BÜTÜN tedavileri sunuluyor, seçim yoksa embriyonun
+    kaynak tedavisi seçili geliyordu. Kullanıcının bildirdiği: IVF/ICSI'de
+    dondurulan embriyo oradan çözülünce FET'in işi ICSI'nin kaydına ve
+    resmî formlarına yazılıyordu, iki tedavi birleşiyordu. Artık yalnızca
+    çözmesi olan, tüpün içeriğine uygun tipteki tedaviler
+    (`thaw_tedavi_tipleri()`). Hiçbiri yoksa liste boş; ekran yeni bir FET
+    açmayı önerir.
 
     Taşıyıcı tek bir vitrifikasyon ekranından doldurulur, yani tek hastaya
-    aittir. Yine de karışık bir taşıyıcı varsa (elle veri düzeltmesi vb.) seçim
-    sunmuyoruz — o zaman her embriyo kendi kaynak cycle'ına yazılır.
+    aittir. Karışık bir taşıyıcıda (elle veri düzeltmesi vb.) seçim yok.
     """
     hastalar = {r["hasta_id"] for r in icerik}
     if len(hastalar) != 1:
         return []
+    tipler = thaw_tedavi_tipleri(icerik)
+    if not tipler:
+        return []
     return db.sorgu(
-        "SELECT id, cycle_no, cycle_tipi, hasta_cycle_no FROM cycle "
-        "WHERE hasta_id=? ORDER BY hasta_cycle_no DESC, id DESC",
-        (hastalar.pop(),))
+        "SELECT id, cycle_no, cycle_tipi, hasta_cycle_no, durum FROM cycle "
+        f"WHERE hasta_id=? AND cycle_tipi IN ({','.join('?' * len(tipler))}) "
+        "ORDER BY hasta_cycle_no DESC, id DESC",
+        (hastalar.pop(), *tipler))
 
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}/thaw")
@@ -7287,16 +7318,20 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
                 "SELECT id FROM goruntu WHERE specimen_id=? AND asama=? ORDER BY id",
                 (e["id"], asama))
 
-    # Çözme hangi tedavi için yapılıyor. Geldiğimiz cycle varsayılan; yoksa
-    # daha önce kaydedilmiş değer, o da yoksa embriyonun kaynak cycle'ı.
+    # Çözme hangi tedavi için yapılıyor. Geldiğimiz tedavi varsayılan; yoksa
+    # daha önce kaydedilmiş değer; o da yoksa tek bir açık (aktif) uygun
+    # tedavi. v6.155'e kadar son çare embriyonun KAYNAK tedavisiydi -- FET'in
+    # işi ICSI'ye yazılıyordu. Artık seçim yoksa personel seçer ya da yeni
+    # FET açar; sunucu da seçimsiz kaydı reddediyor.
     secenekler = thaw_cycle_secenekleri(icerik) if thaw_cycle_var() else []
     gecerli = {r["id"] for r in secenekler}
     secili = cycle if cycle in gecerli else 0
     if not secili and mevcut and secenekler:
         ilk = next(iter(mevcut.values()))
         secili = ilk["thaw_cycle_id"] if ilk["thaw_cycle_id"] in gecerli else 0
-    if not secili and icerik:
-        secili = icerik[0]["cycle_id"]
+    if not secili:
+        aktif = [r["id"] for r in secenekler if r["durum"] == "aktif"]
+        secili = aktif[0] if len(aktif) == 1 else 0
 
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
@@ -7305,6 +7340,10 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
         {"t": t, "icerik": icerik, "mevcut": mevcut, "fotolar": fotolar,
          "hata": hata, "cycle_secenekleri": secenekler, "secili_cycle": secili,
          "geri_cycle": cycle if cycle in gecerli else 0,
+         # Yeni tedavi açma düğmeleri (v6.155): göç yoksa (thaw_cycle_id
+         # kolonu yok) eski davranış, düğme de yok.
+         "yeni_tipler": (thaw_tedavi_tipleri(icerik)
+                         if thaw_cycle_var() and icerik else []),
          "sagkalimlar": db.liste("thaw_sagkalim"), "etiketler": etiketler,
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -7335,8 +7374,9 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     kontrol_zamani = zaman(f.get("kontrol_zamani"))
     thaw_notu = bos_ise_none(f.get("thaw_notu"))
 
-    # Çözme hangi tedavi için yapıldı. Formdaki değer aynı hastanın bir cycle'ı
-    # olmalı; değilse embriyonun kendi cycle'ına yazılır (eski davranış).
+    # Çözme hangi tedavi için yapıldı. Formdaki değer aynı hastanın çözmesi
+    # olan bir tedavisi olmalı (v6.155). Önceden geçersiz seçim embriyonun
+    # kendi tedavisine düşüyordu -- IVF/ICSI'ye; artık reddediliyor.
     gecerli = ({r["id"] for r in thaw_cycle_secenekleri(icerik)}
                if thaw_cycle_var() else set())
     try:
@@ -7345,6 +7385,13 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
         secili_cycle = 0
     if secili_cycle not in gecerli:
         secili_cycle = 0
+    if thaw_cycle_var() and not secili_cycle:
+        geri = f.get("geri_cycle") or ""
+        return RedirectResponse(
+            f"/cryo/tasiyici/{tasiyici_id}/thaw?hata="
+            + quote(metinler.t("cozme_tedavisi_sec"))
+            + (f"&cycle={int(geri)}" if geri.isdigit() else ""),
+            status_code=303)
 
     def yuzde(v, ad):
         try:
@@ -7441,6 +7488,54 @@ def _cozme_geri_alma_engeli(kayit):
     return "thaw_geri_alma_sonraki_kayit" if sonra else None
 
 
+@uygulama.post("/cryo/tasiyici/{tasiyici_id}/yeni-tedavi")
+async def thaw_yeni_tedavi(request: Request, tasiyici_id: int):
+    """Çözme ekranından yeni bir FET / Yumurta Çözme tedavisi açar (v6.155).
+
+    Kullanıcının isteği: "ivf/icsi tedavisinde çözme menüsünden dondurulmuş
+    embriyoyu görüp bunu çöz dediğimizde FET tedavisi adı altında yeni bir
+    tedavi başlatması gerekiyor." Tedavi formu (`/hasta/{id}/cycle/yeni`)
+    atlanıyor: FET'in formda doldurulacak alanı yok denecek kadar az
+    (endikasyon, protokol sonradan tedavi ekranından girilir). Lab kayıt no
+    ve "kaçıncı tedavi" programın verdiği; numara tarih sırasıyla (v6.144)
+    -- FET'in günü çözme kaydedilince gelir, ondan sonra yeniden numaralanır.
+
+    Tip beyaz listeden (`thaw_tedavi_tipleri()`): adresten gelen metin cycle
+    tipine yazılmıyor. Sonra çözme ekranına bu tedavi seçili dönülüyor.
+    """
+    from urllib.parse import quote
+    f = await request.form()
+    icerik = tasiyici_icerigi(tasiyici_id)
+    hastalar = {r["hasta_id"] for r in icerik}
+    tip = f.get("tip") or ""
+    if not icerik or len(hastalar) != 1 or not thaw_cycle_var() \
+            or tip not in thaw_tedavi_tipleri(icerik):
+        return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}/thaw",
+                                status_code=303)
+    hasta_id = hastalar.pop()
+    kid = request.state.kullanici["id"]
+    for _ in range(3):
+        # İki personel aynı anda tedavi açarsa aynı numarayı alabilir; UNIQUE
+        # hatasında sıradaki numarayla tekrar dene (cycle_kaydet'in gerekçesi).
+        try:
+            with db.yazma_islemi() as b:
+                yeni_id = b.execute(
+                    "INSERT INTO cycle (lab_id, hasta_id, cycle_no, cycle_tipi) "
+                    "VALUES (?, ?, ?, ?)",
+                    (db.LAB_ID, hasta_id, sonraki_lab_no(), tip)).lastrowid
+                degisen = db.tedavileri_sirala(b, hasta_id)
+            break
+        except sqlite3.IntegrityError:
+            continue
+    else:
+        return RedirectResponse(
+            f"/cryo/tasiyici/{tasiyici_id}/thaw?hata="
+            + quote(metinler.t("yeni_tedavi_acilamadi")), status_code=303)
+    tedavi_sirasini_logla(degisen, kid, haric=yeni_id)
+    return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}/thaw?cycle={yeni_id}",
+                            status_code=303)
+
+
 @uygulama.get("/specimen/{specimen_id}/thaw-sil")
 def thaw_sil_ekran(request: Request, specimen_id: str):
     sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
@@ -7492,6 +7587,10 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
                "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
     if not c:
         return RedirectResponse("/hastalar", status_code=303)
+    # Çözmesi olmayan tip (v6.155: IVF/ICSI): eski bir bağlantı ya da yer imi
+    # buraya düşerse tedavi ekranına dön -- çözme ayrı bir FET tedavisinde.
+    if not db.cozme_tedavisi_mi(c["cycle_tipi"]):
+        return RedirectResponse(f"/cycle/{cycle_id}", status_code=303)
 
     # FET cycle'inda hastanin tum cycle'larindaki tasiyicilar listelenir;
     # dondurulan embriyo baska bir cycle'dan gelir. fet_kultur'da da ayni
@@ -7585,8 +7684,16 @@ TRANSFERE_UYGUN = ("blastokist", "morula", "kavitasyon", "cozuldu", "kismi_hasar
                    "zigot", "gun2", "gun3")
 
 
-def transfer_adaylari(hasta_id: int):
+def transfer_adaylari(hasta_id: int, cycle=None):
     """Bu hastanın transfer edilebilir embriyoları — taze ve çözülmüş.
+
+    **Tedaviye göre süzülür** (v6.155, `cycle` verilirse). Çözme ayrı bir
+    tedavi olunca transfer de öyle: FET tiplerinde yalnızca BU tedavi için
+    çözülenler (`db.tedavi_ornekleri()`), öteki tiplerde (IVF/ICSI) yalnızca
+    tedavinin kendi, hiç çözülmemiş embriyoları. Önceden hastanın bütün
+    embriyoları listeleniyordu: IVF/ICSI'nin transfer ekranında FET'te
+    çözülen embriyo seçilebiliyor, iki tedavi yine birleşiyordu. Göç
+    (goc_024) yoksa eski davranış.
 
     **Yumurta transfer adayı değil** (v6.147). Yumurta Dondurma'da
     dondurulan yumurta çözülünce 'cozuldu' durumuna geçiyor -- embriyonunkiyle
@@ -7597,6 +7704,15 @@ def transfer_adaylari(hasta_id: int):
     """
     yumurta_tipleri = ", ".join(
         f"'{t}'" for t in TIP_ASAMALARI if db.yumurta_mi(t)) or "''"
+    tedavi_kosulu, tedavi_par = "", ()
+    if cycle is not None and thaw_cycle_var():
+        if cycle["cycle_tipi"] in FET_TIPLERI:
+            tedavi_kosulu = "AND " + db.tedavi_ornekleri(cycle["cycle_tipi"], "s")
+        else:
+            tedavi_kosulu = ("AND s.cycle_id = ? AND NOT EXISTS (SELECT 1 "
+                             "FROM olay z WHERE z.specimen_id=s.id "
+                             "AND z.tip='thaw' AND z.iptal_mi=0)")
+        tedavi_par = (cycle["id"],)
     return db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.durum, s.cycle_id, c.cycle_no, "
         "  c.hasta_cycle_no, "
@@ -7622,7 +7738,8 @@ def transfer_adaylari(hasta_id: int):
         f"AND NOT (c.cycle_tipi IN ({yumurta_tipleri}) "
         "         AND NOT EXISTS (SELECT 1 FROM olay i WHERE i.specimen_id=s.id "
         "                         AND i.tip='icsi' AND i.iptal_mi=0)) "
-        "ORDER BY c.hasta_cycle_no, s.cycle_sira_no", (hasta_id,))
+        f"{tedavi_kosulu} "
+        "ORDER BY c.hasta_cycle_no, s.cycle_sira_no", (hasta_id, *tedavi_par))
 
 
 @uygulama.get("/cycle/{cycle_id}/transfer")
@@ -7633,7 +7750,7 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
         return RedirectResponse("/hastalar", status_code=303)
 
     from datetime import datetime as _d
-    adaylar = transfer_adaylari(c["hasta_id"])
+    adaylar = transfer_adaylari(c["hasta_id"], c)
     edilen = db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no, c2.hasta_cycle_no, "
         "  o.zaman, o.tr_tipi, o.id AS olay_id, "
@@ -7676,8 +7793,13 @@ async def transfer_kaydet(request: Request, cycle_id: int):
 
     kid = request.state.kullanici["id"]
     simdi = islem_zamani(f.get("islem_zamani"))
+    # Ekranın gösterdiği adaylardan olmalı (v6.155): eski bir sekmeden ya da
+    # elle kurulmuş bir istekten başka tedavinin embriyosu gelirse yazılmaz.
+    uygun = {r["id"] for r in transfer_adaylari(c["hasta_id"], c)}
 
     for sid in secilen:
+        if sid not in uygun:
+            continue
         sp = db.tek("SELECT * FROM specimen WHERE id=?", (sid,))
         if not sp:
             continue

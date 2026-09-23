@@ -143,6 +143,9 @@ for r in baska:
           f"({r['cycle_tipi']}){not_}")
 if not baska:
     print("   YOK")
+if any(not _db.cozme_tedavisi_mi(r["cycle_tipi"]) for r in baska):
+    print("   Cozme asamasi olmayan tedaviye (IVF/ICSI) yazilmis cozme var.\n"
+          "   v6.155'ten beri bu ayri bir FET tedavisi: python3 cozme_ayir.py")
 
 if yeni:
     print("\n4) Formun gorecegi degerler (su anki kodla):")

@@ -162,7 +162,9 @@
 </form>
 {% endif %}
 
-<a class="dugme ikincil" href="/cycle/{{ c.id }}/thaw">{{ metin("cozme_ekrani") }}</a>
+{# Çözme ekranı yalnızca çözmesi olan tipte (v6.155): IVF/ICSI'nin çözmesi
+   yok, orada dondurulan embriyo ayrı bir FET tedavisinde çözülüyor. #}
+{% if cozme_tedavisi_mi(c.cycle_tipi) %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/thaw">{{ metin("cozme_ekrani") }}</a>{% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 
 <script>

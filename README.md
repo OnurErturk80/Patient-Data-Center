@@ -12666,3 +12666,100 @@ basıyordu; cleavage embriyosunda artık günü ("3. gün").
 Tüpüne bağlanmış (kaynağı programda olan) embriyo yolu mayıs verisinde
 yok (21 FET'in hiçbirinin tüpü programda değil); o dal yalnızca koşulla
 korunuyor, gerçek veride denenmedi.
+
+# v6.155 — IVF/ICSI'de çözme yok: çözme ayrı bir FET tedavisi
+
+Kullanıcı: "Önce ivf/icsi tedavisi olarak başlayıp embriyosu dondurulan
+hastanın daha sonra çözme yapılıp transfer edileceği FET tedavisi bir
+birinden ayrı tedaviler. ivf/icsi tedavisi içinde çözme bölümü
+olmamalıydı ... Embriyoloji özet formu ve art lab formuna iki tedaviyi
+birleştirip yazıyor. ... bunu çöz dediğimizde FET tedavisi adı altında
+yeni bir tedavi başlatması gerekiyor."
+
+v6.152–v6.154'te FET formları düzeltildi ama kullanıcı yine "yalnızca
+temmuz formlarında görünüyor" dedi. Sebep form kodu değil, **akıştı**:
+
+- IVF/ICSI'nin aşama listesinde çözme vardı (`TIP_ASAMALARI`).
+- Cryo Haritası'ndan açılan çözme ekranı hastanın **bütün** tedavilerini
+  sunuyor, seçim yoksa embriyonun **kaynak** tedavisini (IVF/ICSI) seçili
+  getiriyordu. Değiştirmeden kaydedilen çözme ICSI'nin kaydı oluyordu;
+  sonraki transfer de ICSI'nin transfer ekranından girilebiliyordu (o ekran
+  hastanın bütün embriyolarını listeliyordu).
+- Sonuç: ICSI'nin Özet/ART Lab formu iki tedavinin işini birlikte basıyor,
+  FET'inki boş kalıyordu. Temmuz Access'ten aktarıldığı için (araç çözmeyi
+  hep FET'e yazıyor) düzgündü.
+
+## Ne değişti
+
+- **IVF/ICSI'nin aşamalarından çözme çıktı** (`db.TIP_ASAMALARI`). Gezinme
+  çubuğunda ve tedavi ekranında yok; vitrifikasyon ekranındaki "Çözme
+  ekranı" bağlantısı tipin aşamalarına bakıyor
+  (`db.cozme_tedavisi_mi()`). Eski bir bağlantı `/cycle/{id}/thaw`'a
+  düşerse tedavi ekranına dönülüyor. Taze transfer IVF/ICSI'de kaldı.
+  Yumurta Dondurma'nın kendi çözmesine dokunulmadı (sorulacak, aşağıya bak).
+- **Çözme ekranı yalnızca uygun tedavileri sunuyor**
+  (`thaw_tedavi_tipleri()`): embriyo tüpü için FET / FET (3→5), yumurta
+  tüpü için Yumurta Çözme (ve Yumurta Dondurma). Seçim yoksa tek açık
+  (aktif) tedavi seçili geliyor; o da yoksa **boş** — kaynak tedaviye
+  düşmek yok. Sunucu seçimsiz kaydı reddediyor
+  (`?hata=cozme_tedavisi_sec`).
+- **Çözme ekranından yeni tedavi açılıyor**: "Yeni tedavi başlat: FET"
+  düğmesi (`POST /cryo/tasiyici/{id}/yeni-tedavi`). Tedavi formu
+  atlanıyor — FET'in doldurulacak alanı yok denecek kadar az, protokol
+  sonradan tedavi ekranından girilir. Lab kayıt no ve "kaçıncı tedavi"
+  programın verdiği (tarih sırası, v6.144); ekran yeni tedavi seçili
+  geri geliyor. Tip beyaz listeden geçiyor, adresten gelen metin tipe
+  yazılmıyor. Aynı anda iki kişi açarsa UNIQUE hatasında sıradaki
+  numarayla tekrar deneniyor.
+- **Transfer ekranı tedaviye göre süzülüyor** (`transfer_adaylari(hasta,
+  tedavi)`): FET tiplerinde yalnızca bu tedavi için çözülenler, IVF/ICSI'de
+  yalnızca tedavinin kendi, hiç çözülmemiş embriyoları. Kayıt da aynı
+  listeye karşı doğrulanıyor (eski sekme). Göç yoksa eski davranış.
+
+## Eski kayıtlar: `cozme_ayir.py`
+
+v6.155'ten önce IVF/ICSI'ye yazılmış çözmeleri FET'e taşıyan araç.
+Varsayılanı yalnızca listelemek; `uygula` "AYIR" yazdırıp taşıyor. Grup:
+aynı tedavi + aynı gün. Hedef FET sırasıyla: transferi zaten bir FET'e
+yazılmışsa o (teshis_form'un bulduğu durum), o gün açılmış hiç kaydı
+olmayan tek FET, yoksa yeni FET (FET (3→5) çözmeden sonra değerlendirme
+varsa; yumurtada Yumurta Çözme). Taşınanlar:
+
+- çözmenin `thaw_cycle_id`'si; sonraki çözmeye kadar ICSI'ye yazılmış
+  transfer (`tr_cycle_id`) ve yeniden dondurma (`vit_cycle_id`).
+  Değerlendirmeler taşınmıyor: tedavileri önceki çözmeden türetiliyor
+  (`db.olay_tedavisi()`, v6.146).
+- "İşlemi yapan" satırları FET'e kopyalanıyor, ICSI'de o işlem kalmadıysa
+  kaldırılıyor.
+- Gebelik sonucu / beta hCG / doğan bebek **yalnızca** ICSI'de başka
+  transfer kalmadıysa ve FET'te yoksa taşınıyor; taze transfer + FET
+  birlikteyse dokunulmuyor, rapor söylüyor (hangi gebeliğin hangisi
+  olduğu klinik bir karar).
+- Yeni FET transfer/dondurma ile bitmiş sayılıyor; ICSI'nin bitiş sebebi
+  "transfer" kaldıysa rapor "dondurma" yapılmasını söylüyor, araç
+  değiştirmiyor.
+- Hiçbir satır silinmiyor, embriyo kopyalanmıyor; her değişiklik
+  değişiklik geçmişine yazılıyor, tedaviler tarih sırasıyla yeniden
+  numaralanıyor. Aday birden çoksa grup atlanıyor.
+
+`teshis_form.py` IVF/ICSI'ye yazılmış çözme görürse bu aracı söylüyor.
+
+## Deneme
+
+- Program (deneme veritabanı): FET'i olmayan hastada çözme ekranı formu
+  göstermiyor, "FET" / "FET (3→5)" düğmeleri var; düğme FET açıp ekrana
+  seçili dönüyor, geçersiz tip reddediliyor; seçimsiz çözme reddediliyor;
+  ICSI'nin transfer ekranı çözülen embriyoyu listelemiyor, zorla gönderilen
+  kayıt yazılmıyor; ICSI'nin formu yalnızca kendi dondurmasını, FET'inki
+  çözme + transfer + kalan tüpleri basıyor. Telefonda (390px) yatay kayma
+  yok.
+- `cozme_ayir.py` üç kurguda (transferi FET'te; hepsi ICSI'de + yeniden
+  dondurma + gebelik; aynı tedavide taze transfer de var): tablolar satır
+  satır karşılaştırıldı, yalnızca beklenen satırlar değişti, gebelik
+  üçüncüde taşınmadı. İkinci çalıştırma üçünde de "yapılacak bir şey yok".
+
+## Açık soru
+
+Yumurta Dondurma'nın (`oosit_cryo`) kendi çözme aşaması duruyor.
+v6.147'den beri dondurulmuş yumurta Yumurta Çözme tedavisinde çözülüyor;
+aynı ayrım orada da istenir mi, kullanıcıya sorulacak.

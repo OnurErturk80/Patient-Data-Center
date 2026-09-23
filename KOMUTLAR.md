@@ -303,10 +303,29 @@ python3 teshis.py                    # genel kontrol
 python3 teshis_silme.py 527078       # bu hasta neden silinemiyor
 python3 teshis_form.py               # FET formunda çözme görünmüyor: listele
 python3 teshis_form.py 2026-0123     # o tedaviyi adım adım incele
+python3 cozme_ayir.py                # IVF/ICSI'ye yazılmış çözmeler (dokunmaz)
 python3 liste_duzenle.py             # seçim listelerini gör / temizle
 python3 tarih_duzelt.py liste        # bozuk tarih var mı (dokunmaz)
 python3 yerel_kur.py                 # bu makinenin klasör yollarını ayarla
 ```
+
+### IVF/ICSI'ye yazılmış çözme (v6.155)
+
+v6.155'ten beri IVF/ICSI tedavisinde çözme yok: dondurulan embriyonun
+çözülmesi ayrı bir FET tedavisi (çözme ekranındaki "Yeni tedavi başlat:
+FET" düğmesi). Daha önce ICSI'ye yazılmış çözmeleri — ve ondan sonraki
+transfer ile yeniden dondurmayı — bu araç FET'e taşır:
+
+```
+python3 cozme_ayir.py                # yalnızca listeler, hiçbir şeye dokunmaz
+python3 cozme_ayir.py uygula         # taşır; onay için AYIR yazdırır
+```
+
+**Önce yedek al** (Yönetici → Yedekleme → Şimdi yedekle). Uygun FET
+varsa ona, yoksa yeni bir FET açıp taşır. Gebelik sonucunu yalnızca
+belirsizlik yoksa taşır; "GEBELIK SONUCU TASINMADI" ya da "DIKKAT" yazan
+satırları ekrandan kontrol et. İkinci çalıştırma bir şey bulmaz.
+Program açıkken çalışabilir; sonra ekranı tazele.
 
 ### Yılı bozuk tarih
 
@@ -329,7 +348,7 @@ Klasör yollarını (kamera / arşiv / yedek) **ekrandan** da ayarlayabilirsin:
 yönetici olarak `/yonetim` → **Klasörler** (v6.41). `yerel_kur.py` aynı işi
 terminalden yapıyor; ikisi de aynı dosyaya yazıyor.
 
-Hiçbiri veri silmez.
+Hiçbiri veri silmez. `cozme_ayir.py uygula` kayıt taşır (silmez), önce yedek al.
 
 ---
 

@@ -85,8 +85,13 @@ FET_TIPLERI = ("fet", "fet_kultur", "yumurta_cozme")
 # ICSI yapılıyor mu", `cozulen_yumurta_islenir()`) ve `app`'i import edemez --
 # `FET_TIPLERI`'nin aynı gerekçesi. `app.TIP_ASAMALARI` bu sözlüğün kendisi.
 TIP_ASAMALARI = {
+    # Çözme YOK (v6.155, kullanıcının kararı): "ivf/icsi tedavisi içinde
+    # çözme bölümü olmamalıydı ... bunu çöz dediğimizde FET tedavisi adı
+    # altında yeni bir tedavi başlatması gerekiyor." Bu tedavide dondurulan
+    # embriyonun çözülmesi AYRI bir tedavi (FET); burada çözülünce iki
+    # tedavinin işleri tek tedavinin formlarına yazılıyordu.
     "ivf_icsi": ["opu", "androloji", "denudasyon", "icsi", "fert", "cleavage",
-                 "blast", "vitrifikasyon", "thaw", "transfer", "gebelik"],
+                 "blast", "vitrifikasyon", "transfer", "gebelik"],
     # FET'te oosit toplanmaz — embriyo baska bir cycle'dan gelir.
     # Vitrifikasyon (v6.143, kullanicinin istegi): cozulup transfer edilmeyen
     # embriyo AYNI tedavide yeniden dondurulabiliyor. Transferden SONRA:
@@ -128,6 +133,12 @@ def cozulen_yumurta_islenir(cycle_tipi) -> bool:
     """
     return (cycle_tipi in FET_TIPLERI
             and "icsi" in TIP_ASAMALARI.get(cycle_tipi, ()))
+
+
+def cozme_tedavisi_mi(cycle_tipi) -> bool:
+    """Bu tipte bir tedavi için çözme yapılabilir mi -- tipin aşamalarında
+    çözme var mı (v6.155). IVF/ICSI'de yok: çözme ayrı bir FET tedavisi."""
+    return "thaw" in TIP_ASAMALARI.get(cycle_tipi, ())
 
 
 def yumurta_mi(cycle_tipi, asama=None) -> bool:

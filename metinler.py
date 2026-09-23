@@ -594,6 +594,29 @@ METINLER = {
               "tedavide çözüldüğü görünür.",
         "en": "The thaw is recorded against this cycle. Even if the embryo "
               "does not survive, it still shows as thawed for that treatment."},
+    # v6.155: çözme yalnızca ayrı bir FET / Yumurta Çözme tedavisi için.
+    "cozme_tedavisi_sec": {
+        "tr": "Bu çözme hangi tedavi için? Listeden seç ya da yeni bir tedavi "
+              "başlat. Çözme, embriyonun dondurulduğu tedaviye yazılmaz.",
+        "en": "Which treatment is this thaw for? Choose one or start a new "
+              "treatment. A thaw is not recorded against the freezing cycle."},
+    "cozme_tedavi_yok": {
+        "tr": "Bu hastanın çözme yapılabilecek bir tedavisi yok. Çözmeden önce "
+              "yeni bir tedavi başlat:",
+        "en": "This patient has no treatment a thaw can be recorded for. "
+              "Start one first:"},
+    "cozme_yeni_tedavi_ipucu": {
+        "tr": "Çözme ayrı bir tedavidir; embriyonun dondurulduğu IVF/ICSI "
+              "tedavisine yazılmaz. Yeni tedavi açılır, lab kayıt numarası "
+              "program tarafından verilir.",
+        "en": "A thaw is a separate treatment. A new cycle is opened and "
+              "numbered by the program."},
+    "yeni_tedavi_baslat": {"tr": "Yeni tedavi başlat: {n}",
+                           "en": "Start new cycle: {n}"},
+    "tedavi_seciniz": {"tr": "— Tedavi seç —", "en": "— Choose a cycle —"},
+    "yeni_tedavi_acilamadi": {
+        "tr": "Yeni tedavi açılamadı (lab kayıt numarası çakıştı). Tekrar dene.",
+        "en": "Could not open a new cycle (number clash). Try again."},
     "cozme_saati": {"tr": "Çözme saati", "en": "Thaw time"},
     "ikinci_kontrol_saati": {"tr": "İkinci kontrol saati",
                              "en": "Second check time"},
