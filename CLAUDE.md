@@ -28,8 +28,12 @@ denendi; v6.149'da o kopya yoktu, mayıs yalnızca test veritabanında denendi �
 FET'in tüpe bağlanması (önceki aylar gerekiyor) ancak kullanıcının
 makinesinde çalışıyor. **Ocak–mayıs 2025** v6.160'ta hazırlandı
 (`kaynak=OCAK2025` … `MAYIS2025` — 2026'nın etiketleri çakışırdı), ardından
-2026'nın ayları `bagla` ile geçiriliyor; yine kullanıcı çalıştırıyor. Göç,
-kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
+2026'nın ayları `bagla` ile geçiriliyor; yine kullanıcı çalıştırıyor.
+Kullanıcı 2026-09-23'te ocak–mayıs 2025'i aktardığını söyledi. **Haziran–ekim
+2025** v6.164'te hazırlandı (`kaynak=HAZIRAN2025` … `EKIM2025`); **kasım–aralık
+2025 henüz gelmedi**, o yüzden 2026 FET'lerinin 2025 tüplerine bağlanması
+erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi
+veriye dokunan her işte bunu hesaba kat.
 
 ---
 
@@ -2059,10 +2063,20 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   sırasıyla (aynı tüpü isteyebilecek iki FET'ten önce çözen önce alır).
   Bağlanınca FET'in transfer günü değerlendirmesi kaynağın aynı tip+gün
   kaydıyla çakışıyorsa iptal (v6.154'ün kuralı, sonradan bağlanana da).
-  **Bilinen sınır**: bir FET o gün tek tutan tüpe bağlanır; daha eski bir
-  dönem SONRADAN aktarılıp ikinci bir tutan tüp getirirse bağ geri
-  alınmaz (tarih sırasıyla aktarılsaydı "belirsiz" denirdi — denemede
-  176 FET'ten birinde oldu).
+  v6.163'ün bilinen sınırı (FET o gün tek tutan tüpe bağlanıyor, sonradan
+  gelen ikinci tüp bağı geri almıyor) **kullanıcının asıl durumuydu**: 2026
+  aktarılmışken 2025 ay ay geliyor. v6.164'ten beri iki kural:
+  - **Aktarılmamış ay varsa ertele**: tutan tüp ile çözme arasında en az 10
+    tedavisi olmayan bir ay varsa bağlanmıyor, "ertelendi" (ay gelince her
+    aktarımın sonunda kendiliğinden yeniden). Ölçü `db.tedavi_tarihi()`,
+    olay günü DEĞİL (ekimin 5. gün dondurmaları kasıma düşer); eşik bir iki
+    başıboş tedavinin boş bir ayı dolu göstermemesi için. "Tüpler tutmuyor"
+    da arada boş ay varsa "elle bak" değil "ertelendi".
+  - **Bağlı olanı yeniden sına, çözme**: `_baglantilari_yeniden_sina()`
+    bağlı FET'lere bugünkü tüplerle bakıyor; başka tüp de tutuyorsa "Bağlı
+    ama artık kesin değil" listesi. Bağ çözülmüyor (FET'in örnekleri silindi,
+    konum elle girilmiş olabilir). Aday araması tek yerde,
+    `_bag_siniflari()`: bağlama ile sınama aynı kural.
 - **Etiket her dosyada tekil, yıllar arasında da** (v6.160): 2026'nın ayları
   `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`… Aynı etiketi
   başka yılın dosyasına verme.
@@ -2123,6 +2137,24 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   değerlendirmesi olarak yazılıyor, grade yazılıysa o da. v6.148–v6.156
   arası skorsuz embriyo diye yazılmıştı, goc_048 onları düzeltti.
   Tüp eşleştirmesinde anahtarı hâlâ "bilinmiyor" (`_degerlendirme_anahtari()`).
+- **Dondurma notunun v6.164 okumaları** (haziran–ekim 2025, yedisi de
+  sessizdi -- tüp eksik ya da fazla yazılıyordu, uyarısız):
+  - "REFREEZ YAPILARAK / YAPILAN" niteleme, fiil değil (`_DONDURMA_FIILI`);
+    "GERİYE ... REFREEZ ... DONDURULDU" (bitmiş fiil) stok değil, yeniden
+    dondurma.
+  - Bir notta iki gün ("D3 (..) D5 (..)"): grubun günü önündeki son işaret
+    (`_son_gun()`, `grup_gunleri`); saat ve değerlendirme günü grup grup.
+  - Aynı tüp iki kez yazılmışsa (notun ADET'i = DONDURULAN < grup toplamı ve
+    tekrarı çıkarınca tam tutuyor) tekrar düşüyor, not söylüyor. Yalnızca
+    embriyoda; aynı içerikli iki tüp olağan, sayılar tutuyorsa dokunulmuyor.
+  - Yumurtada "4-M2", "1*1", "1M*1" okunuyor; rakamla başlayan okunamayan
+    embriyo yazımı ("8HGT1") skorsuz embriyo (sayı tutsun, skor
+    uydurulmasın). Başka tanınmayan parça UYARI ile atılıyor -- **tanınmayan
+    öğeyi sessizce atma**, tüpe eksik yazılıyor demek.
+  - ICSI sayısı boş ama döllenme sonuçları dolu: ICSI = 2PN + intakt +
+    anormal + işlem sonrası dejenere (`icsi_sayisini_tamamla()`), not
+    söylüyor. Sonuç da yoksa ICSI yazılmıyor.
+  - "4BA TA": skor okunuyor, "TA" notta; anlamı kullanıcıya soruldu.
 - **Access'teki ad programdakinden farklıysa** eşleşme yine dosya
   numarasıyla, rapor "DİKKAT" diyor (ad rapora yazılmıyor).
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta

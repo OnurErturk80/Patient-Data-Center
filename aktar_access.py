@@ -77,6 +77,14 @@ bütün aktarılmış FET'lere bakar, dosya istemez:
 
     python3 aktar_access.py bagla
 
+**Arada aktarılmamış ay varsa bağlanmaz, ertelenir** (v6.164). Tutan tüp
+ile çözme arasında programda hiç tedavisi olmayan bir ay varsa (dosyası
+henüz gelmemiş), gerçek tüp o ayda olabilir; o gün tek seçenek görünen tüpe
+bağlamak yanlış tüpü boşaltırdı. Rapor "ertelendi" der ve ayları yazar; ay
+aktarılınca her aktarımın sonundaki deneme kendiliğinden bağlar. Daha önce
+bağlanmış bir FET'e sonradan gelen bir tüp de tutuyorsa bağ çözülmez, rapor
+"Bağlı ama artık kesin değil" diye iki tüpü yazar -- elle bakılır.
+
 ------------------------------------------------------------------------
 ACCESS'TEN CSV NASIL ÇIKAR
 
@@ -783,13 +791,18 @@ _IPTAL_AYRINTI = (
 # Parantez içindeki "(REFREEZE)" da fiil değil, etiket (v6.149, mayıs: "(1CB)
 # ŞEKLİNDE (REFREEZE) DONDURULARAK SAKLANDI") -- fiil sayılsaydı skor fiilin
 # ARKASINDA aranıyor, (1CB) kaçıyor ve "(REFREEZE)" tüp sanılıyordu.
+# "REFREEZ YAPILARAK" / "REFREEZ YAPILAN" da fiil değil (v6.164, temmuz 2025:
+# "1 ADET D5 EMBRİYOSU (1BB) REFREEZ YAPILARAK DONDURULDU"): asıl fiil
+# arkasından geliyor, skor ondan ÖNCE. Fiil sayılınca skor arkada aranıyor,
+# bulunamıyor ve tüp hiç yazılmıyordu.
 # FET'te bunların çoğu stok cümlesi; ayırt eden `_dondurma_coz()`'ün
 # "fazla" kuralı (çözülen − transfer edilen).
 _DONDURMA_FIILI = re.compile(
     r"DONDUR\w*\s+(?:SAKLAN|KORUN)\w*|DONDURULDU\b|DONDURULMUSTUR\b"
     r"|REFREEZ\w*\s+EDIL(?!EN\b)\w*"
     r"|(?P<sonra>REFREEZ\w*\s+EDILEN\b"
-    r"|(?<!\()REFREEZE?\b(?!\s*\))(?!\s+(?:EDIL|YAPILA?MA|YAPILMA)))"
+    r"|(?<!\()REFREEZE?\b(?!\s*\))"
+    r"(?!\s+(?:EDIL|YAPILA?MA|YAPILMA|YAPILAN\b|YAPILARAK\b)))"
     r"|(?P<ortuk>KULTURE?\s+EDILEN\b)(?=[^.]*\bILE\s+BIR\w*[^.]*\bKALDI)")
 
 
@@ -870,6 +883,10 @@ def _gizli_notu_coz(metin: str) -> tuple:
 #                            embriyo diye yazılıyordu, goc_048 düzeltiyor
 _OOSIT_GRUBU = re.compile(r"^(\d+)\s*\*?\s*M\s*(2|II|1|I)$")
 _TEK_OOSIT = re.compile(r"^M\s*(2|II|1|I)$")        # "(M2)" -- yalnız yumurta notunda
+# Yumurta yazımının iki yazım hatası (v6.164, haziran/ekim 2025): "1*1"
+# ("M" düşmüş, 1 MI) ve "1M*1" (yıldız yer değiştirmiş, 1 MI). Yalnız yumurta
+# notunda; tanınmayınca o yumurta tüpe hiç yazılmıyordu, uyarısız.
+_OOSIT_YAZIM_HATASI = re.compile(r"^(\d+)\s*(?:\*|M\s*\*)\s*(2|II|1|I)$")
 _CLEAVAGE = re.compile(r"^(\d+)\s*(?:H\s*G?|G)\s*([1-4])")
 _BLAST = re.compile(r"^([1-6])\s*([ABC])\s*([ABC])")
 _BLAST_DISI = re.compile(r"^(KAV|EM|ARR|MOR|M)\s*G?\s*([1-3])?(?![A-Z0-9])")
@@ -889,9 +906,10 @@ def _skor_coz(parca: str, yumurta: bool = False):
     t = _sade(parca).replace("KAVITASYON", "KAV").replace("MORULA", "MOR")
     if not t:
         return None
-    m = _OOSIT_GRUBU.match(t) or (_TEK_OOSIT.match(t) if yumurta else None)
+    m = (_OOSIT_GRUBU.match(t)
+         or (_TEK_OOSIT.match(t) or _OOSIT_YAZIM_HATASI.match(t) if yumurta else None))
     if m:
-        adet = int(m.group(1)) if m.re is _OOSIT_GRUBU else 1
+        adet = int(m.group(1)) if m.re is not _TEK_OOSIT else 1
         olgunluk = m.group(m.re.groups)
         return {"tur": "oosit", "adet": adet,
                 "mat": "mii" if olgunluk in ("2", "II") else "mi",
@@ -933,10 +951,21 @@ def _grup_coz(grup: str, yumurta: bool) -> list:
     "((4CB-1BB)" ya da "D3 (EMBRİYOSU (8HG1-10HG2)" gibi yazım hataları)
     sonuncusundan sonrası alınıyor."""
     ogeler = []
-    for parca in grup.split("-"):
-        parca = parca.split("(")[-1].strip()
-        if not parca:
-            continue
+    parcalar = [p.split("(")[-1].strip() for p in grup.split("-")]
+    parcalar = [p for p in parcalar if p]
+    if yumurta:
+        # "(4-M2)": sayı ile olgunluk tireyle ayrılmış (v6.164, ekim 2025) --
+        # "4*M2". Ayrı okununca "4" tanınmıyor, tüpe 4 yerine 1 yumurta
+        # yazılıyordu.
+        birlesik = []
+        for p in parcalar:
+            if (birlesik and re.fullmatch(r"\d+", birlesik[-1])
+                    and _TEK_OOSIT.match(_sade(p))):
+                birlesik[-1] = f"{birlesik[-1]}*{p}"
+            else:
+                birlesik.append(p)
+        parcalar = birlesik
+    for parca in parcalar:
         coz = _skor_coz(parca, yumurta)
         if not coz:
             alt = parca.split()
@@ -946,6 +975,12 @@ def _grup_coz(grup: str, yumurta: bool) -> list:
                     ogeler.extend(alt_coz)
                     continue
             coz = _yuva_coz(parca)
+        if not coz and not yumurta and re.match(r"\d", parca):
+            # Rakamla başlayan ama okunamayan embriyo yazımı (v6.164, eylül
+            # 2025: "(8HGT1-6HG3-8HG3)"). Embriyo o tüpte; atılırsa tüpe bir
+            # eksik yazılıyordu, sessizce. Skor uydurulmuyor: skorsuz embriyo,
+            # yazımı değerlendirmenin notunda -- ekrandan düzeltilebilir.
+            coz = {"tur": "embriyo", "ham": parca, "okunamadi": True}
         ogeler.append(coz or {"tur": "taninmadi", "ham": parca})
     return ogeler
 
@@ -955,6 +990,16 @@ def _gun_bul(metin: str):
     m = (re.search(r"\bD\s*([1-7])\b", metin)
          or re.search(r"\b([1-7])\s*[.,]?\s*GUN", metin))
     return int(m.group(1)) if m else None
+
+
+def _son_gun(metin: str):
+    """Metindeki SON gün işareti: "KÜLTÜRE EDİLEN D3 EMBRİYOLARI ... D5
+    EMBRİYOSU OLARAK (4CB)" -> 5. `_gun_bul()` ilkini buluyor; bir parantez
+    grubunun günü ona en yakın, yani önündeki son işaret (v6.164)."""
+    son = None
+    for m in re.finditer(r"\bD\s*([1-7])\b|\b([1-7])\s*[.,]?\s*GUN", metin):
+        son = int(m.group(1) or m.group(2))
+    return son
 
 
 def _tek_tup(cumle: str) -> bool:
@@ -1005,7 +1050,14 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     if fet:
         if fazla is not None and fazla <= 0:
             return {}
-        if ("GERIDE" in tum or "GERIYE" in tum) and not dondurulan:
+        # "GERİYE 1 ADET REFREEZ YAPILAN D5 EMBRİYOSU (KAVG2) ŞEKLİNDE
+        # DONDURULDU" stok değil (v6.164, ağustos 2025): cümle REFREEZ diyor
+        # ve fiili bitmiş ("DONDURULDU", "SAKLANDI", "EDİLDİ") -- bu tedavide
+        # çözülüp transfer edilmeyen embriyo yeniden donduruldu, DONDURULAN
+        # alanı boş bırakılmış. Stok cümlesi "SAKLANMIŞTIR" / "KALDI" der.
+        yeniden = ("REFREEZ" in tum
+                   and re.search(r"DONDURULDU\b|SAKLANDI\b|EDILDI\b", m.group(0)))
+        if ("GERIDE" in tum or "GERIYE" in tum) and not dondurulan and not yeniden:
             return {}
 
     if m.group("sonra") or m.group("ortuk"):
@@ -1050,8 +1102,15 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     # "6 ADET (M2) OOSİT (3*M2) (3*M2)": "ADET"ten hemen sonraki yalın "(M2)"
     # tüp değil, sayının niteliği -- tüp sayılsaydı 6 yumurta 3 tüpe (1+3+2)
     # dağılırdı. Tek grup oysa zaten tek örnek kuralına düşüyor, sonuç aynı.
-    gruplar = []
+    # Grubun günü (v6.164): tek not iki ayrı gün dondurabiliyor -- "2 ADET D3
+    # EMBRİYOSU (8HG3-10HG2) 2 ADET D5 EMBRİYOSU (3CC-1CC) ŞEKLİNDE
+    # DONDURULARAK SAKLANDI". Her grubun günü önündeki son işaret; işareti
+    # olmayan grup bir öncekinin gününde ("2 ADET D5 EMBRİYOSU (1CC) (1BC)").
+    gruplar, grup_gunleri = [], []
+    onceki, son_isaret = 0, None
     for gm in re.finditer(r"\(([^)]*)\)", ham_cumle):
+        son_isaret = _son_gun(cumle_hizali[onceki:gm.start()]) or son_isaret
+        onceki = gm.end()
         if re.fullmatch(r"REFREEZ\w*", _sade(gm.group(1))):
             continue                    # "(REFREEZE)" etiket, tüp değil
         if (baglam and _TEK_OOSIT.match(_sade(gm.group(1)))
@@ -1060,8 +1119,28 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         g = _grup_coz(gm.group(1), baglam)
         if g:
             gruplar.append(g)
-    ogeler = [o for g in gruplar for o in g]      # düz liste
+            grup_gunleri.append(son_isaret)
     adet = _ilk(r"(\d+)\s*ADET")
+    # Aynı tüp iki kez yazılmış (v6.164, ekim 2025: "19 ADET D3 EMBRİYOSU"
+    # ve DONDURULAN 19, ama beş grup 24 embriyo tutuyor; ikinci ve dördüncü
+    # grup birebir aynı -- kopyala-yapıştır). İki bağımsız sayı (notun ADET'i
+    # ve DONDURULAN alanı) tekrarı çıkarınca tam tutuyorsa tekrar düşüyor;
+    # yoksa tankta olmayan bir tüp yazılırdı. Aynı içerikli iki tüp olağan
+    # ("(4AA) (4AA)"): sayılar tutuyorsa hiçbir şey değişmiyor. Yalnızca
+    # embriyoda -- yumurta satırlarında DONDURULAN embriyo sayısı, ikinci
+    # sayı yok.
+    tekrar_grup = None
+    if (gruplar and not baglam and adet and dondurulan == adet
+            and sum(len(g) for g in gruplar) > adet):
+        yazim = ["-".join(o["ham"] for o in g) for g in gruplar]
+        for j in range(1, len(gruplar)):
+            if (yazim[j] in yazim[:j]
+                    and sum(len(g) for g in gruplar) - len(gruplar[j]) == adet):
+                tekrar_grup = yazim[j]
+                del gruplar[j], grup_gunleri[j]
+                break
+    ogeler = [o for g in gruplar for o in g]      # düz liste
+    farkli_gun = not baglam and len({g for g in grup_gunleri if g}) > 1
     if not gruplar and (adet == 1 or (adet is None and fazla == 1)):
         # Parantezsiz tek örnek (v6.148): "1 ADET M2 OOSİT DONDURULARAK
         # SAKLANDI" -- bir örnek ancak bir tüpte olabilir. FET'te sayı hiç
@@ -1098,6 +1177,10 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     sayilan =[o for o in ogeler if o["tur"] != "taninmadi"]
     return {
         "gun": gun,
+        # Gruplar farklı günlerde dondurulduysa grup grup gün (işaretsiz
+        # grup notun gününde); öyle değilse None -- herkes `gun`'u kullanır.
+        "grup_gunleri": ([g or gun for g in grup_gunleri]
+                         if farkli_gun and len(grup_gunleri) == len(gruplar) else None),
         "oosit_mi": baglam or (bool(sayilan)
                                and all(o["tur"] == "oosit" for o in sayilan)),
         "adet": adet,
@@ -1106,6 +1189,7 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         "ogeler": ogeler,
         # Fiilsiz dondurma: `liste` ve rapor bunu ayrıca söylüyor
         "ortuk": bool(m.group("ortuk")),
+        "tekrar_grup": tekrar_grup,
     }
 
 
@@ -1155,6 +1239,29 @@ def olgunlugu_nottan_duzelt(satirlar) -> None:
             r["immatur"] -= fark
 
 
+def icsi_sayisini_tamamla(satirlar) -> None:
+    """ICSI sayısı boş ama döllenme sonuçları dolu: sayı sonuçlardan (v6.164).
+
+    Temmuz 2025'te bir satır: yöntem "ICSI", MII 8, 2PN 7, intakt 1, İŞLEME
+    ALINAN boş. Araç ICSI'yi hiç yazmıyordu, 2PN'ler de ICSI'den türediği
+    için hiç embriyo açılmıyor ve dondurulan 6 embriyonun 4 tüpü Cryo
+    Haritası'na girmiyordu. 2PN, intakt, anormal ve işlem sonrası dejenere
+    enjeksiyonun SONUÇLARI -- toplamları enjekte edilen yumurta sayısının
+    kendisi, uydurma değil (v6.148'in "ICSI toplamı tutmuyorsa 2PN
+    korunuyor" kuralının boş hali). Döllenme sonucu da yoksa ICSI yine
+    yazılmıyor. Yalnızca ICSI aşaması olan tiplerde; not "Access'te boş"
+    diyor (`_not_kur()`)."""
+    for r in satirlar:
+        r["icsi_duzeltme"] = None
+        if r["islenen"] or "icsi" not in _db.TIP_ASAMALARI.get(r["tip"], ()):
+            continue
+        sonuc = ((r["iki_pn"] or 0) + (r["intakt"] or 0) + (r["anormal_fert"] or 0)
+                 + (r["islem_dejenere"] or 0))
+        if sonuc:
+            r["islenen"] = sonuc
+            r["icsi_duzeltme"] = sonuc
+
+
 def _not_kur(r: dict) -> str:
     """Tedavinin protokol notu -- ekranda **ve resmî formda** görünen metin.
 
@@ -1190,6 +1297,14 @@ def _not_kur(r: dict) -> str:
         mii, imm = r["olgunluk_duzeltme"]
         p.append(f"Access'te MII {mii}, immatür {imm} yazıyordu; dondurma "
                  f"notuna göre MII {r['mii']}, immatür {r['immatur']} alındı.")
+    if r.get("icsi_duzeltme"):
+        p.append(f"ICSI sayısı Access'te boş; döllenme sonuçlarının toplamı "
+                 f"({r['icsi_duzeltme']}) alındı.")
+    coz = _satir_dondurmasi(r)
+    if coz.get("tekrar_grup"):
+        p.append(f"Dondurma notunda aynı tüp iki kez yazılmış "
+                 f"({coz['tekrar_grup']}); {coz['adet']} embriyo, "
+                 f"{len(coz['gruplar'])} tüp alındı.")
     # İşaret KENDİ satırında: cümlenin sonuna eklenirse `textwrap` onu
     # ortasından bölüyor ("[Access kaydı\nTEMMUZ#9]") ve `_zaten_var()`in
     # `LIKE` deseni tutmuyor -- yani aktarım idempotent olmaktan çıkıyor,
@@ -1340,8 +1455,11 @@ def _cycle_ac(b, r, hasta_id, rapor) -> tuple:
         # cümlesi ("GERİDE ... DONDURULARAK SAKLANMIŞTIR") burada sayılmıyor:
         # `_satir_dondurmasi()` onu dondurma saymıyor (v6.148).
         durum, bitis = "tamamlandi", "dondurma"
-        an = _dondurma_zamani(r, coz or {"gun": _asama_gunu(r["dondurma_asama"]),
-                                         "oosit_mi": False})[0]
+        # Gruplar farklı günlerdeyse (v6.164) tedavi son dondurmayla biter.
+        an = max((_dondurma_zamani(r, dict(coz, gun=g))[0] or ""
+                  for g in (coz.get("grup_gunleri") or [coz["gun"]])), default="") \
+            if coz else _dondurma_zamani(r, {"gun": _asama_gunu(r["dondurma_asama"]),
+                                             "oosit_mi": False})[0]
         bitis_zamani = an[:10] if an else None
     else:
         # Kaynak kayıt ne transfer ne dondurma diyor, iptal de demiyor.
@@ -1870,6 +1988,12 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     if not t_vit:
         rapor.append("    UYARI: tarih yok, dondurma kaydı yazılamadı")
         return
+    # Grup grup gün (v6.164): "D3 (..) D5 (..)" notunda D5 tüpü OPU + 5'te
+    # dondurulmuş, blastokistleri 5. gün değerlendirmesi -- v6.163'e kadar
+    # bütün tüpler notun ilk gününe (3) yazılıyordu, blastokist 4. güne.
+    grup_gunleri = coz.get("grup_gunleri") or [coz["gun"]] * len(coz["gruplar"])
+    zamanlar = ([_dondurma_zamani(r, dict(coz, gun=g)) for g in grup_gunleri]
+                if coz.get("grup_gunleri") else [(t_vit, t_deg)] * len(coz["gruplar"]))
     cycle_no = b.execute("SELECT cycle_no FROM cycle WHERE id=?",
                          (cycle_id,)).fetchone()[0]
 
@@ -1953,10 +2077,11 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
             kullanilan.add(sid)
 
         eklenen = [s for s in atanan if s and s not in tupteki]
+        g_vit, g_deg = zamanlar[i]
         if tid is None:
             if not eklenen:
                 continue
-            an = (_dt.datetime.fromisoformat(t_vit)
+            an = (_dt.datetime.fromisoformat(g_vit)
                   + _dt.timedelta(minutes=i)).isoformat(" ", "seconds")
             tid, etiket, an = _tasiyici_ac(b, kid, cycle_no, an)
             yeni_tup.append(f"{etiket} ({len(eklenen)})")
@@ -1979,16 +2104,18 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
 
         if oosit_mi:
             continue
+        g_gun = grup_gunleri[i]
         for (a, o), sid in zip(yerler, atanan):
             if not sid:
                 continue
             yazilan.append(o["ham"])
-            alan = _oge_alanlari(o, coz["gun"])
+            alan = _oge_alanlari(o, g_gun)
             if alan:
                 deg_tipi, alanlar = alan
+                gg = g_gun or gun
                 _degerlendirme_yaz(b, kid, sid, cycle_id, deg_tipi,
-                                   max(gun, 4) if o["tur"] == "blast" else min(gun, 3),
-                                   t_deg, alanlar, o["ham"])
+                                   max(gg, 4) if o["tur"] == "blast" else min(gg, 3),
+                                   g_deg, alanlar, o["ham"])
             else:
                 # Skorsuz ve değerlendirmesiz yer: bu örneğe daha önce başka
                 # bir yazım atanmışsa o skor gidiyor.
@@ -2007,8 +2134,23 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     if len(mevcut) > len(coz["gruplar"]):
         rapor.append(f"    UYARI: programda notta olmayan "
                      f"{len(mevcut) - len(coz['gruplar'])} tüp var, dokunulmadı")
+    # Tanınmayan öğe sessizce düşmesin (v6.164): tüpe eksik yazılıyor demek.
+    atilan = [o["ham"] for o in coz["ogeler"] if o["tur"] == "taninmadi"]
+    if atilan:
+        rapor.append("    UYARI: notta tanınmayan yazım: "
+                     + ", ".join(f"'{h}'" for h in atilan) + " -- o örnek yazılmadı")
+    okunamayan = [o["ham"] for o in coz["ogeler"] if o.get("okunamadi")]
+    if okunamayan:
+        rapor.append("    skoru okunamayan embriyo skorsuz yazıldı: "
+                     + ", ".join(f"'{h}'" for h in okunamayan) + " (ekrandan düzelt)")
+    if coz.get("tekrar_grup"):
+        rapor.append(f'    notta aynı tüp iki kez yazılmış ({coz["tekrar_grup"]}) -- '
+                     f'notun {coz["adet"]} ADET\'i ve DONDURULAN {r["dondurulan"]} '
+                     f'ile tutan {len(coz["gruplar"])} tüp yazıldı')
     if yazilan:
-        rapor.append(f'    skorlar: {", ".join(yazilan)} (gün {gun})')
+        gunler = sorted({g for g in grup_gunleri if g}) if coz.get("grup_gunleri") else [gun]
+        rapor.append(f'    skorlar: {", ".join(yazilan)} '
+                     f'(gün {"/".join(str(g) for g in gunler)})')
     if coz.get("ortuk"):
         rapor.append("    not dondurmayı fiilsiz söylüyor (\"... İLE BİRLİKTE "
                      "KALDI\") -- yeniden dondurma sayıldı")
@@ -2294,6 +2436,198 @@ def _eslestir(kaliteler, ornekler):
     return dene(0, frozenset())
 
 
+def _bag_siniflari(b, hasta_id, cycle_id, t_cozme, n, yumurta, kaliteler, dahil=()):
+    """Çözülen `n` örneğin tutabileceği tüp kümeleri -- `_kaynaga_bagla()`'nın
+    arama kısmı (v6.164'te ayrıldı: var olan bağlantı da aynı kuralla yeniden
+    sınanabilsin, `_baglantilari_yeniden_sina()`).
+
+    Adaylar hastanın **dolu**, çözülmemiş, çözmeden önce dondurulmuş, tek
+    tedavinin ve doğru türün (yumurta/embriyo) tüpleri; `dahil` bunlara
+    boşaltılmış olsa da katılacak tüpler (bağlantının kendi tüpleri).
+    Döner: (durum, adaylar, sınıflar). durum "yok" (aday yok), "cok"
+    (karşılaştırılamayacak kadar çok) ya da "". Sınıf: {anahtar: (küme,
+    eşleşme)}; aynı tedavinin içeriği birebir aynı kümeleri tek sınıf."""
+    ted = _db.vit_tedavisi("o")
+    dahil = tuple(dahil)
+    ek = (f" OR t.id IN ({','.join('?' * len(dahil))})") if dahil else ""
+    tupler = {}
+    for tid, etiket, konum, sid, dt, dt_no, dt_tip, zaman in b.execute(
+            f"SELECT t.id, t.etiket, t.konum_id, o.specimen_id, {ted}, dc.cycle_no, "
+            "dc.cycle_tipi, o.zaman FROM tasiyici t "
+            "JOIN olay o ON o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+            "JOIN specimen s ON s.id=o.specimen_id "
+            "JOIN cycle sc ON sc.id=s.cycle_id "
+            f"JOIN cycle dc ON dc.id={ted} "
+            "WHERE sc.hasta_id=? AND t.kategori='embriyo' "
+            f"AND {ted} <> ? AND o.zaman < ? "
+            "AND ((t.durum='dolu' AND NOT EXISTS (SELECT 1 FROM olay x WHERE "
+            "      x.tip='thaw' AND x.iptal_mi=0 AND x.thaw_tasiyici_id=t.id))"
+            f"{ek}) "
+            "ORDER BY t.id, o.id", (hasta_id, cycle_id, t_cozme, *dahil)).fetchall():
+        tup = tupler.setdefault(tid, {"tid": tid, "etiket": etiket, "konum": konum,
+                                      "ted": set(), "no": dt_no, "tip": dt_tip,
+                                      "ornekler": [], "zaman": zaman})
+        tup["ted"].add(dt)
+        tup["ornekler"].append(sid)
+        tup["zaman"] = min(tup["zaman"], zaman)
+    # Yalnızca tek tedavinin, doğru türde (yumurta/embriyo) içeriği olan tüpler
+    adaylar = []
+    for tup in tupler.values():
+        if len(tup["ted"]) != 1 or _db.yumurta_mi(tup["tip"]) != yumurta:
+            continue
+        tup["ted"] = next(iter(tup["ted"]))
+        tup["ornekler"] = [
+            (sid, *( (None, None) if yumurta else
+                     _degerlendirme_anahtari(b, sid, tup["ted"])))
+            for sid in tup["ornekler"]]
+        adaylar.append(tup)
+    if not adaylar:
+        return "yok", adaylar, {}
+    if len(adaylar) > _BAGLA_EN_COK_TUP:
+        return "cok", adaylar, {}
+
+    gecerli = []
+    for k in range(1, len(adaylar) + 1):
+        for alt in itertools.combinations(range(len(adaylar)), k):
+            ornekler = [o for i in alt for o in adaylar[i]["ornekler"]]
+            if len(ornekler) != n:
+                continue
+            esle = _eslestir(kaliteler, ornekler)
+            if esle is not None:
+                gecerli.append((alt, esle))
+
+    def sinif(alt):
+        return _sinif_anahtari(adaylar, alt)
+
+    def tam(alt, esle):
+        """Yazımı skoruyla birebir tutan transfer sayısı. "Kültürde
+        ilerlemiş olabilir" diye tutan küme (kavitasyon tüpü, 4CC transferi)
+        ancak birebir tutan yoksa aday: yoksa her FET'te bir KAV tüpü
+        seçeneği belirsizlik yaratırdı."""
+        ornekler = [o for i in alt for o in adaylar[i]["ornekler"]]
+        return sum(1 for q, j in zip(kaliteler, esle) if q is not None
+                   and j is not None and _oge_sirasi(q) is not None
+                   and ornekler[j][2] == _oge_sirasi(q)
+                   and ornekler[j][1] == _oge_anahtari(q))
+    if gecerli:
+        en_iyi = max(tam(a, e) for a, e in gecerli)
+        gecerli = [(a, e) for a, e in gecerli if tam(a, e) == en_iyi]
+    siniflar = {}
+    for alt, esle in gecerli:
+        siniflar.setdefault(sinif(alt), (alt, esle))
+    return "", adaylar, siniflar
+
+
+def _sinif_anahtari(adaylar, alt) -> tuple:
+    """Tüp kümesinin ayırt edilebilirlik anahtarı: tedavileri + içerikleri.
+    Aynı tedavinin birebir aynı tüpleri ("(4AA) (4AA)") aynı anahtar."""
+    return (tuple(sorted({adaylar[i]["ted"] for i in alt})),
+            tuple(sorted(tuple(sorted(str(o[1]) for o in adaylar[i]["ornekler"]))
+                         for i in alt)))
+
+
+def _tup_anlat(adaylar, alt) -> str:
+    return (f'{adaylar[alt[0]]["no"]}: '
+            + " + ".join(adaylar[i]["etiket"] for i in alt))
+
+
+def _baglantilari_yeniden_sina() -> list:
+    """Tüpüne BAĞLANMIŞ aktarılmış FET'ler bugünkü tüplerle hâlâ tek seçenek
+    mi? (v6.164) Döner: [(Access işareti, bağlı tüpler, öteki seçenekler)].
+
+    Bir FET o gün tek tutan tüpe bağlanıyor; sonradan aktarılan bir ay aynı
+    hastaya aynı içerikte başka bir tüp getirirse seçim artık kesin değil --
+    tarih sırasıyla aktarılsaydı "belirsiz" denirdi. Bağ çözülmüyor (FET'in
+    kendi örnekleri silindi, tüpün yeri elle girilmiş olabilir); yalnızca
+    söyleniyor, kullanıcı kâğıttan bakıyor ("belirsizi listele", v6.148).
+    Hiçbir şey yazmıyor."""
+    yer = ",".join("?" * len(FET_TIPLERI))
+    b = _db.baglan()
+    try:
+        fetler = b.execute(
+            "SELECT c.id, c.cycle_no, c.cycle_tipi, c.protokol_notu, c.hasta_id, "
+            "MIN(o.zaman) FROM cycle c JOIN olay o ON o.thaw_cycle_id=c.id "
+            "AND o.tip='thaw' AND o.iptal_mi=0 JOIN specimen s ON s.id=o.specimen_id "
+            f"WHERE c.lab_id=? AND c.cycle_tipi IN ({yer}) "
+            "AND c.protokol_notu LIKE '%[Access kayd%' "
+            "GROUP BY c.id HAVING SUM(s.cycle_id = c.id) = 0 "
+            "AND SUM(o.thaw_tasiyici_id IS NULL) = 0 ORDER BY 6, c.id",
+            (_db.LAB_ID, *FET_TIPLERI)).fetchall()
+        sonuc = []
+        for cid, cno, tip, notu, hasta_id, t_cozme in fetler:
+            cozulen = b.execute(
+                "SELECT DISTINCT specimen_id, thaw_tasiyici_id FROM olay WHERE "
+                "tip='thaw' AND iptal_mi=0 AND thaw_cycle_id=?", (cid,)).fetchall()
+            dahil = sorted({t for _s, t in cozulen})
+            yumurta = _db.cozulen_yumurta_islenir(tip)
+            kaliteler = [] if yumurta else _transfer_kaliteleri(_vt_satiri(b, cid, tip))
+            durum, adaylar, siniflar = _bag_siniflari(
+                b, hasta_id, cid, t_cozme, len({s for s, _t in cozulen}),
+                yumurta, kaliteler, dahil)
+            if durum or not siniflar:
+                continue
+            bagli = tuple(i for i, t in enumerate(adaylar) if t["tid"] in dahil)
+            if len(bagli) != len(dahil):
+                continue
+            anahtar = _sinif_anahtari(adaylar, bagli)
+            obur = [alt for k, (alt, _e) in siniflar.items() if k != anahtar]
+            if obur:
+                m = re.search(r"\[Access kaydı\s+([^\]]+)\]", (notu or "").replace("\n", " "))
+                sonuc.append((m.group(1) if m else cno, _tup_anlat(adaylar, bagli),
+                              [_tup_anlat(adaylar, a) for a in obur]))
+        return sonuc
+    finally:
+        b.close()
+
+
+def _aktarilmamis_aylar(b, bas, son) -> list:
+    """`bas` ile `son` arasındaki (ikisi de hariç) ve programda HİÇ kaydı
+    olmayan aylar, "2025-11" biçiminde (v6.164).
+
+    Bir laboratuvarın bir ay boyunca hiç tedavisi olmaz; o ayda başlayan hiç
+    tedavi yoksa ay henüz aktarılmamış demektir. Çözülen embriyonun gerçek
+    tüpü o ayda dondurulmuş olabilir -- o gün tek tutan tüpe bağlamak yanlış
+    tüpü boşaltabilirdi (v6.163'ün bilinen sınırı; kullanıcının makinesinde
+    asıl durum buydu: 2026 aktarılmışken 2025 ay ay geliyor).
+    Ölçü tedavinin günü (`db.tedavi_tarihi()`: OPU, çözme/transfer, ...),
+    olayların günü DEĞİL: ekimin son OPU'larının 5. gün dondurmaları ve
+    transferleri kasıma düşüyor, kasım dosyası gelmeden ay dolu görünürdü.
+    Bir iki tedavi de ayı doldurmuyor (`_AY_EN_AZ_TEDAVI`): kullanıcının
+    veritabanında programdan girilmiş iki tedavi, dosyası hiç gelmemiş bir
+    ayı "dolu" gösteriyordu; aktarılan aylar 20 ile 130 tedavi arası."""
+    y1, a1 = int(bas[:4]), int(bas[5:7])
+    y2, a2 = int(son[:4]), int(son[5:7])
+    aylar = []
+    y, a = y1, a1 + 1
+    while (y, a) < (y2, a2):
+        if a > 12:
+            y, a = y + 1, 1
+            continue
+        aylar.append(f"{y:04d}-{a:02d}")
+        a += 1
+    if not aylar:
+        return []
+    sayi = _tedavi_aylari(b)
+    return [ay for ay in aylar if sayi.get(ay, 0) < _AY_EN_AZ_TEDAVI]
+
+
+_AY_EN_AZ_TEDAVI = 10
+_AY_ONBELLEK = {"anahtar": None, "aylar": {}}
+
+
+def _tedavi_aylari(b) -> dict:
+    """{"2025-06": tedavi sayısı, ...}. Sorgu yarım saniye sürüyor ve her
+    FET için soruluyor; tedavi eklenmedikçe (sayı ve en büyük kimlik aynı)
+    öncekini döndürüyor."""
+    anahtar = tuple(b.execute("SELECT COUNT(*), MAX(id) FROM cycle").fetchone())
+    if _AY_ONBELLEK["anahtar"] != anahtar:
+        _AY_ONBELLEK["aylar"] = {ay: n for ay, n in b.execute(
+            f"SELECT substr({_db.tedavi_tarihi(b, 'c')}, 1, 7), COUNT(*) FROM cycle c "
+            "WHERE c.lab_id=? GROUP BY 1", (_db.LAB_ID,))}
+        _AY_ONBELLEK["anahtar"] = anahtar
+    return _AY_ONBELLEK["aylar"]
+
+
 def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
     """FET'te ve Yumurta Çözme'de çözülen örnekleri, dondurulduğu tüp
     programdaysa o tüpün örneklerine bağlar (v6.148).
@@ -2322,7 +2656,8 @@ def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
     "tedavi programda yok" cümlesi kaynağın numarasıyla yeniden kuruluyor.
 
     Döner: "bagli", "zaten", "belirsiz", "tutmuyor", "yok" (hastanın uygun
-    dolu tüpü yok) ya da "" (çözülen örnek yok).
+    dolu tüpü yok), "ertelendi" (tek tutan tüp var ama arada aktarılmamış
+    ay var, v6.164) ya da "" (çözülen örnek yok).
     """
     tip = r["tip"]
     if tip not in FET_TIPLERI:
@@ -2344,82 +2679,30 @@ def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
     hasta_id = b.execute("SELECT hasta_id FROM cycle WHERE id=?",
                          (cycle_id,)).fetchone()[0]
 
-    ted = _db.vit_tedavisi("o")
-    tupler = {}
-    for tid, etiket, konum, sid, dt, dt_no, dt_tip in b.execute(
-            f"SELECT t.id, t.etiket, t.konum_id, o.specimen_id, {ted}, dc.cycle_no, "
-            "dc.cycle_tipi FROM tasiyici t "
-            "JOIN olay o ON o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-            "JOIN specimen s ON s.id=o.specimen_id "
-            "JOIN cycle sc ON sc.id=s.cycle_id "
-            f"JOIN cycle dc ON dc.id={ted} "
-            "WHERE sc.hasta_id=? AND t.durum='dolu' AND t.kategori='embriyo' "
-            f"AND {ted} <> ? AND o.zaman < ? "
-            "AND NOT EXISTS (SELECT 1 FROM olay x WHERE x.tip='thaw' AND x.iptal_mi=0 "
-            "                AND x.thaw_tasiyici_id=t.id) "
-            "ORDER BY t.id, o.id", (hasta_id, cycle_id, t_cozme)).fetchall():
-        tup = tupler.setdefault(tid, {"tid": tid, "etiket": etiket, "konum": konum,
-                                      "ted": set(), "no": dt_no, "tip": dt_tip,
-                                      "ornekler": []})
-        tup["ted"].add(dt)
-        tup["ornekler"].append(sid)
-    # Yalnızca tek tedavinin, doğru türde (yumurta/embriyo) içeriği olan tüpler
-    adaylar = []
-    for tup in tupler.values():
-        if len(tup["ted"]) != 1 or _db.yumurta_mi(tup["tip"]) != yumurta:
-            continue
-        tup["ted"] = next(iter(tup["ted"]))
-        tup["ornekler"] = [
-            (sid, *( (None, None) if yumurta else
-                     _degerlendirme_anahtari(b, sid, tup["ted"])))
-            for sid in tup["ornekler"]]
-        adaylar.append(tup)
-    if not adaylar:
+    kaliteler = [] if yumurta else _transfer_kaliteleri(r)
+    durum, adaylar, siniflar = _bag_siniflari(b, hasta_id, cycle_id, t_cozme, n,
+                                              yumurta, kaliteler)
+    if durum == "yok":
         rapor.append(f"    çözülen {ne}ların tüpü programda yok "
                      "(dondurma program öncesi)")
         return "yok"
-    if len(adaylar) > _BAGLA_EN_COK_TUP:
+    if durum == "cok":
         rapor.append(f"    BAĞLANAMADI: hastanın {len(adaylar)} dolu tüpü var, "
                      "karşılaştırılamayacak kadar çok -- elle bakılmalı")
         return "tutmuyor"
 
-    kaliteler = [] if yumurta else _transfer_kaliteleri(r)
-    gecerli = []
-    for k in range(1, len(adaylar) + 1):
-        for alt in itertools.combinations(range(len(adaylar)), k):
-            ornekler = [o for i in alt for o in adaylar[i]["ornekler"]]
-            if len(ornekler) != n:
-                continue
-            esle = _eslestir(kaliteler, ornekler)
-            if esle is not None:
-                gecerli.append((alt, esle))
-
-    def sinif(alt):
-        return (tuple(sorted({adaylar[i]["ted"] for i in alt})),
-                tuple(sorted(tuple(sorted(str(o[1]) for o in adaylar[i]["ornekler"]))
-                             for i in alt)))
-
     def anlat(alt):
-        return (f'{adaylar[alt[0]]["no"]}: '
-                + " + ".join(adaylar[i]["etiket"] for i in alt))
-
-    def tam(alt, esle):
-        """Yazımı skoruyla birebir tutan transfer sayısı. "Kültürde
-        ilerlemiş olabilir" diye tutan küme (kavitasyon tüpü, 4CC transferi)
-        ancak birebir tutan yoksa aday: yoksa her FET'te bir KAV tüpü
-        seçeneği belirsizlik yaratırdı."""
-        ornekler = [o for i in alt for o in adaylar[i]["ornekler"]]
-        return sum(1 for q, j in zip(kaliteler, esle) if q is not None
-                   and j is not None and _oge_sirasi(q) is not None
-                   and ornekler[j][2] == _oge_sirasi(q)
-                   and ornekler[j][1] == _oge_anahtari(q))
-    if gecerli:
-        en_iyi = max(tam(a, e) for a, e in gecerli)
-        gecerli = [(a, e) for a, e in gecerli if tam(a, e) == en_iyi]
-    siniflar = {}
-    for alt, esle in gecerli:
-        siniflar.setdefault(sinif(alt), (alt, esle))
+        return _tup_anlat(adaylar, alt)
     if not siniflar:
+        # Hastanın tüpleri tutmuyor, ama aralarında aktarılmamış ay varsa
+        # gerçek tüp o ayda olabilir (v6.164): "elle bak" değil, bekle.
+        bosluk = _aktarilmamis_aylar(b, min(t["zaman"] for t in adaylar), t_cozme)
+        if bosluk:
+            rapor.append(f"    ERTELENDİ: hastanın dolu tüpleri tutmuyor, ama arada "
+                         f"programda hiç kaydı olmayan ay var ({', '.join(bosluk)}) "
+                         "-- gerçek tüp o aylarda olabilir, aktarılınca yeniden "
+                         "denenecek")
+            return "ertelendi"
         ozet = ", ".join(f'{t["etiket"]} ({len(t["ornekler"])})' for t in adaylar)
         rapor.append(f"    BAĞLANAMADI: hastanın dolu tüpleri ({ozet}) çözülen "
                      f"{n} {ne} ve transfer yazımıyla tutmuyor -- elle bakılmalı")
@@ -2430,6 +2713,15 @@ def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
                      " -- bağlanmadı, elle bakılmalı")
         return "belirsiz"
     alt, esle = next(iter(siniflar.values()))
+    # Tüp ile çözme arasında aktarılmamış ay varsa bekle (v6.164): gerçek tüp
+    # o ayda olabilir. Ay gelince her aktarımın sonundaki `butun_fetleri_bagla()`
+    # yeniden dener -- o gün tek seçenek kalıyorsa bağlar.
+    bosluk = _aktarilmamis_aylar(b, min(adaylar[i]["zaman"] for i in alt), t_cozme)
+    if bosluk:
+        rapor.append(f"    ERTELENDİ: tutan tüp ({anlat(alt)}) ile çözme arasında "
+                     f"programda hiç kaydı olmayan ay var ({', '.join(bosluk)}) -- "
+                     "o aylar aktarılınca yeniden denenecek")
+        return "ertelendi"
 
     # Kendi örneklerinde fotoğraf/bulgu varsa (aktarımdan sonra elle
     # eklenmiş) örnek silinemez -- dokunma, söyle.
@@ -2672,6 +2964,8 @@ def _ozet_satiri(r) -> str:
         ek += f"   [{alan} {_gg(eski)} → {_gg(yeni)}]"
     if r.get("olgunluk_duzeltme"):
         ek += f'   [MII {r["olgunluk_duzeltme"][0]} → {r["mii"]}, nottan]'
+    if r.get("icsi_duzeltme"):
+        ek += f'   [ICSI boş → {r["icsi_duzeltme"]}, döllenme sonuçlarından]'
 
     return (f'#{r["kimlik"]:>3}  dosya {r["dosya_no"]:<10} {r["tip"]:<14}'
             f'{r["tarih"] or "tarihsiz":<11} {icerik:<52} {son}{ek}')
@@ -2708,13 +3002,23 @@ def onizleme(satirlar, kopyalar=(), tutmayan=()):
             # değil -- kendi notunda ne yazdığını tanıyabilmeli.
             ozet = " ".join("(" + "-".join(o["ham"] for o in g) + ")"
                             for g in coz["gruplar"])
+            gunler = ("/".join(str(g) for g in coz["grup_gunleri"])
+                      if coz.get("grup_gunleri") else coz["gun"])
+            atilan = [o["ham"] for o in coz["ogeler"] if o["tur"] == "taninmadi"]
+            okunamayan = [o["ham"] for o in coz["ogeler"] if o.get("okunamadi")]
             print(f'        dondurulan ({"yumurta" if coz["oosit_mi"] else "embriyo"}'
-                  + (f', gün {coz["gun"]}' if coz["gun"] else "")
+                  + (f', gün {gunler}' if gunler else "")
                   + f', {len(coz["gruplar"])} tüp): {ozet}'
                   + ("   <- çözme sonrası yeniden dondurma"
                      if r["tip"] in ("fet", "fet_kultur") else "")
                   + ("   <- not fiilsiz söylüyor (\"İLE BİRLİKTE KALDI\")"
-                     if coz.get("ortuk") else ""))
+                     if coz.get("ortuk") else "")
+                  + (f'   <- aynı tüp iki kez yazılmış, biri alınmadı '
+                     f'({coz["tekrar_grup"]})' if coz.get("tekrar_grup") else "")
+                  + (f'   <- skoru okunamadı, skorsuz: {", ".join(okunamayan)}'
+                     if okunamayan else "")
+                  + (f'   <- TANINMADI, yazılmayacak: {", ".join(atilan)}'
+                     if atilan else ""))
         elif coz:
             print("        dondurma notu var   <- kaç örnek/tüp olduğu "
                   "okunamadı, YAZILMAYACAK")
@@ -2741,6 +3045,9 @@ def _bagla_ozeti(sonuclar):
     print(f'\nÇözme kaynağı: {say.get("bagli", 0)} tedavi tüpüne bağlandı, '
           f'{say.get("yok", 0)} tedavinin tüpü programda yok (program öncesi '
           f'dondurma), {say.get("zaten", 0)} zaten bağlıydı.')
+    if say.get("ertelendi"):
+        print(f'{say["ertelendi"]} tedavi ertelendi: tüp ile çözme arasında '
+              "aktarılmamış ay var; o ay aktarılınca kendiliğinden denenecek.")
     elle = [(k, d) for k, d in sonuclar if d in ("belirsiz", "tutmuyor")]
     if elle:
         print("Elle bakılmalı (yukarıdaki satırlarında ayrıntı var):")
@@ -2913,7 +3220,7 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
         f"WHERE c.lab_id=? AND c.cycle_tipi IN ({yer}) "
         "AND c.protokol_notu LIKE '%[Access kayd%' "
         "GROUP BY c.id ORDER BY t, c.id", (_db.LAB_ID, *FET_TIPLERI))
-    sonuclar = []
+    sonuclar, eksik_aylar = [], []
     for f in fetler:
         m = re.search(r"\[Access kaydı\s+([^\]]+)\]",
                       (f["protokol_notu"] or "").replace("\n", " "))
@@ -2928,6 +3235,11 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
             continue
         if durum:
             sonuclar.append((etiket, durum))
+        if durum == "ertelendi":
+            for satir in rapor:
+                mm = re.search(r"kaydı olmayan ay var \(([^)]*)\)", satir)
+                if mm:
+                    eksik_aylar.append(mm.group(1).split(", "))
         if durum in ("bagli", "belirsiz", "tutmuyor") and not (
                 yalnizca_ozet and durum != "bagli"):
             print(f'{f["cycle_no"]} ({etiket})')
@@ -2939,10 +3251,23 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
           f"bağlı değildi, {bagli} tanesi şimdi bağlandı, "
           f"{sum(1 for _k, d in sonuclar if d == 'yok')} tanesinin tüpü "
           f"programda yok (dondurma program öncesi).")
+    ertelenen = sum(1 for _k, d in sonuclar if d == "ertelendi")
+    if ertelenen:
+        aylar = sorted({ay for a in eksik_aylar for ay in a})
+        print(f"{ertelenen} tanesi ertelendi: tüp ile çözme arasında "
+              f"aktarılmamış ay var ({', '.join(aylar)}); o aylar aktarılınca "
+              "kendiliğinden yeniden denenir.")
     if elle:
         print("Elle bakılmalı (Access kaydı):")
         for k, d in elle:
             print(f'  {k}  {"birden çok tüp seçeneği" if d == "belirsiz" else "dolu tüpler tutmuyor"}')
+    # Önceden bağlanmış olanlar yeni gelen tüplerle hâlâ tek seçenek mi (v6.164)
+    simdi_belirsiz = _baglantilari_yeniden_sina()
+    if simdi_belirsiz:
+        print("Bağlı ama artık kesin değil -- sonradan gelen bir tüp de tutuyor, "
+              "elle bakılmalı (Access kaydı: bağlı tüp | öteki seçenek):")
+        for k, bagli_tup, obur in simdi_belirsiz:
+            print(f'  {k}  {bagli_tup}  |  {" | ".join(obur)}')
 
 
 def eksik_dondurmalari_yaz(satirlar):
@@ -3133,6 +3458,7 @@ def main():
                 if duzelt else [])
     tarihleri_tamamla(satirlar)
     olgunlugu_nottan_duzelt(satirlar)
+    icsi_sayisini_tamamla(satirlar)
     kopyalar = bos_kopyalari_ayikla(satirlar)
     satirlar.sort(key=lambda r: (r["tarih"] or "9999-99-99", int(r["kimlik"] or 0)))
     cakisan = _carpismalar(satirlar)

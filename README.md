@@ -13134,3 +13134,154 @@ programda yoktu.
 - Transfer günü değerlendirmeleri iki sırada da aynı (iptal edilenler hariç
   tutulunca birebir).
 - İkinci `bagla`: tablo tablo karşılaştırıldı, hiçbir şey değişmedi.
+
+---
+
+# v6.164 — haziran–ekim 2025 Access kayıtları; dondurma notunun yedi okuması; FET bağlamada aktarılmamış ay
+
+Kullanıcının isteği: *"2025'in mayısa kadar aktarmıştım. Şimdi bu ayları
+aktar."* Beş dosya (haziran, temmuz, ağustos, eylül, ekim 2025), öncekilerle
+aynı yapıda: tek tablo `VERİTABANI`, 92 kolon; 40 + 113 + 95 + 74 + 82 = 404
+satır. Üç satır boş (yalnızca kimlik numarası), atlanıyor. `.accdb` v6.149'daki
+gibi `mdb-export` ile CSV'ye çevrildi; kaynak dosyalar, CSV'ler ve tarih
+düzeltmesi depoya girmedi, aşağıda yalnızca sayılar var.
+
+## Dosyalar
+
+- Etiketler `HAZIRAN2025` … `EKIM2025` (v6.160'ın kuralı: yıl taşıyor).
+- **Ağustos dosyasının son 18 kaydı 22–30 Eylül tarihli.** Eylül dosyası
+  2–24 Eylül'ü kapsıyor; ayın sonu ağustos dosyasına girilmiş. İki dosyada
+  aynı dosya no + aynı gün olan hiçbir satır yok, yani tekrar değil: kendi
+  eylül tarihleriyle aktarılıyorlar.
+- **Üç yazım hatalı tarih** (ağustos dosyası) `duzelt=` ile düzeltiliyor,
+  v6.148'in kararıyla: iki FET'in transfer tarihi (19 Temmuz → 19 Ağustos,
+  27 Mayıs → 27 Ağustos) ve bir OPU (29 Haziran → 29 Eylül). Üçü de
+  Access'te komşu kayıtlarının arasında girilmiş, yalnızca ay rakamı tutmuyor.
+  Hiçbiri kendi ayının dosyasında yok. 27 Mayıs yazan FET'in hastasının
+  OPU'su 1 Temmuz 2025'te; düzeltilmiş tarihle FET o temmuz tüpünü çözüyor.
+- Tarihsiz bir satır bir önceki kaydın tarihini alıyor (v6.148).
+
+## Aracın düzeltmeleri — yedisi de sessizdi
+
+Hepsi bu dosyaların gerçek satırlarından; hiçbirinde araç uyarmıyordu.
+
+1. **"REFREEZ YAPILARAK DONDURULDU"** (iki FET): "YAPILARAK" fiil sanıldı,
+   skor fiilin arkasında arandı, bulunamadı ve yeniden dondurulan tüp hiç
+   yazılmadı. "REFREEZ YAPILARAK" / "REFREEZ YAPILAN" artık niteleme;
+   fiil arkadaki "DONDURULDU".
+2. **"GERİYE 1 ADET REFREEZ YAPILAN D5 EMBRİYOSU (KAVG2) ŞEKLİNDE
+   DONDURULDU"** (bir FET, 3 çözme, 1 transfer, DONDURULAN boş): v6.148'in
+   stok kuralı ("GERİDE/GERİYE" + DONDURULAN 0 → önceki dondurmadan kalan)
+   bunu atlıyordu. Cümle REFREEZ diyor ve fiili bitmiş ("DONDURULDU",
+   "SAKLANDI", "EDİLDİ"): bu tedavide yapılmış bir yeniden dondurma. Stok
+   cümlesi "SAKLANMIŞTIR" / "KALDI" der, ona dokunulmadı.
+3. **Bir notta iki gün** (beş satır): "2 ADET D3 EMBRİYOSU (8HG3-10HG2)
+   2 ADET D5 EMBRİYOSU (3CC-1CC)". Araç notun ilk gününü bütün tüplere
+   veriyordu: D5 tüpü OPU + 3'te dondurulmuş, blastokistleri 4. gün
+   değerlendirmesi. Artık her grubun günü önündeki son işaret (`_son_gun()`),
+   işaretsiz grup bir öncekinin gününde; dondurma saati ve değerlendirme günü
+   grup grup. Tek günlü notta hiçbir şey değişmedi.
+4. **Aynı tüp iki kez** (bir satır): not "19 ADET D3 EMBRİYOSU" ve
+   DONDURULAN 19, ama beş parantez grubu 24 embriyo tutuyor; ikinci ve
+   dördüncü grup birebir aynı (kopyala-yapıştır). Araç tankta olmayan beşinci
+   bir tüp yazıyordu. İki bağımsız sayı (notun ADET'i ve DONDURULAN)
+   tekrarı çıkarınca tam tutuyorsa tekrar düşüyor, not bunu söylüyor. Aynı
+   içerikli iki tüp olağan ("(4AA) (4AA)"); sayılar tutuyorsa hiçbir şey
+   değişmiyor. Yalnızca embriyoda: yumurta satırında DONDURULAN embriyo sayısı,
+   ikinci sayı yok.
+5. **Yumurta yazım hataları** (üç satır): "(4-M2)" (tire sayıyı olgunluktan
+   ayırıyor), "1*1" ("M" düşmüş), "1M*1" (yıldız yer değiştirmiş). Tanınmayan
+   parça atılıyordu, tüpe 4 yerine 1, 4 yerine 3, 5 yerine 4 yumurta
+   yazılıyordu. Üçü de artık okunuyor; yalnızca yumurta notunda.
+6. **Okunamayan embriyo yazımı** ("(8HGT1-6HG3-8HG3)", bir satır): "8HGT1"
+   tanınmadığı için tüpe 3 yerine 2 embriyo yazılıyordu. Rakamla başlayan
+   ama okunamayan yazım artık **skorsuz embriyo**: sayı tutuyor, skor
+   uydurulmuyor, yazım değerlendirmenin notunda, ekrandan düzeltilebilir.
+   Rakamla başlamayan tanınmayan parça hâlâ yazılmıyor ama artık UYARI
+   çıkıyor, `liste` de "TANINMADI" diyor.
+7. **ICSI sayısı boş, döllenme sonuçları dolu** (bir satır): yöntem ICSI,
+   MII 8, 2PN 7, intakt 1, İŞLEME ALINAN boş. ICSI yazılmayınca 2PN de
+   açılmıyor, dondurulan 6 embriyonun 4 tüpü Cryo Haritası'na hiç girmiyordu.
+   2PN + intakt + anormal + işlem sonrası dejenere enjeksiyonun
+   sonuçları; toplamları enjekte edilen sayının kendisi, uydurma değil
+   (`icsi_sayisini_tamamla()`). Not "ICSI sayısı Access'te boş" diyor.
+   Döllenme sonucu da yoksa ICSI yine yazılmıyor.
+
+Kaynağın kendi tutarsızlığı olan üç satır olduğu gibi kaldı, rapor UYARI
+diyor: bir yumurta dondurmasında not "11 ADET" diyor, gruplar 12; bir embriyo
+dondurmasında 5 embriyo, 4 2PN; bir yumurta dondurmasında "6 ADET", gruplar 8
+(MII 4). Fazlası yazılmıyor.
+
+"4BA TA" gibi skorlar (temmuzda 17, ağustosta 2 satır): skor okunuyor,
+"TA" değerlendirmenin notunda kalıyor. Anlamı kullanıcıya soruldu.
+
+## FET bağlama: aktarılmamış ay
+
+v6.163 her aktarımın sonunda bütün aktarılmış FET'leri **o an programda olan**
+tüplerle bağlıyor. Kullanıcının makinesinde asıl durum "ters sıra": 2026
+aktarılmışken 2025 ay ay geliyor. Haziran 2025 aktarılınca bir 2026 FET'i
+için tek tutan tüp haziranda görünür; gerçek tüpü eylülde olsa bile bağlanır
+ve eylül gelince bağ geri alınmaz. v6.163'ün README'si bunu "bilinen sınır"
+diye yazmıştı. Kullanıcının veritabanının kopyasında (v6.148 provası)
+ocak–haziran 2026 v6.163 koduyla baştan aktarılınca bir temmuz FET'i böyle
+bağlandı: tarih sırasıyla iki tüpü (şubat, nisan) tutan, v6.148'de "belirsiz"
+kalan FET, şubat aktarıldığında nisan tüpü henüz yokken şubat tüpüne
+bağlandı. O satır dışında sonuç v6.148'inkiyle birebir aynıydı.
+
+- **Erteleme**: tutan tüp ile çözme arasında programda hiç tedavisi olmayan
+  bir ay varsa (dosyası gelmemiş) bağlanmıyor, rapor "ertelendi" diyor ve
+  ayları yazıyor. O ay aktarılınca her aktarımın sonundaki deneme
+  kendiliğinden yeniden bakıyor (`_aktarilmamis_aylar()`). "Hastanın tüpleri
+  tutmuyor" da arada boş ay varsa "elle bak" değil "ertelendi": gerçek tüp o
+  ayda olabilir.
+  - Ölçü **tedavinin günü** (`db.tedavi_tarihi()`), olayların günü değil:
+    ekimin son OPU'larının 5. gün dondurmaları kasıma düşüyor, kasım dosyası
+    gelmeden ay dolu görünürdü (denemede görüldü).
+  - Bir ay ancak en az 10 tedavisi varsa aktarılmış sayılıyor
+    (`_AY_EN_AZ_TEDAVI`): kullanıcının veritabanında programdan girilmiş iki
+    tedavi, dosyası hiç gelmemiş bir ayı dolu gösteriyordu. Aktarılan aylar
+    20 ile 130 tedavi arası.
+- **Yeniden sınama**: bağlı FET'ler her seferinde bugünkü tüplerle
+  sınanıyor (`_baglantilari_yeniden_sina()`); başka bir tüp de tutuyorsa
+  "Bağlı ama artık kesin değil" listesine iki tüple giriyor. **Bağ
+  çözülmüyor**: FET'in kendi örnekleri silindi, tüpün yeri elle girilmiş
+  olabilir; kullanıcı kâğıttan bakıyor ("belirsizi listele", v6.148).
+  v6.163'le daha önce yapılmış erken bağları da böyle buluyor.
+- Aday araması `_bag_siniflari()`'na ayrıldı: bağlama ve yeniden sınama aynı
+  kuralı kullansın diye.
+- **Bilinen sınır**: en eski aktarılmış aydan önceki bir tüp (ör. 2024)
+  programda yok; o dönem aktarılınca yeniden sınama söyler.
+
+## Deneme
+
+Kullanıcının veritabanının kopyasında (v6.148 provası; mayıs 2026 ve
+ocak–mayıs 2025 bu oturumda yok):
+
+- Beş ay tarih sırasıyla: 404 tedavi (163 FET, 179 IVF/ICSI, 53 Yumurta
+  Dondurma, 9 Yumurta Çözme), 0 hata, 430 tüp. Dosyaların kendi FET'lerinden
+  36'sı 2025 tüplerine bağlandı. 35 FET ertelendi: kasım–aralık 2025, bu
+  kopyada mayıs 2026 da yok. Kullanıcının makinesinde mayıs var, orada
+  erteleme yalnızca kasım–aralık 2025 yüzünden.
+- Yeniden sınama yukarıdaki erken bağlanmış temmuz FET'ini iki tüpüyle
+  listeledi.
+- İkinci çalıştırma: beş dosyanın yeniden aktarımı (hepsi atlandı),
+  `tamamla` ve `bagla`; tablolar satır satır karşılaştırıldı, hiçbir şey
+  değişmedi. Bütünlük kontrolleri temiz (yabancı anahtar, boş "dolu" tüp,
+  çift çözme, çift transfer, tekrarlanan tedavi no).
+- Düzeltilen satırlar aktarımda doğrulandı: yumurta tüpleri 4+3, 5, 4+3;
+  19 embriyo 4 tüpte; ICSI'si boş satırın 6 embriyosu 4 tüpte; iki gün
+  notlarında D3 tüpü OPU + 3'te, D5 tüpü OPU + 5'te, bir satırda D6
+  blastokisti 6. gün.
+- Gerileme: 2026'nın yedi dosyası ve 2025'in beşi, eski ve yeni araçla
+  `liste` (boş veritabanında). 2026'da tek fark temmuz 2026'daki bir satırın
+  gün gösterimi (aşağıda); 2025'te yalnızca hedeflenen satırlar.
+
+## Bilinen / yazılmayan
+
+- **Temmuz 2026'nın zaten aktarılmış bir satırında da iki günlü not var**
+  (D2 + D5): orada iki blastokist 4. gün değerlendirmesi olarak duruyor. Bu
+  sürüm onu kendiliğinden değiştirmiyor. `tamamla kaynak=TEMMUZ` düzeltir,
+  ama o ayda ekrandan elle düzeltilmiş skorları nottakiyle ezer (v6.142).
+  Ekrandan düzeltmek de mümkün.
+- Kasım–aralık 2025 henüz gelmedi: gelene kadar 2026 FET'lerinin 2025
+  tüplerine bağlanması erteleniyor.

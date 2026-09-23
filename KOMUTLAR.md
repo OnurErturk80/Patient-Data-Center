@@ -274,6 +274,35 @@ Dosya istemez: veritabanındaki bütün aktarılmış FET'leri çözme tarihi
 sırasıyla dener, bağladıklarını ve "elle bakılmalı" olanları Access kayıt
 numarasıyla yazar. Bağlı olana dokunmaz, iki kez çalıştırmak güvenli.
 
+**2025 haziran–ekim (v6.164).** Önce `git pull` ve programı bir kez kapatıp
+aç, yedek al (`/yedekleme` → "Şimdi yedekle"). Sıra **eskiden yeniye**.
+Ağustos dosyasının üç tarihi düzeltme istiyor: sohbette verilen
+`tarih_duzeltme_agustos2025.txt` dosyasını CSV'lerin yanına koy (hasta
+kaydına bağlı olduğu için depoda değil).
+
+```
+python3 aktar_access.py liste kaynak=HAZIRAN2025 haziran2025.csv
+python3 aktar_access.py       kaynak=HAZIRAN2025 haziran2025.csv
+python3 aktar_access.py       kaynak=TEMMUZ2025  temmuz2025.csv
+python3 aktar_access.py       kaynak=AGUSTOS2025 duzelt=tarih_duzeltme_agustos2025.txt agustos2025.csv
+python3 aktar_access.py       kaynak=EYLUL2025   eylul2025.csv
+python3 aktar_access.py       kaynak=EKIM2025    ekim2025.csv
+```
+
+(Her birini önce `liste` ile de çalıştırabilirsin.) Ağustos dosyasının son
+kayıtları 22–30 Eylül tarihli: ayın sonu o dosyaya girilmiş, eylül
+dosyasında yoklar -- eylül tarihleriyle aktarılıyor, bu doğru.
+
+Her aktarımın sonunda üç liste çıkabilir:
+- **"N tanesi ertelendi"**: FET'in tüpü ile çözmesi arasında henüz
+  aktarılmamış bir ay var (bugün kasım–aralık 2025). Bir şey yapma: o ay
+  aktarılınca kendiliğinden yeniden denenir.
+- **"Elle bakılmalı"**: tüp seçeneği birden çok ya da hiçbiri tutmuyor
+  (eskisi gibi).
+- **"Bağlı ama artık kesin değil"**: daha önce bağlanmış bir FET'e yeni
+  gelen bir tüp de uyuyor. Bağ olduğu gibi kalır; iki tüp de yazılı,
+  kâğıttan hangisinin çözüldüğüne bak.
+
 **v6.161:** "2 ADET M2 OOSİT DONDURULARAK SAKLANDI" gibi tüp sayısı yazmayan
 yumurta dondurması artık tek tüp. 2026'da da böyle bir satır vardı ve tüpü
 yazılmamıştı; yalnızca hiç tüpü olmayan tedaviye yazan `dondurma` kipiyle
