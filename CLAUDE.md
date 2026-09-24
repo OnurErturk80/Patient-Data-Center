@@ -37,9 +37,10 @@ Kullanıcı 2026-09-23'te ocak–mayıs 2025'i aktardığını söyledi. **Hazir
 (`kaynak=NISAN2024` … `AGUSTOS2024`; mayısın aynı gün iki kez girilmiş bir
 kaydı kullanıcının seçimini bekliyor, `ATLA`). **Eylül–aralık 2024 ve ocak
 2023** v6.168'de (`kaynak=EYLUL2024` … `ARALIK2024`, `OCAK2023` — o dosyanın
-tarihleri 2023). **Şubat–aralık 2023 yok** (kullanıcı 2026-09-24'te
-onları da aktaracağını söyledi; etiketler `SUBAT2023` … `ARALIK2023`): ocak
-2023 tüplerini çözen FET'lerin bağlanması erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
+tarihleri 2023). **Şubat–haziran 2023** v6.170'te (`kaynak=SUBAT2023` …
+`HAZIRAN2023`). **Temmuz–aralık 2023 yok** (kullanıcı 2026-09-24'te
+onları da aktaracağını söyledi; etiketler `TEMMUZ2023` … `ARALIK2023`): o
+aylardaki tüpleri çözen FET'lerin bağlanması erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
 işte bunu hesaba kat.
 
 ---
@@ -2119,7 +2120,12 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`…, 2024'ünküler
   `OCAK2024`… (nisan–ağustos: `NISAN2024`, `MAYIS2024`, `HAZIRAN2024`,
   `TEMMUZ2024`, `AGUSTOS2024`; v6.168'de `EYLUL2024`…`ARALIK2024` ve
-  `OCAK2023`). Aynı etiketi başka yılın dosyasına verme.
+  `OCAK2023`; v6.170'te `SUBAT2023`…`HAZIRAN2023`). Aynı etiketi başka
+  yılın dosyasına verme.
+- **Yer tutucu dosya numarası düzeltme dosyasıyla** (v6.170): `KAYNAK#KAYIT
+  DOSYA eski yeni`. Doğru numarayı kullanıcı onaylar. Araç doğum tarihinden
+  ya da addan hasta **eşleştirmez**; önerini kanıtıyla yaz, kararı ona
+  bırak, yanlışsa `ATLA`.
 - **Dondurma notunun yazım hataları** (v6.168, `_skor_metni()`): "KACG1"
   kavitasyon (C, V'nin yanında; yalnızca arkasından derece geliyorsa),
   "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk

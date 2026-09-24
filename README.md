@@ -13713,3 +13713,48 @@ değişti ("(N*MII)" 166, "(N*MII-N*MI)" 30, "(N*MI)" 3, bir de Yumurta
 Çözme'nin THAW'ı). Hiçbir embriyo tüpü değişmedi. Değişen tedavilerin iki formu,
 iki Excel'i ve tedavi ekranı 200 döndü. ART Lab'ın FREEZE kutusunda
 "(1*MII-2*MI)" sığıyor.
+
+# v6.170 — şubat–haziran 2023 Access kayıtları; düzeltme dosyasında DOSYA satırı
+
+Kullanıcı şubat, mart, nisan, mayıs ve haziran 2023'ün Access dosyalarını
+verdi (`kaynak=SUBAT2023` … `HAZIRAN2023`, 563 satır). Önizleme uyarısız
+geçti. Kayıtlar dosyalarda tarih sırasıyla dizili, bu yüzden ayına ve
+komşularına uymayan tarih kolay görünüyor.
+
+## Düzeltme dosyası (`tarih_duzeltme_2023.txt`, depoda değil)
+
+- Dört tarih açıkça yazım hatası, ay rakamı yanlış: şubatta bir OPU "mart",
+  bir FET transferi "mart"; mayısta bir OPU "haziran" (aynı hastanın
+  haziranda başka bir OPU'su var); haziranda bir FET transferi "mart".
+- Şubatın son iki satırı mart transferi (2 ve 21 Mart). Dosyanın sonunda
+  oldukları için sonradan girilmiş gerçek kayıtlar olabilir, düzeltilmedi.
+- **Haziranda bir FET'in DOSYA NO'su "41"**, kaydın kendi sıra numarası (yer
+  tutucu, `liste` "DİKKAT" diyor). Notundaki önceki deneme tarihi, doğum
+  tarihi ve dondurulup transfer edilen embriyonun skoru nisandaki bir
+  tedaviyle tutuyor. Ama araç hastayı adından ya da doğum tarihinden
+  **eşleştirmiyor** (v6.125). Yanlış hasta bu işin en pahalı hatası. Onun
+  yerine düzeltme dosyasına yeni bir satır türü geldi:
+
+      KAYNAK#KAYIT  DOSYA  eski-no  yeni-no
+
+  Satır yalnızca Access'teki numara hâlâ `eski-no` ise uygulanıyor, tarih
+  düzeltmeleri gibi. Tedavinin notu "Dosya numarası Access'te 41 yazıyordu,
+  ... olarak düzeltildi" diyor. Numarayı kullanıcı onaylıyor. Yanlışsa
+  satır `ATLA` oluyor ve kayıt aktarılmıyor. Prova: düzeltilen FET
+  nisandaki tüpe bağlandı.
+
+## Kalan uyarılar
+
+- Nisanda bir satırın 2PN'i 3, ama notta 5 embriyo dondurulmuş. 3'ü
+  yazıldı, UYARI çıkıyor. Bu kaynağın kendi tutarsızlığı.
+- Her ayın sonunda 1–4 FET "elle bakılmalı": tüpü birden çok seçenekle
+  tutuyor ya da hastanın dolu tüplerinden hiçbiri tutmuyor. Önceki aylardaki
+  gibi bağlanmadılar, raporda seçenekleri yazılı.
+
+## Denendi
+
+- **Prova:** test veritabanında (ocak 2023 dahil) beş dosya eskiden yeniye
+  aktarıldı: 563 tedavi, 0 hata. 97 FET tüpüne bağlandı. Temmuz–aralık
+  2023 aktarılmadığı için sonraki FET'ler "ertelendi".
+- **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
+  tabloyu değiştirmedi.

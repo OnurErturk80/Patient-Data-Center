@@ -558,7 +558,7 @@ def _gg(iso: str) -> str:
 # söylüyor -- araç hastayı adından ya da doğum tarihinden eşleştirmiyor
 # (v6.125'in kuralı), yanlış hasta bu işin en pahalı hatası:
 #
-#     HAZIRAN2023#41  DOSYA     41           99922080
+#     HAZIRAN2023#41  DOSYA     41           12345678
 _DUZELTILEBILIR = {"OPU": "opu", "TRANSFER": "transfer", "ICSI": "islenen",
                    "DOSYA": "dosya_no"}
 _SAYI_ALANI = ("ICSI", "DOSYA")

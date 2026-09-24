@@ -408,6 +408,21 @@ python3 aktar_access.py dondurma kaynak=OCAK2025 duzelt=tarih_duzeltme.txt ocak2
 Başka aylarda da aynı yazım varsa aynı komut o ayın etiketi ve dosyasıyla
 çalışır; iki kez çalıştırmak güvenli ("0 tedaviye eksik dondurma yazildi").
 
+**2023 şubat–haziran (v6.170).** Önce `git pull`, sonra programı bir kez
+kapatıp açın. Yedek alın. Sohbette verilen beş CSV'yi ve
+`tarih_duzeltme_2023.txt`'yi aynı klasöre koyun. **Önce düzeltme dosyasını
+açıp Haziran #41'in dosya numarası satırını okuyun**: doğru değilse
+`HAZIRAN2023#41  ATLA` yapın. Sonra eskiden yeniye:
+
+```
+python3 aktar_access.py liste kaynak=SUBAT2023 duzelt=tarih_duzeltme_2023.txt subat2023.csv
+python3 aktar_access.py       kaynak=SUBAT2023   duzelt=tarih_duzeltme_2023.txt subat2023.csv
+python3 aktar_access.py       kaynak=MART2023    duzelt=tarih_duzeltme_2023.txt mart2023.csv
+python3 aktar_access.py       kaynak=NISAN2023   duzelt=tarih_duzeltme_2023.txt nisan2023.csv
+python3 aktar_access.py       kaynak=MAYIS2023   duzelt=tarih_duzeltme_2023.txt mayis2023.csv
+python3 aktar_access.py       kaynak=HAZIRAN2023 duzelt=tarih_duzeltme_2023.txt haziran2023.csv
+```
+
 **v6.161:** "2 ADET M2 OOSİT DONDURULARAK SAKLANDI" gibi tüp sayısı yazmayan
 yumurta dondurması artık tek tüp. 2026'da da böyle bir satır vardı ve tüpü
 yazılmamıştı; `dondurma` kipiyle 2026'nın aylarını bir kez geçir (hiç tüpü
