@@ -31,9 +31,12 @@ makinesinde çalışıyor. **Ocak–mayıs 2025** v6.160'ta hazırlandı
 2026'nın ayları `bagla` ile geçiriliyor; yine kullanıcı çalıştırıyor.
 Kullanıcı 2026-09-23'te ocak–mayıs 2025'i aktardığını söyledi. **Haziran–ekim
 2025** v6.164'te hazırlandı (`kaynak=HAZIRAN2025` … `EKIM2025`); **kasım–aralık
-2025 henüz gelmedi**, o yüzden 2026 FET'lerinin 2025 tüplerine bağlanması
-erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi
-veriye dokunan her işte bunu hesaba kat.
+2025 ve ocak–mart 2024** v6.165'te (`kaynak=KASIM2025`, `ARALIK2025`,
+`OCAK2024`, `SUBAT2024`, `MART2024`), ardından da şubat 2026'nın bir tüpü
+`dondurma` kipiyle onarılıyor. **Nisan–aralık 2024 henüz gelmedi**: tüpü
+2024'ün başında tutan 2025 FET'lerinin bağlanması erteleniyor (aşağıda
+"aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
+işte bunu hesaba kat.
 
 ---
 
@@ -2087,15 +2090,18 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     konum elle girilmiş olabilir). Aday araması tek yerde,
     `_bag_siniflari()`: bağlama ile sınama aynı kural.
 - **Etiket her dosyada tekil, yıllar arasında da** (v6.160): 2026'nın ayları
-  `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`… Aynı etiketi
-  başka yılın dosyasına verme.
+  `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`…, 2024'ünküler
+  `OCAK2024`… Aynı etiketi başka yılın dosyasına verme.
 - **Parantezsiz ama tek tüplü dondurma yazılıyor** (v6.160): "5 ADET M2
   OOSİT 1 TÜPTE" — dağılım belli. **Yumurtada tüp sayısı hiç yazmıyorsa
   da tek tüp** (v6.161, kullanıcının cevabı: "2 ADET M2 OOSİT DONDURULARAK
   SAKLANDI tek tüptür"); embriyoda bu varsayılmıyor. "2 TÜPTE 4 ADET" gibi
   dağılımı yazmayan çok tüp ve olgunluğu karışık olan ("M1 M2", sayısız)
-  hâlâ yazılmıyor, uyarı çıkıyor. Dar onarım kipi `dondurma`: yalnızca
-  hiç tüpü olmayan tedaviye yazar.
+  hâlâ yazılmıyor, uyarı çıkıyor. Dar onarım kipi `dondurma`: hiç tüpü
+  olmayan tedaviye dondurmayı yazar; v6.165'ten beri tüpü olan tedavide
+  yalnızca EKSİK örneği ekler (`yalnizca_ekle`), tüpteki örneğe, skoruna ve
+  durumuna dokunmaz, hiçbir şeyi çıkarmaz. Bir okuma kuralı düzelince
+  aktarılmış tüpü onarmanın `tamamla`'sız yolu bu.
 - **Olgunluğu kaynakta hiç sayılmamış yumurta dondurulabiliyor** (v6.160,
   havuzun `olcusuz`'u): MII/immatür kutuları boş, not "1 ADET OOSİT
   DONDURULARAK SAKLANDI". Yalnızca kaynağın sayılarının ÖTESİNDEKİ
@@ -2164,6 +2170,21 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     anormal + işlem sonrası dejenere (`icsi_sayisini_tamamla()`), not
     söylüyor. Sonuç da yoksa ICSI yazılmıyor.
   - "4BA TA": skor okunuyor, "TA" notta; anlamı kullanıcıya soruldu.
+- **v6.165 okumaları** (kasım–aralık 2025, ocak–mart 2024):
+  - Ayırıcısız skorlar ("10HG28HG2", "8HG2 8HG2 8HG2 6HG3"):
+    `_bitisik_ayir()`. `_skor_coz()`'ün regex'i sona bağlı değil ("8HG1BB",
+    "4BA TA" niteleme) -- arkada kalan metin rakamla başlıyorsa bak, o bir
+    embriyo daha olabilir. Şubat 2026'da bir tüpe bu yüzden 4 yerine 1
+    embriyo girdi.
+  - "BBG1", "BİRG1": birleşme + grade (`_YUVA`); "BİR" yalnızca grade'iyle.
+  - Eksik parantez: "(3BB (3BC)" iki tüp, "4AA-3AA)" bir tüp -- dışarıda
+    kalan parçanın bütün öğeleri tanınıyorsa. "TÜPTE84*M2)" -> "(" (shift'siz
+    "8").
+  - **Kaynağın sayısı (ADET/DONDURULAN) tüplerden çoksa UYARI** (`eksik_not`):
+    eksik yazılmıyor ama söyleniyor. "İLE TOPLAM ... KALDI" stok, durak.
+  - Yeni bir okuma kuralı eklerken bütün CSV'lerin okumasını eski ve yeni
+    araçla karşılaştır; değişen eski satır varsa kullanıcının veritabanında
+    da yanlış demektir, onarım yolunu (`dondurma`) söyle.
 - **Access'teki ad programdakinden farklıysa** eşleşme yine dosya
   numarasıyla, rapor "DİKKAT" diyor (ad rapora yazılmıyor).
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta

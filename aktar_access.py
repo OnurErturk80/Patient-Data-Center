@@ -890,7 +890,12 @@ _OOSIT_YAZIM_HATASI = re.compile(r"^(\d+)\s*(?:\*|M\s*\*)\s*(2|II|1|I)$")
 _CLEAVAGE = re.compile(r"^(\d+)\s*(?:H\s*G?|G)\s*([1-4])")
 _BLAST = re.compile(r"^([1-6])\s*([ABC])\s*([ABC])")
 _BLAST_DISI = re.compile(r"^(KAV|EM|ARR|MOR|M)\s*G?\s*([1-3])?(?![A-Z0-9])")
-_YUVA = re.compile(r"^(?:BB|BIRLESME(?:\s*BASLANGICI)?\s*G?\s*([1-4])|BIRLESME\w*)$")
+# "BBG1" / "BB G2" (v6.165, kasım 2025, ocak 2024): BB'nin grade'li yazımı;
+# "BİRG1" (mart 2024): BİRLEŞME'nin kısaltması. İkisi de tanınmıyordu, o
+# embriyo tüpe hiç yazılmıyordu (uyarıyla). "BİR" tek başına değil, yalnızca
+# grade'iyle: Türkçede "bir" sayı da.
+_YUVA = re.compile(r"^(?:BB\s*G?\s*([1-4])?|BIR\s*G\s*([1-4])"
+                   r"|BIRLESME(?:\s*BASLANGICI)?\s*G?\s*([1-4])|BIRLESME\w*)$")
 # `app.BLAST_KISA`'nın tersi -- oradaki kısaltmalar kâğıda da böyle yazılıyor.
 _KISALTMA = {"KAV": "kavitasyon", "M": "morula", "MOR": "morula",
              "EM": "erken_morula", "ARR": "arrest"}
@@ -938,9 +943,34 @@ def _yuva_coz(parca: str):
     başlangıcı (v6.157, kullanıcının cevabı). Grade yazılıysa `skor`."""
     m = _YUVA.match(_sade(parca))
     if m:
+        grade = next((g for g in m.groups() if g), None)
         return {"tur": "embriyo", "birlesme": True, "ham": parca.strip(),
-                "skor": f"G{m.group(1)}" if m.group(1) else None}
+                "skor": f"G{grade}" if grade else None}
     return None
+
+
+def _bitisik_ayir(parca: str):
+    """Ayırıcısız yazılmış birden çok embriyo skoru (v6.165): "10HG28HG2"
+    ("10HG2" + "8HG2", ocak 2024), "8HG2 8HG2 8HG2 6HG3" (şubat 2026).
+
+    `_skor_coz()` baştaki skoru tanıyıp arkasına bakmıyor; bu yazımlarda
+    arkadaki embriyolar tüpe hiç yazılmıyordu, uyarısız -- şubat 2026'nın bir
+    tüpüne 4 yerine 1 embriyo girdi. Arkası rakamla başlıyor ve kendisi de
+    skor olarak okunuyorsa ayrı embriyo. Değilse None, eski okuma kalıyor:
+    "8HG1BB", "4BA TA", "10HG1OVAL" -- arkası bir niteleme, embriyo değil.
+    Yalnızca embriyo notunda.
+    """
+    t = _sade(parca).replace("KAVITASYON", "KAV").replace("MORULA", "MOR")
+    m = _CLEAVAGE.match(t) or _BLAST.match(t)
+    if not m:
+        return None
+    kalan = t[m.end():].strip()
+    if not re.match(r"\d", kalan):
+        return None
+    ilk = _skor_coz(t[:m.end()])
+    devam = _bitisik_ayir(kalan) or (
+        [_skor_coz(kalan)] if _skor_coz(kalan) else None)
+    return [ilk] + devam if ilk and devam else None
 
 
 def _grup_coz(grup: str, yumurta: bool) -> list:
@@ -966,6 +996,10 @@ def _grup_coz(grup: str, yumurta: bool) -> list:
                 birlesik.append(p)
         parcalar = birlesik
     for parca in parcalar:
+        bitisik = None if yumurta else _bitisik_ayir(parca)
+        if bitisik:
+            ogeler.extend(bitisik)
+            continue
         coz = _skor_coz(parca, yumurta)
         if not coz:
             alt = parca.split()
@@ -1036,6 +1070,13 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     hizali = ham.upper().translate(_KATLA)
     if len(hizali) != len(ham):       # upper() nadiren uzunluk değiştirir
         ham = hizali
+    # "1 TÜPTE84*M2)" (v6.165, mart 2024, üç satır): "(" yerine shift'siz
+    # "8" basılmış -- Türkçe klavyede "(" Shift+8. Grup açılmadığı için o
+    # tüpün yumurtaları hiç yazılmıyordu. Yalnızca "TÜPTE"den hemen sonra,
+    # ardından rakam ve "(" açmadan kapanan ")" geliyorsa.
+    for mm in re.finditer(r"TUPTE8(?=\d[^()]*\))", hizali):
+        i = mm.end() - 1
+        ham, hizali = ham[:i] + "(" + ham[i + 1:], hizali[:i] + "(" + hizali[i + 1:]
     m = _DONDURMA_FIILI.search(hizali)
     if not m:
         return {}
@@ -1061,8 +1102,10 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
             return {}
 
     if m.group("sonra") or m.group("ortuk"):
-        # Nesne fiilden sonra: "İLE BİRLİKTE" / "KALDI" / cümle sonuna kadar
-        dur = re.search(r"\bILE\s+BIR|\bKALDI", hizali[m.end():son])
+        # Nesne fiilden sonra: "İLE BİRLİKTE" / "KALDI" / cümle sonuna kadar.
+        # "İLE TOPLAM 6 TÜPTE 20 ADET EMBRİYOSU KALDI" (v6.165) aynı kuruluş:
+        # arkası hastanın bütün stoku -- 20 dondurulan sayısı sanılmamalı.
+        dur = re.search(r"\bILE\s+(?:BIR|TOPLAM)|\bKALDI", hizali[m.end():son])
         a, z = m.end(), (m.end() + dur.start() if dur else son)
     else:
         a = bas
@@ -1106,17 +1149,57 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     # EMBRİYOSU (8HG3-10HG2) 2 ADET D5 EMBRİYOSU (3CC-1CC) ŞEKLİNDE
     # DONDURULARAK SAKLANDI". Her grubun günü önündeki son işaret; işareti
     # olmayan grup bir öncekinin gününde ("2 ADET D5 EMBRİYOSU (1CC) (1BC)").
+    def _tam_okunan(metin):
+        """Metin bütün öğeleri tanınan bir grupsa öğeleri, değilse None."""
+        g = _grup_coz(metin, baglam)
+        return g if g and all(o["tur"] != "taninmadi" and not o.get("okunamadi")
+                              for o in g) else None
+
     gruplar, grup_gunleri = [], []
     onceki, son_isaret = 0, None
-    for gm in re.finditer(r"\(([^)]*)\)", ham_cumle):
-        son_isaret = _son_gun(cumle_hizali[onceki:gm.start()]) or son_isaret
-        onceki = gm.end()
-        if re.fullmatch(r"REFREEZ\w*", _sade(gm.group(1))):
+    # Her ")" bir grubu kapatıyor; grup, önceki ")"den sonraki ilk "(" ile
+    # başlıyor (v6.164'e kadarki `\(([^)]*)\)` ile aynı gruplar). v6.165:
+    # parantezi eksik iki yazım da okunuyor -- aşağıda.
+    for sm in re.finditer(r"[^)]*\)", cumle_hizali):
+        parca = cumle_hizali[sm.start():sm.end() - 1]
+        if "(" in parca:
+            ac = sm.start() + parca.index("(")
+            metin = ham_cumle[ac + 1:sm.end() - 1]
+        else:
+            # Açılmamış grup (aralık 2025): "(4AA-4AA) 4AA-3AA) (1AA-3BC)",
+            # "24 ADET D3 EMBRİYOSU 5HG2-8HG1-6HG2-8HG1) (...". ")"den hemen
+            # önce tireyle bağlı skorlar -- bütün öğeleri tanınıyorsa bir
+            # tüp; tanınmıyorsa eskisi gibi alınmıyor.
+            y = re.search(r"[0-9A-Z*]+(?:\s*-\s*[0-9A-Z*]+)*\s*$", parca)
+            if not y or not _tam_okunan(ham_cumle[sm.start() + y.start():sm.end() - 1]):
+                continue
+            ac = sm.start() + y.start()
+            metin = ham_cumle[ac:sm.end() - 1]
+        son_isaret = _son_gun(cumle_hizali[onceki:ac]) or son_isaret
+        onceki = sm.end()
+        # Kapanmamış grup (kasım 2025): "(3AB) (3BB (3BC) (3BA)" -- "3BB" ayrı
+        # bir tüp, ")"si unutulmuş. Önceki parça boşsa ("((4CB-1BB)"), skor
+        # değilse ("D3 (EMBRİYOSU (8HG1-10HG2)") ya da tireyle bitiyorsa
+        # (aynı grubun devamı) `_grup_coz()` eskisi gibi son "("den sonrasını
+        # alıyor.
+        parcalar = metin.split("(")
+        kes = 0
+        while kes < len(parcalar) - 1:
+            onu = parcalar[kes]
+            g = (_tam_okunan(onu) if onu.strip() and not onu.rstrip().endswith("-")
+                 else None)
+            if not g:
+                break
+            gruplar.append(g)
+            grup_gunleri.append(son_isaret)
+            kes += 1
+        metin = "(".join(parcalar[kes:])
+        if re.fullmatch(r"REFREEZ\w*", _sade(metin)):
             continue                    # "(REFREEZE)" etiket, tüp değil
-        if (baglam and _TEK_OOSIT.match(_sade(gm.group(1)))
-                and cumle_hizali[:gm.start()].rstrip().endswith("ADET")):
+        if (baglam and _TEK_OOSIT.match(_sade(metin))
+                and cumle_hizali[:ac].rstrip().endswith("ADET")):
             continue
-        g = _grup_coz(gm.group(1), baglam)
+        g = _grup_coz(metin, baglam)
         if g:
             gruplar.append(g)
             grup_gunleri.append(son_isaret)
@@ -1175,15 +1258,28 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
                    for _ in range(adet)]
         gruplar, ogeler = [tek], list(tek)
     sayilan =[o for o in ogeler if o["tur"] != "taninmadi"]
+    oosit_mi = baglam or (bool(sayilan) and all(o["tur"] == "oosit" for o in sayilan))
+    # Kaynağın kendi sayısı tüplerden çoksa (v6.165): "10 ADET D5 EMBRİYOSU
+    # (4AA) (4AA) (3AA-2BB) (KAVG1-KAVG1) (KAVG1-KAVG1)" ve DONDURULAN 10,
+    # ama tüplerde 8 embriyo. Eksik ikisinin tüpü ve skoru bilinmiyor,
+    # uydurulmuyor -- ama tankta duran embriyo programda görünmeyecek, bu
+    # SÖYLENMELİ (v6.142'nin kuralı). Tanınmayan öğe sayılmış sayılıyor: onu
+    # ayrı uyarı söylüyor. Embriyoda iki sayının büyüğü (günü karışık notta
+    # ADET yalnızca ilk günün sayısı); yumurtada yalnızca notun ADET'i --
+    # DONDURULAN kolonu embriyo sayısı.
+    okunan = sum(o.get("adet", 1) if o["tur"] == "oosit" else 1 for o in ogeler)
+    beklenen = max(adet or 0, 0 if oosit_mi else (dondurulan or 0))
     return {
         "gun": gun,
         # Gruplar farklı günlerde dondurulduysa grup grup gün (işaretsiz
         # grup notun gününde); öyle değilse None -- herkes `gun`'u kullanır.
         "grup_gunleri": ([g or gun for g in grup_gunleri]
                          if farkli_gun and len(grup_gunleri) == len(gruplar) else None),
-        "oosit_mi": baglam or (bool(sayilan)
-                               and all(o["tur"] == "oosit" for o in sayilan)),
+        "oosit_mi": oosit_mi,
         "adet": adet,
+        # Kaynağın sayısına göre tüplerde eksik kalan örnek (yukarıya bak)
+        "eksik_not": (beklenen - okunan) if gruplar and beklenen > okunan else 0,
+        "beklenen": beklenen,
         "tup": _ilk(r"(\d+)\s*TUPTE"),
         "gruplar": gruplar,
         "ogeler": ogeler,
@@ -1940,7 +2036,7 @@ def _tasiyici_ac(b, kid, cycle_no, zaman):
     return b.execute("SELECT last_insert_rowid()").fetchone()[0], etiket, an
 
 
-def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
+def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
     """Nottan çözümlenen dondurmayı ilgili aşama ekranlarına yazar.
 
     Kullanıcının isteği (2026-09-22): "4BB blastokist dondurulmuş yazıyor ise
@@ -1969,6 +2065,12 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     **Tüp silinmiyor, etiketi ve konumu değişmiyor**: kullanıcı Cryo
     Haritası'ndan konum girmiş olabilir. Not tüp sayısından azsa fazla tüp
     olduğu gibi kalıyor ve rapor söylüyor.
+
+    `yalnizca_ekle` (v6.165, `dondurma` kipi): yalnızca EKSİK olan yazılıyor
+    -- notta olup tüpte olmayan yer yeni örnekle tamamlanıyor, eksik tüp
+    açılıyor. Tüpte duran örneğe, skoruna ve durumuna hiç dokunulmuyor, notta
+    olmayan örnek tüpten çıkmıyor: elle düzeltilmiş bir skor ezilmesin
+    (`tamamla`'nın riski, v6.142). Döner: bir şey yazıldı mı.
     """
     coz = _satir_dondurmasi(r)
     if not coz:
@@ -1997,7 +2099,7 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     cycle_no = b.execute("SELECT cycle_no FROM cycle WHERE id=?",
                          (cycle_id,)).fetchone()[0]
 
-    if not baska_tedaviden:
+    if not baska_tedaviden and not yalnizca_ekle:
         # v6.131'in ilk yazışındaki taşıyıcısız vitrifikasyon olayları iptal
         # ediliyor: istatistikte "donduruldu" derken ekranda "aday"
         # görünüyorlardı. FET'te öyle kayıt hiç yazılmadı.
@@ -2077,6 +2179,8 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
             kullanilan.add(sid)
 
         eklenen = [s for s in atanan if s and s not in tupteki]
+        if yalnizca_ekle:
+            bosta = []                  # notta olmayan örnek tüpte kalıyor
         g_vit, g_deg = zamanlar[i]
         if tid is None:
             if not eklenen:
@@ -2106,7 +2210,7 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
             continue
         g_gun = grup_gunleri[i]
         for (a, o), sid in zip(yerler, atanan):
-            if not sid:
+            if not sid or (yalnizca_ekle and sid not in eklenen):
                 continue
             yazilan.append(o["ham"])
             alan = _oge_alanlari(o, g_gun)
@@ -2139,6 +2243,14 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
     if atilan:
         rapor.append("    UYARI: notta tanınmayan yazım: "
                      + ", ".join(f"'{h}'" for h in atilan) + " -- o örnek yazılmadı")
+    if coz.get("eksik_not"):
+        rapor.append(f'    UYARI: kaynakta {coz["beklenen"]} '
+                     f'{"yumurta" if oosit_mi else "embriyo"} dondurulmuş (notun '
+                     f'ADET\'i {coz["adet"] or "-"}'
+                     + ("" if oosit_mi else f', DONDURULAN {r["dondurulan"] or "-"}')
+                     + f') ama tüplerde {coz["beklenen"] - coz["eksik_not"]} yazıyor '
+                     f'-- {coz["eksik_not"]} {"yumurtanın" if oosit_mi else "embriyonun"} '
+                     "tüpü bilinmiyor, yazılmadı")
     okunamayan = [o["ham"] for o in coz["ogeler"] if o.get("okunamadi")]
     if okunamayan:
         rapor.append("    skoru okunamayan embriyo skorsuz yazıldı: "
@@ -2161,6 +2273,7 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor):
         rapor.append(f'    dondurma onarıldı: {"; ".join(onarilan)}')
     if mevcut and not yeni_tup and not onarilan:
         rapor.append("    dondurma zaten girilmiş, tüpler notla tutuyor")
+    return bool(yeni_tup or onarilan)
 
 
 def _kalite_coz(hucre: str, kalite: str):
@@ -3017,6 +3130,9 @@ def onizleme(satirlar, kopyalar=(), tutmayan=()):
                      f'({coz["tekrar_grup"]})' if coz.get("tekrar_grup") else "")
                   + (f'   <- skoru okunamadı, skorsuz: {", ".join(okunamayan)}'
                      if okunamayan else "")
+                  + (f'   <- kaynak {coz["beklenen"]} diyor, tüplerde '
+                     f'{coz["beklenen"] - coz["eksik_not"]}: {coz["eksik_not"]} '
+                     "yazılmayacak" if coz.get("eksik_not") else "")
                   + (f'   <- TANINMADI, yazılmayacak: {", ".join(atilan)}'
                      if atilan else ""))
         elif coz:
@@ -3271,16 +3387,22 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
 
 
 def eksik_dondurmalari_yaz(satirlar):
-    """Yalnızca HİÇ tüpü yazılmamış dondurma: `tamamla`'nın 1. adımı, dar
-    halde (v6.161).
+    """Yalnızca EKSİK dondurma: `tamamla`'nın 1. adımı, dar halde (v6.161,
+    v6.165).
 
     Araç bir dondurma notunu okuyamadığında tüp açmıyor, uyarıyordu
     ("2 ADET M2 OOSİT DONDURULARAK SAKLANDI": kullanıcının cevabı "tek
     tüptür"). Kural sonradan değişince o tedavinin tüpü ancak `tamamla` ile
     yazılır, `tamamla` ise öteki tedavilerde elle düzeltilmiş skorları
-    nottaki değerle ezer (v6.142). Bu kip yalnızca bu tedavide taşıyıcılı
-    hiçbir dondurması olmayan satırlara dokunuyor; tüpü olana hiç. İkinci
-    çalıştırma hiçbir şey değiştirmez."""
+    nottaki değerle ezer (v6.142). Bu kip:
+    - hiç tüpü olmayan tedaviye dondurmayı baştan yazıyor (v6.161);
+    - tüpü olan tedavide yalnızca eksiği ekliyor (v6.165): v6.164'e kadar
+      araç "(8HG2 8HG2 8HG2 6HG3)" gibi ayırıcısız skorların yalnızca ilkini
+      okuyordu, şubat 2026'nın bir tüpüne 4 yerine 1 embriyo girdi. Tüpteki
+      örneğe, skoruna ve durumuna dokunulmuyor, hiçbir şey çıkarılmıyor
+      (`_dondurma_kayitlari(yalnizca_ekle=True)`).
+    Yalnızca bir şey yazılan tedavi basılıyor. İkinci çalıştırma hiçbir şey
+    değiştirmez."""
     kid = _kullanici_id()
     yazilan = 0
     for r in satirlar:
@@ -3293,15 +3415,15 @@ def eksik_dondurmalari_yaz(satirlar):
         if not coz or not coz["gruplar"]:
             continue
         with _db.yazma_islemi() as b:
-            if b.execute(
-                    "SELECT 1 FROM olay o JOIN specimen s ON s.id=o.specimen_id "
-                    "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-                    f"AND o.vit_tasiyici_id IS NOT NULL AND {_db.vit_tedavisi('o')} = ?",
-                    (var["id"],)).fetchone():
-                continue
+            tupu_var = bool(b.execute(
+                "SELECT 1 FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+                "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+                f"AND o.vit_tasiyici_id IS NOT NULL AND {_db.vit_tedavisi('o')} = ?",
+                (var["id"],)).fetchone())
             rapor = []
-            _dondurma_kayitlari(b, r, var["id"], kid, rapor)
-        if rapor:
+            yazdi = _dondurma_kayitlari(b, r, var["id"], kid, rapor,
+                                        yalnizca_ekle=tupu_var)
+        if yazdi or (rapor and not tupu_var):
             yazilan += 1
             print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
             for satir in rapor:
@@ -3426,8 +3548,9 @@ def main():
                  "  python3 aktar_access.py transfer <dosya.csv>  yalnizca FET'te\n"
                  "                                                transfer edilen\n"
                  "                                                embriyonun kalitesi\n"
-                 "  python3 aktar_access.py dondurma <dosya.csv>  yalnizca hic tupu\n"
-                 "                                                yazilmamis dondurma\n"
+                 "  python3 aktar_access.py dondurma <dosya.csv>  yalnizca eksik\n"
+                 "                                                dondurma (tupteki\n"
+                 "                                                ornege dokunmaz)\n"
                  "  python3 aktar_access.py bagla                 aktarilmis butun\n"
                  "                                                FET'leri tupune\n"
                  "                                                baglar (dosya gerekmez)\n"

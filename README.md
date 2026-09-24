@@ -13285,3 +13285,134 @@ ocak–mayıs 2025 bu oturumda yok):
   Ekrandan düzeltmek de mümkün.
 - Kasım–aralık 2025 henüz gelmedi: gelene kadar 2026 FET'lerinin 2025
   tüplerine bağlanması erteleniyor.
+
+# v6.165 — kasım–aralık 2025 ve ocak–mart 2024 Access kayıtları; eksik parantez, bitişik skor; şubat 2026'nın eksik tüpü
+
+Kullanıcının isteği: *"2025 son ayları ve 2024'ün ilk üç ayını da aynı şekilde
+ekle."* Beş dosya (kasım, aralık 2025; ocak, şubat, mart 2024), öncekilerle
+aynı yapıda: tek tablo `VERİTABANI`, 92 kolon; 77 + 112 + 115 + 82 + 97 = 483
+satır. Mart dosyasının bir satırı boş (yalnızca kimlik numarası), atlanıyor:
+482 tedavi. Kaynak dosyalar, CSV'ler ve tarih düzeltmesi depoya girmedi,
+aşağıda yalnızca sayılar var.
+
+## Dosyalar
+
+- Etiketler `KASIM2025`, `ARALIK2025`, `OCAK2024`, `SUBAT2024`, `MART2024`.
+  Dosya adlarında yıl yok; yıl tarihlerden okundu. Her dosya kendi ayını
+  kapsıyor.
+- **Dört yazım hatalı tarih** `duzelt=` ile düzeltiliyor (v6.148'in kararı):
+  - Üçü bir ayın dosyasının ilk kayıtları. Tarih, komşu kayıtlarla aynı gün
+    numarasını taşıyor ama bir önceki ayda: mart dosyasında 4 Şubat (FET),
+    kasımda 3 Ekim (OPU), aralıkta 1 Kasım (FET). Ay başında eski ayın rakamı
+    yazılmış. İkisi hafta sonuna düşüyor; dosyalardaki işlemlerin %2'sinden
+    azı hafta sonunda. Önceki ayın dosyasında bu üç hastanın o güne yakın bir
+    kaydı yok. Düzeltilmiş üç tarih de pazartesi.
+  - Dördüncüsü yıl hatası: aralık dosyasının son kaydında OPU 30.12.2026,
+    yani henüz gelmemiş bir gün.
+- Şubat 2024 dosyasında bir OPU 1 Mart tarihli: komşuları 26–28 Şubat, gün
+  numarası da tutmuyor, yani "ay rakamı" hatası deseni değil. Mart dosyasında
+  da yok. Olduğu gibi (1 Mart) aktarılıyor.
+- Tarihsiz beş satır bir önceki kaydın tarihini alıyor (v6.148).
+
+## Aracın düzeltmeleri
+
+Hepsi bu dosyaların gerçek satırlarından. İlk dördünde araç ya hiç uyarmadan
+eksik yazıyordu ya da örneği "tanınmadı" diye atıyordu.
+
+1. **Ayırıcısız yazılmış skorlar** (iki satır): "(BBG2-8HG1-10HG28HG2)" ve
+   "(8HG16HG2-5HG2-7HG3)" ("10HG2" + "8HG2", "8HG1" + "6HG2"). `_skor_coz()`
+   baştaki skoru tanıyıp arkasına bakmıyor: "8HG1BB", "4BA TA", "10HG1OVAL"
+   gibi nitelemeler için bilerek böyle. Arkadaki embriyo tüpe hiç
+   yazılmıyordu. Arkası rakamla başlıyor ve kendisi de skor olarak
+   okunuyorsa artık ayrı embriyo (`_bitisik_ayir()`); nitelemeler eskisi gibi.
+   **Aynı hata şubat 2026'da da vardı**, aşağıya bak.
+2. **"BBG1" / "BB G2" ve "BİRG1" / "BİRG2"** (üç satır, 6 embriyo): birleşme +
+   grade. "BB" v6.157'de kullanıcının cevabı (birleşme başlangıcı), grade'li
+   yazımı tanınmıyordu. "BİR", BİRLEŞME'nin kısaltması sayıldı ve bu
+   kullanıcıya bildirildi. "BİR" tek başına tanınmıyor, yalnızca grade'iyle:
+   Türkçede "bir" sayı da demek.
+3. **Eksik parantez** (üç satır):
+   - "(3AB) (3BB (3BC) (3BA) ...": ")" unutulmuş, "3BB" ayrı bir tüp.
+   - "(4AA-4AA) 4AA-3AA) (1AA-3BC)" ve "24 ADET D3 EMBRİYOSU
+     5HG2-8HG1-6HG2-8HG1) (...": "(" unutulmuş.
+
+   Kural, parantezin dışında kalan parçanın bütün öğeleri tanınıyorsa o
+   parçayı tüp saymak. "((4CB-1BB)" ve "D3 (EMBRİYOSU (8HG1-10HG2)" gibi
+   eski dosyalardaki yazım hataları değişmedi: önceki parça boş ya da skor
+   değil.
+4. **"1 TÜPTE84*M2)"** (üç yumurta satırı): "(" yerine shift'siz "8"
+   basılmış; Türkçe klavyede "(" Shift+8. Grup açılmadığı için iki tüp
+   hiç yazılmıyordu. Yalnızca "TÜPTE"den hemen sonra, ardından rakam gelirse
+   ve ")" "(" açmadan kapanırsa uygulanıyor.
+5. **Kaynağın sayısı tüplerden çoksa UYARI** (yeni): "10 ADET D5 EMBRİYOSU
+   (4AA) (4AA) (3AA-2BB) (KAVG1-KAVG1) (KAVG1-KAVG1)" ve DONDURULAN 10, ama
+   tüplerde 8 embriyo var. Eksik ikisinin tüpü ve skoru bilinmiyor, uydurulmuyor.
+   Ama tankta duran embriyo programda görünmeyecek, bu yüzden söyleniyor
+   (v6.142'nin kuralı). Embriyoda iki sayının büyüğü alınıyor: günü karışık
+   notta ADET yalnızca ilk günün sayısı. Yumurtada yalnızca notun ADET'i
+   alınıyor. `liste` de söylüyor.
+6. **"İLE TOPLAM 6 TÜPTE 20 ADET EMBRİYOSU KALDI"** artık "İLE BİRLİKTE"
+   gibi durak: arkası hastanın bütün stoku. Gruplar değişmiyor, yalnızca
+   5. maddenin uyarısı "20" sayısını dondurulan sanmıyor (ağustos 2025'te
+   bir satır).
+
+## Şubat 2026'nın bir tüpü: `dondurma` kipi eksiği de ekliyor
+
+Şubat 2026 dosyasının bir satırı "(BB 10HG3 8HG3 8HG2)( 8HG2 8HG2 8HG2 6HG3)"
+diyor. 1. maddenin hatası yüzünden ikinci tüpe 4 yerine 1 embriyo yazıldı.
+Kullanıcının makinesinde de böyle, çünkü o ayı v6.148'de aktardı. Bütün
+dosyalar tarandı: eski aylarda bu kurallardan etkilenen başka satır yok.
+
+- `dondurma` kipi v6.161'de yalnızca hiç tüpü olmayan tedaviye yazıyordu.
+  Artık tüpü olan tedavide yalnızca eksiği ekliyor
+  (`_dondurma_kayitlari(yalnizca_ekle=True)`): tüpteki örneğe, skoruna ve
+  durumuna dokunmuyor, hiçbir şeyi tüpten çıkarmıyor, yalnızca yazdığı
+  tedaviyi basıyor. `tamamla` da düzeltirdi, ama aylar önce aktarılmış
+  tedavilerde elle düzeltilmiş skorları ezer (v6.142).
+- Denendi: şubat için tek değişiklik o tüp oldu. Üç 2PN "dondurulmuş" oldu;
+  üç vitrifikasyon ve üç 3. gün değerlendirmesi eklendi. Başka hiçbir satır
+  değişmedi. Öteki on bir dosyada kip hiçbir şey yazmadı. Onarımdan sonraki
+  ilk aktarımda, 8 embriyo çözen bir şubat 2026 FET'i o iki tüpe bağlandı
+  (4 + 4). Önce "tüpler tutmuyor" listesindeydi.
+
+## Deneme
+
+Kullanıcının veritabanının kopyasında (v6.164 provası: ocak–mayıs 2025 ve
+mayıs 2026 bu oturumda yok):
+
+- Beş dosya tarih sırasıyla (ocak → mart 2024, kasım → aralık 2025):
+  - 482 tedavi, 0 hata: 199 FET, 230 IVF/ICSI, 46 Yumurta Dondurma,
+    7 Yumurta Çözme. 451 tüp açıldı.
+  - Dosyaların kendi FET'lerinden 52'si bağlandı.
+  - Kasım–aralık 2025 gelince, daha önce aktarılmış 2026 FET'lerinden 52'si
+    2025 tüplerine bağlandı. 53. bağ yukarıdaki şubat onarımından geldi.
+  - Sonda 18 FET ertelendi: nisan–aralık 2024, bu kopyada ayrıca ocak–mayıs
+    2025 ve mayıs 2026 yok.
+- Düzeltilen satırlar aktarımda doğrulandı: tüpler 4+4+5+4 (17), 4, 9, 7,
+  5+5+5+5 (20, "BİRG" dördü birleşme), 12 ve 22 yumurta, 10; birleşme
+  değerlendirmelerinde hücre sayısı boş, grade yazılı.
+- İkinci çalıştırma: beş dosyanın `tamamla`'sı, yeniden aktarım (hepsi
+  atlandı) ve `bagla`. Tablolar satır satır karşılaştırıldı, hiçbir şey
+  değişmedi. Bütünlük kontrolleri temiz.
+- Gerileme: 2026'nın yedi, 2025'in beş dosyası eski ve yeni araçla `liste`
+  (boş veritabanında) ve bütün satırların dondurma okuması. Tek okuma farkı
+  şubat 2026'nın o satırı. Önizlemede ayrıca bir ocak 2026 satırı yeni uyarıyı
+  alıyor: DONDURULAN 8, notta 7 embriyo var. Bu kaynağın kendisi; tüpü
+  bilinmeyen embriyo zaten o tedavide yok.
+
+## Bilinen / yazılmayan
+
+- **Kaynağın sayıları tutmayan satırları** olduğu gibi yazıldı, rapor UYARI
+  diyor:
+  - Dört embriyo dondurmasında tüplerde notun sayısından az embriyo var
+    (kaynak / tüplerde: 13/12, 10/8, 13/10, 24/23).
+  - İki yumurta dondurmasında tüpler MII'den fazla. Not 12 diyor, tüpler
+    4×4; not 22 diyor, tüpler 23. MII kadarı yazıldı.
+- **Nisan–aralık 2024 yok.** 2025 FET'lerinden tüpü 2024'ün başında tutanlar,
+  arada boş ay olduğu için erteleniyor. O aylar gelince kendiliğinden
+  denenecek.
+- Aynı hastanın iki mart 2024 FET'i elle bakılmalı listesinde. Kaynak
+  tedavinin notu 13 embriyonun yalnızca 12'sini yazıyor. İlk FET üç eşit
+  tüpten 8 çözmüş, hangi ikisi olduğu belli değil. İkincisi 5 çözmüş, kalan
+  tüpte 4 görünüyor.
+- "4BA TA"daki "TA"nın anlamı hâlâ soruda.

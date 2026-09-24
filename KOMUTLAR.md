@@ -303,11 +303,42 @@ Her aktarımın sonunda üç liste çıkabilir:
   gelen bir tüp de uyuyor. Bağ olduğu gibi kalır; iki tüp de yazılı,
   kâğıttan hangisinin çözüldüğüne bak.
 
+**2025 kasım–aralık ve 2024 ocak–mart (v6.165).** Önce `git pull` ve programı
+bir kez kapatıp aç, yedek al (`/yedekleme` → "Şimdi yedekle"). Sohbette
+verilen beş CSV'yi ve `tarih_duzeltme_2024_2025.txt` dosyasını aynı klasöre
+koy (hasta kaydına bağlı oldukları için depoda değiller).
+
+Önce şubat 2026'nın bir tüpünü onar: araç "(8HG2 8HG2 8HG2 6HG3)" gibi
+tiresiz yazılmış skorların yalnızca ilkini okuyordu, o tüpe 4 yerine 1
+embriyo yazıldı. Komut yalnızca eksik embriyoyu ekler, tüpteki örneğe ve elle
+düzelttiğin skorlara dokunmaz (şubatın ilk aktarımındaki etiket ve dosya):
+
+```
+python3 aktar_access.py dondurma kaynak=SUBAT subat.csv
+```
+
+Çıktıda tek bir tedavi ve "dondurma onarıldı: ...: +3" görmelisin; başka
+bir tedavi de yazılırsa bana göster. Sonra beş dosya, **eskiden yeniye**:
+
+```
+python3 aktar_access.py liste kaynak=OCAK2024 ocak2024.csv
+python3 aktar_access.py       kaynak=OCAK2024   ocak2024.csv
+python3 aktar_access.py       kaynak=SUBAT2024  subat2024.csv
+python3 aktar_access.py       kaynak=MART2024   duzelt=tarih_duzeltme_2024_2025.txt mart2024.csv
+python3 aktar_access.py       kaynak=KASIM2025  duzelt=tarih_duzeltme_2024_2025.txt kasim2025.csv
+python3 aktar_access.py       kaynak=ARALIK2025 duzelt=tarih_duzeltme_2024_2025.txt aralik2025.csv
+```
+
+Kasım–aralık 2025 gelince ertelenmiş 2026 FET'lerinin çoğu kendiliğinden
+2025 tüplerine bağlanır (aralık 2025 aktarımının sonunda uzun bir liste çıkar).
+Bundan sonra "ertelendi" diyenler çoğunlukla tüpü 2024'ün başında tutan 2025
+FET'leri: arada nisan–aralık 2024 yok, o aylar gelince denenir.
+
 **v6.161:** "2 ADET M2 OOSİT DONDURULARAK SAKLANDI" gibi tüp sayısı yazmayan
 yumurta dondurması artık tek tüp. 2026'da da böyle bir satır vardı ve tüpü
-yazılmamıştı; yalnızca hiç tüpü olmayan tedaviye yazan `dondurma` kipiyle
-2026'nın aylarını bir kez geçir (tüpü olana dokunmaz, iki kez çalıştırmak
-güvenli):
+yazılmamıştı; `dondurma` kipiyle 2026'nın aylarını bir kez geçir (hiç tüpü
+olmayan tedaviye yazar; v6.165'ten beri tüpü olanda yalnızca eksik örneği
+ekler, tüpteki örneğe dokunmaz; iki kez çalıştırmak güvenli):
 
 ```
 python3 aktar_access.py dondurma kaynak=OCAK    duzelt=tarih_duzeltme.txt ocak.csv
