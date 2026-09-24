@@ -1056,6 +1056,13 @@ kalıptan**: `form_kalip.json`.
     ediyor (v6.161, kullanıcının isteği; v6.160'a kadar son kutu "+3 tüp"
     diyordu). THAW ve TRANSFER de aynı. Oosit 13'ü geçmese de dördü aşan
     tüp ikinci kâğıdı açıyor (`artlab_dolgu()`'nun sayfa sayısı).
+  - **Yumurta tüpünün parantezi olgunluğu yazar** (v6.169, kullanıcının
+    isteği: "Sadece rakam yazıyor. Detay yazsın"): "(5*MII)",
+    "(4*MII-1*MI)" -- Access'teki kendi yazımı. `tup_metni()` kalitesi
+    olmayan tüpte `olgunluk`'a bakıyor; olgunluk dondurmadan ÖNCEKİ son
+    maturasyon (`_yumurta_olgunlugu()`) ve **yalnızca yumurta tüpünde**
+    doluyor (`dondurulan_yumurta_sql()`) -- skorsuz embriyo tüpü "(2*MII)"
+    basmasın. Hiç olgunluk yoksa eskisi gibi sayı: "(4)".
 - **Çözülen örnekler de iki forma tek yerden** (v6.152, kullanıcının
   isteği: "FET çözme tedavilerinde formlara işlem geçmiyor").
   `formlar.cozulen_ornekler(cycle_id)` — her çözülen örnek: kodu

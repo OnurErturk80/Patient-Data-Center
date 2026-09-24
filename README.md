@@ -13680,3 +13680,36 @@ aktarılana kadar bekler.
 - **Ekran:** 524 tedavinin her biri için tedavi ekranı, iki resmî form, ART
   Lab Excel'i ve tedavi dökümü; ana ekran, Cryo Haritası, istatistik: hepsi
   200.
+
+# v6.169 — Yumurta tüpünün parantezi olgunluğu yazıyor
+
+Kullanıcının isteği: "Yumurta dondurma işlemlerinde özet formlarının not
+kısmında, ART Lab formunun freeze kısmında belirtmiyor. Sadece rakam yazıyor.
+Detay yazsın."
+
+`tup_metni()` kalitesi kayıtlı olmayan tüpe (yumurtada hiçbirinin skoru
+olmaz) v6.135'ten beri yalnızca sayı basıyordu: "(5)". Artık yumurtaların
+**olgunluğunu** sayısıyla basıyor: "(5*MII)", karışıksa "(4*MII-1*MI)". Bu,
+kullanıcının Access'teki kendi yazımı ("(5*M2)"). Etiket `liste_degeri`'nden
+geliyor (kodu değil etiketi göster kuralı).
+
+- **Olgunluk dondurmadan ÖNCEKİ son maturasyon** (`_yumurta_olgunlugu()`,
+  kimlik sırası, v6.143'ün kuralı). Yumurta Çözme'de çözülüp yeniden
+  değerlendirilen yumurtanın sonraki maturasyonu tüpün içeriği değil.
+- **Yalnızca yumurta tüpünde** (`db.dondurulan_yumurta_sql()`). Skoru
+  kayıtlı olmayan bir embriyo tüpü "(2*MII)" basmasın diye: embriyonun MII'si
+  ICSI'den önceki hali.
+- Olgunluğu kayıtlı olmayan yumurta "?" ile görünüyor. Hiçbirininki yoksa
+  eskisi gibi yalnızca sayı basılıyor, uydurulacak bir şey yok.
+- Aynı parantez her yerde: Özet'in NOTLAR'ındaki "Dondurulan:", "Çözülen:" ve
+  "Kalan dondurulmuş:" satırları, ART Lab'ın FREEZE ve THAW kutuları.
+- Access'ten aktarılmış tedavide Özet'in "Dondurulan:" satırı yine basılmıyor
+  (v6.159). Access notunun kendi cümlesi zaten "(5*M2)" diyor. ART Lab'ın
+  FREEZE kutuları ise değişti.
+
+**Denendi:** test veritabanının 1006 tedavisinde eski ve yeni kodla Özet
+NOTLAR'ı, FREEZE ve THAW karşılaştırıldı. 117 tedavide 200 yumurta tüpü
+değişti ("(N*MII)" 166, "(N*MII-N*MI)" 30, "(N*MI)" 3, bir de Yumurta
+Çözme'nin THAW'ı). Hiçbir embriyo tüpü değişmedi. Değişen tedavilerin iki formu,
+iki Excel'i ve tedavi ekranı 200 döndü. ART Lab'ın FREEZE kutusunda
+"(1*MII-2*MI)" sığıyor.

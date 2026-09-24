@@ -408,6 +408,9 @@ def dondurma_tupleri(cycle_id: int) -> list:
     tüpün ilk örneğinden -- bir tüp tek tedavinin tek türünü taşıyor).
     `ogeler` tüpteki **her** örnek için bir giriş taşır; kalitesi
     kaydedilmemişse `None` (yumurta dondurmada hiçbirinin skoru olmaz).
+    `olgunluk` (v6.169) aynı sırayla her örneğin dondurmadan önceki son
+    maturasyonu, kodla (`_yumurta_olgunlugu()`); yumurta tüpünün parantezi
+    ondan kuruluyor (`tup_metni()`).
     """
     # Kalite bu tedavinin değerlendirmesinden, yoksa en sonuncudan (v6.148,
     # `db.bu_tedavinin_skoru()`): embriyo sonra bir FET'te yeniden
@@ -418,6 +421,8 @@ def dondurma_tupleri(cycle_id: int) -> list:
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
                o.notlar LIKE ? || '%' AS aktarim,
                {db.dondurulan_yumurta_sql('o')} AS yumurta,
+               {son_alt('mat_deger', 'maturasyon_kontrolu', ek='AND x.id < o.id')}
+                 AS mat,
                {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_skor,
                {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
@@ -443,9 +448,13 @@ def dondurma_tupleri(cycle_id: int) -> list:
         if anahtar not in sira:
             sira[anahtar] = len(tupler)
             tupler.append({"etiket": r["etiket"], "ogeler": [], "gunler": [],
-                           "aktarim": True, "yumurta": bool(r["yumurta"])})
+                           "olgunluk": [], "aktarim": True,
+                           "yumurta": bool(r["yumurta"])})
         t = tupler[sira[anahtar]]
         t["ogeler"].append(_dondurma_kalitesi(r))
+        # Olgunluk yalnızca yumurtada: skoru kayıtlı olmayan bir embriyo
+        # tüpü "(2*MII)" basmasın -- embriyonun MII'si ICSI'den önceki hali.
+        t["olgunluk"].append(r["mat"] if r["yumurta"] else None)
         # Tüp Access notundan mı yazıldı (v6.159): hepsi öyleyse evet.
         t["aktarim"] = t["aktarim"] and bool(r["aktarim"])
         gun = r["bl_gun"] if r["bl_skor"] or r["bl_gun"] else r["cl_gun"]
@@ -488,13 +497,49 @@ def tup_metni(tup) -> str:
     kısa olması işe yarıyor.
 
     Hiçbir örneğin kalitesi kayıtlı değilse (yumurta dondurma) parantez
-    **sayıyı** taşır -- `(4)`, yani "bu tüpte 4 örnek". On üç tane `?`
-    basmak kutuyu okunmaz yapardı. Bazısının kalitesi varsa eksik olanlar
+    yumurtaların **olgunluğunu** sayısıyla taşır (v6.169, kullanıcının
+    isteği: "Sadece rakam yazıyor. Detay yazsın"): `(5*MII)`, karışıksa
+    `(4*MII-1*MI)` -- kullanıcının Access'teki kendi yazımı ("(5*M2)"),
+    etiket `liste_degeri`'nden. Olgunluğu kayıtlı olmayan yumurta `?`
+    (`(2*MII-1*?)`); hiçbirininki yoksa v6.135'teki gibi yalnızca sayı,
+    `(4)` -- uydurulacak bir şey yok. Bazısının kalitesi varsa eksik olanlar
     `?` ile görünür: sessizce düşürmek "bu tüpte bir tane var" derdi.
     """
     if all(o is None for o in tup["ogeler"]):
+        olg = tup.get("olgunluk") or []
+        if any(olg):
+            return "(" + _olgunluk_metni(olg) + ")"
         return f"({len(tup['ogeler'])})"
     return "(" + "-".join(o or "?" for o in tup["ogeler"]) + ")"
+
+
+def _olgunluk_metni(kodlar) -> str:
+    """Bir tüpteki yumurtaların olgunluğu: "4*MII-1*MI" (v6.169).
+
+    MII önce, ötekiler ilk göründükleri sırayla, bilinmeyen (`None`) en sonda
+    "?" ile. Etiket `liste_degeri`'nden (kodu değil etiketi göster)."""
+    h = _etiketler()
+    sayim = {}
+    for k in kodlar:
+        sayim[k] = sayim.get(k, 0) + 1
+    sira = sorted(sayim, key=lambda k: (k is None, k != "mii"))
+    return "-".join(f"{sayim[k]}*{_et(h, 'maturasyon', k) if k else '?'}"
+                    for k in sira)
+
+
+def _yumurta_olgunlugu(specimen_id, vit_olay_id):
+    """Bir yumurtanın dondurmadan önceki son maturasyonu, kodla (v6.169).
+
+    Dondurmadan ÖNCEKİ (kimlik sırası, v6.143'ün kuralı): Yumurta Çözme'de
+    çözülüp yeniden değerlendirilen yumurtanın sonraki maturasyonu tüpün
+    içeriği değil."""
+    if vit_olay_id is None:
+        return None
+    r = db.tek(
+        "SELECT mat_deger FROM olay WHERE specimen_id = ? AND iptal_mi = 0 "
+        "AND tip = 'maturasyon_kontrolu' AND id < ? ORDER BY id DESC LIMIT 1",
+        (specimen_id, vit_olay_id))
+    return r["mat_deger"] if r else None
 
 
 def dondurma_gunleri(tupler) -> str | None:
@@ -682,7 +727,8 @@ def cozulen_ornekler(cycle_id: int) -> list:
         # açılan embriyolarının dondurması yok (v6.130) -- tüpsüz, kalite
         # son değerlendirmeden.
         v = db.tek(
-            f"SELECT v.vit_tasiyici_id, {vt} AS vit_cid, t.etiket "
+            f"SELECT v.id, v.vit_tasiyici_id, {vt} AS vit_cid, t.etiket, "
+            f"{db.dondurulan_yumurta_sql('v')} AS yumurta "
             "FROM olay v LEFT JOIN tasiyici t ON t.id = v.vit_tasiyici_id "
             "WHERE v.specimen_id = ? AND v.tip = 'vitrifikasyon' "
             "AND v.iptal_mi = 0 AND v.id < ? ORDER BY v.id DESC LIMIT 1",
@@ -708,6 +754,8 @@ def cozulen_ornekler(cycle_id: int) -> list:
             "etiket": etiket,
             "kalite": _ornek_kalitesi(r["specimen_id"],
                                       v["vit_cid"] if v else None),
+            "olgunluk": (_yumurta_olgunlugu(r["specimen_id"], v["id"])
+                         if v and v["yumurta"] else None),
             "sagkalim": _et(h, "thaw_sagkalim", r["thaw_sagkalim"]),
             "canlilik": _yuzde(r["thaw_canlilik"]),
             "transfer": transfer,
@@ -724,8 +772,10 @@ def cozulen_tupler(cozulenler) -> list:
         anahtar = o["tup"] or 0
         if anahtar not in sira:
             sira[anahtar] = len(tupler)
-            tupler.append({"etiket": o["etiket"], "ogeler": [], "gunler": []})
+            tupler.append({"etiket": o["etiket"], "ogeler": [], "gunler": [],
+                           "olgunluk": []})
         tupler[sira[anahtar]]["ogeler"].append(o["kalite"])
+        tupler[sira[anahtar]]["olgunluk"].append(o.get("olgunluk"))
     return tupler
 
 
@@ -780,7 +830,7 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
     vt = db.vit_tedavisi("v")
     satirlar = db.sorgu(
         f"""
-        SELECT v.vit_tasiyici_id AS tup, v.specimen_id, {vt} AS vit_cid,
+        SELECT v.id, v.vit_tasiyici_id AS tup, v.specimen_id, {vt} AS vit_cid,
                {db.dondurulan_yumurta_sql('v')} AS yumurta
           FROM olay v JOIN specimen s ON s.id = v.specimen_id
           JOIN cycle c ON c.id = s.cycle_id
@@ -803,8 +853,10 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
         if r["vit_cid"] == cycle_id:
             g["burada"].add(tup)
         else:
-            g["oteki"].setdefault(tup, []).append(
-                _ornek_kalitesi(r["specimen_id"], r["vit_cid"]))
+            o = g["oteki"].setdefault(tup, {"ogeler": [], "olgunluk": []})
+            o["ogeler"].append(_ornek_kalitesi(r["specimen_id"], r["vit_cid"]))
+            o["olgunluk"].append(_yumurta_olgunlugu(r["specimen_id"], r["id"])
+                                 if r["yumurta"] else None)
     if not gruplar:
         return "Kalan dondurulmuş embriyo yok."
     parcalar = []
@@ -817,8 +869,7 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
         if g["burada"]:
             icerik.append(f"bu tedavide dondurulan {len(g['burada'])} tüp")
         if g["oteki"]:
-            icerik.append(" ".join(tup_metni({"ogeler": o})
-                                   for o in g["oteki"].values()))
+            icerik.append(" ".join(tup_metni(o) for o in g["oteki"].values()))
         parcalar.append(f"{g['adet']} {ad}, {tup_sayisi} tüp: "
                         + ", ".join(icerik))
     return "Kalan dondurulmuş: " + "; ".join(parcalar) + "."
