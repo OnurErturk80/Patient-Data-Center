@@ -150,6 +150,7 @@ Patient Data Center/
   teshis_silme.py   bir hasta neden silinemiyor — hiçbir şey silmez
   teshis_form.py    FET formunda çözme neden görünmüyor — yalnızca okur
   cozme_ayir.py     IVF/ICSI'ye yazılmış çözmeleri FET'e taşır (v6.155)
+  dosya_no_degistir.py  hastanın dosya numarasını her yerde değiştirir (v6.172)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
@@ -2130,6 +2131,11 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   DOSYA eski yeni`. Doğru numarayı kullanıcı onaylar. Araç doğum tarihinden
   ya da addan hasta **eşleştirmez**; önerini kanıtıyla yaz, kararı ona
   bırak, yanlışsa `ATLA`.
+  **Zaten aktarılmış** yer tutucu numara `dosya_no_degistir.py` ile
+  (v6.172): ekran dosya numarasını kilitliyor (arşiv yolu), araç numarayı
+  veritabanında ve arşiv klasöründe birlikte değiştiriyor; yeni numara
+  kayıtlıysa durur (kart birleştirmez) -- gerçek numaranın geleceği
+  aktarımdan ÖNCE çalıştırılır.
 - **Dondurma notunun yazım hataları** (v6.168, `_skor_metni()`): "KACG1"
   kavitasyon (C, V'nin yanında; yalnızca arkasından derece geliyorsa),
   "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk

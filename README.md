@@ -13846,6 +13846,21 @@ aktarılmış. **Mayıs 2020'nin dosyası hiç yok**; kullanıcının cevabı:
 `_BOS_AYLAR`'da, aktarılmış sayılıyor. Test veritabanında o aydan geçen 116
 FET `bagla` ile tüpüne bağlandı.
 
+## `dosya_no_degistir.py`: yer tutucu dosya numarası
+
+Aralık 2024'ün "99" numaralı hastasının gerçek numarası 2019'un
+dosyalarında; kullanıcı ekrandan düzeltmeye kalktı, ekran izin vermedi —
+hasta düzenleme dosya numarasını bilerek kilitliyor (arşiv klasörünün adı ve
+`goruntu.dosya_yolu`'nun ilk parçası o numara; README v6.4). "Silip yeniden
+aç" burada uygun değil: tedavi Access'ten aktarılmış, tüpleri tankta, sonraki
+bir Yumurta Çözme onları çözmüş olabilir. Yeni araç numarayı her yerde
+birlikte değiştiriyor: `hasta.dosya_no`, iki `dosya_yolu` kolonu, başka
+hastaların `es_dosya_no`'su, sonra `arsiv/<eski>/` klasörü; hepsi
+`degisiklik_log`'da. Yeni numara başka hastada kayıtlıysa duruyor — kart
+birleştirme yok, bu yüzden 2019 aktarımından ÖNCE çalıştırılmalı.
+Denendi: sahte fotoğraf yolu ve arşiv klasörüyle birlikte değişti, ikinci
+çalıştırma "kayıtlı değil" dedi, çakışan numara reddedildi.
+
 ## Aktarım hızı: ay sayımı artımlı
 
 Ay sorguları (`db.tedavi_tarihi()` her tedavi için alt sorgular) 3.000

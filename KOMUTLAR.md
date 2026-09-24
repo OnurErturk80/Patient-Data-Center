@@ -432,9 +432,14 @@ arşivde yoktu. **Aktarımdan önce iki iş:**
    #6'nın dosya numarası ("455") bulunamadı, Ekim 2021'in ikiz kaydından
    #72 atlanıyor — katılmıyorsanız o satırı değiştirin/silin.
 2. Aralık 2024'te dosya numarası "99" ile aktarılan hastanın gerçek numarası
-   düzeltme dosyasında yazıyor (2019'daki kayıtları o numarada). Programda
-   Hasta kartı → Düzenle ile 99'u o numara yapın; yoksa 2019 aktarımı ikinci
-   bir kart açar.
+   düzeltme dosyasında yazıyor (2019'daki kayıtları o numarada). Ekran dosya
+   numarasını değiştirmeye izin vermiyor; araçla, **2019 aktarımından önce**
+   (yeni numara kayıtlıysa araç durur):
+
+   ```
+   python3 dosya_no_degistir.py 99 <gerçek no>          # ne olacak, listeler
+   python3 dosya_no_degistir.py 99 <gerçek no> uygula   # "DEGISTIR" yazınca değiştirir
+   ```
 
 Sonra eskiden yeniye (her dosya bittiğinde bütün FET'ler yeniden bağlanıyor,
 son dosyalar birkaç dakika sürer):
