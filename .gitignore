@@ -38,3 +38,4 @@ venv/
 # İşletim sistemi
 .DS_Store
 Thumbs.db
+aktar_toplu.log

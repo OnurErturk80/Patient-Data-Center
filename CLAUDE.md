@@ -151,6 +151,7 @@ Patient Data Center/
   teshis_form.py    FET formunda çözme neden görünmüyor — yalnızca okur
   cozme_ayir.py     IVF/ICSI'ye yazılmış çözmeleri FET'e taşır (v6.155)
   dosya_no_degistir.py  hastanın dosya numarasını her yerde değiştirir (v6.172)
+  aktar_toplu.py    klasördeki bütün Access CSV'lerini sırayla aktarır (v6.172)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma

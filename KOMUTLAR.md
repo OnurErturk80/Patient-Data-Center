@@ -441,64 +441,26 @@ arşivde yoktu. **Aktarımdan önce iki iş:**
    python3 dosya_no_degistir.py 99 <gerçek no> uygula   # "DEGISTIR" yazınca değiştirir
    ```
 
-Sonra eskiden yeniye (her dosya bittiğinde bütün FET'ler yeniden bağlanıyor,
-son dosyalar birkaç dakika sürer):
+Sonra **tek komut** (kullanıcının isteği: "tek komuta düşür"):
+
+```
+python3 aktar_toplu.py duzelt=tarih_duzeltme_2019_2023.txt dosya=99:801471
+```
+
+`aktar_toplu.py` klasördeki `<ay><yıl>.csv` dosyalarını bulup tarih
+sırasıyla `aktar_access.py`'ye verir; `dosya=` adımı önce 99'u 801471 yapar
+(zaten yapılmışsa atlar). Ekranda dosya başına bir satır, bütün çıktı
+`aktar_toplu.log`'da; bir dosya hata verirse durur, aynı komut kaldığı
+yerden devam eder (bitmiş dosyalar yalnızca kontrol edilir). Klasörde daha
+önce aktarılmış ayların CSV'leri de duruyorsa onlar da kontrolden geçer
+(dosya başına bir dakika); 2026'nın dosyaları atlanır (yılsız etiketle
+aktarıldılar). Bir saat kadar sürer. Elle, dosya dosya yapmak istersen aynı
+şeyi bu komutlar yapar:
 
 ```
 python3 aktar_access.py liste kaynak=OCAK2019 duzelt=tarih_duzeltme_2019_2023.txt ocak2019.csv
 python3 aktar_access.py kaynak=OCAK2019     duzelt=tarih_duzeltme_2019_2023.txt ocak2019.csv
-python3 aktar_access.py kaynak=SUBAT2019    duzelt=tarih_duzeltme_2019_2023.txt subat2019.csv
-python3 aktar_access.py kaynak=MART2019     duzelt=tarih_duzeltme_2019_2023.txt mart2019.csv
-python3 aktar_access.py kaynak=NISAN2019    duzelt=tarih_duzeltme_2019_2023.txt nisan2019.csv
-python3 aktar_access.py kaynak=MAYIS2019    duzelt=tarih_duzeltme_2019_2023.txt mayis2019.csv
-python3 aktar_access.py kaynak=HAZIRAN2019  duzelt=tarih_duzeltme_2019_2023.txt haziran2019.csv
-python3 aktar_access.py kaynak=TEMMUZ2019   duzelt=tarih_duzeltme_2019_2023.txt temmuz2019.csv
-python3 aktar_access.py kaynak=AGUSTOS2019  duzelt=tarih_duzeltme_2019_2023.txt agustos2019.csv
-python3 aktar_access.py kaynak=EYLUL2019    duzelt=tarih_duzeltme_2019_2023.txt eylul2019.csv
-python3 aktar_access.py kaynak=EKIM2019     duzelt=tarih_duzeltme_2019_2023.txt ekim2019.csv
-python3 aktar_access.py kaynak=KASIM2019    duzelt=tarih_duzeltme_2019_2023.txt kasim2019.csv
-python3 aktar_access.py kaynak=ARALIK2019   duzelt=tarih_duzeltme_2019_2023.txt aralik2019.csv
-python3 aktar_access.py kaynak=OCAK2020     duzelt=tarih_duzeltme_2019_2023.txt ocak2020.csv
-python3 aktar_access.py kaynak=SUBAT2020    duzelt=tarih_duzeltme_2019_2023.txt subat2020.csv
-python3 aktar_access.py kaynak=MART2020     duzelt=tarih_duzeltme_2019_2023.txt mart2020.csv
-python3 aktar_access.py kaynak=NISAN2020    duzelt=tarih_duzeltme_2019_2023.txt nisan2020.csv
-python3 aktar_access.py kaynak=HAZIRAN2020  duzelt=tarih_duzeltme_2019_2023.txt haziran2020.csv
-python3 aktar_access.py kaynak=TEMMUZ2020   duzelt=tarih_duzeltme_2019_2023.txt temmuz2020.csv
-python3 aktar_access.py kaynak=AGUSTOS2020  duzelt=tarih_duzeltme_2019_2023.txt agustos2020.csv
-python3 aktar_access.py kaynak=EYLUL2020    duzelt=tarih_duzeltme_2019_2023.txt eylul2020.csv
-python3 aktar_access.py kaynak=EKIM2020     duzelt=tarih_duzeltme_2019_2023.txt ekim2020.csv
-python3 aktar_access.py kaynak=KASIM2020    duzelt=tarih_duzeltme_2019_2023.txt kasim2020.csv
-python3 aktar_access.py kaynak=ARALIK2020   duzelt=tarih_duzeltme_2019_2023.txt aralik2020.csv
-python3 aktar_access.py kaynak=OCAK2021     duzelt=tarih_duzeltme_2019_2023.txt ocak2021.csv
-python3 aktar_access.py kaynak=SUBAT2021    duzelt=tarih_duzeltme_2019_2023.txt subat2021.csv
-python3 aktar_access.py kaynak=MART2021     duzelt=tarih_duzeltme_2019_2023.txt mart2021.csv
-python3 aktar_access.py kaynak=NISAN2021    duzelt=tarih_duzeltme_2019_2023.txt nisan2021.csv
-python3 aktar_access.py kaynak=MAYIS2021    duzelt=tarih_duzeltme_2019_2023.txt mayis2021.csv
-python3 aktar_access.py kaynak=HAZIRAN2021  duzelt=tarih_duzeltme_2019_2023.txt haziran2021.csv
-python3 aktar_access.py kaynak=TEMMUZ2021   duzelt=tarih_duzeltme_2019_2023.txt temmuz2021.csv
-python3 aktar_access.py kaynak=AGUSTOS2021  duzelt=tarih_duzeltme_2019_2023.txt agustos2021.csv
-python3 aktar_access.py kaynak=EYLUL2021    duzelt=tarih_duzeltme_2019_2023.txt eylul2021.csv
-python3 aktar_access.py kaynak=EKIM2021     duzelt=tarih_duzeltme_2019_2023.txt ekim2021.csv
-python3 aktar_access.py kaynak=KASIM2021    duzelt=tarih_duzeltme_2019_2023.txt kasim2021.csv
-python3 aktar_access.py kaynak=ARALIK2021   duzelt=tarih_duzeltme_2019_2023.txt aralik2021.csv
-python3 aktar_access.py kaynak=OCAK2022     duzelt=tarih_duzeltme_2019_2023.txt ocak2022.csv
-python3 aktar_access.py kaynak=SUBAT2022    duzelt=tarih_duzeltme_2019_2023.txt subat2022.csv
-python3 aktar_access.py kaynak=MART2022     duzelt=tarih_duzeltme_2019_2023.txt mart2022.csv
-python3 aktar_access.py kaynak=NISAN2022    duzelt=tarih_duzeltme_2019_2023.txt nisan2022.csv
-python3 aktar_access.py kaynak=MAYIS2022    duzelt=tarih_duzeltme_2019_2023.txt mayis2022.csv
-python3 aktar_access.py kaynak=HAZIRAN2022  duzelt=tarih_duzeltme_2019_2023.txt haziran2022.csv
-python3 aktar_access.py kaynak=TEMMUZ2022   duzelt=tarih_duzeltme_2019_2023.txt temmuz2022.csv
-python3 aktar_access.py kaynak=AGUSTOS2022  duzelt=tarih_duzeltme_2019_2023.txt agustos2022.csv
-python3 aktar_access.py kaynak=EYLUL2022    duzelt=tarih_duzeltme_2019_2023.txt eylul2022.csv
-python3 aktar_access.py kaynak=EKIM2022     duzelt=tarih_duzeltme_2019_2023.txt ekim2022.csv
-python3 aktar_access.py kaynak=KASIM2022    duzelt=tarih_duzeltme_2019_2023.txt kasim2022.csv
-python3 aktar_access.py kaynak=ARALIK2022   duzelt=tarih_duzeltme_2019_2023.txt aralik2022.csv
-python3 aktar_access.py kaynak=TEMMUZ2023   duzelt=tarih_duzeltme_2019_2023.txt temmuz2023.csv
-python3 aktar_access.py kaynak=AGUSTOS2023  duzelt=tarih_duzeltme_2019_2023.txt agustos2023.csv
-python3 aktar_access.py kaynak=EYLUL2023    duzelt=tarih_duzeltme_2019_2023.txt eylul2023.csv
-python3 aktar_access.py kaynak=EKIM2023     duzelt=tarih_duzeltme_2019_2023.txt ekim2023.csv
-python3 aktar_access.py kaynak=KASIM2023    duzelt=tarih_duzeltme_2019_2023.txt kasim2023.csv
-python3 aktar_access.py kaynak=ARALIK2023   duzelt=tarih_duzeltme_2019_2023.txt aralik2023.csv
+...   (her ay aynı kalıp, ARALIK2023'e kadar; etiket = AY + YIL)
 ```
 
 Kaynakta ICSI sayısı olmayan ama transfer/dondurma yazan satırlar (`UYARI:

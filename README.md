@@ -13861,6 +13861,20 @@ birleştirme yok, bu yüzden 2019 aktarımından ÖNCE çalıştırılmalı.
 Denendi: sahte fotoğraf yolu ve arşiv klasörüyle birlikte değişti, ikinci
 çalıştırma "kayıtlı değil" dedi, çakışan numara reddedildi.
 
+## `aktar_toplu.py`: 53 dosya tek komutla
+
+Kullanıcı: "aktarma işini sen yap ya da tek komuta düşür, tek tek
+uğraşmayayım." Aktarım kullanıcının makinesinde çalışmak zorunda (gerçek
+veri orada); araç klasördeki `<ay><yıl>.csv` dosyalarını tarih sırasına
+dizip her birini `aktar_access.py`'ye alt süreç olarak veriyor (`sys.
+executable` -- bu bir geliştirme aracı, paketlenmiş programın parçası
+değil), `dosya=99:801471` adımını başa alıyor, çıktıyı `aktar_toplu.log`'a
+yazıyor, hata verende duruyor. 2026 dosyaları atlanıyor: onlar yılsız
+etiketle aktarıldı, `MAYIS2026` diye yeniden aktarılsa her tedavi ikinci
+kez açılırdı. Denendi: iki dosyalık klasörde iki kez çalıştırıldı -- ilkinde
+208 tedavi, ikincisinde 0 aktarıldı / 208 atlandı, dosya numarası adımı
+ikincisinde "zaten yapılmış" dedi.
+
 ## Aktarım hızı: ay sayımı artımlı
 
 Ay sorguları (`db.tedavi_tarihi()` her tedavi için alt sorgular) 3.000
