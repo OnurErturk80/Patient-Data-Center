@@ -945,7 +945,7 @@ _IPTAL_AYRINTI = (
 # "fazla" kuralı (çözülen − transfer edilen).
 _DONDURMA_FIILI = re.compile(
     r"DONDUR\w*\s+(?:SAKLAN|KORUN)\w*|DONDURULDU\b|DONDURULMUSTUR\b"
-    r"|REFREEZ\w*\s+EDIL(?!EN\b)\w*"
+    r"|REFREEZ\w*\s+EDIL(?!EN\b)\w*|REFREEZ\w*\s+YAPILDI\b"
     r"|(?P<sonra>REFREEZ\w*\s+EDILEN\b"
     r"|(?<!\()REFREEZE?\b(?!\s*\))"
     r"(?!\s+(?:EDIL|YAPILA?MA|YAPILMA|YAPILAN\b|YAPILARAK\b)))"
@@ -1047,6 +1047,15 @@ _KISALTMA = {"KAV": "kavitasyon", "M": "morula", "MOR": "morula",
              "EM": "erken_morula", "ARR": "arrest"}
 
 
+def _skor_metni(parca: str) -> str:
+    """Skor yazısının katlanmış hali; kısaltmalar ve bilinen yazım hataları
+    (v6.168): "KAVVİTASYONG3" (V iki kez, ocak 2023) ve "KACG1" (klavyede C,
+    V'nin yanında; kasım 2024, ocak 2025). "KAC" yalnızca arkasından derece
+    geliyorsa KAV sayılıyor."""
+    t = re.sub(r"KAV+ITASYON", "KAV", _sade(parca)).replace("MORULA", "MOR")
+    return re.sub(r"^KAC(?=\s*G?\s*[1-3](?![A-Z0-9]))", "KAV", t)
+
+
 def _skor_coz(parca: str, yumurta: bool = False):
     """Tek bir skor yazısını programın alanlarına çevirir. Tanımazsa None.
 
@@ -1054,7 +1063,7 @@ def _skor_coz(parca: str, yumurta: bool = False):
     embriyo notunda "M2" morula derece 2 -- aynı yazı iki anlama geliyor,
     bağlam karar veriyor (v6.148).
     """
-    t = _sade(parca).replace("KAVITASYON", "KAV").replace("MORULA", "MOR")
+    t = _skor_metni(parca)
     if not t:
         return None
     m = (_OOSIT_GRUBU.match(t)
@@ -1106,7 +1115,7 @@ def _bitisik_ayir(parca: str):
     "8HG1BB", "4BA TA", "10HG1OVAL" -- arkası bir niteleme, embriyo değil.
     Yalnızca embriyo notunda.
     """
-    t = _sade(parca).replace("KAVITASYON", "KAV").replace("MORULA", "MOR")
+    t = _skor_metni(parca)
     m = _CLEAVAGE.match(t) or _BLAST.match(t)
     if not m:
         return None
@@ -1226,9 +1235,26 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     m = _DONDURMA_FIILI.search(hizali)
     if not m:
         return {}
-    bas = 0
-    for b in re.finditer(r"(?<!\d)\.\s*(?=\S)", hizali[:m.start()]):
-        bas = b.end()
+
+    def _cumle_bas(fiil):
+        bas_ = 0
+        for b_ in re.finditer(r"(?<!\d)\.\s*(?=\S)", hizali[:fiil.start()]):
+            bas_ = b_.end()
+        return bas_
+
+    # İlk dondurma cümlesinde tüp yoksa ve sonraki bir dondurma cümlesinde
+    # varsa o (v6.168, ocak 2023): "ÇÖZÜLEN 3 ADET OOSİTTEN 2 TANE M2 OOSİT
+    # REFREEZE YAPILDI. OPUDA TOPLANAN 2 ADET M2 OOSİTLE BİRLİKTE TOPLAM 1
+    # TÜPTE(4*M2) ... DONDURULARAK SAKLANDI." İlk cümle tüpü söylemiyor, araç
+    # "okunamadı" deyip tüpü hiç yazmıyordu. İlk cümlede parantez varsa ya da
+    # hiçbirinde yoksa eski okuma.
+    for aday in _DONDURMA_FIILI.finditer(hizali):
+        son_ = re.search(r"(?<!\d)\.(?!\d)", hizali[aday.end():])
+        son_ = aday.end() + son_.start() if son_ else len(hizali)
+        if "(" in hizali[_cumle_bas(aday):son_]:
+            m = aday
+            break
+    bas = _cumle_bas(m)
     son = re.search(r"(?<!\d)\.(?!\d)", hizali[m.end():])
     son = m.end() + son.start() if son else len(hizali)
     tum = re.sub(r"\s+", " ", hizali[bas:son])        # fiilin bütün cümlesi
@@ -1342,6 +1368,8 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         metin = "(".join(parcalar[kes:])
         if re.fullmatch(r"REFREEZ\w*", _sade(metin)):
             continue                    # "(REFREEZE)" etiket, tüp değil
+        if re.search(r"VIABIL|^\s*%\s*\d", _sade(metin)):
+            continue                    # "(%80 VİABİLİTE)" çözmenin notu (v6.168)
         if (baglam and _TEK_OOSIT.match(_sade(metin))
                 and cumle_hizali[:ac].rstrip().endswith("ADET")):
             continue
@@ -1476,7 +1504,8 @@ def _satir_dondurmasi(r) -> dict:
 
 
 def olgunlugu_nottan_duzelt(satirlar) -> None:
-    """Dondurma notu MII sayısından çok M2 donduruyorsa not kazanır (v6.161).
+    """Dondurma notu MII/immatür sayısıyla çelişiyorsa not kazanır (v6.161;
+    ters yönü -- not M1 donduruyor, kutu MII diyor -- v6.168).
 
     Kullanıcının cevabı: iki satırda MII/İMMATÜR kutuları notla tutmuyordu
     (MII 4 / immatür 3, not 6 M2 + 1 M1 donduruyor; MII 3, not "(3*M2-2M2)"),
@@ -1493,13 +1522,22 @@ def olgunlugu_nottan_duzelt(satirlar) -> None:
         coz = _satir_dondurmasi(r)
         if not coz or not coz.get("oosit_mi"):
             continue
-        m2 = sum(o["adet"] for o in coz["ogeler"]
-                 if o["tur"] == "oosit" and o["mat"] == "mii")
+        oositler = [o for o in coz["ogeler"] if o["tur"] == "oosit"]
+        m2 = sum(o["adet"] for o in oositler if o["mat"] == "mii")
+        m1 = sum(o["adet"] for o in oositler if o["mat"] != "mii")
+        once = (r["mii"], r["immatur"])
         fark = min(m2 - r["mii"], r["immatur"])
         if fark > 0:
-            r["olgunluk_duzeltme"] = (r["mii"], r["immatur"])
             r["mii"] += fark
             r["immatur"] -= fark
+        # Ters yönü (v6.168): kasım 2024'te MII 1, immatür 0, not "(1*M1)"
+        # donduruyor. Aynı kural -- not kazanır, fark MII'den immatüre.
+        fark = min(m1 - r["immatur"], r["mii"] - m2)
+        if fark > 0:
+            r["mii"] -= fark
+            r["immatur"] += fark
+        if (r["mii"], r["immatur"]) != once:
+            r["olgunluk_duzeltme"] = once
 
 
 def _yumurta_sayisi(r, icsi=True) -> int:

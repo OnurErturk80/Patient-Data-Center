@@ -35,9 +35,10 @@ Kullanıcı 2026-09-23'te ocak–mayıs 2025'i aktardığını söyledi. **Hazir
 `OCAK2024`, `SUBAT2024`, `MART2024`), ardından da şubat 2026'nın bir tüpü
 `dondurma` kipiyle onarılıyor. **Nisan–ağustos 2024** v6.167'de
 (`kaynak=NISAN2024` … `AGUSTOS2024`; mayısın aynı gün iki kez girilmiş bir
-kaydı kullanıcının seçimini bekliyor, `ATLA`). **Eylül–aralık 2024 henüz
-gelmedi**: tüpü o aylarda tutan FET'lerin bağlanması erteleniyor (aşağıda
-"aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
+kaydı kullanıcının seçimini bekliyor, `ATLA`). **Eylül–aralık 2024 ve ocak
+2023** v6.168'de (`kaynak=EYLUL2024` … `ARALIK2024`, `OCAK2023` — o dosyanın
+tarihleri 2023). **Şubat–aralık 2023 yok**: ocak 2023 tüplerini çözen
+FET'lerin bağlanması erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
 işte bunu hesaba kat.
 
 ---
@@ -2109,7 +2110,14 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
 - **Etiket her dosyada tekil, yıllar arasında da** (v6.160): 2026'nın ayları
   `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`…, 2024'ünküler
   `OCAK2024`… (nisan–ağustos: `NISAN2024`, `MAYIS2024`, `HAZIRAN2024`,
-  `TEMMUZ2024`, `AGUSTOS2024`). Aynı etiketi başka yılın dosyasına verme.
+  `TEMMUZ2024`, `AGUSTOS2024`; v6.168'de `EYLUL2024`…`ARALIK2024` ve
+  `OCAK2023`). Aynı etiketi başka yılın dosyasına verme.
+- **Dondurma notunun yazım hataları** (v6.168, `_skor_metni()`): "KACG1"
+  kavitasyon (C, V'nin yanında; yalnızca arkasından derece geliyorsa),
+  "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk
+  cümle** okunuyor ("... REFREEZE YAPILDI. ... 1 TÜPTE(4*M2) ... DONDURULARAK
+  SAKLANDI"); "(%80 VİABİLİTE)" tüp değil. Not M1, kutu MII diyorsa da not
+  kazanıyor (`olgunlugu_nottan_duzelt()`, v6.161'in ters yönü).
 - **Parantezsiz ama tek tüplü dondurma yazılıyor** (v6.160): "5 ADET M2
   OOSİT 1 TÜPTE" — dağılım belli. **Yumurtada tüp sayısı hiç yazmıyorsa
   da tek tüp** (v6.161, kullanıcının cevabı: "2 ADET M2 OOSİT DONDURULARAK

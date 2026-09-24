@@ -13606,3 +13606,76 @@ yok, fazlası ekrandan kalıcı silinebilir.
 - **Ekran:** Cryo Haritası, taşıyıcı ve çözme ekranı, iki resmî form,
   vitrifikasyon ve tedavi ekranı açıldı. Hepsi 200 döndü, JS hatası yok.
   Yumurta tüpleri "yumurta", blastokist tüpü "1 embriyo" diyor.
+
+# v6.168 — eylül–aralık 2024 ve ocak 2023 Access kayıtları; dondurma notunun dört yeni okuması
+
+Kullanıcı beş Access dosyası verdi: EYLÜL, EKİM, KASIM, ARALIK (2024) ve OCAK.
+OCAK'ın tarihleri **2023** (141 satırın hepsi 2023-01), 2025'in ocağı değil.
+Etiketler `OCAK2023`, `EYLUL2024` … `ARALIK2024` (v6.160: etiket yıllar
+arasında tekil). 524 satır.
+
+## Tarih düzeltmeleri (`tarih_duzeltme_2024c.txt`, depoda değil)
+
+Üç satırın yılı ya da ayı açık bir yazım hatası:
+- Kasım 2024'te bir FET'in transferi 2024-01-13 (aynı ayın OPU/çözmesiyle
+  birlikte, doğrusu 2024-11-13).
+- Aralık 2024'te bir OPU 2025-12-31 (dosya aralık 2024).
+- Ocak 2023'te bir OPU 2023-03-16 (dosya ocak 2023, önceki/sonraki kayıtlar
+  16 ocak).
+
+## Dondurma notunun yeni okumaları
+
+Hepsi önizlemede sessizce eksik tüp ya da yanlış tüp veriyordu:
+
+- **"KACG1" / "KACG2"**: kavitasyon'un C ile yazılmışı (klavyede V'nin
+  yanında). Kasım 2024'te bir ve daha önce aktarılmış ocak 2025'te bir
+  embriyo "tanınmayan yazım" deyip yazılmıyordu. `_skor_metni()` "KAC"ı
+  yalnızca arkasından derece geliyorsa KAV sayıyor.
+- **"KAVVİTASYONG3"** (V iki kez, ocak 2023): aynı işlevde `KAV+ITASYON`.
+- **İlk dondurma cümlesinde tüp yok, ikincisinde var** (ocak 2023):
+  "ÇÖZÜLEN 3 ADET OOSİTTEN 2 TANE M2 OOSİT REFREEZE YAPILDI. OPUDA TOPLANAN
+  2 ADET M2 OOSİTLE BİRLİKTE TOPLAM 1 TÜPTE(4*M2) ... DONDURULARAK SAKLANDI."
+  Araç ilk fiilin cümlesini okuyordu, tüp bulamadı. Artık parantezi olan ilk
+  dondurma cümlesi seçiliyor; hiçbirinde yoksa eski okuma. "REFREEZE
+  YAPILDI" da dondurma fiili (önceden yalnızca "REFREEZE EDİLDİ").
+  - Ocak 2023'teki başka bir satırda aynı eksiklik tüpü "(YAPILDI)" diye
+    okutuyordu; artık "(2BC)".
+- **"(%80 VİABİLİTE)"** tüp değil, çözmenin notu (aralık 2024). Tüp sayısını
+  bir fazla gösteriyordu.
+
+## Not "M1" diyor, kutu "MII" diyor
+
+Kasım 2024'te bir Yumurta Dondurma: 1 yumurta, MII 1, immatür 0, not
+"1 TÜPTE(1*M1)". v6.161'in kuralı (kullanıcı: "en son yazılanı kullan", not
+kazanır) yalnızca notun M2'si fazlayken çalışıyordu. Ters yönü eklendi:
+notun M1'i immatürden fazlaysa fark MII'den immatüre geçer, not Access'teki
+değeri söyler. Tüp önceden hiç yazılmıyordu ("notta 1 örnek ... 0 uygun").
+
+## Kalan uyarılar
+
+- Ocak 2023'teki satır: not 4 M2 donduruyor, programda 2 yumurta var. Öteki
+  ikisi o tedavide çözülen yumurtalar ve dondurmaları program öncesi. Bu
+  kaynağın kendisi, uydurulmuyor.
+- Mart 2025'te (önceden aktarılmış) "M1-M2 ?" yazılı tek yumurta hâlâ
+  yazılmıyor: olgunluk kaynakta da belirsiz.
+
+## FET bağlama
+
+Eylül–ekim 2024 aktarılırken FET'ler bağlanmadı: arada aktarılmamış aylar
+var (v6.164'ün ertelemesi). Kasım ve aralık 2024 gelince 9 ve 68 FET tüpüne
+bağlandı (kopyada; kullanıcının makinesinde ocak–ağustos 2024 de olduğu için
+sayı farklı olacak). Ocak 2023'ün tüplerini çözen FET'ler şubat–aralık 2023
+aktarılana kadar bekler.
+
+## Denendi
+
+- **Okuma karşılaştırması:** eski ve yeni araç 11 CSV'yi (2025 ocak–mayıs,
+  mayıs 2026 ve bu beş dosya) okudu. Değişen satırlar yalnızca yukarıdakiler.
+- **Prova:** test veritabanında beş dosya eskiden yeniye aktarıldı: 524
+  tedavi, 0 hata, bir uyarı (yukarıda).
+- **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir tabloyu
+  değiştirmedi.
+- `dondurma kaynak=OCAK2025` o ayın eksik KACG2 embriyosunu ekledi.
+- **Ekran:** 524 tedavinin her biri için tedavi ekranı, iki resmî form, ART
+  Lab Excel'i ve tedavi dökümü; ana ekran, Cryo Haritası, istatistik: hepsi
+  200.

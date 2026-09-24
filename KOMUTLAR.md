@@ -382,6 +382,32 @@ python3 aktar_access.py ikiz
 Fazla olanı hasta kartından aç → Sil → kalıcı silme (dosya no + SIL).
 Transferleri yok, silinebilirler. Hangisini sileceğin sana kalmış.
 
+**2024 eylül–aralık ve ocak 2023 (v6.168).** Önce `git pull`, programı bir
+kez kapatıp aç (Yönetici panelindeki "Program sürümü" v6.168 demeli), yedek
+al. Sohbette verilen beş CSV'yi ve `tarih_duzeltme_2024c.txt`'yi aynı klasöre
+koy. OCAK dosyası **2023**'ün ocağı (tarihleri 2023-01), etiketi o yüzden
+`OCAK2023`. Eskiden yeniye:
+
+```
+python3 aktar_access.py liste kaynak=OCAK2023 duzelt=tarih_duzeltme_2024c.txt ocak2023.csv
+python3 aktar_access.py       kaynak=OCAK2023   duzelt=tarih_duzeltme_2024c.txt ocak2023.csv
+python3 aktar_access.py       kaynak=EYLUL2024  eylul2024.csv
+python3 aktar_access.py       kaynak=EKIM2024   ekim2024.csv
+python3 aktar_access.py       kaynak=KASIM2024  duzelt=tarih_duzeltme_2024c.txt kasim2024.csv
+python3 aktar_access.py       kaynak=ARALIK2024 duzelt=tarih_duzeltme_2024c.txt aralik2024.csv
+```
+
+Sonra bu sürümün yeni okumaları için (yazım hataları "KACG1", "KAVVİTASYON")
+daha önce aktarılmış aylara bir kez `dondurma` — yalnızca eksik olanı ekler.
+Ocak 2025'te bir embriyo ("KACG2") bu yüzden eksik kaldı:
+
+```
+python3 aktar_access.py dondurma kaynak=OCAK2025 duzelt=tarih_duzeltme.txt ocak2025.csv
+```
+
+Başka aylarda da aynı yazım varsa aynı komut o ayın etiketi ve dosyasıyla
+çalışır; iki kez çalıştırmak güvenli ("0 tedaviye eksik dondurma yazildi").
+
 **v6.161:** "2 ADET M2 OOSİT DONDURULARAK SAKLANDI" gibi tüp sayısı yazmayan
 yumurta dondurması artık tek tüp. 2026'da da böyle bir satır vardı ve tüpü
 yazılmamıştı; `dondurma` kipiyle 2026'nın aylarını bir kez geçir (hiç tüpü
