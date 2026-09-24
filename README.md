@@ -13617,8 +13617,8 @@ arasında tekil). 524 satır.
 ## Tarih düzeltmeleri (`tarih_duzeltme_2024c.txt`, depoda değil)
 
 Üç satırın yılı ya da ayı açık bir yazım hatası:
-- Kasım 2024'te bir FET'in transferi 2024-01-13 (aynı ayın OPU/çözmesiyle
-  birlikte, doğrusu 2024-11-13).
+- Kasım 2024'te bir FET'in transferi 2024-01-13 (komşu kayıtlar 13 kasım,
+  doğrusu 2024-11-13).
 - Aralık 2024'te bir OPU 2025-12-31 (dosya aralık 2024).
 - Ocak 2023'te bir OPU 2023-03-16 (dosya ocak 2023, önceki/sonraki kayıtlar
   16 ocak).
