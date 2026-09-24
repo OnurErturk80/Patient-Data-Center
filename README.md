@@ -13759,6 +13759,130 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.173 — Cryo haritası Excel'i tüplere bağlanıyor; 2018 Access aktarımı
+
+İki iş, ikisi de kullanıcının isteğiyle (2026-09-24): "aktarım yapılırken
+daha önce denediğim cryo haritayı yeniden incelemeni istiyorum ... Bu hasta
+kayıtları ile cryo haritayı ilişkilendirmeni istiyorum" ve ardından "2018
+hasta aktarımı var. Önce onu yapsan".
+
+## Cryo haritası: `cryo_esle.py` + `cryo_excel.py`
+
+Laboratuvarın kriyo haritası Excel'de (6 sayfa, 5.406 satır: 3.868
+embriyo/yumurta, 1.538 sperm; 2011–2026; tank / kanister / goblet başına
+SOYAD, AD, EŞİ, TARİH, HÜCRE, VİAL). Dosya numarası yok. v6.127/v6.128 bu
+haritayı ayrı bir tabloya alıp isimle aday öneriyordu, v6.129'da geri alındı
+("istediğim gibi olmadı"). Şimdi kullanıcının veritabanında Access'ten
+aktarılmış 5.000'den fazla dondurma tüpü var (2019–2026), konumları boş
+(Access'te konum yoktu). **Bu sefer harita o tüpleri konumlandırıyor**:
+yeni tablo yok, Excel satırı tüpe bağlanıyor, tüpün `konum_id`'si (Tank /
+Kanister / Goblet), tipi ve rengi yazılıyor. Cryo Haritası ekranı ve
+`/disari/cryo` zaten `tasiyici.konum_id`'den besleniyor, dokunulmadı.
+
+**Eşleşme ölçüsü üç parça, ad tek başına yetmiyor:**
+
+1. Hasta: Excel'in SOYAD + AD kelime kümesi programdaki `ad_soyad`'ın kelime
+   kümesine eşit (sıra önemsiz: Excel'de iki sütun, programda tek kutu).
+   Aynı adlı birden çok hasta varsa eş adı ayırıyor; o da ayırmazsa Excel'in
+   tarihinde tüpü olan tek aday (89 satır böyle çözüldü, raporda ayrı
+   başlık).
+2. Dondurma günü: Excel TARİH = tüpün vitrifikasyon günü.
+3. İçerik: HÜCRE'nin skorları ("D5 (3AA-4AB)", "OOSİT (3M2-1M1)", "3 M2
+   OOSİT") tüpteki örneklerin skor/olgunluk çoklu kümesine eşit. Yazım
+   Access notlarınınkiyle aynı, `aktar_access._skor_coz()` çözüyor;
+   karşılaştırma gevşek ("8HG2" = "8G2", MII = M2, morfoloji nitelemesi
+   HATCHİNG/OVAL atlanıyor, "10HG2*" yıldızsız). Olgunluğu yazılmamış
+   yumurta ("3 OOSİT") sayıyla tutuyor.
+
+**Aynı hasta + aynı günün satırları ve tüpleri birlikte dağıtılıyor.**
+Programda birebir aynı içerikli iki tüp (iki "(4AA)") birbirinden ayırt
+edilemez: etiket Access'ten üretilmiş, konum boş. Excel'de aynı içerikli iki
+satır varsa sırayla eşleşiyor (v6.148'in "aynı tedavinin birebir aynı
+tüpleri fark etmez" kuralı; ölçüm 414 satır). Tüp sayısı satır sayısını
+aşıyorsa (Excel'de bir satır, programda üç aynı tüp) o satır listeleniyor,
+yazılmıyor: hangisinin tankta olduğu bilinmiyor.
+
+**Yazılmayan her satır raporda kendi başlığıyla** (`cryo_esle_rapor.txt`,
+hasta adı içerir, depoya girmez): hasta programda yok, aynı adlı hasta, o
+gün tüp yok (hastanın programdaki dondurma günleriyle), içerik tutmuyor
+(tüplerin içeriğiyle), programda boşaltılmış/kullanılmış tüp (Excel tankta
+diyor -- bakılmalı), tüpe daha önce başka bir konum yazılmış (elle girilmiş
+olabilir, ezilmiyor), iki satır aynı tüpü istiyor, ad tutuyor eş adı
+tutmuyor (bulunan tüp yazılı, karar kullanıcının). **Sahte tedavi/tüp
+açılmıyor** -- v6.127'nin gerekçesi: eşleşmeyen satır için kayıt üretmek
+istatistikleri bozar. Sperm sayfaları yalnızca sayılıyor: Access'te sperm
+tablosu yoktu, programda karşılığı yok.
+
+Test veritabanında (2019–2023 + 2024 eylül–aralık + 2025 ocak–mayıs + 2026
+mayıs) 3.868 satırın **1.977'si yazıldı** (1.456 birebir, 414 aynı içerikli
+dağıtım, 18 sayıyla, 89 tarih ayırdı), 1.282'si "hasta yok" (951'i test
+veritabanında olmayan aylar, ~210'u 2011–2018 -- Access dosyası yok), 336
+"o gün tüp yok", 158 "hiç tüpü yok", 77 içerik tutmuyor, 20 eş adı, 8
+tarihsiz, 3 boşaltılmış. İkinci çalıştırma: 1.977 "zaten", 0 yazma.
+`uygula` "ESLE" onayı istiyor, `yazma_islemi()` içinde yazıyor,
+`degisiklik_log`'a düşüyor (tablo `tasiyici`, alan `konum`/`tip`/`renk`);
+Rapid-i ve Vitrifit taşıyıcı tipleri listede yoksa ekleniyor (goc_042'nin
+geri alınan iki satırı). Ekranlar denendi: `/cryo`, arama, taşıyıcı
+sayfası, `/disari/cryo` 200.
+
+**`/cryo` 5.000 tüple açılmıyordu -- `goc_049`.** Ekran her dolu tüp için
+"kaç örnek" ve "yumurta mı embriyo mu" alt sorgularını `olay.vit_tasiyici_id`
+üzerinden soruyor; kolonun dizini yoktu, tüp başına 137.000 satırlık `olay`
+taranıyordu. Programın kendi girdiği birkaç yüz tüpte fark edilmedi; test
+veritabanında sorgu bir dakikada bitmedi, `olay(vit_tasiyici_id)` diziniyle
+0,04 sn (sayfa 0,7 sn). Çözmenin tüpü goc_046'dan beri dizinliydi,
+dondurmanınki unutulmuştu. Kullanıcı 2019–2023'ü aktardığı için bu artık
+onun makinesinde de böyle: göç açılışta kendiliğinden çalışır.
+
+Kod: `cryo_excel.py` v6.128'in çözümleyicisi (`git show 51efd53:eski_cryo.py`)
+olduğu gibi, içeri alma/aday kısımları atılmış; `xlsx_oku.izgara()` (aynı
+sürümden) geri geldi; `konum_bul_veya_olustur()` app.py'den `db.py`'ye
+taşındı (araç açık bağlantıda aynı kuralı kullanıyor, ikinci kopya olmasın
+diye). Kullanıcının cevabı bekleyen sorular CLAUDE.md'de (geçen sefer neyi
+istemediği, `eski_cryo_temizle.py`, VİAL sütunundaki renk+sıra, sperm
+sayfaları); cevaba göre `/cryo` ekranı yeniden tasarlanacak.
+
+## 2018 Access aktarımı
+
+11 dosya (ağustos yok), 918 satır; sütunlar 2019 ile aynı. 2018'in not
+yazımı daha eski: tüp "VİAL", parantez seyrek, sayı yazıyla. `liste` 13
+notta "kaç örnek/tüp okunamadı" dedi; hepsi okundu (bkz. aşağıda), eski/yeni
+karşılaştırmasında **2019 ve sonrasının okuması değişmedi**.
+
+- **VİAL = tüp**: "2 VİALDE", "3 VİAL OLARAK", "2 VİAL OLMAK ÜZERE", "1
+  VİALDE BİRARADA", "AYNI VİALDE", "2 AYRI VİALDE"; **sayı yazıyla**: "BİR
+  ADET 3AC EMBRİYO", "İKİ ADET 3.GÜN EMBRİYOSU". Okuma kuralları "TÜPTE" ve
+  rakam bekliyor; `_esanlam()` yazımı ona çeviriyor -- `ham` ve hizalı
+  metne **aynı konumlardan** (ikisi aynı uzunlukta kalmalı: nota yazılan
+  "Kaynak kayıttaki yazım" ham metinden, eşleşmeler hizalıdan).
+- **"DR." cümle sonu değil**: "... 2 VİALDE DR. MEHMET ...'NIN İSTEĞİ ÜZERİNE
+  DONDURULMUŞTUR". Cümle "DR."den sonra başlatılıyor, parantezler cümlenin
+  dışında kalıyor, üç notun tüpleri yazılmıyordu. `_CUMLE_SONU` /
+  `_CUMLE_BASI` tek yerde.
+- **Embriyo çarpanı**: "(3xMORULAG2)", "(2XMORULAG3)", "(3*KAVG3)", "2X8HG1"
+  -- yumurtanın "4*M2" yazımının embriyo hali (`_grup_coz()`).
+- **Parantezsiz embriyo** (`_parantezsiz_embriyo()`): "1 TÜPTE 7HG1 VE 1
+  TÜPTE 10HG1 ... AYRI AYRI" (her "N TÜPTE"den sonraki skorlar o tüpte); "1
+  ADET 4AA, 1 ADET 4BB VE 2 ADET 2BB-1BB OLMAK ÜZERE 3 VİAL" (öğe sayısı tüp
+  sayısına eşit, her öğe bir tüp); "2 ADET 1BB-3AA ... BİRARADA", "2 ADET
+  3.GÜN 8HG1 ... AYNI VİALDE" (tek tüp, tek skor ADET kez), "BİR ADET 3AC".
+  Skor sayısı ADET'le tutmuyorsa yazılmıyor, uyarı. "8 ADET 3.GÜN EMBRİYOSU
+  2 VİAL OLMAK ÜZERE" (dağılım yok) hâlâ yazılmıyor -- uydurulmuyor.
+- Aşama kutusundaki "1X7HG1-1X10HG1" / "2X8HG1" gün değil (1 ve 2 günü
+  okunuyordu; not "3.GÜN" diyor). "1 VİAL SPERMİ DONDURULMUŞTUR" embriyo
+  dondurması değil, uyarmıyor. "7HGW", "9HG" skorsuz embriyo (sayı doğru).
+- **Düzeltme dosyasında eski tarih `-`**: kaynakta okunamayan tarih ("01/00/00
+  00:00:00"; araç boş okuyor). `tarih_duzeltme_2018.txt` (depoda değil): üç
+  tarih (ay/yıl yanlış, transfer okunamıyor; gerekçeler dosyada), bir yer
+  tutucu dosya numarası (Şubat 2019 #6'daki aynı hasta, aynı "455").
+- **`aktar_toplu.py` aktarılmış ayı atlıyor**: klasörde 2019–2023'ün 53
+  dosyası duruyor; hepsini yeniden çalıştırmak (idempotent ama dosya başına
+  dakikalar) saatler alırdı. Ölçü aracın kendi işareti: o etiketle
+  aktarılmış tek tedavi varsa dosya bitmiş.
+
+Denendi: 11 dosya test veritabanına (2019–2023'ün üstüne) aktarılıyor;
+sonuç bir sonraki commit'te.
+
 # v6.172 — 2019–2022 ve temmuz–aralık 2023 Access aktarımı: yeni okuma kuralları
 
 Kullanıcı beş yılın Access dosyalarını `.rar` arşivleriyle verdi (2019, 2020,
@@ -13868,7 +13992,7 @@ uğraşmayayım." Aktarım kullanıcının makinesinde çalışmak zorunda (ger�
 veri orada); araç klasördeki `<ay><yıl>.csv` dosyalarını tarih sırasına
 dizip her birini `aktar_access.py`'ye alt süreç olarak veriyor (`sys.
 executable` -- bu bir geliştirme aracı, paketlenmiş programın parçası
-değil), `dosya=99:801471` adımını başa alıyor, çıktıyı `aktar_toplu.log`'a
+değil), `dosya=99:<gerçek no>` adımını başa alıyor, çıktıyı `aktar_toplu.log`'a
 yazıyor, hata verende duruyor. 2026 dosyaları atlanıyor: onlar yılsız
 etiketle aktarıldı, `MAYIS2026` diye yeniden aktarılsa her tedavi ikinci
 kez açılırdı. Denendi: iki dosyalık klasörde iki kez çalıştırıldı -- ilkinde

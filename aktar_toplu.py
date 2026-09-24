@@ -27,6 +27,9 @@ import re
 import subprocess
 import sys
 
+import db as _db          # veritabanının yeri tek yerde: db.py (tuzak #8)
+import aktar_access       # yalnızca işaret kalıbı (`ISARET`); aktarım alt süreçte
+
 AYLAR = ["ocak", "subat", "mart", "nisan", "mayis", "haziran", "temmuz",
          "agustos", "eylul", "ekim", "kasim", "aralik"]
 _AD = re.compile(r"^(" + "|".join(AYLAR) + r")(\d{4})\.csv$", re.I)
@@ -58,6 +61,12 @@ def dosya_no_adimi(deger):
                  "Aktarıma başlamadan önce bu çözülmeli.")
     h, klasor = d.ozet(eski, yeni)
     d.uygula(eski, yeni, h, klasor)
+
+
+def _isaret_on_eki(etiket):
+    """`[Access kaydı OCAK2018#` -- etiketin işaretinin kayıt numarasından
+    önceki kısmı (`aktar_access.ISARET` ile aynı kalıp)."""
+    return aktar_access.ISARET.format(etiket, "").rstrip("]")
 
 
 def main():
@@ -92,6 +101,20 @@ def main():
     gunluk.write(f"\n===== {_dt.datetime.now():%Y-%m-%d %H:%M} — {len(dosyalar)} dosya\n")
     for i, (yil, ay, p) in enumerate(dosyalar, 1):
         etiket = f"{AYLAR[ay].upper()}{yil}"
+        # Zaten aktarılmış ay atlanıyor (v6.173): 2018 gelince klasörde
+        # 2019-2023'ün 53 dosyası da duruyor; hepsini yeniden çalıştırmak
+        # (idempotent ama dosya başına dakikalar) saatler alırdı. Ölçü,
+        # aracın kendi işareti (`aktar_access.ISARET`): o etiketle aktarılmış
+        # tek bir tedavi bile varsa dosya bitmiş sayılıyor -- yarım kalan bir
+        # aktarım için `aktar_access.py kaynak=... dosya.csv` elle (o zaten
+        # aktarılmış satırları atlar).
+        var = _db.tek("SELECT COUNT(*) AS n FROM cycle WHERE lab_id=? AND "
+                      "protokol_notu LIKE ?",
+                      (_db.LAB_ID, f"%{_isaret_on_eki(etiket)}%"))["n"]
+        if var:
+            print(f"[{i}/{len(dosyalar)}] {etiket}: zaten aktarılmış ({var} tedavi), atlandı")
+            gunluk.write(f"{etiket}: zaten aktarılmış ({var} tedavi), atlandı\n")
+            continue
         komut = [sys.executable, str(PROJE / "aktar_access.py"), f"kaynak={etiket}"]
         if duzelt:
             komut.append(f"duzelt={duzelt}")

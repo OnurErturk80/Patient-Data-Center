@@ -354,6 +354,39 @@ def liste(liste_adi):
 _KOLONLAR = {}
 
 
+
+def konum_bul_veya_olustur(seviyeler, b=None):
+    """Tank/kanister/goblet/pozisyon -> `konum.id`; yoksa açar.
+
+    `seviyeler`: ['T2','K3','G5','12'] -- boş olanlar atlanır, hepsi boşsa
+    None. Konumun kimliği `tam_yol` (" / " ile birleşik), `UNIQUE (lab_id,
+    tam_yol)`: aynı yol ikinci kez açılmaz. Vitrifikasyon ve sperm dondurma
+    ekranları (app.py) ile `cryo_esle.py` aynı kuralı kullanıyor -- v6.173'e
+    kadar app.py'deydi.
+
+    `b`: açık bir bağlantı (`yazma_islemi()` içinden çağrılırken); yoksa
+    kendi bağlantısını açar.
+    """
+    temiz = [(s or "").strip() for s in seviyeler] + ["", "", "", ""]
+    temiz = temiz[:4]
+    if not any(temiz):
+        return None
+    tam_yol = " / ".join(x for x in temiz if x)
+    sql_bul = "SELECT id FROM konum WHERE lab_id=? AND tam_yol=?"
+    sql_ac = ("INSERT INTO konum (lab_id, seviye1, seviye2, seviye3, seviye4, "
+              "tam_yol, durum) VALUES (?,?,?,?,?,?,'dolu')")
+    par = (LAB_ID, temiz[0] or None, temiz[1] or None, temiz[2] or None,
+           temiz[3] or None, tam_yol)
+    if b is not None:
+        mevcut = b.execute(sql_bul, (LAB_ID, tam_yol)).fetchone()
+        if mevcut:
+            return mevcut[0]
+        return b.execute(sql_ac, par).lastrowid
+    mevcut = tek(sql_bul, (LAB_ID, tam_yol))
+    if mevcut:
+        return mevcut["id"]
+    return yaz(sql_ac, par)
+
 def kolon_var(tablo: str, kolon: str) -> bool:
     """`tablo.kolon` var mı -- göçü çalışmamış makinede ekran 500 vermesin.
 

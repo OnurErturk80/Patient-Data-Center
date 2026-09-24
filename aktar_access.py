@@ -523,9 +523,11 @@ def satirlari_oku(yol: str) -> list:
     return cikti
 
 
-def _gg(iso: str) -> str:
+def _gg(iso) -> str:
     """'2026-01-02' -> '02.01.2026' (nota yazılan tarih, CLAUDE.md'nin
-    gün.ay.yıl kuralı)."""
+    gün.ay.yıl kuralı). Boş (kaynakta okunamayan tarih, v6.173): "okunamadı"."""
+    if not iso:
+        return "okunamadı"
     y, a, g = iso[:10].split("-")
     return f"{g}.{a}.{y}"
 
@@ -581,16 +583,19 @@ def duzeltmeleri_oku(yol: str) -> list:
             sayi = alan in _SAYI_ALANI
             if len(parca) != 4 or "#" not in parca[0] \
                     or alan not in _DUZELTILEBILIR \
-                    or not all((p.isdigit() if sayi else _tarih(p) == p)
-                               for p in parca[2:]):
+                    or not all((p.isdigit() if sayi else _tarih(p) == p
+                                or (p == "-" and i == 2))
+                               for i, p in enumerate(parca) if i >= 2):
                 sys.exit(f"{yol}:{no}: anlaşılmadı -- beklenen: "
                          "KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih\n"
                          "ya da: KAYNAK#KAYIT  ICSI  eski-sayi  yeni-sayi\n"
                          "ya da: KAYNAK#KAYIT  DOSYA  eski-no  yeni-no\n"
                          "ya da: KAYNAK#KAYIT  ATLA")
             kaynak, kimlik = parca[0].split("#", 1)
+            # Eski tarih "-": kaynakta okunamayan tarih ("01/00/00", ocak
+            # 2018, v6.173) -- araç onu boş okuyor, düzeltme boşu eşliyor.
             eski, yeni = ((int(parca[2]), int(parca[3])) if sayi
-                          else (parca[2], parca[3]))
+                          else (None if parca[2] == "-" else parca[2], parca[3]))
             satirlar.append((_kaynak_ayikla(kaynak) if kaynak else "", kimlik,
                              alan, eski, yeni))
     return satirlar
@@ -884,7 +889,11 @@ def _gun_ekle(iso: str, gun: int) -> str:
 
 def _asama_gunu(metin: str):
     """"5,GÜN" / "3.GÜN" -> 5 / 3. Tanınmazsa None."""
-    m = re.match(r"\s*(\d+)", _m(metin))
+    # "1X7HG1-1X10HG1", "2X8HG1", "2BC", "8HG1-8HG2" (2018): sayı gün değil,
+    # çarpan ya da skorun kendisi (v6.173) -- not "3.GÜN" diyor, buradan 1,
+    # 2 ya da 8 okunuyordu. Rakamın hemen arkasında harf/çarpan varsa gün
+    # değil; "5:GÜN", "5-6.GÜN", "5 VE 2. GÜN" eskisi gibi 5.
+    m = re.match(r"\s*(\d+)(?![A-Za-z*Xx])", _m(metin))
     return int(m.group(1)) if m else None
 
 
@@ -1206,6 +1215,17 @@ def _grup_coz(grup: str, yumurta: bool) -> list:
                 birlesik.append(p)
         parcalar = birlesik
     for parca in parcalar:
+        if not yumurta:
+            # "3xMORULAG2", "2X8HG1", "3*KAVG3" (v6.173, 2018): N tane aynı
+            # embriyo -- yumurtanın "4*M2" yazımının embriyo hali.
+            carpan = re.match(r"^(\d+)\s*[X*]\s*(\S+)$", _sade(parca))
+            if carpan and _skor_coz(carpan.group(2)):
+                tek_ = _skor_coz(carpan.group(2))
+                # Her embriyonun yazımı tek skor: "(3xMORULAG2)" liste'de
+                # (MORULAG2-MORULAG2-MORULAG2), notta "MORULAG2".
+                tek_["ham"] = carpan.group(2)
+                ogeler.extend(dict(tek_) for _ in range(int(carpan.group(1))))
+                continue
         bitisik = None if yumurta else _bitisik_ayir(parca)
         if bitisik:
             ogeler.extend(bitisik)
@@ -1219,7 +1239,7 @@ def _grup_coz(grup: str, yumurta: bool) -> list:
                     ogeler.extend(alt_coz)
                     continue
             coz = _yuva_coz(parca)
-        if not coz and not yumurta and re.match(r"\d", parca):
+        if not coz and not yumurta and re.match(r"\d|H?G[1-4]$", _sade(parca)):
             # Rakamla başlayan ama okunamayan embriyo yazımı (v6.164, eylül
             # 2025: "(8HGT1-6HG3-8HG3)"). Embriyo o tüpte; atılırsa tüpe bir
             # eksik yazılıyordu, sessizce. Skor uydurulmuyor: skorsuz embriyo,
@@ -1262,10 +1282,106 @@ def _son_gun(metin: str):
     return son
 
 
+# Cümle sonu: rakamdan sonraki nokta değil ("3. GÜN", "17.01.25"), "DR."
+# kısaltmasının noktası da değil (v6.173, mayıs 2018: "... 2 VİALDE DR.
+# MEHMET ...'NIN İSTEĞİ ÜZERİNE DONDURULMUŞTUR" -- dondurma cümlesi "DR."den
+# sonra başlıyor sanılıp parantezleri hiç okunmuyordu, üç notun tüpleri
+# yazılmıyordu).
+_CUMLE_SONU = r"(?<!\d)(?<!\bDR)\.(?!\d)"
+_CUMLE_BASI = r"(?<!\d)(?<!\bDR)\.\s*(?=\S)"
+
+# 2018'in yazımı (v6.173): tüp "VİAL" ("2 VİALDE", "3 VİAL OLARAK", "1 VİALDE
+# BİRARADA", "AYNI VİALDE", "2 AYRI VİALDE"), sayı yazıyla ("BİR ADET 3AC
+# EMBRİYO", "İKİ ADET 3.GÜN EMBRİYOSU"). Okuma kuralları "TUPTE" ve rakam
+# bekliyor; yazım burada ona çevriliyor. Değişiklik `ham` ve `hizali`'ya
+# AYNI konumlardan uygulanıyor (ikisi aynı uzunlukta kalmalı: nota yazılan
+# "Kaynak kayıttaki yazım" `ham`'dan, eşleşmeler `hizali`'dan).
+_ESANLAM = (
+    (re.compile(r"\bAYNI\s+VIAL(?:DE)?\b"), "1 TUPTE"),
+    (re.compile(r"(\d+)\s*(?:AYRI\s+)?VIAL(?:DE|LERDE|LER)?\b"), r"\1 TUPTE"),
+    (re.compile(r"\bBIR\s+ADET\b"), "1 ADET"),
+    (re.compile(r"\bIKI\s+ADET\b"), "2 ADET"),
+    (re.compile(r"\bUC\s+ADET\b"), "3 ADET"),
+)
+
+
+def _esanlam(ham: str, hizali: str) -> tuple:
+    """`_ESANLAM`'ı iki metne aynı konumlardan uygular (sağdan sola, konumlar
+    kaymasın diye). -> (ham, hizali)."""
+    for kalip, yeni in _ESANLAM:
+        for mm in reversed(list(kalip.finditer(hizali))):
+            y = mm.expand(yeni)
+            ham = ham[:mm.start()] + y + ham[mm.end():]
+            hizali = hizali[:mm.start()] + y + hizali[mm.end():]
+    return ham, hizali
+
+
+def _parantezsiz_embriyo(cumle: str, adet, dondurulan=None) -> list:
+    """Parantezsiz embriyo dondurması (v6.173, 2018'in yazımı). -> gruplar
+    (tüp listesi) ya da boş liste.
+
+    - "1 TÜPTE 7HG1 VE 1 TÜPTE 10HG1 ... AYRI AYRI": her "N TÜPTE"den sonra
+      gelen skorlar o tüpte.
+    - "1 ADET 4AA, 1 ADET 4BB VE 2 ADET 2BB-1BB OLMAK ÜZERE 3 TÜPTE": "N ADET
+      skor" öğesi sayısı tüp sayısına eşitse her öğe bir tüp; tek skorlu
+      öğede skor N kez ("2 ADET 8HG1").
+    - Tek tüp ("BİRARADA", "1 TÜPTE", tüp sayısı hiç yazmıyor): cümledeki
+      bütün skorlar o tüpte; sayı notun ADET'iyle tutmalı (tek skor yazılmış
+      "2 ADET 3.GÜN 8HG1 ... BİRARADA" iki 8HG1).
+    Skor sayısı kaynağın sayısıyla (DONDURULAN, yoksa notun ilk ADET'i)
+    tutmuyorsa hiçbir şey yazılmıyor (uyarı çıkıyor); dağılım uydurulmuyor.
+    "1 ADET 10HG2 VE 12HG1 ... BİRARADA": notun ADET'i 1, DONDURULAN 2 --
+    yapılandırılmış alan önce (v6.142).
+    """
+    sayi = dondurulan or adet
+    # "KAVİTASYON G3": derece ayrı kelime -- `_skor_coz()` bitişiğini tanıyor
+    # ("KAVİTASYONG3", v6.148).
+    cumle = re.sub(r"\b(KAV\w*|MOR\w*)\s+G\s*(\d)", r"\1G\2", cumle)
+
+    def skorlar(metin):
+        out = []
+        for tok in re.split(r"[\s,/\-]+", metin):
+            if not tok:
+                continue
+            z = _skor_coz(tok) if re.match(r"\d", tok) or _BLAST_DISI.match(_skor_metni(tok)) else None
+            if z:
+                out.append(z)
+        return out
+
+    hepsi = skorlar(cumle)
+    if not hepsi:
+        return []
+    tupler = list(re.finditer(r"(\d+)\s*TUPTE", cumle))
+    en_cok_tup = max((int(x.group(1)) for x in tupler), default=0)
+    if len(tupler) > 1:
+        parcalar = [cumle[a.end():(tupler[i + 1].start() if i + 1 < len(tupler) else len(cumle))]
+                    for i, a in enumerate(tupler)]
+        gruplar = [skorlar(pc) for pc in parcalar]
+        if all(gruplar) and (sayi is None or sum(len(g) for g in gruplar) == sayi):
+            return gruplar
+        return []
+    ogeler = []
+    for mm in re.finditer(r"(?<![A-Z0-9])(\d+)\s*ADET\s+(?:\d\s*[.,]?\s*GUN\s+)?(?:D\d\s+)?"
+                          r"([0-9A-Z]+(?:\s*[-,]\s*(?!\d+\s*ADET)[0-9A-Z]+)*)", cumle):
+        g = skorlar(mm.group(2))
+        if g and len(g) == len(re.split(r"\s*[-,]\s*", mm.group(2))):
+            n = int(mm.group(1))
+            ogeler.append([dict(g[0]) for _ in range(n)] if len(g) == 1 and n > 1 else g)
+    if len(ogeler) > 1 and en_cok_tup == len(ogeler):
+        return ogeler
+    if _tek_tup(cumle) or en_cok_tup == 0:
+        if len(hepsi) == 1 and sayi and sayi > 1:
+            hepsi = [dict(hepsi[0]) for _ in range(sayi)]
+        if sayi is None or len(hepsi) == sayi:
+            return [hepsi]
+    return []
+
+
 def _tek_tup(cumle: str) -> bool:
     """Cümle tüp sayısını 1 diye yazıyor mu: "1 TÜPTE", "1TÜPTE", "TEK TÜPTE".
     Metin `_KATLA`'lı."""
-    return bool(re.search(r"(?<!\d)1\s*TUPTE|\b(?:TEK|BIR)\s+TUPTE", cumle))
+    return bool(re.search(r"(?<!\d)1\s*TUPTE|\b(?:TEK|BIR|AYNI)\s+TUPTE"
+                          r"|\bBIR\s*ARADA\b", cumle))
 
 
 def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
@@ -1296,6 +1412,7 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     hizali = ham.upper().translate(_KATLA)
     if len(hizali) != len(ham):       # upper() nadiren uzunluk değiştirir
         ham = hizali
+    ham, hizali = _esanlam(ham, hizali)
     # "1 TÜPTE84*M2)" (v6.165, mart 2024, üç satır): "(" yerine shift'siz
     # "8" basılmış -- Türkçe klavyede "(" Shift+8. Grup açılmadığı için o
     # tüpün yumurtaları hiç yazılmıyordu. Yalnızca "TÜPTE"den hemen sonra,
@@ -1309,7 +1426,7 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
 
     def _cumle_bas(fiil):
         bas_ = 0
-        for b_ in re.finditer(r"(?<!\d)\.\s*(?=\S)", hizali[:fiil.start()]):
+        for b_ in re.finditer(_CUMLE_BASI, hizali[:fiil.start()]):
             bas_ = b_.end()
         return bas_
 
@@ -1320,13 +1437,13 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     # "okunamadı" deyip tüpü hiç yazmıyordu. İlk cümlede parantez varsa ya da
     # hiçbirinde yoksa eski okuma.
     for aday in _DONDURMA_FIILI.finditer(hizali):
-        son_ = re.search(r"(?<!\d)\.(?!\d)", hizali[aday.end():])
+        son_ = re.search(_CUMLE_SONU, hizali[aday.end():])
         son_ = aday.end() + son_.start() if son_ else len(hizali)
         if "(" in hizali[_cumle_bas(aday):son_]:
             m = aday
             break
     bas = _cumle_bas(m)
-    son = re.search(r"(?<!\d)\.(?!\d)", hizali[m.end():])
+    son = re.search(_CUMLE_SONU, hizali[m.end():])
     son = m.end() + son.start() if son else len(hizali)
     tum = re.sub(r"\s+", " ", hizali[bas:son])        # fiilin bütün cümlesi
 
@@ -1358,6 +1475,12 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         z = m.start()
     cumle = re.sub(r"\s+", " ", hizali[a:z])
     ham_cumle, cumle_hizali = ham[a:z], hizali[a:z]
+    # "1 VİAL SPERMİ DONDURULMUŞTUR" (v6.173, mart 2018): embriyo dondurması
+    # değil, "okunamadı" diye uyarmasın. Yalnızca embriyo/yumurta sözü ve
+    # parantezi olmayan, DONDURULAN'ı boş cümlede.
+    if ("SPERM" in cumle and not dondurulan
+            and not re.search(r"OOSIT|EMBRIYO|YUMURTA|\(", cumle)):
+        return {}
 
     gun = _asama_gunu(asama)
     if gun is None:
@@ -1471,6 +1594,11 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
                 grup_gunleri.append(_son_gun(kalan[:ac]) or son_isaret)
 
     _gruplari_topla(cumle_hizali, ham_cumle)
+    if not gruplar and "(" in (asama or ""):
+        # Parantezler notta değil aşama kutusunda (v6.173, şubat 2018:
+        # not "1 TÜPTE 4 EMBRİYO ... BİRARADA", kutu "(3X8H2-7HG2)").
+        asama_h = re.sub(r"\s+", " ", asama.upper().translate(_KATLA))
+        _gruplari_topla(asama_h, asama_h)
     adet = _ilk(r"(\d+)\s*ADET") or _ilk(r"TOPLAM\s+(\d+)\s+(?:OOSIT|EMBRIYO)")
     # Aynı tüp iki kez yazılmış (v6.164, ekim 2025: "19 ADET D3 EMBRİYOSU"
     # ve DONDURULAN 19, ama beş grup 24 embriyo tutuyor; ikinci ve dördüncü
@@ -1499,13 +1627,30 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         # (ya da not sayı vermiyorsa) hepsi o tüpte. "15 ADET OOSİT 5'ERLİ
         # ŞEKİLDE 3 TÜPTE": eşit bölünmüş tüpler. Önceden ikisi de "kaç
         # örnek/tüp okunamadı" diye hiç yazılmıyordu.
-        sayili = [(int(x.group(1)), "mii" if x.group(2) in ("2", "II") else "mi",
-                   x.group(0).strip())
-                  for x in re.finditer(r"(?<![A-Z0-9])(\d+)\s*\*?\s*M\s*(2|II|1|I)\b", cumle)]
+        # "3XMII", "7GV" de sayılı yazım (v6.173, ocak 2018): çarpan X,
+        # olgunluk GV.
+        _SAYILI = r"(?<![A-Z0-9])(\d+)\s*[*X]?\s*(?:M\s*(2|II|1|I)|(GV))\b"
+
+        def _sayili(metin):
+            return [(int(x.group(1)),
+                     "gv" if x.group(3) else "mii" if x.group(2) in ("2", "II") else "mi",
+                     x.group(0).strip())
+                    for x in re.finditer(_SAYILI, metin)]
+        sayili = _sayili(cumle)
         erli = re.search(r"(\d+)\s*'?\s*ER(?:LI)?\b", cumle)
         tup = _ilk(r"(\d+)\s*TUPTE")
         en_cok_tup = max((int(x) for x in re.findall(r"(\d+)\s*TUPTE", cumle)), default=0)
-        if (sayili and (_tek_tup(cumle) or en_cok_tup == len(sayili))
+        # "3XMII, 2XMII, 2XMI-7GV OLMAK ÜZERE OOSİTLER 3 VİALDE AYRI AYRI"
+        # (v6.173): virgül / "VE" ile ayrılmış parçalar tüp sayısı kadarsa
+        # her parça bir tüp.
+        parcali = [pc for pc in re.split(r",|\bVE\b", cumle) if re.search(_SAYILI, pc)]
+        if (sayili and en_cok_tup > 1 and en_cok_tup != len(sayili)
+                and len(parcali) == en_cok_tup
+                and (adet is None or sum(a for a, _m, _h in sayili) == adet)):
+            gruplar = [[{"tur": "oosit", "adet": a, "mat": mt, "ham": h}
+                        for a, mt, h in _sayili(pc)] for pc in parcali]
+            grup_gunleri = [None] * len(gruplar)
+        elif (sayili and (_tek_tup(cumle) or en_cok_tup == len(sayili))
                 and (adet is None or sum(a for a, _m, _h in sayili) == adet)):
             ogeler_ = [{"tur": "oosit", "adet": a, "mat": mt, "ham": h}
                        for a, mt, h in sayili]
@@ -1521,6 +1666,10 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
             gruplar = [[{"tur": "oosit", "adet": k, "mat": mat,
                          "ham": ham_cumle.strip()}] for _ in range(tup)]
             grup_gunleri = [None] * tup
+        ogeler = [o for g in gruplar for o in g]
+    if not gruplar and not baglam:
+        gruplar = _parantezsiz_embriyo(cumle, adet, dondurulan)
+        grup_gunleri = [None] * len(gruplar)
         ogeler = [o for g in gruplar for o in g]
     if not gruplar and (adet == 1 or (adet is None and fazla == 1)):
         # Parantezsiz tek örnek (v6.148): "1 ADET M2 OOSİT DONDURULARAK
@@ -1584,7 +1733,7 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
             if beklenen <= okunan:
                 break
             c_bas = _cumle_bas(aday)
-            c_son = re.search(r"(?<!\d)\.(?!\d)", hizali[aday.end():])
+            c_son = re.search(_CUMLE_SONU, hizali[aday.end():])
             c_son = aday.end() + c_son.start() if c_son else len(hizali)
             c_tum = hizali[c_bas:c_son]
             if ("(" not in c_tum or re.search(r"GERI[DY]E|KALDI|KALMIS|TRANSFER|REFREEZ",
@@ -1815,8 +1964,9 @@ def _not_kur(r: dict) -> str:
             p.append(f"{alan} sayısı Access'te {eski} yazıyordu, {yeni} olarak "
                      "düzeltildi.")
             continue
-        p.append(f"{alan} tarihi Access'te {_gg(eski)} yazıyordu, "
-                 f"{_gg(yeni)} olarak düzeltildi.")
+        p.append((f"{alan} tarihi Access'te okunamıyordu, " if not eski
+                  else f"{alan} tarihi Access'te {_gg(eski)} yazıyordu, ")
+                 + f"{_gg(yeni)} olarak düzeltildi.")
     if r.get("olgunluk_duzeltme"):
         mii, imm = r["olgunluk_duzeltme"]
         p.append(f"Access'te MII {mii}, immatür {imm} yazıyordu; dondurma "

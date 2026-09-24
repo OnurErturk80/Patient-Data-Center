@@ -6121,22 +6121,9 @@ def konum_semasi():
         "WHERE lab_id = ? ORDER BY seviye_sirasi", (db.LAB_ID,))
 
 
-def konum_bul_veya_olustur(seviyeler):
-    """seviyeler: ['T2','K3','G5','12'] — boş olanlar atlanır."""
-    temiz = [(s or "").strip() for s in seviyeler] + ["", "", "", ""]
-    temiz = temiz[:4]
-    if not any(temiz):
-        return None
-    tam_yol = " / ".join(x for x in temiz if x)
-    mevcut = db.tek("SELECT * FROM konum WHERE lab_id=? AND tam_yol=?",
-                    (db.LAB_ID, tam_yol))
-    if mevcut:
-        return mevcut["id"]
-    return db.yaz(
-        "INSERT INTO konum (lab_id, seviye1, seviye2, seviye3, seviye4, tam_yol, durum) "
-        "VALUES (?,?,?,?,?,?,'dolu')",
-        (db.LAB_ID, temiz[0] or None, temiz[1] or None, temiz[2] or None,
-         temiz[3] or None, tam_yol))
+# v6.173: `db.konum_bul_veya_olustur()` -- `cryo_esle.py` de aynı kuralla
+# konum açıyor (Excel haritasından), ikinci bir kopya olmasın diye taşındı.
+konum_bul_veya_olustur = db.konum_bul_veya_olustur
 
 
 def icerik_sql() -> str:

@@ -423,6 +423,40 @@ python3 aktar_access.py       kaynak=MAYIS2023   duzelt=tarih_duzeltme_2023.txt 
 python3 aktar_access.py       kaynak=HAZIRAN2023 duzelt=tarih_duzeltme_2023.txt haziran2023.csv
 ```
 
+**2018 (v6.173).** Önce `git pull`, programı bir kez yeniden başlat
+(goc_049 açılışta çalışır: Cryo Haritası 5.000 tüple açılabilsin). 11 CSV
+(`ocak2018.csv` … `aralik2018.csv`, ağustos yok) ve `tarih_duzeltme_2018.txt`
+proje klasörüne. Düzeltme dosyasını oku: üç tarih düzeltmesi (gerekçeleri
+yazılı) ve Mayıs 2018'in "455" dosya numarası (Şubat 2019'daki aynı hastanın
+kartına girer; gerçek numarayı biliyorsan önce `dosya_no_degistir.py`).
+Sonra tek komut:
+
+```
+python3 aktar_toplu.py duzelt=tarih_duzeltme_2018.txt
+```
+
+Klasördeki 2019–2023 dosyaları "zaten aktarılmış, atlandı" der (v6.173:
+işareti olan etiket yeniden çalıştırılmaz), yalnızca 2018'in 11 dosyası
+aktarılır; her dosyanın sonunda 2019'un FET'leri 2018'in tüplerine bağlanır.
+Bitince `aktar_toplu.log`'da `UYARI` satırlarına bak.
+
+**Cryo haritası Excel'i (v6.173).** Bütün Access ayları aktarıldıktan
+sonra. Excel dosyasını (`CRYO_HARITA.xlsx` gibi) proje klasörüne koy
+(`.gitignore`'da), önce ne olacağına bak, sonra yaz:
+
+```
+python3 cryo_esle.py liste  CRYO_HARITA.xlsx     # yazmaz; cryo_esle_rapor.txt
+python3 cryo_esle.py uygula CRYO_HARITA.xlsx     # "ESLE" yazınca konumları yazar
+```
+
+Terminalde yalnızca sayılar; satır satır rapor `cryo_esle_rapor.txt`'de
+(hasta adı içerir, depoya girmez). Yazılanlar: hasta + dondurma günü +
+içerik üçü de tutan tüpler (konum, taşıyıcı tipi, renk). Yazılmayanlar
+raporda başlık başlık: hasta programda yok (2011–2018), aynı adlı hasta,
+o gün tüp yok, içerik tutmuyor, tüpe daha önce başka konum yazılmış.
+İkinci çalıştırma hiçbir şeyi değiştirmez. Ekranda: Cryo Haritası'nda
+tüplerin konumu ve tank sayımı.
+
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı
 klasöre. Etiketler ay + yıl (`OCAK2019` … `ARALIK2023`); 2020'nin mayısı
@@ -444,11 +478,11 @@ arşivde yoktu. **Aktarımdan önce iki iş:**
 Sonra **tek komut** (kullanıcının isteği: "tek komuta düşür"):
 
 ```
-python3 aktar_toplu.py duzelt=tarih_duzeltme_2019_2023.txt dosya=99:801471
+python3 aktar_toplu.py duzelt=tarih_duzeltme_2019_2023.txt dosya=99:<gerçek no>
 ```
 
 `aktar_toplu.py` klasördeki `<ay><yıl>.csv` dosyalarını bulup tarih
-sırasıyla `aktar_access.py`'ye verir; `dosya=` adımı önce 99'u 801471 yapar
+sırasıyla `aktar_access.py`'ye verir; `dosya=` adımı önce 99'u gerçek numaraya çevirir (numara düzeltme dosyasında yazıyor)
 (zaten yapılmışsa atlar). Ekranda dosya başına bir satır, bütün çıktı
 `aktar_toplu.log`'da; bir dosya hata verirse durur, aynı komut kaldığı
 yerden devam eder (bitmiş dosyalar yalnızca kontrol edilir). Klasörde daha

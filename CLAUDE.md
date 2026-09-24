@@ -41,9 +41,12 @@ tarihleri 2023). **Şubat–haziran 2023** v6.170'te (`kaynak=SUBAT2023` …
 `HAZIRAN2023`). **2019–2022'nin tamamı (2020 mayıs yok) ve temmuz–aralık
 2023** v6.172'de hazırlandı (`kaynak=OCAK2019` … `ARALIK2023`; 53 dosya,
 kullanıcı `.rar` arşivleriyle verdi, `unrar` ile açıldı); kullanıcı
-çalıştırıyor. Programdan önceki bütün kayıtlar bununla tamamlanıyor — sonra
-sıra Cryo Excel'inde (aşağıda). Göç, kalıcı silme, geri yükleme gibi veriye
-dokunan her işte bunu hesaba kat.
+2026-09-24'te 53 dosyayı `aktar_toplu.py` ile aktardı (5.494 tedavi, 18
+uyarı). **2018** (11 ay, ağustos yok) v6.173'te hazırlandı (`kaynak=OCAK2018`
+… `ARALIK2018`); kullanıcı çalıştırıyor. 2011–2017 için Access dosyası
+verilmedi (Cryo Excel'inde o yıllardan ~200 satır var). Sonra sıra Cryo
+Excel'inde: `cryo_esle.py` (aşağıda). Göç, kalıcı silme, geri yükleme gibi
+veriye dokunan her işte bunu hesaba kat.
 
 ---
 
@@ -140,7 +143,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..048.py   veritabanı göçleri (sırayla)
+  goc_002..049.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -152,6 +155,8 @@ Patient Data Center/
   cozme_ayir.py     IVF/ICSI'ye yazılmış çözmeleri FET'e taşır (v6.155)
   dosya_no_degistir.py  hastanın dosya numarasını her yerde değiştirir (v6.172)
   aktar_toplu.py    klasördeki bütün Access CSV'lerini sırayla aktarır (v6.172)
+  cryo_excel.py     laboratuvarın cryo haritası Excel'ini çözer (v6.173)
+  cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
@@ -1942,24 +1947,53 @@ kuralının aynısı: **yalnızca kullanıcının gördüğü Türkçe metin** d
   çıkarır, NOTLAR kutusu `white-space: pre` olduğu için sessizce keserdi.
   Aynı nota yeni bir satır eklersen bu hesabı tekrar yap.
 
-> **Eski cryo haritasını Excel'den içeri alma denendi ve GERİ ALINDI**
-> (v6.127/v6.128 yazıldı, v6.129'da revert edildi). Kullanıcının kararı:
-> "Cryo Harita istediğim gibi olmadı." Özellik hatalı olduğu için değil,
-> **istenmediği için** kaldırıldı — kendiliğinden yeniden yazma. Yeniden
-> gündeme gelirse önce git geçmişindeki v6.127/v6.128 bölümlerini oku
-> (`3dfd58a`…`51efd53`): ölçülen sayılar ve üç somut tuzak orada.
-> Kullanıcının veritabanında kalanları `eski_cryo_temizle.py` siliyor —
-> kod geri alındı ama `eski_cryo` tablosu ve `konum` satırları kalıyor ve
-> bağ kurulmuş bir hastanın kalıcı silinmesi FOREIGN KEY hatası veriyor.
->
-> **Yeniden gündemde (kullanıcı, 2026-09-24):** "cryo haritamı excel olarak
-> vericem. Bütün hasta kayıtlarını aktardıktan sonra onunla eşleştirme yapıp
-> cryo haritalar bölümünü baştan yaratacağız." Sıra: önce bütün Access
-> ayları, sonra Excel. Bu sefer eşleşecek şey yalnızca isim değil,
-> **aktarılmış tüp**: hasta (dosya no, programda) + dondurma tarihi +
-> içerik. Excel'de dosya no yoktu (v6.127). Başlamadan önce: v6.127/v6.128'i
-> oku, kullanıcıya geçen sefer neyin istediği gibi olmadığını sor,
-> `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığını sor.
+**Cryo haritası Excel'i programdaki tüplere bağlanıyor: `cryo_esle.py`**
+(v6.173). Laboratuvarın canlı kriyo haritası Excel'de (6 sayfa, ~5.400
+satır: tank / kanister / goblet başına SOYAD, AD, EŞİ, TARİH, HÜCRE, VİAL;
+2011–2026; dosya numarası YOK). İlk deneme v6.127/v6.128'de haritayı AYRI
+bir tabloya (`eski_cryo`) alıp isimle aday öneriyordu; v6.129'da kullanıcının
+kararıyla geri alındı ("istediğim gibi olmadı"), kalıntıları
+`eski_cryo_temizle.py` siler. Bu sefer (kullanıcının sözü, 2026-09-24:
+"Bütün hasta kayıtlarını aktardıktan sonra onunla eşleştirme yapıp cryo
+haritalar bölümünü baştan yaratacağız") **yeni tablo yok**: Excel satırı
+Access'ten aktarılmış tüpe bağlanıyor ve tüpün `konum_id`'si (Tank /
+Kanister / Goblet), `tip`i, `renk`i yazılıyor; Cryo Haritası zaten oradan
+besleniyor.
+- **Ölçü üçlü**: hasta (SOYAD+AD kelime kümesi = `ad_soyad` kelime kümesi,
+  sıra önemsiz; aynı adlı birden çok hastayı eş adı, o da ayırmazsa o gün
+  tüpü olan tek aday ayırır) + dondurma günü (Excel TARİH = tüpün
+  vitrifikasyon günü) + içerik (HÜCRE'nin skorları = tüpteki örneklerin
+  skor/olgunluk çoklu kümesi; yazım `aktar_access._skor_coz()` ile, "8HG2"
+  = "8G2", MII = M2). Ad tek başına asla yetmez; dosya no Excel'de yok.
+- **Aynı hasta + aynı günün satırları ve tüpleri birlikte dağıtılır**
+  (`_dagit()`): birebir aynı içerikli tüpler programda ayırt edilemez
+  (etiket Access'ten üretilmiş, konum boş), Excel'de o kadar satır varsa
+  sırayla eşleşir (v6.148'in "aynı tedavinin birebir aynı tüpleri fark
+  etmez" kuralı); tüp sayısı satırdan çoksa belirsiz, yazılmaz.
+- **Yazılmayan sınıflar raporda** (`cryo_esle_rapor.txt`, hasta adı içerir,
+  depoya girmez): hasta yok (2011–2018: Access dosyası yok), aynı adlı,
+  o gün tüpü yok, içerik tutmuyor, programda boşaltılmış, tüpe daha önce
+  BAŞKA konum yazılmış (elle girilmiş olabilir, ezilmiyor), iki satır aynı
+  tüpü istiyor. **Sahte tedavi/tüp açılmaz** (v6.127'nin gerekçesi).
+  Sperm sayfaları yalnızca sayılıyor (Access'te sperm tablosu yoktu).
+- `liste` yazmaz, `uygula` "ESLE" onayıyla yazar; ikinci çalıştırma "zaten"
+  der, hiçbir şeyi değiştirmez (denendi: 1977 → 0). `degisiklik_log`'a
+  tablo `tasiyici`, alan `konum`/`tip`/`renk`. Rapid-i ve Vitrifit
+  taşıyıcı tipi listede yoksa `uygula` ekliyor (goc_042'nin geri alınan
+  satırları).
+- Test veritabanında (2019–2023 + 2024 eyl–ara + 2025 oca–may + 2026 may)
+  3.868 embriyo/yumurta satırının 1.977'si yazıldı; 1.282'si "hasta yok"
+  (çoğu test veritabanında olmayan aylar, ~210'u 2011–2018).
+- **`/cryo` için `goc_049`**: `olay(vit_tasiyici_id)` dizini. Ekran her
+  dolu tüp için `olay`'ı tarıyordu; 5.000 tüpte açılmıyordu (>60 sn),
+  dizinle 0,7 sn. Dondurma tüpünü soran yeni bir sorgu yazarken dizinin
+  varlığına güven.
+- `xlsx_oku.izgara()` (v6.127'den geri geldi) ve `db.konum_bul_veya_olustur()`
+  (app.py'den taşındı; `b` verilirse açık bağlantıda) bunun için.
+- **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
+  istemediği; `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığı; Excel
+  VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile tüp sırasının ilişkisi;
+  sperm sayfaları. Cevaba göre `/cryo` ekranı yeniden tasarlanacak.
 
 **Program öncesi kayıtlar `aktar_access.py` ile giriyor** (v6.130,
 kullanıcının isteği). Ağustos 2026 tedavileri Access'te tutuluyordu;
@@ -2241,6 +2275,28 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   - Yeni bir okuma kuralı eklerken bütün CSV'lerin okumasını eski ve yeni
     araçla karşılaştır; değişen eski satır varsa kullanıcının veritabanında
     da yanlış demektir, onarım yolunu (`dondurma`) söyle.
+- **v6.173 okumaları** (2018; eski/yeni karşılaştırmada 2019 ve sonrası
+  değişmedi): tüp "VİAL" ("2 VİALDE", "3 VİAL OLARAK", "1 VİALDE BİRARADA",
+  "AYNI VİALDE"), sayı yazıyla ("BİR ADET", "İKİ ADET") -- `_esanlam()` ham
+  ve hizalı metne aynı konumlardan; "DR." kısaltmasının noktası cümle sonu
+  değil (`_CUMLE_SONU`; üç notun tüpleri "DR. X'İN İSTEĞİ ÜZERİNE
+  DONDURULMUŞTUR"dan sonra aranıp bulunamıyordu); embriyo çarpanı
+  "3xMORULAG2", "2X8HG1", "3*KAVG3"; parantezsiz embriyo
+  (`_parantezsiz_embriyo()`: "1 TÜPTE 7HG1 VE 1 TÜPTE 10HG1", "1 ADET 4AA,
+  1 ADET 4BB VE 2 ADET 2BB-1BB ... 3 VİAL", "2 ADET 3.GÜN 8HG1 ... BİRARADA")
+  -- skor sayısı kaynağın sayısıyla (DONDURULAN, yoksa ADET) tutmuyorsa
+  yazılmıyor; "KAVİTASYON G3" derece ayrı kelime; not grupsuzsa aşama
+  kutusundaki parantezler ("(3X8H2-7HG2)"); yumurtada "3XMII, 2XMII,
+  2XMI-7GV ... 3 VİALDE" (X çarpanı, GV, virgül/VE ile tüplere bölünmüş);
+  hücre sayısı yazılmamış "G1"/"HG2" skorsuz embriyo (sayı doğru); aşama
+  kutusundaki "1X7HG1", "2BC", "8HG1-8HG2" gün değil (`_asama_gunu()`:
+  rakamın arkasında harf varsa; 2019+ da 26 satırda 1/2/8. gün okunuyordu
+  ama hiçbiri aktarılmış ayda değil, ölçüldü); "1 VİAL SPERMİ
+  DONDURULMUŞTUR" embriyo dondurması değil (uyarmıyor). "8 ADET ... 2 VİAL" gibi dağılımsız çok tüp hâlâ yazılmıyor
+  (uyarı). Düzeltme dosyasında eski tarih `-` = kaynakta okunamayan tarih
+  ("01/00/00"). `aktar_toplu.py` zaten aktarılmış etiketi (işareti olan
+  tedavi varsa) atlıyor -- 2018 gelince 2019–2023'ün 53 dosyası klasörde
+  duruyordu.
 - **v6.172 okumaları** (2019–2022; eski/yeni karşılaştırmada daha önce
   aktarılmış ayların okuması değişmedi, onarım gerekmedi):
   - Yumurta: **GV** olgunluk ("(4*GV)", "(M2-M2-GV)"; MI havuzundan, kayıt
