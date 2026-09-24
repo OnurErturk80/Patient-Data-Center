@@ -38,10 +38,12 @@ Kullanıcı 2026-09-23'te ocak–mayıs 2025'i aktardığını söyledi. **Hazir
 kaydı kullanıcının seçimini bekliyor, `ATLA`). **Eylül–aralık 2024 ve ocak
 2023** v6.168'de (`kaynak=EYLUL2024` … `ARALIK2024`, `OCAK2023` — o dosyanın
 tarihleri 2023). **Şubat–haziran 2023** v6.170'te (`kaynak=SUBAT2023` …
-`HAZIRAN2023`). **Temmuz–aralık 2023 yok** (kullanıcı 2026-09-24'te
-onları da aktaracağını söyledi; etiketler `TEMMUZ2023` … `ARALIK2023`): o
-aylardaki tüpleri çözen FET'lerin bağlanması erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
-işte bunu hesaba kat.
+`HAZIRAN2023`). **2019–2022'nin tamamı (2020 mayıs yok) ve temmuz–aralık
+2023** v6.172'de hazırlandı (`kaynak=OCAK2019` … `ARALIK2023`; 53 dosya,
+kullanıcı `.rar` arşivleriyle verdi, `unrar` ile açıldı); kullanıcı
+çalıştırıyor. Programdan önceki bütün kayıtlar bununla tamamlanıyor — sonra
+sıra Cryo Excel'inde (aşağıda). Göç, kalıcı silme, geri yükleme gibi veriye
+dokunan her işte bunu hesaba kat.
 
 ---
 
@@ -2232,6 +2234,26 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   - Yeni bir okuma kuralı eklerken bütün CSV'lerin okumasını eski ve yeni
     araçla karşılaştır; değişen eski satır varsa kullanıcının veritabanında
     da yanlış demektir, onarım yolunu (`dondurma`) söyle.
+- **v6.172 okumaları** (2019–2022; eski/yeni karşılaştırmada daha önce
+  aktarılmış ayların okuması değişmedi, onarım gerekmedi):
+  - Yumurta: **GV** olgunluk ("(4*GV)", "(M2-M2-GV)"; MI havuzundan, kayıt
+    `gv` yazılıyor, tüpteki yumurta önce kendi ham olgunluğuyla eşleşiyor --
+    `_ham_olgunluk()`); "(1MA)" olgunluğu yazmayan yumurta (`mat=None`,
+    `olcusuz` havuzu); parantezsiz sayılı yazım ("2M2 VE 1M1 TOPLAM 3 OOSİT
+    BİR TÜPTE", "1 TÜPTE 3 MII VE 1 TÜPTE 3MII"), "5'ERLİ ŞEKİLDE 3 TÜPTE".
+  - Embriyo: morfoloji nitelemesi ayrı embriyo değil (`_NITELIK`: OVAL,
+    ELİPTİK, COLLAPSED, HATCHİNG -- iç parantez, tire ya da bitişik grup;
+    skorun yazımına ekleniyor, notta); virgül ayırıcı; "8HG1* 8HG2";
+    "BİRŞELME"; kapanmamış son grup ("(8HG1-6HG2-10HG3 OLACAK"); dondurma
+    birden çok cümlede (tüpler sayıya ulaşmıyorsa sonraki parantezli
+    dondurma cümleleri de, `_gruplari_topla()`).
+  - Düzeltme dosyasında `ICSI 0 <sayı>`: kaynakta ICSI hiç yoksa `islenen`
+    0 okunuyor, eski değer 0 yazılır.
+  - **Aktarılmamış ay ölçüsü**: dosyası aktarılmış ay (etiketin tedavilerinin
+    en çok düştüğü ay, `_etiket_aylari()`) kaç tedavisi olursa olsun
+    aktarılmış sayılıyor (ağustos 2019: 4, nisan 2020: 1 kayıt). **Mayıs
+    2020 dosyası yok** -- o aydan geçen FET'ler ertelenir; kullanıcıya
+    soruldu (2026-09-24).
 - **v6.167 okumaları** (nisan–ağustos 2024):
   - Tip: protokolde yazım hatası ("OOSİT CRTYO", "CRRYO") da Yumurta
     Dondurma; ICSI, 2PN, transfer ve DONDURULAN boş, notun bütün tüpleri

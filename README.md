@@ -13759,6 +13759,112 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.172 — 2019–2022 ve temmuz–aralık 2023 Access aktarımı: yeni okuma kuralları
+
+Kullanıcı beş yılın Access dosyalarını `.rar` arşivleriyle verdi (2019, 2020,
+2021, 2022 tam; 2023'ün temmuz–aralık'ı; 2020'nin mayısı arşivde yok). 53
+dosya, 5.7 bin satır. Hepsi CSV'ye çevrilip `liste` kipinden geçirildi; eski
+yılların not yazımı bugünkünden farklı, aracın tanımadığı on kadar kalıp
+çıktı. Hepsi yalnızca `aktar_access.py`'de; program değişmedi.
+
+**Eski/yeni karşılaştırması** (CLAUDE.md'nin kuralı): bütün CSV'lerin
+`liste` çıktısı eski ve yeni araçla karşılaştırıldı. **Daha önce aktarılmış
+ayların (2023 ocak–haziran, 2024 eylül–aralık, 2025 ocak–mayıs, 2026)
+okuması değişmedi** — onarım gerekmiyor. Farklar yalnızca yeni dosyalarda.
+
+## Yumurta notlarında
+
+- **GV bir olgunluk**: "(4*GV)", "(2M1-1GV)", "(M2-M2-M2-GV)". Tanınmıyor,
+  o yumurtalar tüpe hiç yazılmıyordu (uyarıyla; aralık 2022'nin bir
+  tedavisinde 14 yumurtanın 8'i). Programın maturasyon listesinde `gv` zaten
+  var. Access'in kutusu "İMMATÜR (MI+GV)" tek sayı: GV yumurta MI havuzundan
+  alınıyor, atanınca maturasyon kaydı `gv` yazılıyor — not kazanır (v6.161'in
+  kuralı). İkinci çalıştırmada yer değişmesin diye tüpteki yumurta önce kendi
+  ham olgunluğuyla eşleşiyor (`_ham_olgunluk()`): GV yeri GV yumurtaya, MI
+  yeri MI'ya.
+- **"(1MA)"** — "MORFOLOJİK ANOMALİLİ OOSİT ... (1MA)": olgunluğu yazmayan
+  yumurta. Olgunluk boş (uydurulmuyor), form "?" basar; kaynağın sayılarının
+  ötesindeki yumurtadan (`olcusuz` havuzu, v6.160).
+- **Parantezsiz ama sayılı yazım**: "2M2 VE 1M1 TOPLAM 3 OOSİT BİR TÜPTE",
+  "1 TÜPTE 5M2 1 M1 OOSİTİ", "6 ADET MII OOSİT 1 TÜPTE 3 MII VE 1 TÜPTE 3MII
+  ... 2 TÜPTE". Olgunluklar sayısıyla yazılı; toplamı notun sayısıyla
+  tutuyorsa (ya da not sayı vermiyorsa) yazılıyor — tek tüpte hepsi, tüp
+  sayısı öğe sayısına eşitse her öğe kendi tüpünde. "BİR TÜPTE" = 1 tüp;
+  "TOPLAM 3 OOSİT" de ADET gibi sayı. "15 ADET OOSİT 5'ERLİ ŞEKİLDE 3 TÜPTE":
+  eşit bölünmüş tüpler. Önceden "kaç örnek/tüp okunamadı" deyip hiç
+  yazılmıyordu.
+
+## Embriyo notlarında
+
+- **Morfoloji nitelemesi ayrı embriyo değil**: "(3AA(OVAL))", "(4AB-ELİPTİK)",
+  "(2BB(COLLAPSED))", "(3AB)(COLLAPSED)", "(4AA(HATCHİNG)-3BB)". 12 kayıtta
+  ölçüldü: notun ADET'i ve DONDURULAN hep nitelemesiz sayıyla tutuyor. Araç
+  nitelemeyi tanınmayan öğe sayıp o tüpe eksik yazıyordu; iç parantezde skoru
+  da ("3AA") atıyordu. Şimdi niteleme önündeki skorun yazımına ekleniyor
+  ("3AA (OVAL)") ve değerlendirmenin notuna gidiyor (`_NITELIK`). Tek başına
+  bir tüpü dolduruyorsa ("(COLLAPSED BLAST)") skorsuz embriyo.
+- **Virgül de ayırıcı**: "(8HG1,9HG2)", "(1CC,1CC)", "(4BB, 3AB)",
+  "(KAVİTASYON G3, KAVİTASYON G3, KAVİTASYON G3)". Tek öğe okunuyor, tüpe
+  eksik yazılıyordu (uyarıyla).
+- **"8HG1* 8HG2"**: yıldızlı skorun arkası okunmuyordu.
+- **"BİRŞELMEG2"** = birleşme G2 (harfler yer değiştirmiş).
+- **Kapanmamış son grup**: "1 TÜPTE (8HG1-6HG2-10HG3 OLACAK ŞEKİLDE" — ")"
+  hiç yok. v6.165 ")"si olan yazımları okuyordu; "("den sonra tire/virgülle
+  bağlı öğeler bütünüyle tanınıyorsa tüp.
+- **Dondurma birden çok cümlede**: "TOPLAM 3 ADET EMBRİYO DONDURULDU. 1 ADET
+  5. GÜN EMBRİYOSU 1 TÜPTE (3BC) ... SAKLANDI. 2 ADET 6. GÜN EMBRİYOSU 1 TÜPTE
+  (3AB-3BB) ... SAKLANDI." v6.168 ilk parantezli cümleyi alıyordu; tüpler
+  kaynağın sayısına ulaşmıyorsa sonraki dondurma cümleleri de okunuyor
+  (parantezli; stok ya da transfer anlatmayan), günü kendi cümlesinden
+  (5 ve 6). Grup toplama işlevi bunun için `_gruplari_topla()` oldu.
+
+## Düzeltme dosyası
+
+`tarih_duzeltme_2019_2023.txt` (depoda değil, hasta verisi): 30 tarih (ay
+rakamı yanlış; komşu kayıtlarla ve aynı hastanın öteki tedavileriyle
+gerekçelendirildi — FET'i OPU'sundan önce görünen üç kayıt dahil), iki kesik
+dosya numarası (aynı doğum tarihi ve eş adıyla başka dosyada tam numarası
+var), bir ikiz kayıt (`ATLA`). Kasım 2020'nin bir FET'inin tarihi tahmin
+(dosyada bunu söylüyor). Dosya numarası "99" olan hasta aralık 2024'te de
+"99" ile aktarılmıştı: kullanıcı programda numarayı 2019 aktarımından ÖNCE
+düzeltmeli, yoksa iki kart olur — `KOMUTLAR.md`'de.
+
+Kaynakta ICSI/2PN sayısı hiç olmayan ama transfer ya da dondurma yazan
+satırlar var; araç döllenmeyi uydurmuyor (v6.148), uyarı basıyor. Kullanıcı
+sayıyı biliyorsa düzeltme dosyasına `ICSI 0 <sayı>` satırı ekler.
+
+## Dosyası aktarılmış seyrek ay "aktarılmamış" sayılmıyor
+
+Ağustos 2019'un dosyasında 4, nisan 2020'ninkinde 1 kayıt var (pandemi).
+v6.164'ün eşiği (ayda 10 tedavi) bu ayları aktarılmamış sayıyor, o aylardan
+geçen her FET'i "ertelendi" bırakıyordu — sonsuza dek, çünkü gelecek dosya
+yok. Ölçü artık veriden: aktarılmış her etiketin tedavilerinin en çok düştüğü
+ay o dosyanın ayıdır (`_etiket_aylari()`), etiket adı okunmuyor (2026'nın
+etiketlerinde yıl yok). Dosyası aktarılmış ay, kaç tedavisi olursa olsun
+aktarılmış. **Mayıs 2020'nin dosyası hiç yok**: o aydan geçen FET'ler yine
+ertelenir — kullanıcıya soruldu (pandemi kapanışı mı, dosya mı eksik).
+
+## Aktarım hızı: ay sayımı artımlı
+
+Ay sorguları (`db.tedavi_tarihi()` her tedavi için alt sorgular) 3.000
+tedavide 14 saniye sürüyor ve aktarım sırasında her FET satırı için yeniden
+soruluyordu — satır başına bir tedavi eklendiğinden önbellek hep düşüyordu;
+43 satırlık ocak 2021 dosyası 10 dakika sürdü. `_yeni_tedaviler()`: yalnızca
+önbellekten sonra eklenen tedaviler sorulup sayıya ekleniyor; tedavi
+silinmişse baştan. Aynı dosya bir dakikanın altına indi.
+
+**Denendi:** 53 dosya test veritabanına (2023 ocak–haziran, 2024 eylül–aralık,
+2025 ocak–mayıs, 2026 mayıs üstüne) tarih sırasıyla aktarıldı: 5.494 tedavi,
+0 hata; bütün düzeltmeler uygulandı (kesik dosya numaraları 2019/2020'deki
+kartlarla birleşti, ikiz atlandı). Uyarılar yalnızca kaynağın kendi
+eksikleri: 13 satırda ICSI/2PN sayısı dondurulandan az, 4 satırda olgunluğu
+yazılmamış yumurta. 23 dosya ikinci kez aktarıldı, `dondurma` ve `bagla`
+kipleri çalıştırıldı: veritabanı farkı boş. GV tüpü formda "(4*GV)", iki
+cümlelik dondurma "(3BC) (3AB-3BB)" 5./6. gün, "5'ERLİ" üç tüp "(5*MII)".
+Hasta kartı, tedavi, vitrifikasyon, iki form, Excel çıktıları, Cryo Haritası,
+istatistik ve ay listesi 200. Aktarımın son dosyası 3.000 tedavilik
+veritabanında bir dakikanın altında.
+
 # v6.171 — Yumurtanın olgunluğu dondurmadan sonra girilmiş olsa da okunuyor
 
 Kullanıcı v6.169'dan sonra bildirdi: "Sadece bir tedavide sorun varmış"

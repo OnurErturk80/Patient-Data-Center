@@ -1036,8 +1036,12 @@ def _gizli_notu_coz(metin: str) -> tuple:
 #                            başlangıcı demek"): hücre sayısı yok, grade
 #                            yazılıysa o. v6.148-v6.156 arası skorsuz
 #                            embriyo diye yazılıyordu, goc_048 düzeltiyor
-_OOSIT_GRUBU = re.compile(r"^(\d+)\s*\*?\s*M\s*(2|II|1|I)$")
-_TEK_OOSIT = re.compile(r"^M\s*(2|II|1|I)$")        # "(M2)" -- yalnız yumurta notunda
+# GV de bir olgunluk (v6.172, 2020-2022): "(4*GV)", "(2M1-1GV)", "(M2-M2-GV)".
+# Tanınmıyordu, o yumurtalar tüpe hiç yazılmıyordu (uyarıyla). "NMA":
+# "MORFOLOJİK ANOMALİLİ OOSİT ... (1MA)" -- olgunluğu yazmıyor, boş kalıyor.
+_OOSIT_GRUBU = re.compile(r"^(\d+)\s*\*?\s*(?:M\s*(2|II|1|I)|GV)$")
+_TEK_OOSIT = re.compile(r"^(?:M\s*(2|II|1|I)|GV)$")   # "(M2)" -- yalnız yumurta notunda
+_ANOMALILI_OOSIT = re.compile(r"^(\d+)\s*\*?\s*MA$")  # yalnız yumurta notunda
 # Yumurta yazımının iki yazım hatası (v6.164, haziran/ekim 2025): "1*1"
 # ("M" düşmüş, 1 MI) ve "1M*1" (yıldız yer değiştirmiş, 1 MI). Yalnız yumurta
 # notunda; tanınmayınca o yumurta tüpe hiç yazılmıyordu, uyarısız.
@@ -1076,13 +1080,17 @@ def _skor_coz(parca: str, yumurta: bool = False):
     if not t:
         return None
     m = (_OOSIT_GRUBU.match(t)
-         or (_TEK_OOSIT.match(t) or _OOSIT_YAZIM_HATASI.match(t) if yumurta else None))
+         or (_TEK_OOSIT.match(t) or _OOSIT_YAZIM_HATASI.match(t)
+             or _ANOMALILI_OOSIT.match(t) if yumurta else None))
     if m:
         adet = int(m.group(1)) if m.re is not _TEK_OOSIT else 1
-        olgunluk = m.group(m.re.groups)
-        return {"tur": "oosit", "adet": adet,
-                "mat": "mii" if olgunluk in ("2", "II") else "mi",
-                "ham": parca.strip()}
+        if t.endswith("GV"):
+            mat = "gv"
+        elif t.endswith("MA"):
+            mat = None                  # olgunluk yazmıyor, uydurulmuyor
+        else:
+            mat = "mii" if m.group(m.re.groups) in ("2", "II") else "mi"
+        return {"tur": "oosit", "adet": adet, "mat": mat, "ham": parca.strip()}
     m = _CLEAVAGE.match(t)
     if m:
         return {"tur": "cleavage", "hucre": int(m.group(1)),
@@ -1105,7 +1113,8 @@ def _skor_coz(parca: str, yumurta: bool = False):
 def _yuva_coz(parca: str):
     """Hücre sayısı olmayan embriyo yazımı: "BB" / "BİRLEŞME G1" -- birleşme
     başlangıcı (v6.157, kullanıcının cevabı). Grade yazılıysa `skor`."""
-    m = _YUVA.match(_sade(parca))
+    # "BİRŞELMEG2" (v6.172, nisan 2019): harfler yer değiştirmiş.
+    m = _YUVA.match(_sade(parca).replace("BIRSELME", "BIRLESME"))
     if m:
         grade = next((g for g in m.groups() if g), None)
         return {"tur": "embriyo", "birlesme": True, "ham": parca.strip(),
@@ -1128,25 +1137,62 @@ def _bitisik_ayir(parca: str):
     m = _CLEAVAGE.match(t) or _BLAST.match(t)
     if not m:
         return None
-    kalan = t[m.end():].strip()
+    # "8HG1* 8HG2" (v6.172, kasım 2020): yıldız işareti skorun eki, arkası
+    # yine embriyo. Yıldız kalınca arkası hiç okunmuyor, tüpe bir eksik
+    # yazılıyordu.
+    yildiz = re.match(r"\s*\*+", t[m.end():])
+    kalan = t[m.end() + (yildiz.end() if yildiz else 0):].strip()
     if not re.match(r"\d", kalan):
         return None
-    ilk = _skor_coz(t[:m.end()])
+    ilk = _skor_coz(t[:m.end() + (yildiz.end() if yildiz else 0)])
     devam = _bitisik_ayir(kalan) or (
         [_skor_coz(kalan)] if _skor_coz(kalan) else None)
     return [ilk] + devam if ilk and devam else None
 
 
+# Embriyonun morfolojisini anlatan sözler (v6.172, 2020-2022): "(3AA(OVAL))",
+# "(4AB-ELİPTİK)", "(2BB(COLLAPSED))", "(3AB)(COLLAPSED)", "(4AA(HATCHİNG)-3BB)".
+# Ayrı bir embriyo değil, önündeki skorun niteliği: notun ADET'i ve DONDURULAN
+# hepsinde nitelemesiz sayıyla tutuyor (12 kayıtta ölçüldü). Skor tanınmadı
+# sanılıp o embriyo tüpe hiç yazılmıyordu -- iç parantezde skor da ("3AA")
+# atılıyordu. Niteleme skorun yazımıyla birlikte değerlendirmenin notuna
+# gidiyor. Tek başına bir tüpü dolduruyorsa ("(COLLAPSED BLAST)") skorsuz
+# embriyo. Yumurta notunda bu sözler geçmiyor.
+_NITELIK = re.compile(r"^(?:ELIPTIK|OVAL|COLLAPSED(?:\s+BLAST)?|HATCH\w*)$")
+
+
 def _grup_coz(grup: str, yumurta: bool) -> list:
-    """Bir parantez grubunun öğeleri. "-" öğeleri ayırıyor; bazı notlarda
-    boşluk ayırıyor ("(3M2 1M1)", "(BB 10HG3 8HG3 8HG2)") -- o zaman boşlukla
-    ayrılan her parça tek tek tanınmalı, yoksa parça tek öğe sayılıyor ("4BB
-    HATCHED" bir blastokist). Parçanın içinde "(" kalmışsa (kaynaktaki
-    "((4CB-1BB)" ya da "D3 (EMBRİYOSU (8HG1-10HG2)" gibi yazım hataları)
-    sonuncusundan sonrası alınıyor."""
+    """Bir parantez grubunun öğeleri. "-" öğeleri ayırıyor (virgül de,
+    v6.172: "(8HG1,9HG2)", "(4BB, 3AB)"); bazı notlarda boşluk ayırıyor
+    ("(3M2 1M1)", "(BB 10HG3 8HG3 8HG2)") -- o zaman boşlukla ayrılan her
+    parça tek tek tanınmalı, yoksa parça tek öğe sayılıyor ("4BB HATCHED" bir
+    blastokist). Parçanın içinde "(" kalmışsa (kaynaktaki "((4CB-1BB)" ya da
+    "D3 (EMBRİYOSU (8HG1-10HG2)" gibi yazım hataları) sonuncusundan sonrası
+    alınıyor; iç parantez bir niteleme ise ("3AA(OVAL)") skor kalıyor,
+    niteleme yazımına ekleniyor (`_NITELIK`). Yalnız nitelemeden oluşan grup
+    tek "nitelik" öğesi -- çağıran önceki tüpe bağlıyor."""
     ogeler = []
-    parcalar = [p.split("(")[-1].strip() for p in grup.split("-")]
-    parcalar = [p for p in parcalar if p]
+    parcalar = []
+    for p in re.split(r"[-,]", grup):
+        nitelik = None
+        if not yumurta:
+            ic = re.match(r"^(.*?)\(\s*([^()]*?)\s*\)?\s*$", p)
+            if ic and ic.group(1).strip() and _NITELIK.match(_sade(ic.group(2))):
+                p, nitelik = ic.group(1), ic.group(2).strip()
+        p = p.split("(")[-1].strip()
+        if p:
+            parcalar.append((p, nitelik))
+    if not yumurta:
+        # Tireyle bağlı niteleme ("4AB-ELİPTİK") önündeki skorun
+        birlesik = []
+        for p, n in parcalar:
+            if _NITELIK.match(_sade(p)) and birlesik and not birlesik[-1][1]:
+                birlesik[-1] = (birlesik[-1][0], p)
+            else:
+                birlesik.append((p, n))
+        parcalar = birlesik
+    nitelikler = dict(parcalar)
+    parcalar = [p for p, _n in parcalar]
     if yumurta:
         # "(4-M2)": sayı ile olgunluk tireyle ayrılmış (v6.164, ekim 2025) --
         # "4*M2". Ayrı okununca "4" tanınmıyor, tüpe 4 yerine 1 yumurta
@@ -1179,7 +1225,23 @@ def _grup_coz(grup: str, yumurta: bool) -> list:
             # eksik yazılıyordu, sessizce. Skor uydurulmuyor: skorsuz embriyo,
             # yazımı değerlendirmenin notunda -- ekrandan düzeltilebilir.
             coz = {"tur": "embriyo", "ham": parca, "okunamadi": True}
+        if not coz and not yumurta and _NITELIK.match(_sade(parca)):
+            coz = {"tur": "nitelik", "ham": parca}
+        if coz and nitelikler.get(parca):
+            coz["ham"] = f'{coz["ham"]} ({nitelikler[parca]})'
         ogeler.append(coz or {"tur": "taninmadi", "ham": parca})
+    if len(ogeler) == 1 and ogeler[0]["tur"] == "nitelik":
+        return ogeler                   # "(COLLAPSED)": çağıran karar veriyor
+    if any(o["tur"] == "nitelik" for o in ogeler):
+        # Ayırıcıyla yazılmış niteleme ("3BB, COLLAPSED"): önündeki öğenin
+        birlesik = []
+        for o in ogeler:
+            if o["tur"] == "nitelik" and birlesik:
+                birlesik[-1]["ham"] = f'{birlesik[-1]["ham"]} ({o["ham"]})'
+            else:
+                birlesik.append(o if o["tur"] != "nitelik"
+                                else {"tur": "embriyo", "ham": o["ham"], "okunamadi": True})
+        ogeler = birlesik
     return ogeler
 
 
@@ -1203,7 +1265,7 @@ def _son_gun(metin: str):
 def _tek_tup(cumle: str) -> bool:
     """Cümle tüp sayısını 1 diye yazıyor mu: "1 TÜPTE", "1TÜPTE", "TEK TÜPTE".
     Metin `_KATLA`'lı."""
-    return bool(re.search(r"(?<!\d)1\s*TUPTE|\bTEK\s+TUPTE", cumle))
+    return bool(re.search(r"(?<!\d)1\s*TUPTE|\b(?:TEK|BIR)\s+TUPTE", cumle))
 
 
 def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
@@ -1333,60 +1395,83 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     def _tam_okunan(metin):
         """Metin bütün öğeleri tanınan bir grupsa öğeleri, değilse None."""
         g = _grup_coz(metin, baglam)
-        return g if g and all(o["tur"] != "taninmadi" and not o.get("okunamadi")
-                              for o in g) else None
+        return g if g and all(o["tur"] not in ("taninmadi", "nitelik")
+                              and not o.get("okunamadi") for o in g) else None
 
     gruplar, grup_gunleri = [], []
-    onceki, son_isaret = 0, None
-    # Her ")" bir grubu kapatıyor; grup, önceki ")"den sonraki ilk "(" ile
-    # başlıyor (v6.164'e kadarki `\(([^)]*)\)` ile aynı gruplar). v6.165:
-    # parantezi eksik iki yazım da okunuyor -- aşağıda.
-    for sm in re.finditer(r"[^)]*\)", cumle_hizali):
-        parca = cumle_hizali[sm.start():sm.end() - 1]
-        if "(" in parca:
-            ac = sm.start() + parca.index("(")
-            metin = ham_cumle[ac + 1:sm.end() - 1]
-        else:
-            # Açılmamış grup (aralık 2025): "(4AA-4AA) 4AA-3AA) (1AA-3BC)",
-            # "24 ADET D3 EMBRİYOSU 5HG2-8HG1-6HG2-8HG1) (...". ")"den hemen
-            # önce tireyle bağlı skorlar -- bütün öğeleri tanınıyorsa bir
-            # tüp; tanınmıyorsa eskisi gibi alınmıyor.
-            y = re.search(r"[0-9A-Z*]+(?:\s*-\s*[0-9A-Z*]+)*\s*$", parca)
-            if not y or not _tam_okunan(ham_cumle[sm.start() + y.start():sm.end() - 1]):
+
+    def _gruplari_topla(cumle_hizali, ham_cumle):
+        """Bir cümlenin parantez gruplarını `gruplar`a ekler (günleriyle)."""
+        onceki, son_isaret = 0, None
+        # Her ")" bir grubu kapatıyor; grup, önceki ")"den sonraki ilk "(" ile
+        # başlıyor (v6.164'e kadarki `\(([^)]*)\)` ile aynı gruplar). v6.165:
+        # parantezi eksik iki yazım da okunuyor -- aşağıda.
+        for sm in re.finditer(r"[^)]*\)", cumle_hizali):
+            parca = cumle_hizali[sm.start():sm.end() - 1]
+            if "(" in parca:
+                ac = sm.start() + parca.index("(")
+                metin = ham_cumle[ac + 1:sm.end() - 1]
+            else:
+                # Açılmamış grup (aralık 2025): "(4AA-4AA) 4AA-3AA) (1AA-3BC)",
+                # "24 ADET D3 EMBRİYOSU 5HG2-8HG1-6HG2-8HG1) (...". ")"den hemen
+                # önce tireyle bağlı skorlar -- bütün öğeleri tanınıyorsa bir
+                # tüp; tanınmıyorsa eskisi gibi alınmıyor.
+                y = re.search(r"[0-9A-Z*]+(?:\s*-\s*[0-9A-Z*]+)*\s*$", parca)
+                if not y or not _tam_okunan(ham_cumle[sm.start() + y.start():sm.end() - 1]):
+                    continue
+                ac = sm.start() + y.start()
+                metin = ham_cumle[ac:sm.end() - 1]
+            son_isaret = _son_gun(cumle_hizali[onceki:ac]) or son_isaret
+            onceki = sm.end()
+            # Kapanmamış grup (kasım 2025): "(3AB) (3BB (3BC) (3BA)" -- "3BB" ayrı
+            # bir tüp, ")"si unutulmuş. Önceki parça boşsa ("((4CB-1BB)"), skor
+            # değilse ("D3 (EMBRİYOSU (8HG1-10HG2)") ya da tireyle bitiyorsa
+            # (aynı grubun devamı) `_grup_coz()` eskisi gibi son "("den sonrasını
+            # alıyor.
+            parcalar = metin.split("(")
+            kes = 0
+            while kes < len(parcalar) - 1:
+                onu = parcalar[kes]
+                g = (_tam_okunan(onu) if onu.strip() and not onu.rstrip().endswith("-")
+                     else None)
+                if not g:
+                    break
+                gruplar.append(g)
+                grup_gunleri.append(son_isaret)
+                kes += 1
+            metin = "(".join(parcalar[kes:])
+            if re.fullmatch(r"REFREEZ\w*", _sade(metin)):
+                continue                    # "(REFREEZE)" etiket, tüp değil
+            if re.search(r"VIABIL|^\s*%\s*\d", _sade(metin)):
+                continue                    # "(%80 VİABİLİTE)" çözmenin notu (v6.168)
+            if (baglam and _TEK_OOSIT.match(_sade(metin))
+                    and cumle_hizali[:ac].rstrip().endswith("ADET")):
                 continue
-            ac = sm.start() + y.start()
-            metin = ham_cumle[ac:sm.end() - 1]
-        son_isaret = _son_gun(cumle_hizali[onceki:ac]) or son_isaret
-        onceki = sm.end()
-        # Kapanmamış grup (kasım 2025): "(3AB) (3BB (3BC) (3BA)" -- "3BB" ayrı
-        # bir tüp, ")"si unutulmuş. Önceki parça boşsa ("((4CB-1BB)"), skor
-        # değilse ("D3 (EMBRİYOSU (8HG1-10HG2)") ya da tireyle bitiyorsa
-        # (aynı grubun devamı) `_grup_coz()` eskisi gibi son "("den sonrasını
-        # alıyor.
-        parcalar = metin.split("(")
-        kes = 0
-        while kes < len(parcalar) - 1:
-            onu = parcalar[kes]
-            g = (_tam_okunan(onu) if onu.strip() and not onu.rstrip().endswith("-")
-                 else None)
-            if not g:
-                break
-            gruplar.append(g)
-            grup_gunleri.append(son_isaret)
-            kes += 1
-        metin = "(".join(parcalar[kes:])
-        if re.fullmatch(r"REFREEZ\w*", _sade(metin)):
-            continue                    # "(REFREEZE)" etiket, tüp değil
-        if re.search(r"VIABIL|^\s*%\s*\d", _sade(metin)):
-            continue                    # "(%80 VİABİLİTE)" çözmenin notu (v6.168)
-        if (baglam and _TEK_OOSIT.match(_sade(metin))
-                and cumle_hizali[:ac].rstrip().endswith("ADET")):
-            continue
-        g = _grup_coz(metin, baglam)
-        if g:
-            gruplar.append(g)
-            grup_gunleri.append(son_isaret)
-    adet = _ilk(r"(\d+)\s*ADET")
+            g = _grup_coz(metin, baglam)
+            if g and g[0]["tur"] == "nitelik":
+                # "(3AB)(COLLAPSED)" (v6.172): önceki tüpün son embriyosunun
+                # niteliği; önünde tüp yoksa ("(COLLAPSED BLAST)") skorsuz embriyo.
+                if gruplar and gruplar[-1][-1]["tur"] in ("blast", "cleavage", "embriyo"):
+                    gruplar[-1][-1]["ham"] = f'{gruplar[-1][-1]["ham"]} ({g[0]["ham"]})'
+                    continue
+                g = [{"tur": "embriyo", "ham": g[0]["ham"], "okunamadi": True}]
+            if g:
+                gruplar.append(g)
+                grup_gunleri.append(son_isaret)
+        # Kapanmamış SON grup (v6.172, kasım 2022): "1 TÜPTE (8HG1-6HG2-10HG3
+        # OLACAK ŞEKİLDE DONDURULARAK" -- ")" hiç yok, cümle fiile kadar. "("den
+        # sonra tire/virgülle bağlı öğeler bütünüyle tanınıyorsa bir tüp.
+        kalan = cumle_hizali[onceki:]
+        ac = kalan.find("(")
+        if ac >= 0:
+            ic = re.match(r"\(\s*([0-9A-Z*]+(?:\s*[-,]\s*[0-9A-Z*]+)*)", kalan[ac:])
+            g = ic and _tam_okunan(ham_cumle[onceki + ac + 1:onceki + ac + ic.end()])
+            if g:
+                gruplar.append(g)
+                grup_gunleri.append(_son_gun(kalan[:ac]) or son_isaret)
+
+    _gruplari_topla(cumle_hizali, ham_cumle)
+    adet = _ilk(r"(\d+)\s*ADET") or _ilk(r"TOPLAM\s+(\d+)\s+(?:OOSIT|EMBRIYO)")
     # Aynı tüp iki kez yazılmış (v6.164, ekim 2025: "19 ADET D3 EMBRİYOSU"
     # ve DONDURULAN 19, ama beş grup 24 embriyo tutuyor; ikinci ve dördüncü
     # grup birebir aynı -- kopyala-yapıştır). İki bağımsız sayı (notun ADET'i
@@ -1407,6 +1492,36 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
                 break
     ogeler = [o for g in gruplar for o in g]      # düz liste
     farkli_gun = not baglam and len({g for g in grup_gunleri if g}) > 1
+    if not gruplar and baglam:
+        # Parantezsiz ama sayılı yumurta yazımı (v6.172, 2019): "2M2 VE 1M1
+        # TOPLAM 3 OOSİT BİR TÜPTE ...", "1 TÜPTE 5M2 1 M1 OOSİTİ ..." -- tek
+        # tüp, olgunluklar sayısıyla yazılı; toplamı notun sayısıyla tutuyorsa
+        # (ya da not sayı vermiyorsa) hepsi o tüpte. "15 ADET OOSİT 5'ERLİ
+        # ŞEKİLDE 3 TÜPTE": eşit bölünmüş tüpler. Önceden ikisi de "kaç
+        # örnek/tüp okunamadı" diye hiç yazılmıyordu.
+        sayili = [(int(x.group(1)), "mii" if x.group(2) in ("2", "II") else "mi",
+                   x.group(0).strip())
+                  for x in re.finditer(r"(?<![A-Z0-9])(\d+)\s*\*?\s*M\s*(2|II|1|I)\b", cumle)]
+        erli = re.search(r"(\d+)\s*'?\s*ER(?:LI)?\b", cumle)
+        tup = _ilk(r"(\d+)\s*TUPTE")
+        en_cok_tup = max((int(x) for x in re.findall(r"(\d+)\s*TUPTE", cumle)), default=0)
+        if (sayili and (_tek_tup(cumle) or en_cok_tup == len(sayili))
+                and (adet is None or sum(a for a, _m, _h in sayili) == adet)):
+            ogeler_ = [{"tur": "oosit", "adet": a, "mat": mt, "ham": h}
+                       for a, mt, h in sayili]
+            if en_cok_tup == len(sayili) and en_cok_tup > 1:
+                # "6 ADET MII OOSİT 1 TÜPTE 3 MII VE 1 TÜPTE 3MII ... 2 TÜPTE"
+                gruplar = [[o] for o in ogeler_]
+            else:
+                gruplar = [ogeler_]
+            grup_gunleri = [None] * len(gruplar)
+        elif erli and tup and adet and int(erli.group(1)) * tup == adet:
+            k = int(erli.group(1))
+            mat = "mi" if re.search(r"\bM\s*(1|I)\b", cumle) else "mii"
+            gruplar = [[{"tur": "oosit", "adet": k, "mat": mat,
+                         "ham": ham_cumle.strip()}] for _ in range(tup)]
+            grup_gunleri = [None] * tup
+        ogeler = [o for g in gruplar for o in g]
     if not gruplar and (adet == 1 or (adet is None and fazla == 1)):
         # Parantezsiz tek örnek (v6.148): "1 ADET M2 OOSİT DONDURULARAK
         # SAKLANDI" -- bir örnek ancak bir tüpte olabilir. FET'te sayı hiç
@@ -1457,6 +1572,31 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
     # 15 embriyo -- büyüğü almak tutan bir tüpe "1 embriyo eksik" dedirtiyordu.
     # Günü karışık notta ADET ilk günün sayısı, DONDURULAN hepsi: yine doğru.
     beklenen = (adet or 0) if oosit_mi else (dondurulan or adet or 0)
+    # Dondurma birden çok cümleye bölünmüş (v6.172, ağustos 2022): "TOPLAM 3
+    # ADET EMBRİYO DONDURULDU. 1 ADET 5. GÜN EMBRİYOSU 1 TÜPTE (3BC) ...
+    # SAKLANDI. 2 ADET 6. GÜN EMBRİYOSU 1 TÜPTE (3AB-3BB) ... SAKLANDI."
+    # Yalnızca ilk parantezli cümle okunuyordu, üçüncü cümlenin tüpü hiç
+    # yazılmıyordu (uyarıyla). Tüpler kaynağın sayısına ulaşmıyorsa sonraki
+    # dondurma cümleleri de okunuyor -- parantezli, stok ("GERİYE", "KALDI")
+    # ya da transfer anlatmayan; günü kendi cümlesinden.
+    if gruplar and beklenen > okunan:
+        for aday in _DONDURMA_FIILI.finditer(hizali, son):
+            if beklenen <= okunan:
+                break
+            c_bas = _cumle_bas(aday)
+            c_son = re.search(r"(?<!\d)\.(?!\d)", hizali[aday.end():])
+            c_son = aday.end() + c_son.start() if c_son else len(hizali)
+            c_tum = hizali[c_bas:c_son]
+            if ("(" not in c_tum or re.search(r"GERI[DY]E|KALDI|KALMIS|TRANSFER|REFREEZ",
+                                              c_tum)):
+                continue
+            onceki_n = len(gruplar)
+            _gruplari_topla(hizali[c_bas:aday.start()], ham[c_bas:aday.start()])
+            if len(gruplar) == onceki_n:
+                continue
+            ogeler = [o for g in gruplar for o in g]
+            okunan = sum(o.get("adet", 1) if o["tur"] == "oosit" else 1 for o in ogeler)
+            farkli_gun = not baglam and len({g for g in grup_gunleri if g}) > 1
     # Grup grup tür (v6.167, haziran 2024): bir Yumurta Dondurma notu "1 ADET
     # 5,GÜN EMBRİYOSU 1 TÜPTE(1CB) GERİYE KALAN 16 ADET OOSİT 1 TÜPTE(6*M2)
     # ..." -- beş yumurtaya ICSI yapılmış, blastokisti ayrı tüpte. Not bütün
@@ -1533,7 +1673,7 @@ def olgunlugu_nottan_duzelt(satirlar) -> None:
             continue
         oositler = [o for o in coz["ogeler"] if o["tur"] == "oosit"]
         m2 = sum(o["adet"] for o in oositler if o["mat"] == "mii")
-        m1 = sum(o["adet"] for o in oositler if o["mat"] != "mii")
+        m1 = sum(o["adet"] for o in oositler if o["mat"] in ("mi", "gv"))
         once = (r["mii"], r["immatur"])
         fark = min(m2 - r["mii"], r["immatur"])
         if fark > 0:
@@ -2180,6 +2320,15 @@ def _olgunluk(b, sid, tedavi):
     return "mii" if mat == "mii" else ("mi" if mat in ("mi", "gv") else None)
 
 
+def _ham_olgunluk(b, sid, tedavi):
+    """Yumurtanın bu tedavideki olgunluğu, olduğu gibi ('mii'/'mi'/'gv'/...)."""
+    o = b.execute("SELECT o.mat_deger FROM olay o WHERE o.specimen_id=? "
+                  "AND o.tip='maturasyon_kontrolu' AND o.iptal_mi=0 "
+                  f"AND {_db.bu_tedavide(tedavi, 'o')} "
+                  "ORDER BY o.id DESC LIMIT 1", (sid,)).fetchone()
+    return o[0] if o else None
+
+
 def _aktarim_skorunu_iptal(b, kid, sid, tedavi, sebep):
     """Nottan yazılmış (`_KAYNAK_YAZIMI`) değerlendirmeleri iptal eder --
     yalnızca bu tedavidekileri ve yalnızca aktarımın kendi yazdıklarını;
@@ -2302,7 +2451,9 @@ def _yerler(grup, oosit_mi) -> list:
     for o in grup:
         if oosit_mi:
             if o["tur"] == "oosit":
-                yerler += [(o["mat"], o)] * o["adet"]
+                # GV yumurta MI havuzundan (Access ikisini tek kutuda sayıyor);
+                # atanınca maturasyonu 'gv' yazılıyor (`_dondurma_kayitlari()`).
+                yerler += [("mi" if o["mat"] == "gv" else o["mat"], o)] * o["adet"]
         elif o["tur"] in ("blast", "cleavage", "embriyo"):
             yerler.append((_oge_anahtari(o), o))
     return yerler
@@ -2474,9 +2625,19 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
                        for sid in tupteki}
         atanan = [None] * len(yerler)
         bosta = list(tupteki)
+        if g_oosit:
+            # 0) GV yeri tüpteki GV yumurtaya, MI yeri MI'ya (v6.172): ikisi
+            #    de MI havuzundan geliyor, ikinci çalıştırmada yer değişmesin.
+            ham_mat = {sid: _ham_olgunluk(b, sid, cycle_id) for sid in tupteki}
+            for j, (a, o) in enumerate(yerler):
+                if o["mat"] in ("mi", "gv"):
+                    sid = next((s for s in bosta if ham_mat[s] == o["mat"]), None)
+                    if sid:
+                        atanan[j] = sid
+                        bosta.remove(sid)
         # 1) tüpteki örnek kendi skoruyla (yumurtada olgunluğuyla) yerine
         for j, (a, _o) in enumerate(yerler):
-            if a is None:
+            if a is None or atanan[j]:
                 continue
             sid = next((s for s in bosta if anahtar[s] == a), None)
             if sid:
@@ -2545,6 +2706,14 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
             _durum_yaz(b, sid, _onceki_durum(b, sid, cycle_id))
 
         if g_oosit:
+            # Not GV diyor, kayıt MI (Access'in kutusu MI+GV): not kazanır.
+            for (a, o), sid in zip(yerler, atanan):
+                if (sid and o["mat"] == "gv" and _ham_olgunluk(b, sid, cycle_id) == "mi"
+                        and (not yalnizca_ekle or sid in eklenen)):
+                    b.execute("UPDATE olay SET mat_deger='gv' WHERE specimen_id=? "
+                              "AND tip='maturasyon_kontrolu' AND iptal_mi=0 "
+                              f"AND mat_deger='mi' AND {_db.bu_tedavide(cycle_id, 'olay')}",
+                              (sid,))
             continue
         g_gun = grup_gunleri[i]
         for (a, o), sid in zip(yerler, atanan):
@@ -3075,24 +3244,79 @@ def _aktarilmamis_aylar(b, bas, son) -> list:
     if not aylar:
         return []
     sayi = _tedavi_aylari(b)
-    return [ay for ay in aylar if sayi.get(ay, 0) < _AY_EN_AZ_TEDAVI]
+    # Dosyası aktarılmış ay, kaç tedavisi olursa olsun aktarılmış (v6.172):
+    # ağustos 2019'un dosyasında 4, nisan 2020'ninkinde 1 kayıt var
+    # (pandemi) -- eşik onları "aktarılmamış" sayıp o aylardan geçen her
+    # FET'i sonsuza dek erteliyordu. Ölçü veriden: her etiketin tedavilerinin
+    # en çok düştüğü ay (`_etiket_aylari()`), etiket adı okunmuyor.
+    dosyali = _etiket_aylari(b)
+    return [ay for ay in aylar
+            if sayi.get(ay, 0) < _AY_EN_AZ_TEDAVI and ay not in dosyali]
 
 
 _AY_EN_AZ_TEDAVI = 10
-_AY_ONBELLEK = {"anahtar": None, "aylar": {}}
+_AY_ONBELLEK = {"sayi": 0, "en_buyuk": 0, "aylar": {}}
+
+
+def _yeni_tedaviler(b, onbellek):
+    """Önbellek kurulduğundan beri eklenen tedavilerin kimlik aralığı, ya da
+    önbellek baştan kurulacaksa None (v6.172).
+
+    Ay sorguları (`db.tedavi_tarihi()` her tedavi için alt sorgular) 3.000
+    tedavide 14 saniye sürüyor ve aktarım sırasında HER FET satırı için
+    yeniden soruluyordu -- satır başına bir tedavi eklendiği için önbellek
+    hep düşüyordu; 43 satırlık bir dosya 10 dakika sürdü. Yalnızca yeni
+    eklenen tedaviler sorulur, sayıya eklenir. Tedavi silinmişse (sayı
+    tutmuyor) baştan."""
+    sayi, en_buyuk = b.execute("SELECT COUNT(*), MAX(id) FROM cycle").fetchone()
+    en_buyuk = en_buyuk or 0
+    if sayi == onbellek["sayi"] and en_buyuk == onbellek["en_buyuk"]:
+        return ()
+    yeni = b.execute("SELECT COUNT(*) FROM cycle WHERE id > ?",
+                     (onbellek["en_buyuk"],)).fetchone()[0]
+    if onbellek["sayi"] + yeni != sayi:
+        onbellek["aylar"] = None
+        onbellek["en_buyuk"] = 0
+    onbellek["sayi"], eski = sayi, onbellek["en_buyuk"]
+    onbellek["en_buyuk"] = en_buyuk
+    return (eski,)
 
 
 def _tedavi_aylari(b) -> dict:
-    """{"2025-06": tedavi sayısı, ...}. Sorgu yarım saniye sürüyor ve her
-    FET için soruluyor; tedavi eklenmedikçe (sayı ve en büyük kimlik aynı)
-    öncekini döndürüyor."""
-    anahtar = tuple(b.execute("SELECT COUNT(*), MAX(id) FROM cycle").fetchone())
-    if _AY_ONBELLEK["anahtar"] != anahtar:
-        _AY_ONBELLEK["aylar"] = {ay: n for ay, n in b.execute(
-            f"SELECT substr({_db.tedavi_tarihi(b, 'c')}, 1, 7), COUNT(*) FROM cycle c "
-            "WHERE c.lab_id=? GROUP BY 1", (_db.LAB_ID,))}
-        _AY_ONBELLEK["anahtar"] = anahtar
-    return _AY_ONBELLEK["aylar"]
+    """{"2025-06": tedavi sayısı, ...}. Sorgu ağır ve her FET için soruluyor;
+    yalnızca yeni eklenen tedaviler soruluyor (`_yeni_tedaviler()`)."""
+    yeni = _yeni_tedaviler(b, _AY_ONBELLEK)
+    if yeni:
+        aylar = _AY_ONBELLEK["aylar"] or {}
+        for ay, n in b.execute(
+                f"SELECT substr({_db.tedavi_tarihi(b, 'c')}, 1, 7), COUNT(*) FROM cycle c "
+                "WHERE c.lab_id=? AND c.id > ? GROUP BY 1", (_db.LAB_ID, yeni[0])):
+            aylar[ay] = aylar.get(ay, 0) + n
+        _AY_ONBELLEK["aylar"] = aylar
+    return _AY_ONBELLEK["aylar"] or {}
+
+
+_ETIKET_ONBELLEK = {"sayi": 0, "en_buyuk": 0, "aylar": None}
+
+
+def _etiket_aylari(b) -> set:
+    """Aktarılmış her Access dosyasının (işaretteki etiketin) ayı: o etiketi
+    taşıyan tedavilerin en çok düştüğü ay, "2020-04" biçiminde (v6.172).
+    Etiketsiz işaret (ağustos 2026) da bir dosya. Önbellek `_tedavi_aylari()`
+    gibi artımlı."""
+    yeni = _yeni_tedaviler(b, _ETIKET_ONBELLEK)
+    if yeni:
+        sayac = _ETIKET_ONBELLEK["aylar"] or {}
+        for not_, ay in b.execute(
+                f"SELECT c.protokol_notu, substr({_db.tedavi_tarihi(b, 'c')}, 1, 7) "
+                "FROM cycle c WHERE c.lab_id=? AND c.id > ? "
+                "AND c.protokol_notu LIKE '%[Access%'", (_db.LAB_ID, yeni[0])):
+            m = re.search(r"\[Access kayd\S*\s*([A-Z0-9]*)\s*#", not_ or "")
+            if m and ay:
+                sayac.setdefault(m.group(1), {}).setdefault(ay, 0)
+                sayac[m.group(1)][ay] += 1
+        _ETIKET_ONBELLEK["aylar"] = sayac
+    return {max(a, key=a.get) for a in (_ETIKET_ONBELLEK["aylar"] or {}).values()}
 
 
 def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
