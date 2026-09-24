@@ -552,8 +552,16 @@ def _gg(iso: str) -> str:
 # İŞLEME ALINAN "94"):
 #
 #     MAYIS2024#30    ICSI      94           9
-_DUZELTILEBILIR = {"OPU": "opu", "TRANSFER": "transfer", "ICSI": "islenen"}
-_SAYI_ALANI = ("ICSI",)
+#
+# ve yer tutucu yazılmış dosya numarası (v6.170; haziran 2023'te bir FET'in
+# DOSYA NO'su "41", kaydın kendi sıra numarası). Doğru numarayı kullanıcı
+# söylüyor -- araç hastayı adından ya da doğum tarihinden eşleştirmiyor
+# (v6.125'in kuralı), yanlış hasta bu işin en pahalı hatası:
+#
+#     HAZIRAN2023#41  DOSYA     41           99922080
+_DUZELTILEBILIR = {"OPU": "opu", "TRANSFER": "transfer", "ICSI": "islenen",
+                   "DOSYA": "dosya_no"}
+_SAYI_ALANI = ("ICSI", "DOSYA")
 
 
 def duzeltmeleri_oku(yol: str) -> list:
@@ -578,6 +586,7 @@ def duzeltmeleri_oku(yol: str) -> list:
                 sys.exit(f"{yol}:{no}: anlaşılmadı -- beklenen: "
                          "KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih\n"
                          "ya da: KAYNAK#KAYIT  ICSI  eski-sayi  yeni-sayi\n"
+                         "ya da: KAYNAK#KAYIT  DOSYA  eski-no  yeni-no\n"
                          "ya da: KAYNAK#KAYIT  ATLA")
             kaynak, kimlik = parca[0].split("#", 1)
             eski, yeni = ((int(parca[2]), int(parca[3])) if sayi
@@ -1658,6 +1667,10 @@ def _not_kur(r: dict) -> str:
         p.append(f'Tarih kaynak kayıtta yok, yaklaşık: Access\'teki bir önceki '
                  f'kaydın tarihi ({_gg(r["tarih"])}).')
     for alan, eski, yeni in r["duzeltme"]:
+        if alan == "DOSYA":
+            p.append(f"Dosya numarası Access'te {eski} yazıyordu, {yeni} "
+                     "olarak düzeltildi.")
+            continue
         if alan in _SAYI_ALANI:
             p.append(f"{alan} sayısı Access'te {eski} yazıyordu, {yeni} olarak "
                      "düzeltildi.")
@@ -4053,7 +4066,8 @@ def main():
                  "               ornek: python3 aktar_access.py kaynak=TEMMUZ temmuz.csv\n"
                  "  duzelt=<dosya>  yazim hatali tarihlerin duzeltmeleri (satir:\n"
                  "               KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih)\n"
-                 "               ve aktarilmayacak kayitlar (KAYNAK#KAYIT  ATLA)")
+                 "               ve aktarilmayacak kayitlar (KAYNAK#KAYIT  ATLA),\n"
+                 "               yer tutucu dosya no (KAYNAK#KAYIT  DOSYA  eski  yeni)")
     # Dosya yoksa Python'un hata dökümü yerine ne olduğunu söyle: Windows
     # uzantıyı gizlediği için "temmuz" görünen dosya "temmuz_2026.csv" ya da
     # "temmuz.csv.csv" olabiliyor (kullanıcının başına geldi, v6.150).
