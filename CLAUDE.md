@@ -1916,6 +1916,15 @@ kuralının aynısı: **yalnızca kullanıcının gördüğü Türkçe metin** d
 > Kullanıcının veritabanında kalanları `eski_cryo_temizle.py` siliyor —
 > kod geri alındı ama `eski_cryo` tablosu ve `konum` satırları kalıyor ve
 > bağ kurulmuş bir hastanın kalıcı silinmesi FOREIGN KEY hatası veriyor.
+>
+> **Yeniden gündemde (kullanıcı, 2026-09-24):** "cryo haritamı excel olarak
+> vericem. Bütün hasta kayıtlarını aktardıktan sonra onunla eşleştirme yapıp
+> cryo haritalar bölümünü baştan yaratacağız." Sıra: önce bütün Access
+> ayları, sonra Excel. Bu sefer eşleşecek şey yalnızca isim değil,
+> **aktarılmış tüp**: hasta (dosya no, programda) + dondurma tarihi +
+> içerik. Excel'de dosya no yoktu (v6.127). Başlamadan önce: v6.127/v6.128'i
+> oku, kullanıcıya geçen sefer neyin istediği gibi olmadığını sor,
+> `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığını sor.
 
 **Program öncesi kayıtlar `aktar_access.py` ile giriyor** (v6.130,
 kullanıcının isteği). Ağustos 2026 tedavileri Access'te tutuluyordu;
