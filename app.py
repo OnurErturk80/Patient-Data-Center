@@ -337,16 +337,21 @@ def _ornek_adi(asama, cycle_tipi=None):
     return metinler.t(anahtar)
 
 
-def _icerik_sayisi(adet, cycle_tipi=None):
+def _icerik_sayisi(adet, cycle_tipi=None, icerik=None):
     """Taşıyıcının içindekiler: "4 yumurta" / "4 embriyo" (v6.133).
 
     Kullanıcının isteği: "Yumurta donduruluyorsa Yumurta, Embriyo
     donduruluyorsa Embriyo yazsın." Daha önce her taşıyıcı "n embriyo"
     diyordu; yumurta dondurma kaydı programa ilk kez v6.132'de girince
     ortaya çıktı.
+
+    `icerik` ('yumurta'/'embriyo', `icerik_sql()`) verilirse o kazanır --
+    bir tüpün içeriği için hep onu ver (v6.167): tipe bakan cevap, IVF/ICSI'de
+    dondurulmuş aktarılmış yumurtaya "embriyo" der. `cycle_tipi` o tipte
+    dondurulan şeyi soranlar için kalıyor.
     """
-    return metinler.say("n_yumurta" if _yumurta_mi(cycle_tipi) else "n_embriyo",
-                        adet)
+    yumurta = (icerik == "yumurta") if icerik else _yumurta_mi(cycle_tipi)
+    return metinler.say("n_yumurta" if yumurta else "n_embriyo", adet)
 
 
 def _ornek_kodu(specimen_id):
@@ -6134,36 +6139,41 @@ def konum_bul_veya_olustur(seviyeler):
          temiz[3] or None, tam_yol))
 
 
-def icerik_tipi_sql() -> str:
-    """Taşıyıcının içinde ne olduğunu (yumurta mı embriyo mu) söyleyen alt sorgu.
+def icerik_sql() -> str:
+    """Taşıyıcının içinde ne olduğu: 'yumurta' ya da 'embriyo' -- alt sorgu,
+    sütun adı `icerik` (v6.167; v6.133'ten beri `icerik_tipi` adıyla
+    dondurmanın tedavisinin TİPİNİ veriyordu, soran her yer onu
+    `yumurta_mi()`'ye soruyordu).
 
     Bir taşıyıcı tek bir tedavinin örneklerini taşıyor -- hem ekrandaki
     vitrifikasyon kaydı tek seferde tek cycle'dan seçim yapıyor hem de
     `aktar_access.py` tüp başına tek grup yazıyor -- o yüzden ilk satır yeter.
-    Taşıyıcı üç sorguda da `t` diye adlandığı için metin olarak paylaşılıyor.
+    Taşıyıcı dört sorguda da `t` diye adlandığı için metin olarak paylaşılıyor.
 
-    **Ölçü dondurmanın YAPILDIĞI tedavinin tipi** (v6.147, `db.vit_tedavisi()`),
-    örneğin kendi tedavisininki değil: Yumurta Çözme'de çözülen yumurtadan
-    gelişip dondurulan embriyonun kendi tedavisi Yumurta Dondurma -- eski ölçü
-    tüpe "yumurta" derdi. Fonksiyon, sabit değil: göç çalışmamış (ya da eski
+    **Ölçü içerik, tip değil** (`db.dondurulan_yumurta_sql()`): Access'ten
+    aktarılan IVF/ICSI tedavisinde ICSI'ye alınmayan yumurtalar dondurulmuş
+    olabiliyor -- tipe bakan ölçü o tüpe "4 embriyo" diyor ve çözerken FET
+    öneriyordu. v6.147'nin kuralı (dondurmanın YAPILDIĞI tedavi: Yumurta
+    Çözme'de çözülen yumurtadan gelişen embriyonun tüpü embriyo) içeriğin
+    ölçüsünde zaten var. Fonksiyon, sabit değil: göç çalışmamış (ya da eski
     bir yedekten geri yüklenmiş) veritabanında `vit_cycle_id` yok, cevap her
     istekte soruluyor (tuzak #15).
     """
-    return ("(SELECT c9.cycle_tipi FROM olay o9 "
-            f" JOIN cycle c9 ON c9.id = {db.vit_tedavisi('o9')} "
+    return (f"(SELECT CASE {db.dondurulan_yumurta_sql('o9')} WHEN 1 "
+            "THEN 'yumurta' ELSE 'embriyo' END FROM olay o9 "
             " WHERE o9.vit_tasiyici_id = t.id AND o9.tip = 'vitrifikasyon' "
-            " AND o9.iptal_mi = 0 LIMIT 1) AS icerik_tipi")
+            " AND o9.iptal_mi = 0 ORDER BY o9.id LIMIT 1) AS icerik")
 
 
 def tasiyici_icerigi(tasiyici_id):
     return db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.durum, o.zaman, o.id AS olay_id, "
         "  c.id AS cycle_id, c.cycle_no, c.cycle_tipi, "
-        # İçindeki yumurta mı embriyo mu: dondurmanın YAPILDIĞI tedavinin tipi
-        # (v6.147, `icerik_tipi_sql()`'in gerekçesi) -- `cycle_tipi` örneğin
-        # kendi tedavisi, çözülen yumurtadan gelişen embriyoda Yumurta Dondurma.
-        f"  (SELECT cv.cycle_tipi FROM cycle cv WHERE cv.id = {db.vit_tedavisi('o')}) "
-        "  AS icerik_tipi, "
+        # İçindeki yumurta mı embriyo mu (v6.167, `icerik_sql()`'in
+        # gerekçesi): içerikten -- `cycle_tipi` örneğin kendi tedavisi, onun
+        # tipi çözülen yumurtadan gelişen embriyoda Yumurta Dondurma der.
+        f"  CASE {db.dondurulan_yumurta_sql('o')} WHEN 1 THEN 'yumurta' "
+        "  ELSE 'embriyo' END AS icerik, "
         "  h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
         # Skor, dondurmanın YAPILDIĞI tedavideki değerlendirme (v6.148,
         # `db.bu_tedavinin_skoru()`): örnek sonra bir FET'te yeniden
@@ -6250,7 +6260,7 @@ def etiket_ara(ara: str) -> list:
         "  t.vitrifikasyon_zamani, k.tam_yol, "
         "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id = t.id "
         "   AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0) AS adet, "
-        + icerik_tipi_sql() + ", "
+        + icerik_sql() + ", "
         "  (SELECT sd.id FROM sperm_dondurma sd WHERE sd.tasiyici_id = t.id "
         "   AND sd.iptal_mi = 0 ORDER BY sd.id LIMIT 1) AS sperm_id, "
         + _ETIKET_HASTA.format(alan="h8.dosya_no", ad="dosya_no") + ", "
@@ -6589,7 +6599,7 @@ def cryo_harita(request: Request, ara: str = ""):
             "  k.tam_yol, t.vitrifikasyon_zamani, "
             "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
             "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
-            + icerik_tipi_sql() +
+            + icerik_sql() +
             " FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
             "LEFT JOIN olay o ON o.vit_tasiyici_id=t.id AND o.iptal_mi=0 "
             "LEFT JOIN specimen s ON s.id=o.specimen_id "
@@ -6613,7 +6623,7 @@ def cryo_harita(request: Request, ara: str = ""):
             "  t.vitrifikasyon_zamani, "
             "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
             "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
-            + icerik_tipi_sql() +
+            + icerik_sql() +
             " FROM tasiyici t LEFT JOIN konum k ON k.id=t.konum_id "
             "WHERE t.lab_id=? AND t.durum='dolu' AND t.kategori='embriyo' "
             "ORDER BY k.tam_yol, t.etiket",
@@ -6621,17 +6631,19 @@ def cryo_harita(request: Request, ara: str = ""):
 
     # Tank satırında embriyo ve yumurta AYRI sayılıyor: bir tankta ikisi de
     # olabilir, tek bir "n embriyo" ikisini de embriyo gösterirdi (v6.133).
-    tank_sayim = (
-        "  (SELECT COUNT(*) FROM olay o JOIN tasiyici t2 ON t2.id=o.vit_tasiyici_id "
-        "   JOIN konum k2 ON k2.id=t2.konum_id "
-        "   JOIN specimen s2 ON s2.id=o.specimen_id "
-        "   JOIN cycle c2 ON c2.id=s2.cycle_id "
-        "   WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND t2.durum='dolu' "
-        "   AND k2.seviye1 = k.seviye1 AND c2.cycle_tipi {es} 'oosit_cryo') AS {ad} ")
+    # Ölçü içerik (v6.167, `icerik_sql()`'in gerekçesi): v6.133'ten beri
+    # örneğin kendi tedavisinin tipiydi.
+    def tank_sayim(yumurta, ad):
+        return (
+            "  (SELECT COUNT(*) FROM olay o JOIN tasiyici t2 ON t2.id=o.vit_tasiyici_id "
+            "   JOIN konum k2 ON k2.id=t2.konum_id "
+            "   WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND t2.durum='dolu' "
+            f"   AND k2.seviye1 = k.seviye1 AND {db.dondurulan_yumurta_sql('o')} = {yumurta}) "
+            f"AS {ad} ")
     tanklar = db.sorgu(
         "SELECT k.seviye1 AS tank, COUNT(DISTINCT t.id) AS tasiyici, "
-        + tank_sayim.format(es="<>", ad="embriyo") + ", "
-        + tank_sayim.format(es="=", ad="yumurta") + 
+        + tank_sayim(0, "embriyo") + ", "
+        + tank_sayim(1, "yumurta") + 
         "FROM konum k JOIN tasiyici t ON t.konum_id=k.id AND t.durum='dolu' "
         "  AND t.kategori='embriyo' "
         "WHERE k.lab_id=? AND k.seviye1 IS NOT NULL "
@@ -7287,9 +7299,9 @@ def thaw_cycle_var() -> bool:
 
 
 def _tup_yumurta_mi(icerik) -> bool:
-    """Taşıyıcıda yumurta mı var, embriyo mu -- dondurmanın yapıldığı
-    tedavinin tipinden (`icerik_tipi`, v6.147). Bir tüp tek tedavinin."""
-    return bool(icerik) and db.yumurta_mi(icerik[0]["icerik_tipi"])
+    """Taşıyıcıda yumurta mı var, embriyo mu -- içerikten (`icerik`,
+    v6.167, `icerik_sql()`'in gerekçesi). Bir tüp tek tedavinin."""
+    return bool(icerik) and icerik[0]["icerik"] == "yumurta"
 
 
 def thaw_tedavi_tipleri(icerik) -> list:
@@ -7698,7 +7710,7 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
         "   JOIN cycle c3 ON c3.id=s4.cycle_id "
         "   WHERE o4.vit_tasiyici_id=t.id AND o4.tip='vitrifikasyon' "
         "   AND o4.iptal_mi=0) AS kaynak_cycle, "
-        + icerik_tipi_sql() +
+        + icerik_sql() +
         " FROM tasiyici t "
         "JOIN olay o ON o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
         "JOIN specimen s ON s.id=o.specimen_id "

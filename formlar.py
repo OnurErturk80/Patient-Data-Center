@@ -402,8 +402,10 @@ def dondurma_tupleri(cycle_id: int) -> list:
     boş bırakmaktan kötü.
 
     Her öğe: `{"etiket", "ogeler": [kalite|None], "gunler": [int],
-    "aktarim": bool}` -- `aktarim`: tüp `aktar_access.py`'nin Access notundan
-    yazdığı bir dondurma (v6.159; `db.KAYNAK_DONDURMA_NOTU`).
+    "aktarim": bool, "yumurta": bool}` -- `aktarim`: tüp `aktar_access.py`'nin
+    Access notundan yazdığı bir dondurma (v6.159; `db.KAYNAK_DONDURMA_NOTU`);
+    `yumurta`: tüpte yumurta mı var (v6.167, `db.dondurulan_yumurta_sql()`,
+    tüpün ilk örneğinden -- bir tüp tek tedavinin tek türünü taşıyor).
     `ogeler` tüpteki **her** örnek için bir giriş taşır; kalitesi
     kaydedilmemişse `None` (yumurta dondurmada hiçbirinin skoru olmaz).
     """
@@ -415,6 +417,7 @@ def dondurma_tupleri(cycle_id: int) -> list:
         f"""
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
                o.notlar LIKE ? || '%' AS aktarim,
+               {db.dondurulan_yumurta_sql('o')} AS yumurta,
                {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_skor,
                {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
@@ -440,7 +443,7 @@ def dondurma_tupleri(cycle_id: int) -> list:
         if anahtar not in sira:
             sira[anahtar] = len(tupler)
             tupler.append({"etiket": r["etiket"], "ogeler": [], "gunler": [],
-                           "aktarim": True})
+                           "aktarim": True, "yumurta": bool(r["yumurta"])})
         t = tupler[sira[anahtar]]
         t["ogeler"].append(_dondurma_kalitesi(r))
         # Tüp Access notundan mı yazıldı (v6.159): hepsi öyleyse evet.
@@ -586,16 +589,25 @@ def dondurma_notu(cycle_id: int, cycle_tipi, tupler) -> str | None:
     """
     if not tupler:
         return None
-    adet = sum(len(t["ogeler"]) for t in tupler)
-    ad = "yumurta" if db.yumurta_mi(cycle_tipi) else "embriyo"
-    parcalar = [f"{adet} {ad}"]
-    gun = dondurma_gunleri(tupler)
-    if gun:
-        parcalar.append(gun)
-    parcalar.append(f"{len(tupler)} tüp")
-    satir = ("Dondurulan: " + ", ".join(parcalar) + ": "
-             + " ".join(tup_metni(t) for t in tupler))
-    return _sar(satir)
+    # Yumurta mı embriyo mu tüpün içeriğinden (v6.167): Access'ten aktarılan
+    # IVF/ICSI tedavisinde ICSI'ye alınmayan yumurtalar da dondurulmuş, bir
+    # Yumurta Dondurma'da ICSI'den bir blastokist -- tedavinin tipi ikisine
+    # de yanlış ad verirdi. Tek türse cümle v6.135'teki gibi; ikisi birden
+    # varsa embriyo önce, "; " ile ayrı iki parça.
+    parcalar = []
+    for yumurta in (False, True):
+        grup = [t for t in tupler if t.get("yumurta", False) == yumurta]
+        if not grup:
+            continue
+        adet = sum(len(t["ogeler"]) for t in grup)
+        parca = [f"{adet} {'yumurta' if yumurta else 'embriyo'}"]
+        gun = dondurma_gunleri(grup)
+        if gun:
+            parca.append(gun)
+        parca.append(f"{len(grup)} tüp")
+        parcalar.append(", ".join(parca) + ": "
+                        + " ".join(tup_metni(t) for t in grup))
+    return _sar("Dondurulan: " + "; ".join(parcalar))
 
 
 # ------------------------------------------------ çözülen örnekler (v6.152)
@@ -769,7 +781,7 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
     satirlar = db.sorgu(
         f"""
         SELECT v.vit_tasiyici_id AS tup, v.specimen_id, {vt} AS vit_cid,
-               (SELECT cycle_tipi FROM cycle WHERE id = {vt}) AS tip
+               {db.dondurulan_yumurta_sql('v')} AS yumurta
           FROM olay v JOIN specimen s ON s.id = v.specimen_id
           JOIN cycle c ON c.id = s.cycle_id
          WHERE c.hasta_id = ? AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0
@@ -783,7 +795,8 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
     # öteki tüpler (tüp -> içindekilerin kalitesi, sırasıyla)
     gruplar = {}
     for r in satirlar:
-        ad = "yumurta" if db.yumurta_mi(r["tip"]) else "embriyo"
+        # İçerikten (v6.167, `db.dondurulan_yumurta_sql()`), tipten değil
+        ad = "yumurta" if r["yumurta"] else "embriyo"
         g = gruplar.setdefault(ad, {"adet": 0, "burada": set(), "oteki": {}})
         g["adet"] += 1
         tup = r["tup"] or ("tupsuz", r["vit_cid"])

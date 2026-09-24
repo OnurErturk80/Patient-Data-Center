@@ -23,7 +23,7 @@
     </div>
     <div class="meta">
       {% if t.kategori == "sperm" %}{{ metin("sperm_dondurma") }}
-      {%- else %}{{ icerik_sayisi(t.adet, t.icerik_tipi) }}{% endif %}
+      {%- else %}{{ icerik_sayisi(t.adet, icerik=t.icerik) }}{% endif %}
       ·
       {% if t.tam_yol %}{{ t.tam_yol }}
       {%- else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}

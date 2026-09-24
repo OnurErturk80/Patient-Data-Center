@@ -45,7 +45,7 @@
     <div class="no">{{ t.etiket }}</div>
     <div class="meta">
       {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
-      · {{ icerik_sayisi(t.adet, t.icerik_tipi) }}
+      · {{ icerik_sayisi(t.adet, icerik=t.icerik) }}
     </div>
     <div class="meta">
       {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}

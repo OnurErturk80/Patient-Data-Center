@@ -13450,3 +13450,159 @@ Denendi: on yedi dosyada kip veritabanında hiçbir şeyi değiştirmedi.
 
 Kullanıcı 2026-09-24'te v6.165'in sorusunu cevapladı: **"BİRG1" = Birleşme
 G1, doğru.** "TA"nın anlamını sonra düşünecek.
+
+# v6.167 — nisan–ağustos 2024 Access kayıtları; tüpün içeriği içerikten; aynı gün iki kez girilmiş kayıt
+
+Kullanıcı nisan, mayıs, haziran, temmuz ve ağustos 2024'ün Access dosyalarını
+verdi (`kaynak=NISAN2024` … `AGUSTOS2024`, 369 satır). Önizleme beş yeni
+durum gösterdi; üçü daha önce aktarılmış aylarda da vardı ve sessizdi.
+
+## Tüpün içindeki yumurta mı embriyo mu: içerikten
+
+v6.133'ten beri tüpün içeriği dondurmanın yapıldığı tedavinin **tipinden**
+okunuyordu (`db.yumurta_mi(tip)`: yalnızca Yumurta Dondurma yumurta
+dondurur). Programın kendi akışı için doğru, IVF/ICSI'nin vitrifikasyon ekranı
+yalnızca enjekte edilmiş embriyoyu donduruyor. Ama Access kayıtlarında:
+
+- IVF/ICSI tedavisinde ICSI'ye alınmayan MII'ler dondurulmuş ("16 ADET OOSİT
+  ... (4*M2)"). Kullanıcının veritabanı kopyasında 5 tedavinin 9 tüpü, 31
+  yumurta. Cryo Haritası, taşıyıcı sayfası ve resmî formlar bunlara
+  "embriyo" diyordu. Çözme ekranı Yumurta Çözme yerine FET öneriyordu.
+  Aktarımın tüp eşleştirmesi de (`_bag_siniflari()`) onları embriyo adayı
+  sayıyordu. Skoru olmayan örnek her transfer yazımıyla tuttuğu için bir
+  FET'in çözdüğü embriyolar yumurta tüpüne bağlanabilirdi. Yumurta Çözme
+  ise o tüpü hiç bulamazdı.
+- Yumurta Dondurma'da beş yumurtaya ICSI yapılmış, blastokisti ayrı tüpte
+  (aşağıda). Tipe bakan ölçü o tüpe "yumurta" derdi.
+
+Kural artık tek yerde: **`db.dondurulan_yumurta_sql(o)`**. Dondurmadan önce
+enjekte edilmemiş, döllenmemiş ve değerlendirilmemiş örnek yumurtadır.
+FET ve FET (3→5)'in dondurduğu hep embriyodur. Dondurmadan sonraki olaya
+bakılmıyor: Yumurta Çözme'de enjekte edilen yumurtanın ilk tüpü yine yumurta.
+
+Bu kuralı soran yerler:
+- Program: `app.icerik_sql()` (eski `icerik_tipi_sql()`), sütunu `icerik` =
+  `'yumurta'`/`'embriyo'`. `tasiyici_icerigi()`, çözme tipinin seçimi
+  (`_tup_yumurta_mi()`), Cryo Haritası'nın tank sayımı ve beş şablon da
+  ondan okuyor. Jinja: `icerik_sayisi(adet, icerik=t.icerik)`.
+- Resmî formlar: `dondurma_tupleri()` her tüpe `yumurta` işareti koyuyor.
+  `dondurma_notu()` ikisi birden varsa şöyle yazıyor: "Dondurulan: 1
+  embriyo, 5. gün, 1 tüp: (1CB); 16 yumurta, 3 tüp: (6) (5) (5)".
+  `_kalan_dondurulmus()` da aynı kuralı kullanıyor.
+- Araç: `_bag_siniflari()`.
+
+Bilinen sınırlar:
+- IVF/ICSI tedavisinin vitrifikasyon ekranı aktarılmış dondurulmuş yumurtayı
+  "Embriyo N" diye listeliyor, çünkü ızgaranın adı tedavinin tipinden geliyor.
+- `transfer_adaylari()` yumurtayı tipe bakarak eliyor. IVF/ICSI'den gelen bir
+  yumurta çözülüp ICSI'si yazılmadan o tedavinin transfer ekranında
+  görünebilir.
+
+## Tedavi tipi: protokolde yazım hatası ve ICSI'siz yumurta dondurma
+
+Beş satır IVF/ICSI açılmıştı, oysa yalnızca yumurta donduruyorlardı:
+
+- İkisinin protokolünde yazım hatası var: "OOSİT CRTYO" (ağustos 2025) ve
+  "OOSİT CRRYO" (mart 2024). Kural artık C/K + R + en çok iki harf + YO. Otuz
+  farklı protokol adında başka hiçbiri tutmuyor (ölçüldü).
+- Üçünün protokolü yalnızca ilaç ("GONAPEPTLY"): eylül 2025, aralık 2025 ve
+  temmuz 2024'te birer satır. ICSI, 2PN, transfer ve DONDURULAN embriyo yok,
+  notun bütün tüpleri yumurta.
+
+Tedavi ekranı bu satırlarda boş ICSI/döllenme aşamaları gösteriyordu. Resmî
+formun "fertilizasyon yöntemi" kutusu da "IVF/ICSI" basıyordu. Tip artık
+veriden okunuyor (`tipi_veriden_duzelt()`, v6.142'nin dersi).
+
+Daha önce aktarılmış olanlar için **`tip` kipi** var (CSV'siz, bütün
+veritabanı). Tedavinin kendi kayıtlarına bakıyor: hiç ICSI, döllenme,
+değerlendirme ya da transfer yok, bu tedavi için çözme yok, en az bir
+dondurma var ve hepsi yumurta. Değişen yalnızca `cycle_tipi` (değişiklik
+geçmişine yazılıyor) ve Yumurta Dondurma'da olmayan aşamaların "İşlemi
+yapan"ı. Kopyada dört tedavi değişti, ikinci çalıştırma hiçbir şeyi
+değiştirmedi.
+
+**Kısmi ICSI'li satırlar Access'teki tipinde kalıyor.** Bunlarda birkaç
+yumurtaya ICSI yapılmış, kalanı dondurulmuş: ekim 2025'te ve mayıs 2024'te
+IVF/ICSI, mayıs ve haziran 2024'te üç Yumurta Dondurma. Tüpleri içerik
+kuralıyla doğru adlanıyor. Programın kendi akışında böyle bir tedavinin yeri
+yok: IVF/ICSI kalan yumurtayı donduramıyor, Yumurta Dondurma'nın ICSI aşaması
+yok. Bu yüzden kullanıcıya soruldu.
+
+## Aynı notta yumurta ve embriyo tüpü
+
+Haziran 2024'teki satırın notu: "1 ADET 5,GÜN EMBRİYOSU 1 TÜPTE(1CB) GERİYE
+KALAN 16 ADET OOSİT 1 TÜPTE(6*M2) 1 TÜPTE(5*M2) 1 TÜPTE(5*M2) ...
+DONDURULARAK SAKLANDI". Tedavi Yumurta Dondurma. Not bütün olarak yumurta
+sayıldığı için blastokistin tüpü **sessizce** yazılmıyordu (v6.142'nin
+kuralı: yazamıyorsan söyle).
+
+Şimdi tür grup grup belirleniyor (`_dondurma_coz()`'ün `grup_yumurta`'sı):
+- Embriyo tüpü 2PN'den yazılıyor, OPU + 5. günde.
+- Yumurta tüpleri OPU gününde (`_grup_zamanlari()`).
+- Var olan tüpler türünün içinde sırasıyla eşleşiyor.
+- Aynı tüpte ikisi birden yazılmışsa UYARI veriliyor.
+
+Kopyada ağustosun bir FET'i bu blastokist tüpüne bağlandı. Tüp yazılmasaydı
+o FET "tüpü programda yok" diyecekti.
+
+## Aynı gün iki kez girilmiş kayıt
+
+Mayıs 2024'te bir hastanın aynı OPU'su iki kez girilmiş (#1 ve #13). Toplanan
+ve MII aynı; immatür (2/7), empty zona (5/0) ve sperm hazırlık sayıları farklı.
+İkisi de aktarılsaydı hastanın kartında aynı gün iki tedavi açılır, aynı 16
+yumurta iki kez dondurulmuş görünürdü (Cryo Haritası'nda sekiz tüp).
+
+`ikizleri_ayikla()` aynı hastanın aynı günkü aynı tipteki iki dolu kaydını
+ayırıyor:
+- Birebir aynıysa ikincisi atlanıyor. Notta boşluk ve noktalama farkı
+  sayılmıyor.
+- Farklıysa **ikisi de** atlanıyor ve söyleniyor. Hangisinin doğru olduğunu
+  araç tahmin etmiyor. Kullanıcı doğru olmayanı düzeltme dosyasına
+  `KAYNAK#KAYIT  ATLA` diye yazıp dosyayı yeniden aktarıyor.
+
+Bu yalnızca önizlemede ve aktarımda geçerli. Onarım kipleri aktarılmış
+tedavilere işaretleriyle ulaşıyor.
+
+Daha önce üç çift böyle aktarıldı: haziran 2025 #1/#19, temmuz 2025 #79/#85
+ve aralık 2025 #63/#85. Hepsi iptal edilmiş IVF/ICSI, yalnızca notun yazımı
+farklı. **`ikiz` kipi** bunları listeliyor ve hiçbir şey yazmıyor. Transferleri
+yok, fazlası ekrandan kalıcı silinebilir.
+
+## Sayılar
+
+- **Embriyoda beklenen sayı önce DONDURULAN** (v6.165'te ADET ile
+  DONDURULAN'ın büyüğüydü). Haziran 2024'te not "16 ADET" diyor, DONDURULAN
+  15 ve dört tüpte 15 embriyo var. Eski kural tutan tüpe "1 embriyo eksik"
+  dedirtiyordu.
+- **Yumurta sayısından fazla ICSI** yazım hatası sayılıyor. Mayıs 2024'te bir
+  satırda 13 yumurta, 9 MII, İŞLEME ALINAN 94. Araç sayıyı 13'e kısıyor ve
+  empty zona yumurtalara da ICSI yazıyordu. Şimdi sayı boş kabul ediliyor ve
+  döllenme sonuçlarından (5) hesaplanıyor (v6.164'ün kuralı). Not
+  Access'teki değeri söylüyor. Doğrusu biliniyorsa düzeltme dosyasına
+  `KAYNAK#KAYIT  ICSI  eski  yeni` yazılıyor.
+- **Açılan yumurta sayısı** TOPLANAN, olgunluk sayılarının toplamı ve ICSI
+  sayısının büyüğü (`_yumurta_sayisi()`; Yumurta Çözme'de v6.148'den beri
+  böyle).
+  - Mayıs 2024'te bir Yumurta Dondurma satırında TOPLANAN boş ama MII 1 ve
+    not o yumurtayı donduruyor. Kayıt açılmadığı için dondurma
+    yazılamıyordu.
+  - Ağustos 2024'te TOPLANAN 6, olgunluk sayılarının toplamı 7. Bir dejenere
+    düşüyordu.
+  - "Toplanan" kutusu Access'teki değeri tutuyor, not farkı söylüyor.
+- Mayıs 2024'teki bir satırda 2PN 1, intakt 2, ama not iki embriyo
+  donduruyor. Bir embriyo yazılamıyor ve UYARI çıkıyor. Bu kaynağın kendi
+  tutarsızlığı.
+
+## Denendi
+
+- **Okuma karşılaştırması:** eski ve yeni araç 1805 CSV satırının hepsini
+  okudu. 7'sinin okuması değişti, hepsi yukarıda anlatıldı.
+- **Prova:** kullanıcının veritabanı kopyasında beş ay tarih sırasıyla
+  aktarıldı. Sonuç 367 tedavi (mayısın çifti bekliyor) ve 180 yeni hasta
+  kartı. 63 FET tüpüne bağlandı. Kopyada ocak–mayıs 2025 ile mayıs 2026 yok,
+  "ertelendi" diyenlerin çoğu onları bekliyor.
+- **İkinci çalıştırma** (`dondurma` kipi ve yeniden aktarım) hiçbir tabloyu
+  değiştirmedi. Bütünlük denetimi temiz.
+- **Ekran:** Cryo Haritası, taşıyıcı ve çözme ekranı, iki resmî form,
+  vitrifikasyon ve tedavi ekranı açıldı. Hepsi 200 döndü, JS hatası yok.
+  Yumurta tüpleri "yumurta", blastokist tüpü "1 embriyo" diyor.

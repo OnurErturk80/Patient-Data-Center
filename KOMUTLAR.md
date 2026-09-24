@@ -338,6 +338,50 @@ Kasım–aralık 2025 gelince ertelenmiş 2026 FET'lerinin çoğu kendiliğinden
 Bundan sonra "ertelendi" diyenler çoğunlukla tüpü 2024'ün başında tutan 2025
 FET'leri: arada nisan–aralık 2024 yok, o aylar gelince denenir.
 
+**2024 nisan–ağustos (v6.167).** Önce `git pull`, sonra **programı bir kez
+kapatıp aç** — bu sürüm programın kendisini de değiştiriyor (tüplerin
+"yumurta"/"embriyo" yazısı). Yedek al (`/yedekleme` → "Şimdi yedekle").
+Sohbette verilen beş CSV'yi ve `tarih_duzeltme_2024b.txt`'yi aynı klasöre koy.
+
+**Mayısı aktarmadan önce** düzeltme dosyasını bir metin düzenleyiciyle aç, iki
+karar ver (içinde açıklaması var):
+1. Mayıs #1 ile #13 aynı hastanın aynı günkü iki farklı kaydı. Hangisi
+   **yanlışsa** onun `ATLA` satırının başındaki `#`'i sil. Hiçbirine
+   dokunmazsan ikisi de aktarılmaz, araç söyler.
+2. Mayıs #30'da ICSI 94 yazıyor (13 yumurta). Doğrusu 9 ise `ICSI`
+   satırının başındaki `#`'i sil. Dokunmazsan ICSI döllenme sonuçlarından 5
+   sayılır.
+
+Sonra bir kez, daha önce aktarılmış ICSI'siz yumurta dondurmalarının tipini
+düzelt. Bende 4 tedavi değişti (MART2024#4, AGUSTOS2025#21, EYLUL2025#51,
+ARALIK2025#94); ikinci çalıştırma 0 der:
+
+```
+python3 aktar_access.py tip
+```
+
+Sonra beş dosya, **eskiden yeniye**:
+
+```
+python3 aktar_access.py liste kaynak=NISAN2024 duzelt=tarih_duzeltme_2024b.txt nisan2024.csv
+python3 aktar_access.py       kaynak=NISAN2024   duzelt=tarih_duzeltme_2024b.txt nisan2024.csv
+python3 aktar_access.py       kaynak=MAYIS2024   duzelt=tarih_duzeltme_2024b.txt mayis2024.csv
+python3 aktar_access.py       kaynak=HAZIRAN2024 duzelt=tarih_duzeltme_2024b.txt haziran2024.csv
+python3 aktar_access.py       kaynak=TEMMUZ2024  duzelt=tarih_duzeltme_2024b.txt temmuz2024.csv
+python3 aktar_access.py       kaynak=AGUSTOS2024 duzelt=tarih_duzeltme_2024b.txt agustos2024.csv
+```
+
+Önceki aylarda aynı gün iki kez aktarılmış tedaviler de var: üç hastada,
+hepsi iptal edilmiş, farkları notun yazımında. Bu komut onları listeler,
+hiçbir şey değiştirmez:
+
+```
+python3 aktar_access.py ikiz
+```
+
+Fazla olanı hasta kartından aç → Sil → kalıcı silme (dosya no + SIL).
+Transferleri yok, silinebilirler. Hangisini sileceğin sana kalmış.
+
 **v6.161:** "2 ADET M2 OOSİT DONDURULARAK SAKLANDI" gibi tüp sayısı yazmayan
 yumurta dondurması artık tek tüp. 2026'da da böyle bir satır vardı ve tüpü
 yazılmamıştı; `dondurma` kipiyle 2026'nın aylarını bir kez geçir (hiç tüpü

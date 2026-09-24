@@ -33,8 +33,10 @@ Kullanıcı 2026-09-23'te ocak–mayıs 2025'i aktardığını söyledi. **Hazir
 2025** v6.164'te hazırlandı (`kaynak=HAZIRAN2025` … `EKIM2025`); **kasım–aralık
 2025 ve ocak–mart 2024** v6.165'te (`kaynak=KASIM2025`, `ARALIK2025`,
 `OCAK2024`, `SUBAT2024`, `MART2024`), ardından da şubat 2026'nın bir tüpü
-`dondurma` kipiyle onarılıyor. **Nisan–aralık 2024 henüz gelmedi**: tüpü
-2024'ün başında tutan 2025 FET'lerinin bağlanması erteleniyor (aşağıda
+`dondurma` kipiyle onarılıyor. **Nisan–ağustos 2024** v6.167'de
+(`kaynak=NISAN2024` … `AGUSTOS2024`; mayısın aynı gün iki kez girilmiş bir
+kaydı kullanıcının seçimini bekliyor, `ATLA`). **Eylül–aralık 2024 henüz
+gelmedi**: tüpü o aylarda tutan FET'lerin bağlanması erteleniyor (aşağıda
 "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
 işte bunu hesaba kat.
 
@@ -1847,26 +1849,40 @@ kur.
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
-**Taşıyıcının içeriği "yumurta" mı "embriyo" mu — karar `db.yumurta_mi(
-cycle_tipi)`'de** (v6.133, kullanıcının isteği: "Yumurta donduruluyorsa
-Yumurta, Embriyo donduruluyorsa Embriyo yazsın"; **v6.135'ten beri `db.py`'de**
-çünkü `formlar.py` de soruyor — resmî formda "2 embriyo" mu "12 yumurta" mı
-donduruldu — ve `app`'i import edemez, `FET_TIPLERI`'nin aynı gerekçesi). Aynı fonksiyon
-`ornek_adi()`'ni de besliyor, yani yumurta donduran yeni bir cycle tipi
-eklenirse tek satır değişir. Ekranda Jinja global `icerik_sayisi(adet,
-cycle_tipi)` ("4 yumurta"/"4 embriyo") ya da `yumurta_mi(cycle_tipi)`
-kullan — `say("n_embriyo", ...)` yazma, altı yerde aynı etiket var
-(cryo haritası tank+taşıyıcı satırı, çözme ekranının iki listesi, taşıyıcı
-detayının üç yeri) ve biri unutulursa ekranlar birbirini tutmaz.
-- Taşıyıcının içeriğinin tedavi tipini `icerik_tipi_sql()` alt sorgusu
-  veriyor (beş sorguda paylaşılıyor, taşıyıcı hepsinde `t`); taşıyıcı
-  sayfası ve çözme ekranı `tasiyici_icerigi()`'nin `icerik_tipi`'ne bakıyor.
-  **İlk satır yeter**: bir taşıyıcı tek bir tedavinin örneklerini taşıyor.
-  **Ölçü dondurmanın YAPILDIĞI tedavinin tipi** (v6.147, `db.vit_tedavisi()`),
-  örneğin kendi tedavisininki değil: Yumurta Çözme'de çözülen yumurtadan
-  gelişip dondurulan embriyonun kendi tedavisi Yumurta Dondurma, eski ölçü
-  tüpe "yumurta" derdi. Sabit değil fonksiyon: `vit_cycle_id` eski bir
+**Taşıyıcının içeriği "yumurta" mı "embriyo" mu — v6.167'den beri
+İÇERİKTEN: `db.dondurulan_yumurta_sql(o)`** (v6.133'te kullanıcının isteği:
+"Yumurta donduruluyorsa Yumurta, Embriyo donduruluyorsa Embriyo yazsın").
+Dondurmadan önce enjekte edilmemiş, döllenmemiş ve değerlendirilmemiş örnek
+yumurtadır; FET ve FET (3→5)'in dondurduğu hep embriyo; dondurmadan SONRAKİ
+olaya bakılmıyor (Yumurta Çözme'de enjekte edilen yumurtanın ilk tüpü yine
+yumurta). v6.166'ya kadar ölçü dondurmanın tedavisinin TİPİYDİ
+(`db.yumurta_mi(tip)`): Access'ten aktarılan IVF/ICSI tedavisinde ICSI'ye
+alınmayan yumurtalar da dondurulmuş, tipe bakan ölçü o tüplere "4 embriyo"
+diyor, çözerken FET öneriyordu; bir Yumurta Dondurma'nın blastokist tüpüne de
+"yumurta" diyordu. `db.py`'de çünkü `formlar.py` ve `aktar_access.py` de
+soruyor (`FET_TIPLERI`'nin gerekçesi). Ekranda Jinja global
+`icerik_sayisi(adet, icerik=t.icerik)` ("4 yumurta"/"4 embriyo") —
+`say("n_embriyo", ...)` yazma, altı yerde aynı etiket var (cryo haritası
+tank+taşıyıcı satırı, çözme ekranının iki listesi, taşıyıcı detayının üç
+yeri) ve biri unutulursa ekranlar birbirini tutmaz.
+- Taşıyıcının içeriğini `app.icerik_sql()` alt sorgusu veriyor (v6.166'ya
+  kadar `icerik_tipi_sql()`, dört sorguda paylaşılıyor, taşıyıcı hepsinde
+  `t`), sütun `icerik` = `'yumurta'`/`'embriyo'`; taşıyıcı sayfası ve çözme
+  ekranı `tasiyici_icerigi()`'nin `icerik`'ine, çözme tipi seçimi
+  `_tup_yumurta_mi()`'ye bakıyor. **İlk satır yeter**: bir taşıyıcı tek bir
+  tedavinin tek türünü taşıyor. Sabit değil fonksiyon: `vit_cycle_id` eski bir
   yedekte yok, cevap her istekte soruluyor (tuzak #15).
+- **Bir tüpün içeriğini soran yeni bir yer yazarsan `yumurta_mi(tip)`'e değil
+  `dondurulan_yumurta_sql()`'e sor.** `yumurta_mi(tip)` "bu tipte dondurulan
+  ne" sorusu için kalıyor: vitrifikasyon ekranının başlığı ve örnek adları
+  (`ornek_adi()`), aktarımın notu okurken bağlamı. Bilinen sınır: IVF/ICSI
+  tedavisinin vitrifikasyon ekranı aktarılmış dondurulmuş yumurtayı "Embriyo
+  N" diye listeliyor (ızgaranın adı tedavinin tipinden) ve
+  `transfer_adaylari()` yumurtayı tipe bakarak eliyor.
+- Resmî formların "Dondurulan:" satırı tüp tüp içerikten
+  (`formlar.dondurma_tupleri()`'nin `yumurta`'sı); ikisi birden varsa
+  "Dondurulan: 1 embriyo, 5. gün, 1 tüp: (1CB); 16 yumurta, 3 tüp: (6) (5)
+  (5)". "Kalan dondurulmuş" da (`_kalan_dondurulmus()`).
 - **`yumurta_mi(tip, asama)`**: Yumurta Çözme'de aşamaya bağlı (v6.147) —
   çözülen yumurta, ICSI'den sonra dondurulan/transfer edilen embriyo.
   Aşama verilmezse soru "bu tedavide dondurulan ne".
@@ -2065,8 +2081,9 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   seçtiğine dokunmuyor), `degisiklik_log`'a düşüyor. Log satırı `b` ile
   yazılıyor: `guvenlik.degisiklikleri_yaz()` kendi bağlantısını açar,
   `yazma_islemi()`'nin kilidi içinde bekler. Öteki dar kipler:
-  `transfer` (v6.154) ve `bagla` (v6.160: yalnızca kaynağa bağlama; v6.163'ten
-  beri dosyasız, bütün veritabanı).
+  `transfer` (v6.154), `bagla` (v6.160: yalnızca kaynağa bağlama; v6.163'ten
+  beri dosyasız, bütün veritabanı) ve `tip` (v6.167: ICSI'siz, yalnızca
+  yumurta donduran IVF/ICSI tedavisini Yumurta Dondurma yapar; dosyasız).
 - **Her aktarımın sonunda bütün aktarılmış FET'ler yeniden deneniyor**
   (v6.163, kullanıcının isteği: "her yeni aktarım yaptığımda eski
   kayıtlardan bağlantılı hasta varsa tedavileri bağla"):
@@ -2091,7 +2108,8 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     `_bag_siniflari()`: bağlama ile sınama aynı kural.
 - **Etiket her dosyada tekil, yıllar arasında da** (v6.160): 2026'nın ayları
   `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`…, 2024'ünküler
-  `OCAK2024`… Aynı etiketi başka yılın dosyasına verme.
+  `OCAK2024`… (nisan–ağustos: `NISAN2024`, `MAYIS2024`, `HAZIRAN2024`,
+  `TEMMUZ2024`, `AGUSTOS2024`). Aynı etiketi başka yılın dosyasına verme.
 - **Parantezsiz ama tek tüplü dondurma yazılıyor** (v6.160): "5 ADET M2
   OOSİT 1 TÜPTE" — dağılım belli. **Yumurtada tüp sayısı hiç yazmıyorsa
   da tek tüp** (v6.161, kullanıcının cevabı: "2 ADET M2 OOSİT DONDURULARAK
@@ -2189,6 +2207,32 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   - Yeni bir okuma kuralı eklerken bütün CSV'lerin okumasını eski ve yeni
     araçla karşılaştır; değişen eski satır varsa kullanıcının veritabanında
     da yanlış demektir, onarım yolunu (`dondurma`) söyle.
+- **v6.167 okumaları** (nisan–ağustos 2024):
+  - Tip: protokolde yazım hatası ("OOSİT CRTYO", "CRRYO") da Yumurta
+    Dondurma; ICSI, 2PN, transfer ve DONDURULAN boş, notun bütün tüpleri
+    yumurta olan IVF/ICSI satırı Yumurta Dondurma (`tipi_veriden_duzelt()`).
+    Aktarılmış olanlar için dar kip **`tip`** (CSV'siz, bütün veritabanı;
+    tedavinin kendi kayıtlarına bakıyor, satırın kuralının aynısı). Kısmi
+    ICSI'li satır (birkaç yumurtaya ICSI, kalanı dondurulmuş) Access'teki
+    tipinde kalıyor -- programın kendi akışında böyle bir tedavinin yeri yok,
+    kullanıcıya soruldu.
+  - Bir notta yumurta ve embriyo tüpü birlikte ("1 ADET 5,GÜN EMBRİYOSU
+    (1CB) ... 16 ADET OOSİT (6*M2) ..."): grup grup tür (`grup_yumurta`),
+    zaman grup grup (`_grup_zamanlari()`), var olan tüp türünün içinde
+    sırasıyla eşleşiyor. Aynı tüpte ikisi birden yazılmışsa UYARI.
+  - Embriyoda beklenen sayı önce DONDURULAN, boşsa ADET (v6.165'te büyüğü).
+  - ICSI yumurta sayısından fazlaysa yazım hatası: boş sayılıp döllenme
+    sonuçlarından (v6.164'ün kuralı), not Access'teki değeri söylüyor.
+    Doğrusu biliniyorsa düzeltme dosyasında `KAYNAK#KAYIT  ICSI  eski  yeni`.
+  - Açılan yumurta: TOPLANAN, olgunluk sayılarının toplamı ve ICSI'nin
+    büyüğü (`_yumurta_sayisi()`, Yumurta Çözme'de zaten böyleydi). "Toplanan"
+    kutusu Access'teki değeri tutuyor, not farkı söylüyor.
+  - **Aynı hastanın aynı günkü aynı tipte iki dolu kaydı**
+    (`ikizleri_ayikla()`): birebir aynıysa ikincisi atlanıyor; farklıysa İKİSİ
+    DE atlanıyor, kullanıcı doğru olmayanı düzeltme dosyasına
+    `KAYNAK#KAYIT  ATLA` yazıp dosyayı yeniden aktarıyor. Karar kullanıcının --
+    hangisinin doğru olduğunu tahmin etme. Yalnızca `liste`/aktarımda; onarım
+    kipleri aktarılmış tedavilere işaretleriyle ulaşıyor.
 - **Access'teki ad programdakinden farklıysa** eşleşme yine dosya
   numarasıyla, rapor "DİKKAT" diyor (ad rapora yazılmıyor).
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta

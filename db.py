@@ -204,10 +204,55 @@ def yumurta_mi(cycle_tipi, asama=None) -> bool:
     (`ornek_adi()`, `icerik_sayisi()`, v6.133) soruyor, `formlar.py` da
     resmî formda soruyor ("2 embriyo" mu "12 yumurta" mı donduruldu) ve
     `app`'i import edemez — app zaten formlar'ı import ediyor.
+
+    **Bir tüpün içeriği için bu değil, `dondurulan_yumurta_sql()`** (v6.167):
+    Access'ten aktarılan IVF/ICSI tedavisinde ICSI'ye alınmayan yumurta da
+    dondurulmuş olabiliyor, tipe bakan cevap onlara "embriyo" derdi.
     """
     if cycle_tipi == "oosit_cryo":
         return True
     return asama == "thaw" and cozulen_yumurta_islenir(cycle_tipi)
+
+
+# Döllenmenin izi (v6.167): bu olaylardan biri dondurmadan önce yazılmışsa
+# dondurulan şey embriyodur. `dondurulan_yumurta_sql()`'e bak.
+_EMBRIYO_IZI = ("icsi", "fertilizasyon_kontrolu", "cleavage_degerlendirme",
+                "blastokist_degerlendirme")
+
+
+def dondurulan_yumurta_sql(o: str = "o") -> str:
+    """Bir dondurma olayının dondurduğu örnek yumurta mı -- SQL ifadesi, 1/0
+    (v6.167). `o`: vitrifikasyon olayının sorgudaki takma adı.
+
+    **Tipten değil içerikten**: dondurmadan önce enjekte edilmemiş,
+    döllenmemiş ve değerlendirilmemiş örnek yumurtadır. `yumurta_mi(tip)`
+    programın kendi akışı için doğru (IVF/ICSI'nin vitrifikasyon ekranı
+    yalnızca enjekte edilmiş embriyoyu donduruyor), ama Access'ten aktarılan
+    kayıtlarda iki karışık durum var: IVF/ICSI'de ICSI'ye alınmayan MII'ler
+    dondurulmuş ("16 ADET OOSİT ... (4*M2)"), Yumurta Dondurma'da birkaç
+    yumurtaya ICSI yapılıp blastokisti dondurulmuş. Tipe bakan ölçü ilk tüpe
+    "4 embriyo", ikincisine "yumurta" diyordu ve yumurta tüpüne FET
+    öneriyordu. Tüpün içindekini söyleyen her yer bunu sorar: Cryo Haritası,
+    taşıyıcı sayfası, çözme ekranları ve tüpün hangi tiple çözüleceği
+    (`app.icerik_sql()`), resmî formların dondurma satırları, aktarımın tüp
+    eşleştirmesi.
+
+    - Dondurmadan SONRAKİ olaya bakılmıyor: Yumurta Dondurma'da dondurulan
+      yumurta sonra Yumurta Çözme'de enjekte edilince ilk tüpü yine yumurta.
+    - FET ve FET (3→5)'in dondurduğu hep embriyo (çözülen embriyonun yeniden
+      dondurulması): aktarılmış FET'in embriyolarının ICSI'si programda yok.
+    - Alt sorguların takma adları (`dy_c`, `dy_o`) çağıranınkilerle
+      çakışmasın diye özel.
+    """
+    embriyo_cozen = ", ".join(f"'{t}'" for t in FET_TIPLERI
+                              if not cozulen_yumurta_islenir(t)) or "''"
+    izler = ", ".join(f"'{t}'" for t in _EMBRIYO_IZI)
+    return (f"(CASE WHEN (SELECT dy_c.cycle_tipi FROM cycle dy_c "
+            f"WHERE dy_c.id = {vit_tedavisi(o)}) IN ({embriyo_cozen}) THEN 0 "
+            f"WHEN EXISTS (SELECT 1 FROM olay dy_o "
+            f"WHERE dy_o.specimen_id = {o}.specimen_id AND dy_o.iptal_mi = 0 "
+            f"AND dy_o.tip IN ({izler}) AND dy_o.zaman <= {o}.zaman) THEN 0 "
+            f"ELSE 1 END)")
 
 # Kilitli veritabanında ne kadar beklenecek. Klinikte birkaç telefon aynı anda
 # kayıt girer; varsayılan 5 sn kısa kalabiliyor.
