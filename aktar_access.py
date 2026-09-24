@@ -3249,12 +3249,17 @@ def _aktarilmamis_aylar(b, bas, son) -> list:
     # (pandemi) -- eşik onları "aktarılmamış" sayıp o aylardan geçen her
     # FET'i sonsuza dek erteliyordu. Ölçü veriden: her etiketin tedavilerinin
     # en çok düştüğü ay (`_etiket_aylari()`), etiket adı okunmuyor.
-    dosyali = _etiket_aylari(b)
+    dosyali = _etiket_aylari(b) | _BOS_AYLAR
     return [ay for ay in aylar
             if sayi.get(ay, 0) < _AY_EN_AZ_TEDAVI and ay not in dosyali]
 
 
 _AY_EN_AZ_TEDAVI = 10
+# Dosyası hiç olmayan ve gerçekten boş aylar (v6.172). Mayıs 2020: pandemi
+# kapanışı, kullanıcının cevabı (2026-09-24): "Mayıs 2020'de hiç kayıt yoksa
+# pandemi yüzünden yapılmamıştır." Buraya ay eklemek "o ayda dondurulmuş tüp
+# yok" demek -- kullanıcıya sormadan ekleme.
+_BOS_AYLAR = {"2020-05"}
 _AY_ONBELLEK = {"sayi": 0, "en_buyuk": 0, "aylar": {}}
 
 

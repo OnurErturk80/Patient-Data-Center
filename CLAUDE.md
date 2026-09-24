@@ -2253,8 +2253,9 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   - **Aktarılmamış ay ölçüsü**: dosyası aktarılmış ay (etiketin tedavilerinin
     en çok düştüğü ay, `_etiket_aylari()`) kaç tedavisi olursa olsun
     aktarılmış sayılıyor (ağustos 2019: 4, nisan 2020: 1 kayıt). **Mayıs
-    2020 dosyası yok** -- o aydan geçen FET'ler ertelenir; kullanıcıya
-    soruldu (2026-09-24).
+    2020 dosyası yok, ay gerçekten boş** (pandemi; kullanıcının cevabı,
+    2026-09-24) -- `_BOS_AYLAR`. Buraya ay eklemek "o ayda tüp yok" demek,
+    kullanıcıya sormadan ekleme.
 - **v6.167 okumaları** (nisan–ağustos 2024):
   - Tip: protokolde yazım hatası ("OOSİT CRTYO", "CRRYO") da Yumurta
     Dondurma; ICSI, 2PN, transfer ve DONDURULAN boş, notun bütün tüpleri

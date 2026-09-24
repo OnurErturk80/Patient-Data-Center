@@ -13841,8 +13841,10 @@ geçen her FET'i "ertelendi" bırakıyordu — sonsuza dek, çünkü gelecek dos
 yok. Ölçü artık veriden: aktarılmış her etiketin tedavilerinin en çok düştüğü
 ay o dosyanın ayıdır (`_etiket_aylari()`), etiket adı okunmuyor (2026'nın
 etiketlerinde yıl yok). Dosyası aktarılmış ay, kaç tedavisi olursa olsun
-aktarılmış. **Mayıs 2020'nin dosyası hiç yok**: o aydan geçen FET'ler yine
-ertelenir — kullanıcıya soruldu (pandemi kapanışı mı, dosya mı eksik).
+aktarılmış. **Mayıs 2020'nin dosyası hiç yok**; kullanıcının cevabı:
+"Mayıs 2020'de hiç kayıt yoksa pandemi yüzünden yapılmamıştır." Ay
+`_BOS_AYLAR`'da, aktarılmış sayılıyor. Test veritabanında o aydan geçen 116
+FET `bagla` ile tüpüne bağlandı.
 
 ## Aktarım hızı: ay sayımı artımlı
 
@@ -13890,4 +13892,5 @@ dış sorgunun kolonuna izin vermiyor ("no such column"). Yeni bir alt sorguda
 
 **Denendi:** iki test veritabanının 2575 tedavisinde Özet NOTLAR'ı, FREEZE ve
 THAW eski ve yeni kodla birebir aynı. Yeniden üretilen tedavinin formları,
-Excel'i ve ekranları 200 döndü.
+Excel'i ve ekranları 200 döndü. Kullanıcı doğruladı (2026-09-24): 2026-0001'in
+özet formunda olgunluk görünüyor.
