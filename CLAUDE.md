@@ -1060,8 +1060,10 @@ kalıptan**: `form_kalip.json`.
   - **Yumurta tüpünün parantezi olgunluğu yazar** (v6.169, kullanıcının
     isteği: "Sadece rakam yazıyor. Detay yazsın"): "(5*MII)",
     "(4*MII-1*MI)" -- Access'teki kendi yazımı. `tup_metni()` kalitesi
-    olmayan tüpte `olgunluk`'a bakıyor; olgunluk dondurmadan ÖNCEKİ son
-    maturasyon (`_yumurta_olgunlugu()`) ve **yalnızca yumurta tüpünde**
+    olmayan tüpte `olgunluk`'a bakıyor; olgunluk önce dondurmanın YAPILDIĞI
+    tedavideki maturasyon, giriş sırasına bakmadan (v6.171: denüdasyonda
+    dondurmadan sonra da işaretlenebiliyor), yoksa dondurmadan önceki son
+    maturasyon (`_olgunluk_sql()`) ve **yalnızca yumurta tüpünde**
     doluyor (`dondurulan_yumurta_sql()`) -- skorsuz embriyo tüpü "(2*MII)"
     basmasın. Hiç olgunluk yoksa eskisi gibi sayı: "(4)".
 - **Çözülen örnekler de iki forma tek yerden** (v6.152, kullanıcının

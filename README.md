@@ -13758,3 +13758,30 @@ komşularına uymayan tarih kolay görünüyor.
   2023 aktarılmadığı için sonraki FET'ler "ertelendi".
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
+
+# v6.171 — Yumurtanın olgunluğu dondurmadan sonra girilmiş olsa da okunuyor
+
+Kullanıcı v6.169'dan sonra bildirdi: "Sadece bir tedavide sorun varmış"
+(2026-0001). O tedavide form yumurta tüpüne hâlâ yalnızca sayı basıyordu.
+
+v6.169 olgunluğu dondurmadan **önce** girilmiş son maturasyondan okuyordu
+(kimlik sırası). Programın akışında Yumurta Dondurma'nın olgunluğu denüdasyon
+ekranında işaretleniyor ve bu dondurmadan **sonra** da yapılabiliyor. O zaman
+kural hiçbir şey bulamıyordu. Test veritabanında yeniden üretildi: bir
+tedavinin maturasyon kayıtları dondurmadan sonra girilmiş gibi yazılınca form
+"(3)" dedi, düzeltmeden sonra "(1*MII-2*MI)".
+
+Kural artık `formlar._olgunluk_sql()`'de ve iki basamaklı:
+1. **Dondurmanın yapıldığı tedavideki** maturasyon, giriş sırasına bakmadan
+   (`db.olay_tedavisi()` = `db.vit_tedavisi()`).
+2. O tedavide yoksa dondurmadan önceki son maturasyon (v6.169'un kuralı).
+   Yumurta Çözme'de sonradan başka tedavide yapılan değerlendirme tüpün
+   içeriği değil.
+
+İki ayrı alt sorgu ve `COALESCE`, çünkü SQLite iç sorgunun `ORDER BY`'ında
+dış sorgunun kolonuna izin vermiyor ("no such column"). Yeni bir alt sorguda
+"önce şu, yoksa bu" sıralaması gerekirse bu deseni kullan.
+
+**Denendi:** iki test veritabanının 2575 tedavisinde Özet NOTLAR'ı, FREEZE ve
+THAW eski ve yeni kodla birebir aynı. Yeniden üretilen tedavinin formları,
+Excel'i ve ekranları 200 döndü.

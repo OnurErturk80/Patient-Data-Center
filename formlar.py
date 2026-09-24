@@ -421,8 +421,7 @@ def dondurma_tupleri(cycle_id: int) -> list:
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
                o.notlar LIKE ? || '%' AS aktarim,
                {db.dondurulan_yumurta_sql('o')} AS yumurta,
-               {son_alt('mat_deger', 'maturasyon_kontrolu', ek='AND x.id < o.id')}
-                 AS mat,
+               {_olgunluk_sql()} AS mat,
                {son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
                  AS bl_skor,
                {son_alt('gun', 'blastokist_degerlendirme', 'x.gun DESC', bu)}
@@ -527,19 +526,36 @@ def _olgunluk_metni(kodlar) -> str:
                     for k in sira)
 
 
-def _yumurta_olgunlugu(specimen_id, vit_olay_id):
-    """Bir yumurtanın dondurmadan önceki son maturasyonu, kodla (v6.169).
+def _olgunluk_sql(s="s", o="o") -> str:
+    """Dondurulan yumurtanın olgunluğu -- alt sorgu (v6.169, v6.171).
 
-    Dondurmadan ÖNCEKİ (kimlik sırası, v6.143'ün kuralı): Yumurta Çözme'de
-    çözülüp yeniden değerlendirilen yumurtanın sonraki maturasyonu tüpün
-    içeriği değil."""
+    `s`: örnek, `o`: dondurma olayı (dış sorgunun takma adları). Önce
+    DONDURMANIN YAPILDIĞI tedavideki maturasyon, giriş sırasına bakmadan
+    (`db.olay_tedavisi()`): Yumurta Dondurma'da olgunluk denüdasyon ekranında
+    dondurmadan sonra da işaretlenebiliyor. v6.169 yalnızca dondurmadan önce
+    girileni okuyordu; kullanıcının 2026-0001 tedavisinde form yalnızca
+    sayı basıyordu. O tedavide maturasyon yoksa dondurmadan önceki son
+    maturasyon (kimlik sırası, v6.143) -- Yumurta Çözme'de sonradan başka
+    tedavide yapılan değerlendirme tüpün içeriği değil."""
+    # İki alt sorgu: SQLite iç sorgunun ORDER BY'ında dış kolona izin vermiyor.
+    def alt(kosul):
+        return (f"(SELECT x.mat_deger FROM olay x WHERE x.specimen_id = {s}.id "
+                f"AND x.tip = 'maturasyon_kontrolu' AND x.iptal_mi = 0 "
+                f"AND {kosul} ORDER BY x.id DESC LIMIT 1)")
+    burada = f"{db.olay_tedavisi('x')} = {db.vit_tedavisi(o)}"
+    return (f"COALESCE({alt(burada)}, "
+            f"{alt(f'x.id < {o}.id')})")
+
+
+def _yumurta_olgunlugu(specimen_id, vit_olay_id):
+    """Bir dondurmanın yumurtasının olgunluğu, kodla (`_olgunluk_sql()`)."""
     if vit_olay_id is None:
         return None
     r = db.tek(
-        "SELECT mat_deger FROM olay WHERE specimen_id = ? AND iptal_mi = 0 "
-        "AND tip = 'maturasyon_kontrolu' AND id < ? ORDER BY id DESC LIMIT 1",
-        (specimen_id, vit_olay_id))
-    return r["mat_deger"] if r else None
+        f"SELECT {_olgunluk_sql()} AS mat FROM olay o "
+        "JOIN specimen s ON s.id = o.specimen_id WHERE o.id = ?",
+        (vit_olay_id,))
+    return r["mat"] if r else None
 
 
 def dondurma_gunleri(tupler) -> str | None:
