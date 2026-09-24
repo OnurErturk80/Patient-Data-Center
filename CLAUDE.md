@@ -37,8 +37,9 @@ Kullanıcı 2026-09-23'te ocak–mayıs 2025'i aktardığını söyledi. **Hazir
 (`kaynak=NISAN2024` … `AGUSTOS2024`; mayısın aynı gün iki kez girilmiş bir
 kaydı kullanıcının seçimini bekliyor, `ATLA`). **Eylül–aralık 2024 ve ocak
 2023** v6.168'de (`kaynak=EYLUL2024` … `ARALIK2024`, `OCAK2023` — o dosyanın
-tarihleri 2023). **Şubat–aralık 2023 yok**: ocak 2023 tüplerini çözen
-FET'lerin bağlanması erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
+tarihleri 2023). **Şubat–aralık 2023 yok** (kullanıcı 2026-09-24'te
+onları da aktaracağını söyledi; etiketler `SUBAT2023` … `ARALIK2023`): ocak
+2023 tüplerini çözen FET'lerin bağlanması erteleniyor (aşağıda "aktarılmamış ay"). Göç, kalıcı silme, geri yükleme gibi veriye dokunan her
 işte bunu hesaba kat.
 
 ---
