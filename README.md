@@ -13782,8 +13782,8 @@ okuması değişmedi** — onarım gerekmiyor. Farklar yalnızca yeni dosyalarda
   kuralı). İkinci çalıştırmada yer değişmesin diye tüpteki yumurta önce kendi
   ham olgunluğuyla eşleşiyor (`_ham_olgunluk()`): GV yeri GV yumurtaya, MI
   yeri MI'ya.
-- **"(1MA)"** — "MORFOLOJİK ANOMALİLİ OOSİT ... (1MA)": olgunluğu yazmayan
-  yumurta. Olgunluk boş (uydurulmuyor), form "?" basar; kaynağın sayılarının
+- **"(1MA)"** — "MORFOLOJİK ANOMALİLİ OOSİT ... (1MA)": morfolojik
+  anomalili yumurta (kullanıcı doğruladı), olgunluğu yazmıyor. Olgunluk boş (uydurulmuyor), form "?" basar; kaynağın sayılarının
   ötesindeki yumurtadan (`olcusuz` havuzu, v6.160).
 - **Parantezsiz ama sayılı yazım**: "2M2 VE 1M1 TOPLAM 3 OOSİT BİR TÜPTE",
   "1 TÜPTE 5M2 1 M1 OOSİTİ", "6 ADET MII OOSİT 1 TÜPTE 3 MII VE 1 TÜPTE 3MII

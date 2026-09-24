@@ -2238,8 +2238,9 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   aktarılmış ayların okuması değişmedi, onarım gerekmedi):
   - Yumurta: **GV** olgunluk ("(4*GV)", "(M2-M2-GV)"; MI havuzundan, kayıt
     `gv` yazılıyor, tüpteki yumurta önce kendi ham olgunluğuyla eşleşiyor --
-    `_ham_olgunluk()`); "(1MA)" olgunluğu yazmayan yumurta (`mat=None`,
-    `olcusuz` havuzu); parantezsiz sayılı yazım ("2M2 VE 1M1 TOPLAM 3 OOSİT
+    `_ham_olgunluk()`); "(1MA)" morfolojik anomalili yumurta (kullanıcı
+    doğruladı, 2026-09-24), olgunluğu yazmıyor (`mat=None`, `olcusuz`
+    havuzu, form "?"); parantezsiz sayılı yazım ("2M2 VE 1M1 TOPLAM 3 OOSİT
     BİR TÜPTE", "1 TÜPTE 3 MII VE 1 TÜPTE 3MII"), "5'ERLİ ŞEKİLDE 3 TÜPTE".
   - Embriyo: morfoloji nitelemesi ayrı embriyo değil (`_NITELIK`: OVAL,
     ELİPTİK, COLLAPSED, HATCHİNG -- iç parantez, tire ya da bitişik grup;
