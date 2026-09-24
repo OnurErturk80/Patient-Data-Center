@@ -2117,7 +2117,8 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk
   cümle** okunuyor ("... REFREEZE YAPILDI. ... 1 TÜPTE(4*M2) ... DONDURULARAK
   SAKLANDI"); "(%80 VİABİLİTE)" tüp değil. Not M1, kutu MII diyorsa da not
-  kazanıyor (`olgunlugu_nottan_duzelt()`, v6.161'in ters yönü).
+  kazanıyor (`olgunlugu_nottan_duzelt()`, v6.161'in ters yönü;
+  kullanıcı doğruladı, 2026-09-24: "M1 kararı doğru").
 - **Parantezsiz ama tek tüplü dondurma yazılıyor** (v6.160): "5 ADET M2
   OOSİT 1 TÜPTE" — dağılım belli. **Yumurtada tüp sayısı hiç yazmıyorsa
   da tek tüp** (v6.161, kullanıcının cevabı: "2 ADET M2 OOSİT DONDURULARAK

@@ -13650,6 +13650,7 @@ Kasım 2024'te bir Yumurta Dondurma: 1 yumurta, MII 1, immatür 0, not
 kazanır) yalnızca notun M2'si fazlayken çalışıyordu. Ters yönü eklendi:
 notun M1'i immatürden fazlaysa fark MII'den immatüre geçer, not Access'teki
 değeri söyler. Tüp önceden hiç yazılmıyordu ("notta 1 örnek ... 0 uygun").
+Kullanıcı doğruladı: "M1 kararı doğru."
 
 ## Kalan uyarılar
 
