@@ -13868,9 +13868,30 @@ karşılaştırmasında **2019 ve sonrasının okuması değişmedi**.
   3.GÜN 8HG1 ... AYNI VİALDE" (tek tüp, tek skor ADET kez), "BİR ADET 3AC".
   Skor sayısı ADET'le tutmuyorsa yazılmıyor, uyarı. "8 ADET 3.GÜN EMBRİYOSU
   2 VİAL OLMAK ÜZERE" (dağılım yok) hâlâ yazılmıyor -- uydurulmuyor.
-- Aşama kutusundaki "1X7HG1-1X10HG1" / "2X8HG1" gün değil (1 ve 2 günü
-  okunuyordu; not "3.GÜN" diyor). "1 VİAL SPERMİ DONDURULMUŞTUR" embriyo
-  dondurması değil, uyarmıyor. "7HGW", "9HG" skorsuz embriyo (sayı doğru).
+- Parantezsiz embriyonun sayısı önce DONDURULAN ("1 ADET 10HG2 VE 12HG1 ...
+  BİRARADA": notun ADET'i 1, DONDURULAN 2 -- yapılandırılmış alan önce,
+  v6.142); "KAVİTASYON G3" derece ayrı kelime. Not grupsuzsa aşama
+  kutusundaki parantezler okunuyor (not "1 TÜPTE 4 EMBRİYO ... BİRARADA",
+  kutu "(3X8H2-7HG2)").
+- Yumurtada "3XMII, 2XMII, 2XMI-7GV OLMAK ÜZERE OOSİTLER 3 VİALDE AYRI AYRI":
+  X çarpanı, GV, virgül/VE ile ayrılmış parçalar tüp sayısı kadarsa her
+  parça bir tüp.
+- **Kaynakta hiçbir sayı yok**: üç Yumurta Dondurma satırında TOPLANAN, MII,
+  İMMATÜR, ICSI boş; not 14, 12 ve 4 yumurta donduruyor. Açılan yumurta 0
+  olduğu için tüp yazılmıyordu -- tankta duran 30 yumurta programda
+  görünmeyecekti. Dondurulan yumurta toplanmış yumurtadır: sayı nottan
+  (alttan sınır, `_cozulen_sayisi()`'nin mantığı), olgunluk yalnızca notta
+  yazılıysa ("4 ADET OOSİT BİRARADA" olgunluksuz, v6.160'ın `olcusuz`'u).
+  Not bunu söylüyor, `liste` "[toplanan boş → 14, dondurma notundan]".
+- Aşama kutusundaki "1X7HG1-1X10HG1", "2X8HG1", "2BC", "8HG1-8HG2" gün
+  değil (1, 2 ya da 8. gün okunuyordu; not "3.GÜN" diyor): rakamın
+  arkasında harf varsa gün yok. 2019 ve sonrasında bu yazım yok (ölçüldü).
+- **Dondurulan sperm**: "1 VİAL SPERMİ DONDURULMUŞTUR", "GV OOSİTİN ZONA
+  PELLUSİDASI İÇİNDE 10 ADET HAREKETLİ SPERM DONDURULARAK SAKLANMIŞTIR" --
+  fiilin nesnesi sperm, embriyo/yumurta dondurması değil (önce "okunamadı"
+  ya da "10 örnek, 0 uygun kayıt" uyarısı çıkıyordu).
+- "7HGW", "9HG", hücre sayısı yazılmamış "G1"/"HG2": skorsuz embriyo, sayı
+  doğru, yazım değerlendirmenin notunda.
 - **Düzeltme dosyasında eski tarih `-`**: kaynakta okunamayan tarih ("01/00/00
   00:00:00"; araç boş okuyor). `tarih_duzeltme_2018.txt` (depoda değil): üç
   tarih (ay/yıl yanlış, transfer okunamıyor; gerekçeler dosyada), bir yer
@@ -13880,8 +13901,20 @@ karşılaştırmasında **2019 ve sonrasının okuması değişmedi**.
   dakikalar) saatler alırdı. Ölçü aracın kendi işareti: o etiketle
   aktarılmış tek tedavi varsa dosya bitmiş.
 
-Denendi: 11 dosya test veritabanına (2019–2023'ün üstüne) aktarılıyor;
-sonuç bir sonraki commit'te.
+Denendi: 11 dosya test veritabanına (2019–2023'ün üstüne) aktarıldı --
+**918 tedavi, 0 hata, 11 uyarı**, 533 yeni hasta kartı, 290 tüp. Uyarılar
+kaynağın boşlukları: dört satırda ICSI ve 2PN boş ama embriyo dondurulmuş
+(döllenme uydurulmuyor; ICSI sayısı düzeltme dosyasına yazılırsa tüpler
+girer -- dosyada yorum satırı olarak hazır), bir satırda 2PN 1 / dondurulan
+2, "(3M2-1M1) (M2)" diyen notun ADET'i 7, "(8HG1HG1)", "(2BC-BC-1BB)",
+dağılımsız "8 ADET ... 2 VİAL" ve olgunluğu yazılmamış 4 yumurta (bilgi).
+Son dosyanın bağlaması: 50 FET 2018'in tüplerine bağlandı, "tüpü programda
+yok" 388'den 339'a indi. **Ağustos 2018 dosyası arşivde yok**: ay boşsa
+(mayıs 2020 gibi) `_BOS_AYLAR`'a eklenecek, değilse dosyası gelince
+aktarılacak -- kullanıcıya soruldu; o zamana kadar ağustosu aşan FET'ler
+"ertelendi". Cryo Excel'iyle eşleşme 1.977'den 2.040 satıra çıktı. Yeni
+Yumurta Dondurma tedavisinin sayfaları ve iki formu 200; ART Lab'ın FREEZE
+kutuları "(3*MII) (2*MII) (2*MI-7*GV)".
 
 # v6.172 — 2019–2022 ve temmuz–aralık 2023 Access aktarımı: yeni okuma kuralları
 

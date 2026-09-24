@@ -2292,7 +2292,11 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   kutusundaki "1X7HG1", "2BC", "8HG1-8HG2" gün değil (`_asama_gunu()`:
   rakamın arkasında harf varsa; 2019+ da 26 satırda 1/2/8. gün okunuyordu
   ama hiçbiri aktarılmış ayda değil, ölçüldü); "1 VİAL SPERMİ
-  DONDURULMUŞTUR" embriyo dondurması değil (uyarmıyor). "8 ADET ... 2 VİAL" gibi dağılımsız çok tüp hâlâ yazılmıyor
+  DONDURULMUŞTUR", "ZONA İÇİNDE 10 ADET HAREKETLİ SPERM DONDURULARAK"
+  embriyo dondurması değil (fiilin nesnesi sperm; uyarmıyor). Kaynakta
+  HİÇBİR sayı yoksa (TOPLANAN, MII, İMMATÜR, ICSI boş; üç Yumurta Dondurma
+  satırı, 30 yumurta) yumurta sayısı dondurma notundan
+  (`r["yumurta_nottan"]`, alttan sınır), olgunluk yalnızca notta yazılıysa. "8 ADET ... 2 VİAL" gibi dağılımsız çok tüp hâlâ yazılmıyor
   (uyarı). Düzeltme dosyasında eski tarih `-` = kaynakta okunamayan tarih
   ("01/00/00"). `aktar_toplu.py` zaten aktarılmış etiketi (işareti olan
   tedavi varsa) atlıyor -- 2018 gelince 2019–2023'ün 53 dosyası klasörde

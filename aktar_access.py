@@ -638,7 +638,7 @@ def atla_satirlarini_ayikla(satirlar, duzeltmeler, kaynak) -> tuple:
 # araçların satıra sonradan eklediği türetilmiş işaretler.
 _IKIZ_DISI = ("kimlik", "duzeltme", "tarih_yaklasik", "ad_soyad", "es_adi",
               "olgunluk_duzeltme", "icsi_duzeltme", "icsi_hatali", "tip_duzeltme",
-              "yumurta_fazla")
+              "yumurta_fazla", "yumurta_nottan")
 _ALAN_ADI = {"toplanan": "toplanan", "mii": "MII", "immatur": "immatür",
              "empty_zona": "empty zona", "dejenere": "dejenere",
              "atretik": "atretik", "islenen": "ICSI", "iki_pn": "2PN",
@@ -1475,11 +1475,13 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         z = m.start()
     cumle = re.sub(r"\s+", " ", hizali[a:z])
     ham_cumle, cumle_hizali = ham[a:z], hizali[a:z]
-    # "1 VİAL SPERMİ DONDURULMUŞTUR" (v6.173, mart 2018): embriyo dondurması
-    # değil, "okunamadı" diye uyarmasın. Yalnızca embriyo/yumurta sözü ve
-    # parantezi olmayan, DONDURULAN'ı boş cümlede.
-    if ("SPERM" in cumle and not dondurulan
-            and not re.search(r"OOSIT|EMBRIYO|YUMURTA|\(", cumle)):
+    # Dondurulan sperm (v6.173, 2018): "1 VİAL SPERMİ DONDURULMUŞTUR", "GV
+    # OOSİTİN ZONA PELLUSİDASI İÇİNDE 10 ADET HAREKETLİ SPERM DONDURULARAK
+    # SAKLANMIŞTIR" -- fiilin nesnesi (fiilden hemen önceki kelime) sperm.
+    # Embriyo/yumurta dondurması değil: "okunamadı" ya da 10 yumurta aranıp
+    # "uygun kayıt yok" uyarısı çıkıyordu. DONDURULAN boş, parantez yok.
+    if (not dondurulan and "(" not in cumle
+            and re.search(r"SPERM\w*\s*$", cumle.strip())):
         return {}
 
     gun = _asama_gunu(asama)
@@ -1836,6 +1838,24 @@ def olgunlugu_nottan_duzelt(satirlar) -> None:
             r["immatur"] += fark
         if (r["mii"], r["immatur"]) != once:
             r["olgunluk_duzeltme"] = once
+        # Kaynakta HİÇBİR sayı yok (v6.173, 2018'in üç Yumurta Dondurma
+        # satırı): TOPLANAN, MII, İMMATÜR, ICSI boş; not "3XMII, 2XMII,
+        # 2XMI-7GV ... 3 VİALDE", "12 ADET M2 OOSİT (6M2)-(6M2)", "4 ADET OOSİT
+        # BİRARADA". Açılan yumurta 0 olduğu için tüp hiç yazılmıyordu --
+        # tankta duran 30 yumurta programda görünmeyecekti. Dondurulan yumurta
+        # toplanmış yumurtadır: sayı nottan (alttan sınır, `_cozulen_sayisi()`
+        # ile aynı mantık), olgunluk yalnızca notta YAZILIYSA ("4 ADET OOSİT"
+        # olgunluksuz kalır, v6.160'ın `olcusuz`'u).
+        r["yumurta_nottan"] = None
+        sayilan = (r["mii"] + r["immatur"] + r["empty_zona"] + r["dejenere"]
+                   + r["atretik"])
+        toplam = sum(o["adet"] for o in oositler)
+        if toplam and not (r["toplanan"] or 0) and not sayilan and not (r["islenen"] or 0):
+            r["mii"] = sum(o["adet"] for o in oositler if o["mat"] == "mii"
+                           and re.search(r"M\s*(?:2|II)\b|MII", _sade(o["ham"])))
+            r["immatur"] = m1
+            r["yumurta_nottan"] = toplam
+            r["olgunluk_duzeltme"] = None
 
 
 def _yumurta_sayisi(r, icsi=True) -> int:
@@ -1852,7 +1872,8 @@ def _yumurta_sayisi(r, icsi=True) -> int:
     sınamak için (`icsi_sayisini_tamamla()`), onu katmadan."""
     return max(r["toplanan"] or 0,
                r["mii"] + r["immatur"] + r["empty_zona"] + r["dejenere"]
-               + r["atretik"], (r["islenen"] or 0) if icsi else 0)
+               + r["atretik"], (r["islenen"] or 0) if icsi else 0,
+               r.get("yumurta_nottan") or 0)
 
 
 def yumurta_sayisini_isaretle(satirlar) -> None:
@@ -1978,7 +1999,11 @@ def _not_kur(r: dict) -> str:
     elif r.get("icsi_duzeltme"):
         p.append(f"ICSI sayısı Access'te boş; döllenme sonuçlarının toplamı "
                  f"({r['icsi_duzeltme']}) alındı.")
-    if r.get("yumurta_fazla"):
+    if r.get("yumurta_nottan"):
+        p.append("Toplanan yumurta ve olgunluk sayıları Access'te boş; dondurma "
+                 f"notundaki {r['yumurta_nottan']} yumurta kadar kayıt açıldı "
+                 f"(MII {r['mii']}, immatür {r['immatur']}, notta yazdığı kadar).")
+    elif r.get("yumurta_fazla"):
         p.append(f"Toplanan yumurta Access'te {r['toplanan'] or 0}; olgunluk "
                  f"sayılarının toplamı {r['yumurta_fazla']} -- o kadar yumurta "
                  "kaydı açıldı.")
@@ -3815,7 +3840,9 @@ def _ozet_satiri(r) -> str:
                + (", döllenme sonuçlarından]" if r.get("icsi_duzeltme") else "]"))
     elif r.get("icsi_duzeltme"):
         ek += f'   [ICSI boş → {r["icsi_duzeltme"]}, döllenme sonuçlarından]'
-    if r.get("yumurta_fazla"):
+    if r.get("yumurta_nottan"):
+        ek += f'   [toplanan boş → {r["yumurta_nottan"]}, dondurma notundan]'
+    elif r.get("yumurta_fazla"):
         ek += f'   [toplanan {r["toplanan"] or 0} → {r["yumurta_fazla"]}, olgunluk sayılarından]'
 
     return (f'#{r["kimlik"]:>3}  dosya {r["dosya_no"]:<10} {r["tip"]:<14}'
