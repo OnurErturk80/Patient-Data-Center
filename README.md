@@ -13416,3 +13416,37 @@ mayıs 2026 bu oturumda yok):
   tüpten 8 çözmüş, hangi ikisi olduğu belli değil. İkincisi 5 çözmüş, kalan
   tüpte 4 görünüyor.
 - "4BA TA"daki "TA"nın anlamı hâlâ soruda.
+
+# v6.166 — `dondurma` kipi ne yaptığını söylüyor
+
+Kullanıcı şubat 2026 onarımını çalıştırdı (`dondurma kaynak=SUBAT subat.csv`),
+çıktı "Bitti. 0 tedaviye eksik dondurma yazildi." oldu. Sebep arandı:
+
+- **O satırı şubatın aktarıldığı dönemin bütün sürümleri (v6.148–v6.164)
+  aynı okuyor**: ikinci tüpe 1 embriyo. Yani kullanıcının veritabanında
+  onarılacak tüp var.
+- Kullanıcının veritabanı kopyası (v6.147 dönemi) üzerine ocak ve şubat 2026
+  **v6.148 aracıyla** yeniden aktarıldı, sonra iki araç çalıştırıldı. Eski
+  araç (v6.164) birebir aynı çıktıyı verdi, "0 tedaviye". Yeni araç (v6.165)
+  "+3" dedi. En olası sebep: kullanıcının makinesinde `git pull` yeni sürümü
+  getirmemiş.
+- Yeni aracın çıktısı da iki durumda sessiz kalabiliyordu:
+  - Etiket yanlışsa hiçbir satır bulunmuyor ve yine "0 tedaviye" deniyordu.
+  - Tüpü olan tedavide eksik olup eklenemeyen örnek (havuz boş) hiç
+    basılmıyordu. "Yazamıyorsan söyle" kuralı (v6.142) burada da geçerli.
+
+Değişenler:
+- Son satır kaç aktarılmış tedaviye bakıldığını söylüyor: "(89 aktarilmis
+  tedavi gozden gecirildi)". Sıfırsa altına "kaynak= etiketi aktarımdakiyle
+  aynı mı?" yazıyor.
+- UYARI veren tedavi, hiçbir şey yazılmasa da basılıyor. On yedi dosyada
+  bunlar yalnızca kaynağın bilinen tutarsızlıkları: notta 2PN'den çok
+  embriyo, notun sayısı tüplerden fazla.
+- "Tüpler notla tutuyor" satırı eksik varken basılmıyor; UYARI ile
+  çelişiyordu.
+- Sayaç yalnızca gerçekten yazılan tedaviyi sayıyor.
+
+Denendi: on yedi dosyada kip veritabanında hiçbir şeyi değiştirmedi.
+
+Kullanıcı 2026-09-24'te v6.165'in sorusunu cevapladı: **"BİRG1" = Birleşme
+G1, doğru.** "TA"nın anlamını sonra düşünecek.

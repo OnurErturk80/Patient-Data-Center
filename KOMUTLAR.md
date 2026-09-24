@@ -318,7 +318,11 @@ python3 aktar_access.py dondurma kaynak=SUBAT subat.csv
 ```
 
 Çıktıda tek bir tedavi ve "dondurma onarıldı: ...: +3" görmelisin; başka
-bir tedavi de yazılırsa bana göster. Sonra beş dosya, **eskiden yeniye**:
+bir tedavi de yazılırsa bana göster. Son satır "(... aktarilmis tedavi gozden
+gecirildi)" diye bitmeli. Yalnızca "Bitti. 0 tedaviye eksik dondurma
+yazildi." yazıyorsa araç eskidir: `git log --oneline -1` ile bak, v6.165 ya
+da sonrasını göstermiyorsa `git pull origin main`'i tekrarla ve çıktısını
+oku (hata veriyorsa bana gönder). Sonra beş dosya, **eskiden yeniye**:
 
 ```
 python3 aktar_access.py liste kaynak=OCAK2024 ocak2024.csv

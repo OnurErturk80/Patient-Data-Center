@@ -2271,7 +2271,8 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
                      f'(konum boş, Cryo Haritası\'ndan gir)')
     if onarilan:
         rapor.append(f'    dondurma onarıldı: {"; ".join(onarilan)}')
-    if mevcut and not yeni_tup and not onarilan:
+    if mevcut and not yeni_tup and not onarilan and not eksik and not coz.get("eksik_not"):
+        # Eksik varken "tutuyor" demek yukarıdaki UYARI'yla çelişirdi (v6.166)
         rapor.append("    dondurma zaten girilmiş, tüpler notla tutuyor")
     return bool(yeni_tup or onarilan)
 
@@ -3401,14 +3402,18 @@ def eksik_dondurmalari_yaz(satirlar):
       okuyordu, şubat 2026'nın bir tüpüne 4 yerine 1 embriyo girdi. Tüpteki
       örneğe, skoruna ve durumuna dokunulmuyor, hiçbir şey çıkarılmıyor
       (`_dondurma_kayitlari(yalnizca_ekle=True)`).
-    Yalnızca bir şey yazılan tedavi basılıyor. İkinci çalıştırma hiçbir şey
-    değiştirmez."""
+    Bir şey yazılan ya da UYARI veren tedavi basılıyor: tüpte eksik olup
+    eklenemeyen örnek (havuz boş, not tutmuyor) sessiz kalmasın (v6.166).
+    Son satır kaç aktarılmış tedaviye bakıldığını söylüyor; hiçbiri
+    bulunamadıysa `kaynak=` etiketi aktarımdakiyle aynı değildir. İkinci
+    çalıştırma hiçbir şey değiştirmez."""
     kid = _kullanici_id()
-    yazilan = 0
+    yazilan = bakilan = 0
     for r in satirlar:
         var = _zaten_var(r["kimlik"])
         if not var:
             continue
+        bakilan += 1
         if var["cycle_tipi"] != r["tip"]:
             r = dict(r, tip=var["cycle_tipi"])
         coz = _satir_dondurmasi(r)
@@ -3423,12 +3428,16 @@ def eksik_dondurmalari_yaz(satirlar):
             rapor = []
             yazdi = _dondurma_kayitlari(b, r, var["id"], kid, rapor,
                                         yalnizca_ekle=tupu_var)
-        if yazdi or (rapor and not tupu_var):
-            yazilan += 1
+        if yazdi or any("UYARI" in satir for satir in rapor):
+            yazilan += bool(yazdi)
             print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
             for satir in rapor:
                 print(satir)
-    print(f"\nBitti. {yazilan} tedaviye eksik dondurma yazildi.")
+    print(f"\nBitti. {yazilan} tedaviye eksik dondurma yazildi "
+          f"({bakilan} aktarilmis tedavi gozden gecirildi).")
+    if satirlar and not bakilan:
+        print("Bu dosyanin hicbir satiri programda bulunamadi: kaynak= etiketi "
+              "aktarimdakiyle ayni mi? (ornek: subat 2026 icin kaynak=SUBAT)")
 
 
 def iptal_sebeplerini_duzelt(satirlar):

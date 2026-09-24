@@ -2101,7 +2101,10 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   olmayan tedaviye dondurmayı yazar; v6.165'ten beri tüpü olan tedavide
   yalnızca EKSİK örneği ekler (`yalnizca_ekle`), tüpteki örneğe, skoruna ve
   durumuna dokunmaz, hiçbir şeyi çıkarmaz. Bir okuma kuralı düzelince
-  aktarılmış tüpü onarmanın `tamamla`'sız yolu bu.
+  aktarılmış tüpü onarmanın `tamamla`'sız yolu bu. Son satırı kaç aktarılmış
+  tedaviye baktığını söylüyor (v6.166; 0 = etiket tutmuyor), UYARI veren
+  tedaviyi hiçbir şey yazmasa da basıyor. Kullanıcı "0 tedaviye" derse önce
+  aracın sürümünü sor (`git log --oneline -1`): eski araç aynı çıktıyı verir.
 - **Olgunluğu kaynakta hiç sayılmamış yumurta dondurulabiliyor** (v6.160,
   havuzun `olcusuz`'u): MII/immatür kutuları boş, not "1 ADET OOSİT
   DONDURULARAK SAKLANDI". Yalnızca kaynağın sayılarının ÖTESİNDEKİ
@@ -2177,6 +2180,7 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     embriyo daha olabilir. Şubat 2026'da bir tüpe bu yüzden 4 yerine 1
     embriyo girdi.
   - "BBG1", "BİRG1": birleşme + grade (`_YUVA`); "BİR" yalnızca grade'iyle.
+    Kullanıcı doğruladı (2026-09-24): "BİRG1" = Birleşme G1.
   - Eksik parantez: "(3BB (3BC)" iki tüp, "4AA-3AA)" bir tüp -- dışarıda
     kalan parçanın bütün öğeleri tanınıyorsa. "TÜPTE84*M2)" -> "(" (shift'siz
     "8").
