@@ -915,9 +915,9 @@ def yeni_hasta_raporu(plan, atlanan):
 # konumu farklıysa dokunulmuyor. İkinci çalıştırma hiçbir şeyi değiştirmez.
 #
 # Dondurma sebebi: HÜCRE'de "CA" geçiyorsa (EJAKÜLAT-CA, CA-SPERM, TESE-CA)
-# "Onkolojik" -- kullanıcının cevabı (2026-09-25): "CA kanser"; değer
-# programın sebep önerisinden (`app.SPERM_DONDURMA_SEBEPLERI`). Başka sebep
-# uydurulmuyor. Uydurulmayanlar: hacim/konsantrasyon/motilite ("9 MİLYON %35" ml başına mı toplam mı belli
+# "Onkolojik" -- kullanıcının cevabı (2026-09-25): "CA kanser"; yoksa TESE/
+# TESA ("TESE/TESA yazılsın"). Değerler programın sebep önerisinden
+# (`app.SPERM_DONDURMA_SEBEPLERI`). Başka sebep uydurulmuyor. Uydurulmayanlar: hacim/konsantrasyon/motilite ("9 MİLYON %35" ml başına mı toplam mı belli
 # değil) -- HÜCRE ve VİAL metni olduğu gibi nota yazılıyor. Tarihi olmayan ya
 # da ileri tarihli (2027/2028 yazım hatası) satır açılmıyor: dondurma zamanı
 # zorunlu alan, tarih uydurulmuyor; raporda, kullanıcı elle girer.
@@ -925,13 +925,14 @@ def yeni_hasta_raporu(plan, atlanan):
 SPERM_RAPOR = Path("cryo_esle_rapor_sperm.txt")
 ONKOLOJIK = "Onkolojik"              # app.SPERM_DONDURMA_SEBEPLERI'nin değeri
 _CA = re.compile(r"(?<![A-ZÇĞİÖŞÜ])CA(?![A-ZÇĞİÖŞÜ])")
+_TESE_TESA = re.compile(r"(?<![A-ZÇĞİÖŞÜ])(TESE|TESA)(?![A-ZÇĞİÖŞÜ])")
 _SPERM_SAAT = 10                     # dondurma saati bilinmiyor
 _KONUMSUZ_SAYFA = re.compile(r"^(?:SAYFA|SHEET)\s*\d*$")
 
 SPERM_SINIFLARI = [
     ("yeni", "yeni tüp açılacak", True),
     ("konum_yaz", "programda o gün kaydı var, konumu boş -- konum yazılacak", True),
-    ("sebep_yaz", "zaten programda, dondurma sebebi yazılacak (CA = Onkolojik)", True),
+    ("sebep_yaz", "zaten programda, dondurma sebebi yazılacak", True),
     ("zaten", "zaten programda (aynı ad, gün ve konum)", False),
     ("baska_konum", "programda o gün kaydı var, konumu FARKLI -- dokunulmadı", False),
     ("tarih_yok", "tarih yok ya da okunamadı -- açılmadı, elle girilmeli", False),
@@ -952,8 +953,15 @@ def _sperm_yolu(s):
 
 
 def _sperm_sebebi(s):
-    """HÜCRE'de "CA" (kanser) -> "Onkolojik"; yoksa None."""
-    return ONKOLOJIK if _CA.search(cryo_excel.buyuk(s["icerik"])) else None
+    """HÜCRE'den dondurma sebebi; yoksa None. "CA" (kanser) -> "Onkolojik",
+    yoksa "TESE"/"TESA" (kullanıcı, 2026-09-25: "TESE/TESA yazılsın") --
+    ikisi de `app.SPERM_DONDURMA_SEBEPLERI`'nin değeri. Alan tek: "TESE-CA"da
+    sebep kanser, TESE yöntem; Onkolojik kazanıyor, HÜCRE'nin tamamı notta."""
+    m = cryo_excel.buyuk(s["icerik"])
+    if _CA.search(m):
+        return ONKOLOJIK
+    t = _TESE_TESA.search(m)
+    return t.group(1) if t else None
 
 
 def _sperm_programda(b):
@@ -1209,9 +1217,11 @@ def _sperm_kipi(satirlar):
     print(f"Yeni hasta kaydı: {len(kisiler)} (geçici dosya numarasıyla); "
           f"programdaki erkek kayıtlarına eklenecek tüp: {mevcut}.")
     print(f"Ayrıntı: {SPERM_RAPOR}")
-    onk = sum(1 for s, k, _e in sonuc if k == "yeni" and _sperm_sebebi(s))
-    if onk:
-        print(f"Dondurma sebebi Onkolojik olacak yeni tüp (HÜCRE'de CA): {onk}.")
+    sebepler = collections.Counter(_sperm_sebebi(s) for s, k, _e in sonuc
+                                   if k == "yeni" and _sperm_sebebi(s))
+    if sebepler:
+        print("Yeni tüplerin dondurma sebebi (HÜCRE'den): "
+              + ", ".join(f"{a} {n}" for a, n in sebepler.most_common()) + ".")
     if not (sayac.get("yeni") or sayac.get("konum_yaz") or sayac.get("sebep_yaz")):
         print("Yazılacak bir şey yok.")
         return

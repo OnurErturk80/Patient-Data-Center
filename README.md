@@ -13800,8 +13800,11 @@ ve embriyo sayfalarındaki sperm satırları) için:
   Deneme: 1.531 tüpün 796'sı. Aracın ilk hali (aynı gün) sebep yazmıyordu;
   zaten çalıştırılmışsa ikinci çalıştırma bu aracın açtığı kayıtlara
   (notta `CRYO_EXCEL_ISARETI`) sebebi ekliyor (`sebep_yaz`, `degisiklik_log`),
-  ekrandan girilmiş kayda dokunmuyor. Başka sebep çıkarılmıyor ("TESE"
-  listede bir sebep ama kullanıcıya sorulmadı).
+  ekrandan girilmiş kayda dokunmuyor. CA yoksa HÜCRE'deki **TESE / TESA**
+  sebep olarak yazılıyor (kullanıcı: "TESE/TESA yazılsın"; ikisi de listede;
+  deneme: 240 TESE, 1 TESA). "TESE-CA"da alan tek, Onkolojik kazanıyor --
+  HÜCRE'nin tamamı notta. Deneme: 1.531 tüpün 1.037'sinin sebebi dolu,
+  494'ünde (düz EJAKÜLAT) boş.
 - **Uydurulmayan**: hacim / konsantrasyon / motilite ("9 MİLYON %35" ml başına mı toplam mı
   belli değil). HÜCRE ve VİAL metni olduğu gibi nota:
   "Örnek: EJAKÜLAT-CA · VİAL: 1(A,B,C)", altında sayfa/satır ve
