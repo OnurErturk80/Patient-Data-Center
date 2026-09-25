@@ -13759,6 +13759,68 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.179 — Cryo Excel'inden 2011–2017'nin hastaları
+
+Kullanıcının isteği (2026-09-25): "390: hastanın programda kaydı yok. Büyük
+kısmı 2011–2017'den. Bunları programa ekle." İki karar soruldu:
+
+- **Kapsam: yalnızca 2011–2017** (TARİH < 2018). O yılların Access dosyası
+  yok. 2018 ve sonrasında "hasta yok" satırlarının çoğunun programda
+  **benzer adlı** bir hastası var (deneme veritabanında 2018–2023'ün 120
+  satırının 86'sı: bir harf, eksik/fazla bir soyad) -- yeni kart aynı kişiyi
+  iki kez açardı, yanlış hasta bu işin en pahalı hatası. Onlar açılmıyor.
+- **Geçici dosya numarası**: Excel'de dosya numarası yok, `hasta.dosya_no`
+  zorunlu. 9000000001'den başlayarak (gerçek numaralar 9 haneyi aşmıyor);
+  hastanın notunda "GEÇİCİ dosya numarası" yazıyor, gerçeği
+  `dosya_no_degistir.py` ile (denendi: tedavi, tüp etiketi değişmiyor).
+
+`python3 cryo_esle.py yeni_hasta <excel>`: eşleştirmeyi çalıştırır, "hasta
+yok" + 2018 öncesi satırları hastaya göre gruplar (ad kelime kümesi; aynı
+adın iki farklı eşi varsa iki kişi, eşsiz satır atlanır), planı ve raporu
+(`cryo_esle_rapor_yeni_hasta.txt`, hasta adı içerir, depoya girmez) basar,
+"HASTA" onayıyla yazar:
+- **Hasta** -> **tedavi**: aynı OPU günü (`_excel_opu()`, "D5" = TARİH − 5)
+  bir tedavi; yalnızca yumurta tüpü varsa Yumurta Dondurma, yoksa IVF/ICSI.
+  `durum='tamamlandi'`, `bitis_sebebi='dondurma'`. Protokol notu "Program
+  öncesi kayıt: yalnızca Cryo Haritası Excel'indeki dondurma bilgisi (sayfa,
+  satır). OPU, ICSI ve döllenme kaydı yok." + `db.CRYO_EXCEL_ISARETI`.
+- **Tüp**: HÜCRE'nin her parantez grubu bir taşıyıcı (Access aktarımıyla
+  aynı etiket kalıbı, `aktar_access._tasiyici_ac()`), konum/tip/renk
+  Excel'den. Her öğe bir örnek: embriyoda değerlendirme
+  (`aktar_access._oge_alanlari()`/`_degerlendirme_yaz()`, gün Excel'in
+  "D"sinden), yumurtada olgunluk yazılıysa maturasyon; ardından
+  vitrifikasyon. OPU/ICSI/döllenme **uydurulmuyor**.
+- **İstatistik dışı**: `disari.istatistikler()`'in tedavi koşulu
+  `db.CRYO_EXCEL_ISARETI` taşıyan tedavileri dışlıyor. v6.127'nin "sahte
+  tedavi istatistiği bozar" gerekçesi: yalnızca dondurma bilgisi olan
+  tedaviler oranlara girse 2011–2017 aylarında "%0 MII" gibi ölçülmemişi
+  ölçülmüş gösterirdi. Denendi: öncesi/sonrası bütün istatistikler aynı,
+  yalnızca hasta sayısı değişti.
+- **Tek okuyucu**: `excel_icerik()` artık `excel_ogeleri()`'nin (öğe
+  sözlükleri) metin hali; açılan tüp eşleştirmenin okuduğunu birebir tutsun
+  diye. Refaktör sonrası 5.401 satırın hiçbiri farklı okunmadı.
+- **İkinci çalıştırma hiçbir şey açmaz** (hasta artık var, tüpler "zaten
+  yazılı"). Aynı gün birebir aynı içerikli tüpler Excel'in sırasıyla
+  açılıyor -- başka sırayla açılınca ikinci eşleştirme onları çapraz
+  eşleyip "başka konum yazılmış" diyordu (denemede 4 tüp, düzeltildi).
+
+**2011–2017'nin HÜCRE yazımı** (kullanıcının cevapları, aynı gün):
+"2G1" = **iki G1 embriyo** (hücre sayısı yazılmamış; "2 hücreli" değil --
+v6.176'ya kadar öyle okunuyordu), "G1" tek G1 embriyo, "2XG1", "2 G1";
+"10H" / "10H%5" = 10 hücreli, %5 fragmantasyon (`cl_fragmentasyon`); "UE" =
+uneven, önündeki embriyonun simetrisi (`cl_simetri='esitsiz'`); "KAVKAV" =
+iki kavitasyon; "7OOSİT" = yedi yumurta; "2MOR" = iki morula; "4H G1",
+"GRD1" = G1; parantezsiz embriyo satırı ("D5 4BB-4BB", "5.GÜN 4AA 4AA
+BİRARADA") tek tüp -- en az bir öğesi tanınıyorsa. Hücre sayısı yazılmamış
+G'li embriyo programın her yerindeki gibi "skor girilmedi" görünüyor, derece
+değerlendirmede saklı. Embriyo sayfalarındaki sperm satırları ("EJAJULAT-CA",
+"TESTİS-CA") `cryo_excel._SPERM_IZI`'ne eklendi -- embriyo tüpü olarak
+açılacaklardı. Eşleştirmeye etkisi: 2018 sonrasında 4 satır farklı okunuyor,
+sınıfı değişen tek satır "içerik tutmuyor"dan "eşleşti"ye geçti.
+
+Deneme veritabanında: 78 hasta, 79 tedavi, 110 tüp, 254 örnek; 7 satır
+açılmadı (hücre okunamadı: boş, "OOSİT" sayısız, "D3ÜST3").
+
 # v6.178 — Cryo Excel'i: yumurta ve refreeze tarihleri
 
 v6.177'nin iki sorusuna kullanıcının cevabı (2026-09-25): "yumurta dondurma

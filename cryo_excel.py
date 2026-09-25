@@ -93,7 +93,10 @@ _RENKLER = (
 # HÜCRE metninden kategori. Yazım hataları da listede: kâğıttan gelen
 # dosyada "EKAKÜLAT", "EJEKÜLAT", "RETROGÜLAT" gibi varyantlar var.
 _SPERM_IZI = ("SPERM", "TESE", "EJAK", "EKAK", "EJEK", "TESA", "MESA",
-              "RETROG", "EPİDİDİM", "EPIDIDIM")
+              "RETROG", "EPİDİDİM", "EPIDIDIM",
+              # v6.179: embriyo sayfalarındaki 2011-2017 sperm satırları
+              # ("EJAJULAT-CA", "EJATULAT-CA", "TESTİS-CA")
+              "EJAJ", "EJAT", "TESTİS", "TESTIS")
 _EMBRIYO_IZI = ("OOSİT", "OOSIT", "OOCYTE", "M2", "MII", "BLAST", "PN",
                 "D2", "D3", "D5", "D6", "D7", "HG", "EMBR")
 

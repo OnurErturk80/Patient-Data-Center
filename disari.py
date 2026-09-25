@@ -513,7 +513,11 @@ def istatistikler(ay: str = "") -> dict:
     else:
         cs = ""
 
-    cycle_kosul = f"c.lab_id = ? {cs}"
+    # Cryo Haritası Excel'inden açılan program öncesi tedaviler (v6.179)
+    # dışarıda: yalnızca dondurma bilgisi var, OPU/ICSI/döllenme yok --
+    # oranlara girseler ölçülmemişi ölçülmüş gösterirlerdi ("%0 MII").
+    cycle_kosul = (f"c.lab_id = ? {cs} AND COALESCE(c.protokol_notu, '') "
+                   f"NOT LIKE '%{db.CRYO_EXCEL_ISARETI}%'")
     ornek_kosul = ("s.cycle_id IN (SELECT c.id FROM cycle c "
                    f"WHERE {cycle_kosul})")
 

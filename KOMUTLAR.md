@@ -483,6 +483,26 @@ o gün tüp yok, içerik tutmuyor, tüpe daha önce başka konum yazılmış.
 İkinci çalıştırma hiçbir şeyi değiştirmez. Ekranda: Cryo Haritası'nda
 tüplerin konumu ve tank sayımı.
 
+**2011–2017'nin programda olmayan hastaları (v6.179).** O yılların Access
+dosyası yok; Excel'deki satırlardan hasta, tedavi ve tüp açılır (konumuyla):
+
+```
+python3 cryo_esle.py yeni_hasta CRYO_HARITA.xlsx   # planı basar, "HASTA" yazınca açar
+```
+
+Yalnızca 2018'den önceki, programda adı bulunmayan satırlar. Hastalar
+**geçici dosya numarasıyla** açılır (9000000001, 9000000002, …); hasta
+kayıtlarında "9000000" diye aranınca hepsi çıkar. Gerçek numara:
+
+```
+python3 dosya_no_degistir.py 9000000001 <gerçek no>          # ne olacak
+python3 dosya_no_degistir.py 9000000001 <gerçek no> uygula   # değiştirir
+```
+
+Bu tedaviler istatistiğe girmez (yalnızca dondurma bilgisi var). Açılmayan
+satırlar ve sebepleri `cryo_esle_rapor_yeni_hasta.txt`'de. İkinci
+çalıştırma hiçbir şey açmaz.
+
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı
 klasöre. Etiketler ay + yıl (`OCAK2019` … `ARALIK2023`); 2020'nin mayısı

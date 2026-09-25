@@ -153,6 +153,10 @@ BIRLESME = "Birleşme"
 # (v6.159). O tüpler Access notunun kendi cümlesinde zaten yazılı; resmî
 # formun NOTLAR kutusu onları ikinci kez yazmasın diye `formlar.py` soruyor.
 KAYNAK_DONDURMA_NOTU = "Kaynak kayıttaki dondurma notundan aktarıldı"
+# Cryo Haritası Excel'inden açılan program öncesi tedavinin protokol notu
+# işareti (v6.179, `cryo_esle.py yeni_hasta`). Yalnızca dondurma bilgisi var;
+# `/istatistik` bu tedavileri dışlıyor (disari.istatistikler).
+CRYO_EXCEL_ISARETI = "[Cryo Excel kaydı]"
 
 
 def cl_hucre_ifadesi(x: str = "x") -> str:

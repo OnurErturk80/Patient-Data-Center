@@ -12,6 +12,9 @@ Kullanım (proje klasöründe):
 
     python3 cryo_esle.py liste  CRYO_HARITA.xlsx     # ne olacak, yazmaz
     python3 cryo_esle.py uygula CRYO_HARITA.xlsx     # "ESLE" onayıyla yazar
+    python3 cryo_esle.py yeni_hasta CRYO_HARITA.xlsx # 2018 öncesi, programda
+                                                     # olmayan hastaları açar
+                                                     # ("HASTA" onayıyla, v6.179)
 
 İkisi de `cryo_esle_rapor.txt` dosyasına satır satır rapor yazar (hasta
 adı içerir -- depoya girmez, `.gitignore`). Terminale yalnızca sayılar.
@@ -103,16 +106,18 @@ def _tup_skoru(b, sid: int) -> str:
 
 _GRUP = re.compile(r"\(([^()]*)\)")
 _YUMURTA_SAYI = re.compile(r"(\d+)\s*(?:ADET\s+)?(?:\*|X)?\s*(MII|MI|M2|M1|GV|MA)?\b")
-_OLGUNLUK = {"MII": "M2", "M2": "M2", "MI": "M1", "M1": "M1", "GV": "GV"}
+
+
+_MAT_KODU = {"MII": "mii", "M2": "mii", "MI": "mi", "M1": "mi", "GV": "gv"}
 
 
 def _parantezsiz_yumurta(ic: str):
     """"3 M2 OOSİT", "2 M1 2 M2 OOSİT", "1 GV OOSİT", "3 OOSİT", "OOSİT 4MII"
-    -> tek tüp; olgunluğu yazmayan yumurta "?" (sayı yine tutuyor)."""
+    -> tek tüp; olgunluğu yazmayan yumurta olgunluksuz (sayı yine tutuyor)."""
     out = []
     for adet, mat in _YUMURTA_SAYI.findall(ic):
-        out += [_OLGUNLUK.get(mat, "?")] * int(adet)
-    return [sorted(out)] if out else None
+        out += [{"tur": "oosit", "mat": _MAT_KODU.get(mat)} for _ in range(int(adet))]
+    return [out] if out else None
 
 
 def _uyar(istek, tup) -> bool:
@@ -132,17 +137,39 @@ def _uyar(istek, tup) -> bool:
 _EVRE_DERECE = re.compile(r"\b(MORULA|MOR|KAVİTASYON|KAV|BİRLEŞME|BİR)\s+(G\d)\b")
 _YILDIZ_ARASI = re.compile(r"(?<=[A-Z])\*+(?=\d)")
 _BITISIK_EVRE = re.compile(r"(\d[ABC]{2})(?=KAV|MOR|BİR)")
+# 2011-2017'nin yazımı (v6.179, kullanıcının cevapları, 2026-09-25):
+# "4H G1" hücre ile derece arasında boşluk; "2G1" = iki G1 embriyo (hücre
+# sayısı yazılmamış -- "2 hücreli" DEĞİL); "10H" / "10H%5" = 10 hücreli, %5
+# fragmantasyon; "UE" = uneven, önündeki embriyonun niteliği; "KAVKAV" = iki
+# kavitasyon; "7OOSİT" = yedi yumurta.
+_HUCRE_DERECE = re.compile(r"(\d+H)\s+(G\d)\b")
+_ADETLI_DERECE = re.compile(r"^(\d*)G(\d)$")
+_HUCRE_FRAG = re.compile(r"^(\d+)H(?:%(\d+))?$")
+_KAV_TEKRAR = re.compile(r"^(?:KAV){2,}$")
+_ADETLI_OOSIT = re.compile(r"^(\d+)OOS")
+_ADET_BOSLUK = re.compile(r"(?<![\dH.,])(\d+)\s+(G\d)\b")      # "2 G1"
+_ADETLI_EVRE = re.compile(r"^(\d+)(MORULA|MOR|KAV)(G\d)?$")        # "2MOR"
+# Parantezsiz embriyo satırında tüpün öğesi olmayan sözler: "D3 1G3",
+# "5.GÜN 4AA 4AA BİRARADA", "G1 BLAST".
+_PARANTEZSIZ_ATLA = re.compile(r"\bD\d\b|\d+\s*[.,]\s*GÜN|\bBİRARADA\b|\bBLAST\b")
 
 
 def _yazimi_duzelt(ic: str) -> str:
     ic = _EVRE_DERECE.sub(r"\1\2", ic)
+    ic = re.sub(r"GRD(\d)", r"G\1", ic)                       # "4H GRD1"
+    ic = _HUCRE_DERECE.sub(r"\1\2", ic)
+    ic = _ADET_BOSLUK.sub(r"\1\2", ic)
     ic = _YILDIZ_ARASI.sub(" ", ic)
     return _BITISIK_EVRE.sub(r"\1 ", ic)
 
 
-def excel_icerik(icerik: str):
-    """HÜCRE metni -> [tüp içeriği, ...]; her tüp sıralı skor listesi, okunamayan
-    parça "?" olur. Hiç okunamıyorsa None.
+def excel_ogeleri(icerik: str):
+    """HÜCRE metni -> [tüp, ...]; her tüp öğe listesi, öğe `aktar_access`
+    yazımında (`_skor_coz()`/`_yuva_coz()`'ün sözlüğü; yumurtada tek tek
+    `{"tur": "oosit", "mat": ...}`; okunamayan parça `{"tur": "taninmadi"}`).
+    Hiç okunamıyorsa None. `excel_icerik()` karşılaştırma için bunu metne
+    çeviriyor, `yeni_hasta` kipi (v6.179) aynı öğelerden tüp açıyor -- iki
+    ayrı okuyucu olsaydı açılan tüp eşleştirmenin okuduğunu tutmayabilirdi.
 
     Bir parantez = bir tüp (Access notlarıyla aynı yazım, v6.132). Parantezsiz
     "3 M2 OOSİT" tek tüp, üç MII yumurta. Morfoloji nitelemesi (HATCHİNG,
@@ -154,8 +181,16 @@ def excel_icerik(icerik: str):
     if not yumurta:
         ic = re.sub(r"\b(\d+)\s*ADET\s+", r"\1*", ic)     # "3 ADET MORULA G2"
     gruplar = _GRUP.findall(ic)
-    if not gruplar:
-        return _parantezsiz_yumurta(ic) if yumurta else None
+    if not gruplar and yumurta:
+        return _parantezsiz_yumurta(ic)
+    parantezsiz = not gruplar
+    if parantezsiz:
+        # Parantezsiz embriyo (v6.179): bütün hücre bir tüp -- ama yalnızca
+        # en az bir öğesi tanınıyorsa ("EJAKÜLAT", "PGT", "D3ÜST3" tüp değil).
+        kalan = _PARANTEZSIZ_ATLA.sub(" ", ic).strip()
+        if not kalan or cryo_excel.kategori_coz(ic) == "sperm":
+            return None
+        gruplar = [kalan]
     tupler = []
     for g in gruplar:
         parcalar = re.split(r"[\s,\-/]+", g.strip())
@@ -164,34 +199,79 @@ def excel_icerik(icerik: str):
             p = p.strip("*")
             if not p or aktar_access._NITELIK.match(aktar_access._sade(p)):
                 continue
+            if p == "UE":
+                if out and out[-1]["tur"] == "cleavage":
+                    out[-1]["simetri"] = "esitsiz"
+                    out[-1]["ham"] += " UE"
+                continue
+            m = _ADETLI_DERECE.match(p) if not yumurta else None
+            if m:
+                out += [{"tur": "embriyo", "skor": f"G{m.group(2)}", "ham": p}
+                        for _ in range(int(m.group(1) or 1))]
+                continue
+            m = _HUCRE_FRAG.match(p) if not yumurta else None
+            if m:
+                out.append({"tur": "cleavage", "hucre": int(m.group(1)), "skor": None,
+                            "frag": int(m.group(2)) if m.group(2) else None, "ham": p})
+                continue
+            m = _ADETLI_EVRE.match(p) if not yumurta else None
+            if m and aktar_access._skor_coz(m.group(2) + (m.group(3) or "")):
+                z = aktar_access._skor_coz(m.group(2) + (m.group(3) or ""))
+                out += [dict(z, ham=p) for _ in range(int(m.group(1)))]
+                continue
+            if not yumurta and _KAV_TEKRAR.match(p):
+                out += [dict(aktar_access._skor_coz("KAV"), ham=p)
+                        for _ in range(len(p) // 3)]
+                continue
+            m = _ADETLI_OOSIT.match(p) if yumurta else None
+            if m:
+                out += [{"tur": "oosit", "mat": None} for _ in range(int(m.group(1)))]
+                continue
             # "3*KAVG3", "2X8HG1": aynı skordan N embriyo (Access okuyucusunun
             # kuralı, v6.173). Yumurtada "3*M2"yi `_skor_coz()` kendisi sayıyor.
             carpan = None if yumurta else re.match(r"^(\d+)[X*](\S+)$", p)
+            if carpan and re.match(r"^G\d$", carpan.group(2)):      # "2XG1"
+                out += [{"tur": "embriyo", "skor": carpan.group(2), "ham": p}
+                        for _ in range(int(carpan.group(1)))]
+                continue
             z = aktar_access._skor_coz(carpan.group(2), yumurta=False) if carpan else None
             if z and z["tur"] in ("blast", "cleavage"):
-                tek = (_norm(f'{z["hucre"]}{z["skor"]}') if z["tur"] == "cleavage"
-                       else _norm(z["skor"]))
-                out += [tek] * int(carpan.group(1))
+                out += [dict(z) for _ in range(int(carpan.group(1)))]
                 continue
             z = aktar_access._skor_coz(p, yumurta=yumurta)
             if not z:
                 y = aktar_access._yuva_coz(p)
-                if y:
-                    out.append(_norm(_db.BIRLESME + (y.get("skor") or "")))
-                    continue
-                out.append("?")
+                out.append(dict(y) if y else {"tur": "taninmadi", "ham": p})
                 continue
             if z["tur"] == "oosit":
-                mat = z["mat"]
-                out += [_norm("M2" if mat == "mii" else "GV" if mat == "gv"
-                              else "M1" if mat == "mi" else "?")] * z["adet"]
-            elif z["tur"] == "cleavage":
-                out.append(_norm(f'{z["hucre"]}{z["skor"]}'))
+                out += [{"tur": "oosit", "mat": z["mat"]} for _ in range(z["adet"])]
             else:
-                out.append(_norm(z["skor"]))
+                out.append(z)
         if out:
-            tupler.append(sorted(out))
+            tupler.append(out)
+    if parantezsiz and all(o["tur"] == "taninmadi" for t in tupler for o in t):
+        return None
     return tupler or None
+
+
+def _oge_metni(o) -> str:
+    """Öğenin karşılaştırma yazımı -- tüpteki örneğin `_tup_skoru()`'yla aynı."""
+    if o["tur"] == "oosit":
+        return {"mii": "M2", "mi": "M1", "gv": "GV"}.get(o["mat"], "?")
+    if o["tur"] == "cleavage":
+        return _norm(f'{o["hucre"]}{o["skor"] or ""}')
+    if o["tur"] == "blast":
+        return _norm(o["skor"])
+    if o["tur"] == "embriyo" and o.get("birlesme"):
+        return _norm(_db.BIRLESME + (o.get("skor") or ""))
+    return "?"
+
+
+def excel_icerik(icerik: str):
+    """HÜCRE metni -> [tüp içeriği, ...]; her tüp sıralı skor listesi, okunamayan
+    parça "?" olur. Hiç okunamıyorsa None."""
+    tupler = excel_ogeleri(icerik)
+    return [sorted(_oge_metni(o) for o in t) for t in tupler] if tupler else None
 
 
 # -------------------------------------------------------------- veritabanı
@@ -607,10 +687,211 @@ def uygula(sonuc) -> dict:
     return sayac
 
 
+# ------------------------------------------------------ yeni hasta (v6.179)
+#
+# Kullanıcının isteği (2026-09-25): "390: hastanın programda kaydı yok. Büyük
+# kısmı 2011–2017'den. Bunları programa ekle." Kararları (aynı gün soruldu):
+# yalnızca 2011–2017 satırları -- o yılların Access dosyası yok; 2018 ve
+# sonrasında "hasta yok" satırlarının çoğunun benzer adlı bir hastası var
+# (bir harf, eksik bir soyad), yeni kart aynı kişiyi iki kez açardı -- ve
+# geçici dosya numarası, gerçeği sonra `dosya_no_degistir.py` ile.
+#
+# v6.127'nin "sahte tedavi/tüp açılmaz" gerekçesi (istatistikleri bozar)
+# burada da geçerli; o yüzden bu tedaviler protokol notlarındaki işaretle
+# (`db.CRYO_EXCEL_ISARETI`) `/istatistik`'ten dışlanıyor: yalnızca dondurma
+# bilgisi var, OPU/ICSI/döllenme yok -- oranlara girseler 2011–2017 aylarında
+# "%0 MII" gibi ölçülmemişi ölçülmüş gösteren sayılar çıkardı.
+
+YENI_HASTA_SON = "2018"                 # bu yıldan ÖNCEKİ satırlar
+GECICI_DOSYA_TABANI = 9_000_000_000     # gerçek numaralar 9 haneyi aşmıyor
+YENI_RAPOR = Path("cryo_esle_rapor_yeni_hasta.txt")
+_YENI_VIT_NOTU = "Cryo Haritası Excel'inden açıldı (program öncesi kayıt)"
+_YENI_YAZIM = "Cryo Haritası Excel'indeki yazım"
+
+
+def _tup_yumurta_mu(tup) -> bool:
+    return all(o["tur"] == "oosit" for o in tup)
+
+
+def _excel_gunu(s):
+    m = _EXCEL_GUN.match(s["icerik"] or "")
+    return int(m.group(1)) if m else None
+
+
+def yeni_hasta_plani(sonuc):
+    """"Hasta programda yok" ve TARİH'i 2018'den önce olan satırlar ->
+    ([(ad kelimeleri, eş adı, [satır, ...]), ...], [(satır, sebep), ...]).
+
+    Hasta ad kelime kümesiyle gruplanıyor (eşleştirmenin kendi ölçüsü,
+    `cryo_excel.kelimeler()`); aynı adın iki farklı eşi varsa iki kişi, eşi
+    yazılmamış satırı hangisinin bilinmiyor -- atlanıyor, uydurulmuyor."""
+    adaylar = [s for s, k, _t, _e in sonuc
+               if k == "hasta_yok" and s["tarih"] and s["tarih"] < YENI_HASTA_SON]
+    gruplar = collections.defaultdict(list)
+    for s in adaylar:
+        gruplar[cryo_excel.kelimeler(f'{s["soyad"]} {s["ad"]}')].append(s)
+    plan, atlanan = [], []
+    for kel, satirlar in gruplar.items():
+        okunan = []
+        for s in satirlar:
+            if excel_ogeleri(s["icerik"]):
+                okunan.append(s)
+            else:
+                atlanan.append((s, "HÜCRE okunamadı -- tüp içeriği bilinmiyor"))
+        if not okunan:
+            continue
+        esler = sorted({cryo_excel.buyuk(s["es_adi"]) for s in okunan if s["es_adi"].strip()})
+        if len(esler) <= 1:
+            plan.append((kel, esler[0] if esler else None, okunan))
+            continue
+        for es in esler:
+            plan.append((kel, es, [s for s in okunan if cryo_excel.buyuk(s["es_adi"]) == es]))
+        for s in okunan:
+            if not s["es_adi"].strip():
+                atlanan.append((s, "aynı adla iki farklı eş var, bu satırda eş yazmıyor"))
+    return plan, atlanan
+
+
+def _tedavileri(satirlar):
+    """Bir hastanın satırları -> {tedavi anahtarı: [satır, ...]}. Anahtar OPU
+    günü (`_excel_opu()`: "D5" = TARİH − 5, yumurta TARİH); günü yazmayan
+    embriyo satırında OPU bilinmiyor, anahtar TARİH (OPU boş kalır)."""
+    t = collections.defaultdict(list)
+    for s in satirlar:
+        opu = _excel_opu(s)
+        t[("opu", opu) if opu else ("tarih", s["tarih"])].append(s)
+    return t
+
+
+def _yeni_ad(s) -> str:
+    return cryo_excel.buyuk(f'{s["ad"]} {s["soyad"]}'.strip())
+
+
+def yeni_hasta_yaz(plan) -> dict:
+    sayac = collections.Counter()
+    with _db.yazma_islemi() as b:
+        kid = _kullanici_id(b)
+        renkler = {r[0] for r in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_renk'",
+            (_db.LAB_ID,))}
+        tipler = {r[0] for r in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
+            (_db.LAB_ID,))}
+        dosya = max(GECICI_DOSYA_TABANI, b.execute(
+            "SELECT COALESCE(MAX(dosya_no),0) FROM hasta WHERE lab_id=?",
+            (_db.LAB_ID,)).fetchone()[0])
+        for _kel, es, satirlar in plan:
+            dosya += 1
+            ilk = min(s["tarih"] for s in satirlar)
+            b.execute(
+                "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, es_adi, notlar, durum, "
+                "olusturma_zamani) VALUES (?,?,?,?,?,'aktif',?)",
+                (_db.LAB_ID, dosya, _yeni_ad(satirlar[0]), es,
+                 "Cryo Haritası Excel'inden açıldı (v6.179). GEÇİCİ dosya numarası -- "
+                 "gerçek numara dosya_no_degistir.py ile yazılmalı.",
+                 f"{ilk} 08:00:00"))
+            hid = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+            sayac["hasta"] += 1
+            for (olcu, gun), grup in sorted(_tedavileri(satirlar).items(),
+                                            key=lambda x: x[0][1]):
+                # Excel'in kendi sırasıyla (`esle()`'nin istek sırası): aynı gün
+                # birebir aynı içerikli iki tüp ikinci çalıştırmada `_dagit()`
+                # ile etiket sırasına dağıtılıyor -- başka sırayla açılsalar
+                # çapraz eşleşip "başka konum yazılmış" derlerdi.
+                tuplar = [(s, tup) for s in grup for tup in excel_ogeleri(s["icerik"])]
+                tip = "oosit_cryo" if all(_tup_yumurta_mu(t) for _s, t in tuplar) else "ivf_icsi"
+                cycle_no = aktar_access._lab_no(b, gun[:4])
+                son = max(s["tarih"] for s in grup)
+                yerler = "; ".join(sorted({f'{s["sayfa"]} satır {s["satir"]}' for s in grup}))
+                notu = ("Program öncesi kayıt: yalnızca Cryo Haritası Excel'indeki dondurma "
+                        f"bilgisi ({yerler}). OPU, ICSI ve döllenme kaydı yok.\n"
+                        + _db.CRYO_EXCEL_ISARETI)
+                sira_no = (b.execute("SELECT COALESCE(MAX(hasta_cycle_no),0)+1 FROM cycle "
+                                     "WHERE hasta_id=?", (hid,)).fetchone()[0])
+                b.execute(
+                    "INSERT INTO cycle (lab_id, hasta_id, cycle_no, hasta_cycle_no, cycle_tipi, "
+                    "protokol_notu, opu_zamani, durum, bitis_sebebi, bitis_zamani, "
+                    "olusturma_zamani) VALUES (?,?,?,?,?,?,?,'tamamlandi','dondurma',?,?)",
+                    (_db.LAB_ID, hid, cycle_no, sira_no, tip, notu,
+                     f"{gun} 09:00:00" if olcu == "opu" else None,
+                     f"{son} 16:00:00", f"{gun} 08:30:00"))
+                cid = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+                sayac["tedavi"] += 1
+                sira = 0
+                for i, (s, tup) in enumerate(tuplar):
+                    an = f'{s["tarih"]} {12 + i // 60:02d}:{i % 60:02d}:00'
+                    tid, _etiket, an = aktar_access._tasiyici_ac(b, kid, cycle_no, an)
+                    konum_id = _db.konum_bul_veya_olustur(_seviyeler(s), b)
+                    b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (konum_id, tid))
+                    b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+                    if s["tip"] and s["tip"] not in tipler and s["tip"] in TIP_ETIKETLERI:
+                        _liste_kodu_ekle(b, "tasiyici_tipi", s["tip"], TIP_ETIKETLERI[s["tip"]])
+                        tipler.add(s["tip"])
+                    if s["tip"] in tipler:
+                        b.execute("UPDATE tasiyici SET tip=? WHERE id=?", (s["tip"], tid))
+                    if s["renk"] in renkler:
+                        b.execute("UPDATE tasiyici SET renk=? WHERE id=?", (s["renk"], tid))
+                    sayac["tup"] += 1
+                    egun = _excel_gunu(s)
+                    for o in tup:
+                        sira += 1
+                        sid = aktar_access._specimen_ac(b, cid, cycle_no, sira, "dondurulmus",
+                                                        f"{gun} 08:30:00")
+                        sayac["ornek"] += 1
+                        if o["tur"] == "oosit":
+                            if o["mat"]:
+                                aktar_access._olay(b, kid, sid, cid, "maturasyon_kontrolu",
+                                                   f"{s['tarih']} 11:30:00", mat_deger=o["mat"],
+                                                   notlar=_YENI_VIT_NOTU)
+                        else:
+                            if o["tur"] == "taninmadi":
+                                sayac["skorsuz"] += 1
+                                sayac.setdefault("okunamayan", []).append(o["ham"])
+                            g = egun or (5 if o["tur"] == "blast" else 3)
+                            alan = aktar_access._oge_alanlari(o, g)
+                            if alan and o["tur"] == "cleavage":
+                                if not o.get("skor"):
+                                    alan[1]["cl_skor_kaynagi"] = None
+                                if o.get("frag") is not None:
+                                    alan[1]["cl_fragmentasyon"] = o["frag"]
+                                if o.get("simetri"):
+                                    alan[1]["cl_simetri"] = o["simetri"]
+                            if alan:
+                                aktar_access._degerlendirme_yaz(
+                                    b, kid, sid, cid, alan[0],
+                                    max(g, 4) if o["tur"] == "blast" else min(g, 3),
+                                    f"{s['tarih']} 09:00:00", alan[1], o.get("ham", ""),
+                                    onek=_YENI_YAZIM)
+                        aktar_access._olay(b, kid, sid, cid, "vitrifikasyon", an,
+                                           vit_tasiyici_id=tid, notlar=_YENI_VIT_NOTU)
+            _db.tedavileri_sirala(b, hid)
+    return sayac
+
+
+def yeni_hasta_raporu(plan, atlanan):
+    satirlar = [f"CRYO EXCEL -- YENİ HASTA ({YENI_HASTA_SON} öncesi) -- "
+                f"{_dt.datetime.now():%Y-%m-%d %H:%M:%S}", ""]
+    for kel, es, grup in plan:
+        satirlar.append(f'{_yeni_ad(grup[0])}' + (f" (eşi {es})" if es else ""))
+        for (olcu, gun), g in sorted(_tedavileri(grup).items(), key=lambda x: x[0][1]):
+            satirlar.append(f"   tedavi {'OPU ' + gun if olcu == 'opu' else 'OPU bilinmiyor, ' + gun}")
+            for s in g:
+                n = sum(len(t) for t in excel_ogeleri(s["icerik"]))
+                satirlar.append(f"      {_yer(s)} | {s['tarih']} | {s['icerik']} | "
+                                f"{s['vial_metni']} -> {n} örnek")
+    if atlanan:
+        satirlar += ["", f"== Açılmayan satırlar: {len(atlanan)}"]
+        for s, sebep in atlanan:
+            satirlar.append(f"   {_yer(s)} | {s['soyad']} {s['ad']} | {s['tarih']} | "
+                            f"{s['icerik']} -- {sebep}")
+    YENI_RAPOR.write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+
+
+
 # ------------------------------------------------------------------- main
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula"):
+    if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta"):
         sys.exit(__doc__)
     kip, dosya = sys.argv[1], Path(sys.argv[2])
     if not dosya.is_file():
@@ -628,6 +909,8 @@ def main():
     print(f"Program: {sum(len(v) for v in idx.values())} hasta, "
           f"{sum(len(v) for v in tup.values())} dondurma tüpü.")
     sonuc = esle(cozum["satirlar"], idx, tup)
+    if kip == "yeni_hasta":
+        return _yeni_hasta_kipi(sonuc)
     sayac, sperm = rapor_yaz(sonuc, cozum["satirlar"], cozum["uyarilar"], kip)
     yazilacak = ozet_bas(sayac, sperm, len(cozum["satirlar"]))
     if kip == "liste":
@@ -644,6 +927,29 @@ def main():
           f"{y['renk']} tüpe renk"
           + (f"; {y['tip_kodu_eklendi']} yeni taşıyıcı tipi listeye eklendi"
              if y["tip_kodu_eklendi"] else "") + ".")
+
+
+def _yeni_hasta_kipi(sonuc):
+    plan, atlanan = yeni_hasta_plani(sonuc)
+    yeni_hasta_raporu(plan, atlanan)
+    tedavi = sum(len(_tedavileri(g)) for _k, _e, g in plan)
+    tup = sum(len(excel_ogeleri(s["icerik"])) for _k, _e, g in plan for s in g)
+    ornek = sum(len(t) for _k, _e, g in plan for s in g for t in excel_ogeleri(s["icerik"]))
+    print(f"{YENI_HASTA_SON} öncesi, programda olmayan hasta: {len(plan)} hasta, "
+          f"{tedavi} tedavi, {tup} tüp, {ornek} örnek açılacak.")
+    if atlanan:
+        print(f"Açılmayacak satır: {len(atlanan)} (sebepleri raporda).")
+    print(f"Ayrıntı: {YENI_RAPOR}")
+    if not plan:
+        return
+    print("\nHastalar GEÇİCİ dosya numarasıyla açılacak. Devam için HASTA yazın:")
+    if input("> ").strip() != "HASTA":
+        print("Vazgeçildi, hiçbir şey yazılmadı.")
+        return
+    y = yeni_hasta_yaz(plan)
+    print(f"Açıldı: {y['hasta']} hasta, {y['tedavi']} tedavi, {y['tup']} tüp, "
+          f"{y['ornek']} örnek" + (f" ({y['skorsuz']} embriyonun skoru okunamadı, "
+                                   "skorsuz)" if y["skorsuz"] else "") + ".")
 
 
 if __name__ == "__main__":
