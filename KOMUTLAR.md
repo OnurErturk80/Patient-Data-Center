@@ -530,6 +530,22 @@ python3 cryo_esle.py eksik CRYO_HARITA.xlsx   # programda dolu, Excel'de olmayan
 Liste `cryo_esle_rapor_eksik.txt`'de. "Adı farklı yazılmış" sınıfındakiler
 büyük olasılıkla tanktadır, onları işaretlemeyin.
 
+**Cryo haritası onarımı (v6.188) -- bir kez, `git pull`'dan sonra.**
+Excel'den eşleştirme üç yerde yanlış okumuştu: TANK 3'ün 2–5. kanisterleri
+1. kanister sayılmış, "Tank 1-5 üst" sayfasının gobletleri alt kattakilerle
+aynı adı almış (artık "7 Üst"), yeşil ve pembe straw'lar renksiz yazılmış.
+`uygula`'yı çalıştırdığın makinede (Mac), aynı Excel dosyasıyla:
+
+```
+python3 cryo_esle.py onar CRYO_HARITA.xlsx   # planı basar, "ONAR" yazınca onarır
+```
+
+Yalnızca eski okumanın yazdığı konumu düzeltir: tüpün konumunu sonradan elle
+değiştirdiysen dokunmaz, raporda listeler (`cryo_esle_rapor_onar.txt`, hasta
+adı içerir). Renk yalnızca boşsa yazılır; pembe renk listeye eklenir. İkinci
+çalıştırma "Onarılacak bir şey yok" der. Değişiklikler değişiklik geçmişine
+düşer. Sperm satırları bu üç hatadan etkilenmedi (`sperm` kipi ayrı).
+
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı
 klasöre. Etiketler ay + yıl (`OCAK2019` … `ARALIK2023`); 2020'nin mayısı

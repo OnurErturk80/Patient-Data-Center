@@ -14757,3 +14757,83 @@ satır "4AA, boş, Dejenere, Kayıp" basıldı; form ve Excel çıktısı 200 d�
 
 Yalnızca `formlar.py` değişti: `git pull`'dan sonra programın **yeniden
 başlatılması** gerekiyor (tuzak #5).
+
+# v6.188 — Cryo haritası Excel'inin üç okuma hatası ve onarımı
+
+Kullanıcı Cryo Haritası'nın bugünkü halini sordu ("en önemli kayıt ...
+kesinlikle bozulmaması gerekiyor") ve Excel'ini yeniden verdi ("Düzeni
+araştır. Her goblete 4 straw/Cryotop konuyor. Ve goblette farklı renkler
+konuyor"). Düzen çıkarılırken v6.173'ün okumasının üç hatası bulundu; üçü de
+`cryo_esle.py uygula` ile kullanıcının veritabanına yazılmıştı (2026-09-25).
+
+## Tankın düzeni (Excel'den)
+
+| Tank | Kanister | Goblet | İçerik |
+|---|---|---|---|
+| TANK 1 | 6 | altta 1A–30A, üstte 1–30 ("Tank 1-5 üst") | embriyo, 4 straw |
+| TANK 5 | 6 | altta 1–30; üstte yalnızca 1. kanister | embriyo, 4 straw |
+| TANK 4 | 21–42 | A–P (14: her harf üst/alt, AÜ/AA) | embriyo, 4 straw |
+| TANK 4 | 1–13, 15–18 | A–P / A1–P5 | sperm, tek vial |
+| TANK 3 | 1 / 2–5 | A–D | sperm / embriyo |
+| TANK 2 | 6 | 1–30 ve harfli yerler | karışık |
+| YENİ SPERM | 15 | A1–P5 | sperm |
+
+Kullanıcının cevapları: "Tank 1-5 üst" kanisterlerin üst katı; VİAL'deki
+sondaki numara ("CRYOLOCK MAVİ 2") hastanın kaçıncı straw'ı (bir gobletin 1.
+ve 3. sırasında aynı hastanın 2 ve 3 numaralı straw'ları duruyordu). Renkli
+yazılmış gobletlerin %90'ında (736'nın 661'i) straw renkleri birbirinden
+farklı. Excel'de 31 goblet 5, 3 goblet 6 satırla yazılı (4'ü aşıyor).
+
+## Üç hata (`cryo_excel.py`)
+
+1. **Blok içindeki kanister ayracı.** TANK 3'ün 2–5. kanisterleri tek
+   sütunda alt alta, araya NO sütununa "CANİSTER 2" gibi satırlar konarak
+   yazılmış. Ayraç tanınmıyordu, 49 embriyo satırı 1. kanister sayıldı:
+   haritada "TANK 3 / 1 / B", tankta 3. kanister. Artık ayraç sonraki
+   satırların kanisterini değiştiriyor (`_KANISTER_AYRAC`, "CANNİSTER" da).
+   Bloğun **üstündeki** etiket eski kuralla kaldı: genişletmek, TANK 2'nin
+   etiketsiz bir bloğundaki 9 satırı doğrulanmamış bir kanistere taşırdı.
+2. **Üst kat.** "Tank 1-5 üst" sayfasının gobletleri alt kattakilerle aynı
+   adı aldı. TANK 5'te 1–30 iki katta da var: "TANK 5 / 1 / 7" alttaki mi
+   üstteki mi ayırt edilmiyordu (üstte 110 satır). Kullanıcının seçimiyle
+   üst goblet "7 Üst" (`cryo_excel.UST_KAT`); TANK 1'in üst gobletleri de
+   (alttakiler zaten "7A" idi, çakışma yoktu ama ad tutarlı olsun diye).
+3. **Renk.** `_n()` "İ"yi "I" yapıyor, "Ş" kalıyor: "YEŞİL" "YEŞIL" oluyor,
+   ne "YEŞİL" ne "YESIL" tutuyordu. 684 yeşil straw renksiz yazıldı. Üç
+   satırda "YEŞİL CRYOTOP MEMORİAL"daki "MOR" mor sayılmıştı, şimdi yeşil.
+   Pembe (12 satır) programın renk listesinde yoktu; `cryo_esle.py` artık
+   tip kodları gibi listeye ekliyor (`RENK_ETIKETLERI`).
+
+Eski ve yeni okuma satır satır karşılaştırıldı: 5.401 satırın hiçbiri
+kaybolmadı; değişen yalnızca 773 üst kat gobletinin adı, TANK 3'ün 49
+satırının kanisteri, 696 satırın rengi.
+
+## Onarım: `cryo_esle.py onar`
+
+Okumayı düzeltmek yazılmış konumu düzeltmiyor. Her Excel satırı artık eski
+okumanın yerini de taşıyor (`eski_yer`); `onar` aynı eşleştirmeyi yapıp
+**yalnızca tüpün bugünkü konumu o eski yerse** yeni yeri yazıyor. Başka bir
+konumu olan tüpe (kullanıcı elle düzeltmiş ya da taşımış olabilir)
+dokunulmuyor, raporda ayrı başlıkta. Renk yalnızca boşsa yazılıyor. Kilit
+içinde tüpün konumu/rengi yeniden okunuyor (program açıkken biri bu arada
+değiştirdiyse dokunulmuyor). Her değişiklik `degisiklik_log`'da (tablo
+`tasiyici`, alan `konum`/`renk`). Rapor `cryo_esle_rapor_onar.txt` (hasta
+adı içerir, `.gitignore`'da). Onay "ONAR".
+
+**Denendi:** veritabanının bir kopyasına önce eski `uygula` (HEAD'in kodu)
+uygulandı -- 969 tüpe konum, kullanıcının makinesinde olanın küçüğü. Sonra
+`onar`: 541 tüpün konumu (TANK 1 üst 456, TANK 5 üst 78, TANK 3'ün 2/3/5.
+kanisterleri 7), 230 tüpün rengi (yeşil). Tablo tablo karşılaştırma:
+değişen yalnızca `tasiyici.konum_id` (541) ve `renk` (230); 186 yeni konum
+satırı ("N Üst" ve yeni kanister yolları), 771 günlük satırı; başka hiçbir
+tabloda tek satır değişmedi. Onarımdan önce 12 gobletin içinde 4'ten fazla
+straw görünüyordu (alt ve üst kat birleşmişti), sonra 5 -- beşi de Excel'de
+5 satırla yazılı. İkinci `onar`: "Onarılacak bir şey yok"; `liste`: 969
+"zaten". `sperm`, `eksik`, `yeni_hasta` kipleri yeni okumayla çalışıyor.
+Sperm satırları üç hatadan etkilenmedi.
+
+Sıradaki işler (kullanıcının isteği): tank düzenini programa tanıtmak (her
+goblet 4 straw), dondurma ekranında boş yer önerisi (hastanın straw'ları
+farklı renkte, mümkünse birbirine yakın, gobletteki renklerle çakışmadan) ve
+her değişiklikte kendiliğinden güncellenen Excel haritası (bugünkü düzen +
+düz liste).

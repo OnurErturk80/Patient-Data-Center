@@ -72,6 +72,16 @@ _TANK = re.compile(r"^TANK\s*([0-9]+)\s*$")
 # "CANİSTER" (Türkçe İ ile) da yazılmış; `_n()` sonrası I'ya
 # çevrilip karşılaştırılıyor.
 _KANISTER = re.compile(r"^(?:CANISTER|KANISTER)\s*([0-9]+)\s*$")
+# Blok İÇİNDEKİ kanister ayracı (v6.188): NO sütununda "CANİSTER 2". Yazımı
+# biraz daha serbest ("CANNİSTER"). Bloğun üstündeki etiket için değil:
+# orada genişletmek, TANK 2'nin etiketsiz bir bloğundaki 9 satırı
+# doğrulanmamış bir kanistere taşırdı.
+_KANISTER_AYRAC = re.compile(r"^[CK]AN+ISTER\s*([0-9]+)\s*$")
+# Kanisterin üst katı (v6.188, kullanıcı: "Tank 1-5 üst" sayfası TANK 1 ve
+# TANK 5 kanisterlerinin üst katı). Alt kattaki gobletle aynı numarayı
+# taşıyabiliyor (TANK 5'te 1-30 ikisinde de var), o yüzden gobletin adına
+# ekleniyor: "7 Üst" (kullanıcının seçtiği yazım).
+UST_KAT = "Üst"
 _DUZ_SAYI = re.compile(r"^[0-9]{1,3}$")
 
 # Taşıyıcı markaları — `liste_degeri.tasiyici_tipi` kodlarına eşleniyor
@@ -83,11 +93,16 @@ _TIPLER = (
     ("VITRIFIT", "vitrifit"), ("VİTRİFİT", "vitrifit"),
     ("STRAW", "straw"), ("VİAL", "vial"), ("VIAL", "vial"),
 )
+# Karşılaştırma `_n()`'den geçmiş metinle: "İ" orada "I" oluyor, "Ş" kalıyor.
+# "YEŞİL" bu yüzden "YEŞIL" diye aranmalı -- v6.188'e kadar yalnızca "YEŞİL"
+# ve "YESIL" vardı, ikisi de hiç tutmuyordu ve 684 yeşil straw renksiz
+# yazıldı. Pembe programın listesinde yoktu (`cryo_esle.RENK_ETIKETLERI`).
 _RENKLER = (
     ("SARI", "sari"), ("MAVİ", "mavi"), ("MAVI", "mavi"),
-    ("YEŞİL", "yesil"), ("YESIL", "yesil"), ("TURUNCU", "turuncu"),
+    ("YEŞIL", "yesil"), ("YEŞİL", "yesil"), ("YESIL", "yesil"),
+    ("TURUNCU", "turuncu"),
     ("KIRMIZI", "kirmizi"), ("BEYAZ", "beyaz"), ("MOR", "mor"),
-    ("SİYAH", "siyah"), ("SIYAH", "siyah"),
+    ("SİYAH", "siyah"), ("SIYAH", "siyah"), ("PEMBE", "pembe"),
 )
 
 # HÜCRE metninden kategori. Yazım hataları da listede: kâğıttan gelen
@@ -340,14 +355,29 @@ def coz(baytlar: bytes) -> dict:
             continue
         sayfa_satirlari = []
         eksik = 0
+        # Kanisterin üst katı (v6.188): sayfanın adı söylüyor ("Tank 1-5 üst").
+        ust_kat = "ÜST" in _n(sayfa).split()
         for blok in bloklar:
             a = blok["alanlar"]
+            # Bir blok birden çok kanister taşıyabiliyor: TANK 3'ün 2-5.
+            # kanisterleri tek sütunda alt alta, araya NO sütununa "CANİSTER 2"
+            # gibi satırlar konarak yazılmış. v6.188'e kadar bu ayraçlar
+            # tanınmıyordu, 49 embriyo satırı 1. kanister sayıldı.
+            tank, kanister = blok["tank"], blok["kanister"]
             for satir in range(blok["veri_bas"], blok["veri_son"] + 1):
                 def al(ad):
                     return str(hucreler.get((satir, a[ad]), "")).strip() if ad in a else ""
                 soyad, ad_, es = al("soyad"), al("ad"), al("es")
                 tarih_ham, icerik, vial = al("tarih"), al("icerik"), al("vial")
                 no, not_ = al("no"), al("notlar")
+                ayrac = _KANISTER_AYRAC.match(_n(no))
+                if ayrac:
+                    kanister = ayrac.group(1)
+                    continue
+                ayrac = _TANK.match(_n(no))
+                if ayrac:
+                    tank, kanister = "TANK " + ayrac.group(1), None
+                    continue
                 if _n(soyad) in _BASLIKLAR or _n(ad_) in _BASLIKLAR:
                     continue                      # tekrarlanan başlık satırı
                 if not (soyad or ad_):
@@ -361,8 +391,11 @@ def coz(baytlar: bytes) -> dict:
                 adet, tip, renk = vial_coz(vial)
                 sayfa_satirlari.append({
                     "sayfa": sayfa, "satir": satir, "sutun": a["soyad"],
-                    "tank": blok["tank"], "kanister": blok["kanister"],
-                    "goblet": no,
+                    "tank": tank, "kanister": kanister,
+                    "goblet": f"{no} {UST_KAT}" if ust_kat and no else no,
+                    # v6.188'den önceki okumanın yeri: `cryo_esle.py onar`
+                    # yalnızca o okumanın yazdığı konumu düzeltiyor.
+                    "eski_yer": (blok["tank"], blok["kanister"], no),
                     "soyad": soyad, "ad": ad_, "es_adi": es,
                     "tarih": tarih, "tarih_notu": tarih_notu,
                     "icerik": icerik, "vial_metni": vial,

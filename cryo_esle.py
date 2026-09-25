@@ -20,6 +20,10 @@ Kullanım (proje klasöründe):
     python3 cryo_esle.py eksik CRYO_HARITA.xlsx      # programda dolu, Excel'de
                                                      # olmayan tüpler -- yazmaz
                                                      # (v6.182)
+    python3 cryo_esle.py onar CRYO_HARITA.xlsx       # v6.188'e kadarki yanlış
+                                                     # okumanın yazdığı konumları
+                                                     # ve boş renkleri onarır
+                                                     # ("ONAR" onayıyla)
 
 İkisi de `cryo_esle_rapor.txt` dosyasına satır satır rapor yazar (hasta
 adı içerir -- depoya girmez, `.gitignore`). Terminale yalnızca sayılar.
@@ -78,6 +82,9 @@ RAPOR = Path("cryo_esle_rapor.txt")
 # Taşıyıcı tipleri: Excel'in VİAL sütunundan çıkan kod `liste_degeri`'nde
 # yoksa ekleniyor (goc_042'nin v6.129'da geri alınan iki satırı).
 TIP_ETIKETLERI = {"rapid_i": "Rapid-i", "vitrifit": "Vitrifit"}
+# Renkler de öyle (v6.188): laboratuvar pembe straw kullanıyor, programın
+# renk listesinde yoktu.
+RENK_ETIKETLERI = {"pembe": "Pembe"}
 
 
 # ------------------------------------------------------------------ içerik
@@ -655,15 +662,26 @@ def _liste_kodu_ekle(b, liste, kod, etiket):
     return True
 
 
+def _renk_kodlari(b, gerekenler) -> tuple:
+    """Listedeki renk kodları -> (kodlar, eklenen sayısı). Excel'de geçen ama
+    listede olmayan `RENK_ETIKETLERI` rengi önce ekleniyor (v6.188)."""
+    eklenen = 0
+    for kod in sorted(set(gerekenler) & set(RENK_ETIKETLERI)):
+        eklenen += _liste_kodu_ekle(b, "tasiyici_renk", kod, RENK_ETIKETLERI[kod])
+    kodlar = {r[0] for r in b.execute(
+        "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_renk'",
+        (_db.LAB_ID,))}
+    return kodlar, eklenen
+
+
 def uygula(sonuc) -> dict:
     yazilanlar = [(s, t) for s, k, t, _ in sonuc if k in YAZILIR and t]
     sayac = collections.Counter()
     with _db.yazma_islemi() as b:
         kid = _kullanici_id(b)
         simdi = _dt.datetime.now().isoformat(" ", "seconds")
-        renkler = {r[0] for r in b.execute(
-            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_renk'",
-            (_db.LAB_ID,))}
+        renkler, sayac["renk_kodu_eklendi"] = _renk_kodlari(
+            b, {s["renk"] for s, _ in yazilanlar if s["renk"]})
         tipler = {r[0] for r in b.execute(
             "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
             (_db.LAB_ID,))}
@@ -693,6 +711,138 @@ def uygula(sonuc) -> dict:
                 logla(t["tid"], "renk", t["renk"], s["renk"])
                 sayac["renk"] += 1
     return sayac
+
+
+# ------------------------------------------------------------ onar (v6.188)
+#
+# v6.188'e kadar Excel üç yerde yanlış okunuyordu ve `uygula` o okumayı
+# kullanıcının veritabanına yazdı (2026-09-25):
+#   - TANK 3'ün 2-5. kanisterleri tek sütunda alt alta, araya "CANİSTER 2"
+#     satırları konarak yazılmış; hepsi 1. kanister sayıldı.
+#   - "Tank 1-5 üst" sayfası kanisterlerin üst katı; gobletleri alttakilerle
+#     aynı adı aldı (TANK 5'te 1-30 iki katta da var, tek yer sayıldı).
+#     Artık "7 Üst" (kullanıcının seçtiği yazım).
+#   - "YEŞİL" hiç tanınmıyordu, pembe listede yoktu: straw'lar renksiz kaldı.
+# `onar` YALNIZCA o okumanın yazdığını düzeltir. Tüpün bugünkü konumu
+# satırın eski okumadaki yeriyle aynıysa yeni yer yazılır; başka bir konum
+# varsa (elle girilmiş, taşınmış) dokunulmaz, raporda listelenir. Renk
+# yalnızca boşsa yazılır. İkinci çalıştırma hiçbir şeyi değiştirmez.
+
+ONAR_RAPOR = Path("cryo_esle_rapor_onar.txt")
+
+
+def _eski_yol(s):
+    return " / ".join(x for x in s["eski_yer"] if x)
+
+
+def onar_plani(sonuc) -> tuple:
+    """-> (konumu düzeltilecek, rengi yazılacak, dokunulmayan) [(satır, tüp)]"""
+    konum, renk, dokunulmadi = [], [], []
+    for s, sinif, t, _ek in sonuc:
+        if t is None or t["durum"] != "dolu":
+            continue
+        yeni, eski = _tam_yol(s), _eski_yol(s)
+        tasinacak = False
+        if sinif == "farkli_konum" and yeni != eski:
+            if t["tam_yol"] == eski:
+                konum.append((s, t))
+                tasinacak = True
+            else:
+                dokunulmadi.append((s, t))
+        if (sinif == "zaten" or tasinacak) and not t["renk"] and s["renk"]:
+            renk.append((s, t))
+    return konum, renk, dokunulmadi
+
+
+def onar_yaz(konum, renk) -> dict:
+    sayac = collections.Counter()
+    with _db.yazma_islemi() as b:
+        kid = _kullanici_id(b)
+        simdi = _dt.datetime.now().isoformat(" ", "seconds")
+        renkler, sayac["renk_kodu_eklendi"] = _renk_kodlari(b, {s["renk"] for s, _ in renk})
+
+        def logla(tid, alan, eski, yeni):
+            b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                      "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                      (_db.LAB_ID, "tasiyici", str(tid), alan, eski, yeni, kid, simdi))
+
+        def simdiki(tid):
+            return b.execute("SELECT k.tam_yol, t.renk FROM tasiyici t "
+                             "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?",
+                             (tid,)).fetchone()
+
+        for s, t in konum:
+            # Program açıkken biri bu arada tüpü taşımış olabilir: kilidin
+            # içinde yeniden bak, değişmişse dokunma.
+            r = simdiki(t["tid"])
+            if not r or r[0] != t["tam_yol"]:
+                sayac["degismis"] += 1
+                continue
+            konum_id = _db.konum_bul_veya_olustur(_seviyeler(s), b)
+            b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (konum_id, t["tid"]))
+            b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+            logla(t["tid"], "konum", t["tam_yol"], _tam_yol(s))
+            sayac["konum"] += 1
+        for s, t in renk:
+            if s["renk"] not in renkler:
+                sayac["renk_listede_yok"] += 1
+                continue
+            r = simdiki(t["tid"])
+            if not r or r[1]:
+                sayac["degismis"] += 1
+                continue
+            b.execute("UPDATE tasiyici SET renk=? WHERE id=?", (s["renk"], t["tid"]))
+            logla(t["tid"], "renk", None, s["renk"])
+            sayac["renk"] += 1
+    return sayac
+
+
+def onar_raporu(konum, renk, dokunulmadi):
+    with ONAR_RAPOR.open("w", encoding="utf-8") as f:
+        f.write(f"Cryo haritası onarımı (v6.188) -- {_dt.datetime.now():%d.%m.%Y %H:%M}\n")
+        f.write("Hasta adı içerir: bu dosyayı paylaşma, depoya koyma.\n")
+        for baslik, liste, metin in (
+                ("Konumu düzeltilecek (eski okumanın yazdığı yer -> doğru yer)", konum,
+                 lambda s, t: f'{t["tam_yol"]}  ->  {_tam_yol(s)}'),
+                ("Rengi yazılacak (tüpün rengi boş)", renk,
+                 lambda s, t: f'renk: {s["renk"]}'),
+                ("DOKUNULMADI -- tüpün konumu eski okumadan da farklı "
+                 "(elle girilmiş ya da taşınmış olabilir, bakılmalı)", dokunulmadi,
+                 lambda s, t: f'programda: {t["tam_yol"]}  | Excel: {_tam_yol(s)}')):
+            f.write(f"\n== {baslik}: {len(liste)}\n")
+            for s, t in liste:
+                f.write(f"  {_satir_metni(s, t, metin(s, t))}\n")
+
+
+def _onar_kipi(sonuc):
+    konum, renk, dokunulmadi = onar_plani(sonuc)
+    onar_raporu(konum, renk, dokunulmadi)
+    tank = collections.Counter(
+        s["tank"] + (f" {cryo_excel.UST_KAT}" if s["goblet"].endswith(cryo_excel.UST_KAT)
+                     else f" kanister {s['kanister']}") for s, _ in konum)
+    print(f"Konumu düzeltilecek tüp: {len(konum)}"
+          + (" (" + ", ".join(f"{k}: {n}" for k, n in sorted(tank.items())) + ")"
+             if tank else ""))
+    print(f"Rengi yazılacak tüp: {len(renk)} ("
+          + ", ".join(f"{k}: {n}" for k, n in sorted(
+              collections.Counter(s["renk"] for s, _ in renk).items())) + ")"
+          if renk else "Rengi yazılacak tüp: 0")
+    if dokunulmadi:
+        print(f"Dokunulmayacak: {len(dokunulmadi)} tüpün konumu eski okumadan da "
+              "farklı (elle girilmiş olabilir) -- raporda.")
+    print(f"Ayrıntı: {ONAR_RAPOR}")
+    if not (konum or renk):
+        print("Onarılacak bir şey yok.")
+        return
+    print("\nDevam için ONAR yazın:")
+    if input("> ").strip() != "ONAR":
+        print("Vazgeçildi, hiçbir şey yazılmadı.")
+        return
+    y = onar_yaz(konum, renk)
+    print(f"Yazıldı: {y['konum']} tüpün konumu, {y['renk']} tüpün rengi"
+          + (f"; {y['renk_kodu_eklendi']} renk listeye eklendi" if y["renk_kodu_eklendi"] else "")
+          + (f"; {y['degismis']} tüp bu arada değişmiş, dokunulmadı" if y["degismis"] else "")
+          + ".")
 
 
 # ------------------------------------------------------ yeni hasta (v6.179)
@@ -779,9 +929,8 @@ def yeni_hasta_yaz(plan) -> dict:
     sayac = collections.Counter()
     with _db.yazma_islemi() as b:
         kid = _kullanici_id(b)
-        renkler = {r[0] for r in b.execute(
-            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_renk'",
-            (_db.LAB_ID,))}
+        renkler, _ = _renk_kodlari(
+            b, {s["renk"] for _k, _e, g in plan for s in g if s["renk"]})
         tipler = {r[0] for r in b.execute(
             "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
             (_db.LAB_ID,))}
@@ -1110,9 +1259,7 @@ def sperm_yaz(satirlar) -> dict:
         tipler = {r[0] for r in b.execute(
             "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
             (_db.LAB_ID,))}
-        renkler = {r[0] for r in b.execute(
-            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_renk'",
-            (_db.LAB_ID,))}
+        renkler, _ = _renk_kodlari(b, {s["renk"] for s in satirlar if s["renk"]})
         dosya = max(GECICI_DOSYA_TABANI, b.execute(
             "SELECT COALESCE(MAX(dosya_no),0) FROM hasta WHERE lab_id=?",
             (_db.LAB_ID,)).fetchone()[0])
@@ -1377,7 +1524,7 @@ def _sperm_kipi(satirlar):
 
 def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta", "sperm",
-                                                 "eksik"):
+                                                 "eksik", "onar"):
         sys.exit(__doc__)
     kip, dosya = sys.argv[1], Path(sys.argv[2])
     if not dosya.is_file():
@@ -1401,6 +1548,8 @@ def main():
         return _yeni_hasta_kipi(sonuc)
     if kip == "eksik":
         return _eksik_kipi(sonuc, cozum["satirlar"], idx, tup)
+    if kip == "onar":
+        return _onar_kipi(sonuc)
     sayac, sperm = rapor_yaz(sonuc, cozum["satirlar"], cozum["uyarilar"], kip)
     yazilacak = ozet_bas(sayac, sperm, len(cozum["satirlar"]))
     if kip == "liste":
@@ -1416,7 +1565,9 @@ def main():
     print(f"Yazıldı: {y['konum']} tüpe konum, {y['tip']} tüpe taşıyıcı tipi, "
           f"{y['renk']} tüpe renk"
           + (f"; {y['tip_kodu_eklendi']} yeni taşıyıcı tipi listeye eklendi"
-             if y["tip_kodu_eklendi"] else "") + ".")
+             if y["tip_kodu_eklendi"] else "")
+          + (f"; {y['renk_kodu_eklendi']} renk listeye eklendi"
+             if y["renk_kodu_eklendi"] else "") + ".")
 
 
 def _yeni_hasta_kipi(sonuc):

@@ -60,7 +60,9 @@ Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
 verilmedi (Cryo Excel'inde o yıllardan ~200 satır var). Sonra sıra Cryo
 Excel'inde: `cryo_esle.py` (aşağıda; v6.180'de sperm satırları da, kullanıcı
-henüz çalıştırmadı). Göç, kalıcı silme, geri yükleme gibi
+henüz çalıştırmadı). v6.188'in onarımı (`cryo_esle.py onar`: TANK 3
+kanisterleri, üst kat, yeşil/pembe) kullanıcının Mac'inde çalıştırılacak;
+çalıştırıp çalıştırmadığını sormadan haritanın konumlarına güvenme. Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -2087,9 +2089,26 @@ besleniyor.
   eksik`: programda dolu, Excel'de karşılığı olmayan tüpler, yalnızca
   rapor; "adı farklı yazılmış" sınıfı (aynı gün aynı içerik, ad tutmuyor)
   taşınmış sayılmamalı. Programın kendisi hiçbir tüpü "taşındı" yapmaz.
+- **Tankın fiziksel düzeni** (kullanıcı, 2026-09-25; Excel'den çıkarıldı,
+  README v6.188): tank → kanister → goblet; **embriyo gobletine 4
+  straw/Cryotop** konuyor ve **bir goblette farklı renkler** duruyor (straw'lar
+  renkle ayırt ediliyor). Sperm yerlerinde tek vial. "Tank 1-5 üst" sayfası
+  TANK 1 ve TANK 5 kanisterlerinin **üst katı**: programda goblet "7 Üst"
+  (`cryo_excel.UST_KAT`); alt kat bugünkü adıyla (TANK 1'de "7A", TANK 5'te
+  "7"). VİAL'deki sondaki numara ("CRYOLOCK MAVİ 2") **hastanın kaçıncı
+  straw'ı**, gobletteki yeri değil -- ondan konum ÇIKARMA.
+- **v6.188'de düzeltilen üç okuma hatası** (v6.173–v6.187'nin `uygula`'sı
+  kullanıcının veritabanına yazdı; onarımı `cryo_esle.py onar`): blok içindeki
+  "CANİSTER 2" ayracı (TANK 3'ün 2–5. kanisterleri 1. sayılıyordu), üst kat
+  (TANK 5'te alt ve üst goblet aynı yer sayılıyordu), "YEŞİL" (`_n()` "İ"yi
+  "I" yapıyor, "Ş" kalıyor: "YEŞIL" diye aranmalı) ve pembe (listede yoktu,
+  `RENK_ETIKETLERI`). Her satır eski okumanın yerini de taşıyor (`eski_yer`):
+  `onar` yalnızca tüpün bugünkü konumu o eski yerse düzeltir. **Excel'in
+  okumasını değiştirirsen** eski/yeni okumayı satır satır karşılaştır
+  (v6.176'nın kuralı) ve kullanıcının veritabanına yazılmış yanlışın onarım
+  yolunu da yaz -- okumayı düzeltmek yazılmış konumu düzeltmez.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
-  istemediği; Excel VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile embriyo
-  tüp sırasının ilişkisi. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını
+  istemediği. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını
   kullanıcı da bilmiyor (2026-09-25) -- yorumlanmıyor, notta olduğu gibi
   duruyor; ondan tüp sayısı ya da konum ÇIKARMA.
 
