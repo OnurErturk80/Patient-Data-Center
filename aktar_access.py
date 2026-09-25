@@ -65,7 +65,8 @@ bölümü boş kalıyordu. Bu kip yalnızca o değerlendirmeyi yazar, başka hi�
 
 **Yalnızca eksik tüp: `dondurma`** (v6.161). Aracın okuyamadığı için hiç
 tüpü yazılmamış dondurmayı yazar ("2 ADET M2 OOSİT DONDURULARAK SAKLANDI"
-artık tek tüp); tüpü olan tedaviye dokunmaz:
+artık tek tüp); tüpü olan tedavide yalnızca eksik örneği ve (v6.175) hiç
+değerlendirmesi olmayan örneğin skorunu ekler, var olan skora dokunmaz:
 
     python3 aktar_access.py dondurma kaynak=OCAK duzelt=tarih_duzeltme.txt ocak.csv
 
@@ -84,6 +85,13 @@ bağlamak yanlış tüpü boşaltırdı. Rapor "ertelendi" der ve ayları yazar;
 aktarılınca her aktarımın sonundaki deneme kendiliğinden bağlar. Daha önce
 bağlanmış bir FET'e sonradan gelen bir tüp de tutuyorsa bağ çözülmez, rapor
 "Bağlı ama artık kesin değil" diye iki tüpü yazar -- elle bakılır.
+
+**Yanlış tüpe bağlanmış FET'i taşıma: `tasi`** (v6.175). Hangi tüpün
+çözüldüğünü kâğıttan / Cryo Excel'inden sen biliyorsan: FET'in Access
+işaretini ve doğru tüpün etiketini ver. Önce ne olacağını yazar, "TASI"
+yazınca taşır; şimdiki tüp dolu olarak geri döner, yeni tüp boşaltılır:
+
+    python3 aktar_access.py tasi TEMMUZ2019#54 2018-0890-1200
 
 ------------------------------------------------------------------------
 ACCESS'TEN CSV NASIL ÇIKAR
@@ -2716,7 +2724,11 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
     -- notta olup tüpte olmayan yer yeni örnekle tamamlanıyor, eksik tüp
     açılıyor. Tüpte duran örneğe, skoruna ve durumuna hiç dokunulmuyor, notta
     olmayan örnek tüpten çıkmıyor: elle düzeltilmiş bir skor ezilmesin
-    (`tamamla`'nın riski, v6.142). Döner: bir şey yazıldı mı.
+    (`tamamla`'nın riski, v6.142). Tek istisna eksik SKOR (v6.175): tüpteki
+    örneğin bu tedavide hiç değerlendirmesi yoksa ve not skorunu veriyorsa
+    skor yazılıyor -- v6.172'ye kadar "1 ADET 5.GÜN 4AB EMBRİYOSU" gibi
+    parantezsiz yazım skorsuz okunuyordu. Değerlendirmesi olana dokunulmuyor.
+    Döner: bir şey yazıldı mı.
     """
     coz = _satir_dondurmasi(r)
     if not coz:
@@ -2780,6 +2792,7 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
         vit_notu = _db.KAYNAK_DONDURMA_NOTU + "; konum girilmedi."
 
     yeni_tup, onarilan, yazilan, eksik, yer_sayisi, yedekten = [], [], [], 0, 0, 0
+    skor_eklenen = []
     olcusuzden = 0
     for i, grup in enumerate(coz["gruplar"]):
         g_oosit = grup_yumurta[i]
@@ -2892,8 +2905,15 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
             continue
         g_gun = grup_gunleri[i]
         for (a, o), sid in zip(yerler, atanan):
-            if not sid or (yalnizca_ekle and sid not in eklenen):
+            if not sid:
                 continue
+            if yalnizca_ekle and sid not in eklenen:
+                # Tüpte duran örnek: yalnızca skoru hiç yoksa ve not gerçek bir
+                # skor veriyorsa (v6.175). Skorsuz öğe ("G1", "BB") değil.
+                if (o["tur"] not in ("blast", "cleavage") or o.get("okunamadi")
+                        or _degerlendirmesi_var(b, sid, cycle_id)):
+                    continue
+                skor_eklenen.append(f'{etiket}: {o["ham"]}')
             yazilan.append(o["ham"])
             alan = _oge_alanlari(o, g_gun)
             if alan:
@@ -2962,10 +2982,30 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
                      f'(konum boş, Cryo Haritası\'ndan gir)')
     if onarilan:
         rapor.append(f'    dondurma onarıldı: {"; ".join(onarilan)}')
-    if mevcut and not yeni_tup and not onarilan and not eksik and not coz.get("eksik_not"):
+    if skor_eklenen:
+        rapor.append(f'    eksik skor yazıldı: {"; ".join(skor_eklenen)}')
+    if (mevcut and not yeni_tup and not onarilan and not skor_eklenen and not eksik
+            and not coz.get("eksik_not")):
         # Eksik varken "tutuyor" demek yukarıdaki UYARI'yla çelişirdi (v6.166)
         rapor.append("    dondurma zaten girilmiş, tüpler notla tutuyor")
-    return bool(yeni_tup or onarilan)
+    return bool(yeni_tup or onarilan or skor_eklenen)
+
+
+def _degerlendirmesi_var(b, sid, tedavi) -> bool:
+    """Örneğin bu tedavide (iptal edilmemiş) cleavage/blastokist
+    değerlendirmesi var mı. Birleşme ("BB") ve elle girilmiş her kayıt
+    sayılır; sayılmayan tek şey aktarımın kendi BOŞ kaydı (v6.175): v6.172'ye
+    kadar "1 ADET 3.GÜN 8HG2 EMBRİYOSU" gibi yazımlar hücre sayısı, skor ve
+    genişleme boş bir değerlendirme olarak yazıldı, not ham yazımı taşıyor."""
+    bos = ("o.cl_hucre_sayisi IS NULL AND o.cl_skor IS NULL "
+           "AND COALESCE(o.cl_birlesme, 0) = 0 " if _db.kolon_var("olay", "cl_birlesme")
+           else "o.cl_hucre_sayisi IS NULL AND o.cl_skor IS NULL ")
+    return b.execute(
+        "SELECT 1 FROM olay o WHERE o.specimen_id=? AND o.iptal_mi=0 "
+        f"AND o.tip IN (?, ?) AND {_db.bu_tedavide(tedavi, 'o')} "
+        f"AND NOT ({bos}AND o.bl_skor IS NULL AND o.bl_genisleme IS NULL "
+        "AND o.notlar LIKE ?) LIMIT 1",
+        (sid,) + _DEGERLENDIRMELER + (_KAYNAK_YAZIMI + ": %",)).fetchone() is not None
 
 
 def _kalite_coz(hucre: str, kalite: str):
@@ -3664,6 +3704,9 @@ def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
                     (kaynak_sid, dtip, dgun, oid)).fetchone():
                 _iptal(b, kid, oid, "Kaynak tedavide ayni gunun kaydi var "
                                     "(tupune baglandi)")
+    # Tüpün dondurması FET'ten sonra aktarıldıysa çözme kimlik sırasında
+    # dondurmadan "önce" kalıyor (v6.175, goc_050): yeniden yazılıyor.
+    _db.olay_sirasini_duzelt(b, eslesme.values())
     for i in alt:
         b.execute("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?",
                   (adaylar[i]["tid"],))
@@ -4167,6 +4210,242 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
             print(f'  {k}  {bagli_tup}  |  {" | ".join(obur)}')
 
 
+def fet_tupunu_degistir(isaret: str, etiketler: list):
+    """Tüpüne YANLIŞ bağlanmış aktarılmış bir FET'i kullanıcının gösterdiği
+    tüp(ler)e taşır (v6.175, `tasi` kipi).
+
+    `_kaynaga_bagla()` tek tutan tüpe bağlıyor, sonradan gelen bir tüp de
+    tutuyorsa `_baglantilari_yeniden_sina()` "Bağlı ama artık kesin değil"
+    diyor ama bağı çözmüyor (v6.164). Hangi tüpün çözüldüğünü kâğıttan ya da
+    Cryo Excel'inden bilen kullanıcı; araç tahmin etmiyor, yalnızca
+    söyleneni yapıyor ve yapabileceğini sınıyor:
+    - yeni tüpler hastanın dolu, çözülmemiş, çözmeden önce dondurulmuş,
+      doğru türde (yumurta/embriyo) tüpleri (`_bag_siniflari()`'nin adayı)
+      ve toplam örnek sayısı çözülen sayıya eşit;
+    - eski örneklerde bu FET'ten sonra BAŞKA bir tedavinin işi (yeniden
+      dondurulup başka FET'te çözülmek gibi) ya da fotoğraf/bulgu varsa dur;
+    - FET'te yapılan her olay (çözme, transfer, yeniden dondurma,
+      değerlendirme; `db.bu_tedavide()`) yeni örneğe geçer, `olay.cycle_id`
+      yeni örneğin kendi tedavisi, çözmenin tüpü yeni tüp. Eski örnek
+      "dondurulmuş"a, eski tüp "dolu"ya döner; yeni tüp boşaltılır.
+    - Transfer günü değerlendirmesinin çakışma kuralı (v6.163) yeni kaynağa
+      göre yeniden: çakışan iptal, artık çakışmayan geri açılır.
+    Değişiklik geçmişine yazılıyor. Onay "TASI". İkinci çalıştırma "zaten
+    bu tüpte" der."""
+    kid = _kullanici_id()
+    etiketler = [e.strip() for x in etiketler for e in x.split(",") if e.strip()]
+    if not etiketler:
+        sys.exit("Hangi tüp? Örnek: python3 aktar_access.py tasi TEMMUZ2019#54 "
+                 "2018-0890-1200")
+    b = _db.baglan()
+    try:
+        fet = b.execute(
+            "SELECT c.id, c.cycle_no, c.cycle_tipi, c.hasta_id, c.protokol_notu "
+            "FROM cycle c WHERE c.lab_id=? AND REPLACE(REPLACE(c.protokol_notu, "
+            "char(13), ''), char(10), ' ') LIKE ?",
+            (_db.LAB_ID, f"%[Access kaydı {isaret}]%")).fetchone()
+        if not fet:
+            sys.exit(f"'{isaret}' işaretli aktarılmış tedavi bulunamadı "
+                     "(rapordaki gibi yaz: TEMMUZ2019#54).")
+        cid, cno, tip, hasta_id, notu = fet
+        if tip not in FET_TIPLERI:
+            sys.exit(f"{cno} bir FET/çözme tedavisi değil.")
+        cozulen = b.execute(
+            "SELECT o.specimen_id, o.thaw_tasiyici_id, o.zaman, s.cycle_id "
+            "FROM olay o JOIN specimen s ON s.id=o.specimen_id WHERE o.tip='thaw' "
+            "AND o.iptal_mi=0 AND o.thaw_cycle_id=? ORDER BY s.cycle_id, "
+            "s.cycle_sira_no", (cid,)).fetchall()
+        if not cozulen:
+            sys.exit(f"{cno}: çözme kaydı yok.")
+        if any(c[3] == cid for c in cozulen) or any(c[1] is None for c in cozulen):
+            sys.exit(f"{cno}: çözülenler henüz bir tüpe bağlı değil -- önce "
+                     "'python3 aktar_access.py bagla'.")
+        eski_sid = [c[0] for c in cozulen]
+        eski_tup = sorted({c[1] for c in cozulen})
+        t_cozme = min(c[2] for c in cozulen)
+        n = len(eski_sid)
+        yumurta = _db.cozulen_yumurta_islenir(tip)
+        ne = "yumurta" if yumurta else "embriyo"
+        kaliteler = [] if yumurta else _transfer_kaliteleri(_vt_satiri(b, cid, tip))
+        eski_etiket = {r[0]: r[1] for r in b.execute(
+            f"SELECT id, etiket FROM tasiyici WHERE id IN "
+            f"({','.join('?' * len(eski_tup))})", eski_tup)}
+        if sorted(eski_etiket.values()) == sorted(etiketler):
+            print(f"{cno} ({isaret}) zaten bu tüpte: {', '.join(etiketler)}. "
+                  "Hiçbir şey değiştirilmedi.")
+            return
+        _d, adaylar, _s = _bag_siniflari(b, hasta_id, cid, t_cozme, n, yumurta,
+                                         kaliteler)
+        alt = []
+        for e in etiketler:
+            i = next((i for i, a in enumerate(adaylar) if a["etiket"] == e), None)
+            if i is None:
+                sys.exit(f"'{e}' bu hastanın çözmeden önce dondurulmuş, dolu ve "
+                         f"çözülmemiş bir {ne} tüpü değil -- hiçbir şey "
+                         "değiştirilmedi.\nSeçilebilecek tüpler: "
+                         + (", ".join(f'{a["etiket"]} ({len(a["ornekler"])})'
+                                      for a in adaylar) or "yok"))
+            alt.append(i)
+        ornekler = [o for i in alt for o in adaylar[i]["ornekler"]]
+        if len(ornekler) != n:
+            sys.exit(f"Seçilen tüplerde {len(ornekler)} {ne} var, bu tedavide {n} "
+                     f"{ne} çözülmüş -- sayı tutmalı. Hiçbir şey değiştirilmedi.")
+        yeni_sid = [o[0] for o in ornekler]
+        tupu = {o[0]: adaylar[i]["tid"] for i in alt for o in adaylar[i]["ornekler"]}
+
+        # Eski örneklerde bu FET'ten sonra başka tedavinin işi, yeni örneklerde
+        # çözmeden sonraki herhangi bir iş: taşımak zinciri koparır.
+        yer_e = ",".join("?" * n)
+        baska = b.execute(
+            f"SELECT COUNT(*) FROM olay o WHERE o.specimen_id IN ({yer_e}) "
+            f"AND o.zaman >= ? AND NOT ({_db.bu_tedavide(cid, 'o')})",
+            (*eski_sid, t_cozme)).fetchone()[0]
+        sonra = b.execute(
+            f"SELECT COUNT(*) FROM olay o WHERE o.specimen_id IN ({yer_e}) "
+            "AND o.zaman >= ?", (*yeni_sid, t_cozme)).fetchone()[0]
+        ekli = []
+        for tablo in ("goruntu", "specimen_bulgu", "pgt_sonuc"):
+            if _db.tablo_var(tablo) and b.execute(
+                    f"SELECT 1 FROM {tablo} WHERE specimen_id IN ({yer_e}) LIMIT 1",
+                    eski_sid).fetchone():
+                ekli.append(tablo)
+        if baska or sonra or ekli:
+            sys.exit("Taşınamaz -- elle bakılmalı: "
+                     + "; ".join(x for x in (
+                         f"eski {ne}ların bu tedaviden sonra başka tedavide kaydı "
+                         "var" if baska else "",
+                         f"seçilen tüplerin {ne}larının çözmeden sonra kaydı var"
+                         if sonra else "",
+                         f"eski {ne}lara {', '.join(ekli)} eklenmiş" if ekli else "")
+                         if x) + ". Hiçbir şey değiştirilmedi.")
+
+        # Eşleme: transfer edilenler yazımıyla, kalanlar sırayla (yumurtada
+        # olgunluğuyla) -- `_kaynaga_bagla()`'nın kuralı.
+        esle = None if yumurta else _eslestir(kaliteler, ornekler)
+        eslesme, kalan = {}, list(range(n))
+        if esle:
+            transferli = [sid for (sid,) in b.execute(
+                "SELECT o.specimen_id FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+                "WHERE o.tip='transfer' AND o.iptal_mi=0 AND o.tr_cycle_id=? "
+                "ORDER BY s.cycle_sira_no, o.id", (cid,)).fetchall()]
+            for qi, oi in enumerate(esle):
+                if oi is not None and qi < len(transferli) and transferli[qi] in eski_sid:
+                    eslesme[transferli[qi]] = yeni_sid[oi]
+                    kalan.remove(oi)
+        for sid in eski_sid:
+            if sid in eslesme:
+                continue
+            if yumurta:
+                k = _olgunluk(b, sid, cid)
+                j = next((j for j in kalan if _olgunluk(
+                    b, yeni_sid[j], _kendi_tedavisi(b, yeni_sid[j])) == k), kalan[0])
+            else:
+                j = kalan[0]
+            eslesme[sid] = yeni_sid[j]
+            kalan.remove(j)
+
+        yeni_etiket = [adaylar[i]["etiket"] for i in alt]
+        print(f"{cno} ({isaret}): çözülen {n} {ne}")
+        print(f"  şimdiki tüp: {', '.join(eski_etiket[t] for t in eski_tup)}  "
+              "-> dolu olarak geri döner")
+        print(f"  yeni tüp:    {', '.join(yeni_etiket)}  -> boşaltılır")
+        if not yumurta and kaliteler and not esle:
+            print("  DİKKAT: transfer yazımı ("
+                  + ", ".join(q["ham"] if q else "?" for q in kaliteler)
+                  + ") seçilen tüplerin içeriğiyle tutmuyor.")
+    finally:
+        b.close()
+    print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")
+    if input("Devam etmek icin TASI yaz: ").strip() != "TASI":
+        sys.exit("Vazgecildi, hicbir sey yazilmadi.")
+
+    simdi = _dt.datetime.now().isoformat(" ", "seconds")
+    cozme_tupu = _db.cozme_tupu_var()
+    with _db.yazma_islemi() as b:
+        # Taşınacak olaylar ÖNCE belirleniyor: `bu_tedavide()` örneğin çözmesine
+        # bakıyor, çözme taşınınca koşul değişir.
+        tasinan = {sid: [oid for (oid,) in b.execute(
+            f"SELECT o.id FROM olay o WHERE o.specimen_id=? AND "
+            f"{_db.bu_tedavide(cid, 'o')}", (sid,)).fetchall()] for sid in eski_sid}
+        for es, ys in eslesme.items():
+            durum = b.execute("SELECT durum FROM specimen WHERE id=?", (es,)).fetchone()[0]
+            idler = tasinan[es]
+            if idler:
+                b.execute(f"UPDATE olay SET specimen_id=?, cycle_id=? WHERE id IN "
+                          f"({','.join('?' * len(idler))})",
+                          (ys, _kendi_tedavisi(b, ys), *idler))
+            if cozme_tupu:
+                b.execute("UPDATE olay SET thaw_tasiyici_id=? WHERE specimen_id=? "
+                          "AND tip='thaw' AND iptal_mi=0 AND thaw_cycle_id=?",
+                          (tupu[ys], ys, cid))
+            _durum_yaz(b, ys, durum)
+            _durum_yaz(b, es, "dondurulmus")
+        # Transfer günü değerlendirmesi (nottan): yeni kaynağın aynı tip+gün
+        # kaydıyla çakışıyorsa iptal, eski kaynağa göre iptal edilmişse ve
+        # artık çakışmıyorsa geri açılır (v6.163'ün kuralı).
+        neden = "Kaynak tedavide ayni gunun kaydi var (tupune baglandi)"
+        for ys in eslesme.values():
+            for oid, dtip, dgun, iptal, sebep in b.execute(
+                    "SELECT o.id, o.tip, o.gun, o.iptal_mi, o.iptal_sebep FROM olay o "
+                    "WHERE o.specimen_id=? AND o.notlar LIKE ? AND o.tip IN (?, ?) "
+                    f"AND {_db.bu_tedavide(cid, 'o')}",
+                    (ys, _KAYNAK_YAZIMI + " (transfer):%") + _DEGERLENDIRMELER).fetchall():
+                cakisma = b.execute(
+                    "SELECT 1 FROM olay o WHERE o.specimen_id=? AND o.tip=? AND o.gun=? "
+                    f"AND o.iptal_mi=0 AND o.id<>? AND NOT ({_db.bu_tedavide(cid, 'o')}) "
+                    "LIMIT 1", (ys, dtip, dgun, oid)).fetchone()
+                if cakisma and not iptal:
+                    _iptal(b, kid, oid, neden)
+                elif not cakisma and iptal and sebep == neden:
+                    b.execute("UPDATE olay SET iptal_mi=0, iptal_kullanici_id=NULL, "
+                              "iptal_zamani=NULL, iptal_sebep=NULL WHERE id=?", (oid,))
+        _db.olay_sirasini_duzelt(b, eslesme.values())      # v6.175, goc_050
+        for tid in eski_tup:
+            b.execute("UPDATE tasiyici SET durum='dolu' WHERE id=?", (tid,))
+            b.execute("UPDATE konum SET durum='dolu' WHERE id=(SELECT konum_id FROM "
+                      "tasiyici WHERE id=?)", (tid,))
+        for i in alt:
+            b.execute("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?",
+                      (adaylar[i]["tid"],))
+            if adaylar[i]["konum"]:
+                b.execute("UPDATE konum SET durum='bos' WHERE id=?", (adaylar[i]["konum"],))
+        for tid, eski_d, yeni_d in ([(t_, "bosaltildi", "dolu") for t_ in eski_tup]
+                                    + [(adaylar[i]["tid"], "dolu", "bosaltildi")
+                                       for i in alt]):
+            b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                      "eski_deger, yeni_deger, kullanici_id, zaman) "
+                      "VALUES (?,?,?,?,?,?,?,?)",
+                      (_db.LAB_ID, "tasiyici", str(tid), "durum", eski_d, yeni_d,
+                       kid, simdi))
+        b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                  "eski_deger, yeni_deger, kullanici_id, zaman) "
+                  "VALUES (?,?,?,?,?,?,?,?)",
+                  (_db.LAB_ID, "cycle", str(cid), "cozulen_tup",
+                   ", ".join(eski_etiket[t_] for t_ in eski_tup),
+                   ", ".join(yeni_etiket), kid, simdi))
+
+        def kaynak_cumlesi(nolar):
+            nolar = sorted(set(nolar))
+            return (nolar[0] + " tedavisinde" if len(nolar) == 1 else
+                    ", ".join(nolar[:-1]) + " ve " + nolar[-1] + " tedavilerinde")
+        ted = _db.vit_tedavisi("o")
+        eski_nolar = [r[0] for r in b.execute(
+            f"SELECT DISTINCT c.cycle_no FROM olay o JOIN cycle c ON c.id={ted} "
+            f"WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND o.vit_tasiyici_id IN "
+            f"({','.join('?' * len(eski_tup))})", eski_tup)]
+        eski = textwrap.fill(_aktarim_cumlesi(tip, kaynak_cumlesi(eski_nolar)), 68)
+        yeni = textwrap.fill(_aktarim_cumlesi(
+            tip, kaynak_cumlesi([adaylar[i]["no"] for i in alt])), 68)
+        if eski in (notu or ""):
+            b.execute("UPDATE cycle SET protokol_notu=? WHERE id=?",
+                      (notu.replace(eski, yeni), cid))
+            not_satiri = ""
+        else:
+            not_satiri = " (protokol notu elle değiştirilmiş, kaynak cümlesi güncellenmedi)"
+    print(f"Bitti. {cno}: {n} {ne} {', '.join(yeni_etiket)} tüpüne taşındı, "
+          f"{', '.join(eski_etiket[t_] for t_ in eski_tup)} yeniden dolu.{not_satiri}")
+
+
 def eksik_dondurmalari_yaz(satirlar):
     """Yalnızca EKSİK dondurma: `tamamla`'nın 1. adımı, dar halde (v6.161,
     v6.165).
@@ -4419,8 +4698,15 @@ def main():
             arg.append(a)
     kip = "aktar"
     if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer", "bagla", "dondurma",
-                          "tip", "ikiz"):
+                          "tip", "ikiz", "tasi"):
         kip, arg = arg[0], arg[1:]
+    if kip == "tasi":
+        # v6.175: yanlış tüpe bağlanmış FET'i kullanıcının gösterdiği tüpe taşır.
+        if len(arg) < 2:
+            sys.exit("Kullanim: python3 aktar_access.py tasi <KAYNAK#KAYIT> <tup etiketi> "
+                     "[<tup etiketi> ...]")
+        fet_tupunu_degistir(arg[0], arg[1:])
+        return
     if kip == "ikiz":
         ikizleri_listele()              # v6.167: hiçbir şey yazmaz
         return

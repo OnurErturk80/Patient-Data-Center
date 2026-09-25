@@ -13759,6 +13759,95 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.175 — Yanlış tüpe bağlanmış FET: skor onarımı, `tasi` kipi, kayıt sırası (goc_050)
+
+Kullanıcı `bagla`'yı çalıştırdı (v6.174), çıktının "Bağlı ama artık kesin
+değil" listesinde üç FET vardı (TEMMUZ2019#54, MAYIS2025#25, HAZIRAN#37) ve
+listeyi gönderdi. İlkini inceleyince üç ayrı hata çıktı.
+
+**1. Skoru okunmamış tüp her transferle tutuyordu.** Şubat 2019'da bir
+embriyo "1 ADET 5.GÜN 4AB EMBRİYOSU DONDURULARAK SAKLANMIŞTIR" diye
+dondurulmuş: parantezsiz yazım. v6.172'nin okuyucusu bunu skorsuz embriyo
+sandı (v6.173'ünki 4AB okuyor), tüp skorsuz yazıldı. Skorsuz tüp her transfer
+yazımıyla tutar: Temmuz 2019 FET'i (1BB transfer) o gün tek seçenek olarak
+ona bağlandı. 2018 gelince hastanın 1BB'lik gerçek tüpü de göründü ("kesin
+değil"); Kasım 2019 FET'i (4AB transfer) ise 2018'in KAV3 tüpüne bağlanmıştı
+("kültürde ilerlemiş olabilir"), listede bile yoktu. Access notları kesin:
+Temmuz sonrası "GERİYE 2 TÜPTE 2 ADET", Kasım sonrası "GERİYE 1 TÜPTE(KAVG3)".
+Yani Temmuz 1BB'yi, Kasım 4AB'yi çözdü, KAV3 tankta. İki bağ da yanlıştı.
+- **Kaç kayıt:** eski (v6.172) ve yeni okuyucu, elimdeki 69 aylık dosyanın
+  (2019–2023, 2024 eylül–aralık, 2025 ocak–mayıs, 2026 mayıs) bütün
+  dondurma notlarında karşılaştırıldı: dört satır farklı (SUBAT2019 #56 ve
+  #66, ARALIK2019 #17, OCAK2020 #69). Yalnızca #56'nın tüpü yanlış bağlandı;
+  öteki üçü doğru bağlı ya da hiç çözülmemiş. v6.173'teki "2019 ve sonrası
+  değişmedi" ölçümü `liste` çıktısını karşılaştırıyordu, skoru değil --
+  yanlıştı.
+- **Onarım yolu `dondurma` kipi** (v6.165'ten beri "yalnızca eksik olanı
+  yazar"): tüpte duran örneğin bu tedavide hiç değerlendirmesi yoksa ve not
+  gerçek bir skor veriyorsa (blastokist ya da hücre sayılı cleavage) skor
+  yazılıyor. Aktarımın kendi boş değerlendirmesi (hücre, skor, genişleme boş;
+  not "Kaynak kayıttaki yazım: ...") "yok" sayılıyor: v6.172 "1 ADET 3.GÜN
+  8HG2 EMBRİYOSU"nu öyle yazmıştı. Birleşme, elle girilmiş ya da dolu her
+  değerlendirme olduğu gibi kalıyor (`_degerlendirmesi_var()`). Skorsuz öğe
+  ("G1", "HG2") yazılmıyor. Deneme: 80 dosyanın hepsinde `dondurma` -- tam
+  bu dört skor yazıldı (iki yeni blastokist, iki boş cleavage kaydı
+  dolduruldu); ayrıca test veritabanında o aylar için `dondurma` hiç
+  çalıştırılmamış üç tedaviye eski kuralın eksik örnekleri eklendi, başka
+  hiçbir şey değişmedi.
+
+**2. Yanlış bağ çözülemiyordu.** v6.164'ten beri araç "kesin değil" diyor
+ama bağı çözmüyordu, çünkü hangi tüpün çözüldüğünü kâğıt biliyor. Yeni
+**`tasi` kipi** kullanıcının gösterdiği tüpe taşıyor:
+`python3 aktar_access.py tasi TEMMUZ2019#54 2018-0890-1200`. Yeni tüp
+`_bag_siniflari()`'nin adayı olmalı (hastanın dolu, çözülmemiş, çözmeden önce
+dondurulmuş, doğru türde tüpü) ve örnek sayısı tutmalı. FET'te yapılan her
+olay (çözme, transfer, yeniden dondurma, değerlendirme; `db.bu_tedavide()`)
+yeni örneğe geçiyor. Eski örnek "dondurulmuş"a, eski tüp "dolu"ya dönüyor,
+yeni tüp boşaltılıyor, protokol notunun "... tedavisinde dondurulmuştu"
+cümlesi yenileniyor. Transfer günü değerlendirmesinin çakışma kuralı
+(v6.163) yeni kaynağa göre yeniden uygulanıyor. Eski örneklerde bu FET'ten
+sonra başka tedavinin kaydı ya da fotoğraf/bulgu varsa taşımıyor. Önce planı
+basıyor, "TASI" yazınca yazıyor, değişiklik geçmişine düşüyor; aynı tüpe
+ikinci kez "zaten bu tüpte" diyor. Transfer yazımı seçilen tüple tutmuyorsa
+"DİKKAT" basıyor ama engellemiyor: karar kullanıcının.
+
+**3. Kayıt sırası: 2018'in tüpleri "yeniden dondurma" görünüyordu.** Program
+"önce dondurma mı çözme mi" sorusunu kayıt kimliğinin sırasıyla soruyor, saatle
+değil (v6.143: saat elle geri tarihlenebilir). Aylar karışık sırayla
+aktarıldı. Bir FET'in çözmesi yazıldıktan SONRA çözülen tüpün dondurması
+aktarıldı ve `_kaynaga_bagla()` ikisini aynı embriyoya bağladı: çözmenin
+kimliği küçük kaldı. Hasta kartı 2018'de dondurulup 2019'da çözülen tüpe
+"Yeniden donduruldu → 4. tedavide çözüldü" diyordu. FET'in formu çözülmüş
+tüpü "Kalan dondurulmuş"ta sayıyordu. Deneme veritabanında 342 FET'in 555
+çözmesi böyleydi.
+- **`goc_050`** (`db.olay_sirasini_duzelt()`): bu örneklerin çözmeden
+  sonraki bütün olayları, saat sırasıyla (aralarındaki sıra korunuyor), yeni
+  kimlikle yeniden yazılıyor. İçerik aynı (deneme: 157.584 olayın çoklu
+  kümesi birebir), 1.600 satır yeni kimlik aldı. Olay kimliğine bağlı tablo
+  yok; değişiklik geçmişinin olay satırları yeni kimliğe çevriliyor. Yalnızca
+  aktarımın kayıtları: çözme [Access kaydı] işaretli bir FET'in, dondurma
+  aktarımın notunu taşıyor, aynı tüp. Programdan girilmiş kayıtta kimlik
+  sırası gerçekten giriş sırası, oraya dokunulmuyor. İkinci çalıştırma 0.
+- `_kaynaga_bagla()` ve `tasi` aynı işlevi bağladıkları örneklerde
+  çağırıyor.
+- **Kural:** aktarımda olayları bir örnekten ötekine taşıyan yeni bir yol
+  yazarsan sonunda `db.olay_sirasini_duzelt(b, örnekler)` çağır.
+
+**Sonuç (deneme kopyası, göç + iki `dondurma` + iki `tasi`):** Temmuz FET'inin
+formu "Kalan dondurulmuş: 2 tüp: (KAV3) (4AB)", Kasım'ınki "1 tüp: (KAV3)"
+diyor, Access'in iki notu ile aynı. Hasta kartında yanlış rozet yok. Tablo
+tablo karşılaştırmada yalnızca beklenen satırlar değişti. 21 ekran 200.
+`bagla` sonrası TEMMUZ2019#54 "kesin değil" listesinden çıktı.
+
+**Öteki iki kayıt kullanıcının kararı** (araç tahmin etmiyor):
+- MAYIS2025#25: çözülen 8, transfer "5. gün 2BA, 1BA", not "KÜLTÜRE EDİLEN
+  1 ADET D5 EMBRİYOSU (1CC) ... TOPLAMDA 2 TÜPTE 3 ADET EMBRİYOSU KALDI".
+  Bağlı seçenek mart'ın iki 4'lü 3. gün tüpü: çözüp 5. güne kültür ile tutuyor,
+  geride kalan 5. gün embriyoları (ocak tüpünün 2'si + yeni 1CC) "2 tüpte 3".
+  Öteki seçenek bir 3. gün ve bir 5. gün tüpünü birlikte çözmek. Bağ büyük
+  olasılıkla doğru; kullanıcıya soruldu.
+- HAZIRAN#37 (2026): haziran 2026 dosyası elimde değil, kullanıcıya soruldu.
+
 # v6.174 — Ağustos 2018 boş ay
 
 Kullanıcının cevabı (2026-09-25): "Ağustos 2018'de laboratuvarda hiç işlem

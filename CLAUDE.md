@@ -48,6 +48,11 @@ aktardı (918 tedavi, 0 hata, 11 uyarı -- deneme kopyasıyla birebir; dosya
 başına ~20 dk). **Ağustos 2018'de laboratuvarda hiç işlem yapılmadı**
 (kullanıcının cevabı, 2026-09-25) -- v6.174'te `_BOS_AYLAR`'a eklendi; bir
 kez `python3 aktar_access.py bagla` çalıştırması istendi (ertelenen ~52 FET).
+Kullanıcı çalıştırdı; "kesin değil" listesindeki üç FET v6.175'i doğurdu
+(skor onarımı, `tasi` kipi, goc_050 -- aşağıda). TEMMUZ2019#54 ve
+KASIM2019#63'ün doğru tüpü Access notlarından belli, `tasi` komutları
+kullanıcıya verildi; MAYIS2025#25 (bağ büyük olasılıkla doğru) ve HAZIRAN#37
+onun kararını bekliyor.
 Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 <gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
 edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
@@ -150,7 +155,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..049.py   veritabanı göçleri (sırayla)
+  goc_002..050.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -2357,6 +2362,21 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     `KAYNAK#KAYIT  ATLA` yazıp dosyayı yeniden aktarıyor. Karar kullanıcının --
     hangisinin doğru olduğunu tahmin etme. Yalnızca `liste`/aktarımda; onarım
     kipleri aktarılmış tedavilere işaretleriyle ulaşıyor.
+- **v6.175: yanlış tüpe bağlanmış FET.** (1) v6.172 parantezsiz skoru
+  ("1 ADET 5.GÜN 4AB EMBRİYOSU") okuyamıyordu, tüp skorsuz kaldı; skorsuz tüp
+  her transferle tutar, bir FET yanlış tüpe bağlandı. Onarım `dondurma` kipi:
+  tüpteki örneğin bu tedavide değerlendirmesi yoksa (aktarımın boş kaydı
+  "yok" sayılır, `_degerlendirmesi_var()`) ve not gerçek skor veriyorsa
+  yazıyor; dolu/elle skora dokunmuyor. (2) **`tasi` kipi**
+  (`fet_tupunu_degistir()`): `tasi KAYNAK#KAYIT <tüp etiketi> ...` --
+  kullanıcının gösterdiği tüpe taşır, planı basar, "TASI" ister. Hangi tüpün
+  çözüldüğünü araç tahmin etmez; kanıt Access notunun "GERİYE N TÜPTE ..."
+  cümlesi, kâğıt ya da Cryo Excel'i. (3) **Kimlik sırası**: aylar karışık
+  aktarılınca çözme, tüpün dondurmasından küçük kimlikli kaldı; hasta kartı
+  "yeniden dondurma" rozeti, formun "Kalan dondurulmuş"u yanlıştı. goc_050 /
+  `db.olay_sirasini_duzelt()` çözmeden sonraki olayları yeni kimlikle yeniden
+  yazıyor (yalnızca aktarımın kayıtları). Olayları örnekten örneğe taşıyan
+  yeni bir aktarım yolu yazarsan sonunda onu çağır.
 - **Access'teki ad programdakinden farklıysa** eşleşme yine dosya
   numarasıyla, rapor "DİKKAT" diyor (ad rapora yazılmıyor).
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
@@ -2396,6 +2416,10 @@ yedi yer tek tek yazılı.
   çok kaydı olabilen bir olay yazıyorsan hangisinin güncelleneceğini söyle.
   Verilmezse eski davranış (son kayıt) — yalnızca gerçekten tek olan
   olaylarda (ICSI, fertilizasyon, transfer) böyle bırak.
+- **Kimlik sırası aktarılmış veride saati izlemeyebilirdi** (v6.175): aylar
+  karışık aktarılınca bir FET'in çözmesi tüpün dondurmasından önce yazıldı.
+  goc_050 düzeltti; aktarım yolları `db.olay_sirasini_duzelt()` çağırıyor.
+  "Kimlik sırası" kuralını gevşetme -- sorun verideydi, kuralda değil.
 - **Önce en son adım geri alınır.** Çözülmüş bir tüpün dondurması geri
   alınamaz (`_vit_geri_alma_engeli()`), çözmeden sonra yeniden dondurma
   varsa çözme geri alınamaz (`_cozme_geri_alma_engeli()`); ölçü kimlik

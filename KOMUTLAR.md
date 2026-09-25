@@ -447,6 +447,25 @@ makinede aktarılmış olabilir (önce `tasi.py` ile doğru veritabanını getir
 Her dosyanın sonunda 2019'un FET'leri 2018'in tüplerine bağlanır. Bitince
 `aktar_toplu.log`'da `UYARI` satırlarına bak.
 
+**Yanlış tüpe bağlanmış FET'ler (v6.175).** `bagla` sonunda "Bağlı ama
+artık kesin değil" listesi çıkarsa: araç hangi tüpün çözüldüğünü bilemez,
+sen bilirsin (Access notunun "GERİYE N TÜPTE ..." cümlesi, kâğıt, Cryo
+Excel'i). Önce `git pull`, programı bir kez yeniden başlat (goc_050 açılışta
+çalışır), yedek al. Sonra 2019'un dört eksik skoru ve Temmuz/Kasım 2019
+FET'lerinin doğru tüpleri:
+
+```
+python3 aktar_access.py dondurma kaynak=SUBAT2019  duzelt=tarih_duzeltme_2019_2023.txt subat2019.csv
+python3 aktar_access.py dondurma kaynak=ARALIK2019 duzelt=tarih_duzeltme_2019_2023.txt aralik2019.csv
+python3 aktar_access.py dondurma kaynak=OCAK2020   duzelt=tarih_duzeltme_2019_2023.txt ocak2020.csv
+python3 aktar_access.py tasi TEMMUZ2019#54 2018-0890-1200
+python3 aktar_access.py tasi KASIM2019#63  2019-0146-1200
+```
+
+`tasi` önce ne yapacağını yazar, "TASI" yazınca taşır. Sıra önemli:
+Kasım'ın hedefi olan tüp, Temmuz taşınınca boşa çıkıyor. Genel kullanım:
+`python3 aktar_access.py tasi <Access işareti> <tüp etiketi> [<tüp etiketi> ...]`.
+
 **Cryo haritası Excel'i (v6.173).** Bütün Access ayları aktarıldıktan
 sonra. Excel dosyasını (`CRYO_HARITA.xlsx` gibi) proje klasörüne koy
 (`.gitignore`'da), önce ne olacağına bak, sonra yaz:

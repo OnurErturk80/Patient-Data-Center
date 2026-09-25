@@ -567,6 +567,71 @@ def cozme_tupu_var() -> bool:
     return kolon_var("olay", "thaw_tasiyici_id")
 
 
+def olay_sirasini_duzelt(b, ornekler=None) -> int:
+    """Aktarılmış bir FET'in çözmesi, çözülen tüpün dondurmasından DAHA KÜÇÜK
+    kimlikliyse o örneğin çözmeden sonraki olaylarını yeni kimlikle yeniden
+    yazar (v6.175). Döner: düzeltilen örnek sayısı.
+
+    Program "önce hangisi" sorusunu kimlik sırasıyla soruyor, saatle değil
+    (saatler elle geri tarihlenebilir, v6.143): hasta kartının "yeniden
+    dondurma" rozeti, resmî formun "Kalan dondurulmuş"u, geri alma engelleri.
+    Access aylarını karışık sırayla aktarınca (2026 önce, 2025 sonra; 2019
+    önce, 2018 sonra) FET'in çözmesi yazıldıktan SONRA tüpünün dondurması
+    yazıldı, sonra `aktar_access._kaynaga_bagla()` ikisini aynı örneğe
+    bağladı: çözme dondurmadan "önce" görünüyor. Kart 2018'in tüpünü "yeniden
+    donduruldu" diye gösteriyordu, form çözülmüş tüpü tankta sayıyordu.
+
+    Yalnızca aktarımın kendi kayıtları: çözme aktarılmış bir FET'in
+    ([Access kaydı] işaretli) ve dondurma aktarımın notunu taşıyor, aynı tüp.
+    Programdan girilmiş bir kayda dokunulmuyor -- orada kimlik sırası
+    gerçekten giriş sırası. Taşınan olaylar örneğin çözmeden sonraki BÜTÜN
+    olayları, saat sırasıyla (aralarındaki sıra korunuyor); olay kimliğine
+    bağlı tablo yok, değişiklik geçmişinin olay satırları yeni kimliğe
+    çevriliyor. `b` açık bağlantı; işlem çağıranın. İkinci çalıştırma hiçbir
+    şey değiştirmez."""
+    kolonlar = [r[1] for r in b.execute("PRAGMA table_info(olay)")]
+    if "thaw_tasiyici_id" not in kolonlar or "thaw_cycle_id" not in kolonlar:
+        return 0
+    suz = ""
+    par = [KAYNAK_DONDURMA_NOTU + "%"]
+    if ornekler is not None:
+        ornekler = list(ornekler)
+        if not ornekler:
+            return 0
+        suz = f"AND z.specimen_id IN ({','.join('?' * len(ornekler))}) "
+        par += ornekler
+    bozuk = b.execute(
+        "SELECT z.specimen_id, MIN(z.zaman) "
+        "FROM olay z JOIN olay v ON v.specimen_id = z.specimen_id "
+        "AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
+        "AND v.vit_tasiyici_id = z.thaw_tasiyici_id "
+        "AND v.id > z.id AND v.zaman <= z.zaman AND v.notlar LIKE ? "
+        "JOIN cycle f ON f.id = z.thaw_cycle_id "
+        "WHERE z.tip = 'thaw' AND z.iptal_mi = 0 "
+        "AND f.protokol_notu LIKE '%[Access kayd%' "
+        f"{suz}GROUP BY z.specimen_id", par).fetchall()
+    if not bozuk:
+        return 0
+    alanlar = [k for k in kolonlar if k != "id"]
+    liste = ",".join(alanlar)
+    log = b.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                    "AND name='degisiklik_log'").fetchone()
+    for sid, t0 in bozuk:
+        # Çözmeden önceki olaylar (tüpün dondurması dahil) yerinde kalıyor,
+        # sonrakiler (aynı FET'teki yeniden dondurma da) saat sırasıyla.
+        idler = [r[0] for r in b.execute(
+            "SELECT id FROM olay WHERE specimen_id = ? AND zaman >= ? "
+            "ORDER BY zaman, id", (sid, t0)).fetchall()]
+        for eski in idler:
+            yeni = b.execute(f"INSERT INTO olay ({liste}) SELECT {liste} FROM olay "
+                             "WHERE id = ?", (eski,)).lastrowid
+            b.execute("DELETE FROM olay WHERE id = ?", (eski,))
+            if log:
+                b.execute("UPDATE degisiklik_log SET kayit_id = ? WHERE "
+                          "tablo_adi = 'olay' AND kayit_id = ?", (str(yeni), str(eski)))
+    return len(bozuk)
+
+
 def yeniden_dondurma_var() -> bool:
     """Çözülen embriyo yeniden dondurulabilir mi -- goc_046'nın iki kolonu da
     var mı. Biri yoksa FET'in vitrifikasyon ekranı göç uyarısı basar."""
