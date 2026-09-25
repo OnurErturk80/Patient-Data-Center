@@ -258,6 +258,17 @@ def dondurulan_yumurta_sql(o: str = "o") -> str:
             f"AND dy_o.tip IN ({izler}) AND dy_o.zaman <= {o}.zaman) THEN 0 "
             f"ELSE 1 END)")
 
+
+def embriyo_izi_sql(s: str = "s") -> str:
+    """Örnek embriyo mu -- SQL koşulu (v6.185): enjekte edilmiş, döllenmiş ya
+    da cleavage/blastokist değerlendirmesi var (`_EMBRIYO_IZI`). `s`: örnek
+    tablosunun takma adı. Dondurma anına bağlı soru için
+    `dondurulan_yumurta_sql()`; bu, örneğin bugünkü hali (vitrifikasyon
+    ekranının adayları, `app.ornek_kareleri_sql()`)."""
+    izler = ", ".join(f"'{t}'" for t in _EMBRIYO_IZI)
+    return (f"EXISTS (SELECT 1 FROM olay ez_o WHERE ez_o.specimen_id = {s}.id "
+            f"AND ez_o.iptal_mi = 0 AND ez_o.tip IN ({izler}))")
+
 # Kilitli veritabanında ne kadar beklenecek. Klinikte birkaç telefon aynı anda
 # kayıt girer; varsayılan 5 sn kısa kalabiliyor.
 BEKLEME_SN = 15

@@ -14645,3 +14645,47 @@ dış sorgunun kolonuna izin vermiyor ("no such column"). Yeni bir alt sorguda
 THAW eski ve yeni kodla birebir aynı. Yeniden üretilen tedavinin formları,
 Excel'i ve ekranları 200 döndü. Kullanıcı doğruladı (2026-09-24): 2026-0001'in
 özet formunda olgunluk görünüyor.
+
+# v6.185 — Embriyonun ekranlarında yumurta karesi yok
+
+Kullanıcı bildirdi: "Program yumurta fotoğrafı eklenmiş ama embriyo fotoğrafı
+eklenmemiş hastanın embriyo işlemlerinde yumurta fotoğrafını gösteriyor.
+Göstermesin, embriyo fotoğrafsız kalsın."
+
+Aşama ekranları (ICSI, fertilizasyon, cleavage, blastokist) zaten yalnızca
+kendi aşamalarının karelerini gösteriyordu (v5.1, "fotoğraf devralma yok").
+Sorun birden çok aşamanın örneğini gösteren dört sorgudaydı:
+vitrifikasyon ekranı, taşıyıcı sayfası ve transfer ekranının iki listesi. Bu
+sorgular önce ekranın aşamasının karesini arıyordu (blastokist ya da transfer
+öncesi). Bulamazsa örneğin **herhangi bir** karesine düşüyordu: embriyonun
+karesi yoksa denüdasyonda ya da ICSI'de çekilmiş yumurta karesine. Büyüteç ve
+kare sayısı da bütün kareleri sayıyordu, embriyo karesi olan örnekte bile
+yumurta karesi büyüteçte çıkıyordu.
+
+Artık dördü de tek işlevden: **`app.ornek_kareleri_sql()`**.
+- **Embriyoda yumurta ve zigot kareleri yok.** Denüdasyon, ICSI ve
+  fertilizasyon kontrolü kareleri ne gösteriliyor, ne büyüteçte, ne
+  sayıda. Karesi yoksa ekran "fotoğrafsız" basıyor.
+- **Zigot (2PN) karesi de gizli** — kullanıcı yalnızca yumurtayı söyledi,
+  ama 2PN karesi de dondurulan ya da transfer edilen embriyonun karesi değil.
+  Kullanıcıya söylendi, isterse geri açılır.
+- **Yumurtada her kare, eskisi gibi.** Dondurulan yumurtanın karesi onun
+  denüdasyon karesi. Yumurta mı:
+  - taşıyıcıda dondurma anına göre (`db.dondurulan_yumurta_sql()`);
+  - vitrifikasyon ekranında bugünkü haline göre (`db.embriyo_izi_sql()`:
+    ICSI, döllenme ya da cleavage/blastokist değerlendirmesi var mı);
+  - transferde hep embriyo.
+- Çözme ekranı değişmedi: orada zaten yalnızca "çözme sonrası" ve "ikinci
+  kontrol" kareleri var.
+
+**Denendi:** kullanıcının veritabanının deneme kopyasına dört örneğe kare
+eklendi, sonra eski ve yeni kod aynı kopyada açıldı:
+
+| Örnek ve ekran | Eski kod | Yeni kod |
+|---|---|---|
+| Yalnızca yumurta ve 2PN karesi olan dondurulmuş embriyo, vitrifikasyon ekranı ve tüp sayfası | 2PN karesi, büyüteçte yumurta karesi | fotoğrafsız |
+| Yumurta ve gün 5 karesi olan embriyo | gün 5 karesi, büyüteçte yumurta karesi | gün 5 karesi, büyüteçte yalnızca o |
+| Yumurta Dondurma'nın tüpü | yumurta karesi | yumurta karesi (değişmedi) |
+| Yalnızca yumurta karesi olan transfer edilmiş embriyo | yumurta karesi | fotoğrafsız |
+
+Altı ekranın hepsi 200 döndü.

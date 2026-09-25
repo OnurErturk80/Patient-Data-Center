@@ -2602,6 +2602,17 @@ yedi yer tek tek yazılı.
 
 **Fotoğraf devralma yok.** Her aşama ekranı sadece kendi aşamasının karelerini
 gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README v5.1.)
+- **Birden çok aşamanın örneğini gösteren ekranlarda embriyoya yumurta ve
+  zigot karesi gösterilmez** (v6.185, kullanıcının isteği: "embriyo
+  işlemlerinde yumurta fotoğrafını göstermesin, embriyo fotoğrafsız
+  kalsın"). Vitrifikasyon, taşıyıcı sayfası ve transfer karesini
+  `app.ornek_kareleri_sql()`'den alıyor: önce ekranın tercih ettiği aşama
+  (blastokist / transfer öncesi), yoksa gösterilebilen en son kare. Embriyoda
+  denüdasyon, ICSI ve fertilizasyon kontrolü kareleri yok -- ne kare, ne
+  büyüteç, ne sayı; yumurtada her kare (dondurulan yumurtanın karesi onun
+  denüdasyon karesi). v6.184'e kadar bu dört sorgu örneğin **herhangi bir**
+  karesine düşüyordu. Örneğin karesini gösteren yeni bir ekran yazarsan bu
+  işlevi çağır, `goruntu`'dan çıplak sorgu yazma.
 
 **Örnek kodu = `<hasta dosya no>-<cycle no>-<sıra>`** (`527078-2026-0001-03`).
 `specimen.id` bunun son iki parçası ve **değişmez** — dört tablonun yabancı

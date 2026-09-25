@@ -6220,6 +6220,50 @@ def konum_semasi():
 konum_bul_veya_olustur = db.konum_bul_veya_olustur
 
 
+# Embriyonun ekranlarında gösterilmeyen kareler: yumurtanın ve zigotun
+# aşamaları (`goruntu_asama` listesinin kodları, v6.185).
+_EMBRIYO_ONCESI_KARELER = ("denudasyon", "icsi", "fertilizasyon_kontrolu")
+
+
+def ornek_kareleri_sql(tercih=(), yumurta="0", s="s") -> str:
+    """Birden çok aşamanın örneğini gösteren ekranlarda (vitrifikasyon,
+    taşıyıcı sayfası, transfer) örneğin kareleri -- üç sütun: `goruntu`
+    (gösterilen kare), `goruntu_idler` (büyüteç), `kare` (sayısı). v6.185.
+
+    Kullanıcının isteği: "yumurta fotoğrafı eklenmiş ama embriyo fotoğrafı
+    eklenmemiş hastanın embriyo işlemlerinde yumurta fotoğrafını gösteriyor.
+    Göstermesin, embriyo fotoğrafsız kalsın." Aşama ekranları zaten yalnızca
+    kendi aşamasının karelerini gösteriyor ("fotoğraf devralma yok", README
+    v5.1); bu dört sorgu ise önce `tercih` aşamalarının karesini arıyor,
+    bulamazsa örneğin **herhangi bir** karesine düşüyordu -- embriyonun karesi
+    yoksa denüdasyonda ya da ICSI'de çekilmiş yumurta karesine.
+
+    - **Embriyoda yumurta ve zigot kareleri yok** (`_EMBRIYO_ONCESI_KARELER`):
+      ne gösterilen kare, ne büyüteç, ne sayı. Karesi yoksa ekran
+      "fotoğrafsız" basıyor.
+    - **Yumurtada her kare**, eskisi gibi: dondurulan yumurtanın karesi onun
+      denüdasyon karesi. `yumurta`: örnek yumurta mı, SQL ifadesi (1/0) --
+      taşıyıcıda dondurma anına göre (`db.dondurulan_yumurta_sql()`),
+      vitrifikasyon ekranında bugünkü haline göre (`db.embriyo_izi_sql()`),
+      transferde hep embriyo ("0").
+    - Önce `tercih` aşamalarının en son karesi (vitrifikasyonda blastokist,
+      transferde transfer öncesi), yoksa gösterilebilen en son kare.
+    """
+    yok = ", ".join(f"'{a}'" for a in _EMBRIYO_ONCESI_KARELER)
+    kosul = f"(({yumurta}) = 1 OR g.asama NOT IN ({yok}))"
+    son = (f"(SELECT g.id FROM goruntu g WHERE g.specimen_id={s}.id AND {kosul} "
+           "ORDER BY g.id DESC LIMIT 1)")
+    if tercih:
+        once = ", ".join(f"'{a}'" for a in tercih)
+        son = (f"COALESCE((SELECT g.id FROM goruntu g WHERE g.specimen_id={s}.id "
+               f"AND g.asama IN ({once}) ORDER BY g.id DESC LIMIT 1), {son})")
+    return (f"{son} AS goruntu, "
+            f"(SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id={s}.id "
+            f"AND {kosul}) AS goruntu_idler, "
+            f"(SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id={s}.id "
+            f"AND {kosul}) AS kare")
+
+
 def icerik_sql() -> str:
     """Taşıyıcının içinde ne olduğu: 'yumurta' ya da 'embriyo' -- alt sorgu,
     sütun adı `icerik` (v6.167; v6.133'ten beri `icerik_tipi` adıyla
@@ -6270,14 +6314,9 @@ def tasiyici_icerigi(tasiyici_id):
         "   AND bb.tip='blastokist_degerlendirme' AND bb.iptal_mi=0 "
         f"   AND {db.bu_tedavinin_skoru(db.vit_tedavisi('o'), 'bb')}) "
         "  AS blastokist, o.vit_tasiyici_id AS tasiyici_id, "
-        "  COALESCE( "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     AND g.asama='blastokist' ORDER BY g.id DESC LIMIT 1), "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
-        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
-        "  AS goruntu_idler, "
-        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare, "
+        # Kareler (v6.185): embriyoda yumurta/zigot karesi yok, yumurta
+        # tüpünde dondurma anına göre (`ornek_kareleri_sql()`).
+        + ornek_kareleri_sql(("blastokist",), db.dondurulan_yumurta_sql("o")) + ", "
         # Örneğin EN SON dondurmasının tüpü (v6.143): bu tüpten çözülüp başka
         # bir tüpe yeniden dondurulduysa taşıyıcı sayfası onu gösterir --
         # geçmiş iki yönden izlenebilsin.
@@ -6532,15 +6571,12 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         # yalnızca kendi tedavisinde tekil (v6.62) -- satırda kaynağı da yaz.
         "  (SELECT kc.cycle_no FROM cycle kc WHERE kc.id=s.cycle_id) "
         "  AS kaynak_cycle_no, "
-        "  COALESCE( "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     AND g.asama='blastokist' ORDER BY g.id DESC LIMIT 1), "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
-        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
-        "  AS goruntu_idler, "
-        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
-        f"FROM specimen s WHERE {kosul} ORDER BY s.cycle_id, s.cycle_sira_no",
+        # Kareler (v6.185): embriyoda yumurta/zigot karesi yok; yumurta
+        # (Yumurta Dondurma, IVF/ICSI'de dondurulmuş aktarılmış yumurta)
+        # eskisi gibi (`ornek_kareleri_sql()`).
+        + ornek_kareleri_sql(("blastokist",),
+                             f"(CASE WHEN {db.embriyo_izi_sql('s')} THEN 0 ELSE 1 END)") +
+        f" FROM specimen s WHERE {kosul} ORDER BY s.cycle_id, s.cycle_sira_no",
         par)
 
     # Satırda gösterilecek kalite: blastokist skoru, yoksa cleavage'ın kendi
@@ -8059,14 +8095,9 @@ def transfer_adaylari(hasta_id: int, cycle=None):
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
         "  (SELECT o.thaw_sagkalim FROM olay o WHERE o.specimen_id=s.id "
         "   AND o.tip='thaw' AND o.iptal_mi=0 ORDER BY o.id DESC LIMIT 1) AS thaw, "
-        "  COALESCE( "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     AND g.asama IN ('transfer_oncesi','blastokist') ORDER BY g.id DESC LIMIT 1), "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
-        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
-        "  AS goruntu_idler, "
-        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
+        # Kareler (v6.185): transfer edilen embriyo, yumurta/zigot karesi yok
+        # (`ornek_kareleri_sql()`).
+        "  " + ornek_kareleri_sql(("transfer_oncesi", "blastokist")) + " "
         "FROM specimen s JOIN cycle c ON c.id=s.cycle_id "
         "WHERE c.hasta_id=? AND s.durum IN "
         "  ('blastokist','morula','kavitasyon','cozuldu','kismi_hasar', "
@@ -8095,14 +8126,9 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
-        "  COALESCE( "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     AND g.asama IN ('transfer_oncesi','blastokist') ORDER BY g.id DESC LIMIT 1), "
-        "    (SELECT g.id FROM goruntu g WHERE g.specimen_id=s.id "
-        "     ORDER BY g.id DESC LIMIT 1)) AS goruntu, "
-        "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id=s.id) "
-        "  AS goruntu_idler, "
-        "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id=s.id) AS kare "
+        # Kareler (v6.185): transfer edilen embriyo, yumurta/zigot karesi yok
+        # (`ornek_kareleri_sql()`).
+        "  " + ornek_kareleri_sql(("transfer_oncesi", "blastokist")) + " "
         "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
         "JOIN cycle c2 ON c2.id=s.cycle_id "
         "WHERE o.tip='transfer' AND o.iptal_mi=0 AND o.tr_cycle_id=? "
