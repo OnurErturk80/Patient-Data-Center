@@ -14689,3 +14689,38 @@ eklendi, sonra eski ve yeni kod aynı kopyada açıldı:
 | Yalnızca yumurta karesi olan transfer edilmiş embriyo | yumurta karesi | fotoğrafsız |
 
 Altı ekranın hepsi 200 döndü.
+
+# v6.186 — Seçili gün belirgin (cleavage, blastokist)
+
+Kullanıcı bildirdi: "cleavage ekranında gün 2 ve gün 3 seçildiği ekranda
+anlaşılmıyor. Hangi günü seçtiğimiz daha belirgin olsun."
+
+**Sebep:** gün seçicinin (`.gunsec`) seçili düğmesi `--ust-bg` zeminindeydi.
+Açık temada (v6.71'e kadar) bu, beyaz kartların arasında koyu bir sekmeydi.
+Koyu temada `--ust-bg` (#111a25), seçili olmayan düğmenin zemini `--yuzey`
+(#172230) ile neredeyse aynı renk; seçili düğmenin kenarlığı da yok. Ölçüldü:
+iki düğmeyi yalnızca yazı rengi ayırıyordu (beyaz / gri-mavi). Seçili gün
+seçili olmayandan sönük, boş bir yuva gibi görünüyordu.
+
+**Düzeltme tek CSS kuralı:** seçili gün pembe zemin (`--vurgu`), beyaz ve
+kalın yazı. Programın öteki seçicileri zaten böyle: aşama ekranlarındaki
+seçenek düğmeleri (`.secenek .sec.secili`) ve androlojinin over seçicisi
+(`.tarafsec a.aktif`). Aynı seçici blastokist ekranında da (gün 4–7)
+kullanılıyor, o da düzeldi.
+- **Seçili hal için `--ust-bg` kullanma** (v6.74'ün `--ink-2` dersinin
+  kardeşi): koyu temada kasa rengi kart zemininden ayırt edilmiyor. Seçili
+  düğme ya da sekme `--vurgu`. `:root`'taki açıklama da ("aktif sekme bunu
+  kullanıyor") buna göre düzeltildi.
+- Telefonda altta duran gezinme çubuğunun ortası ("Tedavi 6/10") hâlâ
+  `--ust-bg`: bir seçim değil, iki okun arasındaki tedaviye dönüş bağlantısı.
+  Dokunulmadı.
+
+**Denendi:** uydurma bir hastayla (gerçek veri yok), telefon (390 px) ve
+masaüstü (1280 px) genişliğinde cleavage (gün 2, gün 3) ve blastokist (gün 5)
+ekranları açıldı. Seçili günün zemini rgb(224, 53, 111), seçili olmayanlar
+değişmedi, yatay taşma yok.
+
+Yalnızca `style.css` değişti. Bağlantı `?v=<değişim zamanı>` taşıdığı için
+(v6.69) `git pull`'dan sonra sayfa yenilenince yeni görünüm geliyor, programı
+yeniden başlatmak gerekmiyor. Yönetici panelinin sürüm kartı (v6.162) yeniden
+başlatılana kadar "yeniden başlatılmadı" diyebilir; zararsız.

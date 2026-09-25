@@ -1630,11 +1630,19 @@ yok.
   ya kendisi yanlış görünür ya da bir komşu değişkenle (`var(--ink)` gibi)
   eşleşmesi gereken bir varsayımı sessizce kırar.
 - **`--ink` metin rengi, `--ust-bg` kasa rengi — ikisini karıştırma.** Üst
-  bant, kimlik bandı, aktif sekme gibi öğeler hep koyu kalması gereken
-  "kasa" — onlar `var(--ust-bg)` kullanıyor. `--ink` **metin** için: koyu
-  temada açık renk. Yeni bir "hep koyu duracak" öge yazarsan `--ink` değil
-  `--ust-bg` kullan, yoksa metin rengiyle aynı değişkeni paylaşınca öge
-  temayla birlikte (yanlışlıkla) rengini değiştirir.
+  bant, kimlik bandı gibi öğeler hep koyu kalması gereken "kasa" — onlar
+  `var(--ust-bg)` kullanıyor. `--ink` **metin** için: koyu temada açık renk.
+  Yeni bir "hep koyu duracak" öge yazarsan `--ink` değil `--ust-bg` kullan,
+  yoksa metin rengiyle aynı değişkeni paylaşınca öge temayla birlikte
+  (yanlışlıkla) rengini değiştirir.
+- **Seçili düğme/sekme `--ust-bg` değil `--vurgu`** (v6.186, kullanıcı:
+  "hangi günü seçtiğimiz anlaşılmıyor"). Koyu temada `--ust-bg` (#111a25)
+  kart zemini `--yuzey` (#172230) ile neredeyse aynı: cleavage ve
+  blastokistin gün seçicisinde (`.gunsec`) seçili gün, seçili olmayandan
+  sönük görünüyordu. Seçili hal hep pembe zemin + beyaz kalın yazı
+  (`.secenek .sec.secili`, `.tarafsec a.aktif`, `.gunsec a.aktif`) — yeni
+  bir seçicide de öyle yaz. v6.74'teki `--ink-2` dersinin kardeşi: açık
+  temada doğru olan renk koyu temada anlamını yitirebilir.
 - **Zemin sabit bir renkse (`background: #fff` gibi, `.tazelekutu a` veya
   `.kagit` — resmî form kâğıdı bilerek beyaz kalıyor), üzerindeki yazı rengi
   de sabit olmalı, `var(--ink)` OLMAMALI.** v6.72'de tam bunun tersi

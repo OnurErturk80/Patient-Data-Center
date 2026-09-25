@@ -19,9 +19,11 @@
      okunabilir; dugmeler/aktif rozet hala duz `--vurgu` kullaniyor,
      bu yalnizca baslik metni icin. */
   --baslik:   #e76491;
-  /* Ust bant, kimlik bandi, aktif sekme gibi ogeler `--ink`'i degil bunu
-     kullaniyor (v6.71) -- kasa hep ayni koyu lacivert kalsin, `--ink`
-     (artik acik renk) metin icin ayri tutuluyor. */
+  /* Ust bant, kimlik bandi gibi ogeler `--ink`'i degil bunu kullaniyor
+     (v6.71) -- kasa hep ayni koyu lacivert kalsin, `--ink` (artik acik
+     renk) metin icin ayri tutuluyor. Secili dugme/sekme icin KULLANMA:
+     `--yuzey` ile neredeyse ayni, secili hal gorunmez (v6.186); secili
+     hal `--vurgu`. */
   --ust-bg:   #111a25;
   --r: 6px;
   /* Genis ekranda icerik sutunu. Yan menu solda 200px yer kapliyor,
@@ -956,8 +958,13 @@ body.kilitli { overflow: hidden; }
   justify-content: center; border: 1px solid var(--line); border-radius: var(--r);
   background: var(--yuzey); color: var(--ink-2); text-decoration: none; font-size: 15px;
 }
+/* Secili gun vurgu renginde (v6.186), `.tarafsec` ve `.secenek`in secili
+   hali gibi. Acik temada `--ust-bg` beyaz kartlarin arasinda koyu bir
+   sekmeydi; koyu temada `--yuzey` ile neredeyse ayni renk (#111a25 /
+   #172230), kenarligi da yok: secili gun secili olmayandan sonuk
+   gorunuyordu. Kullanici: "hangi gunu sectigimiz anlasilmiyor". */
 .gunsec a.aktif {
-  background: var(--ust-bg); color: #fff; border-color: var(--ust-bg); font-weight: 600;
+  background: var(--vurgu); color: #fff; border-color: var(--vurgu); font-weight: 600;
 }
 
 .secenek.dar .sec { flex: 0 0 calc(25% - 6px); min-width: 0; }
