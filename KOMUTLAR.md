@@ -435,10 +435,14 @@ Sonra tek komut:
 python3 aktar_toplu.py duzelt=tarih_duzeltme_2018.txt
 ```
 
-Klasördeki 2019–2023 dosyaları "zaten aktarılmış, atlandı" der (v6.173:
-işareti olan etiket yeniden çalıştırılmaz), yalnızca 2018'in 11 dosyası
-aktarılır; her dosyanın sonunda 2019'un FET'leri 2018'in tüplerine bağlanır.
-Bitince `aktar_toplu.log`'da `UYARI` satırlarına bak.
+Araç önce her dosyayı kontrol eder (dosya başına birkaç saniye) ve
+"AKTAR"dan ÖNCE hangi ayın kaç tedavi yazacağını listeler. Aktarılmış aylar
+"zaten aktarılmış, atlanacak" satırına düşer, yarıda kalmış bir ayın
+yalnızca eksiği yazılır. **Listede 2018 dışında aylar görünüyorsa AKTAR
+yazma**: bu makinenin veritabanında o aylar yok demektir, 2019–2023 başka
+makinede aktarılmış olabilir (önce `tasi.py` ile doğru veritabanını getir).
+Her dosyanın sonunda 2019'un FET'leri 2018'in tüplerine bağlanır. Bitince
+`aktar_toplu.log`'da `UYARI` satırlarına bak.
 
 **Cryo haritası Excel'i (v6.173).** Bütün Access ayları aktarıldıktan
 sonra. Excel dosyasını (`CRYO_HARITA.xlsx` gibi) proje klasörüne koy

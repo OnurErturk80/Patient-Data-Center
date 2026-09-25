@@ -19,16 +19,19 @@ yalnızca kontrol edilip geçilir). Bir dosya hata verirse durur. Bütün çıkt
 
 53 dosya bir saat kadar sürer (her dosyadan sonra bütün FET'ler yeniden
 bağlanıyor). Önce yedek alın (Yönetici → Yedekleme → Şimdi yedekle).
+
+Başlamadan önce her dosya `liste` kipinden geçer ve ekrana "kaç tedavi
+yazılacak" basılır (v6.173); "AKTAR" ondan sonra sorulur. Yazacak bir şeyi
+olmayan dosya (zaten aktarılmış) atlanır, yarıda kalmış bir dosyanın yalnızca
+eksik satırları yazılır.
 """
 
 import datetime as _dt
+import os
 import pathlib
 import re
 import subprocess
 import sys
-
-import db as _db          # veritabanının yeri tek yerde: db.py (tuzak #8)
-import aktar_access       # yalnızca işaret kalıbı (`ISARET`); aktarım alt süreçte
 
 AYLAR = ["ocak", "subat", "mart", "nisan", "mayis", "haziran", "temmuz",
          "agustos", "eylul", "ekim", "kasim", "aralik"]
@@ -63,10 +66,29 @@ def dosya_no_adimi(deger):
     d.uygula(eski, yeni, h, klasor)
 
 
-def _isaret_on_eki(etiket):
-    """`[Access kaydı OCAK2018#` -- etiketin işaretinin kayıt numarasından
-    önceki kısmı (`aktar_access.ISARET` ile aynı kalıp)."""
-    return aktar_access.ISARET.format(etiket, "").rstrip("]")
+def _calistir(etiket, p, duzelt, liste=False):
+    """`aktar_access.py`'yi alt süreçte çalıştırır. -> CompletedProcess.
+
+    **Alt sürecin çıktısı UTF-8'e sabitleniyor** (v6.173). Windows'ta bir
+    Python süreci boruya (pipe) konsolun değil sistemin kod sayfasıyla
+    yazıyor -- Türkçe Windows'ta cp1254: "ı" 0xFD, "İ" 0xDD. Bu betik UTF-8
+    okuyordu ve kliniğin makinesinde ilk dosyada çöktü ("'utf-8' codec can't
+    decode byte 0xfd"); Mac'te boru zaten UTF-8 olduğu için görülmemişti.
+    Üstelik cp1254'te "→" yok: alt süreç kendisi de o karakteri basarken
+    patlayabilirdi. `PYTHONIOENCODING` iki tarafı da UTF-8 yapıyor;
+    `errors="replace"` bir baytın özetin okunmasını bir daha durdurmasın diye.
+    """
+    komut = [sys.executable, str(PROJE / "aktar_access.py")]
+    if liste:
+        komut.append("liste")
+    komut.append(f"kaynak={etiket}")
+    if duzelt:
+        komut.append(f"duzelt={duzelt}")
+    komut.append(str(p.resolve()))
+    ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    return subprocess.run(komut, input=None if liste else "AKTAR\n",
+                          capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", cwd=str(PROJE), env=ortam)
 
 
 def main():
@@ -92,47 +114,55 @@ def main():
         duzelt = str(pathlib.Path(duzelt).resolve())   # alt süreç proje klasöründe çalışıyor
     print(f"{len(dosyalar)} dosya, {dosyalar[0][2].name} → {dosyalar[-1][2].name}"
           + (f", düzeltme: {duzelt}" if duzelt else ", düzeltme dosyası YOK"))
+
+    # Önce her dosyada ne yazılacağına bak (v6.173). v6.172 hepsini baştan
+    # çalıştırıyordu (bitmiş dosya dakikalar sürüyor); v6.173'ün ilk hali
+    # "o etiketle tek tedavi varsa bitmiş" sayıyordu -- yarıda kalmış bir
+    # dosyanın kalan satırlarını hiç aktarmazdı. Ölçü aracın kendi `liste`'si:
+    # "0 tedavi yazılacak" diyen dosya bitmiş.
+    print("Dosyalar kontrol ediliyor (dosya başına birkaç saniye)...")
+    yapilacak = []
+    for yil, ay, p in dosyalar:
+        etiket = f"{AYLAR[ay].upper()}{yil}"
+        sonuc = _calistir(etiket, p, duzelt, liste=True)
+        m = re.search(r"(\d+) tedavi yazılacak", sonuc.stdout or "")
+        if sonuc.returncode != 0 or not m:
+            print(f"{etiket}: kontrol edilemedi -- durduruldu. Çıktının sonu:")
+            print(((sonuc.stderr or "") + (sonuc.stdout or ""))[-1500:])
+            sys.exit(1)
+        n = int(m.group(1))
+        if n:
+            yapilacak.append((etiket, p, n))
+            print(f"  {etiket:14} {n} tedavi yazılacak")
+    atlanan = len(dosyalar) - len(yapilacak)
+    if atlanan:
+        print(f"  ({atlanan} dosya zaten aktarılmış, atlanacak)")
+    if not yapilacak:
+        print("Yazılacak bir şey yok, bütün dosyalar zaten aktarılmış.")
+        return
+    print(f"{len(yapilacak)} dosyada {sum(n for _e, _p, n in yapilacak)} tedavi aktarılacak.")
     if input('Başlamak için "AKTAR" yazın: ').strip() != "AKTAR":
         sys.exit("Vazgeçildi.")
     if s["dosya"]:
         dosya_no_adimi(s["dosya"])
 
     gunluk = open("aktar_toplu.log", "a", encoding="utf-8")
-    gunluk.write(f"\n===== {_dt.datetime.now():%Y-%m-%d %H:%M} — {len(dosyalar)} dosya\n")
-    for i, (yil, ay, p) in enumerate(dosyalar, 1):
-        etiket = f"{AYLAR[ay].upper()}{yil}"
-        # Zaten aktarılmış ay atlanıyor (v6.173): 2018 gelince klasörde
-        # 2019-2023'ün 53 dosyası da duruyor; hepsini yeniden çalıştırmak
-        # (idempotent ama dosya başına dakikalar) saatler alırdı. Ölçü,
-        # aracın kendi işareti (`aktar_access.ISARET`): o etiketle aktarılmış
-        # tek bir tedavi bile varsa dosya bitmiş sayılıyor -- yarım kalan bir
-        # aktarım için `aktar_access.py kaynak=... dosya.csv` elle (o zaten
-        # aktarılmış satırları atlar).
-        var = _db.tek("SELECT COUNT(*) AS n FROM cycle WHERE lab_id=? AND "
-                      "protokol_notu LIKE ?",
-                      (_db.LAB_ID, f"%{_isaret_on_eki(etiket)}%"))["n"]
-        if var:
-            print(f"[{i}/{len(dosyalar)}] {etiket}: zaten aktarılmış ({var} tedavi), atlandı")
-            gunluk.write(f"{etiket}: zaten aktarılmış ({var} tedavi), atlandı\n")
-            continue
-        komut = [sys.executable, str(PROJE / "aktar_access.py"), f"kaynak={etiket}"]
-        if duzelt:
-            komut.append(f"duzelt={duzelt}")
-        komut.append(str(p.resolve()))
+    gunluk.write(f"\n===== {_dt.datetime.now():%Y-%m-%d %H:%M} — {len(yapilacak)} dosya\n")
+    for i, (etiket, p, _n) in enumerate(yapilacak, 1):
         bas = _dt.datetime.now()
-        sonuc = subprocess.run(komut, input="AKTAR\n", capture_output=True,
-                               text=True, encoding="utf-8", cwd=str(PROJE))
-        gunluk.write(f"\n--- {etiket} ({p.name})\n{sonuc.stdout}{sonuc.stderr}\n")
+        sonuc = _calistir(etiket, p, duzelt)
+        cikti, hata = sonuc.stdout or "", sonuc.stderr or ""
+        gunluk.write(f"\n--- {etiket} ({p.name})\n{cikti}{hata}\n")
         gunluk.flush()
-        ozet = re.search(r"(\d+) tedavi aktarıldı, (\d+) atlandı, (\d+) hata", sonuc.stdout)
-        uyari = sonuc.stdout.count("UYARI")
+        ozet = re.search(r"(\d+) tedavi aktarıldı, (\d+) atlandı, (\d+) hata", cikti)
+        uyari = cikti.count("UYARI")
         sure = (_dt.datetime.now() - bas).seconds
         if sonuc.returncode != 0 or not ozet:
-            print(f"[{i}/{len(dosyalar)}] {etiket}: HATA -- aktar_toplu.log'un sonuna bak. "
+            print(f"[{i}/{len(yapilacak)}] {etiket}: HATA -- aktar_toplu.log'un sonuna bak. "
                   "Durduruldu; sorun giderilince aynı komut yeniden verilir.")
-            print((sonuc.stderr or sonuc.stdout)[-1500:])
+            print((hata or cikti)[-1500:])
             sys.exit(1)
-        print(f"[{i}/{len(dosyalar)}] {etiket}: {ozet.group(1)} aktarıldı, "
+        print(f"[{i}/{len(yapilacak)}] {etiket}: {ozet.group(1)} aktarıldı, "
               f"{ozet.group(2)} atlandı, {uyari} uyarı, {sure} sn")
     print("Bitti. Uyarıların ayrıntısı aktar_toplu.log'da (UYARI diye ara).")
 

@@ -13898,8 +13898,21 @@ karşılaştırmasında **2019 ve sonrasının okuması değişmedi**.
   tutucu dosya numarası (Şubat 2019 #6'daki aynı hasta, aynı "455").
 - **`aktar_toplu.py` aktarılmış ayı atlıyor**: klasörde 2019–2023'ün 53
   dosyası duruyor; hepsini yeniden çalıştırmak (idempotent ama dosya başına
-  dakikalar) saatler alırdı. Ölçü aracın kendi işareti: o etiketle
-  aktarılmış tek tedavi varsa dosya bitmiş.
+  dakikalar) saatler alırdı. İlk hali "o etiketle tek tedavi varsa bitmiş"
+  sayıyordu -- yarıda kalmış bir dosyanın kalan satırlarını hiç aktarmazdı.
+  Bugün ölçü aracın kendi `liste`'si: her dosya önce `liste`'den geçiyor
+  (dosya başına ~7 sn), ekrana "OCAK2018  52 tedavi yazılacak" basılıyor,
+  "AKTAR" ondan sonra soruluyor; "0 yazılacak" diyen dosya atlanıyor.
+- **Windows'ta ilk dosyada çöküyordu** (kullanıcı, kliniğin makinesinde):
+  `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xfd`. Windows'ta bir
+  Python süreci boruya konsolun değil sistemin kod sayfasıyla yazıyor --
+  Türkçe Windows'ta cp1254 ("ı" 0xFD, "İ" 0xDD); `aktar_toplu.py` UTF-8
+  okuyordu. cp1254'te "→" da yok: alt süreç o karakteri basarken kendisi de
+  patlayabilir. Mac'te boru UTF-8 olduğu için görülmemişti. Alt süreç artık
+  `PYTHONIOENCODING=utf-8` ile çalışıyor, okuma `errors="replace"`.
+  Burada Windows benzetimiyle (alt süreç borusu cp1254) eski araçla hata
+  birebir üretildi; yeni araçla yarıda kalmış OCAK2018 (30/82) kalan 52
+  satırla tamamlandı, SUBAT2018 aktarıldı, aktarılmış OCAK2019 atlandı.
 
 Denendi: 11 dosya test veritabanına (2019–2023'ün üstüne) aktarıldı --
 **918 tedavi, 0 hata, 11 uyarı**, 533 yeni hasta kartı, 290 tüp. Uyarılar
