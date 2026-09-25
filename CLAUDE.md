@@ -2004,6 +2004,12 @@ besleniyor.
   varlığına güven.
 - `xlsx_oku.izgara()` (v6.127'den geri geldi) ve `db.konum_bul_veya_olustur()`
   (app.py'den taşındı; `b` verilirse açık bağlantıda) bunun için.
+- **Excel'in hücre yazımı** (v6.176, `_yazimi_duzelt()`): "MORULA G2",
+  "KAV G3", "BİRLEŞME G1" (boşluklu), "3BB*3BB" (yıldız ayırıcı), "2CCKAVG3"
+  (bitişik evre), "3*KAVG3" / "3 ADET MORULA G2" (çarpan, yalnızca embriyo).
+  Yeni bir okuma eklerken eski/yeni aracı satır satır karşılaştır: daha önce
+  eşleşen satır değişmemeli. **Tarih toleransı yok** -- Excel ile programın
+  dondurma günü 1–5 gün farklı ~45 satır var, kullanıcıya soruldu.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği; `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığı; Excel
   VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile tüp sırasının ilişkisi;

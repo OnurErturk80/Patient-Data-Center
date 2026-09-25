@@ -124,6 +124,22 @@ def _uyar(istek, tup) -> bool:
     return not (bilinen - collections.Counter(tup))
 
 
+# Excel'in kendi yazım alışkanlıkları (v6.176, haritanın 2019-2023 satırları):
+# evre ile derece arasında boşluk ("MORULA G2", "KAV G3", "BİRLEŞME G1" --
+# boşluktan bölününce iki "?" oluyordu), iki embriyo arasında yıldız
+# ("3BB*3BB"; "3*KAVG3" ise sayı, dokunulmuyor), blastokist skoruna bitişik
+# evre ("2CCKAVG3" -- `_skor_coz()` baştaki 2CC'yi okuyup KAVG3'ü atıyordu).
+_EVRE_DERECE = re.compile(r"\b(MORULA|MOR|KAVİTASYON|KAV|BİRLEŞME|BİR)\s+(G\d)\b")
+_YILDIZ_ARASI = re.compile(r"(?<=[A-Z])\*+(?=\d)")
+_BITISIK_EVRE = re.compile(r"(\d[ABC]{2})(?=KAV|MOR|BİR)")
+
+
+def _yazimi_duzelt(ic: str) -> str:
+    ic = _EVRE_DERECE.sub(r"\1\2", ic)
+    ic = _YILDIZ_ARASI.sub(" ", ic)
+    return _BITISIK_EVRE.sub(r"\1 ", ic)
+
+
 def excel_icerik(icerik: str):
     """HÜCRE metni -> [tüp içeriği, ...]; her tüp sıralı skor listesi, okunamayan
     parça "?" olur. Hiç okunamıyorsa None.
@@ -133,8 +149,10 @@ def excel_icerik(icerik: str):
     OVAL, COLLAPSED -- `aktar_access._NITELIK`) ayrı embriyo değil, atlanıyor;
     "10HG2*" yıldızı da (v6.172'nin okumaları).
     """
-    ic = (icerik or "").upper()
+    ic = _yazimi_duzelt((icerik or "").upper())
     yumurta = "OOS" in ic or "M2" in ic or "MII" in ic
+    if not yumurta:
+        ic = re.sub(r"\b(\d+)\s*ADET\s+", r"\1*", ic)     # "3 ADET MORULA G2"
     gruplar = _GRUP.findall(ic)
     if not gruplar:
         return _parantezsiz_yumurta(ic) if yumurta else None
@@ -145,6 +163,15 @@ def excel_icerik(icerik: str):
         for p in parcalar:
             p = p.strip("*")
             if not p or aktar_access._NITELIK.match(aktar_access._sade(p)):
+                continue
+            # "3*KAVG3", "2X8HG1": aynı skordan N embriyo (Access okuyucusunun
+            # kuralı, v6.173). Yumurtada "3*M2"yi `_skor_coz()` kendisi sayıyor.
+            carpan = None if yumurta else re.match(r"^(\d+)[X*](\S+)$", p)
+            z = aktar_access._skor_coz(carpan.group(2), yumurta=False) if carpan else None
+            if z and z["tur"] in ("blast", "cleavage"):
+                tek = (_norm(f'{z["hucre"]}{z["skor"]}') if z["tur"] == "cleavage"
+                       else _norm(z["skor"]))
+                out += [tek] * int(carpan.group(1))
                 continue
             z = aktar_access._skor_coz(p, yumurta=yumurta)
             if not z:

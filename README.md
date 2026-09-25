@@ -13759,6 +13759,36 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.176 — Cryo Excel'inin hücre yazımları (cryo_esle.py)
+
+Kullanıcı güncel Cryo haritası Excel'ini gönderdi (2026-09-25; önceki
+dosyadan 6 satır eksik, 1 satır fazla -- çözülen/yeni dondurulan tüpler).
+Deneme veritabanında (2018–2023, eyl–ara 2024, oca–may 2025, mayıs 2026)
+`liste` çalıştırıldı; tam aktarılmış yıllarda "içerik tutmuyor" satırlarının
+bir kısmı Excel'in kendi yazım alışkanlığıydı, veride bir fark değil:
+
+- Evre ile derece arasında boşluk: "MORULA G2", "KAV G3", "BİRLEŞME G1",
+  "BİR G2" -- boşluktan bölünüp iki okunamayan öğe oluyordu.
+- İki embriyo arasında yıldız: "3BB*3BB", "3BA*1CC" ("3*KAVG3" ise çarpan).
+- Blastokist skoruna bitişik evre: "2CCKAVG3" -- 2CC okunuyor, KAVG3
+  sessizce düşüyordu (tüp iki embriyo, Excel bir diyordu).
+- Çarpan: "3*KAVG3", "2X8HG1", "3 ADET MORULA G2" (Access okuyucusunun
+  v6.173 kuralı; yalnızca embriyoda, yumurtada `_skor_coz()` kendisi sayıyor).
+
+`_yazimi_duzelt()` + `excel_icerik()`'in çarpan dalı. Eski ve yeni araç satır
+satır karşılaştırıldı: 13 satır "içerik tutmuyor"dan yazılır bir sınıfa
+geçti, daha önce eşleşen hiçbir satır değişmedi. Yazılacak 2046 → 2059.
+
+**Bilerek yapılmayan: tarih toleransı.** 2019–2023'te "o gün tüp yok"
+satırlarının ~45'inde programdaki dondurma günü Excel'inkinden 1–5 gün farklı
+(yumurtalar çoğunlukla Excel'de bir gün sonra, bazı D5/D6 embriyolar üç gün
+önce). Düzeni tek değil; hangisinin doğru olduğu (Access'in tarihi mi,
+haritanın mı) kullanıcıya soruldu, cevap gelmeden gevşetilmedi.
+
+Kalan büyük sınıflar deneme veritabanının eksik aylarından (oca–ağu 2024,
+haz–ara 2025, 2026'nın mayıs dışı) -- "hasta yok" 1197'nin ~940'ı 2024–2026.
+Kullanıcının veritabanında bu aylar var; sayılar orada ölçülecek.
+
 # v6.175 — Yanlış tüpe bağlanmış FET: skor onarımı, `tasi` kipi, kayıt sırası (goc_050)
 
 Kullanıcı `bagla`'yı çalıştırdı (v6.174), çıktının "Bağlı ama artık kesin
