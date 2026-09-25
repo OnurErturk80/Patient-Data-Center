@@ -2033,6 +2033,8 @@ besleniyor.
   (tek okuyucu, `excel_icerik()` onun metni). 2011–2017 yazımı: "2G1" = iki
   G1 embriyo (hücre sayısı DEĞİL), "10H%5" 10 hücre %5 fragmantasyon, "UE"
   uneven, "KAVKAV" iki kavitasyon, "7OOSİT" yedi yumurta.
+  Kullanıcının veritabanında uygulandı (2026-09-25, Mac): 78 hasta, 79
+  tedavi, 110 tüp, 254 örnek (2 embriyo skorsuz) -- deneme kopyasıyla birebir.
 - `eski_cryo_temizle.py liste` kullanıcının veritabanında (2026-09-25):
   "'eski_cryo' tablosu yok" -- v6.127'nin kalıntısı yok, temizlik gerekmiyor.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
