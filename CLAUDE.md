@@ -2017,6 +2017,11 @@ besleniyor.
   dondurulur -> yumurta tüpüyle bir gün kayık yumurta satırı aynı dondurma
   (`yumurta_bir_gun`); FET'te refreeze çözme günü ya da kültürden/transferden
   sonra -> Excel çözmeden 1–3 gün sonra olabilir (`refreeze_gunu`).
+- **Kullanıcının veritabanında uygulandı** (2026-09-25, Mac'te): önce 2.958,
+  v6.178 ile 66 tüp daha -- 3.863 embriyo/yumurta satırının 3.024'üne konum
+  yazıldı (4.905 hasta, 7.218 tüp). Kalan: hasta yok 390, o gün tüp yok 166,
+  içerik tutmuyor 136, hiç tüp yok 56, eş adı tutmuyor 42, aynı adlı 19,
+  programda boşaltılmış 15, tarihsiz 10, başka konum yazılı 6.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği; `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığı; Excel
   VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile tüp sırasının ilişkisi;
