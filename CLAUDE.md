@@ -2259,6 +2259,10 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     ama artık kesin değil" listesi. Bağ çözülmüyor (FET'in örnekleri silindi,
     konum elle girilmiş olabilir). Aday araması tek yerde,
     `_bag_siniflari()`: bağlama ile sınama aynı kural.
+  - **Onaylanmış bağ da listede kalıyor, bilerek.** Araç kullanıcının
+    onayını saklamıyor; MAYIS2025#25 (onaylı) ve HAZIRAN#37 (`tasi` ile
+    taşındı) her `bagla`'da yeniden yazılıyor. Onayı hatırlatmak önerildi,
+    kullanıcı istemedi (2026-09-25: "hayır kalsın") -- yeniden önerme.
 - **Etiket her dosyada tekil, yıllar arasında da** (v6.160): 2026'nın ayları
   `OCAK`…`TEMMUZ` ile aktarıldı, 2025'inkiler `OCAK2025`…, 2024'ünküler
   `OCAK2024`… (nisan–ağustos: `NISAN2024`, `MAYIS2024`, `HAZIRAN2024`,
