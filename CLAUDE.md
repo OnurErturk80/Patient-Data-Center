@@ -50,8 +50,8 @@ başına ~20 dk). **Ağustos 2018'de laboratuvarda hiç işlem yapılmadı**
 kez `python3 aktar_access.py bagla` çalıştırması istendi (ertelenen ~52 FET).
 Kullanıcı çalıştırdı; "kesin değil" listesindeki üç FET v6.175'i doğurdu
 (skor onarımı, `tasi` kipi, goc_050 -- aşağıda). TEMMUZ2019#54 ve
-KASIM2019#63'ün doğru tüpü Access notlarından belli, `tasi` komutları
-kullanıcıya verildi. MAYIS2025#25'in bağı doğru (kullanıcı, 2026-09-25:
+KASIM2019#63'ün doğru tüpü Access notlarından belli; kullanıcı 2026-09-25'te
+üç `dondurma` komutunu (2019'un 4 eksik skoru) ve iki `tasi`'yi çalıştırdı. MAYIS2025#25'in bağı doğru (kullanıcı, 2026-09-25:
 "doğru, 2 tüpte 3 D5 embriyo kaldı" -- `bagla` onu listelemeye devam eder,
 dokunulmaz). HAZIRAN#37'yi kullanıcı 2026-09-25'te kendisi taşıdı
 (`tasi` → 2022-0135'in üç tüpü, 5 embriyo; 2026-0507-1200 yeniden dolu).
