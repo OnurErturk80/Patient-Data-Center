@@ -14724,3 +14724,36 @@ Yalnızca `style.css` değişti. Bağlantı `?v=<değişim zamanı>` taşıdığ
 (v6.69) `git pull`'dan sonra sayfa yenilenince yeni görünüm geliyor, programı
 yeniden başlatmak gerekmiyor. Yönetici panelinin sürüm kartı (v6.162) yeniden
 başlatılana kadar "yeniden başlatılmadı" diyebilir; zararsız.
+
+# v6.187 — ART Lab'ın Yorum satırında "Normal" yazmıyor
+
+Kullanıcı sordu: "ART Lab formunda bazı durumlarda normal yazıyor. Neden?"
+
+Yumurta ızgarasının en alttaki **Yorum** satırı (kâğıdın altındaki geniş
+"Yorum:" satırı değil) embriyonun blastokist skorunu gösteriyor. Kâğıtta ayrı
+bir blastokist satırı yok (v6.37). Skor yoksa kod, fertilizasyon ekranındaki
+sonucu yazıyordu: Normal, Dejenere ya da Kayıp. Bu yedek formun ilk
+sürümünden beri vardı ve hiçbir yerde yazılı değildi. Blastokiste gitmeyen
+her embriyoda kutu "Normal" diyordu: gün 2–3'te transfer edilen ya da
+dondurulan, arrest olan, değerlendirmesi girilmemiş olanlar.
+- "Normal" kontrolün sonucu, embriyo hakkında bir yorum değil. Formu okuyan
+  onu embriyonun değerlendirmesi sanabilir. Aynı sütunun "PM durumu" satırı
+  zaten 2PN yazıyor.
+- Kullanıcının deneme kopyasında son 400 IVF/ICSI tedavisinde 1.260 kutu
+  (307 tedavi) "Normal" yazıyordu; 651 kutuda blastokist skoru vardı.
+
+**Kullanıcının kararı:** kutu blastokist skorunu göstersin. Skor yoksa
+yalnızca Dejenere ya da Kayıp yazsın; "Normal" hiç yazmasın. "Dejenere" o
+yumurtada neden cleavage olmadığını açıklıyor.
+- Süzgeç `fert_sonuc`'un **koduna** bakıyor (`normal`), etikete değil;
+  etiketi laboratuvar düzenleyebiliyor (`liste_degeri`).
+- Ekran ve Excel aynı veriden (`formlar.artlab_verisi()`), ikisi birlikte
+  değişti. Embriyoloji Özet formunda bu satır yok.
+
+**Denendi:** deneme kopyasının 1.816 tedavisinin hepsi hatasız basıldı.
+Yorum kutularında artık hiç "Normal" yok; 2.089 blastokist skoru aynı, 2
+kutu "Dejenere". Uydurma bir hastanın formunda (4AA, 2PN, Dejenere, Kayıp)
+satır "4AA, boş, Dejenere, Kayıp" basıldı; form ve Excel çıktısı 200 döndü.
+
+Yalnızca `formlar.py` değişti: `git pull`'dan sonra programın **yeniden
+başlatılması** gerekiyor (tuzak #5).

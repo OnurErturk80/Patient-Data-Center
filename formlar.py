@@ -1376,7 +1376,13 @@ def artlab_verisi(cycle_id: int):
             # "Yorum:" satırına yazılıyor (v6.135, kullanıcıya soruldu):
             # bu kutu bir oosit genişliğinde, "3AA, Vakuol, Geniş PVS" 52px
             # taşıp kesiliyordu.
-            "yorum": o["bl"] or _et(h, "fert_sonuc", o["fert"]) or "",
+            # Skor yoksa fertilizasyon sonucu, ama "Normal" DEĞİL (v6.187,
+            # kullanıcının kararı): o kontrolün sonucu, embriyo hakkında bir
+            # yorum değil; aynı sütunun PN satırı zaten 2PN yazıyor. Dejenere
+            # ve Kayıp kalıyor -- neden cleavage olmadığını açıklıyorlar.
+            # Kodla karşılaştırılıyor, etiket laboratuvarın düzenleyebildiği.
+            "yorum": o["bl"] or (_et(h, "fert_sonuc", o["fert"])
+                                 if o["fert"] != "normal" else None) or "",
         })
 
     mat = _oosit_sayilari(cycle_id)

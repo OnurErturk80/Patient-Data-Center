@@ -1171,7 +1171,10 @@ kalıptan**: `form_kalip.json`.
   kendisine ekleme. Karar sırası: sağında boş kutu varsa taşır, yoksa
   küçült, **asla kesme** — kimlik bilgisi kesik basılmaz.
 - **ART Lab'ın "Yorum"u iki ayrı yer** — karıştırma. Izgaranın en alt
-  satırı **oosit başına** ve çok dar (blastokist skoru orada, v6.37);
+  satırı **oosit başına** ve çok dar (blastokist skoru orada, v6.37; skor
+  yoksa yalnızca Dejenere ya da Kayıp, **"Normal" yazılmaz** — v6.187,
+  kullanıcının kararı: fertilizasyon kontrolünün sonucu embriyo yorumu
+  değil, PN satırı zaten 2PN diyor; süzgeç etikete değil koda bakıyor);
   kâğıdın altındaki "Raporu dolduran … Yorum:" satırı ise sayfa
   genişliğinde tek hücre. **Yumurta bulguları alttakine** yazılıyor
   (v6.135, kullanıcıya soruldu, o seçti): ızgaraya konduğunda
