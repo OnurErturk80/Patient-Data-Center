@@ -2022,8 +2022,10 @@ besleniyor.
   yazıldı (4.905 hasta, 7.218 tüp). Kalan: hasta yok 390, o gün tüp yok 166,
   içerik tutmuyor 136, hiç tüp yok 56, eş adı tutmuyor 42, aynı adlı 19,
   programda boşaltılmış 15, tarihsiz 10, başka konum yazılı 6.
+- `eski_cryo_temizle.py liste` kullanıcının veritabanında (2026-09-25):
+  "'eski_cryo' tablosu yok" -- v6.127'nin kalıntısı yok, temizlik gerekmiyor.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
-  istemediği; `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığı; Excel
+  istemediği; Excel
   VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile tüp sırasının ilişkisi;
   sperm sayfaları. Cevaba göre `/cryo` ekranı yeniden tasarlanacak.
 
