@@ -2008,8 +2008,13 @@ besleniyor.
   "KAV G3", "BİRLEŞME G1" (boşluklu), "3BB*3BB" (yıldız ayırıcı), "2CCKAVG3"
   (bitişik evre), "3*KAVG3" / "3 ADET MORULA G2" (çarpan, yalnızca embriyo).
   Yeni bir okuma eklerken eski/yeni aracı satır satır karşılaştır: daha önce
-  eşleşen satır değişmemeli. **Tarih toleransı yok** -- Excel ile programın
-  dondurma günü 1–5 gün farklı ~45 satır var, kullanıcıya soruldu.
+  eşleşen satır değişmemeli.
+- **Excel'in TARİH'i dondurma günü, HÜCRE'nin "D5"i OPU'dan sayılan gün**
+  (kullanıcı, 2026-09-25). Tarih tutmazsa `_excel_opu()` (TARİH − gün,
+  yumurtada 0) tedavinin OPU'suyla karşılaştırılıyor (v6.177, sınıf
+  `opu_gunu`); içerik yine birebir. Serbest bir ±N gün toleransı YOK.
+  Açık: yumurtalar Excel'de OPU + 1 (ertesi gün mü dondurulur?) ve FET'te
+  yeniden dondurulan tüpler (OPU yok) 1–3 gün kayık -- kullanıcıya soruldu.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği; `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığı; Excel
   VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile tüp sırasının ilişkisi;

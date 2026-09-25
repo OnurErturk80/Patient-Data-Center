@@ -211,9 +211,11 @@ def tupler(b) -> dict:
     günü ve içerikleriyle. Sperm tüplerinin `olay` satırı yok, gelmiyorlar."""
     sonuc = collections.defaultdict(list)
     q = ("SELECT h.id hid, t.id tid, t.etiket, t.durum, t.tip, t.renk, t.konum_id, "
-         "k.tam_yol, substr(MIN(o.zaman),1,10) gun, GROUP_CONCAT(s.id) ornekler "
+         "k.tam_yol, substr(MIN(o.zaman),1,10) gun, GROUP_CONCAT(s.id) ornekler, "
+         "substr(MIN(vc.opu_zamani),1,10) opu "
          "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
          "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
+         f"LEFT JOIN cycle vc ON vc.id={_db.vit_tedavisi('o')} "
          "JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
          "LEFT JOIN konum k ON k.id=t.konum_id "
          "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND h.lab_id=? "
@@ -223,7 +225,8 @@ def tupler(b) -> dict:
         sonuc[r["hid"]].append({
             "tid": r["tid"], "etiket": r["etiket"], "durum": r["durum"],
             "tip": r["tip"], "renk": r["renk"], "konum_id": r["konum_id"],
-            "tam_yol": r["tam_yol"], "gun": r["gun"], "skorlar": skorlar})
+            "tam_yol": r["tam_yol"], "gun": r["gun"], "opu": r["opu"],
+            "skorlar": skorlar})
     return sonuc
 
 
@@ -243,6 +246,8 @@ SINIFLAR = [
     ("es_tutmuyor", "Ad tutuyor, eş adı tutmuyor -- yazılmadı (tüp bulunduysa yazılı)", False),
     ("tutmuyor", "O gün tüp var ama içerik tutmuyor (ya da Excel'de tüpten çok satır)", False),
     ("cakisma", "İki Excel satırı aynı tüpü istiyor", False),
+    ("opu_gunu", "Tarih programdakinden farklı; Excel'in günü OPU'dan sayılınca "
+                 "(D5 = OPU + 5) aynı tedavi, içerik tutuyor", True),
     ("gun_yok", "Hasta programda var, o gün dondurma tüpü yok", False),
     ("tup_yok", "Hasta programda var, hiç dondurma tüpü yok", False),
     ("hasta_cok", "Aynı adlı birden çok hasta, eş adı ve tarih ayırmıyor", False),
@@ -342,6 +347,28 @@ def _sirala(adaylar):
     return sorted(adaylar, key=lambda t: (t["durum"] != "dolu", t["etiket"], t["tid"]))
 
 
+_EXCEL_GUN = re.compile(r"^\s*D\s*(\d)\b")
+
+
+def _excel_opu(s):
+    """Excel satırının OPU günü (v6.177, kullanıcının cevabı, 2026-09-25:
+    "Excel'de dondurma günü yazıyor. 5. gün dondurma ise OPU gününden 5 gün
+    sonra"). HÜCRE "D5 (...)" -> TARİH − 5; yumurta OPU günü dondurulur ->
+    TARİH. Günü yazmayan embriyo satırında None."""
+    m = _EXCEL_GUN.match(s["icerik"] or "")
+    ic = (s["icerik"] or "").upper()
+    if m:
+        gun = int(m.group(1))
+    elif "OOS" in ic or "M2" in ic or "MII" in ic:
+        gun = 0
+    else:
+        return None
+    try:
+        return (_dt.date.fromisoformat(s["tarih"]) - _dt.timedelta(days=gun)).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
 def esle(satirlar, idx, tup) -> list:
     """Excel satırları -> [(satır, sınıf, tüp|None, ek not)]"""
     sonuc = []
@@ -364,22 +391,36 @@ def esle(satirlar, idx, tup) -> list:
         if not hastanin:
             sonuc.append((s, "tup_yok", None, es_notu.strip("; ")))
             continue
-        o_gun = [t for t in hastanin if t["gun"] == s["tarih"]]
-        if not o_gun:
-            gunler = sorted({t["gun"] for t in hastanin})
-            sonuc.append((s, "gun_yok", None,
-                          "programdaki dondurma günleri: " + ", ".join(gunler) + es_notu))
-            continue
+        anahtar = (hid, "gun", s["tarih"])
+        if not any(t["gun"] == s["tarih"] for t in hastanin):
+            # Tarih tutmuyor: programdaki dondurma günü Access notundan
+            # (OPU + nottaki gün) kurulmuştu, gün yanlış okunmuş olabilir.
+            # Excel'in kendi günüyle OPU'ya dönüp aynı tedaviyi ara (v6.177).
+            opu = _excel_opu(s)
+            if opu and any(t["opu"] == opu for t in hastanin):
+                anahtar = (hid, "opu", opu)
+            else:
+                gunler = sorted({t["gun"] for t in hastanin})
+                sonuc.append((s, "gun_yok", None,
+                              "programdaki dondurma günleri: " + ", ".join(gunler) + es_notu))
+                continue
         icerik = excel_icerik(s["icerik"])
         if icerik:
             for tek in icerik:
-                gunluk[(hid, s["tarih"])].append((s, tek))
+                gunluk[anahtar].append((s, tek))
         else:
-            gunluk[(hid, s["tarih"])].append((s, None))
+            gunluk[anahtar].append((s, None))
     kullanilan = {}
-    for (hid, gun), istekler in gunluk.items():
-        adaylar = [t for t in tup[hid] if t["gun"] == gun]
+    # Önce günü tutanlar: OPU'dan bulunan satır, günü tutan satırın tüpünü
+    # almasın.
+    for (hid, olcu, deger), istekler in sorted(gunluk.items(), key=lambda x: x[0][1] != "gun"):
+        if olcu == "gun":
+            adaylar = [t for t in tup[hid] if t["gun"] == deger]
+        else:
+            adaylar = [t for t in tup[hid] if t["opu"] == deger and t["tid"] not in kullanilan]
         for (s, ic), t, sinif in _dagit(istekler, adaylar):
+            if t is not None and olcu == "opu":
+                sinif = "opu_gunu"
             bayrak, ek = bayraklar.get(id(s), (None, ""))
             if t is None:
                 sonuc.append((s, "es_tutmuyor" if bayrak == "es_tutmuyor" else sinif, None,

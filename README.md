@@ -13759,6 +13759,33 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.177 — Cryo Excel'i: tarih tutmayınca OPU gününden eşleştirme
+
+v6.176'daki soruya kullanıcının cevabı (2026-09-25): "Excel'de dondurma günü
+yazıyor. 5. gün dondurma ise OPU gününden 5 gün sonra, 3. gün dondurma ise
+OPU gününden 3 gün sonra dondurma yapılıyor."
+
+Programdaki tüpün günü Access'ten kuruldu: OPU + nottaki gün, gün okunamazsa
+5 (`aktar_access._dondurma_zamani()`). Not gün yazmadığında ya da farklı
+yazdığında (Excel D6, program D5) tüp bir iki gün kayık duruyor. Excel'in
+günü ise kendi HÜCRE'sinde: "D6 (4AA)".
+
+`_excel_opu()`: tarih tutmayan satırda TARİH − Excel'in günü (yumurtada 0) =
+OPU günü; hastanın dondurma tedavisinin (`db.vit_tedavisi()`) OPU'su bununla
+tutuyorsa aynı tedavi, tüp içerikle yine birebir aranıyor. Yeni sınıf
+`opu_gunu` (yazılır, raporda ayrı başlık). Önce günü tutan satırlar dağıtılıyor,
+OPU'dan bulunan satır onların tüpünü almıyor.
+
+Deneme veritabanında 13 satır "o gün tüp yok"tan `opu_gunu`'na geçti (çoğu
+Excel D6 / program D5), 5'i "içerik tutmuyor"a (tedavi bulundu, içerik
+farklı); başka hiçbir satır değişmedi.
+
+**Hâlâ tutmayanlar, kullanıcıya soruldu:**
+- Yumurta satırları Excel'de düzenli olarak OPU'dan **bir gün sonra**
+  (program yumurtayı OPU günü dondurulmuş sayıyor, v6.130'dan beri).
+- OPU'su olmayan tüpler (FET'te yeniden dondurulan, program çözme/transfer
+  gününü yazıyor): Excel 1–3 gün sonrasını yazıyor.
+
 # v6.176 — Cryo Excel'inin hücre yazımları (cryo_esle.py)
 
 Kullanıcı güncel Cryo haritası Excel'ini gönderdi (2026-09-25; önceki
