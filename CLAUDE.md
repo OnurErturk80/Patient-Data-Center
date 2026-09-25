@@ -43,7 +43,12 @@ tarihleri 2023). **Şubat–haziran 2023** v6.170'te (`kaynak=SUBAT2023` …
 kullanıcı `.rar` arşivleriyle verdi, `unrar` ile açıldı); kullanıcı
 2026-09-24'te 53 dosyayı `aktar_toplu.py` ile aktardı (5.494 tedavi, 18
 uyarı). **2018** (11 ay, ağustos yok) v6.173'te hazırlandı (`kaynak=OCAK2018`
-… `ARALIK2018`); kullanıcı çalıştırıyor. 2011–2017 için Access dosyası
+… `ARALIK2018`); kullanıcı 2026-09-25'te kliniğin Windows makinesinde
+aktardı (918 tedavi, 0 hata, 11 uyarı -- deneme kopyasıyla birebir; dosya
+başına ~20 dk). Ağustos 2018 boş mu, dosyası mı eksik: soruldu, cevap yok.
+Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
+<gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
+edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
 verilmedi (Cryo Excel'inde o yıllardan ~200 satır var). Sonra sıra Cryo
 Excel'inde: `cryo_esle.py` (aşağıda). Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
