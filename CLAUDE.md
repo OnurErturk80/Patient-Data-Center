@@ -51,8 +51,9 @@ kez `python3 aktar_access.py bagla` çalıştırması istendi (ertelenen ~52 FET
 Kullanıcı çalıştırdı; "kesin değil" listesindeki üç FET v6.175'i doğurdu
 (skor onarımı, `tasi` kipi, goc_050 -- aşağıda). TEMMUZ2019#54 ve
 KASIM2019#63'ün doğru tüpü Access notlarından belli, `tasi` komutları
-kullanıcıya verildi; MAYIS2025#25 (bağ büyük olasılıkla doğru) ve HAZIRAN#37
-onun kararını bekliyor.
+kullanıcıya verildi. MAYIS2025#25'in bağı doğru (kullanıcı, 2026-09-25:
+"doğru, 2 tüpte 3 D5 embriyo kaldı" -- `bagla` onu listelemeye devam eder,
+dokunulmaz); HAZIRAN#37 onun kararını bekliyor.
 Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 <gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
 edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası

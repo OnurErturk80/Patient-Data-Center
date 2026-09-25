@@ -13844,8 +13844,10 @@ tablo karşılaştırmada yalnızca beklenen satırlar değişti. 21 ekran 200.
   1 ADET D5 EMBRİYOSU (1CC) ... TOPLAMDA 2 TÜPTE 3 ADET EMBRİYOSU KALDI".
   Bağlı seçenek mart'ın iki 4'lü 3. gün tüpü: çözüp 5. güne kültür ile tutuyor,
   geride kalan 5. gün embriyoları (ocak tüpünün 2'si + yeni 1CC) "2 tüpte 3".
-  Öteki seçenek bir 3. gün ve bir 5. gün tüpünü birlikte çözmek. Bağ büyük
-  olasılıkla doğru; kullanıcıya soruldu.
+  Öteki seçenek bir 3. gün ve bir 5. gün tüpünü birlikte çözmek. Kullanıcı
+  doğruladı (2026-09-25): "MAYIS ayı doğru, 2 tüpte 3 D5 embriyo kaldı".
+  Bağ olduğu gibi kalıyor; `bagla` onu "kesin değil" listesinde göstermeye
+  devam eder (araç kullanıcının onayını saklamıyor).
 - HAZIRAN#37 (2026): haziran 2026 dosyası elimde değil, kullanıcıya soruldu.
 
 # v6.174 — Ağustos 2018 boş ay
