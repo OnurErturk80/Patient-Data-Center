@@ -13852,6 +13852,13 @@ tablo karşılaştırmada yalnızca beklenen satırlar değişti. 21 ekran 200.
   kullanıcının. Kendi makinesinde `tasi` ile 2022-0135'in üç tüpüne taşıdı
   (5 embriyo); 2026-0507-1200 yeniden dolu. Bu, gerçek veride `tasi`'nin ilk
   çalışması; çıktı denemeyle aynı biçimde.
+- Kullanıcının makinesinde sonuç (2026-09-25): üç `dondurma` komutu ilk
+  seferde "CSV dosyasi bulunamadi" ile durdu (2019–2023'ün CSV'leri proje
+  klasöründe değildi), KASIM2019#63 bu yüzden skorsuz 2019-0146 tüpüyle "kesin
+  değil" listesinde kaldı. Dosyalar klasöre konup veritabanı `tasi.py` ile
+  Mac'e alınarak yeniden çalıştırıldı; `bagla`'nın listesinde yalnızca
+  onaylanmış MAYIS2025#25 ve HAZIRAN#37 kaldı. **Ders**: dosya isteyen bir
+  onarım komutu verirken dosyanın o makinede nerede olduğunu da sor.
 
 # v6.174 — Ağustos 2018 boş ay
 
