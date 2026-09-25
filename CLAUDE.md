@@ -2245,7 +2245,14 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     tümden yok saymak (3BB→4AA gibi) seçeneği sunuldu, seçilmedi -- sorma-
     dan genişletme. **Blastokistte genişleme sayısı** (v6.183, kullanıcının
     kararı: "Genişleme aynıysa bağla"): 2CC tüpü 2BB transferiyle tutar,
-    ICM/TE farklı olabilir; genişleme farklıysa tutmaz. Bağlanmamış FET'in tüpü "dolu" kalır ve sonraki FET'in
+    ICM/TE farklı olabilir; genişleme farklıysa tutmaz. **Sayı eşitliği** (v6.184,
+    kullanıcı: "dondurulan ve çözülen embriyo sayıları eşit o yüzden hiç
+    embriyosu kalmamış olması lazım"): skor hiç tutmuyorsa ama hastanın kalan
+    bütün dolu tüplerinin toplamı tam çözülen sayı kadarsa hepsine bağlanır
+    (`_sayi_esitligi_engeli()`); tüp Excel'de konumluysa ya da FET notu dış
+    merkezden gelen embriyo diyorsa bağlanmaz. Skor farkının sebebini
+    (yazım hatası mı, yeniden değerlendirme mi) tahmin edip kesin bilgi gibi
+    yazma -- v6.183'te yapıldı, kullanıcı düzeltti. Bağlanmamış FET'in tüpü "dolu" kalır ve sonraki FET'in
     formunda "Kalan dondurulmuş"a girer (bildirilen hata buydu).
   - **Bağlı olanı yeniden sına, çözme**: `_baglantilari_yeniden_sina()`
     bağlı FET'lere bugünkü tüplerle bakıyor; başka tüp de tutuyorsa "Bağlı

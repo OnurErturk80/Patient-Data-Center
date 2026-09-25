@@ -3562,6 +3562,39 @@ def _etiket_aylari(b) -> set:
     return {max(a, key=a.get) for a in (_ETIKET_ONBELLEK["aylar"] or {}).values()}
 
 
+# FET'in çözdüğü embriyo dışarıdan gelmiş olabilir: o zaman programdaki tüpler
+# tankta durur, sayı eşitliği tesadüftür (v6.184).
+_DIS_MERKEZ = re.compile(r"TA[SŞ]IN|D[IİI]Ş\s*MERKEZ|OZELDEN|ÖZELDEN|OZEL\s*HASTANE|"
+                         r"ÖZEL\s*HASTANE|NAKİL|NAKIL|MEMOR[İI]AL")
+
+
+def _sayi_esitligi_engeli(b, cycle_id, adaylar, n) -> str:
+    """Skor tutmayan FET, hastanın kalan BÜTÜN tüplerine bağlanabilir mi?
+    (v6.184, kullanıcının sözü: "dondurulan ve çözülen embriyo sayıları eşit
+    o yüzden hiç embriyosu kalmamış olması lazım"). Skor yazımı tutmuyorsa
+    (yazım hatası -- 2CC yerine 2BB gibi) ama hastanın dolu tüplerindeki
+    toplam embriyo tam çözülen sayı kadarsa, çözülen onlar: geride tüp
+    kalmıyor, seçim yok.
+
+    Engel varsa sebebi (rapora eklenir), yoksa "":
+    - toplam sayı tutmuyor (en sık durum: kısmi çözme, eksik ay);
+    - tüplerden biri Cryo Haritası Excel'iyle eşleşmiş, yani konumu yazılı --
+      tank bugün o tüpü gösteriyor, çözülmüş olamaz;
+    - FET'in notu dışarıdan gelen embriyodan söz ediyor ("ÖZELDEN TAŞINDI",
+      "DIŞ MERKEZ") -- çözülen o embriyolar olabilir.
+    Aktarılmamış ay kontrolü (ertelendi) bundan önce yapılıyor."""
+    toplam = sum(len(t["ornekler"]) for t in adaylar)
+    if toplam != n:
+        return f" (tüplerde {toplam}, çözülen {n})"
+    if any(t["konum"] for t in adaylar):
+        return " (tüp Cryo Haritası'nda konumlu, tankta görünüyor)"
+    notu = b.execute("SELECT protokol_notu FROM cycle WHERE id=?",
+                     (cycle_id,)).fetchone()[0] or ""
+    if _DIS_MERKEZ.search(notu.upper()):
+        return " (notta dış merkezden gelen embriyo var)"
+    return ""
+
+
 def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
     """FET'te ve Yumurta Çözme'de çözülen örnekleri, dondurulduğu tüp
     programdaysa o tüpün örneklerine bağlar (v6.148).
@@ -3637,10 +3670,18 @@ def _kaynaga_bagla(b, r, cycle_id, kid, rapor) -> str:
                          "-- gerçek tüp o aylarda olabilir, aktarılınca yeniden "
                          "denenecek")
             return "ertelendi"
-        ozet = ", ".join(f'{t["etiket"]} ({len(t["ornekler"])})' for t in adaylar)
-        rapor.append(f"    BAĞLANAMADI: hastanın dolu tüpleri ({ozet}) çözülen "
-                     f"{n} {ne} ve transfer yazımıyla tutmuyor -- elle bakılmalı")
-        return "tutmuyor"
+        engel = _sayi_esitligi_engeli(b, cycle_id, adaylar, n)
+        if engel:
+            ozet = ", ".join(f'{t["etiket"]} ({len(t["ornekler"])})' for t in adaylar)
+            rapor.append(f"    BAĞLANAMADI: hastanın dolu tüpleri ({ozet}) çözülen "
+                         f"{n} {ne} ve transfer yazımıyla tutmuyor{engel} -- elle "
+                         "bakılmalı")
+            return "tutmuyor"
+        # Sayı eşitliği (v6.184): hastanın geride kalan bütün tüpleri tam
+        # çözülen sayı kadar -- skor tutmasa da çözülen onlar.
+        siniflar = {"sayi": (tuple(range(len(adaylar))), [None] * len(kaliteler))}
+        rapor.append(f"    skor tutmuyor ama hastanın kalan bütün tüpleri ({n} {ne}) "
+                     "çözülen sayıya eşit -- bağlanıyor (yazım farkı sayılıyor)")
     if len(siniflar) > 1:
         rapor.append(f"    BELİRSİZ: çözülen {n} {ne} birden çok tüp seçeneğiyle "
                      f"tutuyor ({' | '.join(anlat(a) for a, _e in siniflar.values())})"

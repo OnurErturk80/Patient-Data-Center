@@ -13759,7 +13759,39 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.184 — FET'in tüpüne bağlanması: sayılar eşitse skor yazımı engel değil
+
+Kullanıcının açıklaması (2026-09-25, v6.183'ün örnek hastası için): "sorun
+yanlış yazım. Ama mantıklı analiz yapınca dondurulan ve çözülen embriyo
+sayıları eşit o yüzden hiç embriyosu kalmamış olması lazım." v6.183'te
+sebebi "çözmeden sonra yeniden değerlendirme" diye anlatmıştım -- bu bir
+tahmindi, doğrusu Access'teki yazım hatası. Kullanıcının ölçüsü skordan
+bağımsız: 3 embriyo donduruldu, 1 + 2 çözüldü, geride bir şey kalmaz.
+
+**Kural** (`_sayi_esitligi_engeli()`, `_kaynaga_bagla()`): skor yazımıyla
+hiçbir tüp kümesi tutmuyorsa ama hastanın dolu tüplerindeki TOPLAM embriyo
+(çözmeden önce dondurulmuş, türü aynı) tam çözülen sayı kadarsa, FET o
+tüplerin hepsine bağlanıyor: seçim yok, geride tüp kalmıyor. Rapor "skor
+tutmuyor ama hastanın kalan bütün tüpleri ... çözülen sayıya eşit" diyor.
+Bağlanmadığı durumlar:
+- **toplam tutmuyor** (kısmi çözme; rapor "tüplerde N, çözülen M" diyor);
+- **aktarılmamış ay** varsa önce "ertelendi" (gerçek tüp o ayda olabilir);
+- **tüplerden biri Cryo Haritası Excel'iyle eşleşmiş** (konumu yazılı):
+  tank bugün o tüpü gösteriyor, çözülmüş olamaz;
+- **FET'in notu dışarıdan gelen embriyodan söz ediyor** ("ÖZELDEN TAŞINDI",
+  "DIŞ MERKEZ", `_DIS_MERKEZ`): çözülen o embriyolar olabilir, programdaki
+  tüpler tankta durur.
+
+Denendi (test kopyası, v6.183'ün `bagla`'sından sonra): 6 FET daha
+bağlandı; altısının da Access notu "GERİYE EMBRİYOSU KALMADI/KALMAMIŞTIR"
+diyor. İkinci çalıştırma 0. Kalan "tutmuyor"ların 45'inde toplam sayı
+tutmuyor, 2'sinde tüp Excel'de konumlu -- bunlar elle bakılacak.
+
 # v6.183 — FET'in tüpüne bağlanması: blastokistte genişleme sayısı yeter
+
+(v6.184'te düzeltildi: aşağıdaki "2CC → 2BB çözmeden sonra yeniden
+değerlendirme" bir tahmindi; kullanıcı doğrusunun yazım hatası olduğunu
+söyledi. Kural değişmedi, sayı eşitliği kuralı eklendi.)
 
 Kullanıcının bildirdiği (2026-09-25): bir hastanın en son tedavisinden sonra
 dondurulmuş embriyosu kalmamış olmalıydı, ama formda kalan embriyo
