@@ -13759,6 +13759,91 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.180 — Cryo Excel'inin sperm satırları ve Sperm Dondurma haritası
+
+Kullanıcının isteği (2026-09-25): "Excel'deki sperm sayfaları da programa
+alınsın. Cryo Haritalar bölümünde Sperm Dondurma diye bir bölüm olsun oraya
+harita eklensin. Tedavi hastalarına bağlama seçeneği olsun." Soruldu, cevaplar:
+
+- **Kimin kaydı**: "Eşinin adı olan kadın hasta olabilir, karışıklık olur ...
+  Sperm için erkek kaydı aç." Satır EŞİ adından ya da erkeğin adından çiftin
+  kaydına bağlanmıyor.
+- **Bağlama**: "Dosya numarası eski sperm dondurmada olmadığı için bağlanmaz.
+  Program ile yeni sperm dondurmalar dosya numarasından bağlanacak." Eskiler
+  elle: "Eski sperm dondurmaları elle ben eşleştirebileyim."
+- **Tüp**: "Her satır bir tüp" -- "tek hastanın 3 tüp spermi dondurulduysa
+  cryo haritada 3 satır işgal ediyor". Yani bir erkeğin birden çok satırı
+  TEK hasta kaydında toplanıyor, her satır o kaydın altında bir tüp.
+- **Harita**: "Tank → kanister → goblet ağacı".
+
+**`python3 cryo_esle.py sperm <excel>`** (yeni kip, "SPERM" onayıyla).
+Excel'in sperm satırları (kategori HÜCRE metninden, v6.173; sperm sayfaları
+ve embriyo sayfalarındaki sperm satırları) için:
+- **Hasta**: aynı ad kelime kümesinde yalnızca-sperm (tedavisi olmayan) TEK
+  bir kayıt varsa onun altına (programda açılmış erkek ya da önceki
+  çalıştırma); yoksa geçici dosya numarasıyla (v6.179'un 9000000001…
+  dizisinden devam) yeni erkek kaydı. Aynı adın iki farklı eşi varsa iki
+  kişi, eşsiz satırı atlanıyor (v6.179'un kuralı). Çift kayıtlarına (kadının
+  adı) hiç bakılmıyor.
+- **Her satır**: bir `sperm_dondurma` + bir taşıyıcı (`kategori='sperm'`,
+  v6.84'ün "bir kayıt = bir taşıyıcı" kuralı). Etiket programın sperm
+  formunun kalıbı `<dosya no>-SP-<SSDD>`; saat bilinmiyor, 10:00'dan
+  başlayıp aynı gün dakika dakika. Konum Excel'in tank / kanister / goblet'i.
+  Taşıyıcı tipi Excel'de yazıyorsa o (8 straw, 11 vial), yazmıyorsa
+  **vial** -- sütunun adı VİAL, STRAW yalnızca dış merkezden gelen birkaç
+  satırda ayrıca yazılmış. "Sayfa1"in tank bandı yok (tank adı sayfa adından
+  geliyordu): haritada uydurma bir "SAYFA1" tankı açılmıyor, konum boş
+  kalıyor, Excel'deki yer nota yazılıyor (15 tüp).
+- **Uydurulmayan**: dondurma sebebi (HÜCRE'deki "CA"nın anlamı sorulmadı),
+  hacim / konsantrasyon / motilite ("9 MİLYON %35" ml başına mı toplam mı
+  belli değil). HÜCRE ve VİAL metni olduğu gibi nota:
+  "Örnek: EJAKÜLAT-CA · VİAL: 1(A,B,C)", altında sayfa/satır ve
+  `db.CRYO_EXCEL_ISARETI`.
+- **Açılmayan**: tarihsiz (8) ve ileri tarihli (5; 2027/2028, yazım hatası)
+  satırlar -- dondurma zamanı zorunlu alan, tarih uydurulmuyor; raporda
+  listeleniyor, elle girilir.
+- **Programda zaten varsa**: aynı ad + aynı gün + aynı konum "zaten"; o gün
+  kaydı olup konumu boşsa (ekrandan girilmiş dondurma) konum yazılıyor
+  (`degisiklik_log`); konumu farklıysa dokunulmuyor. İkinci çalıştırma
+  hiçbir şeyi değiştirmez (denendi: 1.531 "zaten").
+- Rapor `cryo_esle_rapor_sperm.txt` (hasta adı içerir, depoya girmez).
+
+Deneme veritabanında: 1.544 sperm satırından 1.531 tüp, 609 erkek kaydı
+(225'inin tek tüpü, en çok 12). Bu hastalar yalnızca-sperm olduğu için Tüm
+Hastalar'da görünmüyor, aranınca rozetle çıkıyor (v6.98). İstatistik
+etkilenmiyor (sperm dondurma oranlara girmiyor).
+
+**Sperm Dondurma haritası** (`/cryo`, sağ sütun). Arama yokken düz liste
+yerine ağaç: tank → kanister → goblet, her düzeyde tüp sayısı, kapalı
+başlıyor (`<details>`; 1.500 tüp açık olsa sayfa metrelerce uzardı). Konumu
+olmayan tüpler ayrı "konum girilmemiş" grubunda. Sıralama doğal (`"2" <
+"10"`, `_dogal_sira()`). Aramada liste eskisi gibi düz -- hedefli bir
+sorguda ağaç gereksiz tıklama. Ağaç `app.sperm_agaci_kur()`, satır tek
+makro (`sperm_satiri`). Tank / kanister / goblet `konum.seviye1..3`: embriyo
+tarafıyla aynı konum tablosu, ayrı yapı yok.
+
+**Elle eşleştirme: erkeğin kartından "Eşine bağla"**. Bağın yeri v6.139'dan
+beri çiftin `hasta.es_dosya_no`'su; çiftin kartından yazmak için erkeğin
+geçici numarasını bilmek gerekiyordu. Şimdi spermi olan erkeğin kartında
+"Eşinin tüp bebek kaydı" kartı: eşinin dosya numarası yazılıyor (canlı
+önizleme `/hasta/kontrol`, v6.125: ikinci rota açılmadı), `POST
+/hasta/{id}/es-bagla` çiftin `es_dosya_no`'suna bu hastanın numarasını
+yazıyor. Aynı alan olduğu için çiftin kartındaki "Eşin dondurulmuş spermi"
+ve oradaki **tedaviye bağla** kendiliğinden çalışıyor -- "tedavi hastalarına
+bağlama" budur. Çiftin kaydında başka bir eş numarası yazılıysa ezilmiyor
+(hata, beyaz liste `ES_BAG_HATALARI`, tuzak #9); değiştirmek o kaydın kendi
+düzenleme ekranının işi. "Bağı kaldır" yalnızca numara bu hastanınsa
+boşaltıyor; spermin tedaviye bağına dokunmuyor. İkisi de `degisiklik_log`'a
+düşüyor, izin `hasta` modülü (`yol_modulu()`). Yalnızca-sperm erkeğin sperm
+satırındaki "önce tedavi açılmalı" ipucu "tedaviye eşinin kaydından bağlanır"
+oldu -- erkeğe tedavi açmak yanlış yöne gönderirdi.
+
+**`dosya_no_degistir.py`**: sperm tüpünün etiketi dosya numarasını içeriyor
+(embriyo tüpünün etiketi içermiyor). Eski numara **geçiciyse** hastanın
+`<eski>-SP-SSDD` etiketleri `<yeni>-SP-SSDD` oluyor; gerçek numaralı tüpün
+etiketine dokunulmuyor (tankta tüpün üstünde yazıyor olabilir). Denendi:
+geçici → gerçek üç etiketi değiştirdi, gerçek → gerçek değiştirmedi.
+
 # v6.179 — Cryo Excel'inden 2011–2017'nin hastaları
 
 Kullanıcının isteği (2026-09-25): "390: hastanın programda kaydı yok. Büyük

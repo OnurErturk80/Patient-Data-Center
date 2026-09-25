@@ -59,7 +59,8 @@ Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 <gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
 edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
 verilmedi (Cryo Excel'inde o yıllardan ~200 satır var). Sonra sıra Cryo
-Excel'inde: `cryo_esle.py` (aşağıda). Göç, kalıcı silme, geri yükleme gibi
+Excel'inde: `cryo_esle.py` (aşağıda; v6.180'de sperm satırları da, kullanıcı
+henüz çalıştırmadı). Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -1989,7 +1990,8 @@ besleniyor.
   o gün tüpü yok, içerik tutmuyor, programda boşaltılmış, tüpe daha önce
   BAŞKA konum yazılmış (elle girilmiş olabilir, ezilmiyor), iki satır aynı
   tüpü istiyor. **Sahte tedavi/tüp açılmaz** (v6.127'nin gerekçesi).
-  Sperm sayfaları yalnızca sayılıyor (Access'te sperm tablosu yoktu).
+  Sperm satırları `liste`/`uygula`'da yalnızca sayılıyor; `sperm` kipi
+  onları açıyor (v6.180, aşağıda).
 - `liste` yazmaz, `uygula` "ESLE" onayıyla yazar; ikinci çalıştırma "zaten"
   der, hiçbir şeyi değiştirmez (denendi: 1977 → 0). `degisiklik_log`'a
   tablo `tasiyici`, alan `konum`/`tip`/`renk`. Rapid-i ve Vitrifit
@@ -2037,10 +2039,30 @@ besleniyor.
   tedavi, 110 tüp, 254 örnek (2 embriyo skorsuz) -- deneme kopyasıyla birebir.
 - `eski_cryo_temizle.py liste` kullanıcının veritabanında (2026-09-25):
   "'eski_cryo' tablosu yok" -- v6.127'nin kalıntısı yok, temizlik gerekmiyor.
+- **Sperm satırları: `cryo_esle.py sperm`** (v6.180, kullanıcının cevapları:
+  "Sperm için erkek kaydı aç", "Her satır bir tüp" -- aynı erkeğin 3 satırı
+  tek hasta kaydında 3 tüp, "Tank → kanister → goblet ağacı"). Hasta: aynı
+  ad kelime kümesinde TEK yalnızca-sperm kayıt varsa o, yoksa geçici dosya
+  no ile yeni erkek; çift kaydına (kadının adı, EŞİ) **hiç bakılmıyor** --
+  kullanıcı: "karışıklık olur". Her satır bir `sperm_dondurma` + taşıyıcı
+  (`<dosya no>-SP-SSDD`, tip yazmıyorsa vial, "Sayfa1"in tankı yok -> konum
+  boş). Sebep/hacim/konsantrasyon uydurulmuyor, HÜCRE+VİAL nota. Tarihsiz/
+  ileri tarihli satır açılmıyor. Aynı ad+gün+konum "zaten"; ekrandan
+  girilmiş konumsuz kayda konum yazılıyor. Deneme: 1.531 tüp, 609 erkek.
+  **Kullanıcı henüz çalıştırmadı** (2026-09-25'te hazırlandı).
+  - `/cryo`'nun sperm sütunu arama yokken ağaç (`sperm_agaci_kur()`),
+    aramada düz liste.
+  - **Eski dondurma çifte ELLE bağlanır** ("Eski sperm dondurmaları elle
+    ben eşleştirebileyim"): erkeğin kartında "Eşine bağla" çiftin
+    `es_dosya_no`'sunu yazar (`/hasta/{id}/es-bagla`; başka numara yazılıysa
+    ezmez), tedaviye bağlama çiftin kartından (v6.139). Otomatik/isimle bağ
+    YAZMA -- dosya no tek anahtar (v6.125).
+  - `dosya_no_degistir.py` geçici numaralı erkeğin sperm etiketlerini de
+    yeni numaraya çeviriyor; gerçek numaralı tüpün etiketine dokunmuyor.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
-  istemediği; Excel
-  VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile tüp sırasının ilişkisi;
-  sperm sayfaları. Cevaba göre `/cryo` ekranı yeniden tasarlanacak.
+  istemediği; Excel VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile embriyo
+  tüp sırasının ilişkisi; sperm HÜCRE'sindeki "CA"nın anlamı (dondurma
+  sebebi mi) ve VİAL'deki "1(A,B,C)" yazımı.
 
 **Program öncesi kayıtlar `aktar_access.py` ile giriyor** (v6.130,
 kullanıcının isteği). Ağustos 2026 tedavileri Access'te tutuluyordu;

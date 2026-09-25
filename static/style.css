@@ -1446,3 +1446,16 @@ body.kilitli { overflow: hidden; }
   @page yatay { size: A4 landscape; }
   .kagit.yatay { page: yatay; }
 }
+
+/* Sperm Dondurma haritasi (v6.180): tank -> kanister -> goblet agaci.
+   `.yardim`'in notu burada da gecerli: ozet satirina `display: flex` verme,
+   tarayicinin acilir ucgeni gider. Dokunma hedefi dolguyla. */
+.agac { border-top: 1px solid var(--line); }
+.agac > summary { cursor: pointer; padding: 11px 2px; font-size: 14px; }
+.agac.ic { margin-left: 14px; }
+.agac.ic > summary { padding: 9px 2px; font-size: 13px; color: var(--ink-2); }
+.agacgoblet {
+  margin: 8px 0 2px 28px; font-size: 12px; font-weight: 700;
+  color: var(--baslik); text-transform: none;
+}
+.agac.ic .satir { margin-left: 28px; }

@@ -71,7 +71,9 @@
                    style="margin-top:0">{{ metin("tedaviye_bagla") }}</button></div>
     </form>
     {% else %}
-    <div class="ipucu" style="padding:2px 2px 10px">{{ metin("baglanacak_tedavi_yok") }}</div>
+    {# Yalnızca-sperm erkek (v6.180): tedavi eşinin kaydında açılıyor, bağ
+       oradan -- "önce tedavi aç" demek yanlış yöne gönderirdi. #}
+    <div class="ipucu" style="padding:2px 2px 10px">{{ metin("esin_kaydindan_baglanir") if es_bag_acik and not cycles else metin("baglanacak_tedavi_yok") }}</div>
     {% endif %}
   {% elif sd.kul_dosya_no and sd.kul_dosya_no|string == hasta.dosya_no|string %}
     {# Bağ BU hastanın bir tedavisindeyse buradan kaldırılabilir; başka bir
@@ -91,6 +93,60 @@
   {% for sd in sperm_kayitlari %}{{ sperm_satiri(sd) }}{% endfor %}
   <div class="ipucu" style="padding:8px 2px">{{ metin("sperm_dosya_esleme_ipucu") }}</div>
 </div>
+{% endif %}
+
+{# Ters yön (v6.180, kullanıcının isteği: "Eski sperm dondurmaları elle ben
+   eşleştirebileyim"). Spermi olan erkeğin kartından eşinin (çiftin) dosya
+   numarası yazılıyor; yazılan yer çiftin `es_dosya_no`'su -- v6.139'un bağı,
+   yeni bir bağ yok. Çiftin kartında "Eşin dondurulmuş spermi" ve tedaviye
+   bağlama oradan kendiliğinden çıkıyor. Canlı önizleme `/hasta/kontrol`
+   (v6.125: ikinci bir rota açma); asıl denetim sunucuda. #}
+{% if yetkim("hasta") and (esi_olan or es_bag_acik) %}
+<div class="kart">
+  <h2>{{ metin("esinin_kaydi") }}</h2>
+  {% for e in esi_olan %}
+  <a class="satir" href="/hasta/{{ e.id }}">
+    <div class="no">{{ e.dosya_no }}</div>
+    <div class="meta">{{ e.ad_soyad }}</div>
+  </a>
+  <form method="post" style="padding:0 2px 10px"
+        action="/hasta/{{ hasta.id }}/es-bagi-kaldir/{{ e.id }}"
+        onsubmit="return confirm({{ metin('es_bagi_kaldir_onay')|tojson }})">
+    <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("es_bagi_kaldir") }}</button>
+  </form>
+  {% endfor %}
+  {% if es_hata %}<div class="tehlike">{{ es_hata }}</div>{% endif %}
+  <form method="post" id="esbagform" action="/hasta/{{ hasta.id }}/es-bagla">
+    <div class="alan">
+      <label for="es_bag_no">{{ metin("es_bag_dosya_no") }}</label>
+      <input id="es_bag_no" name="es_dosya_no" inputmode="numeric" autocomplete="off" required>
+      <div class="ipucu" id="es_bag_kim" hidden></div>
+    </div>
+    <button class="dugme ikincil" type="submit">{{ metin("es_bagla") }}</button>
+  </form>
+  <div class="ipucu" style="padding:8px 2px">{{ metin("es_bagla_ipucu") }}</div>
+</div>
+<script>
+(function () {
+  // Tuzak #10: form basılmadıysa sessizce çık.
+  const alan = document.getElementById('es_bag_no');
+  const kutu = document.getElementById('es_bag_kim');
+  if (!alan || !kutu) return;
+  let z;
+  alan.addEventListener('input', () => {
+    clearTimeout(z);
+    z = setTimeout(async () => {
+      if (!alan.value) { kutu.hidden = true; return; }
+      const y = await fetch('/hasta/kontrol?dosya_no=' + encodeURIComponent(alan.value));
+      const s = await y.json();
+      kutu.textContent = s.var
+        ? s.ad_soyad + (s.es_adi ? ' (' + {{ metin("es")|tojson }} + ': ' + s.es_adi + ')' : '')
+        : {{ metin("es_kayitli_degil")|tojson }};
+      kutu.hidden = false;
+    }, 350);
+  });
+})();
+</script>
 {% endif %}
 
 {# Eşin KENDİ dosya numarasındaki kayıtlar (v6.139, kullanıcının isteği).

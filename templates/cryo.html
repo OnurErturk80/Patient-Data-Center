@@ -64,34 +64,71 @@
 
 </div><div class="sutun">
 
-<div class="kart">
-  <h2>{{ metin("sperm_dondurma") }}</h2>
-  <div class="ipucu" style="margin:-6px 0 10px">
-    {% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("dolu_tasiyicilar") }}{% endif %}
-    ({{ sperm_kayitlari|length }})
-  </div>
-  {% for k in sperm_kayitlari %}
+{# Bir sperm tüpünün satırı: düz listede (arama) ve ağaçta aynı görünsün diye
+   tek makro. Ağaçta konum zaten başlıklarda yazıyor, satır tekrar etmiyor. #}
+{% macro sperm_satiri(k, konum=True) %}
   <a class="satir" href="/sperm-dondurma/{{ k.id }}">
     <div class="no">{{ k.etiket }}</div>
     <div class="meta">
       {{ k.dosya_no }} · {{ k.ad_soyad }}
+      {%- if k.dondurma_zamani %} · {{ gg_aa_yyyy(k.dondurma_zamani) }}{% endif %}
       {% if k.tip %} · {{ etiketler.get(k.tip, k.tip) }}{% endif %}
       {% if k.renk %} · {{ etiketler.get(k.renk, k.renk) }}{% endif %}
     </div>
+    {% if konum %}
     <div class="meta">
       {% if k.tam_yol %}{{ k.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
     </div>
+    {% endif %}
     {% if k.kul_cycle_id %}
     <div class="meta" style="color:var(--ink-2)">
       {{ metin("kullanildigi_tedavi") }}: {{ k.kul_dosya_no }} · {{ k.kul_ad_soyad }} · {{ k.kul_cycle_no }}
     </div>
     {% endif %}
   </a>
+{% endmacro %}
+
+<div class="kart">
+  <h2>{{ metin("sperm_dondurma") }}</h2>
+  <div class="ipucu" style="margin:-6px 0 10px">
+    {% if ara %}{{ metin("arama_sonucu") }}{% else %}{{ metin("sperm_harita_ipucu") }}{% endif %}
+    ({{ sperm_kayitlari|length }})
+  </div>
+  {% if sperm_agaci %}
+  {# Harita (v6.180): tank -> kanister -> goblet. Kapalı başlıyor -- 1.500
+     tüpü tek seferde açmak sayfayı metrelerce uzatırdı; sayı her düzeyde
+     başlıkta yazıyor, aranan yer açılarak bulunuyor. #}
+  {% for tank in sperm_agaci.tanklar %}
+  <details class="agac">
+    <summary><b>{{ tank.ad }}</b> · {{ say("n_tup", tank.adet) }}</summary>
+    {% for kan in tank.kanisterler %}
+    <details class="agac ic">
+      <summary>{{ metin("kanister") }} {{ kan.ad or "—" }} · {{ say("n_tup", kan.adet) }}</summary>
+      {% for g in kan.gobletler %}
+      <div class="agacgoblet">{{ metin("goblet") }} {{ g.ad or "—" }}
+        <span class="ipucu">· {{ say("n_tup", g.tupler|length) }}</span></div>
+      {% for k in g.tupler %}{{ sperm_satiri(k, konum=False) }}{% endfor %}
+      {% endfor %}
+    </details>
+    {% endfor %}
+  </details>
+  {% endfor %}
+  {% if sperm_agaci.konumsuz %}
+  <details class="agac">
+    <summary><span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>
+      · {{ say("n_tup", sperm_agaci.konumsuz|length) }}</summary>
+    {% for k in sperm_agaci.konumsuz %}{{ sperm_satiri(k, konum=False) }}{% endfor %}
+  </details>
+  {% endif %}
+  {% if not sperm_kayitlari %}<div class="bos">{{ metin("dondurulmus_sperm_yok") }}</div>{% endif %}
+  {% else %}
+  {% for k in sperm_kayitlari %}{{ sperm_satiri(k) }}
   {% else %}
   <div class="bos">
     {% if ara %}{{ metin("aramaya_uyan_sperm_yok") }}{% else %}{{ metin("dondurulmus_sperm_yok") }}{% endif %}
   </div>
   {% endfor %}
+  {% endif %}
 </div>
 
 {# Sperm dondurma yalnızca tüp bebek hastalarına değil -- örn. onkoloji

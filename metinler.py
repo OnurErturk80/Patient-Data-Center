@@ -213,6 +213,27 @@ METINLER = {
     "n_tasiyici": {"tr": "{n} taşıyıcı", "en": "{n} carriers"},
     "n_tasiyici_tekil": {"tr": "{n} taşıyıcı", "en": "{n} carrier"},
     "n_embriyo": {"tr": "{n} embriyo", "en": "{n} embryos"},
+    # Sperm Dondurma haritası (v6.180): tank -> kanister -> goblet.
+    "n_tup": {"tr": "{n} tüp", "en": "{n} tubes"},
+    "kanister": {"tr": "Kanister", "en": "Canister"},
+    "goblet": {"tr": "Goblet", "en": "Goblet"},
+    # Erkeğin kartından eşin kaydını bağlama (v6.180).
+    "esinin_kaydi": {"tr": "Eşinin tüp bebek kaydı", "en": "Partner's IVF record"},
+    "es_bag_dosya_no": {"tr": "Eşinin dosya numarası", "en": "Partner's file no"},
+    "es_bagla": {"tr": "Eşine bağla", "en": "Link to partner"},
+    "es_bagi_kaldir": {"tr": "Bağı kaldır", "en": "Remove link"},
+    "es_bagi_kaldir_onay": {"tr": "Eşle bağ kaldırılsın mı?",
+                            "en": "Remove the link to this partner?"},
+    "esin_kaydindan_baglanir": {
+        "tr": "Tedaviye eşinin kaydından bağlanır (aşağıdan eşine bağlayın).",
+        "en": "Linked to a treatment from the partner's record (link the partner below)."},
+    "es_bagla_ipucu": {
+        "tr": "Eşinin kaydına bu hastanın dosya numarası yazılır; dondurulmuş sperm "
+              "orada görünür ve tedaviye oradan bağlanır.",
+        "en": "This patient's file no is written into the partner's record; the "
+              "frozen sperm appears there and is linked to a treatment from there."},
+    "sperm_harita_ipucu": {"tr": "Tank → kanister → goblet",
+                           "en": "Tank → canister → goblet"},
     "n_embriyo_tekil": {"tr": "{n} embriyo", "en": "{n} embryo"},
     # Yumurta dondurmada taşıyıcının içindekiler embriyo değil (v6.133,
     # kullanıcının isteği: "Yumurta donduruluyorsa Yumurta, Embriyo

@@ -653,7 +653,8 @@ def yol_modulu(yol: str):
     if p[0] == "hasta":
         if len(p) >= 2 and p[1] == "yeni":
             return "hasta"
-        if len(p) >= 3 and (p[2] == "duzenle" or p[2] == "cycle"):
+        # es-bagla / es-bagi-kaldir (v6.180): çiftin kaydını düzenliyor.
+        if len(p) >= 3 and p[2] in ("duzenle", "cycle", "es-bagla", "es-bagi-kaldir"):
             return "hasta"
         if len(p) >= 3 and p[2] == "sperm-dondurma":
             return "cryo"
@@ -2832,14 +2833,89 @@ def hasta_detay(request: Request, hasta_id: int):
     # yazmıyor: yeni bir androlojili tip eklenirse kendiliğinden kapsar.
     baglanabilir = [c for c in cycles
                     if "androloji" in TIP_ASAMALARI.get(c["cycle_tipi"], ())]
+    sperm_kayitlari = hastanin_sperm_kayitlari(hasta_id)
+    # Ters yön (v6.180): bu dosya numarasını "eşin dosya numarası" diye taşıyan
+    # çiftler. Türetilmiş -- bağın tek yeri yine çiftin `es_dosya_no`'su.
+    esi_olan = []
+    if es_dosya_no_var() and hasta:
+        esi_olan = db.sorgu(
+            "SELECT id, dosya_no, ad_soyad FROM hasta WHERE lab_id=? AND es_dosya_no=? "
+            "AND id<>? ORDER BY dosya_no", (db.LAB_ID, hasta["dosya_no"], hasta_id))
     return sablon.TemplateResponse(
         request, "hasta_detay.html",
         {"hasta": hasta, "cycles": cycles,
-         "sperm_kayitlari": hastanin_sperm_kayitlari(hasta_id),
+         "sperm_kayitlari": sperm_kayitlari,
          "es_sahibi": es_sahibi, "es_sperm": es_sperm,
-         "baglanabilir": baglanabilir,
+         "baglanabilir": baglanabilir, "esi_olan": esi_olan,
+         "es_bag_acik": es_dosya_no_var() and bool(sperm_kayitlari),
+         "es_hata": ES_BAG_HATALARI.get(request.query_params.get("es_hata", "")),
          "yeniden": hastanin_yeniden_dondurmalari(cycles)}
     )
+
+
+# Eşleştirme hataları adresten geliyor -- beyaz liste (tuzak #9).
+ES_BAG_HATALARI = {
+    "yok": "Bu dosya numarasıyla kayıtlı hasta yok.",
+    "kendisi": "Hastanın kendi dosya numarası yazıldı.",
+    "baska_es": "O hastanın kaydında başka bir eş dosya numarası yazılı. "
+                "Değiştirmek için o hastanın kaydını düzenleyin.",
+}
+
+
+@uygulama.post("/hasta/{hasta_id}/es-bagla")
+async def hasta_es_bagla(request: Request, hasta_id: int):
+    """Erkeğin kartından eşinin (tüp bebek çiftinin) kaydını bağlar (v6.180).
+
+    Kullanıcının isteği: "Eski sperm dondurmaları elle ben eşleştirebileyim."
+    Cryo Excel'inden açılan erkek kayıtlarında (geçici dosya no) çiftle bağ
+    yok -- eski dondurmada dosya numarası yazılmıyordu, isimle bağlanmıyor
+    (v6.125). Bağın yeri v6.139'dan beri çiftin `es_dosya_no`'su; o alanı
+    çiftin kendi kartından yazmak için erkeğin geçici numarasını bilmek
+    gerekiyordu. Buradan yazılan da AYNI alan: yeni bir bağ tablosu yok,
+    çiftin kartındaki "Eşin dondurulmuş spermi" ve tedaviye bağlama
+    kendiliğinden çalışıyor.
+
+    Çiftin kaydında başka bir eş numarası yazılıysa ezilmiyor: değiştirmek o
+    kaydın kendi düzenleme ekranının işi (yanlış hasta bu işin en pahalı
+    hatası -- iki tık uzakta bir yanlış yazım başkasının bağını silerdi).
+    """
+    f = await request.form()
+    hasta = db.tek("SELECT id, dosya_no FROM hasta WHERE id=? AND lab_id=?",
+                   (hasta_id, db.LAB_ID))
+    if not hasta or not es_dosya_no_var():
+        return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
+    es = dosya_no_sahibi((f.get("es_dosya_no") or "").strip())
+    hata = None
+    if not es:
+        hata = "yok"
+    elif es["id"] == hasta_id:
+        hata = "kendisi"
+    else:
+        eski = db.tek("SELECT * FROM hasta WHERE id=?", (es["id"],))
+        if eski["es_dosya_no"] and eski["es_dosya_no"] != hasta["dosya_no"]:
+            hata = "baska_es"
+        elif not eski["es_dosya_no"]:
+            yeni = {"es_dosya_no": hasta["dosya_no"]}
+            db.yaz("UPDATE hasta SET es_dosya_no=? WHERE id=?", (hasta["dosya_no"], es["id"]))
+            guvenlik.degisiklikleri_yaz("hasta", es["id"], eski, yeni,
+                                        request.state.kullanici["id"])
+    return RedirectResponse(f"/hasta/{hasta_id}" + (f"?es_hata={hata}" if hata else ""),
+                            status_code=303)
+
+
+@uygulama.post("/hasta/{hasta_id}/es-bagi-kaldir/{es_id}")
+def hasta_es_bagi_kaldir(request: Request, hasta_id: int, es_id: int):
+    """`hasta_es_bagla()`'nın tersi: yalnızca o çiftin `es_dosya_no`'su BU
+    hastanın numarasıysa boşaltılıyor. Dondurulmuş spermin bir tedaviye
+    bağı (`kullanim_cycle_id`) bundan bağımsız, dokunulmuyor."""
+    hasta = db.tek("SELECT dosya_no FROM hasta WHERE id=? AND lab_id=?",
+                   (hasta_id, db.LAB_ID))
+    eski = db.tek("SELECT * FROM hasta WHERE id=? AND lab_id=?", (es_id, db.LAB_ID))
+    if hasta and eski and es_dosya_no_var() and eski["es_dosya_no"] == hasta["dosya_no"]:
+        db.yaz("UPDATE hasta SET es_dosya_no=NULL WHERE id=?", (es_id,))
+        guvenlik.degisiklikleri_yaz("hasta", es_id, eski, {"es_dosya_no": None},
+                                    request.state.kullanici["id"])
+    return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
 
 
 def hastanin_yeniden_dondurmalari(cycles) -> dict:
@@ -6648,7 +6724,7 @@ def cryo_harita(request: Request, ara: str = ""):
     sperm_taban = (
         "SELECT sd.id, sd.dondurma_zamani, sd.hacim_ml, sd.sebep, "
         "  sd.konsantrasyon_milyon_ml, sd.total_motil_yuzde, "
-        "  t.etiket, t.tip, t.renk, k.tam_yol, "
+        "  t.etiket, t.tip, t.renk, k.tam_yol, k.seviye1, k.seviye2, k.seviye3, "
         "  h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
         # Bu dondurma başka bir hastanın (eşin) tedavisinde kullanıldıysa
         # (v6.86, androloji ekranından bağlanıyor) burada da görünsün.
@@ -6672,14 +6748,56 @@ def cryo_harita(request: Request, ara: str = ""):
     else:
         sperm_kayitlari = db.sorgu(
             sperm_taban + " ORDER BY k.tam_yol, t.etiket", (db.LAB_ID,))
+    # Arama yokken liste düz değil AĞAÇ: tank -> kanister -> goblet (v6.180,
+    # kullanıcının isteği: "Sperm Dondurma diye bir bölüm olsun oraya harita
+    # eklensin"; Cryo Excel'inin ~1.500 sperm tüpü düz listede kayboluyordu).
+    # Arama sonucu düz kalıyor -- hedefli bir sorguda ağaç gereksiz tıklama.
+    sperm_agaci = None if ara.strip() else sperm_agaci_kur(sperm_kayitlari)
 
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
         request, "cryo.html",
         {"tasiyicilar": tasiyicilar, "tanklar": tanklar, "ara": ara,
-         "sperm_kayitlari": sperm_kayitlari,
+         "sperm_kayitlari": sperm_kayitlari, "sperm_agaci": sperm_agaci,
          "etiketler": etiketler, "kullanici": request.state.kullanici})
+
+
+def _dogal_sira(metin):
+    """"2" < "10", "A2" < "A10": Excel'in kanister/goblet adları sayı ve
+    harf karışık, düz metin sıralaması "10"u "2"nin önüne koyardı."""
+    return [(0, int(p), "") if p.isdigit() else (1, 0, p)
+            for p in re.findall(r"\d+|\D+", metin or "")]
+
+
+def sperm_agaci_kur(kayitlar) -> dict:
+    """Sperm tüpleri -> {"tanklar": [...], "konumsuz": [...]} (v6.180).
+
+    Tank / kanister / goblet `konum.seviye1..3`'ten -- embriyo tarafıyla aynı
+    konum tablosu, ayrı bir yapı yok. Her düzeyde tüp sayısı; bir goblet
+    Excel'de bir satır olmayabilir (bir gobletin birden çok tüpü olabiliyor).
+    Konumu olmayan tüpler ayrı grupta: haritada yer kaplamıyorlar ama
+    görünmeleri gerekiyor (girilmemiş konum bir eksik, gizlenecek şey değil).
+    """
+    agac, konumsuz = {}, []
+    for k in kayitlar:
+        if not k["tam_yol"]:
+            konumsuz.append(k)
+            continue
+        tank = agac.setdefault(k["seviye1"] or "—", {})
+        kanister = tank.setdefault(k["seviye2"] or "", {})
+        kanister.setdefault(k["seviye3"] or "", []).append(k)
+    tanklar = []
+    for tad in sorted(agac, key=_dogal_sira):
+        kanisterler = []
+        for kad in sorted(agac[tad], key=_dogal_sira):
+            gobletler = [{"ad": gad, "tupler": agac[tad][kad][gad]}
+                         for gad in sorted(agac[tad][kad], key=_dogal_sira)]
+            kanisterler.append({"ad": kad, "gobletler": gobletler,
+                                "adet": sum(len(g["tupler"]) for g in gobletler)})
+        tanklar.append({"ad": tad, "kanisterler": kanisterler,
+                        "adet": sum(x["adet"] for x in kanisterler)})
+    return {"tanklar": tanklar, "konumsuz": konumsuz}
 
 
 @uygulama.get("/sperm-dondurma")

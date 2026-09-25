@@ -20,11 +20,15 @@ Bu araç numarayı her yerde birlikte değiştiriyor, tek işlemde:
   4. veritabanı yazıldıktan sonra `arsiv/<eski>/` klasörü `arsiv/<yeni>/`
      olarak yeniden adlandırılıyor (yoksa atlanıyor; adlandırma başarısız
      olursa söyleniyor -- veritabanı yeni numarada, klasör elle taşınır);
-  5. her değişiklik `degisiklik_log`'a düşüyor.
+  5. her değişiklik `degisiklik_log`'a düşüyor;
+  6. eski numara GEÇİCİYSE (9000000001…, `cryo_esle.py` açtı) hastanın sperm
+     tüplerinin `<eski>-SP-SSDD` etiketi `<yeni>-SP-SSDD` oluyor (v6.180).
+     Geçici numara hiçbir tüpün üstünde yazmıyor; gerçek numaralı tüpün
+     etiketine dokunulmuyor -- o tankta tüpün üstünde yazıyor olabilir.
 
 Yeni numara başka bir hastada kayıtlıysa araç durur: iki kartı birleştirmek
-bu aracın işi değil. Lab kayıt no (`cycle_no`), tüp etiketi ve örnek kodu
-(`specimen.id`) dosya numarasını içermiyor, değişmiyor. Önce yedek alın
+bu aracın işi değil. Lab kayıt no (`cycle_no`), embriyo tüpünün etiketi ve
+örnek kodu (`specimen.id`) dosya numarasını içermiyor, değişmiyor. Önce yedek alın
 (Yönetici → Yedekleme → Şimdi yedekle). Çıktıda hasta adı yok.
 """
 
@@ -53,6 +57,20 @@ def _kullanici_id():
     sys.exit("Aktif kullanici yok -- once bir kullanici ac (kullanici.py).")
 
 
+GECICI_DOSYA_TABANI = 9_000_000_000     # cryo_esle.py'nin tabanı
+
+
+def _sperm_etiketleri(b, hid, eski, yeni):
+    """[(taşıyıcı id, eski etiket, yeni etiket)] -- yalnızca geçici numarada."""
+    if eski <= GECICI_DOSYA_TABANI:
+        return []
+    onek = f"{eski}-SP-"
+    return [(r[0], r[1], f"{yeni}-SP-" + r[1][len(onek):]) for r in b.execute(
+        "SELECT t.id, t.etiket FROM sperm_dondurma sd JOIN tasiyici t ON t.id=sd.tasiyici_id "
+        "WHERE sd.hasta_id=? AND t.kategori='sperm' AND substr(t.etiket, 1, ?) = ?",
+        (hid, len(onek), onek)).fetchall()]
+
+
 def ozet(eski, yeni):
     h = _hasta(eski)
     if not h:
@@ -69,9 +87,16 @@ def ozet(eski, yeni):
                    "WHERE s.hasta_id=? AND d.dosya_yolu LIKE ?", (hid, f"{eski}/%"))["n"]
     es = _db.tek("SELECT COUNT(*) AS n FROM hasta WHERE lab_id=? AND es_dosya_no=?",
                  (_db.LAB_ID, eski))["n"]
+    with _db.baglan() as b:
+        etiket = _sperm_etiketleri(b, hid, eski, yeni)
+        cakisan = [y for _t, _e, y in etiket if b.execute(
+            "SELECT 1 FROM tasiyici WHERE lab_id=? AND etiket=?", (_db.LAB_ID, y)).fetchone()]
+    if cakisan:
+        sys.exit(f"Tüp etiketi zaten var: {', '.join(cakisan)} -- araç durdu.")
     klasor = goruntuler.arsiv_klasor() / goruntuler.guvenli_ad(eski)
     print(f"Hasta {eski} -> {yeni}: {tedavi} tedavi, {foto} fotoğraf yolu, "
-          f"{onam} onam eki, {es} hastada eş numarası olarak; "
+          f"{onam} onam eki, {len(etiket)} sperm tüpü etiketi, "
+          f"{es} hastada eş numarası olarak; "
           f"arşiv klasörü {'var' if klasor.is_dir() else 'yok'} ({klasor}).")
     return h, klasor
 
@@ -89,7 +114,12 @@ def uygula(eski, yeni, h, klasor):
             (_db.LAB_ID, eski)).fetchall()]
         b.execute("UPDATE hasta SET es_dosya_no=? WHERE lab_id=? AND es_dosya_no=?",
                   (yeni, _db.LAB_ID, eski))
+        etiketler = _sperm_etiketleri(b, hid, eski, yeni)
+        for tid, _e, y in etiketler:
+            b.execute("UPDATE tasiyici SET etiket=? WHERE id=?", (y, tid))
     guvenlik.degisiklikleri_yaz("hasta", hid, {"dosya_no": eski}, {"dosya_no": yeni}, kid)
+    for tid, e, y in etiketler:
+        guvenlik.degisiklikleri_yaz("tasiyici", tid, {"etiket": e}, {"etiket": y}, kid)
     for eid in esler:
         guvenlik.degisiklikleri_yaz("hasta", eid, {"es_dosya_no": eski},
                                     {"es_dosya_no": yeni}, kid)

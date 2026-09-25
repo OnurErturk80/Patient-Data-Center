@@ -503,6 +503,20 @@ Bu tedaviler istatistiğe girmez (yalnızca dondurma bilgisi var). Açılmayan
 satırlar ve sebepleri `cryo_esle_rapor_yeni_hasta.txt`'de. İkinci
 çalıştırma hiçbir şey açmaz.
 
+**Sperm satırları (v6.180).** Excel'deki her sperm satırı bir tüp olarak
+açılır; aynı erkeğin satırları tek hasta kaydında (geçici dosya numarası)
+toplanır:
+
+```
+python3 cryo_esle.py sperm CRYO_HARITA.xlsx   # planı basar, "SPERM" yazınca açar
+```
+
+Tarihsiz ve ileri tarihli satırlar açılmaz (raporda:
+`cryo_esle_rapor_sperm.txt`), elle girilir. İkinci çalıştırma hiçbir şey
+açmaz. Eski dondurmayı çifte bağlamak: erkeğin kartında **Eşine bağla** →
+eşinin dosya numarası; sonra çiftin kartında "Eşin dondurulmuş spermi" →
+**Tedaviye bağla**.
+
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı
 klasöre. Etiketler ay + yıl (`OCAK2019` … `ARALIK2023`); 2020'nin mayısı

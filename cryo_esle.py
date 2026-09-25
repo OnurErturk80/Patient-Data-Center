@@ -15,6 +15,8 @@ Kullanım (proje klasöründe):
     python3 cryo_esle.py yeni_hasta CRYO_HARITA.xlsx # 2018 öncesi, programda
                                                      # olmayan hastaları açar
                                                      # ("HASTA" onayıyla, v6.179)
+    python3 cryo_esle.py sperm CRYO_HARITA.xlsx      # sperm satırlarını açar
+                                                     # ("SPERM" onayıyla, v6.180)
 
 İkisi de `cryo_esle_rapor.txt` dosyasına satır satır rapor yazar (hasta
 adı içerir -- depoya girmez, `.gitignore`). Terminale yalnızca sayılar.
@@ -49,8 +51,9 @@ konum yazılmış (elle girilmiş olabilir; ezilmiyor), iki Excel satırı aynı
 tüpü istiyor. **Sahte tedavi/tüp açılmıyor**: eşleşmeyen satır için kayıt
 üretmek istatistikleri bozar (v6.127'nin gerekçesi aynen geçerli).
 
-Sperm sayfaları bu araçta yalnızca sayılıyor: Access'te sperm tablosu
-yoktu, programda karşılığı olan sperm dondurma kaydı yok.
+Sperm satırları `liste`/`uygula`'da yalnızca sayılıyor (Access'te sperm
+tablosu yoktu, bağlanacak tüp yok); `sperm` kipi onları kayıt olarak açar
+(v6.180, aşağıda).
 
 İkinci çalıştırma hiçbir şeyi değiştirmez: yazılmış konum "zaten yazılı"
 sayılır. Değişiklikler `degisiklik_log`'a düşer (tablo `tasiyici`, alan
@@ -614,7 +617,7 @@ def rapor_yaz(sonuc, satirlar, uyarilar, kip):
 
 
 def ozet_bas(sayac, sperm, toplam):
-    print(f"Excel: {toplam} satır, {sperm} sperm (eşleştirilmiyor), "
+    print(f"Excel: {toplam} satır, {sperm} sperm (bu kipte eşleştirilmiyor -- sperm kipi açar), "
           f"{toplam - sperm} embriyo/yumurta.")
     for kod, baslik, yazilir in SINIFLAR:
         n = sayac.get(kod, 0)
@@ -888,10 +891,313 @@ def yeni_hasta_raporu(plan, atlanan):
 
 
 
+# ----------------------------------------------------------- sperm (v6.180)
+#
+# Kullanıcının isteği (2026-09-25): "Excel'deki sperm sayfaları da programa
+# alınsın. Cryo Haritalar bölümünde Sperm Dondurma diye bir bölüm olsun oraya
+# harita eklensin. Tedavi hastalarına bağlama seçeneği olsun." Kararları:
+# - **erkek için kayıt açılır** ("Eşinin adı olan kadın hasta olabilir,
+#   karışıklık olur") -- satır EŞİ adından çiftin kaydına bağlanmıyor;
+# - **otomatik bağ yok**: eski dondurmalarda dosya numarası yazmıyordu,
+#   eşleştirmeyi kullanıcı elle yapıyor (hasta kartı, v6.180);
+# - **her satır bir tüp** ("tek hastanın 3 tüp spermi dondurulduysa cryo
+#   haritada 3 satır işgal ediyor"): aynı adın satırları TEK hasta kaydında
+#   toplanıyor, her satır o kaydın altında bir `sperm_dondurma` + bir taşıyıcı
+#   (programın kuralı: bir sperm dondurma kaydı = bir taşıyıcı, v6.84).
+#
+# Hasta: aynı ad kelime kümesinde yalnızca-sperm (tedavisi olmayan) TEK bir
+# kayıt varsa onun altına ekleniyor -- programda daha önce açılmış erkek ya da
+# bu aracın önceki çalıştırması. Çift kaydına (kadının adı) hiç bakılmıyor.
+# Yoksa geçici dosya numarasıyla (v6.179'un tabanı) yeni kayıt.
+#
+# Tüp zaten programdaysa (aynı ad, aynı gün, aynı konum) "zaten"; programda
+# o gün kaydı olup konumu boşsa konum yazılıyor (elle girilmiş dondurma);
+# konumu farklıysa dokunulmuyor. İkinci çalıştırma hiçbir şeyi değiştirmez.
+#
+# Uydurulmayanlar: dondurma sebebi (HÜCRE'deki "CA" ne demek, sorulmadı),
+# hacim/konsantrasyon/motilite ("9 MİLYON %35" ml başına mı toplam mı belli
+# değil) -- HÜCRE ve VİAL metni olduğu gibi nota yazılıyor. Tarihi olmayan ya
+# da ileri tarihli (2027/2028 yazım hatası) satır açılmıyor: dondurma zamanı
+# zorunlu alan, tarih uydurulmuyor; raporda, kullanıcı elle girer.
+
+SPERM_RAPOR = Path("cryo_esle_rapor_sperm.txt")
+_SPERM_SAAT = 10                     # dondurma saati bilinmiyor
+_KONUMSUZ_SAYFA = re.compile(r"^(?:SAYFA|SHEET)\s*\d*$")
+
+SPERM_SINIFLARI = [
+    ("yeni", "yeni tüp açılacak", True),
+    ("konum_yaz", "programda o gün kaydı var, konumu boş -- konum yazılacak", True),
+    ("zaten", "zaten programda (aynı ad, gün ve konum)", False),
+    ("baska_konum", "programda o gün kaydı var, konumu FARKLI -- dokunulmadı", False),
+    ("tarih_yok", "tarih yok ya da okunamadı -- açılmadı, elle girilmeli", False),
+    ("tarih_ileri", "tarih bugünden ileri (yazım hatası) -- açılmadı", False),
+    ("ayni_ad", "aynı adla birden çok yalnızca-sperm hasta kaydı -- açılmadı", False),
+    ("es_belirsiz", "aynı adla iki farklı eş var, bu satırda eş yazmıyor -- açılmadı",
+     False),
+]
+
+
+def _sperm_yolu(s):
+    """Excel satırının konum yolu; sayfanın tankı bilinmiyorsa None.
+    "Sayfa1"in bandı yok, tank adı sayfa adından geliyordu ("SAYFA1") --
+    haritada uydurma bir tank açmaktansa konum boş kalıyor, nota yazılıyor."""
+    if _KONUMSUZ_SAYFA.match(cryo_excel._n(s["tank"])):
+        return None
+    return " / ".join(x.strip() for x in _seviyeler(s) if x and x.strip()) or None
+
+
+def _sperm_programda(b):
+    """{(ad kelimeleri, gün): [kayıt]} -- programdaki iptal edilmemiş dondurmalar."""
+    d = collections.defaultdict(list)
+    for r in b.execute(
+            "SELECT sd.id, sd.hasta_id, h.ad_soyad, date(sd.dondurma_zamani) AS gun, "
+            "  t.id AS tid, t.konum_id, k.tam_yol "
+            "FROM sperm_dondurma sd JOIN hasta h ON h.id = sd.hasta_id "
+            "JOIN tasiyici t ON t.id = sd.tasiyici_id "
+            "LEFT JOIN konum k ON k.id = t.konum_id "
+            "WHERE sd.lab_id = ? AND sd.iptal_mi = 0 ORDER BY sd.id", (_db.LAB_ID,)):
+        d[(cryo_excel.kelimeler(r[2]), r[3])].append(
+            {"sid": r[0], "hid": r[1], "tid": r[4], "konum_id": r[5], "tam_yol": r[6]})
+    return d
+
+
+def _sperm_hastalari(b):
+    """{ad kelimeleri: [(id, es_adi)]} -- tedavisi olmayan, sperm kaydı olan."""
+    d = collections.defaultdict(list)
+    for hid, ad, es in b.execute(
+            "SELECT h.id, h.ad_soyad, h.es_adi FROM hasta h WHERE h.lab_id = ? "
+            "AND NOT EXISTS (SELECT 1 FROM cycle c WHERE c.hasta_id = h.id) "
+            "AND EXISTS (SELECT 1 FROM sperm_dondurma sd WHERE sd.hasta_id = h.id "
+            "            AND sd.iptal_mi = 0)", (_db.LAB_ID,)):
+        d[cryo_excel.kelimeler(ad)].append((hid, cryo_excel.buyuk(es) if es else ""))
+    return d
+
+
+def _ad(s):
+    return cryo_excel.kelimeler(f'{s["soyad"]} {s["ad"]}')
+
+
+def sperm_plani(satirlar, b):
+    """Excel'in sperm satırları -> [(satır, sınıf, ek)] ve hasta planı.
+
+    Dönen `sonuc` satır satır; `yeni` satırlar ayrıca `kisi` anahtarı taşıyor:
+    ("var", hasta_id) ya da ("yeni", grup no). Grup = açılacak bir hasta."""
+    bugun = _dt.date.today().isoformat()
+    programda = _sperm_programda(b)
+    hastalar_ = _sperm_hastalari(b)
+    sonuc = []
+    adaylar = []
+    gruplar = collections.defaultdict(list)          # (ad, gün) -> satırlar
+    for s in satirlar:
+        if s["kategori"] != "sperm":
+            continue
+        if not s["tarih"]:
+            sonuc.append([s, "tarih_yok", s["tarih_notu"] or ""])
+        elif s["tarih"] > bugun:
+            sonuc.append([s, "tarih_ileri", ""])
+        else:
+            gruplar[(_ad(s), s["tarih"])].append(s)
+    for anahtar, grup in gruplar.items():
+        mevcut = list(programda.get(anahtar, []))
+        kalan = []
+        for s in grup:                               # önce aynı konum
+            yol = _sperm_yolu(s)
+            k = next((m for m in mevcut if m["tam_yol"] == yol), None)
+            if k is None and yol is None and mevcut:
+                k = mevcut[0]                        # konumsuz satır bilgi eklemiyor
+            if k:
+                mevcut.remove(k)
+                sonuc.append([s, "zaten", f"sperm kaydı {k['sid']}"])
+            else:
+                kalan.append(s)
+        for s in kalan:
+            bos = next((m for m in mevcut if m["konum_id"] is None), None)
+            if bos and _sperm_yolu(s):
+                mevcut.remove(bos)
+                sonuc.append([s, "konum_yaz", bos])
+            elif mevcut:
+                sonuc.append([s, "baska_konum",
+                              f"programdaki konum: {mevcut[0]['tam_yol'] or '-'}"])
+            else:
+                adaylar.append(s)
+    # Yeni satırların hastası: ada göre topla, eşe göre ayır.
+    ada_gore = collections.defaultdict(list)
+    for s in adaylar:
+        ada_gore[_ad(s)].append(s)
+    kisiler = []                                     # [(ad, eş, [satır])]
+    for kel, grup in ada_gore.items():
+        esler = sorted({cryo_excel.buyuk(s["es_adi"]) for s in grup if s["es_adi"].strip()})
+        parcalar = ([(esler[0] if esler else "", grup)] if len(esler) <= 1 else
+                    [(es, [s for s in grup if cryo_excel.buyuk(s["es_adi"]) == es])
+                     for es in esler])
+        if len(esler) > 1:
+            for s in grup:
+                if not s["es_adi"].strip():
+                    sonuc.append([s, "es_belirsiz", ""])
+        for es, satirlar_ in parcalar:
+            uygun = [h for h, hes in hastalar_.get(kel, []) if not es or not hes or hes == es]
+            if len(uygun) > 1:
+                for s in satirlar_:
+                    sonuc.append([s, "ayni_ad", f"{len(uygun)} kayıt"])
+                continue
+            if uygun:
+                kisi = ("var", uygun[0])
+            else:
+                kisi = ("yeni", len(kisiler))
+                kisiler.append((kel, es, satirlar_))
+            for s in satirlar_:
+                sonuc.append([s, "yeni", kisi])
+    return sonuc, kisiler
+
+
+def _sperm_notu(s, yol):
+    parca = [f'Örnek: {s["icerik"] or "-"}', f'VİAL: {s["vial_metni"] or "-"}']
+    if not yol:
+        parca.append(f'Excel\'deki yer: {_tam_yol(s)} (tankı yazmıyor)')
+    return (" · ".join(parca) + f'\nCryo Haritası Excel\'i: {s["sayfa"]} satır {s["satir"]}\n'
+            + _db.CRYO_EXCEL_ISARETI)
+
+
+def _sperm_etiketi(b, dosya_no, gun, dakika):
+    """Programın sperm formunun kalıbı: `<dosya no>-SP-<SSDD>` (v6.84). Saat
+    bilinmiyor; aynı hastanın aynı gün birden çok tüpü dakika dakika ilerliyor
+    (`aktar_access._tasiyici_ac()`'nin embriyo tüpleri için yaptığı gibi)."""
+    while True:
+        s, d = divmod(_SPERM_SAAT * 60 + dakika, 60)
+        etiket = f"{dosya_no}-SP-{s:02d}{d:02d}"
+        if not b.execute("SELECT 1 FROM tasiyici WHERE lab_id=? AND etiket=?",
+                         (_db.LAB_ID, etiket)).fetchone():
+            return etiket, f"{gun} {s:02d}:{d:02d}:00", dakika
+        dakika += 1
+
+
+def sperm_yaz(satirlar) -> dict:
+    sayac = collections.Counter()
+    with _db.yazma_islemi() as b:
+        sonuc, kisiler = sperm_plani(satirlar, b)   # kilit içinde yeniden
+        kid = _kullanici_id(b)
+        simdi = _dt.datetime.now().isoformat(" ", "seconds")
+        tipler = {r[0] for r in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
+            (_db.LAB_ID,))}
+        renkler = {r[0] for r in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_renk'",
+            (_db.LAB_ID,))}
+        dosya = max(GECICI_DOSYA_TABANI, b.execute(
+            "SELECT COALESCE(MAX(dosya_no),0) FROM hasta WHERE lab_id=?",
+            (_db.LAB_ID,)).fetchone()[0])
+        hasta_id = {}
+        for i, (_kel, es, grup) in enumerate(kisiler):
+            dosya += 1
+            b.execute(
+                "INSERT INTO hasta (lab_id, dosya_no, ad_soyad, es_adi, notlar, durum, "
+                "olusturma_zamani) VALUES (?,?,?,?,?,'aktif',?)",
+                (_db.LAB_ID, dosya, _yeni_ad(grup[0]), es or None,
+                 "Cryo Haritası Excel'inden açıldı (v6.180, sperm dondurma). GEÇİCİ "
+                 "dosya numarası -- gerçek numara dosya_no_degistir.py ile yazılmalı.",
+                 f"{min(s['tarih'] for s in grup)} 08:00:00"))
+            hasta_id[i] = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+            sayac["hasta"] += 1
+        dakikalar = collections.Counter()
+        for s, sinif, ek in sonuc:
+            if sinif == "konum_yaz":
+                yol = _sperm_yolu(s)
+                konum_id = _db.konum_bul_veya_olustur(_seviyeler(s), b)
+                b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (konum_id, ek["tid"]))
+                b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+                b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                          "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                          (_db.LAB_ID, "tasiyici", str(ek["tid"]), "konum", None, yol,
+                           kid, simdi))
+                sayac["konum"] += 1
+                continue
+            if sinif != "yeni":
+                continue
+            tur, deger = ek
+            hid = deger if tur == "var" else hasta_id[deger]
+            dno = b.execute("SELECT dosya_no FROM hasta WHERE id=?", (hid,)).fetchone()[0]
+            yol = _sperm_yolu(s)
+            konum_id = _db.konum_bul_veya_olustur(_seviyeler(s), b) if yol else None
+            etiket, an, dk = _sperm_etiketi(b, dno, s["tarih"], dakikalar[(hid, s["tarih"])])
+            dakikalar[(hid, s["tarih"])] = dk + 1
+            # Tip: Excel'in sütunu "VİAL" ve STRAW yalnızca dış merkezden gelen
+            # birkaç satırda ayrıca yazılmış -- yazmayan satır vial.
+            tip = s["tip"] if s["tip"] in tipler else "vial"
+            b.execute(
+                "INSERT INTO tasiyici (lab_id, tip, etiket, renk, konum_id, "
+                "vitrifikasyon_zamani, kullanici_id, durum, kategori) "
+                "VALUES (?,?,?,?,?,?,?,'dolu','sperm')",
+                (_db.LAB_ID, tip, etiket, s["renk"] if s["renk"] in renkler else None,
+                 konum_id, an, kid))
+            tid = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+            if konum_id:
+                b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+            b.execute(
+                "INSERT INTO sperm_dondurma (lab_id, hasta_id, tasiyici_id, dondurma_zamani, "
+                "notlar, kullanici_id, olusturma_zamani) VALUES (?,?,?,?,?,?,?)",
+                (_db.LAB_ID, hid, tid, an, _sperm_notu(s, yol), kid, an))
+            sayac["tup"] += 1
+            if tur == "var":
+                sayac["mevcut_hastaya"] += 1
+    return sayac
+
+
+def sperm_raporu(sonuc, kisiler, b):
+    adlar = {hid: ad for hid, ad in b.execute(
+        "SELECT id, dosya_no || ' ' || ad_soyad FROM hasta WHERE lab_id=?", (_db.LAB_ID,))}
+    sayac = collections.Counter(k for _s, k, _e in sonuc)
+    c = [f"CRYO EXCEL -- SPERM DONDURMA -- {_dt.datetime.now():%Y-%m-%d %H:%M:%S}", ""]
+    for kod, baslik, yazilir in SPERM_SINIFLARI:
+        n = sayac.get(kod, 0)
+        c.append(f"== {baslik}: {n}" + ("  [yazılır]" if yazilir else ""))
+        for s, k, ek in sonuc:
+            if k != kod:
+                continue
+            if kod == "yeni":
+                tur, deger = ek
+                ek = (f"mevcut kayda: {adlar.get(deger, deger)}" if tur == "var"
+                      else f"yeni hasta #{deger + 1}")
+            elif kod == "konum_yaz":
+                ek = f"sperm kaydı {ek['sid']}"
+            es = f' (eşi {s["es_adi"]})' if s["es_adi"] else ""
+            c.append(f'   {_yer(s):40} | {s["soyad"]} {s["ad"]}{es} | '
+                     f'{s["tarih"] or s["tarih_notu"] or "tarih?"} | {s["icerik"]} | '
+                     f'{s["vial_metni"]}' + (f"  | {ek}" if ek else ""))
+        c.append("")
+    SPERM_RAPOR.write_text("\n".join(c) + "\n", encoding="utf-8")
+    return sayac
+
+
+def _sperm_kipi(satirlar):
+    with _db.baglan() as b:
+        sonuc, kisiler = sperm_plani(satirlar, b)
+        sayac = sperm_raporu(sonuc, kisiler, b)
+    toplam = sum(1 for s in satirlar if s["kategori"] == "sperm")
+    print(f"Excel: {toplam} sperm satırı (her satır bir tüp).")
+    for kod, baslik, yazilir in SPERM_SINIFLARI:
+        if sayac.get(kod):
+            print(f"  {sayac[kod]:5}  {baslik}" + ("  [yazılır]" if yazilir else ""))
+    mevcut = sum(1 for _s, k, e in sonuc if k == "yeni" and e[0] == "var")
+    print(f"Yeni hasta kaydı: {len(kisiler)} (geçici dosya numarasıyla); "
+          f"programdaki erkek kayıtlarına eklenecek tüp: {mevcut}.")
+    print(f"Ayrıntı: {SPERM_RAPOR}")
+    if not (sayac.get("yeni") or sayac.get("konum_yaz")):
+        print("Yazılacak bir şey yok.")
+        return
+    print("\nDevam için SPERM yazın:")
+    if input("> ").strip() != "SPERM":
+        print("Vazgeçildi, hiçbir şey yazılmadı.")
+        return
+    y = sperm_yaz(satirlar)
+    print(f"Yazıldı: {y['hasta']} yeni hasta, {y['tup']} tüp"
+          + (f" ({y['mevcut_hastaya']}'i programdaki kayıtlara)" if y["mevcut_hastaya"] else "")
+          + f", {y['konum']} tüpe konum.")
+
+
 # ------------------------------------------------------------------- main
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta"):
+    if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta", "sperm"):
         sys.exit(__doc__)
     kip, dosya = sys.argv[1], Path(sys.argv[2])
     if not dosya.is_file():
@@ -903,6 +1209,8 @@ def main():
         cozum = cryo_excel.coz(dosya.read_bytes())
     except cryo_excel.Hata as e:
         sys.exit(f"Excel okunamadı: {e}")
+    if kip == "sperm":
+        return _sperm_kipi(cozum["satirlar"])
     with _db.baglan() as b:
         idx = hastalar(b)
         tup = tupler(b)
