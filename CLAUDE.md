@@ -2063,7 +2063,9 @@ besleniyor.
     yeni numaraya çeviriyor; gerçek numaralı tüpün etiketine dokunmuyor.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği; Excel VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile embriyo
-  tüp sırasının ilişkisi; sperm VİAL'deki "1(A,B,C)" yazımı.
+  tüp sırasının ilişkisi. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını
+  kullanıcı da bilmiyor (2026-09-25) -- yorumlanmıyor, notta olduğu gibi
+  duruyor; ondan tüp sayısı ya da konum ÇIKARMA.
 
 **Program öncesi kayıtlar `aktar_access.py` ile giriyor** (v6.130,
 kullanıcının isteği). Ağustos 2026 tedavileri Access'te tutuluyordu;
