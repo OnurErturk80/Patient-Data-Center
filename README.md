@@ -13913,6 +13913,19 @@ karşılaştırmasında **2019 ve sonrasının okuması değişmedi**.
   Burada Windows benzetimiyle (alt süreç borusu cp1254) eski araçla hata
   birebir üretildi; yeni araçla yarıda kalmış OCAK2018 (30/82) kalan 52
   satırla tamamlandı, SUBAT2018 aktarıldı, aktarılmış OCAK2019 atlandı.
+- **Kontrol haziran 2023'te durdu** (kullanıcı, aynı makinede, düzeltmeden
+  sonra): "DUR -- ... # 41 dosya 41 -> işaret 2023-0637 tedavisini buluyor
+  (BAŞKA hasta)". Çakışma gerçek değildi: haziran 2023'ün yer tutucu dosya
+  numarası 2023'ün düzeltme dosyasında gerçek numarasına çevriliyor, araç
+  ise bütün klasörü yalnızca verilen tek dosyayla (2018'inki) kontrol
+  ediyordu. Artık klasördeki bütün `tarih_duzeltme*.txt` dosyaları
+  birleştirilip her aya veriliyor (satırlar kendi etiketini taşıyor, araç
+  yalnızca o ayınkini uyguluyor); aynı kayda iki dosyada farklı düzeltme
+  varsa araç durup ikisini gösteriyor. Kontrolü geçemeyen bir ay da artık
+  bütün işi durdurmuyor: "KONTROL EDİLEMEDİ -- aktarılmayacak" diye
+  listeleniyor, sebebi planın altında, öteki aylar aktarılıyor. Denendi:
+  yalnız 2018 dosyasıyla haziran 2023 listelendi ve 2018 planı geldi;
+  2023'ün dosyası da klasördeyken haziran 2023 "zaten aktarılmış" sayıldı.
 
 Denendi: 11 dosya test veritabanına (2019–2023'ün üstüne) aktarıldı --
 **918 tedavi, 0 hata, 11 uyarı**, 533 yeni hasta kartı, 290 tüp. Uyarılar

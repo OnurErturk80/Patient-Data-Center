@@ -4,7 +4,8 @@ Kullanım (proje klasöründe):
     python3 aktar_toplu.py duzelt=tarih_duzeltme_2019_2023.txt dosya=99:801471
 
 Seçenekler:
-    duzelt=<dosya>     düzeltme dosyası, her CSV'ye verilir (yoksa verilmez)
+    duzelt=<dosya>     düzeltme dosyası; klasördeki bütün `tarih_duzeltme*.txt`
+                       dosyaları da kendiliğinden eklenir (v6.173)
     dosya=<eski>:<yeni>  önce bu dosya numarasını değiştirir
                        (`dosya_no_degistir.py`); eski numara kayıtlı değilse
                        ya da yeni numara zaten varsa atlar ve söyler
@@ -32,6 +33,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
 AYLAR = ["ocak", "subat", "mart", "nisan", "mayis", "haziran", "temmuz",
          "agustos", "eylul", "ekim", "kasim", "aralik"]
@@ -64,6 +66,55 @@ def dosya_no_adimi(deger):
                  "Aktarıma başlamadan önce bu çözülmeli.")
     h, klasor = d.ozet(eski, yeni)
     d.uygula(eski, yeni, h, klasor)
+
+
+def duzeltmeleri_birlestir(klasor, verilen):
+    """Klasördeki bütün `tarih_duzeltme*.txt` + `duzelt=` ile verilen dosya ->
+    tek geçici dosyanın yolu (ya da None) ve kullanılan dosyaların adları.
+
+    **Neden hepsi** (v6.173, kliniğin makinesinde): her yılın düzeltmeleri
+    ayrı dosyada (`tarih_duzeltme_2023.txt`, `..._2024b.txt`, ...). Araç
+    klasördeki her CSV'yi yalnızca verilen TEK dosyayla kontrol ediyordu;
+    haziran 2023'ün yer tutucu dosya numarası ("41") 2023'ün dosyasında
+    gerçek numarasına çevriliyor, o dosya verilmeyince satır "başka hastanın
+    kaydını buluyor" diye çakışma sayıldı ve bütün iş durdu. Birleştirmek
+    güvenli: her satır kendi etiketini taşıyor (`HAZIRAN2023#41 ...`),
+    `aktar_access.py` yalnızca o dosyanın etiketindeki satırları uyguluyor.
+    Aynı satır iki dosyada varsa bir kez yazılıyor; aynı kayda iki dosyada
+    FARKLI düzeltme varsa hangisinin doğru olduğu bilinmiyor -- durur.
+    """
+    yollar = sorted(pathlib.Path(klasor).glob("tarih_duzeltme*.txt"))
+    if verilen:
+        v = pathlib.Path(verilen)
+        if not v.exists():
+            sys.exit(f"Düzeltme dosyası yok: {verilen}")
+        if v.resolve() not in {y.resolve() for y in yollar}:
+            yollar.append(v)
+    if not yollar:
+        return None, []
+    satirlar, anahtarlar = [], {}
+    for y in yollar:
+        for ham in y.read_text(encoding="utf-8-sig").splitlines():
+            satir = ham.strip()
+            if not satir or satir.startswith("#"):
+                continue
+            parca = satir.split()
+            anahtar = (parca[0].upper(), parca[1].upper() if len(parca) > 1 else "")
+            normal = " ".join(parca)
+            if anahtar in anahtarlar:
+                onceki, onceki_dosya = anahtarlar[anahtar]
+                if onceki != normal:
+                    sys.exit(f"{parca[0]} için iki düzeltme dosyasında farklı satır var:\n"
+                             f"  {onceki_dosya.name}: {onceki}\n  {y.name}: {normal}\n"
+                             "Doğru olmayanı silip komutu yeniden verin.")
+                continue
+            anahtarlar[anahtar] = (normal, y)
+            satirlar.append(normal)
+    dosya = tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt",
+                                        prefix="aktar_toplu_duzeltme_", delete=False)
+    with dosya:
+        dosya.write("\n".join(satirlar) + "\n")
+    return dosya.name, [y.name for y in yollar]
 
 
 def _calistir(etiket, p, duzelt, liste=False):
@@ -107,13 +158,17 @@ def main():
     if not dosyalar:
         sys.exit(f"{klasor.resolve()} içinde <ay><yıl>.csv adında dosya yok.")
     dosyalar.sort()
-    duzelt = s["duzelt"]
-    if duzelt:
-        if not pathlib.Path(duzelt).exists():
-            sys.exit(f"Düzeltme dosyası yok: {duzelt}")
-        duzelt = str(pathlib.Path(duzelt).resolve())   # alt süreç proje klasöründe çalışıyor
-    print(f"{len(dosyalar)} dosya, {dosyalar[0][2].name} → {dosyalar[-1][2].name}"
-          + (f", düzeltme: {duzelt}" if duzelt else ", düzeltme dosyası YOK"))
+    duzelt, kullanilan = duzeltmeleri_birlestir(klasor, s["duzelt"])
+    try:
+        _aktar(s, dosyalar, duzelt, kullanilan)
+    finally:
+        if duzelt:
+            os.unlink(duzelt)
+
+
+def _aktar(s, dosyalar, duzelt, kullanilan):
+    print(f"{len(dosyalar)} dosya, {dosyalar[0][2].name} → {dosyalar[-1][2].name}")
+    print("Düzeltme dosyaları: " + (", ".join(kullanilan) if kullanilan else "YOK"))
 
     # Önce her dosyada ne yazılacağına bak (v6.173). v6.172 hepsini baştan
     # çalıştırıyordu (bitmiş dosya dakikalar sürüyor); v6.173'ün ilk hali
@@ -121,22 +176,27 @@ def main():
     # dosyanın kalan satırlarını hiç aktarmazdı. Ölçü aracın kendi `liste`'si:
     # "0 tedavi yazılacak" diyen dosya bitmiş.
     print("Dosyalar kontrol ediliyor (dosya başına birkaç saniye)...")
-    yapilacak = []
+    yapilacak, sorunlu = [], []
     for yil, ay, p in dosyalar:
         etiket = f"{AYLAR[ay].upper()}{yil}"
         sonuc = _calistir(etiket, p, duzelt, liste=True)
         m = re.search(r"(\d+) tedavi yazılacak", sonuc.stdout or "")
         if sonuc.returncode != 0 or not m:
-            print(f"{etiket}: kontrol edilemedi -- durduruldu. Çıktının sonu:")
-            print(((sonuc.stderr or "") + (sonuc.stdout or ""))[-1500:])
-            sys.exit(1)
+            # Bu dosya aktarılmıyor ama öteki dosyalar durmasın (v6.173):
+            # aracın kendi "DUR" mesajı hiçbir şey yazmadığını söylüyor.
+            sorunlu.append((etiket, ((sonuc.stdout or "") + (sonuc.stderr or "")).strip()))
+            print(f"  {etiket:14} KONTROL EDİLEMEDİ -- aktarılmayacak (aşağıda)")
+            continue
         n = int(m.group(1))
         if n:
             yapilacak.append((etiket, p, n))
             print(f"  {etiket:14} {n} tedavi yazılacak")
-    atlanan = len(dosyalar) - len(yapilacak)
+    atlanan = len(dosyalar) - len(yapilacak) - len(sorunlu)
     if atlanan:
         print(f"  ({atlanan} dosya zaten aktarılmış, atlanacak)")
+    for etiket, cikti in sorunlu:
+        print(f"\n{etiket} kontrol edilemedi, aktarılmayacak. Aracın mesajı:")
+        print(cikti[-1200:])
     if not yapilacak:
         print("Yazılacak bir şey yok, bütün dosyalar zaten aktarılmış.")
         return

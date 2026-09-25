@@ -435,6 +435,9 @@ Sonra tek komut:
 python3 aktar_toplu.py duzelt=tarih_duzeltme_2018.txt
 ```
 
+Klasördeki bütün `tarih_duzeltme*.txt` dosyaları kendiliğinden kullanılır
+(her yılın kendi dosyası; ekranda "Düzeltme dosyaları:" satırı hangilerini
+bulduğunu söyler) -- eski yılların düzeltme dosyalarını klasörden silme.
 Araç önce her dosyayı kontrol eder (dosya başına birkaç saniye) ve
 "AKTAR"dan ÖNCE hangi ayın kaç tedavi yazacağını listeler. Aktarılmış aylar
 "zaten aktarılmış, atlanacak" satırına düşer, yarıda kalmış bir ayın
