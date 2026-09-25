@@ -914,19 +914,24 @@ def yeni_hasta_raporu(plan, atlanan):
 # o gün kaydı olup konumu boşsa konum yazılıyor (elle girilmiş dondurma);
 # konumu farklıysa dokunulmuyor. İkinci çalıştırma hiçbir şeyi değiştirmez.
 #
-# Uydurulmayanlar: dondurma sebebi (HÜCRE'deki "CA" ne demek, sorulmadı),
-# hacim/konsantrasyon/motilite ("9 MİLYON %35" ml başına mı toplam mı belli
+# Dondurma sebebi: HÜCRE'de "CA" geçiyorsa (EJAKÜLAT-CA, CA-SPERM, TESE-CA)
+# "Onkolojik" -- kullanıcının cevabı (2026-09-25): "CA kanser"; değer
+# programın sebep önerisinden (`app.SPERM_DONDURMA_SEBEPLERI`). Başka sebep
+# uydurulmuyor. Uydurulmayanlar: hacim/konsantrasyon/motilite ("9 MİLYON %35" ml başına mı toplam mı belli
 # değil) -- HÜCRE ve VİAL metni olduğu gibi nota yazılıyor. Tarihi olmayan ya
 # da ileri tarihli (2027/2028 yazım hatası) satır açılmıyor: dondurma zamanı
 # zorunlu alan, tarih uydurulmuyor; raporda, kullanıcı elle girer.
 
 SPERM_RAPOR = Path("cryo_esle_rapor_sperm.txt")
+ONKOLOJIK = "Onkolojik"              # app.SPERM_DONDURMA_SEBEPLERI'nin değeri
+_CA = re.compile(r"(?<![A-ZÇĞİÖŞÜ])CA(?![A-ZÇĞİÖŞÜ])")
 _SPERM_SAAT = 10                     # dondurma saati bilinmiyor
 _KONUMSUZ_SAYFA = re.compile(r"^(?:SAYFA|SHEET)\s*\d*$")
 
 SPERM_SINIFLARI = [
     ("yeni", "yeni tüp açılacak", True),
     ("konum_yaz", "programda o gün kaydı var, konumu boş -- konum yazılacak", True),
+    ("sebep_yaz", "zaten programda, dondurma sebebi yazılacak (CA = Onkolojik)", True),
     ("zaten", "zaten programda (aynı ad, gün ve konum)", False),
     ("baska_konum", "programda o gün kaydı var, konumu FARKLI -- dokunulmadı", False),
     ("tarih_yok", "tarih yok ya da okunamadı -- açılmadı, elle girilmeli", False),
@@ -946,18 +951,27 @@ def _sperm_yolu(s):
     return " / ".join(x.strip() for x in _seviyeler(s) if x and x.strip()) or None
 
 
+def _sperm_sebebi(s):
+    """HÜCRE'de "CA" (kanser) -> "Onkolojik"; yoksa None."""
+    return ONKOLOJIK if _CA.search(cryo_excel.buyuk(s["icerik"])) else None
+
+
 def _sperm_programda(b):
     """{(ad kelimeleri, gün): [kayıt]} -- programdaki iptal edilmemiş dondurmalar."""
     d = collections.defaultdict(list)
     for r in b.execute(
             "SELECT sd.id, sd.hasta_id, h.ad_soyad, date(sd.dondurma_zamani) AS gun, "
-            "  t.id AS tid, t.konum_id, k.tam_yol "
+            "  t.id AS tid, t.konum_id, k.tam_yol, sd.sebep, sd.notlar "
             "FROM sperm_dondurma sd JOIN hasta h ON h.id = sd.hasta_id "
             "JOIN tasiyici t ON t.id = sd.tasiyici_id "
             "LEFT JOIN konum k ON k.id = t.konum_id "
             "WHERE sd.lab_id = ? AND sd.iptal_mi = 0 ORDER BY sd.id", (_db.LAB_ID,)):
         d[(cryo_excel.kelimeler(r[2]), r[3])].append(
-            {"sid": r[0], "hid": r[1], "tid": r[4], "konum_id": r[5], "tam_yol": r[6]})
+            {"sid": r[0], "hid": r[1], "tid": r[4], "konum_id": r[5], "tam_yol": r[6],
+             "sebep": r[7],
+             # Bu aracın açtığı kayıt: sebebi sonradan yazılabilir (v6.180'in
+             # ilk hali sebep yazmıyordu). Ekrandan girilmişe dokunulmuyor.
+             "excel": _db.CRYO_EXCEL_ISARETI in (r[8] or "")})
     return d
 
 
@@ -1007,7 +1021,10 @@ def sperm_plani(satirlar, b):
                 k = mevcut[0]                        # konumsuz satır bilgi eklemiyor
             if k:
                 mevcut.remove(k)
-                sonuc.append([s, "zaten", f"sperm kaydı {k['sid']}"])
+                if k["excel"] and not k["sebep"] and _sperm_sebebi(s):
+                    sonuc.append([s, "sebep_yaz", k])
+                else:
+                    sonuc.append([s, "zaten", f"sperm kaydı {k['sid']}"])
             else:
                 kalan.append(s)
         for s in kalan:
@@ -1100,6 +1117,15 @@ def sperm_yaz(satirlar) -> dict:
             sayac["hasta"] += 1
         dakikalar = collections.Counter()
         for s, sinif, ek in sonuc:
+            if sinif == "sebep_yaz":
+                b.execute("UPDATE sperm_dondurma SET sebep=? WHERE id=? AND sebep IS NULL",
+                          (_sperm_sebebi(s), ek["sid"]))
+                b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                          "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                          (_db.LAB_ID, "sperm_dondurma", str(ek["sid"]), "sebep", None,
+                           _sperm_sebebi(s), kid, simdi))
+                sayac["sebep"] += 1
+                continue
             if sinif == "konum_yaz":
                 yol = _sperm_yolu(s)
                 konum_id = _db.konum_bul_veya_olustur(_seviyeler(s), b)
@@ -1134,9 +1160,11 @@ def sperm_yaz(satirlar) -> dict:
                 b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
             b.execute(
                 "INSERT INTO sperm_dondurma (lab_id, hasta_id, tasiyici_id, dondurma_zamani, "
-                "notlar, kullanici_id, olusturma_zamani) VALUES (?,?,?,?,?,?,?)",
-                (_db.LAB_ID, hid, tid, an, _sperm_notu(s, yol), kid, an))
+                "sebep, notlar, kullanici_id, olusturma_zamani) VALUES (?,?,?,?,?,?,?,?)",
+                (_db.LAB_ID, hid, tid, an, _sperm_sebebi(s), _sperm_notu(s, yol), kid, an))
             sayac["tup"] += 1
+            if _sperm_sebebi(s):
+                sayac["sebep"] += 1
             if tur == "var":
                 sayac["mevcut_hastaya"] += 1
     return sayac
@@ -1157,7 +1185,7 @@ def sperm_raporu(sonuc, kisiler, b):
                 tur, deger = ek
                 ek = (f"mevcut kayda: {adlar.get(deger, deger)}" if tur == "var"
                       else f"yeni hasta #{deger + 1}")
-            elif kod == "konum_yaz":
+            elif kod in ("konum_yaz", "sebep_yaz"):
                 ek = f"sperm kaydı {ek['sid']}"
             es = f' (eşi {s["es_adi"]})' if s["es_adi"] else ""
             c.append(f'   {_yer(s):40} | {s["soyad"]} {s["ad"]}{es} | '
@@ -1181,7 +1209,10 @@ def _sperm_kipi(satirlar):
     print(f"Yeni hasta kaydı: {len(kisiler)} (geçici dosya numarasıyla); "
           f"programdaki erkek kayıtlarına eklenecek tüp: {mevcut}.")
     print(f"Ayrıntı: {SPERM_RAPOR}")
-    if not (sayac.get("yeni") or sayac.get("konum_yaz")):
+    onk = sum(1 for s, k, _e in sonuc if k == "yeni" and _sperm_sebebi(s))
+    if onk:
+        print(f"Dondurma sebebi Onkolojik olacak yeni tüp (HÜCRE'de CA): {onk}.")
+    if not (sayac.get("yeni") or sayac.get("konum_yaz") or sayac.get("sebep_yaz")):
         print("Yazılacak bir şey yok.")
         return
     print("\nDevam için SPERM yazın:")
@@ -1190,8 +1221,8 @@ def _sperm_kipi(satirlar):
         return
     y = sperm_yaz(satirlar)
     print(f"Yazıldı: {y['hasta']} yeni hasta, {y['tup']} tüp"
-          + (f" ({y['mevcut_hastaya']}'i programdaki kayıtlara)" if y["mevcut_hastaya"] else "")
-          + f", {y['konum']} tüpe konum.")
+          + (f" (programdaki kayıtlara eklenen: {y['mevcut_hastaya']})" if y["mevcut_hastaya"] else "")
+          + f", {y['konum']} tüpe konum, {y['sebep']} kayda dondurma sebebi.")
 
 
 # ------------------------------------------------------------------- main

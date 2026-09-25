@@ -2046,7 +2046,8 @@ besleniyor.
   no ile yeni erkek; çift kaydına (kadının adı, EŞİ) **hiç bakılmıyor** --
   kullanıcı: "karışıklık olur". Her satır bir `sperm_dondurma` + taşıyıcı
   (`<dosya no>-SP-SSDD`, tip yazmıyorsa vial, "Sayfa1"in tankı yok -> konum
-  boş). Sebep/hacim/konsantrasyon uydurulmuyor, HÜCRE+VİAL nota. Tarihsiz/
+  boş). HÜCRE'de "CA" = kanser (kullanıcı, 2026-09-25) -> sebep "Onkolojik";
+  başka sebep, hacim/konsantrasyon uydurulmuyor, HÜCRE+VİAL nota. Tarihsiz/
   ileri tarihli satır açılmıyor. Aynı ad+gün+konum "zaten"; ekrandan
   girilmiş konumsuz kayda konum yazılıyor. Deneme: 1.531 tüp, 609 erkek.
   **Kullanıcı henüz çalıştırmadı** (2026-09-25'te hazırlandı).
@@ -2061,8 +2062,8 @@ besleniyor.
     yeni numaraya çeviriyor; gerçek numaralı tüpün etiketine dokunmuyor.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği; Excel VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile embriyo
-  tüp sırasının ilişkisi; sperm HÜCRE'sindeki "CA"nın anlamı (dondurma
-  sebebi mi) ve VİAL'deki "1(A,B,C)" yazımı.
+  tüp sırasının ilişkisi; sperm VİAL'deki "1(A,B,C)" yazımı; TESE/TESA
+  satırlarına da (sebep listesinde var) sebep yazılsın mı.
 
 **Program öncesi kayıtlar `aktar_access.py` ile giriyor** (v6.130,
 kullanıcının isteği). Ağustos 2026 tedavileri Access'te tutuluyordu;

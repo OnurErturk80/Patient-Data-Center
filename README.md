@@ -13794,8 +13794,15 @@ ve embriyo sayfalarındaki sperm satırları) için:
   satırda ayrıca yazılmış. "Sayfa1"in tank bandı yok (tank adı sayfa adından
   geliyordu): haritada uydurma bir "SAYFA1" tankı açılmıyor, konum boş
   kalıyor, Excel'deki yer nota yazılıyor (15 tüp).
-- **Uydurulmayan**: dondurma sebebi (HÜCRE'deki "CA"nın anlamı sorulmadı),
-  hacim / konsantrasyon / motilite ("9 MİLYON %35" ml başına mı toplam mı
+- **Dondurma sebebi**: HÜCRE'de "CA" geçiyorsa (EJAKÜLAT-CA, CA-SPERM,
+  TESE-CA, "EJAKÜLAT(CA)") **Onkolojik** -- kullanıcının cevabı: "CA
+  kanser"; değer programın sebep önerisinden (`SPERM_DONDURMA_SEBEPLERI`).
+  Deneme: 1.531 tüpün 796'sı. Aracın ilk hali (aynı gün) sebep yazmıyordu;
+  zaten çalıştırılmışsa ikinci çalıştırma bu aracın açtığı kayıtlara
+  (notta `CRYO_EXCEL_ISARETI`) sebebi ekliyor (`sebep_yaz`, `degisiklik_log`),
+  ekrandan girilmiş kayda dokunmuyor. Başka sebep çıkarılmıyor ("TESE"
+  listede bir sebep ama kullanıcıya sorulmadı).
+- **Uydurulmayan**: hacim / konsantrasyon / motilite ("9 MİLYON %35" ml başına mı toplam mı
   belli değil). HÜCRE ve VİAL metni olduğu gibi nota:
   "Örnek: EJAKÜLAT-CA · VİAL: 1(A,B,C)", altında sayfa/satır ve
   `db.CRYO_EXCEL_ISARETI`.
