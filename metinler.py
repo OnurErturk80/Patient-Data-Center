@@ -599,6 +599,43 @@ METINLER = {
     "bu_tasiyiciyi_coz": {"tr": "Bu taşıyıcıyı çöz", "en": "Thaw this carrier"},
     "tasiyici_bosaltildi": {"tr": "boşaltıldı", "en": "emptied"},
     "tasiyici_kullanildi": {"tr": "kullanıldı", "en": "used"},
+    # Başka merkeze taşınan tüp (v6.182)
+    "tasiyici_gonderildi": {"tr": "başka merkeze taşındı", "en": "moved to another centre"},
+    "gonderim_baslik": {"tr": "Başka merkeze taşındı", "en": "Moved to another centre"},
+    "gonderim_ac": {"tr": "Başka merkeze taşındı olarak işaretle",
+                    "en": "Mark as moved to another centre"},
+    "gonderim_ipucu": {
+        "tr": "Hasta embriyolarını başka bir tüp bebek ünitesine taşıttıysa. "
+              "Tüp Cryo Haritası'ndan ve formların \"Kalan dondurulmuş\" "
+              "satırından çıkar; kayıt silinmez, geri alınabilir. Notlara "
+              "\"1 tüp 12.03.2025 tarihinde ... taşındı\" diye yazılır.",
+        "en": "If the patient had the embryos moved to another IVF unit. The "
+              "straw leaves the cryo map and the forms' remaining list; the "
+              "record is kept and can be restored."},
+    "gonderim_tarihi": {"tr": "Taşındığı gün", "en": "Date moved"},
+    "gonderim_yeri": {"tr": "Nereye taşındı", "en": "Moved to"},
+    "gonderim_yeri_ornek": {"tr": "ör. Memorial Hastanesi'ne", "en": "e.g. Memorial Hospital"},
+    "gonderim_notu": {"tr": "Not", "en": "Note"},
+    "gonderim_kaydet": {"tr": "Taşındı olarak kaydet", "en": "Save as moved"},
+    "gonderim_onay": {"tr": "Bu tüp başka merkeze taşındı olarak işaretlenecek. Emin misiniz?",
+                      "en": "This straw will be marked as moved to another centre. Are you sure?"},
+    "gonderim_cumlesi": {"tr": "{tarih} tarihinde {yer} taşındı.",
+                         "en": "Moved on {tarih} to {yer}."},
+    "gonderim_baska_merkeze": {"tr": "başka merkeze", "en": "another centre"},
+    "gonderimi_geri_al": {"tr": "Taşındı işaretini kaldır", "en": "Undo moved"},
+    "gonderimi_geri_al_onay": {"tr": "Tüp yeniden tankta (dolu) sayılacak. Emin misiniz?",
+                               "en": "The straw will count as in the tank again. Are you sure?"},
+    "gonderim_tarih_yok": {"tr": "Taşındığı günü yazın.", "en": "Enter the date."},
+    "gonderim_tarih_hatali": {"tr": "Tarih okunamadı ya da yılı hatalı.",
+                              "en": "Invalid date."},
+    "gonderim_tarih_ileri": {"tr": "Taşındığı gün bugünden sonra olamaz.",
+                             "en": "The date cannot be in the future."},
+    "gonderim_tarih_once": {"tr": "Taşındığı gün tüpün dondurulmasından önce olamaz.",
+                            "en": "The date cannot be before the freezing."},
+    "gonderim_dolu_degil": {"tr": "Yalnızca içinde örnek olan dolu tüp taşındı "
+                                  "olarak işaretlenebilir.",
+                            "en": "Only a full straw can be marked as moved."},
+    "tasinan_tupler": {"tr": "Başka merkeze taşınan tüpler", "en": "Straws moved to another centre"},
 
     # ---- çözme (thaw) ----
     "konum_girilmemis_uzun": {"tr": "konum girilmemiş",

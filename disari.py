@@ -395,6 +395,7 @@ def cryo_sayfalari():
     satirlar = db.sorgu(
         f"""
         SELECT k.tam_yol, t.etiket, t.tip AS tasiyici_tipi, t.renk,
+               t.durum AS tup_durum,
                o.zaman AS dondurma,
                h.dosya_no, h.ad_soyad, c.cycle_no, c.cycle_tipi,
                s.id AS ornek, s.cycle_sira_no, s.durum AS ornek_durum,
@@ -416,8 +417,13 @@ def cryo_sayfalari():
     cikti = []
     for r in satirlar:
         dolapta = not r["cozme"] and r["ornek_durum"] == "dondurulmus"
+        # Başka merkeze taşınan tüp (v6.182): örnek çözülmedi ama dolapta değil.
+        if r["tup_durum"] == "gonderildi":
+            dolap = "Taşındı"
+        else:
+            dolap = "Evet" if dolapta else "Hayır"
         cikti.append([
-            "Evet" if dolapta else "Hayır",
+            dolap,
             r["tam_yol"], r["etiket"], _et(h, "tasiyici_tipi", r["tasiyici_tipi"]),
             _et(h, "tasiyici_renk", r["renk"]),
             r["dosya_no"], r["ad_soyad"], r["cycle_no"], _tip(r["cycle_tipi"]),

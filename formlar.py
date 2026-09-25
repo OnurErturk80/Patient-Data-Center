@@ -811,6 +811,85 @@ def cozme_viabilitesi(cozulenler) -> str | None:
     return " · ".join(p for p in (parca, oranlar) if p) or None
 
 
+def _son_islem_ani(cycle_id: int):
+    """(hasta id, bu tedavinin son işleminin anı) -- "Kalan dondurulmuş"un
+    ölçüsü (v6.152). Tedavide işlem yoksa None."""
+    kosul, par = db.tedavide_yapilan(cycle_id)
+    son = db.tek(
+        f"SELECT MAX(o.zaman) z FROM olay o JOIN specimen s "
+        f"ON s.id = o.specimen_id WHERE o.iptal_mi = 0 AND {kosul}", par)
+    c = db.tek("SELECT hasta_id FROM cycle WHERE id = ?", (cycle_id,))
+    if not son or not son["z"] or not c:
+        return None
+    return c["hasta_id"], son["z"]
+
+
+def _gonderim_var() -> bool:
+    """`goc_051` (v6.182) çalıştı mı -- yoksa formlar eski haliyle."""
+    return db.kolon_var("tasiyici", "gonderim_zamani")
+
+
+def tasinan_tupler(kosul: str, par) -> list:
+    """Başka merkeze taşınan tüpler (v6.182), içindekilerle: `tup_metni()`'nin
+    beklediği sözlük + gün, yer, yumurta mı. `kosul` dondurma olayı `v`,
+    örnek `s`, tedavi `c`, taşıyıcı `t` üzerinden."""
+    if not _gonderim_var():
+        return []
+    vt = db.vit_tedavisi("v")
+    satirlar = db.sorgu(
+        f"""
+        SELECT v.id, v.specimen_id, v.vit_tasiyici_id AS tup, {vt} AS vit_cid,
+               {db.dondurulan_yumurta_sql('v')} AS yumurta,
+               t.gonderim_zamani AS gun, t.gonderim_yeri AS yer
+          FROM olay v JOIN specimen s ON s.id = v.specimen_id
+          JOIN cycle c ON c.id = s.cycle_id
+          JOIN tasiyici t ON t.id = v.vit_tasiyici_id
+         WHERE v.tip = 'vitrifikasyon' AND v.iptal_mi = 0
+           AND t.durum = 'gonderildi' AND {kosul}
+         ORDER BY t.gonderim_zamani, v.zaman, v.id
+        """, par)
+    tupler = {}
+    for r in satirlar:
+        tp = tupler.setdefault(r["tup"], {
+            "gun": r["gun"], "yer": r["yer"], "yumurta": bool(r["yumurta"]),
+            "ogeler": [], "olgunluk": []})
+        tp["ogeler"].append(_ornek_kalitesi(r["specimen_id"], r["vit_cid"]))
+        tp["olgunluk"].append(_yumurta_olgunlugu(r["specimen_id"], r["id"])
+                              if r["yumurta"] else None)
+    return list(tupler.values())
+
+
+def tasinan_notu(tupler) -> str | None:
+    """NOTLAR satırı (v6.182, kullanıcının isteği: "1 tüp 12.03.2025
+    tarihinde şuraya taşındı şeklinde yazsın"):
+
+        Taşınan: 3 embriyo, 1 tüp: (8HG2-8HG2-6HG2) 12.03.2025 tarihinde
+        Memorial Hastanesi'ne taşındı.
+
+    Yer kullanıcının yazdığı gibi (ekiyle: "...Hastanesi'ne"); program ek
+    uydurmuyor, yazılmamışsa "başka merkeze". Aynı gün ve yere giden tüpler
+    tek cümle. İçerik "Dondurulan:" satırının yazımıyla (`tup_metni()`).
+    """
+    if not tupler:
+        return None
+    gruplar = {}
+    for tp in tupler:
+        gruplar.setdefault((tp["gun"], tp["yer"]), []).append(tp)
+    cumleler = []
+    for (gun, yer), tuplar in gruplar.items():
+        parcalar = []
+        for ad, yumurta in (("embriyo", False), ("yumurta", True)):
+            bunlar = [tp for tp in tuplar if tp["yumurta"] == yumurta]
+            if bunlar:
+                adet = sum(len(tp["ogeler"]) for tp in bunlar)
+                parcalar.append(f"{adet} {ad}, {len(bunlar)} tüp: "
+                                + " ".join(tup_metni(tp) for tp in bunlar))
+        cumleler.append("; ".join(parcalar)
+                        + f" {_gg_aa_yyyy(gun) or gun} tarihinde "
+                        + f"{yer or 'başka merkeze'} taşındı.")
+    return _sar("Taşınan: " + " ".join(cumleler))
+
+
 def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
     """Bu tedaviden sonra hastanın tankta kalan örnekleri, NOTLAR için.
 
@@ -835,15 +914,19 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
     """
     if any(o["tup"] is None for o in cozulenler):
         return ""
-    kosul, par = db.tedavide_yapilan(cycle_id)
-    son = db.tek(
-        f"SELECT MAX(o.zaman) z FROM olay o JOIN specimen s "
-        f"ON s.id = o.specimen_id WHERE o.iptal_mi = 0 AND {kosul}", par)
-    c = db.tek("SELECT hasta_id FROM cycle WHERE id = ?", (cycle_id,))
-    if not son or not son["z"] or not c:
+    an = _son_islem_ani(cycle_id)
+    if not an:
         return ""
-    t = son["z"]
+    hasta_id, t = an
     vt = db.vit_tedavisi("v")
+    # O güne kadar başka merkeze taşınmış tüp tankta değil (v6.182). Gün
+    # ölçüsü: taşımadan önceki bir işlemin formunda tüp hâlâ kalan.
+    gitmedi, gpar = "", ()
+    if _gonderim_var():
+        gitmedi = ("AND NOT EXISTS (SELECT 1 FROM tasiyici g WHERE "
+                   "g.id = v.vit_tasiyici_id AND g.durum = 'gonderildi' "
+                   "AND g.gonderim_zamani <= ?)")
+        gpar = (t,)
     satirlar = db.sorgu(
         f"""
         SELECT v.id, v.vit_tasiyici_id AS tup, v.specimen_id, {vt} AS vit_cid,
@@ -855,8 +938,9 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
            AND NOT EXISTS (SELECT 1 FROM olay z WHERE z.specimen_id = v.specimen_id
                  AND z.tip = 'thaw' AND z.iptal_mi = 0 AND z.id > v.id
                  AND z.zaman <= ?)
+           {gitmedi}
          ORDER BY v.zaman, v.id
-        """, (c["hasta_id"], t, t))
+        """, (hasta_id, t, t, *gpar))
     # "embriyo"/"yumurta" -> örnek sayısı, bu tedavide dondurulan tüpler,
     # öteki tüpler (tüp -> içindekilerin kalitesi, sırasıyla)
     gruplar = {}
@@ -923,6 +1007,17 @@ def cozme_notu_satiri(cycle_id: int, cycle_tipi, cozulenler) -> str | None:
     kalan = _kalan_dondurulmus(cycle_id, cozulenler)
     if kalan:
         satirlar.append(_sar(kalan))
+        # "Kalan"dan çıkan taşınmış tüpler nereye gitti (v6.182). Bu
+        # tedavide dondurulanlar değil -- onlar zaten dondurma satırının
+        # altında (`ozet_verisi()`).
+        an = _son_islem_ani(cycle_id)
+        if an and _gonderim_var():
+            vt = db.vit_tedavisi("v")
+            tasinan = tasinan_notu(tasinan_tupler(
+                f"c.hasta_id = ? AND v.zaman <= ? AND t.gonderim_zamani <= ? "
+                f"AND {vt} <> ?", (an[0], an[1], an[1], cycle_id)))
+            if tasinan:
+                satirlar.append(tasinan)
     return "\n".join(satirlar)
 
 
@@ -984,6 +1079,10 @@ def ozet_verisi(cycle_id: int):
     # o nottan yazılmış tüpler "Dondurulan:" satırında tekrar edilmiyor.
     # Programda dondurulan tüpler yazılıyor. ART Lab'ın FREEZE kutuları
     # bütün tüpleri basmaya devam ediyor (orada not yok).
+    # Bu tedavide dondurulup başka merkeze taşınan tüpler (v6.182), dondurma
+    # satırının hemen altında.
+    tasinan_satiri = tasinan_notu(tasinan_tupler(
+        f"{db.vit_tedavisi('v')} = ?", (cycle_id,)))
     access_notu = "[Access kaydı" in (c["protokol_notu"] or "")
     don_notu = dondurma_notu(
         cycle_id, c["cycle_tipi"],
@@ -1089,8 +1188,8 @@ def ozet_verisi(cycle_id: int):
         # oranları (önceden yalnızca farklı etiketler: "Canlı").
         "cozdurme_viabilite": cozme_viabilitesi(cozulenler),
         "notlar": "\n".join(
-            p for p in (c["protokol_notu"], don_notu, cozulen_satiri,
-                        cozme_notu, iptal_notu)
+            p for p in (c["protokol_notu"], don_notu, tasinan_satiri,
+                        cozulen_satiri, cozme_notu, iptal_notu)
             if p) or None,
         # --- başlık / künye ---
         "cycle_no": c["cycle_no"],

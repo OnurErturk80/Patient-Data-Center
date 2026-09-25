@@ -158,7 +158,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..050.py   veritabanı göçleri (sırayla)
+  goc_002..051.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -2061,6 +2061,21 @@ besleniyor.
     YAZMA -- dosya no tek anahtar (v6.125).
   - `dosya_no_degistir.py` geçici numaralı erkeğin sperm etiketlerini de
     yeni numaraya çeviriyor; gerçek numaralı tüpün etiketine dokunmuyor.
+- **Başka merkeze taşınan tüp** (v6.182, `goc_051`, kullanıcının bilgisi:
+  hastalar embriyolarını bazen başka üniteye taşıtıyor). `tasiyici.durum =
+  'gonderildi'` + `gonderim_zamani` (gün) / `gonderim_yeri` / `gonderim_notu`;
+  taşıyıcı sayfasından işaretlenir, geri alınır (`gonderimi-geri-al` --
+  `geri-al` ile bitmesin, "silme" modülüne düşer). Kayıt ve örneklerin
+  durumu değişmez; çözülemez (üç yol sunucuda reddediyor). Özet formunun
+  NOTLAR'ı: dondurma tedavisinde "Taşınan: 2 embriyo, 1 tüp: (3AB-1BB)
+  01.03.2025 tarihinde X'e taşındı." (yer kullanıcının yazdığı gibi, ekiyle
+  -- program Türkçe ek uydurmuyor); "Kalan dondurulmuş" o güne kadar
+  taşınanı saymıyor, çözme satırlarının altında "Taşınan:" yazıyor.
+  **Yeni bir "tankta mı" sorusu yazarsan `durum='dolu'`'ya bak** --
+  `specimen.durum` taşınan embriyoda hâlâ `dondurulmus`. `cryo_esle.py
+  eksik`: programda dolu, Excel'de karşılığı olmayan tüpler, yalnızca
+  rapor; "adı farklı yazılmış" sınıfı (aynı gün aynı içerik, ad tutmuyor)
+  taşınmış sayılmamalı. Programın kendisi hiçbir tüpü "taşındı" yapmaz.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği; Excel VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile embriyo
   tüp sırasının ilişkisi. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını

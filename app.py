@@ -2849,8 +2849,26 @@ def hasta_detay(request: Request, hasta_id: int):
          "baglanabilir": baglanabilir, "esi_olan": esi_olan,
          "es_bag_acik": es_dosya_no_var() and bool(sperm_kayitlari),
          "es_hata": ES_BAG_HATALARI.get(request.query_params.get("es_hata", "")),
-         "yeniden": hastanin_yeniden_dondurmalari(cycles)}
+         "yeniden": hastanin_yeniden_dondurmalari(cycles),
+         "tasinan": hastanin_tasinan_tupleri(hasta_id)}
     )
+
+
+def hastanin_tasinan_tupleri(hasta_id: int) -> list:
+    """Hastanın başka merkeze taşınan tüpleri (v6.182) -- hasta kartında ayrı
+    kart. Tüp Cryo Haritası'ndan çıkıyor (`durum='dolu'` süzgeci); geri
+    almak için tüpün sayfasına buradan ulaşılıyor. Göç yoksa boş."""
+    if not gonderim_var():
+        return []
+    return db.sorgu(
+        "SELECT t.id, t.etiket, t.gonderim_zamani, t.gonderim_yeri, "
+        f"COUNT(DISTINCT o.specimen_id) adet, {icerik_sql()}, "
+        "MIN(c.cycle_no) cycle_no "
+        "FROM tasiyici t JOIN olay o ON o.vit_tasiyici_id=t.id "
+        "AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        "JOIN specimen s ON s.id=o.specimen_id JOIN cycle c ON c.id=s.cycle_id "
+        "WHERE t.durum='gonderildi' AND c.hasta_id=? "
+        "GROUP BY t.id ORDER BY t.gonderim_zamani, t.etiket", (hasta_id,))
 
 
 # Eşleştirme hataları adresten geliyor -- beyaz liste (tuzak #9).
@@ -7211,7 +7229,7 @@ def sperm_dondurma_sil(request: Request, sperm_dondurma_id: int):
 
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}")
-def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0):
+def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str = ""):
     """Taşıyıcının içeriği.
 
     `?cycle=N` çözme ekranından gelindiğini söyler; geri oku cryo haritasına
@@ -7254,7 +7272,119 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0):
     return sablon.TemplateResponse(
         request, "tasiyici.html",
         {"t": t, "icerik": icerik, "etiketler": etiketler, "ozet": ozet,
-         "geri": geri, "geri_cycle": cycle if gecerli else 0})
+         "geri": geri, "geri_cycle": cycle if gecerli else 0,
+         "gonderim_acik": gonderim_var() and _gonderilebilir(t, icerik),
+         "gonderim_hata": GONDERIM_HATALARI.get(hata),
+         "bugun": _dt.now().date().isoformat()})
+
+
+# ------------------------------------------------ başka merkeze taşınan tüp
+
+def gonderim_var() -> bool:
+    """`goc_051` çalıştı mı (v6.182). Göç yoksa düğme yok, ekranlar eski
+    haliyle çalışıyor (tuzak #3); cevap `db.kolon_var()`'da saklanıyor ve
+    geri yüklemeden sonra unutuluyor (tuzak #15)."""
+    return db.kolon_var("tasiyici", "gonderim_zamani")
+
+
+def _gonderilebilir(t, icerik) -> bool:
+    """Tüp başka merkeze taşındı diye işaretlenebilir mi: embriyo/yumurta
+    tüpü, içinde örnek var ve hâlâ dolu. Çözülmüş (boşaltılmış) tüp gitmiş
+    olamaz; sperm tüpünün kendi ekranı var."""
+    return (t["durum"] == "dolu" and t["kategori"] == "embriyo"
+            and bool(icerik))
+
+
+# Adresten gelen hata anahtarı beyaz listeden (tuzak #9).
+GONDERIM_HATALARI = {
+    "tarih_yok": "gonderim_tarih_yok",
+    "tarih_hatali": "gonderim_tarih_hatali",
+    "tarih_ileri": "gonderim_tarih_ileri",
+    "tarih_once": "gonderim_tarih_once",
+    "dolu_degil": "gonderim_dolu_degil",
+}
+
+
+def _konum_bosaldi_mi(b_konum_id, haric_tid):
+    """Konumda (goblet) başka dolu tüp kalmadıysa konum 'bos' (vit_sil'in
+    deseni, ama goblet birden çok tüp taşıyor -- hepsine bakıyor)."""
+    if not b_konum_id:
+        return
+    baska = db.tek("SELECT 1 FROM tasiyici WHERE konum_id=? AND durum='dolu' "
+                   "AND id<>? LIMIT 1", (b_konum_id, haric_tid))
+    if not baska:
+        db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (b_konum_id,))
+
+
+@uygulama.post("/cryo/tasiyici/{tasiyici_id}/gonder")
+async def tasiyici_gonder(request: Request, tasiyici_id: int):
+    """Tüpü "başka merkeze taşındı" diye işaretler (v6.182).
+
+    Kullanıcının bilgisi: hastalar embriyolarını bazen başka bir tüp bebek
+    ünitesine taşıtıyor. Tüp "dolu" kalınca Cryo Haritası'nda konumsuz
+    görünüyor, sonraki formların "Kalan dondurulmuş" satırına giriyordu.
+    Kayıt silinmiyor, örneklerin durumu değişmiyor -- yalnızca tüpün
+    durumu ve gönderimin günü/yeri. Geri alınabiliyor
+    (`tasiyici_gonderimi_geri_al()`).
+
+    Gün ölçüsü: formların "Kalan dondurulmuş"u o günün tankını söylüyor;
+    gönderimden önceki bir işlemin formunda tüp hâlâ kalan sayılıyor.
+    Gün tüpün dondurulmasından önce ve bugünden sonra olamaz: yapılmış bir
+    işin kaydı.
+    """
+    f = await request.form()
+    t = db.tek("SELECT * FROM tasiyici WHERE id=?", (tasiyici_id,))
+    if not t or not gonderim_var():
+        return RedirectResponse("/cryo", status_code=303)
+    donus = f"/cryo/tasiyici/{tasiyici_id}"
+    if not _gonderilebilir(t, tasiyici_icerigi(tasiyici_id)):
+        return RedirectResponse(donus + "?hata=dolu_degil", status_code=303)
+    gun = (f.get("gonderim_zamani") or "").strip()[:10]
+    try:
+        gun = yil_kontrol(bos_ise_none(gun))
+        if gun:
+            _dt.fromisoformat(gun)
+    except (FormHatasi, ValueError):
+        return RedirectResponse(donus + "?hata=tarih_hatali", status_code=303)
+    if not gun:
+        return RedirectResponse(donus + "?hata=tarih_yok", status_code=303)
+    if gun > _dt.now().date().isoformat():
+        return RedirectResponse(donus + "?hata=tarih_ileri", status_code=303)
+    ilk = db.tek("SELECT MIN(zaman) z FROM olay WHERE vit_tasiyici_id=? "
+                 "AND tip='vitrifikasyon' AND iptal_mi=0", (tasiyici_id,))
+    if ilk and ilk["z"] and gun < ilk["z"][:10]:
+        return RedirectResponse(donus + "?hata=tarih_once", status_code=303)
+    yeni = {"durum": "gonderildi", "gonderim_zamani": gun,
+            "gonderim_yeri": bos_ise_none((f.get("gonderim_yeri") or "").strip()),
+            "gonderim_notu": bos_ise_none((f.get("gonderim_notu") or "").strip())}
+    db.yaz("UPDATE tasiyici SET durum=?, gonderim_zamani=?, gonderim_yeri=?, "
+           "gonderim_notu=? WHERE id=?",
+           (yeni["durum"], yeni["gonderim_zamani"], yeni["gonderim_yeri"],
+            yeni["gonderim_notu"], tasiyici_id))
+    guvenlik.degisiklikleri_yaz("tasiyici", tasiyici_id, t, yeni,
+                                request.state.kullanici["id"])
+    _konum_bosaldi_mi(t["konum_id"], tasiyici_id)
+    return RedirectResponse(donus, status_code=303)
+
+
+@uygulama.post("/cryo/tasiyici/{tasiyici_id}/gonderimi-geri-al")
+async def tasiyici_gonderimi_geri_al(request: Request, tasiyici_id: int):
+    """Gönderim işaretini kaldırır, tüp yeniden dolu (v6.182). Yanlış tüp
+    işaretlendiyse. Rota adı `geri-al` ile bitmiyor: o ad "silme" modülüne
+    düşer (`yol_modulu()`), bu bir cryo işi."""
+    t = db.tek("SELECT * FROM tasiyici WHERE id=?", (tasiyici_id,))
+    if not t or not gonderim_var():
+        return RedirectResponse("/cryo", status_code=303)
+    if t["durum"] == "gonderildi":
+        yeni = {"durum": "dolu", "gonderim_zamani": None, "gonderim_yeri": None,
+                "gonderim_notu": None}
+        db.yaz("UPDATE tasiyici SET durum='dolu', gonderim_zamani=NULL, "
+               "gonderim_yeri=NULL, gonderim_notu=NULL WHERE id=?", (tasiyici_id,))
+        guvenlik.degisiklikleri_yaz("tasiyici", tasiyici_id, t, yeni,
+                                    request.state.kullanici["id"])
+        if t["konum_id"]:
+            db.yaz("UPDATE konum SET durum='dolu' WHERE id=?", (t["konum_id"],))
+    return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
 
 def _vit_kaydi(specimen_id, cycle: int = 0):
@@ -7481,6 +7611,10 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
                "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
     if not t:
         return RedirectResponse("/cryo", status_code=303)
+    # Başka merkeze taşınan tüp burada çözülemez (v6.182); önce gönderim
+    # geri alınır (tüpün sayfasında).
+    if t["durum"] == "gonderildi":
+        return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
     from datetime import datetime as _d
     icerik = tasiyici_icerigi(tasiyici_id)
@@ -7546,6 +7680,8 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     t = db.tek("SELECT * FROM tasiyici WHERE id=?", (tasiyici_id,))
     if not t:
         return RedirectResponse("/cryo", status_code=303)
+    if t["durum"] == "gonderildi":       # v6.182: sunucu da reddediyor
+        return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
     icerik = tasiyici_icerigi(tasiyici_id)
     if not icerik:
@@ -7699,6 +7835,9 @@ async def thaw_yeni_tedavi(request: Request, tasiyici_id: int):
     icerik = tasiyici_icerigi(tasiyici_id)
     hastalar = {r["hasta_id"] for r in icerik}
     tip = f.get("tip") or ""
+    t = db.tek("SELECT durum FROM tasiyici WHERE id=?", (tasiyici_id,))
+    if t and t["durum"] == "gonderildi":   # v6.182
+        return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
     if not icerik or len(hastalar) != 1 or not thaw_cycle_var() \
             or tip not in thaw_tedavi_tipleri(icerik):
         return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}/thaw",

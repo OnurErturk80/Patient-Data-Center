@@ -16,6 +16,7 @@
     <div class="no">{{ t.etiket }}
       {%- if t.durum == "bosaltildi" %} <span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>
       {%- elif t.durum == "kullanildi" %} <span class="rozet arsiv">{{ metin("tasiyici_kullanildi") }}</span>
+      {%- elif t.durum == "gonderildi" %} <span class="rozet arsiv">{{ metin("tasiyici_gonderildi") }}</span>
       {%- endif %}</div>
     <div class="meta">
       {% if t.ad_soyad %}{{ t.ad_soyad }}{% if t.dosya_no %} · {{ t.dosya_no }}{% endif %}

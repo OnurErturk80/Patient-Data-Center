@@ -517,6 +517,19 @@ açmaz. Eski dondurmayı çifte bağlamak: erkeğin kartında **Eşine bağla** 
 eşinin dosya numarası; sonra çiftin kartında "Eşin dondurulmuş spermi" →
 **Tedaviye bağla**.
 
+**Başka merkeze taşınan tüp (v6.182).** Program içinden: tüpün sayfası
+(Cryo Haritası'nda ya da arama kutusunda tüp etiketi) → **Başka merkeze
+taşındı olarak işaretle** → gün, nereye ("Memorial Hastanesi'ne" gibi,
+ekiyle), not. Geri almak da orada. Hangi tüplerin taşınmış olabileceğini
+görmek için (hiçbir şey yazmaz):
+
+```
+python3 cryo_esle.py eksik CRYO_HARITA.xlsx   # programda dolu, Excel'de olmayan tüpler
+```
+
+Liste `cryo_esle_rapor_eksik.txt`'de. "Adı farklı yazılmış" sınıfındakiler
+büyük olasılıkla tanktadır, onları işaretlemeyin.
+
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı
 klasöre. Etiketler ay + yıl (`OCAK2019` … `ARALIK2023`); 2020'nin mayısı

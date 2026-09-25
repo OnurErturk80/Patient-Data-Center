@@ -13759,6 +13759,83 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.182 — Başka merkeze taşınan tüp ve "Excel'de yok" aday listesi
+
+Kullanıcının bilgisi (2026-09-25): "Tedavide embriyosu var gözüküp ama cryo
+haritada embriyo gözükmüyorsa bazen hastalar embriyolarını başka tüp bebek
+ünitesine taşıma yapabiliyor." İki şey önerildi, "İkisini de yap" dedi;
+notun biçimi de onun: "1 tüp 12.03.2025 tarihinde şuraya taşındı".
+
+Programda bir tüp yalnızca dolu / boşaltıldı (çözüldü) / kullanıldı (sperm)
+olabiliyordu. Başka merkeze giden tüp "dolu" kalıyor: Cryo Haritası'nda
+duruyor, sonraki formların "Kalan dondurulmuş" satırına giriyordu -- v6.181'in
+bildirilen hatasının aynı görünümü, sebebi başka. Access notlarında dışarıya
+gönderim hiç yazılmamış (içeriye gelen var: "ÖZELDEN TAŞINDI"), yani program
+bu tüpleri kendisi bulamaz; bilgi kullanıcıda ya da Cryo Excel'inde (satırın
+olmaması).
+
+**1. Taşıyıcı sayfasında "Başka merkeze taşındı olarak işaretle"**
+(`goc_051`: `tasiyici.gonderim_zamani` / `gonderim_yeri` / `gonderim_notu`,
+`durum='gonderildi'` -- kolon serbest metin, CHECK yok).
+- Açılır kutuda gün (zorunlu), nereye, not + tarayıcı onayı. Gün tüpün
+  dondurulmasından önce ve bugünden sonra olamaz (yapılmış bir işin kaydı);
+  yıl kontrolü `yil_kontrol()`. Hatalar `?hata=` ile, beyaz liste
+  `GONDERIM_HATALARI` (tuzak #9).
+- **Kayıt silinmiyor, örneklerin durumu değişmiyor** -- yalnızca tüpün.
+  "Taşındı işaretini kaldır" geri alıyor (rota `gonderimi-geri-al`:
+  `geri-al` ile bitseydi `yol_modulu()` onu "silme" modülüne bağlardı;
+  izin `cryo`). İkisi de `degisiklik_log`'a düşüyor.
+- Taşınan tüp: Cryo Haritası'ndan çıkıyor (zaten `durum='dolu'` süzüyordu),
+  çözülemiyor (çözme ekranı, çözme kaydı ve "yeni tedavi aç" sunucuda
+  reddediyor), `bagla` onu aday saymıyor (dolu tüplere bakıyor), etiket
+  aramasında "başka merkeze taşındı" rozetiyle bulunuyor, hasta kartında
+  ayrı bir "Başka merkeze taşınan tüpler" kartında (tüpün sayfasına -- ve
+  geri almaya -- oradan gidiliyor), Cryo Excel dökümünün "Dolapta"sı
+  "Taşındı".
+- **Yer kullanıcının yazdığı gibi**, ekiyle ("Memorial Hastanesi'ne"): not
+  "... 12.03.2025 tarihinde Memorial Hastanesi'ne taşındı." Program Türkçe
+  ek uydurmuyor (ünlü uyumu, kaynaştırma, kesme işareti -- özel adda yanlış
+  ek resmî forma yanlış yazı demek); yazılmamışsa "başka merkeze".
+
+**Resmî form (Embriyoloji Özet) NOTLAR'ı:**
+
+    Taşınan: 2 embriyo, 1 tüp: (3AB-1BB) 01.03.2025 tarihinde Memorial
+    Hastanesi'ne taşındı.
+
+- Tüpün **dondurulduğu tedavinin** formunda, "Dondurulan:" satırının hemen
+  altında (`formlar.tasinan_notu()`, içerik `tup_metni()`'nin yazımıyla).
+- **"Kalan dondurulmuş" o günün tankını söylüyor** (v6.152'nin kuralı):
+  tedavinin son işleminden ÖNCE (ya da aynı gün) taşınan tüp kalan
+  sayılmıyor ve çözme satırlarının altında "Taşınan: ..." yazıyor; SONRA
+  taşınan tüp o formda hâlâ kalan -- o gün tanktaydı. Gün bilinmiyorsa
+  kullanıcı yaklaşığını yazar; ölçü bu gün.
+- ART Lab'ın kutuları değişmedi.
+
+**2. `cryo_esle.py eksik` -- programda dolu, Excel'de karşılığı olmayan
+tüpler.** Hiçbir şey yazmıyor; `cryo_esle_rapor_eksik.txt` (hasta adı
+içerir, `.gitignore`). Excel'in hiçbir satırının almadığı dolu embriyo/
+yumurta tüpleri, dört sınıf:
+- **Adı farklı yazılmış**: Excel'de aynı gün, aynı içerikli ama hastaya
+  atanamamış satır var (ad tutmuyor ya da aynı adlı birden çok hasta).
+  Test kopyasında 117 tüp; örnekler I/İ farkı ve soyadın bir harfi -- tüp
+  büyük olasılıkla tankta. Bunlar taşınmış sayılmamalı.
+- **Hastanın Excel'de hiç satırı yok**: taşınmış, çözülmüş ama programa
+  yazılmamış ya da Excel'de eksik (test kopyasında 540).
+- Aynı adlı hasta, satır atanamadı (8).
+- **Hastanın satırı var ama bu tüple eşleşmedi**: önce Excel satırına bakmak
+  gerek -- tarih/içerik yazımı tutmuyor olabilir; raporda o hastanın
+  eşleşmeyen satırları yazıyor (439).
+Her satırda hastanın tüpüne bağlanmamış aktarılmış FET'i varsa günü de
+yazıyor: öyle bir tüp aslında çözülmüş olabilir. Excel'in son tarihinden
+sonra dondurulan tüpler sayılıyor, listelenmiyor. Taşınanı kullanıcı tüpün
+sayfasından işaretliyor; araç kimseyi "taşındı" diye işaretlemez.
+
+Denendi (test kopyası): göç iki kez, eksik kipi 1,3 sn; bir tüp FET'ten
+sonra / önce taşınınca FET formunun "Kalan"ı ve kaynak tedavinin "Taşınan"ı
+beklenen gibi; geri alma, çözme engeli, ileri/eski/bozuk tarih, hatalı
+`?hata=`, hasta kartı, etiket araması, Excel dökümü; telefon ve masaüstünde
+yatay kayma yok.
+
 # v6.181 — FET'in tüpüne bağlanması: cleavage derecesi çözmeden sonra değişebilir
 
 Kullanıcının bildirdiği hata (2026-09-25): bir hastanın Eylül 2025 FET'inin

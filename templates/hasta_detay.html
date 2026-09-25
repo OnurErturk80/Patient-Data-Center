@@ -199,6 +199,23 @@
   {% endfor %}
 </div>
 
+{# Başka merkeze taşınan tüpler (v6.182): Cryo Haritası'nda artık yoklar;
+   tüpün sayfası (ve gönderimi geri alma) buradan bulunuyor. #}
+{% if tasinan %}
+<div class="kart">
+  <h2>{{ metin("tasinan_tupler") }}</h2>
+  {% for t in tasinan %}
+  <a class="satir" href="/cryo/tasiyici/{{ t.id }}">
+    <div class="no">{{ t.etiket }}</div>
+    <div class="meta">{{ icerik_sayisi(t.adet, icerik=t.icerik) }} · {{ t.cycle_no }}</div>
+    <div class="meta">{{ metin("gonderim_cumlesi").format(
+         tarih=gg_aa_yyyy(t.gonderim_zamani) if t.gonderim_zamani else "—",
+         yer=t.gonderim_yeri or metin("gonderim_baska_merkeze")) }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if hasta.notlar %}
 <div class="kart">
   <h2>{{ metin("not") }}</h2>

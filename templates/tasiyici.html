@@ -7,11 +7,36 @@
   <div class="dosya">{{ t.etiket }}</div>
   <div class="alt">
     {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
-    {% if t.durum != "dolu" %}<span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>{% endif %}
+    {% if t.durum == "gonderildi" %}<span class="rozet arsiv">{{ metin("tasiyici_gonderildi") }}</span>
+    {%- elif t.durum != "dolu" %}<span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>{% endif %}
   </div>
 </div>
 {% endblock %}
 {% block icerik %}
+
+{% if gonderim_hata %}<div class="tehlike">{{ metin(gonderim_hata) }}</div>{% endif %}
+
+{# Başka merkeze taşınan tüp (v6.182): tüp gitti, kayıt duruyor. #}
+{% if t.durum == "gonderildi" %}
+<div class="kart">
+  <h2>{{ metin("gonderim_baslik") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("gonderim_tarihi") }}</dt>
+      <dd>{{ gg_aa_yyyy(t.gonderim_zamani) if t.gonderim_zamani else "—" }}</dd></div>
+    <div class="veri"><dt>{{ metin("gonderim_yeri") }}</dt>
+      <dd {% if not t.gonderim_yeri %}class="yok"{% endif %}>{{ t.gonderim_yeri or metin("girilmemis") }}</dd></div>
+    {% if t.gonderim_notu %}
+    <div class="veri"><dt>{{ metin("gonderim_notu") }}</dt><dd>{{ t.gonderim_notu }}</dd></div>
+    {% endif %}
+  </dl>
+</div>
+{% if yetkim("cryo") %}
+<form method="post" action="/cryo/tasiyici/{{ t.id }}/gonderimi-geri-al"
+      onsubmit="return confirm({{ metin('gonderimi_geri_al_onay')|tojson }})">
+  <button class="dugme ikincil" type="submit">{{ metin("gonderimi_geri_al") }}</button>
+</form>
+{% endif %}
+{% endif %}
 
 <div class="kart">
   <dl style="margin:0">
@@ -35,7 +60,7 @@
 </div>
 {% endif %}
 
-{% if icerik|length > 1 %}
+{% if icerik|length > 1 and t.durum == "dolu" %}
 <div class="uyari">
   {{ metin("tasiyicida_n_yumurta" if icerik[0].icerik == 'yumurta'
            else "tasiyicida_n_embriyo").format(n=icerik|length) }}
@@ -70,6 +95,24 @@
 </div>
 {% if t.durum == 'dolu' and icerik %}
 {% if yetkim("thaw") %}<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw">{{ metin("bu_tasiyiciyi_coz") }}</a>{% endif %}
+{% endif %}
+{% if gonderim_acik and yetkim("cryo") %}
+<details class="kart yardim" style="padding:0 14px 14px" {% if gonderim_hata %}open{% endif %}>
+  <summary>{{ metin("gonderim_ac") }}</summary>
+  <div class="ipucu" style="margin:0 0 6px">{{ metin("gonderim_ipucu") }}</div>
+  <form method="post" action="/cryo/tasiyici/{{ t.id }}/gonder"
+        onsubmit="return confirm({{ metin('gonderim_onay')|tojson }})">
+    <div class="alan"><label for="gonderim_zamani">{{ metin("gonderim_tarihi") }}</label>
+      <input type="date" id="gonderim_zamani" name="gonderim_zamani" min="1900-01-01"
+             value="{{ bugun }}" required></div>
+    <div class="alan"><label for="gonderim_yeri">{{ metin("gonderim_yeri") }}</label>
+      <input type="text" id="gonderim_yeri" name="gonderim_yeri"
+             placeholder="{{ metin('gonderim_yeri_ornek') }}"></div>
+    <div class="alan"><label for="gonderim_notu">{{ metin("gonderim_notu") }}</label>
+      <input type="text" id="gonderim_notu" name="gonderim_notu"></div>
+    <button class="dugme" type="submit">{{ metin("gonderim_kaydet") }}</button>
+  </form>
+</details>
 {% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 

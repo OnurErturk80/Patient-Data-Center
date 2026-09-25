@@ -17,6 +17,9 @@ Kullanım (proje klasöründe):
                                                      # ("HASTA" onayıyla, v6.179)
     python3 cryo_esle.py sperm CRYO_HARITA.xlsx      # sperm satırlarını açar
                                                      # ("SPERM" onayıyla, v6.180)
+    python3 cryo_esle.py eksik CRYO_HARITA.xlsx      # programda dolu, Excel'de
+                                                     # olmayan tüpler -- yazmaz
+                                                     # (v6.182)
 
 İkisi de `cryo_esle_rapor.txt` dosyasına satır satır rapor yazar (hasta
 adı içerir -- depoya girmez, `.gitignore`). Terminale yalnızca sayılar.
@@ -326,7 +329,8 @@ SINIFLAR = [
     ("sayiyla", "İçerik tam okunamadı, sayı ve okunan kısmı tutuyor", True),
     ("ad_cok_gun_ayirdi", "Aynı adlı birden çok hasta; o gün tüpü olan tek -- o alındı", True),
     ("farkli_konum", "Tüpe daha önce BAŞKA bir konum yazılmış -- ezilmedi", False),
-    ("bosaltilmis", "Tüp programda boşaltılmış/kullanılmış görünüyor -- Excel tankta diyor", False),
+    ("bosaltilmis", "Tüp programda boşaltılmış/kullanılmış/başka merkeze taşınmış "
+                    "görünüyor -- Excel tankta diyor", False),
     ("es_tutmuyor", "Ad tutuyor, eş adı tutmuyor -- yazılmadı (tüp bulunduysa yazılı)", False),
     ("tutmuyor", "O gün tüp var ama içerik tutmuyor (ya da Excel'de tüpten çok satır)", False),
     ("cakisma", "İki Excel satırı aynı tüpü istiyor", False),
@@ -495,6 +499,7 @@ def esle(satirlar, idx, tup) -> list:
             continue
         hid, dosya, bayrak, ek = _hasta_bul(s, idx, tup)
         s["dosya_no"] = dosya
+        s["hid"] = hid                  # `eksik` kipi için (v6.182)
         if hid is None:
             sonuc.append((s, bayrak, None, ek))
             continue
@@ -1204,6 +1209,139 @@ def sperm_raporu(sonuc, kisiler, b):
     return sayac
 
 
+# ------------------------------------------- programda dolu, Excel'de yok
+
+EKSIK_RAPOR = Path("cryo_esle_rapor_eksik.txt")
+EKSIK_SINIFLARI = [
+    ("ad_farkli", "Excel'de aynı gün, aynı içerikli ama adı programdakiyle tutmayan "
+                  "satır var -- büyük olasılıkla ad farklı yazılmış, tüp tankta"),
+    ("excel_yok", "Hastanın Excel'de HİÇ satırı yok -- başka merkeze taşınmış, "
+                  "çözülmüş ama programa yazılmamış ya da Excel'de eksik olabilir"),
+    ("ayni_ad", "Excel'de aynı adlı birden çok hasta var, satır hastaya atanamadı"),
+    ("satiri_var", "Hastanın Excel'de satırı var ama bu tüple eşleşmedi "
+                   "(tarih/içerik tutmuyor olabilir -- önce Excel satırına bakın)"),
+]
+
+
+def _bagsiz_fetler(b) -> dict:
+    """{hasta id: [çözme günü, ...]} -- aktarılmış ama tüpüne bağlanmamış FET
+    (embriyoları FET'in kendi altında duruyor, v6.130). Böyle bir hastanın
+    'dolu' tüpü aslında çözülmüş olabilir."""
+    sonuc = collections.defaultdict(list)
+    yer = ",".join("?" * len(_db.FET_TIPLERI))
+    for r in b.execute(
+            "SELECT c.hasta_id, (SELECT substr(MIN(o.zaman),1,10) FROM olay o "
+            "JOIN specimen s ON s.id=o.specimen_id WHERE s.cycle_id=c.id "
+            "AND o.iptal_mi=0 AND o.tip IN ('thaw','transfer')) gun FROM cycle c "
+            f"WHERE c.lab_id=? AND c.cycle_tipi IN ({yer}) "
+            "AND c.protokol_notu LIKE '%[Access kaydı%' "
+            "AND EXISTS (SELECT 1 FROM specimen s WHERE s.cycle_id=c.id)",
+            (_db.LAB_ID, *_db.FET_TIPLERI)):
+        sonuc[r["hasta_id"]].append(r["gun"] or "?")
+    return sonuc
+
+
+def eksik_plani(sonuc, satirlar, idx, tup, b):
+    """Programda DOLU olup Excel'in hiçbir satırının almadığı embriyo/yumurta
+    tüpleri (v6.182, kullanıcının bilgisi: hastalar embriyolarını bazen başka
+    bir tüp bebek ünitesine taşıtıyor). **Hiçbir şey yazmaz**: liste
+    kullanıcının incelemesi için; taşınanı tüpün sayfasından kendisi
+    işaretler. Excel'in son tarihinden sonra dondurulan tüpler sayılıyor,
+    listelenmiyor (Excel o günü henüz görmedi).
+
+    -> (sınıf -> [(hasta id, tüp, ek not)], Excel'den yeni tüp sayısı, son gün)
+    """
+    alinan = {t["tid"] for _s, _k, t, _e in sonuc if t}
+    gunler = [s["tarih"] for s in satirlar if s["kategori"] != "sperm" and s["tarih"]]
+    excel_son = max(gunler) if gunler else "9999"
+    hasta_satiri = collections.defaultdict(list)
+    for s_, k, t, _e in sonuc:
+        if s_.get("hid"):
+            hasta_satiri[s_["hid"]].append((s_, k))
+    belirsiz = set()
+    for s_, k, _t, _e in sonuc:
+        if k == "hasta_cok":
+            ad = cryo_excel.kelimeler((s_["soyad"] or "") + " " + (s_["ad"] or ""))
+            belirsiz.update(a[0] for a in idx.get(ad, []))
+    # Hastaya atanamayan Excel satırları, güne göre: adı farklı yazılmış
+    # olabilir -- aynı gün aynı içerik güçlü bir iz.
+    sahipsiz = collections.defaultdict(list)
+    for s_, k, _t, _e in sonuc:
+        if k in ("hasta_yok", "hasta_cok") and s_["tarih"]:
+            sahipsiz[s_["tarih"]].append(s_)
+    fet = _bagsiz_fetler(b)
+    plan = collections.defaultdict(list)
+    yeni = 0
+    for hid, tuplar in tup.items():
+        for t in tuplar:
+            if t["durum"] != "dolu" or t["tid"] in alinan:
+                continue
+            if (t["gun"] or "") > excel_son:
+                yeni += 1
+                continue
+            notlar = []
+            if fet.get(hid):
+                notlar.append("tüpüne bağlanmamış aktarılmış FET: "
+                              + ", ".join(sorted(fet[hid])))
+            benzer = [x for x in sahipsiz.get(t["gun"], [])
+                      if any(_uyar(ic, t["skorlar"])
+                             for ic in (excel_icerik(x["icerik"]) or []))]
+            if benzer and not hasta_satiri.get(hid):
+                notlar.insert(0, "Excel: " + " ; ".join(
+                    f'{x["soyad"] or ""} {x["ad"] or ""} (eşi {x["es_adi"] or "?"}) '
+                    f'{_yer(x)} {x["icerik"]}' for x in benzer))
+                plan["ad_farkli"].append((hid, t, " | ".join(notlar)))
+                continue
+            if hasta_satiri.get(hid):
+                es = [f'{_yer(x)} {x["tarih"] or "tarih?"} {x["icerik"]} [{k}]'
+                      for x, k in hasta_satiri[hid] if k not in YAZILIR | {"zaten"}]
+                if es:
+                    notlar.append("eşleşmeyen Excel satırları: " + " ; ".join(es))
+                plan["satiri_var"].append((hid, t, " | ".join(notlar)))
+            elif hid in belirsiz:
+                plan["ayni_ad"].append((hid, t, " | ".join(notlar)))
+            else:
+                plan["excel_yok"].append((hid, t, " | ".join(notlar)))
+    return plan, yeni, excel_son
+
+
+def eksik_raporu(plan, yeni, excel_son, b):
+    kim = {r["id"]: r for r in b.execute(
+        "SELECT id, dosya_no, ad_soyad FROM hasta WHERE lab_id=?", (_db.LAB_ID,))}
+    satirlar = [f"PROGRAMDA DOLU, CRYO EXCEL'İNDE KARŞILIĞI OLMAYAN TÜPLER -- "
+                f"{_dt.datetime.now().isoformat(' ', 'seconds')}",
+                "Bu liste hiçbir şeyi değiştirmez. Başka merkeze taşınan tüpü "
+                "programda tüpün sayfasından işaretleyin",
+                "(arama kutusuna tüp etiketini yazın -> tüp -> \"Başka merkeze "
+                "taşındı olarak işaretle\").",
+                f"Excel'in son tarihi {excel_son}; ondan sonra dondurulan {yeni} "
+                "tüp listelenmedi.", ""]
+    for kod, baslik in EKSIK_SINIFLARI:
+        liste = sorted(plan.get(kod, []), key=lambda x: (x[1]["gun"] or "", x[1]["etiket"]))
+        satirlar.append(f"== {baslik}: {len(liste)}")
+        for hid, t, ek in liste:
+            h = kim.get(hid)
+            konum = t["tam_yol"] or "konum yok"
+            satirlar.append(
+                f'   {h["dosya_no"] if h else "?"} | {h["ad_soyad"] if h else "?"} | '
+                f'tüp {t["etiket"]} | {t["gun"]} | [{"-".join(t["skorlar"])}] | {konum}'
+                + (f"  | {ek}" if ek else ""))
+        satirlar.append("")
+    EKSIK_RAPOR.write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+
+
+def _eksik_kipi(sonuc, satirlar, idx, tup):
+    with _db.baglan() as b:
+        plan, yeni, excel_son = eksik_plani(sonuc, satirlar, idx, tup, b)
+        eksik_raporu(plan, yeni, excel_son, b)
+    print("Programda dolu, Excel'de karşılığı olmayan tüpler (hiçbir şey yazılmadı):")
+    for kod, baslik in EKSIK_SINIFLARI:
+        print(f"  {len(plan.get(kod, [])):5}  {baslik}")
+    print(f"  {yeni:5}  Excel'in son tarihinden ({excel_son}) sonra dondurulmuş -- "
+          "listelenmedi")
+    print(f"Ayrıntı: {EKSIK_RAPOR}")
+
+
 def _sperm_kipi(satirlar):
     with _db.baglan() as b:
         sonuc, kisiler = sperm_plani(satirlar, b)
@@ -1238,7 +1376,8 @@ def _sperm_kipi(satirlar):
 # ------------------------------------------------------------------- main
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta", "sperm"):
+    if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta", "sperm",
+                                                 "eksik"):
         sys.exit(__doc__)
     kip, dosya = sys.argv[1], Path(sys.argv[2])
     if not dosya.is_file():
@@ -1260,6 +1399,8 @@ def main():
     sonuc = esle(cozum["satirlar"], idx, tup)
     if kip == "yeni_hasta":
         return _yeni_hasta_kipi(sonuc)
+    if kip == "eksik":
+        return _eksik_kipi(sonuc, cozum["satirlar"], idx, tup)
     sayac, sperm = rapor_yaz(sonuc, cozum["satirlar"], cozum["uyarilar"], kip)
     yazilacak = ozet_bas(sayac, sperm, len(cozum["satirlar"]))
     if kip == "liste":
