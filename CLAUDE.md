@@ -2243,7 +2243,9 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     hücre sayısını istiyor (6HG2 tüpü 6HG3 transferiyle tutar), blastokist
     skoru birebir kalıyor; birebir tutan küme önce (`tam()`). Kaliteyi
     tümden yok saymak (3BB→4AA gibi) seçeneği sunuldu, seçilmedi -- sorma-
-    dan genişletme. Bağlanmamış FET'in tüpü "dolu" kalır ve sonraki FET'in
+    dan genişletme. **Blastokistte genişleme sayısı** (v6.183, kullanıcının
+    kararı: "Genişleme aynıysa bağla"): 2CC tüpü 2BB transferiyle tutar,
+    ICM/TE farklı olabilir; genişleme farklıysa tutmaz. Bağlanmamış FET'in tüpü "dolu" kalır ve sonraki FET'in
     formunda "Kalan dondurulmuş"a girer (bildirilen hata buydu).
   - **Bağlı olanı yeniden sına, çözme**: `_baglantilari_yeniden_sina()`
     bağlı FET'lere bugünkü tüplerle bakıyor; başka tüp de tutuyorsa "Bağlı

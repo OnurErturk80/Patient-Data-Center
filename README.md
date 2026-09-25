@@ -13759,6 +13759,40 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.183 — FET'in tüpüne bağlanması: blastokistte genişleme sayısı yeter
+
+Kullanıcının bildirdiği (2026-09-25): bir hastanın en son tedavisinden sonra
+dondurulmuş embriyosu kalmamış olmalıydı, ama formda kalan embriyo
+yazıyordu. Eylül 2024'te iki tüp dondurulmuş: (3AA) ve (2BC-2CC). Ocak 2025
+FET'i 3AA tüpünü çözmüş (bağlı). Mayıs 2025 FET'inde iki embriyo transfer
+edilmiş, Access'e "2BB" ve "2BC" yazılmış: çözmeden sonra yeniden
+değerlendirilen 2CC, 2BB olmuş. `_uyumlu()` blastokist skorunu birebir
+istiyordu; `bagla` "dolu tüpler tutmuyor -- elle bakılmalı" dedi, tüp "dolu"
+kaldı. Cryo Haritası'nda ve sonraki formların "Kalan dondurulmuş"unda
+görünüyordu (v6.181'in bildirilen hatasının blastokist hali).
+
+Kullanıcıya üç seçenek soruldu (genişleme aynıysa bağla / blastokistse bağla /
+kural kalsın, elle bağla); cevabı **"Genişleme aynıysa bağla"**:
+
+- **Blastokistte genişleme sayısı tutmalı, ICM/TE farklı olabilir**: 2CC
+  tüpü 2BB transferiyle tutar, 3BB tüpü 4AA transferiyle tutmaz.
+- Kavitasyon/morula ve evre kuralı değişmedi (erken evredeki tüp kültürde
+  ilerlemiş olabilir, geri gidemez). Cleavage'da v6.181'in kuralı: hücre
+  sayısı.
+- **Birebir tutan küme yine önce** (`tam()`); birden çok tüp yalnızca
+  ICM/TE farkıyla tutuyorsa belirsiz, bağlanmaz. Bağlı olanlar aynı kuralla
+  yeniden sınanıyor, bağ çözülmüyor.
+
+Ölçüldü (test kopyası, v6.181'in `bagla`'sından sonra): 73 "tutmuyor"
+FET'in 17'si bu kuralla bağlandı; kaliteyi tümden yok saymak yalnızca 1 FET
+daha ekliyordu -- kalanların sebebi başka (sayı tutmuyor, ay aktarılmamış).
+Bildirilen hastanın Mayıs FET'i tüpüne bağlandı, tüp boşaltıldı, formu
+"Kalan dondurulmuş embriyo yok" diyor. Access notunun kendi "GERİYE 1 TÜPTE
+2 ADET EMBRİYOSU KALDI" cümlesi kaynağın yazısı, olduğu gibi basılıyor.
+
+Kullanıcının yapacağı: `git pull origin main`, `python3 aktar_access.py
+bagla`.
+
 # v6.182 — Başka merkeze taşınan tüp ve "Excel'de yok" aday listesi
 
 Kullanıcının bilgisi (2026-09-25): "Tedavide embriyosu var gözüküp ama cryo
