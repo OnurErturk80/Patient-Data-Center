@@ -2013,8 +2013,10 @@ besleniyor.
   (kullanıcı, 2026-09-25). Tarih tutmazsa `_excel_opu()` (TARİH − gün,
   yumurtada 0) tedavinin OPU'suyla karşılaştırılıyor (v6.177, sınıf
   `opu_gunu`); içerik yine birebir. Serbest bir ±N gün toleransı YOK.
-  Açık: yumurtalar Excel'de OPU + 1 (ertesi gün mü dondurulur?) ve FET'te
-  yeniden dondurulan tüpler (OPU yok) 1–3 gün kayık -- kullanıcıya soruldu.
+  v6.178 (`_TARIH_OLCULERI`, kullanıcının cevapları): yumurta OPU günü
+  dondurulur -> yumurta tüpüyle bir gün kayık yumurta satırı aynı dondurma
+  (`yumurta_bir_gun`); FET'te refreeze çözme günü ya da kültürden/transferden
+  sonra -> Excel çözmeden 1–3 gün sonra olabilir (`refreeze_gunu`).
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği; `eski_cryo_temizle.py`'yi çalıştırıp çalıştırmadığı; Excel
   VİAL sütunundaki renk+sıra ("CRYOLOCKMAVİ 2") ile tüp sırasının ilişkisi;

@@ -212,7 +212,7 @@ def tupler(b) -> dict:
     sonuc = collections.defaultdict(list)
     q = ("SELECT h.id hid, t.id tid, t.etiket, t.durum, t.tip, t.renk, t.konum_id, "
          "k.tam_yol, substr(MIN(o.zaman),1,10) gun, GROUP_CONCAT(s.id) ornekler, "
-         "substr(MIN(vc.opu_zamani),1,10) opu "
+         "substr(MIN(vc.opu_zamani),1,10) opu, MIN(vc.cycle_tipi) vit_tipi "
          "FROM olay o JOIN specimen s ON s.id=o.specimen_id "
          "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
          f"LEFT JOIN cycle vc ON vc.id={_db.vit_tedavisi('o')} "
@@ -226,6 +226,7 @@ def tupler(b) -> dict:
             "tid": r["tid"], "etiket": r["etiket"], "durum": r["durum"],
             "tip": r["tip"], "renk": r["renk"], "konum_id": r["konum_id"],
             "tam_yol": r["tam_yol"], "gun": r["gun"], "opu": r["opu"],
+            "fet": r["vit_tipi"] in _db.FET_TIPLERI,
             "skorlar": skorlar})
     return sonuc
 
@@ -248,6 +249,10 @@ SINIFLAR = [
     ("cakisma", "İki Excel satırı aynı tüpü istiyor", False),
     ("opu_gunu", "Tarih programdakinden farklı; Excel'in günü OPU'dan sayılınca "
                  "(D5 = OPU + 5) aynı tedavi, içerik tutuyor", True),
+    ("yumurta_bir_gun", "Yumurta: Excel ile programın günü bir gün farklı (tek OPU, "
+                        "yumurta OPU günü dondurulur), içerik tutuyor", True),
+    ("refreeze_gunu", "FET'te yeniden dondurma: Excel'in günü çözmeden 1-3 gün sonra "
+                      "(kültür / transfer artığı), içerik tutuyor", True),
     ("gun_yok", "Hasta programda var, o gün dondurma tüpü yok", False),
     ("tup_yok", "Hasta programda var, hiç dondurma tüpü yok", False),
     ("hasta_cok", "Aynı adlı birden çok hasta, eş adı ve tarih ayırmıyor", False),
@@ -369,6 +374,34 @@ def _excel_opu(s):
         return None
 
 
+def _gun_farki(a, b) -> int:
+    return (_dt.date.fromisoformat(a) - _dt.date.fromisoformat(b)).days
+
+
+# Tarih tutmayan Excel satırı için sırayla denenen ölçüler (v6.177,
+# kullanıcının cevapları, 2026-09-25). Hepsinde hasta aynı, içerik birebir.
+# (ad, satırdan değer, tüp bu değere uyuyor mu)
+def _yumurta_satiri(s) -> bool:
+    ic = (s["icerik"] or "").upper()
+    return not _EXCEL_GUN.match(ic) and ("OOS" in ic or "M2" in ic or "MII" in ic)
+
+
+_TARIH_OLCULERI = [
+    # Excel'in günü OPU'dan: "D5" = OPU + 5.
+    ("opu", _excel_opu, lambda t, d: t["opu"] == d),
+    # Yumurta OPU günü dondurulur ("yumurta dondurma opu günü yapılıyor"),
+    # bir tedavide tek OPU var: yumurta tüpü (dondurma günü = OPU) ile bir
+    # gün kayık yumurta satırı aynı dondurma.
+    ("yumurta_bir_gun", lambda s: s["tarih"] if _yumurta_satiri(s) else None,
+     lambda t, d: t["opu"] and t["gun"] == t["opu"] and abs(_gun_farki(d, t["gun"])) == 1),
+    # FET'te yeniden dondurma çözme günü, kültürden sonra (3->5, 4->5) ya da
+    # transfer artığı olarak: program çözme gününü yazıyor, Excel 1-3 gün
+    # sonrasını.
+    ("refreeze_gunu", lambda s: s["tarih"],
+     lambda t, d: t["fet"] and 1 <= _gun_farki(d, t["gun"]) <= 3),
+]
+
+
 def esle(satirlar, idx, tup) -> list:
     """Excel satırları -> [(satır, sınıf, tüp|None, ek not)]"""
     sonuc = []
@@ -396,9 +429,11 @@ def esle(satirlar, idx, tup) -> list:
             # Tarih tutmuyor: programdaki dondurma günü Access notundan
             # (OPU + nottaki gün) kurulmuştu, gün yanlış okunmuş olabilir.
             # Excel'in kendi günüyle OPU'ya dönüp aynı tedaviyi ara (v6.177).
-            opu = _excel_opu(s)
-            if opu and any(t["opu"] == opu for t in hastanin):
-                anahtar = (hid, "opu", opu)
+            for ad, deger_al, uyar in _TARIH_OLCULERI:
+                d = deger_al(s)
+                if d and any(uyar(t, d) for t in hastanin):
+                    anahtar = (hid, ad, d)
+                    break
             else:
                 gunler = sorted({t["gun"] for t in hastanin})
                 sonuc.append((s, "gun_yok", None,
@@ -413,14 +448,17 @@ def esle(satirlar, idx, tup) -> list:
     kullanilan = {}
     # Önce günü tutanlar: OPU'dan bulunan satır, günü tutan satırın tüpünü
     # almasın.
-    for (hid, olcu, deger), istekler in sorted(gunluk.items(), key=lambda x: x[0][1] != "gun"):
+    sira = ["gun"] + [ad for ad, _, _ in _TARIH_OLCULERI]
+    uyarlar = {ad: u for ad, _, u in _TARIH_OLCULERI}
+    for (hid, olcu, deger), istekler in sorted(gunluk.items(), key=lambda x: sira.index(x[0][1])):
         if olcu == "gun":
             adaylar = [t for t in tup[hid] if t["gun"] == deger]
         else:
-            adaylar = [t for t in tup[hid] if t["opu"] == deger and t["tid"] not in kullanilan]
+            adaylar = [t for t in tup[hid]
+                       if uyarlar[olcu](t, deger) and t["tid"] not in kullanilan]
         for (s, ic), t, sinif in _dagit(istekler, adaylar):
-            if t is not None and olcu == "opu":
-                sinif = "opu_gunu"
+            if t is not None and olcu != "gun":
+                sinif = "opu_gunu" if olcu == "opu" else olcu
             bayrak, ek = bayraklar.get(id(s), (None, ""))
             if t is None:
                 sonuc.append((s, "es_tutmuyor" if bayrak == "es_tutmuyor" else sinif, None,

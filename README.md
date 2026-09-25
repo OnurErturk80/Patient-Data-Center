@@ -13759,6 +13759,31 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.178 — Cryo Excel'i: yumurta ve refreeze tarihleri
+
+v6.177'nin iki sorusuna kullanıcının cevabı (2026-09-25): "yumurta dondurma
+OPU günü yapılıyor. Refreezeler çözme günü tekrar dondurulabilir, 3'ten 5
+birkaç embriyo büyütülüp transfer sonrası kalan embriyolar tekrar
+dondurulabilir, veya 4. gün dondurulmuş embriyolar 5. güne büyütülebilir.
+Transfer fazlaları tekrar dondurulabilir."
+
+`_TARIH_OLCULERI`: tarih tutmayan satır için sırayla üç ölçü, hepsinde hasta
+aynı ve içerik birebir:
+1. `opu` (v6.177): TARİH − Excel'in günü = tedavinin OPU'su.
+2. `yumurta_bir_gun`: yumurta satırı ile yumurta tüpü (dondurma günü = OPU)
+   arasında bir gün fark. Bir tedavide tek OPU var, yumurta o gün
+   dondurulur; bir günlük kayma iki ayrı dondurma olamaz. Hangi tarihin
+   doğru olduğu (Access'in OPU'su mu, Excel mi) bilinmiyor, tarihe
+   dokunulmuyor -- yalnızca konum yazılıyor.
+3. `refreeze_gunu`: FET'te yeniden dondurulan tüp (dondurmanın tedavisi
+   `FET_TIPLERI`'nde): program çözme/transfer gününü yazıyor, Excel 1–3 gün
+   sonrasını (kültür 3→5, 4→5, transfer artığı). Excel'in günü programdan
+   ÖNCE olamaz.
+
+Serbest bir ±N gün toleransı yine yok. Deneme veritabanında 28 satır "o gün
+tüp yok"tan çıktı (15 `yumurta_bir_gun`, 9 `refreeze_gunu`, 3 eş adı
+tutmuyor, 1 içerik tutmuyor); başka hiçbir satır değişmedi.
+
 # v6.177 — Cryo Excel'i: tarih tutmayınca OPU gününden eşleştirme
 
 v6.176'daki soruya kullanıcının cevabı (2026-09-25): "Excel'de dondurma günü
