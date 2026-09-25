@@ -13848,7 +13848,10 @@ tablo karşılaştırmada yalnızca beklenen satırlar değişti. 21 ekran 200.
   doğruladı (2026-09-25): "MAYIS ayı doğru, 2 tüpte 3 D5 embriyo kaldı".
   Bağ olduğu gibi kalıyor; `bagla` onu "kesin değil" listesinde göstermeye
   devam eder (araç kullanıcının onayını saklamıyor).
-- HAZIRAN#37 (2026): haziran 2026 dosyası elimde değil, kullanıcıya soruldu.
+- HAZIRAN#37 (2026): haziran 2026 dosyası elimde değildi, karar
+  kullanıcının. Kendi makinesinde `tasi` ile 2022-0135'in üç tüpüne taşıdı
+  (5 embriyo); 2026-0507-1200 yeniden dolu. Bu, gerçek veride `tasi`'nin ilk
+  çalışması; çıktı denemeyle aynı biçimde.
 
 # v6.174 — Ağustos 2018 boş ay
 

@@ -53,7 +53,8 @@ Kullanıcı çalıştırdı; "kesin değil" listesindeki üç FET v6.175'i doğu
 KASIM2019#63'ün doğru tüpü Access notlarından belli, `tasi` komutları
 kullanıcıya verildi. MAYIS2025#25'in bağı doğru (kullanıcı, 2026-09-25:
 "doğru, 2 tüpte 3 D5 embriyo kaldı" -- `bagla` onu listelemeye devam eder,
-dokunulmaz); HAZIRAN#37 onun kararını bekliyor.
+dokunulmaz). HAZIRAN#37'yi kullanıcı 2026-09-25'te kendisi taşıdı
+(`tasi` → 2022-0135'in üç tüpü, 5 embriyo; 2026-0507-1200 yeniden dolu).
 Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 <gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
 edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
