@@ -3432,9 +3432,10 @@ def _aktarilmamis_aylar(b, bas, son) -> list:
 _AY_EN_AZ_TEDAVI = 10
 # Dosyası hiç olmayan ve gerçekten boş aylar (v6.172). Mayıs 2020: pandemi
 # kapanışı, kullanıcının cevabı (2026-09-24): "Mayıs 2020'de hiç kayıt yoksa
-# pandemi yüzünden yapılmamıştır." Buraya ay eklemek "o ayda dondurulmuş tüp
-# yok" demek -- kullanıcıya sormadan ekleme.
-_BOS_AYLAR = {"2020-05"}
+# pandemi yüzünden yapılmamıştır." Ağustos 2018 (v6.174): kullanıcının cevabı
+# (2026-09-25): "Ağustos 2018'de laboratuvarda hiç işlem yapılmadı." Buraya ay
+# eklemek "o ayda dondurulmuş tüp yok" demek -- kullanıcıya sormadan ekleme.
+_BOS_AYLAR = {"2018-08", "2020-05"}
 _AY_ONBELLEK = {"sayi": 0, "en_buyuk": 0, "aylar": {}}
 
 

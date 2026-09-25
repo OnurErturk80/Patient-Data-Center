@@ -13759,6 +13759,26 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.174 — Ağustos 2018 boş ay
+
+Kullanıcının cevabı (2026-09-25): "Ağustos 2018'de laboratuvarda hiç işlem
+yapılmadı." Ay, mayıs 2020 gibi `aktar_access._BOS_AYLAR`'a eklendi.
+
+**Neden önemli**: FET bağlama (`butun_fetleri_bagla()`, v6.164) tutan tüp ile
+çözme arasında aktarılmamış bir ay varsa bağlamayı erteliyor -- o ayda
+dondurulmuş başka bir tüp olabilir, soyağacı yanlış kurulmasın diye. Ağustos
+2018'in dosyası yoktu; ay "aktarılmamış" sayılıyor, 2018'in ilk yedi ayının
+tüplerini eylül 2018 ve sonrasında çözen FET'ler bekliyordu. Ay boş olduğu
+için bekleyecek bir şey yok.
+
+**Kullanıcının makinesinde bir kez**: `git pull origin main`, sonra
+`python3 aktar_access.py bagla` (dosyasız, bütün veritabanı; ~20 dk). Deneme
+kopyasında (2019–2023 + 2018 aktarılmış) ertelenenler 119'dan 57'ye indi,
+52 FET 2018'in tüplerine bağlandı. İkinci çalıştırma hiçbir şey değiştirmez.
+
+Başka değişiklik yok. `_BOS_AYLAR`'a ay eklemek "o ayda dondurulmuş tüp yok"
+demek; yalnızca kullanıcı söyleyince eklenir.
+
 # v6.173 — Cryo haritası Excel'i tüplere bağlanıyor; 2018 Access aktarımı
 
 İki iş, ikisi de kullanıcının isteğiyle (2026-09-24): "aktarım yapılırken
@@ -13938,7 +13958,7 @@ Son dosyanın bağlaması: 50 FET 2018'in tüplerine bağlandı, "tüpü program
 yok" 388'den 339'a indi. **Ağustos 2018 dosyası arşivde yok**: ay boşsa
 (mayıs 2020 gibi) `_BOS_AYLAR`'a eklenecek, değilse dosyası gelince
 aktarılacak -- kullanıcıya soruldu; o zamana kadar ağustosu aşan FET'ler
-"ertelendi". Cryo Excel'iyle eşleşme 1.977'den 2.040 satıra çıktı. Yeni
+"ertelendi" (cevap geldi, v6.174). Cryo Excel'iyle eşleşme 1.977'den 2.040 satıra çıktı. Yeni
 Yumurta Dondurma tedavisinin sayfaları ve iki formu 200; ART Lab'ın FREEZE
 kutuları "(3*MII) (2*MII) (2*MI-7*GV)".
 

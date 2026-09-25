@@ -45,7 +45,9 @@ kullanıcı `.rar` arşivleriyle verdi, `unrar` ile açıldı); kullanıcı
 uyarı). **2018** (11 ay, ağustos yok) v6.173'te hazırlandı (`kaynak=OCAK2018`
 … `ARALIK2018`); kullanıcı 2026-09-25'te kliniğin Windows makinesinde
 aktardı (918 tedavi, 0 hata, 11 uyarı -- deneme kopyasıyla birebir; dosya
-başına ~20 dk). Ağustos 2018 boş mu, dosyası mı eksik: soruldu, cevap yok.
+başına ~20 dk). **Ağustos 2018'de laboratuvarda hiç işlem yapılmadı**
+(kullanıcının cevabı, 2026-09-25) -- v6.174'te `_BOS_AYLAR`'a eklendi; bir
+kez `python3 aktar_access.py bagla` çalıştırması istendi (ertelenen ~52 FET).
 Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 <gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
 edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
@@ -2326,7 +2328,8 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     en çok düştüğü ay, `_etiket_aylari()`) kaç tedavisi olursa olsun
     aktarılmış sayılıyor (ağustos 2019: 4, nisan 2020: 1 kayıt). **Mayıs
     2020 dosyası yok, ay gerçekten boş** (pandemi; kullanıcının cevabı,
-    2026-09-24) -- `_BOS_AYLAR`. Buraya ay eklemek "o ayda tüp yok" demek,
+    2026-09-24) -- `_BOS_AYLAR`. **Ağustos 2018 de** (v6.174: "laboratuvarda
+    hiç işlem yapılmadı", 2026-09-25). Buraya ay eklemek "o ayda tüp yok" demek,
     kullanıcıya sormadan ekleme.
 - **v6.167 okumaları** (nisan–ağustos 2024):
   - Tip: protokolde yazım hatası ("OOSİT CRTYO", "CRRYO") da Yumurta
