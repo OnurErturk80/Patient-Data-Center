@@ -3244,7 +3244,14 @@ def _uyumlu(q, anahtar, sira) -> bool:
     """Transfer edilen embriyonun yazımı (q) tüpteki örnekle tutuyor mu?
     Aynı evrede skor aynı olmalı; tüpteki örnek daha erken evredeyse
     kültürde ilerlemiş olabilir (tutar); daha ileri evredeyse geri dönemez
-    (tutmaz). Skoru bilinmeyen taraf ("BB", tanınmayan yazım) sınırlamıyor."""
+    (tutmaz). Skoru bilinmeyen taraf ("BB", tanınmayan yazım) sınırlamıyor.
+
+    Cleavage'da yalnızca hücre sayısı tutmalı, derece (G) farklı olabilir
+    (v6.181, kullanıcının kararı): embriyo çözmeden sonra yeniden
+    değerlendiriliyor, 6HG2 dondurulan embriyo transferde 6HG3 yazılmış
+    olabilir. Blastokist skoru hâlâ birebir. Birebir tutan küme yine önce
+    gelir (`_bag_siniflari()`'nin `tam()`'ı): yalnızca derecesi farklı küme
+    ancak birebir tutan yoksa aday."""
     if q is None or sira is None:
         return True
     qs = _oge_sirasi(q)
@@ -3252,7 +3259,12 @@ def _uyumlu(q, anahtar, sira) -> bool:
         return True
     if sira != qs:
         return sira < qs
-    return _oge_anahtari(q) == anahtar
+    if _oge_anahtari(q) == anahtar:
+        return True
+    if q["tur"] == "cleavage" and anahtar:
+        m = re.match(r"\d+", anahtar)
+        return bool(m) and m.group(0) == str(q["hucre"])
+    return False
 
 
 def _eslestir(kaliteler, ornekler):

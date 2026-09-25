@@ -13759,6 +13759,42 @@ komşularına uymayan tarih kolay görünüyor.
 - **İkinci çalıştırma** (yeniden aktarım, `dondurma`, `bagla`) hiçbir
   tabloyu değiştirmedi.
 
+# v6.181 — FET'in tüpüne bağlanması: cleavage derecesi çözmeden sonra değişebilir
+
+Kullanıcının bildirdiği hata (2026-09-25): bir hastanın Eylül 2025 FET'inin
+formunda NOTLAR "Kalan dondurulmuş: 5 embriyo, 2 tüp" diyordu, Access notu
+"GERİYE 1 TÜPTE 2 ADET EMBRİYOSU KALDI". Fazla tüp, hastanın Ekim 2024'te
+dondurulan (8HG2-8HG2-6HG2) tüpüydü: Nisan 2025 FET'inde çözülmüş (3 çözülen,
+8HG2 + 6HG3 transfer, "GERİYE EMBRİYOSU KALMADI"), ama program FET'i o tüpe
+BAĞLAMAMIŞTI -- tüp "dolu" kaldı, sonraki bütün formlarda ve Cryo
+Haritası'nda kalan gibi göründü. Sebep `_uyumlu()`: transfer edilen
+embriyonun yazımı tüpteki örnekle birebir tutmalıydı; 6HG3 ile 6HG2 tutmadı,
+`bagla` "dolu tüpler tutmuyor -- elle bakılmalı" dedi.
+
+Embriyo çözmeden sonra yeniden değerlendiriliyor, yazılan kalite dondurmadaki
+kaliteden farklı olabiliyor. Test kopyasında bağlanamayan 94 FET'in çoğu
+böyle (6HG2→6HG3, 3BB-3BC→4BA-4AA, 4G2→8G2, 3CB→3BC). Kullanıcıya soruldu,
+üç seçenek (kaliteyi tümden yok say / yalnızca cleavage derecesi / hiç
+gevşetme); cevabı **"Yalnızca cleavage derecesi"**:
+
+- **Cleavage'da hücre sayısı tutmalı, derece (G) farklı olabilir**: 6HG2
+  tüpü 6HG3 transferiyle tutar, 8HG2 tüpü 6HG2 transferiyle tutmaz.
+- **Blastokist skoru hâlâ birebir** (genişleme, ICM, TE); evre kuralı
+  değişmedi (erken evredeki tüp kültürde ilerlemiş olabilir, geri gidemez).
+- **Birebir tutan küme yine önce**: `_bag_siniflari()`'nin `tam()` sayısı
+  derece farkını tam saymıyor, yani hastanın hem birebir hem yalnızca
+  derecesi farklı tutan tüpü varsa birebir olan seçilir; ikisi de yalnızca
+  derece farkıyla tutuyorsa BELİRSİZ, bağlanmaz. Var olan bağlar da aynı
+  kuralla yeniden sınanıyor (`_baglantilari_yeniden_sina()`), bağ çözülmüyor.
+
+Kod `_uyumlu()`'de, tek yer -- `_eslestir()`, `_kaynaga_bagla()`, `tasi`
+kipi ve yeniden sınama hep oradan geçiyor. Test kopyasında `bagla`: 13 FET
+yeni bağlandı (12'si derece farkı, 1'i zincirleme -- önce çözen FET tüpünü
+alınca sonraki FET'in belirsizliği kalktı: "önce çözen önce alır", v6.163);
+ikinci çalıştırma 0. Bildirilen hastada Nisan 2025 FET'i tüpe bağlandı, tüp
+boşaltıldı, formu "Kalan dondurulmuş embriyo yok" diyor; Eylül 2025'inki
+Access notuyla aynı tek tüpü söyleyecek.
+
 # v6.180 — Cryo Excel'inin sperm satırları ve Sperm Dondurma haritası
 
 Kullanıcının isteği (2026-09-25): "Excel'deki sperm sayfaları da programa

@@ -2223,6 +2223,13 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     olay günü DEĞİL (ekimin 5. gün dondurmaları kasıma düşer); eşik bir iki
     başıboş tedavinin boş bir ayı dolu göstermemesi için. "Tüpler tutmuyor"
     da arada boş ay varsa "elle bak" değil "ertelendi".
+  - **Cleavage derecesi çözmeden sonra değişebilir** (v6.181, kullanıcının
+    kararı: "Yalnızca cleavage derecesi"): `_uyumlu()` cleavage'da yalnızca
+    hücre sayısını istiyor (6HG2 tüpü 6HG3 transferiyle tutar), blastokist
+    skoru birebir kalıyor; birebir tutan küme önce (`tam()`). Kaliteyi
+    tümden yok saymak (3BB→4AA gibi) seçeneği sunuldu, seçilmedi -- sorma-
+    dan genişletme. Bağlanmamış FET'in tüpü "dolu" kalır ve sonraki FET'in
+    formunda "Kalan dondurulmuş"a girer (bildirilen hata buydu).
   - **Bağlı olanı yeniden sına, çözme**: `_baglantilari_yeniden_sina()`
     bağlı FET'lere bugünkü tüplerle bakıyor; başka tüp de tutuyorsa "Bağlı
     ama artık kesin değil" listesi. Bağ çözülmüyor (FET'in örnekleri silindi,
