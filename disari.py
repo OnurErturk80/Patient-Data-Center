@@ -579,8 +579,10 @@ def istatistikler(ay: str = "") -> dict:
         f"(SELECT c.id FROM cycle c WHERE {cycle_kosul})", (db.LAB_ID,))
 
     gebelik_var = _kolon_var("gebelik_sonucu", "klinik_gebelik")
+    # `evet` (gebelik ekranı) ya da `1` (ilk kayıtlar): v6.201'e kadar
+    # yalnızca `1` sayılıyordu (`db.klinik_gebelik_sql()`).
     gebelik = _tek(
-        "SELECT COUNT(*) n FROM gebelik_sonucu g WHERE g.klinik_gebelik = 1 "
+        f"SELECT COUNT(*) n FROM gebelik_sonucu g WHERE {db.klinik_gebelik_sql('g')} "
         f"AND g.cycle_id IN (SELECT c.id FROM cycle c WHERE {cycle_kosul})",
         (db.LAB_ID,)) if gebelik_var else 0
 
@@ -807,3 +809,228 @@ def istatistik_sayfalari(yil: int = 0):
     return [(f"{yil} aylara göre" if yil else "Aylara göre",
              ISTATISTIK_BASLIK, aylar),
             ("Genel", ["Ölçü", "Değer"], genel)]
+
+
+# --------------------------------------------------- Sağlık Bakanlığı (v6.201)
+
+# Bakanlığın ünite olarak her ay istediği sayılar, onun sütun adları ve
+# sırasıyla (kullanıcının gösterdiği form). IUI SAYISI ile EMBRİYO İMHA
+# SAYISI bilerek yok, kullanıcının isteği ("IUI sayısı ve İmha Sayısı
+# hariç"): programda tutulmuyorlar. Adlar bakanlığın formunun yazısı --
+# ekrandaki "tedavi"/"yumurta" kuralının (v6.79, v6.134) dışında, resmî
+# formların kâğıt kalıbı gibi olduğu gibi duruyor ("SİKLUS", "OOSİT").
+BAKANLIK_SUTUNLARI = [
+    ("opu", "OPU SAYISI"),
+    ("oosit", "DONDURULMUŞ OOSİT SAYISI"),
+    ("tese", "TESE SAYISI"),
+    ("sperm", "DONDURULMUŞ SPERM SAYISI"),
+    ("siklus", "SİKLUS SAYISI"),
+    ("transfer", "EMBRİYO TRANSFER SAYISI"),
+    ("gebelik", "GEBELİK SAYISI"),
+    ("dogum", "CANLI DOĞUM SAYISI"),
+    ("hasta", "TOTAL HASTA SAYISI"),
+]
+
+# Kullanıcı: "2026 yılından öncesi olmasın". Program öncesi kayıtlar 2018'e
+# kadar aktarıldı; bakanlığa verilen sayılar 2026'dan başlıyor.
+BAKANLIK_ILK_YIL = 2026
+
+# TESE SAYISI "bütün cerrahi alımlar" (kullanıcının seçimi): androlojide
+# alınma yönteminin kodu, sperm dondurmada serbest metin sebep (öneri
+# listesinde TESE, TESA, PESA var; "mikroTESE" de TESE'yi içeriyor).
+CERRAHI_ALIM_KODLARI = ("tese", "mikrotese", "tesa", "pesa", "mesa")
+CERRAHI_ALIM_SOZLERI = ("TESE", "TESA", "PESA", "MESA")
+
+
+def bakanlik_verileri(yil: int) -> dict:
+    """Sağlık Bakanlığı'nın aylık istediği sayılar, `yil`in ayları (v6.201).
+
+    Her açılışta kayıtlardan türetiliyor, saklanmıyor ("istatistikler
+    türetilmiştir", v6.38): sonradan düzeltilen bir kayıt geçmiş ayın
+    sayısını da düzeltir. Tanımlar kullanıcının cevapları (2026-09-26):
+
+    - OPU: OPU'su yapılan tedavi, OPU gününün ayına.
+    - DONDURULMUŞ OOSİT: yumurta dondurma İŞLEMİ -- o ay yumurtası
+      dondurulan tedavi (adet değil). Yumurta mı embriyo mu içerikten
+      (`db.dondurulan_yumurta_sql()`), dondurmanın yapıldığı tedavi
+      `db.vit_tedavisi()`.
+    - TESE: bütün cerrahi alımlar (TESE, mikroTESE, TESA, PESA, MESA);
+      androlojinin alınma yöntemi ve sperm dondurmanın sebebi, aynı kişi
+      aynı gün bir kez.
+    - DONDURULMUŞ SPERM: dondurma İŞLEMİ -- aynı kişinin aynı gün
+      dondurulan tüpleri bir.
+    - SİKLUS: bütün tedaviler (tipi ne olursa olsun, iptal edilen de),
+      tedavinin günüyle (`db.tedavi_tarihi()`: OPU, hCG, FET'te çözme ya da
+      transfer, planlanan tarih, açılış).
+    - EMBRİYO TRANSFER: transfer işlemi -- tedavi ve gün başına bir (taze ve
+      donmuş), transfer edilen embriyo sayısı değil.
+    - GEBELİK: klinik gebelik (`db.klinik_gebelik_sql()`), gebelik
+      ekranındaki kontrol zamanının ayına; kontrol zamanı yoksa sayılmıyor
+      (`eksik_gebelik` o tedavileri listeliyor).
+    - CANLI DOĞUM: sonucu canlı doğum olan gebelik, doğum zamanının ayına;
+      ikiz doğum bir (`eksik_dogum`: doğum zamanı girilmemiş olanlar).
+    - TOTAL HASTA: o ay yeni kaydedilen hasta. Ölçü hastanın İLK kaydı:
+      kartın açılışı, ilk tedavisi, ilk sperm dondurması -- hangisi önceyse.
+      Access'ten aktarılan hasta bu yüzden ilk tedavisinin ayında sayılıyor:
+      aylar karışık sırayla aktarıldığı için kartın açılış tarihi, sonradan
+      eklenen eski bir tedavinin gerisinde kalabiliyor (aktarım var olan
+      kartın tarihine dokunmuyor).
+
+    "Aynı kişi": erkeğin kendi kartı bir çiftin `es_dosya_no`'suyla o çifte
+    bağlıysa ikisi bir sayılıyor (dosya numarası tek eşleştirme anahtarı,
+    v6.125) -- aynı gün hem ICSI'de kullanılıp hem dondurulan TESE ikinci kez
+    sayılmasın diye. Cryo Haritası Excel'inden açılan program öncesi
+    tedaviler (`db.CRYO_EXCEL_ISARETI`) dışarıda, istatistiğin kuralı.
+    """
+    from collections import Counter
+    from datetime import date as _date
+
+    bas, son = f"{yil:04d}-01-01", f"{yil + 1:04d}-01-01"
+    cryo = (f"COALESCE(c.protokol_notu, '') "
+            f"NOT LIKE '%{db.CRYO_EXCEL_ISARETI}%'")
+    kg = db.klinik_gebelik_sql("g")
+    vt = db.vit_tedavisi("o")
+    sayilar = {}
+
+    b = db.baglan()
+    try:
+        def ay_say(sql, par):
+            return {r[0]: r[1] for r in b.execute(sql, par) if r[0]}
+
+        # Zamanlar ISO metin ("2026-03-04 10:15:00" ya da "...T10:15"): ay
+        # ilk yedi harf, aralık metin karşılaştırması -- dizin kullanılabilsin.
+        sayilar["opu"] = ay_say(
+            "SELECT substr(c.opu_zamani, 1, 7), COUNT(*) FROM cycle c "
+            f"WHERE c.lab_id = ? AND {cryo} AND c.opu_zamani >= ? "
+            "AND c.opu_zamani < ? GROUP BY 1", (db.LAB_ID, bas, son))
+
+        sayilar["oosit"] = ay_say(
+            f"SELECT substr(o.zaman, 1, 7), COUNT(DISTINCT {vt}) FROM olay o "
+            f"JOIN cycle c ON c.id = {vt} "
+            "WHERE o.lab_id = ? AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
+            f"AND o.zaman >= ? AND o.zaman < ? AND {cryo} "
+            f"AND {db.dondurulan_yumurta_sql('o')} = 1 GROUP BY 1",
+            (db.LAB_ID, bas, son))
+
+        # Erkeğin kartı -> bağlı olduğu çiftin kartı (`es_dosya_no`).
+        es_cift = {}
+        if db.kolon_var("hasta", "es_dosya_no"):
+            es_cift = {r[0]: r[1] for r in b.execute(
+                "SELECT e.id, MIN(h.id) FROM hasta h JOIN hasta e "
+                "ON e.lab_id = h.lab_id AND e.dosya_no = h.es_dosya_no "
+                "WHERE h.lab_id = ? GROUP BY e.id", (db.LAB_ID,))}
+        tese, sperm = set(), set()          # (ay, kişi, gün)
+        isaret = ",".join("?" * len(CERRAHI_ALIM_KODLARI))
+        for gun, hid in b.execute(
+                "SELECT substr(COALESCE(so.alinma_zamani, c.opu_zamani), 1, 10), "
+                "c.hasta_id FROM sperm_ornek so JOIN cycle c ON c.id = so.cycle_id "
+                f"WHERE c.lab_id = ? AND {cryo} AND so.alinma_yontemi IN ({isaret}) "
+                "AND COALESCE(so.alinma_zamani, c.opu_zamani) >= ? "
+                "AND COALESCE(so.alinma_zamani, c.opu_zamani) < ?",
+                (db.LAB_ID, *CERRAHI_ALIM_KODLARI, bas, son)):
+            tese.add((gun[:7], es_cift.get(hid, hid), gun))
+        for gun, hid, sebep in b.execute(
+                "SELECT substr(dondurma_zamani, 1, 10), hasta_id, sebep "
+                "FROM sperm_dondurma WHERE lab_id = ? AND iptal_mi = 0 "
+                "AND dondurma_zamani >= ? AND dondurma_zamani < ?",
+                (db.LAB_ID, bas, son)):
+            anahtar = (gun[:7], es_cift.get(hid, hid), gun)
+            sperm.add(anahtar)
+            if any(s in (sebep or "").upper() for s in CERRAHI_ALIM_SOZLERI):
+                tese.add(anahtar)
+        sayilar["tese"] = Counter(a for a, _k, _g in tese)
+        sayilar["sperm"] = Counter(a for a, _k, _g in sperm)
+
+        gun = db.tedavi_tarihi(b, "c")
+        sayilar["siklus"] = ay_say(
+            f"SELECT substr(t.g, 1, 7), COUNT(*) FROM (SELECT {gun} AS g "
+            f"FROM cycle c WHERE c.lab_id = ? AND {cryo}) t "
+            "WHERE t.g >= ? AND t.g < ? GROUP BY 1", (db.LAB_ID, bas, son))
+
+        sayilar["transfer"] = ay_say(
+            "SELECT substr(o.zaman, 1, 7), COUNT(DISTINCT "
+            "COALESCE(o.tr_cycle_id, s.cycle_id) || ' ' || substr(o.zaman, 1, 10)) "
+            "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
+            "JOIN cycle c ON c.id = COALESCE(o.tr_cycle_id, s.cycle_id) "
+            f"WHERE o.lab_id = ? AND o.tip = 'transfer' AND o.iptal_mi = 0 "
+            f"AND {cryo} AND o.zaman >= ? AND o.zaman < ? GROUP BY 1",
+            (db.LAB_ID, bas, son))
+
+        sayilar["gebelik"] = ay_say(
+            "SELECT substr(g.fk_kontrol_zamani, 1, 7), COUNT(*) "
+            f"FROM gebelik_sonucu g WHERE g.lab_id = ? AND {kg} "
+            "AND g.fk_kontrol_zamani >= ? AND g.fk_kontrol_zamani < ? GROUP BY 1",
+            (db.LAB_ID, bas, son))
+        sayilar["dogum"] = ay_say(
+            "SELECT substr(g.dogum_zamani, 1, 7), COUNT(*) FROM gebelik_sonucu g "
+            "WHERE g.lab_id = ? AND g.sonlanma = 'canli_dogum' "
+            "AND g.dogum_zamani >= ? AND g.dogum_zamani < ? GROUP BY 1",
+            (db.LAB_ID, bas, son))
+
+        # Hastanın ilk kaydı. Kartın açılışı `olusturma_zamani`: programda
+        # açılan kartta şemanın UTC damgası, aktarılanda tedavinin yerel
+        # günü (08:00) -- `localtime` ikincisini aynı günde bırakıyor.
+        ilk = {}
+
+        def ilk_yaz(rows):
+            for hid, z in rows:
+                if z and (hid not in ilk or z < ilk[hid]):
+                    ilk[hid] = z
+        ilk_yaz(b.execute("SELECT id, date(olusturma_zamani, 'localtime') "
+                          "FROM hasta WHERE lab_id = ?", (db.LAB_ID,)))
+        ilk_yaz(b.execute(f"SELECT c.hasta_id, MIN({gun}) FROM cycle c "
+                          "WHERE c.lab_id = ? GROUP BY c.hasta_id", (db.LAB_ID,)))
+        ilk_yaz(b.execute("SELECT hasta_id, MIN(substr(dondurma_zamani, 1, 10)) "
+                          "FROM sperm_dondurma WHERE lab_id = ? AND iptal_mi = 0 "
+                          "GROUP BY hasta_id", (db.LAB_ID,)))
+        sayilar["hasta"] = Counter(z[:7] for z in ilk.values() if bas <= z < son)
+
+        # Tarihi girilmemiş için sayılmayanlar: bu ayların birine düşebilecek
+        # olanlar (tedavisi bir önceki yıldan bu yana).
+        esik = f"{BAKANLIK_ILK_YIL - 1}-01-01"
+
+        def eksik(kosul):
+            return b.execute(
+                f"SELECT c.id, c.cycle_no, h.dosya_no, h.ad_soyad, {gun} AS gun "
+                "FROM gebelik_sonucu g JOIN cycle c ON c.id = g.cycle_id "
+                "JOIN hasta h ON h.id = c.hasta_id "
+                f"WHERE g.lab_id = ? AND {kosul} AND {gun} >= ? ORDER BY gun, c.id",
+                (db.LAB_ID, esik)).fetchall()
+        eksik_gebelik = eksik(f"{kg} AND COALESCE(g.fk_kontrol_zamani, '') = ''")
+        eksik_dogum = eksik("g.sonlanma = 'canli_dogum' "
+                            "AND COALESCE(g.dogum_zamani, '') = ''")
+    finally:
+        b.close()
+
+    bugun = _date.today()
+    son_ay = 12 if yil < bugun.year else bugun.month
+    aylar = []
+    for m in range(1, son_ay + 1):
+        ay = f"{yil:04d}-{m:02d}"
+        satir = {"ay": ay, "no": m,
+                 "suruyor": (yil, m) == (bugun.year, bugun.month)}
+        for a, _ad in BAKANLIK_SUTUNLARI:
+            satir[a] = sayilar[a].get(ay, 0)
+        aylar.append(satir)
+    return {
+        "yil": yil,
+        "aylar": aylar,
+        "toplam": {a: sum(s[a] for s in aylar) for a, _ad in BAKANLIK_SUTUNLARI},
+        "eksik_gebelik": eksik_gebelik,
+        "eksik_dogum": eksik_dogum,
+    }
+
+
+def bakanlik_sayfalari(yil: int):
+    """Bakanlık verilerinin Excel hali: ekrandaki tablonun aynısı, bakanlığın
+    sütun adlarıyla. Süren ay yıldızlı ("Eylül 2026 *"): ay bitmedi."""
+    v = bakanlik_verileri(yil)
+    satirlar = []
+    for s in v["aylar"]:
+        ad = f"{metinler.t('ay_' + str(s['no']))} {yil}"
+        satirlar.append([ad + (" *" if s["suruyor"] else "")]
+                        + [s[a] for a, _ad in BAKANLIK_SUTUNLARI])
+    satirlar.append([metinler.t("toplam")]
+                    + [v["toplam"][a] for a, _ad in BAKANLIK_SUTUNLARI])
+    return [(f"Bakanlık {yil}",
+             ["AY"] + [ad for _a, ad in BAKANLIK_SUTUNLARI], satirlar)]

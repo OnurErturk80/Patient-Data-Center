@@ -167,7 +167,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..055.py   veritabanı göçleri (sırayla)
+  goc_002..056.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -561,7 +561,8 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   bağımsız iki kart), `/cryo` (v6.85 — Embriyo Dondurma ve Sperm Dondurma
   birbirinden bağımsız iki modül). Yalnızca genişleyen (`kap genis`,
   v6.65'ten beri `yanmenusuz` DEĞİL — menü artık orada da var):
-  `/klasorler`, `/hasta/{id}`, `/bitenler` — liste ekranlarını bölme,
+  `/klasorler`, `/hasta/{id}`, `/bitenler`, `/bakanlik` (v6.201, tek geniş
+  tablo) — liste ekranlarını bölme,
   `_cyclesatir` satırları soldan sağa okunan tek bir akış.
   `/hastalar`'ın arşiv modu (`?arsiv=1`) bu kategoride kaldı: orada tek liste
   var, bölünecek ikinci bir kart yok.
@@ -1458,6 +1459,39 @@ kaydedilebilir mi" diye sordu, cevap "kaydetmeye gerek yok, zaten kayıtlı".
     (yalnızca o tabloya). v6.109'un dersi bir kez daha: dış kabın ölçüsü
     doğru çıkabilir, içeriğin göründüğü yere ayrıca bak — bir ekran
     görüntüsü geometrinin kaçırdığını yakalar.
+
+**Sağlık Bakanlığı'nın aylık verileri** (v6.201, `/bakanlik`, yalnızca
+yönetici; README v6.201). Satır başına bir ay, bakanlığın dokuz sütunu, adları
+ve sırası (`disari.BAKANLIK_SUTUNLARI`); IUI ve embriyo imha programda
+tutulmuyor, yok (kullanıcının isteği). 2026'dan başlıyor
+(`BAKANLIK_ILK_YIL`). Türetilmiş, sayaç yok (v6.38).
+- **Tanımlar kullanıcının cevapları** (`disari.bakanlik_verileri()`'nin
+  belgesi, ekranın "Nasıl sayılıyor" kartı): oosit ve sperm dondurma
+  İŞLEM (adet/tüp değil), TESE bütün cerrahi alımlar, siklus bütün
+  tedaviler (tedavinin günüyle), transfer işlem, gebelik klinik gebelik
+  kontrol zamanının ayına, canlı doğum doğum zamanının ayına (ikiz bir),
+  hasta o ay yeni kaydedilen. Sekiz sorunun dördünde benim önerim
+  seçilmedi: bir tanımı değiştirmeden önce kullanıcıya sor.
+- **Yeni hasta = ilk kaydı** (kart, ilk tedavi, ilk sperm dondurma; hangisi
+  önceyse), kartın açılışı değil: aktarım aylar karışık gelince var olan
+  kartın tarihine dokunmuyor. Yeni bir "hasta ne zaman geldi" sorusu
+  yazarsan aynı ölçüyü kullan.
+- **Sütun adları bakanlığın yazısı** ("SİKLUS", "OOSİT"), "tedavi"/"yumurta"
+  kuralının dışında (resmî formun kalıbı gibi).
+- Tarihi girilmemiş için sayılmayan gebelik/doğum ekranda listeleniyor;
+  sessizce eksik sayma.
+- **Klinik gebelik `db.klinik_gebelik_sql()`**: ekran `evet`/`hayir`/
+  `bilinmiyor` yazıyor, ilk kayıtlar `1`/`0`. `/istatistik` v6.201'e kadar
+  yalnızca `1`'i sayıyordu (ekrandan girilenlerin hiçbiri oranda yoktu).
+  Klinik gebeliği soran yeni bir yer yazarsan bunu kullan.
+- **`goc_056`**: `olay(tr_cycle_id)` dizini. `db.tedavi_tarihi()`'nin FET
+  alt sorgusu OR'lu; dizinsiz kol her FET için bütün `olay`'ı tarıyordu
+  (1.909 tedavide 5,2 sn → 0,01 sn). `tedavi_tarihi()`'ni bütün tedavilere
+  soran yeni bir sorgu yazarsan dizine güven, OR'a dizinsiz kolon ekleme.
+- **Telefonda tablo değil ay blokları**: kutu 740px'ten darsa her ay kendi
+  bloğu (container query, `data-baslik`). Yapışkan sütunlu yatay kaydırma
+  denendi: altına yarım giren sayı yanlış okunuyordu ("128"in "28"i).
+  Sayı sütunlu yeni bir tabloyu telefonda kaydırıyorsan bu riski ölç.
 
 **Örnek kodu aranabilir** (v6.35). Kod (`527078-2026-0001-03`) tüpün ve
 formun üstünde yazan şey; `<hasta dosya no>-<specimen.id>` olarak

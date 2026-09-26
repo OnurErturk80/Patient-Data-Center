@@ -15629,3 +15629,116 @@ IVF/ICSI tedavisinde:
 - kalıcı silme (`cycle_tamamen_sil()` bir kopyada, `teshis_silme.py`)
   kırık bağ bırakmadı;
 - göçsüz veritabanında ekran ve form hatasız.
+
+# v6.201 — Sağlık Bakanlığı'nın aylık verileri (Yönetici)
+
+Kullanıcının isteği (2026-09-26): "Ünite olarak Sağlık Bakanlığı'nın bizden
+istediği aylık veriler var: OPU SAYISI, DONDURULMUŞ OOSİT SAYISI, TESE
+SAYISI, DONDURULMUŞ SPERM SAYISI, IUI SAYISI, SİKLUS SAYISI, EMBRİYO
+TRANSFER SAYISI, EMBRİYO İMHA SAYISI, GEBELİK SAYISI, CANLI DOĞUM SAYISI,
+TOTAL HASTA SAYISI. Yönetici bölümünde bunların tutulduğu bir bölüm olsun.
+IUI sayısı ve İmha sayısı hariç ay ay gösterilen bir bölüm olsun. 2026
+yılından öncesi olmasın."
+
+## Ne var
+
+- **Yönetici paneli → "Bakanlık verileri"** (`/bakanlik`, yalnızca
+  yönetici). Satır başına bir ay, bakanlığın formundaki dokuz sütun ve
+  sırası (IUI ile embriyo imha programda tutulmuyor, yok). Yıl seçici
+  2026'dan başlıyor; bu yılın bitmemiş ayı "ay bitmedi" diye işaretli, en
+  altta yılın toplamı.
+- **Excel'e aktar** (`/disari/bakanlik?yil=`): aynı tablo, bakanlığın
+  sütun adlarıyla.
+- **"Nasıl sayılıyor"**: her sütunun tanımı ekranın altında yazılı —
+  sayılar bakanlığa gidiyor, neyin sayıldığı görünmeli.
+- **Tarihi girilmemiş için sayılmayanlar** listeleniyor: kontrol zamanı
+  girilmemiş klinik gebelik, doğum zamanı girilmemiş canlı doğum. Satır o
+  tedavinin gebelik ekranına gidiyor.
+- "Tutulsun" ayrı bir tablo değil: sayılar her açılışta kayıtlardan
+  türetiliyor (v6.38'in kuralı). Geçmiş bir ayın kaydı düzeltilince o
+  ayın sayısı da düzeliyor.
+
+## Tanımlar (kullanıcının cevapları)
+
+Her sütun birden çok şekilde sayılabildiği için kullanıcıya soruldu; sekiz
+sorunun dördünde benim önerim seçilmedi.
+
+| Sütun | Sayılan | Ay |
+|---|---|---|
+| OPU | OPU'su yapılan tedavi | OPU günü |
+| DONDURULMUŞ OOSİT | yumurta dondurma **işlemi**: yumurtası dondurulan tedavi (adet değil) | dondurma günü |
+| TESE | bütün cerrahi alımlar (TESE, mikroTESE, TESA, PESA, MESA): androlojinin alınma yöntemi ve sperm dondurmanın sebebi; aynı kişi aynı gün bir | alım / dondurma günü |
+| DONDURULMUŞ SPERM | dondurma **işlemi**: aynı kişinin aynı gün dondurulan tüpleri bir | dondurma günü |
+| SİKLUS | bütün tedaviler (her tip, iptal edilenler de) | tedavinin günü |
+| EMBRİYO TRANSFER | transfer **işlemi** (taze ve donmuş), embriyo sayısı değil | transfer günü |
+| GEBELİK | klinik gebelik | gebelik ekranındaki kontrol zamanı |
+| CANLI DOĞUM | sonucu canlı doğum olan gebelik; ikiz doğum bir | doğum zamanı |
+| TOTAL HASTA | o ay yeni kaydedilen hasta | hastanın ilk kaydı |
+
+- **Tedavinin günü** `db.tedavi_tarihi()`: OPU, yoksa hCG; FET'te çözme ya
+  da transfer; hiçbiri yoksa planlanan tarih ya da açılış (numaralamanın
+  kuralı, v6.144). Hasta kayıtlarının ay listesi FET'te açılış gününe
+  bakıyor (`COALESCE(opu_zamani, olusturma_zamani)`); programda açılan bir
+  FET ay sonunda açılıp ertesi ay transfer edildiyse iki ekran o FET'i
+  farklı aylarda sayar. Aktarılan kayıtlarda ikisi aynı gün.
+- **Yeni hastanın ölçüsü ilk kaydı**: kartın açılışı, ilk tedavisi, ilk
+  sperm dondurması — hangisi önceyse. Kartın açılış tarihi tek başına
+  yetmiyordu: Access dosyaları karışık sırayla aktarıldı (önce 2026, sonra
+  2025 … 2018) ve aktarım var olan kartın tarihine dokunmuyor. 2026
+  dosyasından açılmış bir kartın 2025 tedavisi sonradan geldiyse hasta
+  2026'da "yeni" görünürdü. Kullanıcıya gösterilen seçenek de bunu
+  söylüyordu: "Access'ten aktarılanlar ilk tedavilerinin ayında".
+- **"Aynı kişi"**: erkeğin kendi kartı bir çiftin `es_dosya_no`'suyla o
+  çifte bağlıysa ikisi bir sayılıyor (dosya numarası tek eşleştirme
+  anahtarı, v6.125). Aynı gün hem ICSI'de kullanılıp hem dondurulan bir
+  TESE iki kez sayılmasın diye. Bağlanmamış ayrı erkek kartında bu
+  eşleşme yapılamıyor, isimle eşleştirme yazılmadı.
+- **Sütun adları bakanlığın yazısı** ("SİKLUS", "OOSİT"): ekrandaki
+  "tedavi"/"yumurta" kuralının dışında, resmî formların kâğıt kalıbı gibi.
+- Cryo Haritası Excel'inden açılan program öncesi tedaviler (2011–2017)
+  dışarıda, istatistiğin kuralı; 2026'ya zaten düşmüyorlar.
+
+## Klinik gebelik: `evet` de sayılıyor (istatistikte de)
+
+Gebelik ekranı "Klinik gebelik"i `evet` / `hayir` / `bilinmiyor` diye
+yazıyor. `/istatistik`'in gebelik oranı `klinik_gebelik = 1` sayıyordu:
+ekrandan girilen klinik gebeliklerin **hiçbiri** oranda yoktu, yalnızca ilk
+test kayıtlarının `1`'leri sayılıyordu. Koşul tek yerde
+(`db.klinik_gebelik_sql()`: `evet` ya da `1`), istatistik ve bakanlık
+verileri onu kullanıyor.
+
+## `goc_056`: `olay(tr_cycle_id)` dizini
+
+Tedavinin günü FET'lerde `olay`'a "bu tedavi için yapılan çözme ya da
+transfer" diye soruyor (`thaw_cycle_id = c.id OR tr_cycle_id = c.id`).
+`tr_cycle_id`'nin dizini yoktu; OR'un bir kolu dizinsiz olunca her FET
+için bütün tablo taranıyordu. 1.909 tedavinin günü dizinsiz 5,2 sn,
+dizinle 0,01 sn sürüyor. Bakanlık ekranı 0,05 sn'de açılıyor. Aktarım
+aracının ay önbelleğini de hızlandırıyor ("3.000 tedavide 14 sn").
+
+## Telefonda
+
+On sütun dar ekrana sığmıyor. İlk denemede tablo kartın içinde yatay
+kayıyordu, ay sütunu da yapışkandı. Ekran görüntüsünde yapışkan sütunun
+altına yarım giren sayılar yanlış okunuyordu: Nisan'ın 128'i "28",
+toplamın 561'i "61" görünüyordu. Kaydırmayı sütun başlarına oturtmak
+tablonun sonunda yine yarım sütun bıraktı. Kullanıcı da telefonda yatay
+kaydırmayı v6.117'de istememişti. Bugün kutu 740px'ten darsa her ay kendi
+bloğu, satır satır "SÜTUN ADI — sayı". Ölçü ekranın değil kutunun
+genişliği (container query); desteklemeyen eski tarayıcıda tablo kayar.
+
+## Denendi
+
+Kullanıcının veritabanının bir kopyasında (mayıs 2026'nın aktarımı o
+kopyada yok):
+- sayılar ayrı sorgularla karşılaştırıldı: TESE ve sperm ay ay elle
+  sayılanla, yumurta dondurma Yumurta Dondurma tedavilerinin dondurma
+  ayıyla, transfer tedavi-gün sayımıyla, siklus tip dökümüyle birebir;
+- `goc_056` açılışta kendiliğinden uygulandı;
+- telefon (390), tablet (768) ve masaüstü (1440) genişliğinde sayfa
+  taşmıyor, hücre kesilmiyor, sayfa hatası yok;
+- yıl 2019 ve 2031 verilince 2026'ya düşüyor;
+- Excel dosyası açılıyor (11 satır: başlık, 9 ay, toplam);
+- gebelik ekranından girilen `evet`li bir gebelik kontrol ayında, ikiz
+  doğum doğum ayında bir kez sayıldı; istatistik ekranı da artık onu
+  görüyor.

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("bakanlik_verileri") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+
+{# Sağlık Bakanlığı'nın ünite olarak her ay istediği sayılar (v6.201). Sayılar
+   her açılışta kayıtlardan türetiliyor, saklanmıyor -- tanımlar
+   `disari.bakanlik_verileri()`'nde, ekranın altında da yazılı. Satır başına
+   bir ay, bakanlığın formundaki sütunlar ve sırası; IUI ve embriyo imha
+   programda tutulmadığı için yok (kullanıcının isteği). Yıl 2026'dan başlıyor
+   ("2026 yılından öncesi olmasın"). Tek ve geniş bir tablo: iki sütuna
+   bölünmüyor, `kap genis` (CLAUDE.md "İki sütun her ekranın çözümü değil"). #}
+
+{# Yıl seçici: `/istatistik`'in ay gezgininin yıl hali -- aynı işi yapan iki
+   ekran aynı görünsün. Oklar ilk ve son yılda boş yer tutuyor. #}
+<form class="aygezgin" method="get" action="/bakanlik">
+  {% if yil > yillar[0] %}
+  <a class="ok" href="/bakanlik?yil={{ yil - 1 }}"
+     aria-label="{{ metin('onceki_yil') }}" title="{{ metin('onceki_yil') }}">&#8249;</a>
+  {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+  <select name="yil" aria-label="{{ metin('yil') }}">
+    {% for y in yillar %}
+    <option value="{{ y }}"{% if y == yil %} selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  {# JS açıkken seçim anında gidiyor; kapalıysa bu düğme kalıyor. #}
+  <button class="ok goster" type="submit" id="bakgoster"
+          aria-label="{{ metin('goster') }}" title="{{ metin('goster') }}">&#8250;|</button>
+  {% if yil < yillar[-1] %}
+  <a class="ok" href="/bakanlik?yil={{ yil + 1 }}"
+     aria-label="{{ metin('sonraki_yil') }}" title="{{ metin('sonraki_yil') }}">&#8250;</a>
+  {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
+</form>
+<script>
+(function () {
+  var d = document.getElementById('bakgoster');
+  if (!d) return;                       // seçici basılmadı (tuzak #10)
+  d.hidden = true;                      // JS var: düğmeye gerek yok
+  d.form.querySelectorAll('select').forEach(function (s) {
+    s.addEventListener('change', function () { d.form.submit(); });
+  });
+})();
+</script>
+
+<div class="kart" style="margin-top:14px">
+  <h2>{{ metin("bakanlik_verileri") }} &middot; {{ yil }}</h2>
+  {# Geniş ekranda tablo, dar ekranda (kutu 740px'ten dar) ay ay bloklar:
+     `data-baslik` o durumda her sayının yanına sütunun adını basıyor
+     (style.css, container query). Yatay kaydırma yok -- yarım görünen sayı
+     yanlış okunuyordu. #}
+  <div class="cizelgekap bakanlikkap">
+  <table class="cizelge bakanlik">
+    <tr>
+      <th>{{ metin("ay") }}</th>
+      {% for a, ad in sutunlar %}<th>{{ ad }}</th>{% endfor %}
+    </tr>
+    {% for s in v.aylar %}
+    <tr>
+      <td class="ad">{{ metin("ay_" ~ s.no) }}{% if s.suruyor %}<span class="suren">{{ metin("bakanlik_ay_suruyor") }}</span>{% endif %}</td>
+      {% for a, ad in sutunlar %}<td data-baslik="{{ ad }}">{{ s[a] }}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+    <tr class="toplam">
+      <td class="ad">{{ metin("toplam") }}</td>
+      {% for a, ad in sutunlar %}<td data-baslik="{{ ad }}">{{ v.toplam[a] }}</td>{% endfor %}
+    </tr>
+  </table>
+  </div>
+  <div class="ipucu" style="padding:8px 2px">{{ metin("bakanlik_ipucu") }}</div>
+</div>
+
+{# Tarihi girilmemiş için sayılmayanlar (kullanıcının tanımı: gebelik kontrol
+   zamanının, doğum doğum zamanının ayına). Sessizce eksik saymak yerine
+   söyleniyor; satır o tedavinin gebelik ekranına gidiyor. Yıl seçiciden
+   bağımsız: kaydın hangi aya düşeceği tarih girilince belli olur. #}
+{% for liste, anahtar in [(v.eksik_gebelik, "bakanlik_eksik_gebelik"),
+                          (v.eksik_dogum, "bakanlik_eksik_dogum")] %}
+{% if liste %}
+<div class="kart">
+  <div class="uyari" style="margin:0;border:0;border-radius:0">{{ metin(anahtar).format(n=liste|length) }}</div>
+  {% for r in liste %}
+  <a class="satir hasta" href="/cycle/{{ r.id }}/gebelik">
+    <div class="ad">{{ r.ad_soyad }}</div>
+    <div class="no">{{ r.dosya_no }} · {{ r.cycle_no }}</div>
+    <div class="meta">{{ gg_aa_yyyy(r.gun) if r.gun else "" }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+<div class="kart">
+  <h2>{{ metin("bakanlik_tanimlar") }}</h2>
+  <dl class="tanimlar">
+    {% for a, ad in sutunlar %}
+    <dt>{{ ad }}</dt>
+    <dd>{{ metin("bakanlik_tanim_" ~ a) }}</dd>
+    {% endfor %}
+  </dl>
+</div>
+
+<a class="dugme ikincil" href="/disari/bakanlik?yil={{ yil }}">{{ metin("excele_aktar_bakanlik") }}</a>
+{% endblock %}

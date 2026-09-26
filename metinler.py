@@ -1821,6 +1821,80 @@ METINLER = {
         "en": "The numbers are computed from the records on every visit; no "
               "separate counter is kept, so they can never drift from the "
               "actual data."},
+    # ---- Sağlık Bakanlığı aylık verileri (v6.201) ----
+    # Sütun adları bakanlığın formundan, `disari.BAKANLIK_SUTUNLARI`'nda.
+    "bakanlik_verileri": {"tr": "Sağlık Bakanlığı Aylık Verileri",
+                          "en": "Ministry of Health Monthly Data"},
+    "bakanlik_kisa": {"tr": "Bakanlık verileri", "en": "Ministry data"},
+    "toplam": {"tr": "Toplam", "en": "Total"},
+    "onceki_yil": {"tr": "Önceki yıl", "en": "Previous year"},
+    "sonraki_yil": {"tr": "Sonraki yıl", "en": "Next year"},
+    "bakanlik_ay_suruyor": {"tr": "ay bitmedi", "en": "month in progress"},
+    "bakanlik_ipucu": {
+        "tr": "Sayılar her açılışta kayıtlardan hesaplanıyor, saklanmıyor: "
+              "geçmiş bir ayın kaydı sonradan düzeltilirse o ayın sayısı da "
+              "düzelir. IUI ve embriyo imha programda tutulmuyor, tabloda yok.",
+        "en": "The numbers are computed from the records on every visit; "
+              "correcting an old record corrects that month too. IUI and "
+              "embryo disposal are not kept in the program."},
+    "bakanlik_tanimlar": {"tr": "Nasıl sayılıyor", "en": "How they are counted"},
+    "bakanlik_tanim_opu": {
+        "tr": "OPU'su yapılan tedavi, OPU gününün ayına.",
+        "en": "Treatments with an OPU, in the month of the OPU."},
+    "bakanlik_tanim_oosit": {
+        "tr": "Yumurta dondurma işlemi: o ay yumurtası dondurulan tedavi "
+              "(dondurulan yumurtanın adedi değil).",
+        "en": "Oocyte freezing procedures: treatments whose oocytes were "
+              "frozen that month (not the number of oocytes)."},
+    "bakanlik_tanim_tese": {
+        "tr": "Bütün cerrahi alımlar (TESE, mikroTESE, TESA, PESA, MESA): "
+              "androlojideki alınma yöntemi ve sperm dondurmanın sebebi. Aynı "
+              "kişi aynı gün bir kez.",
+        "en": "All surgical retrievals (TESE, microTESE, TESA, PESA, MESA), "
+              "from andrology and sperm freezing. Once per person per day."},
+    "bakanlik_tanim_sperm": {
+        "tr": "Sperm dondurma işlemi: aynı kişinin aynı gün dondurulan "
+              "tüpleri bir sayılır.",
+        "en": "Sperm freezing procedures: one per person per day, whatever "
+              "the number of vials."},
+    "bakanlik_tanim_siklus": {
+        "tr": "Bütün tedaviler (IVF/ICSI, FET, FET (3→5), Yumurta Dondurma, "
+              "Yumurta Çözme; iptal edilenler de), tedavinin gününün ayına: "
+              "OPU, yoksa hCG; FET'te çözme ya da transfer; hiçbiri yoksa "
+              "planlanan tarih ya da açılış.",
+        "en": "All treatments of every type (cancelled ones too), in the "
+              "month of the treatment day."},
+    "bakanlik_tanim_transfer": {
+        "tr": "Transfer işlemi: o ay transfer yapılan tedavi (taze ve donmuş); "
+              "iki embriyo transfer edilen tedavi bir.",
+        "en": "Transfer procedures (fresh and frozen): one per treatment, "
+              "whatever the number of embryos."},
+    "bakanlik_tanim_gebelik": {
+        "tr": "Klinik gebelik, gebelik ekranındaki kontrol zamanının ayına. "
+              "Kontrol zamanı girilmemiş gebelik sayılmaz.",
+        "en": "Clinical pregnancies, in the month of the check on the "
+              "pregnancy screen. Without a check time it is not counted."},
+    "bakanlik_tanim_dogum": {
+        "tr": "Sonucu \"Canlı doğum\" olan gebelik, doğum zamanının ayına; "
+              "ikiz doğum bir. Doğum zamanı girilmemişse sayılmaz.",
+        "en": "Pregnancies ending in a live birth, in the month of delivery; "
+              "twins count once."},
+    "bakanlik_tanim_hasta": {
+        "tr": "O ay yeni kaydedilen hasta: hastanın ilk kaydının (kartın "
+              "açılışı, ilk tedavisi ya da ilk sperm dondurması) ayı. "
+              "Access'ten aktarılan hasta ilk tedavisinin ayında.",
+        "en": "New patients: the month of the patient's first record (card, "
+              "first treatment or first sperm freezing)."},
+    "bakanlik_eksik_gebelik": {
+        "tr": "Kontrol zamanı girilmemiş klinik gebelik ({n}) — GEBELİK "
+              "SAYISI'na girmedi:",
+        "en": "Clinical pregnancies without a check time ({n}), not counted:"},
+    "bakanlik_eksik_dogum": {
+        "tr": "Doğum zamanı girilmemiş canlı doğum ({n}) — CANLI DOĞUM "
+              "SAYISI'na girmedi:",
+        "en": "Live births without a delivery time ({n}), not counted:"},
+    "excele_aktar_bakanlik": {"tr": "Bakanlık verilerini Excel'e aktar",
+                              "en": "Export ministry data to Excel"},
     # ---- resmî formlar ----
     "formlar": {"tr": "Formlar", "en": "Forms"},
     "form_ozet": {"tr": "Embriyoloji Özet Formu",

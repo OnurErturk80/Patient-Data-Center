@@ -403,6 +403,18 @@ def tedavi_bulgulari(cycle_id, asama="icsi"):
               "etiket": r["etiket"] or r["bulgu_kodu"]} for r in secili], elle)
 
 
+def klinik_gebelik_sql(g: str = "g") -> str:
+    """Gebelik sonucunda klinik gebelik var mı -- SQL koşulu (v6.201).
+
+    Gebelik ekranı `evet` / `hayir` / `bilinmiyor` yazıyor; ilk kayıtlarda
+    (programın ilk tedavileri) `1` / `0` duruyor. `/istatistik`'in gebelik
+    oranı v6.201'e kadar yalnızca `1`'i sayıyordu, yani ekrandan girilen
+    klinik gebeliklerin hiçbirini görmüyordu. Klinik gebeliği soran her yer
+    bunu kullanır: istatistik ve Sağlık Bakanlığı'nın aylık verileri
+    (`disari.bakanlik_verileri()`). `g`: `gebelik_sonucu`'nun takma adı."""
+    return f"{g}.klinik_gebelik IN ('evet', '1')"
+
+
 def tedavi_bulgu_metni(cycle_id, asama="icsi"):
     """Genel bulguların tek satırı: "Kalın zona, Sperm motilitesi kötü, ...".
 

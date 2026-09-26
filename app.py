@@ -4636,6 +4636,59 @@ def disari_istatistik(request: Request, yil: int = 0):
     return excel_yaniti(f"istatistik_{yil}", disari.istatistik_sayfalari(yil))
 
 
+# --------------------------------------------- Sağlık Bakanlığı verileri (v6.201)
+
+def _bakanlik_yili(yil: int) -> tuple:
+    """Adresten gelen yıl (v6.201) ve seçicinin yılları.
+
+    Yıl `?yil=` ile dışarıdan geliyor: tamsayı ve `BAKANLIK_ILK_YIL` (2026,
+    kullanıcı: "2026 yılından öncesi olmasın") ile bu yıl arasına
+    sabitleniyor. Saat yanlış kurulmuş bir makinede de 2026'nın gerisine
+    düşmesin diye bu yıl da en az ilk yıl."""
+    ilk = disari.BAKANLIK_ILK_YIL
+    bu_yil = max(_dt.now().year, ilk)
+    yil = min(max(yil or bu_yil, ilk), bu_yil)
+    return yil, list(range(ilk, bu_yil + 1))
+
+
+@uygulama.get("/bakanlik")
+def bakanlik_ekrani(request: Request, yil: int = 0):
+    """Sağlık Bakanlığı'nın ünite olarak her ay istediği sayılar (v6.201).
+
+    Kullanıcının isteği (2026-09-26): "Ünite olarak Sağlık Bakanlığı'nın
+    bizden istediği aylık veriler var ... Yönetici bölümünde bunların
+    tutulduğu bir bölüm olsun. IUI sayısı ve İmha sayısı hariç ay ay
+    gösterilen bir bölüm olsun. 2026 yılından öncesi olmasın." "Tutulsun"
+    burada da ayrı bir tablo değil (v6.38, v6.123): sayılar her açılışta
+    kayıtlardan türetiliyor, tanımları `disari.bakanlik_verileri()`'nde
+    (kullanıcının cevapları). Satır başına bir ay, bakanlığın sütunları.
+
+    Yalnızca yönetici: `/istatistik`'in kuralı. Adres `yol_modulu()`'nda
+    modülsüz, engel `yonetici_kontrol()`.
+    """
+    engel = yonetici_kontrol(request)
+    if engel:
+        return engel
+    yil, yillar = _bakanlik_yili(yil)
+    return sablon.TemplateResponse(
+        request, "bakanlik.html",
+        {"v": disari.bakanlik_verileri(yil), "yil": yil, "yillar": yillar,
+         "sutunlar": disari.BAKANLIK_SUTUNLARI,
+         "kullanici": request.state.kullanici},
+    )
+
+
+@uygulama.get("/disari/bakanlik")
+def disari_bakanlik(request: Request, yil: int = 0):
+    """Bakanlık verilerinin Excel hali -- ekranla aynı izin: yalnızca yönetici.
+    Bakılan yıl iniyor (`/disari/istatistik`'in kuralı)."""
+    engel = yonetici_kontrol(request)
+    if engel:
+        return engel
+    yil, _ = _bakanlik_yili(yil)
+    return excel_yaniti(f"bakanlik_{yil}", disari.bakanlik_sayfalari(yil))
+
+
 @uygulama.get("/disari/tumu")
 def disari_tumu(request: Request):
     """Bütün tabloların ham dökümü — **yalnızca yönetici**.
