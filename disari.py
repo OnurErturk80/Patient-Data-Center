@@ -7,7 +7,7 @@ Dört çıktı:
 
   - `ay_sayfalari(ay)`       — o ayın cycle'ları, satır başına bir cycle
   - `cycle_sayfalari(id)`    — bir cycle'ın tamamı, satır başına bir örnek
-  - `cryo_sayfalari()`       — dolabın dökümü, satır başına bir örnek
+  - `cryo_sayfalari()`       — tankların dökümü, satır başına bir örnek
   - `tumu_sayfalari()`       — tabloların ham dökümü, tablo başına bir sayfa
 
 Hepsi `excel.kitap()`'ın beklediği `[(ad, başlıklar, satırlar), ...]` biçimini
@@ -368,7 +368,7 @@ def cycle_sayfalari(cycle_id: int):
 # ------------------------------------------------------------------ cryo dökümü
 
 CRYO_BASLIK = [
-    "Dolapta", "Konum", "Taşıyıcı", "Taşıyıcı tipi", "Renk",
+    "Tankta", "Konum", "Taşıyıcı", "Taşıyıcı tipi", "Renk",
     "Dosya no", "Hasta", "Cycle no", "Tip", "Örnek kodu", "No",
     "Blastokist skoru", "Dondurma", "Çözme", "Sağkalım", "Transfer",
     "Örnek durumu",
@@ -378,7 +378,7 @@ CRYO_BASLIK = [
 def cryo_sayfalari():
     """Tanktaki örneklerin dökümü — sayım ve envanter için.
 
-    Çözülmüş örnekler de listede; "Dolapta" sütunu ayırıyor. Böylece aynı
+    Çözülmüş örnekler de listede; "Tankta" sütunu ayırıyor. Böylece aynı
     dosya hem bugünkü sayımı hem o taşıyıcının geçmişini veriyor; Excel'in
     süzgeciyle biri ötekinden ayrılıyor.
 
@@ -388,7 +388,7 @@ def cryo_sayfalari():
     h = _etiket_haritasi()
     # Satır bir DONDURMA; çözme sütunu o dondurmanın tüpünden yapılan çözme
     # (v6.143, `thaw_tasiyici_id`). "Örneğin son çözmesi" yeniden dondurulan
-    # bir embriyonun yeni tüpüne eski tüpün çözmesini yazardı ve "Dolapta"
+    # bir embriyonun yeni tüpüne eski tüpün çözmesini yazardı ve "Tankta"
     # dolu bir tüp için "Hayır" derdi. Göç yoksa eski ölçü.
     tup = ("AND x.thaw_tasiyici_id = o.vit_tasiyici_id"
            if db.cozme_tupu_var() else "")
@@ -416,14 +416,14 @@ def cryo_sayfalari():
 
     cikti = []
     for r in satirlar:
-        dolapta = not r["cozme"] and r["ornek_durum"] == "dondurulmus"
-        # Başka merkeze taşınan tüp (v6.182): örnek çözülmedi ama dolapta değil.
+        tankta = not r["cozme"] and r["ornek_durum"] == "dondurulmus"
+        # Başka merkeze taşınan tüp (v6.182): örnek çözülmedi ama tankta değil.
         if r["tup_durum"] == "gonderildi":
-            dolap = "Taşındı"
+            tank = "Taşındı"
         else:
-            dolap = "Evet" if dolapta else "Hayır"
+            tank = "Evet" if tankta else "Hayır"
         cikti.append([
-            dolap,
+            tank,
             r["tam_yol"], r["etiket"], _et(h, "tasiyici_tipi", r["tasiyici_tipi"]),
             _et(h, "tasiyici_renk", r["renk"]),
             r["dosya_no"], r["ad_soyad"], r["cycle_no"], _tip(r["cycle_tipi"]),

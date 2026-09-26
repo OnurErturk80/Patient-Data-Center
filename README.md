@@ -15186,3 +15186,24 @@ veride yedek hiç önerilmedi (10 olağan boş goblet var); olağan yerlerin
 hepsi dolu varsayılınca ilk öneriler yedek; olağanda yalnızca tekli boşluk
 kalınca 1 straw'a olağan, 4 straw'a yedek goblet. Ekranlar 200; kanister
 sayfasının yedek bölümü 390 ve 1440 px'te taşmıyor.
+
+# v6.193 — "Dolap" değil "tank"
+
+Kullanıcı sordu: "Dolap kelimesi laboratuvarda kullanılmıyor. Dolap demek
+ile neyi kastediyorsun. Dolap tank mı demek?" Evet: v6.36'da Cryo
+Haritası'nın Excel dökümü yazılırken tankların tamamı için "dolap" denmişti
+-- programın kendi sözü, laboratuvarın değil (aynı düğmenin İngilizcesi
+zaten "tank" diyordu). Ekranda iki yerde geçiyordu, ikisi de o dökümde:
+
+- `/cryo`'daki düğme "Dolabı Excel'e aktar" → **"Tankları Excel'e aktar"**
+  (`metinler.excel_cryo`).
+- Dosyanın ilk sütunu "Dolapta" → **"Tankta"** (`disari.CRYO_BASLIK`);
+  değerler aynı: Evet (tankta), Hayır (çözülmüş), Taşındı (başka merkeze,
+  v6.182).
+
+Kodun açıklamalarındaki "dolap" da "tank" oldu (`app.py`, `disari.py`,
+`cryo.html`), yeni bir metne yeniden sızmasın diye; CLAUDE.md'ye kural
+eklendi. Eski göç (`goc_034`) ve README'nin eski bölümleri olduğu gibi
+kaldı: biri çalışmış bir göç, öteki o günün kaydı. Bu döküm, v6.191'in
+Excel haritasından ayrı: dondurulan her embriyo/yumurta bir satır ve
+çözülenler de listede; harita ise bugünkü tankın goblet goblet hali.

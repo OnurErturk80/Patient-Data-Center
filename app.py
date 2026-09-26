@@ -2547,7 +2547,7 @@ def ornek_kodu_ara(ara: str) -> list:
     arama ikisini birleştirip arıyor, böylece hem tam kod hem de kodun
     kuyruğu bulunuyor.
 
-    **Hastanın arşivlenmiş olmasına bakmaz.** Dolapta duran bir örneğin
+    **Hastanın arşivlenmiş olmasına bakmaz.** Tankta duran bir örneğin
     dosyası kapanmış olabilir; kodu okunabiliyorsa bulunabilmeli.
     """
     k = f"%{ara}%"
@@ -2631,7 +2631,7 @@ def hastalar(request: Request, ara: str = "", arsiv: int = 0,
     kayitlar, ornekler = [], []
     # Taşıyıcı etiketi araması (v6.138, kullanıcının isteği: "Ana sayfadaki
     # aramada o da aranabilsin" -- ana ekranın arama kutusu bu ekrana
-    # gönderiyor). Hasta durumundan bağımsız: dolaptaki bir tüpün etiketi
+    # gönderiyor). Hasta durumundan bağımsız: tanktaki bir tüpün etiketi
     # okunabiliyorsa bulunabilmeli, hastasının dosyası kapanmış olsa da
     # (örnek kodu aramasının gerekçesinin aynısı, v6.35). Arşiv modunda da
     # çalışıyor -- kutu orada da aynı kutu.
@@ -4338,7 +4338,7 @@ def disari_cycle(request: Request, cycle_id: int):
 
 @uygulama.get("/disari/cryo")
 def disari_cryo(request: Request):
-    """Dolabın dökümü — sayım ve envanter için."""
+    """Tankların dökümü — sayım ve envanter için."""
     return excel_yaniti("cryo", disari.cryo_sayfalari())
 
 
@@ -6384,7 +6384,7 @@ def etiket_ara(ara: str) -> list:
     olsun. Ana sayfadaki aramada o da aranabilsin."
 
     **Taşıyıcının durumuna bakmaz.** `/cryo` haritası `durum='dolu'` süzüyor
-    çünkü o bir **envanter** ekranı ("dolapta bugün ne var"); bu ise hedefli
+    çünkü o bir **envanter** ekranı ("tankta bugün ne var"); bu ise hedefli
     bir **arama** ("bu etiket kimin"). Boşaltılmış ya da başka bir tedavide
     kullanılmış bir tüpün etiketi arandığında "yok" demek yanlış olurdu —
     örnek kodu aramasının arşivlenmiş hastayı da bulmasıyla aynı gerekçe.
@@ -8810,7 +8810,7 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
     # Başka bir hastaya (eşe) ait, bu tedaviye bağlanmış dondurulmuş sperm
     # varsa bağı kopar (v6.86, tuzak #4'ün aynısı: yeni bir cycle_id alanı
     # eklendi, kalıcı silmede temizlenmesi şart) -- kayıt kalır, taşıyıcı
-    # tekrar 'dolu' olur, sahibi hastanın dolabında kalmaya devam eder.
+    # tekrar 'dolu' olur, tankta sahibi hastanın adına durmaya devam eder.
     for r in db.sorgu(
             "SELECT id, tasiyici_id FROM sperm_dondurma WHERE kullanim_cycle_id=?",
             (cycle_id,)):

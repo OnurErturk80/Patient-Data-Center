@@ -2233,8 +2233,8 @@ METINLER = {
     "excel_ay": {"tr": "Bu ayı Excel'e aktar", "en": "Export this month to Excel"},
     "excel_cycle": {"tr": "Bu tedaviyi Excel'e aktar",
                     "en": "Export this cycle to Excel"},
-    "excel_cryo": {"tr": "Dolabı Excel'e aktar",
-                   "en": "Export the tank to Excel"},
+    "excel_cryo": {"tr": "Tankları Excel'e aktar",
+                   "en": "Export the tanks to Excel"},
     # ---- Cryo Haritası'nın Excel'i (v6.191) ----
     "excel_harita": {"tr": "Excel haritası", "en": "Excel map"},
     "excel_harita_ipucu": {

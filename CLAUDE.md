@@ -1417,7 +1417,7 @@ birleştirilip aranıyor, yani tam kod da kuyruğu da (`0001-03`) buluyor.
 **cycle'a** gider) ve `/cryo?ara=`. İki kural:
 - Arama **yalnızca tire içeren** metinde örnek arar — tiresiz metin kod
   değildir, yoksa "3" yazan bütün örnekleri listeler.
-- Örnek araması **hastanın arşivlenmiş olmasına bakmaz**; dolaptaki bir
+- Örnek araması **hastanın arşivlenmiş olmasına bakmaz**; tanktaki bir
   örneğin dosyası kapanmış olabilir. (Hasta araması eskisi gibi süzer.)
 
 **Taşıyıcı etiketi de aranabilir** (v6.138, kullanıcının isteği:
@@ -1980,6 +1980,15 @@ kuralının aynısı: **yalnızca kullanıcının gördüğü Türkçe metin** d
   **paragrafı baştan kuruyor**; düz değiştirme satırı 68'in üstüne
   çıkarır, NOTLAR kutusu `white-space: pre` olduğu için sessizce keserdi.
   Aynı nota yeni bir satır eklersen bu hesabı tekrar yap.
+
+**Ekranda "dolap" denmez, "tank" denir** (v6.193, kullanıcı: "Dolap
+kelimesi laboratuvarda kullanılmıyor"). v6.36'dan beri Cryo Haritası'nın
+eski Excel düğmesi "Dolabı Excel'e aktar", dosyanın ilk sütunu "Dolapta"
+diyordu -- programın kendi sözüydü, laboratuvarınki değil. Bugün "Tankları
+Excel'e aktar" ve "Tankta" (Evet / Hayır / Taşındı). Depolamanın tamamını
+anlatan yeni bir metinde "tank(lar)" yaz; laboratuvarın düzeni tank →
+kanister → goblet. Laboratuvarın kullanmadığı bir kelimeyi ekrana koymadan
+önce sor.
 
 **Cryo haritası Excel'i programdaki tüplere bağlanıyor: `cryo_esle.py`**
 (v6.173). Laboratuvarın canlı kriyo haritası Excel'de (6 sayfa, ~5.400
