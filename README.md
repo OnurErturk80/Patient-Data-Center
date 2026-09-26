@@ -15420,3 +15420,37 @@ IVF/ICSI tedavisinde yazıldı): dondurulmamış embriyo arrest olunca listeden
 ve kayıt denetiminden düştü, dondurulmuş olan kaldı; ertesi güne başka bir
 değer yazılınca döndü, o gün de arrest olunca yine düştü. Beş tedavi tipinin
 vitrifikasyon ekranı 200.
+
+# v6.198 — Vitrifikasyon kaydı vitrifikasyon ekranına dönüyor
+
+Kullanıcı bildirdi (2026-09-26): "Vitrifikasyon işleminde bir embriyonun
+işlemi bittikten sonra başka embriyosu varsa tedavinin vitrifikasyon
+aşamasına geri dönemiyorum." Kayıt tüpün sayfasına (`/cryo/tasiyici/{id}`)
+gidiyordu. O sayfa bir tedavi ekranı değil: aşama menüsü yok, geri oku sabit
+`/cryo` adresinde. v6.126'nın geri betiği yönlendirmeyle gelinen sayfada
+bilerek karışmıyor (az önce kaydedilen forma dönülmesin diye), yani geri ok
+Cryo Haritası'na çıkıyordu. Telefonda ana ekrandan açılan programda
+tarayıcının kendi geri düğmesi de yok.
+
+- **Kayıt vitrifikasyon ekranına dönüyor**:
+  `/cycle/{id}/vitrifikasyon?kaydedildi=<tüp>`. Öteki aşama ekranlarının
+  "kaydet → sıradaki" akışının karşılığı: kalan embriyolar listede, az önce
+  dondurulan "Dondurulmuş" listesinde (tüp bağlantısıyla), "İşlemi bitir"
+  de bu ekranda (v6.29'un "işin bittiği yer" gerekçesi).
+- **Üstte yeşil mesaj**: "Kaydedildi: 2 embriyo, taşıyıcı …" ve "Taşıyıcıya
+  git" bağlantısı. Adresten yalnızca tüpün numarası geliyor; metin
+  veritabanından, tüpte bu tedavinin dondurması yoksa (geri alınmış kayıt,
+  başka tedavinin tüpü) mesaj basılmıyor (tuzak #9).
+- **Önerilen etiket aynı dakikada çakışmıyor** (`_etiket_onerisi()`).
+  Ekran hemen geri gelince ikinci tüp çoğu zaman aynı dakikada dondurulur;
+  öneri ilk tüpün etiketi olurdu, kayıt "zaten var" diye reddedilir ve
+  seçimler boşalırdı. Etiket varsa dakika ilerliyor, aktarım aracının kuralı
+  (`aktar_access._tasiyici_ac()`).
+
+## Denendi
+
+Kullanıcının veritabanının bir kopyasında, iki adayı olan bir IVF/ICSI
+tedavisinde: ilk embriyonun kaydı vitrifikasyon ekranına döndü, mesaj doğru
+tüpü yazdı, ikinci embriyo listede kaldı; aynı dakikadaki ikinci öneri bir
+dakika ilerledi ve ikinci tüp hatasız kaydedildi. Başka bir tüpün numarası
+verilince mesaj basılmadı.

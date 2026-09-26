@@ -18,6 +18,11 @@
 {% block icerik %}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+{# Kayıt bu ekrana dönüyor (v6.198): hangi taşıyıcıya ne kondu. Sıradaki
+   embriyolar aşağıda, tüp "Dondurulmuş" listesinde de. #}
+{% if kaydedilen %}<div class="uyari tamam">{{ metin("vit_kaydedildi").format(
+    icerik=icerik_sayisi(kaydedilen.adet, icerik=kaydedilen.icerik), etiket=kaydedilen.etiket) }}
+  <a href="/cryo/tasiyici/{{ kaydedilen.id }}">{{ metin("tasiyiciya_git") }}</a></div>{% endif %}
 {% if goc_gerekli %}<div class="uyari">{{ metin("yeniden_dondurma_goc_gerekli") }}</div>{% endif %}
 
 {# Etiket araması (v6.138, kullanıcının isteği: "Vitrifikasyonda etiket kodu

@@ -6718,7 +6718,7 @@ def _vit_satiri(e: dict) -> dict:
 
 @uygulama.get("/cycle/{cycle_id}/vitrifikasyon")
 def vit_ekran(request: Request, cycle_id: int, hata: str = "",
-              ara: str = ""):
+              ara: str = "", kaydedildi: int = 0):
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
                "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
     if not c:
@@ -6795,6 +6795,21 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         oneri = yerlesim.oneriler(yerlesim.doluluk(), _hasta_tupleri(c["hasta_id"]),
                                   _d.now().date().isoformat(), yerlesim.renk_paleti())
 
+    # Az önce kaydedilen tüp (v6.198): kayıt bu ekrana dönüyor, üstte hangi
+    # taşıyıcıya ne konduğu yazıyor. Adresten yalnızca sayı geliyor, metin
+    # veritabanından; tüpte bu tedavinin dondurması yoksa (geri alınmış kayıt,
+    # başka tedavinin tüpü) mesaj basılmıyor.
+    kaydedilen = None
+    if kaydedildi:
+        kaydedilen = db.tek(
+            "SELECT t.id, t.etiket, " + icerik_sql() + ", "
+            "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id = t.id "
+            "   AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
+            f"   AND {db.vit_tedavisi('o')} = {int(cycle_id)}) AS adet "
+            "FROM tasiyici t WHERE t.id = ? AND t.lab_id = ?", (kaydedildi, db.LAB_ID))
+        if kaydedilen and not kaydedilen["adet"]:
+            kaydedilen = None
+
     return sablon.TemplateResponse(
         request, "vitrifikasyon.html",
         {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(), "oneri": oneri,
@@ -6810,7 +6825,25 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
          # aranan tüp çoğu zaman başka bir tedaviye ait, soru zaten "bu
          # etiket kimin". Aynı sorgu `/hastalar`'ın aramasını da besliyor.
          "ara": ara, "etiket_sonuc": etiket_ara(ara),
-         "onerilen": f"{c['cycle_no']}-{_d.now().strftime('%H%M')}"})
+         "kaydedilen": kaydedilen, "onerilen": _etiket_onerisi(c["cycle_no"])})
+
+
+def _etiket_onerisi(cycle_no) -> str:
+    """Ekranın önerdiği taşıyıcı etiketi: `<tedavi no>-<SSDD>`.
+
+    Etiket laboratuvarda tekil (`UNIQUE(lab_id, etiket)`). v6.198'den beri
+    kayıttan sonra bu ekran geri geliyor; ikinci tüp aynı dakikada
+    dondurulunca öneri ilk tüpün etiketi olurdu ve kayıt "zaten var" diye
+    reddedilirdi (seçimler de boşalırdı). Aktarımın kuralı gibi
+    (`aktar_access._tasiyici_ac()`) etiket varsa dakika ilerliyor."""
+    from datetime import datetime as _d, timedelta
+    an = _d.now()
+    for i in range(600):
+        aday = f"{cycle_no}-{an + timedelta(minutes=i):%H%M}"
+        if not db.tek("SELECT 1 FROM tasiyici WHERE lab_id=? AND etiket=?",
+                      (db.LAB_ID, aday)):
+            return aday
+    return f"{cycle_no}-{an:%H%M}"
 
 
 def _hasta_tupleri(hasta_id) -> list:
@@ -6970,7 +7003,14 @@ async def vit_kaydet(request: Request, cycle_id: int):
             if e and e["konum_id"]:
                 db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (e["konum_id"],))
 
-    return RedirectResponse(f"/cryo/tasiyici/{tid}", status_code=303)
+    # Kayıt vitrifikasyon ekranına döner (v6.198, kullanıcı: "bir embriyonun
+    # işlemi bittikten sonra başka embriyosu varsa tedavinin vitrifikasyon
+    # aşamasına geri dönemiyorum"). v6.197'ye kadar tüpün sayfasına gidiyordu;
+    # orada geri oku Cryo Haritası'na çıkıyor (yönlendirmeyle gelinen sayfada
+    # geri betiği bilerek karışmıyor, v6.126). Ekranda tüp "Dondurulmuş"
+    # listesinde, bağlantısıyla; sıradaki embriyolar ve "İşlemi bitir" de orada.
+    return RedirectResponse(f"/cycle/{cycle_id}/vitrifikasyon?kaydedildi={tid}",
+                            status_code=303)
 
 
 @uygulama.get("/cryo")

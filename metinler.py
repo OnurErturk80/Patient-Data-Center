@@ -737,6 +737,8 @@ METINLER = {
     "vitrifikasyon_saati": {"tr": "Vitrifikasyon saati", "en": "Vitrification time"},
     "vitrifikasyonu_kaydet": {"tr": "Vitrifikasyonu kaydet",
                               "en": "Save vitrification"},
+    "vit_kaydedildi": {"tr": "Kaydedildi: {icerik}, taşıyıcı {etiket}.",
+                       "en": "Saved: {icerik}, carrier {etiket}."},
     "cozme_ekrani": {"tr": "Çözme ekranı", "en": "Thaw screen"},
 
     # ---- transfer ----

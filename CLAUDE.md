@@ -334,6 +334,17 @@ görünmüyor.
   yine kalır. **Gizleme, kilitleme değil**: dejenere yumurtanın "Dej."
   kuralının (v6.139) tersi, çünkü kullanıcı burada "hiç gösterme" dedi;
   ikisini birbirine benzetme.
+- **Kayıt vitrifikasyon ekranına döner** (v6.198, kullanıcı: "bir
+  embriyonun işlemi bittikten sonra başka embriyosu varsa tedavinin
+  vitrifikasyon aşamasına geri dönemiyorum"). `vit_kaydet` →
+  `/cycle/{id}/vitrifikasyon?kaydedildi=<tüp>`, üstte `.uyari.tamam`
+  mesajı. Metin veritabanından; tüpte bu tedavinin dondurması yoksa mesaj
+  basılmaz. v6.197'ye kadar tüp sayfasına gidiyordu: orada aşama menüsü
+  yok ve geri ok `/cryo`'ya çıkıyor, çünkü yönlendirmeyle gelinen sayfada
+  geri betiği karışmıyor (v6.126). **Bir aşama kaydını başka bir modülün
+  sayfasına yönlendirme**: geri ok o sayfanın sabit adresine düşer.
+  Önerilen etiket varsa dakika ilerler (`_etiket_onerisi()`, aktarımın
+  kuralı); yoksa aynı dakikadaki ikinci tüp "zaten var" diye reddedilirdi.
 - **Vitrifikasyon ekranı `oosit_cryo` ile de paylaşılıyor — orada bu süzgeç
   UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
   (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**
