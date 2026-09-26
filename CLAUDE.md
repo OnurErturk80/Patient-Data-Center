@@ -323,6 +323,17 @@ görünmüyor.
   Koşul `TIP_ASAMALARI`'na bakıyor (`"blast" in ...`), cycle tipini elle
   yazmıyor. Satırdaki kalite `_vit_satiri()`'nden: blastokist skoru → yoksa
   cleavage yazımı ("4HG2") → yoksa "değerlendirilmemiş".
+- **Blastokistte arrest yazılan embriyo hiç görünmez** (v6.197, kullanıcının
+  isteği: "Blastokist aşamasında arest olarak kaydedilen embriyoları
+  vitrifikasyon aşamasında hiç gösterme"). Süzgeç `_blastokistte_arrest()`,
+  blastokist aşaması olan her tipte (FET (3→5) ve Yumurta Çözme dahil);
+  ekran ve kayıt aynı koşulu soruyor. Ölçü örneğin **bu tedavideki son**
+  blastokist değerlendirmesi (`db.bu_tedavide()`; gün, sonra saat): 5. gün
+  arrest, 6. gün 4AA yazılan embriyo listede kalır. `specimen.durum='arrest'`
+  değerine bakma, o alanın üzerine yazılıyor. Bu tedavide dondurulmuş örnek
+  yine kalır. **Gizleme, kilitleme değil**: dejenere yumurtanın "Dej."
+  kuralının (v6.139) tersi, çünkü kullanıcı burada "hiç gösterme" dedi;
+  ikisini birbirine benzetme.
 - **Vitrifikasyon ekranı `oosit_cryo` ile de paylaşılıyor — orada bu süzgeç
   UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
   (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**

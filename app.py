@@ -6630,6 +6630,35 @@ def _degerlendirilmis_burada(cycle_id) -> str:
             f"{db.vit_tedavisi('o')} = {int(cycle_id)})))")
 
 
+def _blastokistte_arrest(cycle_id) -> str:
+    """Blastokist aşamasında arrest kaydedilmiş, bu tedavide dondurulmamış
+    örnek -- SQL koşulu (v6.197, kullanıcının isteği: "Blastokist aşamasında
+    arest olarak kaydedilen embriyoları vitrifikasyon aşamasında hiç
+    gösterme"). `_vit_adaylari()` bunun tersini istiyor.
+
+    - Ölçü örneğin bu tedavideki SON blastokist değerlendirmesi (gün, sonra
+      saat sırasıyla): 5. gün arrest, 6. gün 4AA yazılmışsa embriyo gelişmiş,
+      listede kalır. `specimen.durum`'a değil olaya bakılıyor -- durum her
+      aşamada üzerine yazılıyor (`_DEJENERE`'nin gerekçesi).
+    - "Bu tedavide" (`db.bu_tedavide()`): FET (3→5 kültür)'te ve Yumurta
+      Çözme'de değerlendirme çözmeden sonra bu tedavide yapılıyor.
+    - Bu tedavide zaten dondurulmuş örnek her koşulda kalır: ekranın
+      "Dondurulmuş" kartı aynı listeden besleniyor, var olan kayıt görünmez
+      olmasın (v6.137'nin kuralı).
+    - Gizleniyor, kilitlenmiyor (dejenere yumurtanın tersi, v6.139): kullanıcı
+      "hiç gösterme" dedi. Transfer ekranı arrest embriyoyu zaten
+      göstermiyordu (`TRANSFERE_UYGUN`'da `arrest` yok).
+    """
+    cid = int(cycle_id)
+    return ("COALESCE((SELECT b.bl_genisleme FROM olay b "
+            "WHERE b.specimen_id = s.id AND b.tip = 'blastokist_degerlendirme' "
+            f"AND b.iptal_mi = 0 AND {db.bu_tedavide(cid, 'b')} "
+            "ORDER BY b.gun DESC, b.zaman DESC, b.id DESC LIMIT 1), '') = 'arrest' "
+            "AND NOT EXISTS (SELECT 1 FROM olay v WHERE v.specimen_id = s.id "
+            "AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
+            f"AND {db.vit_tedavisi('v')} = {cid})")
+
+
 def _vit_adaylari(c) -> tuple:
     """Vitrifikasyon ekranında listelenen örnekler -- `(SQL koşulu, parametreler)`.
 
@@ -6647,22 +6676,26 @@ def _vit_adaylari(c) -> tuple:
       Çözme'de ikisi de geçerli** (v6.147): çözülen yumurtaydı, dondurulan
       ise ICSI'den sonra gelişen embriyo -- `ivf_icsi`'nin kuralı, yalnızca
       dondurma kaydı bu tedavininki olmalı (`_degerlendirilmis_burada()`).
+    - Blastokist aşaması olan her tipte blastokistte arrest kaydedilen
+      embriyo hiç görünmüyor (v6.197, `_blastokistte_arrest()`).
     Aşama soruları tip adıyla değil `TIP_ASAMALARI` ile soruluyor.
     """
     tip, cid = c["cycle_tipi"], c["id"]
     asamalar = TIP_ASAMALARI.get(tip, ())
+    arrest = (" AND NOT (" + _blastokistte_arrest(cid) + ")"
+              if "blast" in asamalar else "")
     if fet_tipi_mi(tip):
         kosul, par = _FET_DONDURULABILIR, (cid, cid)
         if "icsi" in asamalar:
             kosul += (" AND NOT (" + _ICSI_YAPILMADI + ") AND ("
                       + _degerlendirilmis_burada(cid) + ")")
-        return kosul, par
+        return kosul + arrest, par
     kosul = "s.cycle_id=?"
     if "icsi" in asamalar:
         kosul += " AND NOT (" + _ICSI_YAPILMADI + ")"
     if "blast" in asamalar:
         kosul += " AND (" + _DEGERLENDIRILMIS + ")"
-    return kosul, (cid,)
+    return kosul + arrest, (cid,)
 
 
 def _vit_satiri(e: dict) -> dict:

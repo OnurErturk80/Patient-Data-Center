@@ -15383,3 +15383,40 @@ kök üretilir ve telefonlara sertifika yeniden yüklenir. Mac ile klinik
 bilgisayarının kökleri ayrı (her makine kendi kökünü üretiyor; `tasi.py`
 yalnızca `lab.db`'yi taşıyor). Windows güvenlik duvarı 8443'ü engellerse
 telefon güvenli adrese ulaşamaz (KOMUTLAR.md).
+
+# v6.197 — Blastokistte arrest yazılan embriyo vitrifikasyonda görünmüyor
+
+Kullanıcının isteği (2026-09-26): "Blastokist aşamasında arest olarak
+kaydedilen embriyoları vitrifikasyon aşamasında hiç gösterme." v6.137'den
+beri vitrifikasyon listesi yalnızca değerlendirilmiş embriyoyu gösteriyordu
+(`_DEGERLENDIRILMIS`), ama arrest de bir değerlendirme: blastokist ekranında
+"Arrest" seçilen embriyo listede duruyor, seçilip dondurulabiliyordu.
+
+- **Süzgeç `_blastokistte_arrest(cycle_id)`**, `_vit_adaylari()`'na
+  blastokist aşaması olan her tipte ekleniyor (IVF/ICSI, FET (3→5 kültür),
+  Yumurta Çözme; koşul `TIP_ASAMALARI`'na bakıyor). Ekran ve kayıt aynı
+  koşulu soruyor: eski bir sekmeden gönderilen arrest embriyo da
+  kaydedilmiyor.
+- **Ölçü son blastokist değerlendirmesi** (gün, sonra saat): 5. gün arrest,
+  6. gün 4AA yazılan embriyo listede kalıyor. `specimen.durum`'a
+  bakılmıyor -- her aşamada üzerine yazılıyor (v6.139'un gerekçesi).
+- **Bu tedavinin değerlendirmesi** (`db.bu_tedavide()`): FET (3→5)'te
+  çözülüp arrest yazılan embriyo FET'in listesinden düşüyor.
+- **Bu tedavide zaten dondurulmuş örnek kalır** (sonradan arrest yazılmış
+  olsa da): "Dondurulmuş" kartı aynı listeden besleniyor, geri alma yolu
+  kaybolmasın (v6.137'nin kuralı).
+- **Gizleniyor, kilitlenmiyor**: dejenere yumurta "Dej." ile kilitli
+  görünüyor (v6.139, kullanıcının isteği); burada kullanıcı "hiç gösterme"
+  dedi. Arrest kaydı blastokist ekranında duruyor; silinir ya da sonraki gün
+  başka bir değer yazılırsa embriyo listeye döner.
+- Transfer ekranı arrest embriyoyu zaten göstermiyordu (`TRANSFERE_UYGUN`'da
+  `arrest` yok). Arrest yalnızca blastokist değerlendirmesinin bir seçeneği
+  (`bl_genisleme`); cleavage'da böyle bir değer yok.
+
+## Denendi
+
+Kullanıcının veritabanının bir kopyasında (hiç arrest kaydı yoktu, bir
+IVF/ICSI tedavisinde yazıldı): dondurulmamış embriyo arrest olunca listeden
+ve kayıt denetiminden düştü, dondurulmuş olan kaldı; ertesi güne başka bir
+değer yazılınca döndü, o gün de arrest olunca yine düştü. Beş tedavi tipinin
+vitrifikasyon ekranı 200.
