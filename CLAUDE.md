@@ -59,14 +59,17 @@ Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 <gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
 edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
 verilmedi (Cryo Excel'inde o yıllardan ~200 satır var). Sonra sıra Cryo
-Excel'inde: `cryo_esle.py` (aşağıda; v6.180'de sperm satırları da, kullanıcı
-henüz çalıştırmadı). v6.188'in onarımı (`cryo_esle.py onar`: TANK 3
-kanisterleri, üst kat, yeşil/pembe) kullanıcının Mac'inde çalıştırılacak;
-çalıştırıp çalıştırmadığını sormadan haritanın konumlarına güvenme. Tank
-düzeni (v6.189, `cryo_esle.py yerlesim`, önce `onar` ve `sperm` ister) de
-kullanıcının makinesinde çalıştırılacak -- boş yer önerisi (v6.190) ondan
-önce görünmez; Excel haritası (v6.191) düzen yokken de yazılır, ama yalnızca
-dolu yerlerle. Göç, kalıcı silme, geri yükleme gibi
+Excel'inde: `cryo_esle.py` (aşağıda). **Kullanıcı 2026-09-26'da Mac'te
+(v6.192) Cryo Excel'inin kiplerini tamamladı**: `onar` ve `sperm` önceden
+çalışmıştı (`yerlesim` onları bekleyen iş olarak göstermedi), `uygula`
+kalan 2 tüpe konum yazdı, `yerlesim` tank düzenini kurdu -- Cryo
+Haritası'nda tank → kanister ağacı görünüyor (o gün programda 5.590 hasta,
+7.327 dondurma tüpü; `yerlesim`'in sayıları bildirilmedi). Boş yer önerisi
+(v6.190) ve Excel haritasının boş yerleri (v6.191) düzene bağlı, o
+veritabanında artık devrede (kullanıcı henüz denemedi). **Düzen Mac'teki
+veritabanında**: klinikteki Windows makinesi onu ancak `lab.db` `tasi.py`
+ile taşınınca görür -- "haritada yok" denirse hangi makineye bakıldığını
+sor. Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -2080,7 +2083,8 @@ besleniyor.
   ileri tarihli satır açılmıyor. Aynı ad+gün+konum "zaten"; ekrandan
   girilmiş konumsuz kayda konum yazılıyor. Deneme: 1.524 tüp, 609 erkek
   (v6.192'ye kadar 1.531: kopya tablonun 7 vial'i iki kez açılıyordu).
-  **Kullanıcı henüz çalıştırmadı** (2026-09-25'te hazırlandı).
+  Kullanıcı Mac'te çalıştırdı (2026-09-26'ya kadar; sayısı bildirilmedi,
+  o gün v6.192'deydi -- kopya tablosuz okumayla çalıştığı varsayılıyor).
   - `/cryo`'nun sperm sütunu arama yokken ağaç (`sperm_agaci_kur()`),
     aramada düz liste.
   - **Eski dondurma çifte ELLE bağlanır** ("Eski sperm dondurmaları elle
