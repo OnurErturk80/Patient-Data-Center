@@ -5,6 +5,8 @@
      çalışırken bile güvenli; düz dosya kopyası yarım yazılmış olabilir)
   2. Kopyayı doğrular (integrity_check) — açılmayan yedek yedek değildir
   3. Arşiv klasöründeki yeni fotoğrafları hedefe kopyalar
+  4. Cryo Haritası'nın Excel'inin son halini kopyalar (v6.191) --
+     bilgisayar bozulursa harita programsız da okunabilsin
 
 Kullanım:
     python yedek.py                 (hedef: bu makinenin yerel_ayar.json bölümü)
@@ -151,6 +153,26 @@ def arsiv_yedekle(arsiv: Path, hedef_klasor: Path):
     yaz(f"Arsiv: {yeni} yeni dosya kopyalandi, {guncel} dosya zaten guncel")
 
 
+def harita_yedekle(hedef_klasor: Path):
+    """Cryo Haritası'nın Excel'ini (`harita_excel.py`, v6.191) hedefe kopyalar:
+    yalnızca son hali, eskisinin üzerine. Program kendi kopyasını veri
+    klasöründe tutuyor; bu, bilgisayar bozulursa haritanın programsız
+    okunabilmesi için. Kopyalanamazsa yedeklemeyi durdurmaz -- asıl yedek
+    veritabanı, harita ondan yeniden üretilebilir."""
+    import harita_excel               # yol tek yerde (tuzak #8)
+    kaynak = harita_excel.ana_dosya()
+    if not kaynak.is_file():
+        yaz("Cryo haritasi Excel'i yok, atlandi (program acildiginda yazilir).")
+        return
+    try:
+        hedef = hedef_klasor / harita_excel.KLASOR_ADI
+        hedef.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(kaynak, hedef / kaynak.name)
+        yaz(f"Cryo haritasi Excel'i kopyalandi: {hedef / kaynak.name}")
+    except OSError as e:
+        yaz(f"UYARI: Cryo haritasi Excel'i kopyalanamadi: {e}")
+
+
 def main():
     if not DB.exists():
         yaz("HATA: lab.db bulunamadi.")
@@ -199,6 +221,7 @@ def main():
         eskileri_temizle(hedef_klasor)
         arsiv_klasor = Path(ayar("goruntu_arsiv_klasor", str(KOK / "arsiv")))
         arsiv_yedekle(arsiv_klasor, hedef_klasor)
+        harita_yedekle(hedef_klasor)
         ayar_yaz("son_yedek", datetime.now().isoformat(" ", "seconds"))
         yaz("Yedekleme tamam.")
     except Exception as e:

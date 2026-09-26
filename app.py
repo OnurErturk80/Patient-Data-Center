@@ -24,6 +24,7 @@ import form_kalip
 import formlar
 import goc
 import guvenlik
+import harita_excel
 import karekod
 import metinler
 import xlsx_oku
@@ -59,7 +60,12 @@ async def _yasam(app):
         GOC_SONUCU = {"calisti": [], "hatali": [("baslangic", repr(e))],
                       "bekleyen": [], "elle": [], "atlandi": ""}
     _goc_ozeti(GOC_SONUCU)
+    # Cryo Haritası'nın Excel'i (v6.191): dakikada bir damgaya bakan arka
+    # plan işi, harita değişince veri klasöründeki dosyayı yeniden yazar.
+    # Göçlerden SONRA: tank düzeni kolonları göçle geliyor.
+    harita_excel.baslat(veri_damgasi)
     yield
+    harita_excel.durdur()
 
 
 def _goc_ozeti(s):
@@ -1447,6 +1453,7 @@ def yedekleme_yedekle_simdi(request: Request):
         _yedek.eskileri_temizle(hedef_klasor)
         arsiv_klasor = Path(db.ayar("goruntu_arsiv_klasor", str(db.VERI_KOK / "arsiv")))
         _yedek.arsiv_yedekle(arsiv_klasor, hedef_klasor)
+        _yedek.harita_yedekle(hedef_klasor)
         _yedek.ayar_yaz("son_yedek", _dt.now().isoformat(" ", "seconds"))
         _yedek.yaz("Yedekleme tamam.")
     except Exception as e:
@@ -4335,6 +4342,20 @@ def disari_cryo(request: Request):
     return excel_yaniti("cryo", disari.cryo_sayfalari())
 
 
+@uygulama.get("/disari/cryo/harita")
+def disari_cryo_harita(request: Request):
+    """Cryo Haritası'nın Excel'i (v6.191): tank sayfaları laboratuvarın
+    düzeninde + düz liste. Veri klasöründe duranla aynı içerik; indirirken
+    yeniden kuruluyor -- arka plan işinin bir sonraki turunu beklemesin diye
+    (harita değiştiyse diskteki dosya da o an yazılıyor). İzin `/disari/cryo`
+    gibi Cryo Haritası'nınki (`yol_modulu()`)."""
+    sonuc = harita_excel.guncelle(bayt_iste=True)
+    return Response(
+        sonuc["veri"], media_type=EXCEL_TURU,
+        headers={"Content-Disposition":
+                 f'attachment; filename="{excel.dosya_adi(harita_excel.DOSYA_KOKU)}"'})
+
+
 def _istatistik_donemi(yil: int, ay: int) -> tuple:
     """Adresten gelen yıl/ay'ı makul bir döneme oturtur (v6.123).
 
@@ -6910,6 +6931,7 @@ def cryo_harita(request: Request, ara: str = ""):
          "embriyo_agaci": embriyo_agaci, "sperm_duzeni": sperm_duzeni,
          "konumsuz_sayisi": konumsuz_sayisi,
          "excel_sonuc": excel_kaydi_ara(ara),
+         "harita_excel": harita_excel.durum(),
          "etiketler": etiketler, "kullanici": request.state.kullanici})
 
 
@@ -6937,51 +6959,11 @@ def excel_kaydi_ara(ara) -> list:
         (db.LAB_ID, buyuk, buyuk, f"%{ara}%", f"%{ara}%", buyuk))
 
 
-def _tup_ayrintilari(idler) -> dict:
-    """Goblet görünümündeki tüplerin ayrıntısı: hasta, içerik, sayı."""
-    if not idler:
-        return {}
-    sonuc = {}
-    idler = list(idler)
-    icerik = formlar.tup_icerikleri(idler)
-    for i in range(0, len(idler), 500):
-        parca = idler[i:i + 500]
-        yer = ",".join("?" * len(parca))
-        hasta = ("(SELECT h.{a} FROM olay o JOIN specimen s ON s.id=o.specimen_id "
-                 "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
-                 "WHERE o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-                 "ORDER BY o.id LIMIT 1)")
-        sperm = ("(SELECT h.{a} FROM sperm_dondurma sd JOIN hasta h ON h.id=sd.hasta_id "
-                 "WHERE sd.tasiyici_id=t.id AND sd.iptal_mi=0 LIMIT 1)")
-        for r in db.sorgu(
-                "SELECT t.id, t.etiket, t.tip, t.renk, t.kategori, t.vitrifikasyon_zamani, "
-                "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
-                "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
-                f"  COALESCE({hasta.format(a='dosya_no')}, {sperm.format(a='dosya_no')}) AS dosya_no, "
-                f"  COALESCE({hasta.format(a='ad_soyad')}, {sperm.format(a='ad_soyad')}) AS ad_soyad, "
-                "  (SELECT sd.id FROM sperm_dondurma sd WHERE sd.tasiyici_id=t.id "
-                "   AND sd.iptal_mi=0 LIMIT 1) AS sperm_id "
-                f"FROM tasiyici t WHERE t.id IN ({yer})", tuple(parca)):
-            d = dict(r)
-            ic = icerik.get(r["id"])
-            d["yumurta"] = bool(ic and ic["yumurta"])
-            d["parantez"] = formlar.tup_metni(ic) if ic else ""
-            d["gun"] = "/".join(f"D{g}" for g in sorted(ic["gunler"])) if ic else ""
-            sonuc[r["id"]] = d
-    return sonuc
-
-
-def _excel_ayrintilari(idler) -> dict:
-    if not idler:
-        return {}
-    sonuc = {}
-    idler = list(idler)
-    for i in range(0, len(idler), 500):
-        parca = idler[i:i + 500]
-        yer = ",".join("?" * len(parca))
-        for r in db.sorgu(f"SELECT * FROM excel_kaydi WHERE id IN ({yer})", tuple(parca)):
-            sonuc[r["id"]] = dict(r)
-    return sonuc
+# Goblet görünümünün tüp/Excel kaydı ayrıntısı `yerlesim.py`'de (v6.191):
+# kendiliğinden güncellenen Excel haritası da aynı satırları basıyor, iki
+# kopya olsaydı ekranla dosya birbirini tutmazdı.
+_tup_ayrintilari = yerlesim.tup_ayrintilari
+_excel_ayrintilari = yerlesim.excel_ayrintilari
 
 
 def _renk_sirasi(renk) -> tuple:

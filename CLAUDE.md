@@ -65,7 +65,8 @@ kanisterleri, üst kat, yeşil/pembe) kullanıcının Mac'inde çalıştırılac
 çalıştırıp çalıştırmadığını sormadan haritanın konumlarına güvenme. Tank
 düzeni (v6.189, `cryo_esle.py yerlesim`, önce `onar` ve `sperm` ister) de
 kullanıcının makinesinde çalıştırılacak -- boş yer önerisi (v6.190) ondan
-önce görünmez. Göç, kalıcı silme, geri yükleme gibi
+önce görünmez; Excel haritası (v6.191) düzen yokken de yazılır, ama yalnızca
+dolu yerlerle. Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -178,6 +179,7 @@ Patient Data Center/
   cryo_excel.py     laboratuvarın cryo haritası Excel'ini çözer (v6.173)
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
   yerlesim.py       tank düzeni: goblet doluluğu, yer anahtarı, haritanın ağacı (v6.189)
+  harita_excel.py   Cryo Haritası'nın Excel'ini her değişiklikte yazar (v6.191)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
@@ -2164,6 +2166,35 @@ besleniyor.
     aynı `yer_uyarilari()`'ni soruyor. Yazılan yer düzendeki bir gobletse
     tüp onun konum satırına yazılıyor (`goblet_bul()`), varyant açılmıyor.
   - Rengi yazılmamış straw'ı olan gobletde uyarı yazıyor, eşitlikte sona.
+- **Excel haritası kendiliğinden yazılıyor** (v6.191, README v6.191;
+  kullanıcının sözü: "ben istediğim zaman bu excel cryo haritayı
+  kopyalıyabileyim", seçimi "Bugünkü düzen + düz liste").
+  `harita_excel.py`: `<veri klasörü>/cryo_harita/Cryo_Haritasi.xlsx` + günün
+  kopyası (30 gün). Sayfalar: Bilgi, tank başına bir sayfa (kanisterler yan
+  yana, her goblet kapasitesi kadar satır, boş yuva boş satır), Liste, Boş
+  yerler.
+  - **Tetik**: açılışta (`_yasam`, göçlerden sonra) başlayan arka plan iş
+    parçacığı dakikada bir `veri_damgasi()`'ne bakar; değiştiyse içeriği
+    kurar, **içeriğin imzası** değiştiyse yazar. Yeni bir cryo tablosu
+    eklersen damga onu zaten kapsar (`DEGISIM_ATLA` dışlama listesi); ama
+    haritada görünecekse `_kur()`'a ekle, yoksa imza değişmez.
+  - **Türetilmiş**: dosyada elle değişiklik programa girmez, sonraki yazımda
+    kaybolur (Bilgi sayfası söylüyor). Dosyayı okuyup programa geri alan bir
+    yol YAZMA -- kaynak programın kayıtları.
+  - **Yazım atomik** (geçici dosya + `os.replace`); Windows'ta Excel'de açık
+    dosya yazılamaz -> hata karta, sonraki turda yeniden. Hiçbir hata
+    programı durdurmaz, günlüğe bir kez yazılır; `print` değil `logging`.
+  - Soyad/ad tek sütun (HASTA): `ad_soyad`'ı bölme, soyadın yerini tahmin
+    etme. DOSYA NO sütunu eklendi.
+  - İndirme `/disari/cryo/harita` (izin `cryo`, `yol_modulu()`'nın `disari`
+    kuralı), kart `/cryo`'nun sol sütununda (yol yalnızca yöneticiye).
+    Yedekleme son hali yedek diskine de kopyalıyor (`yedek.harita_yedekle()`,
+    hata yedeklemeyi durdurmaz).
+  - `cryo_harita/` `.gitignore`'da: bugünkü kurulumlarda veri klasörü depo
+    klasörü, dosyada hasta adları var.
+  - Goblet ekranının tüp satırı `yerlesim.tup_ayrintilari()` (app'teki
+    `_tup_ayrintilari` onun adı): ekran ile dosya aynı satırı basıyor --
+    ikinci bir sorgu yazma.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği. Excel'in iki belirsiz yeri (README v6.189): sayfanın altındaki
   ikinci "TANK 3" tablosu (1. kanisterinde 2015'ten 4 embriyo) sağ üstteki

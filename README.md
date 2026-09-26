@@ -15008,3 +15008,109 @@ straw'larına yakın" (önceki goblet dolmuştu) ve seçici gizli; dolu goblet
 onaysız doğrudan POST edilince sunucu reddetti, tüp açılmadı; küçük harfli,
 kısaltılmış yazım (onaylı) düzendeki gobletin kendi konum satırına düştü.
 Ekran 390 ve 1280 px'te yatay taşmıyor.
+
+# v6.191 — Kendiliğinden güncellenen Excel haritası
+
+Kullanıcının isteği (v6.189'un başındaki sözü): "ben istediğim zaman bu
+excel cryo haritayı kopyalıyabileyim istiyordum." Seçimi (2026-09-25):
+"Bugünkü düzen + düz liste" -- her tank ayrı sayfa, kanisterler yan yana,
+her goblet 4 satır, boş yerler de görünür; ek olarak süzülebilir tek bir
+liste sayfası. Dosya programın veri klasöründe durur, her günün son hali 30
+gün saklanır. Böylece v6.189–v6.191 isteğin üç parçasını kapatıyor: harita
+programda (düzen + Excel kaydı), dondururken boş yer önerisi, her
+değişiklikte kendiliğinden yazılan Excel.
+
+## Dosya
+
+`<veri klasörü>/cryo_harita/Cryo_Haritasi.xlsx` (bugünkü iki kurulumda veri
+klasörü program klasörünün kendisi, `lab.db`'nin yanı) ve günün kopyası
+`Cryo_Haritasi_YYYY-AA-GG.xlsx`; 30 günden eski günlük kopyalar siliniyor,
+klasördeki başka dosyaya dokunulmuyor. Sayfalar:
+
+- **Bilgi**: üretildiği an, sayılar ve dört not -- dosyayı program yazar,
+  elle değişiklik programa girmez ve bir sonraki yazımda silinir; Excel
+  kaydının ne olduğu; açmadan önce kopyalayın (aşağıya bak).
+- **Tank sayfaları** (TANK 1 … YENİ SPERM): laboratuvarın Excel'indeki gibi
+  kanister blokları yan yana (bir bantta 6), her goblet kapasitesi kadar
+  satır, boş yuva boş satır; gobletler kalın çizgiyle ayrılıyor. Üst kat
+  ayrı bölüm ("KANİSTER 1 · ÜST KAT"). Kanisterinde olup düzende olmayan bir
+  goblete yazılmış tüp bloğun sonunda "GOBLETİ BELİRSİZ" (goblet ekranının
+  kartı). Blok sütunları: NO, HASTA, EŞİ, DOSYA NO, TARİH, HÜCRE ("D5
+  (3AA-4AB)", "Yumurta (5*MII)", "Sperm · TESE" -- tüp yazımı
+  `formlar.tup_metni()`), VİAL (tip + renk), ETİKET (programdaki etiket; Excel
+  kaydında "EXCEL KAYDI" ve Excel'deki yazısı olduğu gibi).
+  - **Soyad ve ad tek sütun (HASTA)**: program adı tek alanda tutuyor
+    (`hasta.ad_soyad`); soyadın nerede başladığını tahmin etmek iki soyadlı
+    hastada yanlış yazardı. Excel kaydında ad + soyad, programın sırası.
+  - **DOSYA NO eklendi**: Excel'de yoktu, tek güvenilir anahtar (v6.125).
+- **Liste**: her dolu tüp ve tankta duran her Excel kaydı bir satır (tank,
+  kanister, goblet, tür, hasta, eşi, dosya no, dondurma günü, içerik,
+  taşıyıcı, renk, etiket, kaynak: Program / Excel kaydı, yer). Yeri
+  bilinmeyenler de var: "Konum girilmemiş", "Düzende yok". Tarih burada ISO
+  (Excel tarih olarak alıyor), tank sayfalarında gün.ay.yıl metin -- tablo
+  sayfası ile yerleşim sayfası ayrımı (v6.94).
+- **Boş yerler**: boş yuvası olan her goblet, boş sayısı ve gobletteki
+  renklerle.
+
+Tank düzeni kurulmamışsa (`cryo_esle.py yerlesim` çalışmamış) tank
+sayfaları tüplerin yazılı konumlarından kuruluyor: yalnızca dolu gobletler,
+boş yuva bilinmiyor, "Boş yerler" sayfası yok; Bilgi sayfası söylüyor.
+
+## Ne zaman yazılıyor (`harita_excel.py`)
+
+Program açılınca (göçlerden sonra) arka planda bir iş parçacığı başlıyor;
+dakikada bir veritabanının damgasına bakıyor (`veri_damgasi()`, açık
+ekranları tazeleyen damganın aynısı -- ekleme, silme, iptal ve günlüğe
+yazılan her düzenleme). Damga değiştiyse haritanın **içeriği** kuruluyor
+(deneme veritabanında ~1,2 sn: 3.142 tüp, 2.799 Excel kaydı) ve içeriğin
+imzası son yazılanla karşılaştırılıyor; dosya yalnızca harita gerçekten
+değiştiyse yazılıyor. Bir ICSI kaydı dosyayı yeniden yazdırmıyor; bir
+dondurma ya da Excel kaydı işlemi yazdırıyor (denendi). Çözme ve başka
+merkeze taşıma da tüpün durumunu değiştirdiği için aynı yoldan.
+
+- **Türetilmiş**: harita her seferinde tank düzeni, dolu tüpler ve Excel
+  kayıtlarından baştan kuruluyor, ayrıca saklanan bir harita yok.
+- **Atomik yazım**: yanındaki geçici dosyaya, sonra `os.replace`.
+- **Windows'ta Excel'de açık duran dosya değiştirilemez.** Yazılamazsa
+  Cryo Haritası'nın kartı "başka bir programda açık olabilir" diyor, program
+  bir sonraki turda yeniden deniyor. Bu yüzden dosyayı açmadan önce
+  kopyalamak ya da Cryo Haritası'ndaki "Excel haritasını indir"i kullanmak
+  gerekiyor -- indirilen oradakiyle aynı içerik, indirirken yeniden kuruluyor.
+- **Hiçbir hata programı durdurmuyor**: günlüğe (`program.log`) bir kez ve
+  karta yazılıyor.
+- İmza bellekte: program yeniden açılınca ilk tur dosyayı bir kez daha
+  yazıyor (içerik aynı, zaman yeni).
+
+## Ekran ve yedek
+
+Cryo Haritası'nın sol sütununda "Excel haritası" kartı: son güncelleme
+zamanı, yazılamadıysa sebebi, yöneticiye klasörün yolu; altında "Excel
+haritasını indir" (`/disari/cryo/harita`, izni Cryo Haritası'nınki,
+`/disari/cryo` gibi).
+
+Yedekleme (`yedek.py` ve `/yedekleme`'deki "Şimdi yedekle") haritanın son
+halini yedek diskine de kopyalıyor (`<yedek klasörü>/cryo_harita/`):
+bilgisayar bozulursa harita programsız da okunabilsin. Kopyalanamazsa
+yedekleme durmuyor -- asıl yedek veritabanı, harita ondan yeniden üretilir.
+
+`cryo_harita/` ve `Cryo_Haritasi*.xlsx` `.gitignore`'da: hasta adları var ve
+bugünkü kurulumlarda klasör depo klasörünün içinde açılıyor.
+
+Goblet ekranının tüp ayrıntısı (`_tup_ayrintilari()`) `yerlesim.py`'ye
+taşındı (`tup_ayrintilari()`, eşin adı ve sperm dondurma sebebi eklendi):
+ekran ile dosya aynı satırı basıyor.
+
+**Denendi** (veritabanı kopyası): açılıştan 5 sn sonra dosya ve günün
+kopyası yazıldı; cryo dışı bir değişiklik (günlüğe satır) dosyayı yeniden
+yazdırmadı; bir Excel kaydını "tanktan çıkarıldı" yapmak yazdırdı (liste
+5.941 → 5.940), geri almak yine yazdırdı; önerilen goblete kaydedilen bir
+dondurma 8 sn içinde listede o gobletle çıktı; ana dosya yazılamayınca hata
+karta düştü, düzelince yazıldı; 30 günden eski iki günlük kopya silindi,
+başka dosyalar kaldı; tank düzeni kurulmamış eski bir kopyada da dosya
+üretildi. Dosya openpyxl ile açılıyor (9 sayfa); tank sayfası adları
+maskelenmiş bir kopyada görüntüye çevrilip kontrol edildi. Kart 390 ve
+1440 px'te taşmıyor.
+
+**Bilinen**: TANK 5'in 2.–6. kanisterlerinin üst katında Excel'de goblet
+numarası yok (bloklar boş); program oraları bilmiyor, önermiyor ve haritada
+göstermiyor.

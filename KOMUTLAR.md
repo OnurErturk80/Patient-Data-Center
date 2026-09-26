@@ -119,7 +119,8 @@ Kullanıcı adını `<...>` içine alma, düz yaz.
 
 ## Veri nerede duruyor
 
-`lab.db`, `yerel_ayar.json`, `arsiv/` ve `snapshot/` **veri klasöründe**.
+`lab.db`, `yerel_ayar.json`, `arsiv/`, `snapshot/` ve `cryo_harita/`
+(Excel haritası, v6.191) **veri klasöründe**.
 Bugünkü kurulumlarda bu proje klasörünün kendisi (kodun yanında `lab.db`
 varsa orası kullanılıyor). Paketlenmiş kurulumlarda işletim sisteminin veri
 klasörü olacak. Nerede olduğunu görmek için:
@@ -564,8 +565,18 @@ isteyecek. Rapor `cryo_esle_rapor_yerlesim.txt` (hasta adı içerir). İkinci
 ağacı olarak açılır; bir kanistere basınca gobletleri, her birinin 4 yuvası.
 Excel kaydının sayfasından programdaki tüpe bağlanabilir ya da "tanktan
 çıkarıldı" işaretlenebilir (ikisi de geri alınabilir). **Bundan sonra harita
-programda tutulur**: yeni dondurmaları eski Excel'e değil programa girin
-(Excel'i program üretecek -- sıradaki sürüm).
+programda tutulur**: yeni dondurmaları eski Excel'e değil programa girin.
+
+**Excel haritası (v6.191) -- kendiliğinden.** Program açıkken harita her
+değiştiğinde (dondurma, çözme, taşıma, Excel kaydı) Excel'ini yeniden yazar:
+veri klasöründe `cryo_harita/Cryo_Haritasi.xlsx`, ayrıca her günün son hali
+`Cryo_Haritasi_YYYY-AA-GG.xlsx` (30 gün). Elle bir şey çalıştırmak gerekmez.
+Kopyalamanın iki yolu: Cryo Haritası'nda "Excel haritasını indir", ya da
+klasörden kopyala (yöneticiye kartta klasörün yolu yazar). **Dosyayı
+klasördeyken Excel'de açma, önce kopyala**: açık dosya güncellenemez (kart
+söyler, kapatınca program yeniden dener). Dosyada yaptığın değişiklik
+programa girmez, bir sonraki güncellemede silinir. Yedekleme son halini yedek
+diskine de kopyalar (`<yedek klasörü>/cryo_harita/`).
 
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı

@@ -2228,6 +2228,32 @@ METINLER = {
                     "en": "Export this cycle to Excel"},
     "excel_cryo": {"tr": "Dolabı Excel'e aktar",
                    "en": "Export the tank to Excel"},
+    # ---- Cryo Haritası'nın Excel'i (v6.191) ----
+    "excel_harita": {"tr": "Excel haritası", "en": "Excel map"},
+    "excel_harita_ipucu": {
+        "tr": "Harita her değiştiğinde program Excel'ini kendiliğinden yeniden "
+              "yazar: her tank ayrı sayfa, kanisterler yan yana, her goblet "
+              "kapasitesi kadar satır; ayrıca tek bir liste. Her günün son hali "
+              "30 gün saklanır.",
+        "en": "Whenever the map changes the program rewrites its Excel file: one "
+              "sheet per tank, canisters side by side, one row per goblet slot; "
+              "plus a single list. Each day's last version is kept for 30 days."},
+    "excel_harita_guncel": {"tr": "Son güncelleme: {zaman}",
+                            "en": "Last updated: {zaman}"},
+    "excel_harita_henuz": {
+        "tr": "Henüz yazılmadı; program açıldıktan birkaç saniye sonra yazılır.",
+        "en": "Not written yet; it is written a few seconds after the program starts."},
+    "excel_harita_yazilamadi": {
+        "tr": "Dosya yazılamadı — başka bir programda (Excel) açık olabilir. "
+              "Kapatınca program kendiliğinden yeniden dener.",
+        "en": "The file could not be written — it may be open in another program "
+              "(Excel). The program retries by itself once it is closed."},
+    "excel_harita_kurulamadi": {
+        "tr": "Excel haritası kurulamadı; ayrıntı program.log'da.",
+        "en": "The Excel map could not be built; see program.log."},
+    "excel_harita_klasor": {"tr": "Klasör", "en": "Folder"},
+    "excel_harita_indir": {"tr": "Excel haritasını indir",
+                           "en": "Download the Excel map"},
     "excel_tumu": {"tr": "Tüm veriyi Excel'e aktar",
                    "en": "Export all data to Excel"},
     "excel_tumu_ipucu": {

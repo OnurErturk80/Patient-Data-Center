@@ -27,6 +27,7 @@ import re
 
 import cryo_excel
 import db
+import formlar
 
 _TANK = re.compile(r"^(?:TANK|T)\s*-?\s*0*(\d+)$")
 _KANISTER = re.compile(r"^(?:KANISTER|CANISTER|KAN|CAN|K|C)?\s*-?\s*0*(\d+)$")
@@ -201,6 +202,63 @@ def agac(harita, kategori="embriyo") -> dict:
                       "excel": sum(k["excel"] for k in kanisterler),
                       "bos_yuva": sum(k["bos_yuva"] for k in kanisterler)})
     return {"tanklar": sonuc, "yersiz_tup": yersiz_tup, "yersiz_excel": yersiz_excel}
+
+
+def tup_ayrintilari(idler) -> dict:
+    """Gobletteki tüplerin ayrıntısı: hasta, içerik, sayı -> {tüp id: satır}.
+
+    Goblet ekranı (`/cryo/yer`), yeri belirsizler ve Excel haritası
+    (`harita_excel.py`, v6.191) aynı satırları basıyor -- tek sorgu. Hasta
+    embriyo tüpünde örneğin tedavisinden, sperm tüpünde dondurma kaydından.
+    `parantez` resmî formların tüp yazımı (`formlar.tup_metni()`: "(3AA-4AB)",
+    yumurtada "(5*MII)"), `gun` "D5" (birden çok günse "D3/D5")."""
+    if not idler:
+        return {}
+    sonuc = {}
+    idler = list(idler)
+    icerik = formlar.tup_icerikleri(idler)
+    hasta = ("(SELECT h.{a} FROM olay o JOIN specimen s ON s.id=o.specimen_id "
+             "JOIN cycle c ON c.id=s.cycle_id JOIN hasta h ON h.id=c.hasta_id "
+             "WHERE o.vit_tasiyici_id=t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+             "ORDER BY o.id LIMIT 1)")
+    sperm = ("(SELECT h.{a} FROM sperm_dondurma sd JOIN hasta h ON h.id=sd.hasta_id "
+             "WHERE sd.tasiyici_id=t.id AND sd.iptal_mi=0 LIMIT 1)")
+    for i in range(0, len(idler), 500):
+        parca = idler[i:i + 500]
+        yer = ",".join("?" * len(parca))
+        for r in db.sorgu(
+                "SELECT t.id, t.etiket, t.tip, t.renk, t.kategori, t.vitrifikasyon_zamani, "
+                "  (SELECT COUNT(*) FROM olay o WHERE o.vit_tasiyici_id=t.id "
+                "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0) AS adet, "
+                f"  COALESCE({hasta.format(a='dosya_no')}, {sperm.format(a='dosya_no')}) AS dosya_no, "
+                f"  COALESCE({hasta.format(a='ad_soyad')}, {sperm.format(a='ad_soyad')}) AS ad_soyad, "
+                f"  COALESCE({hasta.format(a='es_adi')}, {sperm.format(a='es_adi')}) AS es_adi, "
+                "  (SELECT sd.id FROM sperm_dondurma sd WHERE sd.tasiyici_id=t.id "
+                "   AND sd.iptal_mi=0 LIMIT 1) AS sperm_id, "
+                "  (SELECT sd.sebep FROM sperm_dondurma sd WHERE sd.tasiyici_id=t.id "
+                "   AND sd.iptal_mi=0 LIMIT 1) AS sperm_sebep "
+                f"FROM tasiyici t WHERE t.id IN ({yer})", tuple(parca)):
+            d = dict(r)
+            ic = icerik.get(r["id"])
+            d["yumurta"] = bool(ic and ic["yumurta"])
+            d["parantez"] = formlar.tup_metni(ic) if ic else ""
+            d["gun"] = "/".join(f"D{g}" for g in sorted(ic["gunler"])) if ic else ""
+            sonuc[r["id"]] = d
+    return sonuc
+
+
+def excel_ayrintilari(idler) -> dict:
+    """Excel kayıtlarının bütün alanları -> {id: satır}."""
+    if not idler:
+        return {}
+    sonuc = {}
+    idler = list(idler)
+    for i in range(0, len(idler), 500):
+        parca = idler[i:i + 500]
+        yer = ",".join("?" * len(parca))
+        for r in db.sorgu(f"SELECT * FROM excel_kaydi WHERE id IN ({yer})", tuple(parca)):
+            sonuc[r["id"]] = dict(r)
+    return sonuc
 
 
 def kanister_gobletleri(harita, tank, kanister) -> dict:

@@ -118,6 +118,23 @@
    çıktı her zaman dolabın tamamı, Excel'de süzmek zaten kolay. #}
 <a class="dugme ikincil" href="/disari/cryo">{{ metin("excel_cryo") }}</a>
 
+{# Cryo Haritası'nın Excel'i (v6.191): program harita her değiştiğinde veri
+   klasöründeki dosyayı kendiliğinden yeniden yazıyor; buradan indirilen
+   oradakiyle aynı içerik. Klasörün yolu yalnızca yöneticiye (Klasörler
+   ekranının düzeni). #}
+<div class="kart">
+  <h2>{{ metin("excel_harita") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("excel_harita_ipucu") }}</div>
+  <div class="ipucu" style="margin:4px 14px 10px">
+    {% if harita_excel.kurulamadi %}<span style="color:var(--uyari)">{{ metin("excel_harita_kurulamadi") }}</span>
+    {%- elif harita_excel.hata %}<span style="color:var(--uyari)">{{ metin("excel_harita_yazilamadi") }}</span>
+    {%- elif harita_excel.zaman %}{{ metin("excel_harita_guncel").format(zaman=gg_aa_yyyy_saat(harita_excel.zaman)) }}
+    {%- else %}{{ metin("excel_harita_henuz") }}{% endif %}
+    {% if kullanici and kullanici.rol == "yonetici" %}<br>{{ metin("excel_harita_klasor") }}: {{ harita_excel.klasor }}{% endif %}
+  </div>
+</div>
+<a class="dugme ikincil" href="/disari/cryo/harita">{{ metin("excel_harita_indir") }}</a>
+
 </div><div class="sutun">
 
 {# Bir sperm tüpünün satırı: düz listede (arama) ve ağaçta aynı görünsün diye

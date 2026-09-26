@@ -23,6 +23,10 @@ tarih_duzeltme*.txt
 # Cryo haritası Excel'i ve eşleştirme raporu (cryo_esle.py): hasta adları (v6.173).
 CRYO*.xlsx
 cryo_esle_rapor*.txt
+# Programın kendiliğinden yazdığı Cryo Haritası Excel'i (harita_excel.py,
+# v6.191): veri klasöründe, bugünkü kurulumlarda kodun yanında -- hasta adları.
+cryo_harita/
+Cryo_Haritasi*.xlsx
 
 # Makineye özel ayar
 yerel_ayar.json
