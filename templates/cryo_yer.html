@@ -57,7 +57,7 @@
 {% if ust %}<h2 class="katbaslik">{{ metin("alt_kat") }}</h2>{% endif %}
 {{ gobletler(alt) }}
 {% if ust %}
-<h2 class="katbaslik">{{ metin("ust_kat") }}</h2>
+<h2 class="katbaslik">{{ metin("ust_kat_yedek" if ust_yedek else "ust_kat") }}</h2>
 {{ gobletler(ust) }}
 {% endif %}
 

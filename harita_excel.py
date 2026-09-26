@@ -80,7 +80,7 @@ _STILLER = [
 LISTE_BASLIK = ["Tank", "Kanister", "Goblet", "Tür", "Hasta", "Eşi", "Dosya no",
                 "Dondurma", "İçerik", "Taşıyıcı", "Renk", "Etiket", "Kaynak", "Yer"]
 BOS_BASLIK = ["Tank", "Kanister", "Goblet", "Kapasite", "Dolu", "Boş",
-              "Gobletteki renkler"]
+              "Gobletteki renkler", "Yedek"]
 
 _KILIT = threading.Lock()
 _DURDUR = threading.Event()
@@ -264,7 +264,9 @@ def _kur() -> dict:
                             g["tank"], g["kanister"], g["goblet"], g["kapasite"], len(o),
                             g["kapasite"] - len(o),
                             ", ".join(sorted({renkler.get(x["renk"], x["renk"])
-                                              for x in o if x["renk"]}))])
+                                              for x in o if x["renk"]})),
+                            # v6.192: "yer biterse diye" hazırlanmış kat.
+                            "Evet" if g.get("yedek") else ""])
                 ek = []
                 if kat is alt:
                     for tur, x in belirsiz.get((ta, ka), []):
@@ -275,7 +277,9 @@ def _kur() -> dict:
                         k = konumlar.get(o["x"].get("konum_id") if tur == "e"
                                          else tup_konum.get(x["id"]))
                         ek.append([(_parcalar(k)[2] if k else "") or "?", *satir(o), True])
-                kat.append({"baslik": f"KANİSTER {kn['ad']}" + (" · ÜST KAT" if kat is ust else ""),
+                yedek = all(g.get("yedek") for g in secilen)
+                kat.append({"baslik": f"KANİSTER {kn['ad']}" + (" · ÜST KAT" if kat is ust else "")
+                            + (" (YEDEK)" if yedek else ""),
                             "satirlar": satirlar, "belirsiz": ek})
         sayfa_verisi.append({"ad": t["ad"], "alt": alt, "ust": ust})
 
@@ -397,6 +401,8 @@ def _bilgi_sayfasi(v, zaman) -> dict:
         "straw'ı tek satırda verir, Excel'in süzgeciyle ayıklanabilir.",
         f"{EXCEL_KAYDI}: eski Cryo Haritası Excel'inde bu yerde duran, programda "
         "tüpü bulunamamış straw. Programda Cryo Haritası'ndan bir tüpe bağlanabilir.",
+        "(YEDEK): yer biterse diye hazırlanmış kat. Program oraya ancak olağan yerler "
+        "hastanın straw'larını alamadığında yer önerir; straw konabilir.",
         "Dosyayı Excel'de açmadan önce bir kopyasını alın: açık duran dosya "
         "güncellenemez (program bir sonraki denemede yeniden yazar).",
     ]

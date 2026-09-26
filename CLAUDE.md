@@ -164,7 +164,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..052.py   veritabanı göçleri (sırayla)
+  goc_002..053.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -2069,7 +2069,8 @@ besleniyor.
   yoksa TESE/TESA -> "TESE"/"TESA" ("TESE/TESA yazılsın"); başka sebep,
   hacim/konsantrasyon uydurulmuyor, HÜCRE+VİAL nota. Tarihsiz/
   ileri tarihli satır açılmıyor. Aynı ad+gün+konum "zaten"; ekrandan
-  girilmiş konumsuz kayda konum yazılıyor. Deneme: 1.531 tüp, 609 erkek.
+  girilmiş konumsuz kayda konum yazılıyor. Deneme: 1.524 tüp, 609 erkek
+  (v6.192'ye kadar 1.531: kopya tablonun 7 vial'i iki kez açılıyordu).
   **Kullanıcı henüz çalıştırmadı** (2026-09-25'te hazırlandı).
   - `/cryo`'nun sperm sütunu arama yokken ağaç (`sperm_agaci_kur()`),
     aramada düz liste.
@@ -2150,6 +2151,16 @@ besleniyor.
     `duzen_agaci`), kanister sayfası `/cryo/yer?tank=&kanister=` (adres
     yalnızca aranıyor, düzende yoksa `/cryo`'ya dönüyor), yeri belirsizler
     `/cryo/yersiz?kategori=` (beyaz liste). Düzen yoksa eski ekran.
+  - **Yedek goblet** (v6.192, `goc_053` `konum.yedek`; kullanıcı: "Tank 5'in
+    2-6 üst katları yer biterse diye hazırlandı, ihtiyaç olursa oralara da
+    hasta konulacak"). Excel'de numarasız, bütünüyle boş üst kat tablosu
+    (satır sayısı 4'ün katı) hazırlanmış kat: `cryo_excel.
+    _hazir_kat_gobletleri()` "1 Üst".."30 Üst" adlandırıyor, `yerlesim` yedek
+    açıyor. Yalnızca ÜST KAT sayfasında -- alttaki ikinci TANK 3 tablosunun
+    boş kanisterleri boş kalıp, yer değil. Öneride yedek, hastanın kendi
+    gobleti değilse yakınlık üstünlüğü almıyor ve sığan olağanlardan sonra,
+    sığmayan olağanlardan önce geliyor (straw'lar dağılmasın). Başka bir yeri
+    "yedek" yapmak için kullanıcıya sor; kendiliğinden işaretleme.
 - **Dondurma ekranında boş yer önerisi** (v6.190, README v6.190;
   kullanıcının kuralı: "Bir hastanın birden fazla strawu varsa renkleri
   farklı olsun. Mümkünse birbirine yakın olsun. Kondukları goblette aynı
@@ -2195,12 +2206,15 @@ besleniyor.
   - Goblet ekranının tüp satırı `yerlesim.tup_ayrintilari()` (app'teki
     `_tup_ayrintilari` onun adı): ekran ile dosya aynı satırı basıyor --
     ikinci bir sorgu yazma.
+- **Excel'in iki belirsiz yeri cevaplandı** (kullanıcı, 2026-09-26; README
+  v6.192): sayfanın altındaki ikinci "TANK 3" tablosu "KÜÇÜK TANK / TANK 3"
+  ile AYNI tank (v6.173'ten beri zaten birleşiyor); en alttaki "TANK 2 /
+  CANNİSTER 2" sperm tablosu KOPYA -- `cryo_excel.KOPYA_TABLOLAR`, `coz()` ve
+  `duzen()` okumuyor (kullanıcının veritabanına ondan bir şey yazılmamıştı:
+  sperm satırlarını `uygula` yazmıyor, iki embriyo satırı tarihsiz). Excel'de
+  başka bir tabloyu "kopya" sayma -- kullanıcıya sor, listeye ekle.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
-  istemediği. Excel'in iki belirsiz yeri (README v6.189): sayfanın altındaki
-  ikinci "TANK 3" tablosu (1. kanisterinde 2015'ten 4 embriyo) sağ üstteki
-  "KÜÇÜK TANK / TANK 3" ile aynı tank mı; en alttaki "TANK 2 / CANNİSTER 2"
-  sperm tablosu (5 satırı 6. kanisterin birebir aynısı) kopya mı -- kopyaysa
-  `sperm` kipi aynı vial'i iki kez açıyor. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını
+  istemediği. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını
   kullanıcı da bilmiyor (2026-09-25) -- yorumlanmıyor, notta olduğu gibi
   duruyor; ondan tüp sayısı ya da konum ÇIKARMA.
 

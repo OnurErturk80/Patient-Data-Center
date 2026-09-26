@@ -7004,6 +7004,7 @@ def cryo_kanister(request: Request, tank: str = "", kanister: str = ""):
         {"tank": ilk["tank"], "kanister": ilk["kanister"],
          "alt": [(g, *yuvalar(g)) for g in k["alt"]],
          "ust": [(g, *yuvalar(g)) for g in k["ust"]],
+         "ust_yedek": bool(k["ust"]) and all(g.get("yedek") for g in k["ust"]),
          "yersiz_tup": [tupler[t["id"]] for t in k["yersiz_tup"]],
          "yersiz_excel": [excel_[e["id"]] for e in k["yersiz_excel"]],
          "etiketler": etiketler, "bos_yuva": sum(yerlesim.bos_yuva(g) for g in gobletler)})

@@ -100,11 +100,14 @@ def doluluk(b=None) -> dict:
         b = db.baglan()
     try:
         sonuc = {"gobletler": {}, "duzen_disi": [], "excel_disi": [], "konumsuz": 0}
-        if not any(r[1] == "sira" for r in b.execute("PRAGMA table_info(konum)")):
+        kolonlar = {r[1] for r in b.execute("PRAGMA table_info(konum)")}
+        if "sira" not in kolonlar:
             return sonuc
+        # Yedek goblet (v6.192, goc_053): göç yoksa hiçbiri yedek değil.
+        yedek = "yedek" if "yedek" in kolonlar else "NULL AS yedek"
         anahtar_of = {}
         for r in b.execute("SELECT id, seviye1, seviye2, seviye3, kapasite, kategori, "
-                           "sira, tam_yol FROM konum WHERE lab_id=?", (db.LAB_ID,)):
+                           f"sira, tam_yol, {yedek} FROM konum WHERE lab_id=?", (db.LAB_ID,)):
             a = konum_anahtari(r)
             anahtar_of[r["id"]] = a
             if r["sira"] is not None:
@@ -112,7 +115,8 @@ def doluluk(b=None) -> dict:
                     "konum_id": r["id"], "tank": r["seviye1"], "kanister": r["seviye2"],
                     "goblet": r["seviye3"], "tam_yol": r["tam_yol"],
                     "kapasite": r["kapasite"], "kategori": r["kategori"],
-                    "sira": r["sira"], "tupler": [], "excel": [], "dolu": 0}
+                    "sira": r["sira"], "yedek": bool(r["yedek"]),
+                    "tupler": [], "excel": [], "dolu": 0}
         gob = sonuc["gobletler"]
         for r in b.execute("SELECT id, etiket, tip, renk, konum_id, kategori, "
                            "vitrifikasyon_zamani FROM tasiyici WHERE lab_id=? "
@@ -189,6 +193,7 @@ def agac(harita, kategori="embriyo") -> dict:
         for ka in sorted(t["kanisterler"], key=lambda a: _dogal(t["kanisterler"][a]["ad"])):
             gl = t["kanisterler"][ka]["gl"]
             duzenli = [g for g in gl if g["kapasite"]]
+            ust = [g for g in gl if (g["sira"] or 0) >= 1000]
             kanisterler.append({
                 "ad": t["kanisterler"][ka]["ad"], "goblet": len(gl), "duzenli": len(duzenli),
                 "kapasite": sum(g["kapasite"] for g in duzenli),
@@ -196,7 +201,9 @@ def agac(harita, kategori="embriyo") -> dict:
                 "tup": sum(len(g["tupler"]) for g in gl),
                 "excel": sum(len(g["excel"]) for g in gl),
                 "yersiz": yersiz[(ta, ka)],
-                "ust_kat": any((g["sira"] or 0) >= 1000 for g in gl)})
+                "ust_kat": bool(ust),
+                # Üst katın bütün gobletleri yedek (v6.192): "yer biterse".
+                "ust_yedek": bool(ust) and all(g.get("yedek") for g in ust)})
         sonuc.append({"ad": t["ad"], "kanisterler": kanisterler,
                       "tup": sum(k["tup"] for k in kanisterler),
                       "excel": sum(k["excel"] for k in kanisterler),
@@ -381,6 +388,13 @@ def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
     olan gobletlerin en azı dolu olanı (boş gobletleri çok straw'lı hastaya
     saklar), eşitse düzen sırası. Renk: gobletteki renkler dışında kalan
     palet rengi, hastanın bugünkü straw'larının renkleri sona.
+
+    Yedek goblet (v6.192, `konum.yedek`; kullanıcı: "yer biterse diye
+    hazırlandı, ihtiyaç olursa oralara da hasta konulacak"): hastanın kendi
+    gobleti değilse (1)-(2) değil, yakınlık üstünlüğü de almıyor -- (4)'te,
+    bugünkü straw'ları alabilen bütün olağan gobletlerden sonra, ama
+    alamayanlardan ÖNCE: olağan yer hastanın straw'larını alamadığında bir
+    hastanın straw'ları dağılmasın.
     """
     tup_goblet = {}
     for g in harita["gobletler"].values():
@@ -409,11 +423,12 @@ def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
             continue                    # renkleri dolu: aynı renk ikinci kez girerdi
         serbest.sort(key=lambda r: r in bugun_renk)
         yer = yer_anahtari(g["tank"], g["kanister"], "")[:2]
+        yedek = bool(g.get("yedek"))
         if id(g) in bugun_g:
             grup, ince = 0, 0
         elif id(g) in hasta_g:
             grup, ince = 1, 0
-        elif yer in yakinlar:
+        elif yer in yakinlar and not yedek:
             grup, ince = 2, min(abs((g["sira"] or 0) - s) for s in yakinlar[yer])
         else:
             grup, ince = 3, 0
@@ -422,13 +437,15 @@ def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
         renksiz = sum(1 for x in g["tupler"] + g["excel"] if not x["renk"])
         adaylar.append({"g": g, "bos": bos, "renkler": sorted(kullanilan),
                         "renk": serbest[0] if serbest else None, "grup": grup,
-                        "ince": ince, "renksiz": renksiz})
+                        "ince": ince, "renksiz": renksiz, "yedek": yedek})
     sebep = {0: "bugun", 1: "hasta", 2: "yakin", 3: "yer"}
     listeler = {}
     for kac in (1, 2, 3, 4):
         def anahtar(a):
             sigar = a["bos"] >= kac
-            return (a["grup"], a["ince"], 0 if sigar else 1,
+            # Sığan olağan < sığan yedek < sığmayan olağan < sığmayan yedek.
+            sinif = (0 if sigar else 2) + (1 if a["yedek"] and a["grup"] >= 2 else 0)
+            return (a["grup"], a["ince"], sinif,
                     a["bos"] if sigar else -a["bos"], a["renksiz"] > 0,
                     _duzen_sirasi(a["g"]))
         secilen = sorted(adaylar, key=anahtar)[:EN_COK_ONERI]
@@ -436,5 +453,6 @@ def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
             "tank": a["g"]["tank"], "kanister": a["g"]["kanister"],
             "goblet": a["g"]["goblet"], "kapasite": a["g"]["kapasite"],
             "bos": a["bos"], "renkler": a["renkler"], "renk": a["renk"],
-            "renksiz": a["renksiz"], "sebep": sebep[a["grup"]]} for a in secilen]
+            "renksiz": a["renksiz"], "sebep": sebep[a["grup"]],
+            "yedek": a["yedek"]} for a in secilen]
     return {"bugun": bool(bugunku), "listeler": listeler}

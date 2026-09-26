@@ -49,7 +49,7 @@
     {% for k in tank.kanisterler %}
     <a class="satir agacsatir" href="/cryo/yer?{{ {'tank': tank.ad, 'kanister': k.ad}|urlencode }}">
       <div class="no">{{ metin("kanister") }} {{ k.ad or "—" }}
-        {%- if k.ust_kat %} <span class="ipucu">· {{ metin("ust_kati_var") }}</span>{% endif %}</div>
+        {%- if k.ust_kat %} <span class="ipucu">· {{ metin("ust_kati_yedek" if k.ust_yedek else "ust_kati_var") }}</span>{% endif %}</div>
       <div class="meta">{{ say("n_goblet", k.goblet) }} · {{ say("n_tup", k.tup) }}
         {%- if k.excel %} · {{ say("n_excel_kaydi", k.excel) }}{% endif %}
         {%- if k.duzenli %} · {{ say("n_bos_yuva", k.bos_yuva) }}{% endif %}

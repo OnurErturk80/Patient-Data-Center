@@ -84,6 +84,16 @@ _KANISTER_AYRAC = re.compile(r"^[CK]AN+ISTER\s*([0-9]+)\s*$")
 UST_KAT = "Üst"
 _DUZ_SAYI = re.compile(r"^[0-9]{1,3}$")
 
+# KOPYA tablolar: okunmaz (kullanıcı, 2026-09-26: "Kopya"). "TANK 1+2+3"
+# sayfasının en altındaki "TANK 2 / CANNİSTER 2" sperm tablosu TANK 2'nin 6.
+# kanisterinin eski bir kopyası (satırlarının 5'i birebir aynı). Okunsaydı
+# `sperm` kipi aynı vial'i iki kez açar, `yerlesim` kopyanın satırlarını
+# Excel kaydı yapardı. Tablo başlığının hemen üstündeki etiketlerle
+# tanınıyor (NO sütununda, yukarıdan aşağı; `_n()` yazımıyla). Tablo
+# Excel'den silinirse bu satır bir şey yapmaz; gerçek bir tabloya
+# dönüşürse buradan çıkarılmalı.
+KOPYA_TABLOLAR = (("TANK 1+2+3", ("TANK 2", "CANNISTER 2")),)
+
 # Taşıyıcı markaları — `liste_degeri.tasiyici_tipi` kodlarına eşleniyor
 # (Rapid-i ve Vitrifit listede yoksa `cryo_esle.py` ekliyor). Sıra önemli: "CRYOTOP"
 # aranmadan önce "CRYOLOCK" denenmeli, ikisi de "CRYO" ile başlıyor.
@@ -264,8 +274,23 @@ def _bloklar(hucreler: dict, sayfa: str) -> list:
                 "alanlar": alanlar,
                 "kanister": _kanister(hucreler, bas, alanlar),
                 "tank": _tank(tanklar, bas, alanlar, sayfa),
+                "kopya": _kopya_mi(hucreler, sayfa, bas, alanlar),
             })
     return bloklar
+
+
+def _kopya_mi(hucreler: dict, sayfa: str, baslik_satiri: int, alanlar: dict) -> bool:
+    """Blok `KOPYA_TABLOLAR`'dan biri mi: sayfası ve başlığın hemen
+    üstündeki etiketleri (NO sütununda) tutuyor mu."""
+    no_sutunu = alanlar.get("no", alanlar["soyad"] - 1)
+    for ad, etiketler in KOPYA_TABLOLAR:
+        if _n(sayfa) != _n(ad):
+            continue
+        n = len(etiketler)
+        ust = tuple(_n(hucreler.get((baslik_satiri - n + i, no_sutunu))) for i in range(n))
+        if ust == tuple(_n(e) for e in etiketler):
+            return True
+    return False
 
 
 def _alan_sutunlari(hucreler: dict, satir: int, soyad_sutunu: int) -> dict:
@@ -357,6 +382,8 @@ def _veri_satirlari(hucreler: dict, sayfa: str, bloklar: list):
         # kanisterleri tek sütunda alt alta, araya NO sütununa "CANİSTER 2"
         # gibi satırlar konarak yazılmış. v6.188'e kadar bu ayraçlar
         # tanınmıyordu, 49 embriyo satırı 1. kanister sayıldı.
+        if blok.get("kopya"):
+            continue                          # KOPYA_TABLOLAR: okunmaz
         tank, kanister = blok["tank"], blok["kanister"]
         for satir in range(blok["veri_bas"], blok["veri_son"] + 1):
             def al(ad):
@@ -384,6 +411,8 @@ def _veri_satirlari(hucreler: dict, sayfa: str, bloklar: list):
                 "soyad": soyad, "ad": ad_, "es_adi": al("es"),
                 "tarih_ham": al("tarih"), "icerik": al("icerik"),
                 "vial_metni": al("vial"), "notlar": al("notlar"),
+                # Hangi blok: `duzen()` hazırlanmış boş katı blok blok tanıyor.
+                "blok": (blok["baslik_satiri"], a["soyad"]),
             }
 
 
@@ -403,6 +432,12 @@ def coz(baytlar: bytes) -> dict:
             uyarilar.append(f"{sayfa}: başlık satırı (NO/SOYAD/AD/…) bulunamadı, "
                             "sayfa atlandı")
             continue
+        for blok in bloklar:
+            if blok["kopya"]:
+                n = sum(1 for r in _veri_satirlari(hucreler, sayfa, [dict(blok, kopya=False)])
+                        if r["soyad"] or r["ad"])
+                uyarilar.append(f"{sayfa}: {blok['tank']} tablosu (satır "
+                                f"{blok['baslik_satiri']}) kopya, {n} satırı okunmadı")
         sayfa_satirlari = []
         eksik = 0
         for r in _veri_satirlari(hucreler, sayfa, bloklar):
@@ -479,14 +514,18 @@ def duzen(baytlar: bytes) -> dict:
     izgara = _izgara(baytlar)
     gobletler, gobletsiz, notlar = {}, [], []
     siralar = {}
+    kopya = []
     for sayfa, hucreler in izgara.items():
         bloklar = _bloklar(hucreler, sayfa)
         if not bloklar:
             continue
+        kopya += [{"sayfa": sayfa, "tank": k["tank"], "satir": k["baslik_satiri"]}
+                  for k in bloklar if k["kopya"]]
         sayfa_satirlari = list(_veri_satirlari(hucreler, sayfa, bloklar))
         for r in sayfa_satirlari:
             r["dolu"] = bool(r["soyad"] or r["ad"])
             r["kategori"] = kategori_coz(r["icerik"]) if r["dolu"] else ""
+        _hazir_kat_gobletleri(sayfa_satirlari)
         baskin = _baskin_kategori([r for r in sayfa_satirlari if r["dolu"]])
         for r in sayfa_satirlari:
             if r["dolu"] and not r["kategori"]:
@@ -509,6 +548,7 @@ def duzen(baytlar: bytes) -> dict:
                     "yazimlar": {}, "satirlar": [], "sayfa_kategorisi": baskin}
             g["yazimlar"][r["goblet"]] = g["yazimlar"].get(r["goblet"], 0) + 1
             g["satirlar"].append(r)
+            g["yedek"] = g.get("yedek", True) and r.get("hazir", False)
     # Kategori: gobletin dolu satırlarından; boş gobletin kanisterinden.
     kanister_kat = {}
     for g in gobletler.values():
@@ -532,8 +572,43 @@ def duzen(baytlar: bytes) -> dict:
             "tank": g["tank"], "kanister": g["kanister"], "goblet": yazim,
             "yazimlar": sorted(g["yazimlar"]), "kategori": kategori,
             "sira": g["sira"], "kapasite": GOBLET_KAPASITESI if duzenli else None,
-            "satirlar": g["satirlar"]})
-    return {"gobletler": sonuc, "gobletsiz": gobletsiz, "notlar": notlar}
+            "yedek": bool(g.get("yedek")), "satirlar": g["satirlar"]})
+    return {"gobletler": sonuc, "gobletsiz": gobletsiz, "notlar": notlar,
+            "kopya": kopya}
+
+
+def _hazir_kat_gobletleri(sayfa_satirlari: list) -> None:
+    """Hazırlanmış ama numarası yazılmamış kat: gobletlerini adlandırır
+    (v6.192). Yerinde değiştirir: satırlara `no`, `goblet`, `hazir` yazar.
+
+    Kullanıcı (2026-09-26): "Tank 5'in 2-6 üst katları yer biterse diye
+    hazırlandı, ihtiyaç olursa oralara da hasta konulacak." Excel'de o
+    kanisterlerin üst kat tabloları var (120'şer satır) ama NO sütunu boş,
+    içlerinde hiçbir şey yazmıyor -- goblet okunmuyordu, program o yerleri
+    bilmiyordu. Katın gobletleri Excel'in kendi düzeniyle adlandırılıyor:
+    her goblet `GOBLET_KAPASITESI` satır, sırayla 1, 2, 3 ... (TANK 5'in 1.
+    kanisterinin üst katı ve alt katları da böyle: 30 goblet, "1".."30").
+    `hazir` işaretli goblet YEDEK sayılır (`konum.yedek`, öneri onu normal
+    yerler hastanın straw'larını alamadığında sunar).
+
+    Yalnızca üst kat sayfasında ve bütün bloğu boş olan (hiçbir satırında
+    NO, ad, tarih, hücre, VİAL yazmayan), satır sayısı 4'ün katı olan tablo.
+    "TANK 1+2+3" sayfasının altındaki ikinci TANK 3 tablosunun boş 2-6.
+    kanisterleri (51/67 satır) bu değil: boş kalıp tablo, yer değil --
+    oralardan goblet açılmaz.
+    """
+    bloklar = {}
+    for r in sayfa_satirlari:
+        bloklar.setdefault(r["blok"], []).append(r)
+    for satirlar in bloklar.values():
+        if not satirlar[0]["ust_kat"] or len(satirlar) % GOBLET_KAPASITESI:
+            continue
+        if any(r["no"] or r["dolu"] or r["icerik"] or r["vial_metni"] or r["tarih_ham"]
+               or r["es_adi"] for r in satirlar):
+            continue
+        for i, r in enumerate(satirlar):
+            no = str(i // GOBLET_KAPASITESI + 1)
+            r["no"], r["goblet"], r["hazir"] = no, f"{no} {UST_KAT}", True
 
 
 def _baskin_kategori(satirlar: list) -> str:

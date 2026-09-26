@@ -258,8 +258,13 @@ METINLER = {
     "n_excel_kaydi_tekil": {"tr": "{n} Excel kaydı", "en": "{n} Excel record"},
     "n_yeri_belirsiz": {"tr": "{n} gobleti belirsiz", "en": "{n} without goblet"},
     "ust_kati_var": {"tr": "üst katı var", "en": "has upper level"},
+    # Yedek goblet (v6.192): Excel'de numarasız, "yer biterse diye" hazırlanmış kat.
+    "ust_kati_yedek": {"tr": "üst katı yedek", "en": "upper level is reserve"},
     "alt_kat": {"tr": "Alt kat", "en": "Lower level"},
     "ust_kat": {"tr": "Üst kat", "en": "Upper level"},
+    "ust_kat_yedek": {
+        "tr": "Üst kat · yedek (yer biterse diye hazırlandı)",
+        "en": "Upper level · reserve (prepared for when space runs out)"},
     "bos_yuva": {"tr": "boş yuva", "en": "free slot"},
     "goblet_bos": {"tr": "Excel'de satırı yok", "en": "No rows in the Excel"},
     "kapasite_bilinmiyor": {"tr": "kaç straw aldığı bilinmiyor",
@@ -409,6 +414,8 @@ METINLER = {
                     "en": "This patient's other straws are here"},
     "oneri_yakin": {"tr": "Bu hastanın straw'larına yakın",
                     "en": "Near this patient's straws"},
+    "oneri_yedek": {"tr": "Yedek kat (olağan yerler yetmiyor)",
+                    "en": "Reserve level (regular places do not fit)"},
     "oneri_gobletde": {"tr": "gobletde", "en": "in goblet"},
     "oneri_goblet_bos": {"tr": "goblet boş", "en": "goblet empty"},
     "oneri_renk": {"tr": "önerilen renk", "en": "suggested colour"},

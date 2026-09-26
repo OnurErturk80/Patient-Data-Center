@@ -15114,3 +15114,75 @@ maskelenmiş bir kopyada görüntüye çevrilip kontrol edildi. Kart 390 ve
 **Bilinen**: TANK 5'in 2.–6. kanisterlerinin üst katında Excel'de goblet
 numarası yok (bloklar boş); program oraları bilmiyor, önermiyor ve haritada
 göstermiyor.
+
+# v6.192 — Excel'in üç sorusu cevaplandı: TANK 3, kopya tablo, TANK 5'in yedek üst katı
+
+v6.189'da sorulan üç şeyin cevabı (kullanıcı, 2026-09-26): "1-evet aynı
+2-Kopya 3-Tank 5'in 2-6 üst katları yer biterse diye hazırlandı ihtiyaç
+olursa oralara da hasta konulacak."
+
+## 1. İkinci "TANK 3" tablosu = KÜÇÜK TANK / TANK 3
+
+"TANK 1+2+3" sayfasının altındaki ikinci TANK 3 tablosu sağ üstteki
+"KÜÇÜK TANK / TANK 3" ile aynı tank. Program ikisini v6.173'ten beri zaten
+TANK 3'te birleştiriyordu: **değişiklik yok.** O tablonun boş 2.–6.
+kanisterlerinden (51/67 satırlık boş kalıp tablolar) goblet açılmıyor --
+yer değil, boş tablo.
+
+## 2. "TANK 2 / CANNİSTER 2" tablosu kopya: okunmuyor
+
+Sayfanın en altındaki küçük sperm tablosu TANK 2'nin 6. kanisterinin eski
+bir kopyası. `cryo_excel.KOPYA_TABLOLAR` onu başlığının üstündeki
+etiketlerle tanıyor ("TANK 2", "CANNİSTER 2"); `coz()` ve `duzen()` ikisi
+de atlıyor, `coz()`'un uyarısı ve `yerlesim` raporu söylüyor ("kopya, 9
+satırı okunmadı").
+
+- **Eski/yeni okuma satır satır**: 5.401 satırdan yalnızca kopya tablonun
+  9'u çıktı, kalan 5.392 satırın hiçbiri değişmedi; düzende kanistersiz 10
+  "TANK 2" yeri çıktı, öteki 2.910 goblet aynı.
+- 9 satırın hepsi 6. kanisterde aynı hasta ve aynı tarihle duruyor (5'i
+  birebir). Sperm satırlarını `uygula` hiç yazmıyor; iki "embriyo" satırı
+  tarihsiz, hiçbir tüpe bağlanamazdı. Yani **kullanıcının veritabanına
+  kopya tablodan bir şey yazılmadı, onarım gerekmiyor.** `sperm` kipi
+  (kullanıcı henüz çalıştırmadı) artık 1.531 değil 1.524 tüp açıyor --
+  kopyanın 7 vial'i iki kez açılmıyor; erkek hasta sayısı aynı (609).
+
+## 3. TANK 5'in 2.–6. kanisterlerinin üst katı: yedek goblet
+
+Excel'de bu beş katın tablosu var (120'şer satır) ama NO sütunu boş, içleri
+bomboş: program o yerleri hiç bilmiyordu. Artık:
+
+- **`cryo_excel._hazir_kat_gobletleri()`**: üst kat sayfasında bütünüyle
+  boş (NO, ad, tarih, hücre, VİAL yok), satır sayısı 4'ün katı olan tablo
+  hazırlanmış kattır; gobletleri Excel'in kendi düzeniyle adlandırılıyor --
+  her goblet 4 satır, sırayla "1 Üst" … "30 Üst" (TANK 5'in 1. kanisterinin
+  üst katı da böyle). 5 × 30 = 150 goblet, 600 yuva, embriyo.
+- **`goc_053`: `konum.yedek`** (1 = yedek). `yerlesim` kipi bu gobletleri
+  yedek işaretleyerek açıyor; raporu ve ekran çıktısı söylüyor. Göç yoksa
+  kip durup programı bir kez açmayı istiyor.
+- **Öneri** (`yerlesim.oneriler()`): yedek goblet, hastanın kendi gobleti
+  değilse "yakınlık" üstünlüğü almıyor ve bugünkü straw'ları alabilen
+  bütün olağan gobletlerden SONRA geliyor -- ama alamayanlardan ÖNCE.
+  Sıra: sığan olağan < sığan yedek < sığmayan olağan < sığmayan yedek.
+  Yani yedek yalnızca olağan yerler hastanın straw'larını alamadığında
+  öneriliyor; o durumda bir hastanın straw'ları gobletlere dağılmasın diye
+  yedek goblet olağan bir yerin tek boş yuvasından önce. Öneri satırında
+  "Yedek kat (olağan yerler yetmiyor)" yazıyor. Yedek goblete elle yazılan
+  straw uyarısız kaydediliyor (yer düzende).
+- **Haritada**: ağaçta kanister "üst katı yedek", kanister sayfasında
+  "Üst kat · yedek (yer biterse diye hazırlandı)"; Excel haritasında blok
+  "KANİSTER 2 · ÜST KAT (YEDEK)", "Boş yerler" sayfasında "Yedek" sütunu,
+  Bilgi sayfasında açıklaması.
+
+**Denendi** (kullanıcının durumundaki kopya: `onar` çalışmış, göç 052 ve
+`sperm` yok): program açılışı göç 052 ve 053'ü uyguladı; `sperm` 1.524 tüp;
+`yeni_hasta` (bu kopyada çalışmamıştı); `yerlesim` 3.044 goblet yazdı
+(1.088 yeni, 1.956 düzene), 150'si yedek (TANK 5 / 2–6, sıra 1001–1030, 4
+yuva), 2.797 Excel kaydı (önceden 2.799: kopyanın tarihsiz iki satırı);
+ikinci çalıştırma "Yazılacak bir şey yok". Gobletlerin programdaki doluluğu
+Excel'deki dolu satır sayısına 3.044'ün 3.038'inde eşit (kalan 6'sı
+v6.189'daki "2 straw" satırları), yedek gobletler boş. Öneri: bugünkü
+veride yedek hiç önerilmedi (10 olağan boş goblet var); olağan yerlerin
+hepsi dolu varsayılınca ilk öneriler yedek; olağanda yalnızca tekli boşluk
+kalınca 1 straw'a olağan, 4 straw'a yedek goblet. Ekranlar 200; kanister
+sayfasının yedek bölümü 390 ve 1440 px'te taşmıyor.

@@ -935,20 +935,22 @@ def yerlesim_plani(duzen, sonuc, satirlar, b) -> dict:
     konumlar = {}
     anahtar_of = {}
     for r in b.execute("SELECT id, seviye1, seviye2, seviye3, tam_yol, kapasite, "
-                       "kategori, sira FROM konum WHERE lab_id=?", (_db.LAB_ID,)):
+                       "kategori, sira, yedek FROM konum WHERE lab_id=?", (_db.LAB_ID,)):
         konumlar[r["tam_yol"]] = r
         anahtar_of[r["id"]] = _yerlesim.konum_anahtari(r)
     # 1) Gobletler. "Sayfa1"in tankı yok (v6.180): gobletleri düzene girmiyor.
+    # Yedek (v6.192): Excel'de numarasız hazırlanmış katın gobleti; olağan
+    # gobletin `yedek`'i boş kalıyor (1 değil 0 da değil -- "işaretlenmedi").
     gobletler = []
     for g in duzen["gobletler"]:
         if _KONUMSUZ_SAYFA.match(cryo_excel._n(g["tank"])):
             continue
         yol = " / ".join(x for x in _duzen_yolu(g) if x)
         k = konumlar.get(yol)
-        istenen = (g["kapasite"], g["kategori"], g["sira"])
+        istenen = (g["kapasite"], g["kategori"], g["sira"], 1 if g.get("yedek") else None)
         if k is None:
             gobletler.append((g, "yeni"))
-        elif (k["kapasite"], k["kategori"], k["sira"]) != istenen:
+        elif (k["kapasite"], k["kategori"], k["sira"], k["yedek"]) != istenen:
             gobletler.append((g, "degisecek" if k["sira"] is not None else "duzene"))
         else:
             gobletler.append((g, "zaten"))
@@ -1007,7 +1009,8 @@ def yerlesim_plani(duzen, sonuc, satirlar, b) -> dict:
     excel_yok = [r for a, r in mevcut.items()
                  if r["durum"] == "tankta" and a not in bu_dosyada]
     return {"gobletler": gobletler, "yeni": yeni, "zaten": zaten,
-            "temsil": len(temsil), "excel_yok": excel_yok, "notlar": duzen["notlar"]}
+            "temsil": len(temsil), "excel_yok": excel_yok, "notlar": duzen["notlar"],
+            "kopya": duzen.get("kopya", [])}
 
 
 def yerlesim_yaz(baytlar) -> dict:
@@ -1034,9 +1037,12 @@ def yerlesim_yaz(baytlar) -> dict:
             if durum == "zaten":
                 continue
             konum_id = _db.konum_bul_veya_olustur(_duzen_yolu(g), b)
-            b.execute("UPDATE konum SET kapasite=?, kategori=?, sira=? WHERE id=?",
-                      (g["kapasite"], g["kategori"], g["sira"], konum_id))
+            b.execute("UPDATE konum SET kapasite=?, kategori=?, sira=?, yedek=? WHERE id=?",
+                      (g["kapasite"], g["kategori"], g["sira"],
+                       1 if g.get("yedek") else None, konum_id))
             sayac["goblet_" + durum] += 1
+            if g.get("yedek"):
+                sayac["goblet_yedek"] += 1
         for r, anahtar, sebep, not_, kategori, yol in plan["yeni"]:
             konum_id = _db.konum_bul_veya_olustur(yol, b) if yol else None
             tarih, tarih_notu = cryo_excel.tarih_coz(r["tarih_ham"])
@@ -1075,6 +1081,14 @@ def yerlesim_raporu(plan, bekleyen):
             return
         durum = collections.Counter(d for _g, d in plan["gobletler"])
         f.write(f"\nGobletler: {len(plan['gobletler'])} ({dict(durum)})\n")
+        yedek = collections.Counter((g["tank"], g["kanister"]) for g, _d in plan["gobletler"]
+                                    if g.get("yedek"))
+        if yedek:
+            f.write("Yedek kat (Excel'de numarasız hazırlanmış üst kat; yer biterse):\n")
+            for (t, k), n in sorted(yedek.items(), key=lambda x: _yerlesim._dogal(x[0][1])):
+                f.write(f"  {t} / {k} / üst kat: {n} goblet\n")
+        for k in plan.get("kopya", []):
+            f.write(f"Kopya tablo, okunmadı: {k['sayfa']} satır {k['satir']} ({k['tank']})\n")
         f.write("Kapasitesi bilinmeyen embriyo yerleri (önerilmez):\n")
         for g, _d in plan["gobletler"]:
             if g["kategori"] == "embriyo" and not g["kapasite"]:
@@ -1106,6 +1120,9 @@ def _yerlesim_kipi(dosya, cozum, sonuc):
     if not _db.kolon_var("konum", "sira") or not _db.tablo_var("excel_kaydi"):
         sys.exit("Veritabanında tank düzeninin yeri yok (göç 052). Programı bir kez "
                  "açıp kapatın, sonra tekrar çalıştırın.")
+    if not _db.kolon_var("konum", "yedek"):
+        sys.exit("Veritabanında yedek gobletin yeri yok (göç 053). Programı bir kez "
+                 "açıp kapatın, sonra tekrar çalıştırın.")
     baytlar = dosya.read_bytes()
     duzen = cryo_excel.duzen(baytlar)
     with _db.baglan() as b:
@@ -1126,6 +1143,14 @@ def _yerlesim_kipi(dosya, cozum, sonuc):
     print(f"  Programda: {durum.get('zaten', 0)} goblet zaten düzende; açılacak "
           f"{durum.get('yeni', 0)}, düzene alınacak {durum.get('duzene', 0)}, "
           f"değişecek {durum.get('degisecek', 0)}.")
+    yedek = collections.Counter((x["tank"], x["kanister"]) for x in duzen["gobletler"]
+                                if x.get("yedek"))
+    if yedek:
+        print(f"  Yedek (yer biterse diye hazırlanmış, Excel'de numarasız üst kat): "
+              f"{sum(yedek.values())} goblet -- " + ", ".join(
+                  f"{t} / {k}" for t, k in sorted(yedek, key=lambda x: _yerlesim._dogal(x[1]))))
+    for k in plan.get("kopya", []):
+        print(f"  Kopya tablo okunmadı: {k['sayfa']} satır {k['satir']} ({k['tank']}).")
     kat = collections.Counter(k or "embriyo" for _r, _a, _s, _n, k, _y in plan["yeni"])
     print(f"Excel'in dolu satırı: {plan['temsil']} tanesi programdaki tüpte (gobletinde); "
           f"yeni Excel kaydı {len(plan['yeni'])} (embriyo {kat.get('embriyo', 0)}, "

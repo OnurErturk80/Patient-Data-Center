@@ -163,7 +163,8 @@
           <span class="renknokta{% if a.renk %} renk-{{ a.renk }}{% endif %}"></span>
           <span class="yuvabilgi">
             <span><b>{{ a.tank }} · {{ metin("kanister") }} {{ a.kanister or "—" }} · {{ metin("goblet") }} {{ a.goblet }}</b></span>
-            <span class="meta">{% if a.sebep != "yer" %}{{ metin("oneri_" ~ a.sebep) }} · {% endif %}{{ say("n_bos_yuva", a.bos) }}</span>
+            <span class="meta">{% if a.sebep != "yer" %}{{ metin("oneri_" ~ a.sebep) }} · {% endif %}
+              {%- if a.yedek and a.sebep == "yer" %}<span style="color:var(--uyari)">{{ metin("oneri_yedek") }}</span> · {% endif %}{{ say("n_bos_yuva", a.bos) }}</span>
             <span class="meta">{% if a.renkler or a.renksiz %}{{ metin("oneri_gobletde") }}: {% for r in a.renkler %}{{ liste_etiket("tasiyici_renk", r) }}{% if not loop.last %}, {% endif %}{% endfor %}
               {%- if a.renksiz %}{% if a.renkler %}, {% endif %}<span style="color:var(--uyari)">{{ say("n_renksiz", a.renksiz) }}</span>{% endif %}{% else %}{{ metin("oneri_goblet_bos") }}{% endif %}
               {%- if a.renk %} · {{ metin("oneri_renk") }}: <b>{{ liste_etiket("tasiyici_renk", a.renk) }}</b>{% endif %}</span>

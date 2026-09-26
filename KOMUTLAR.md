@@ -550,8 +550,11 @@ düşer. Sperm satırları bu üç hatadan etkilenmedi (`sperm` kipi ayrı).
 **Tank düzeni (v6.189) -- bir kez, `onar`'dan sonra.** Programın boş yer
 önerebilmesi için Excel'in bütün gobletleri (boşlar dahil) programa açılır;
 Excel'de duran ama programda tüpü bulunamayan her satır gobletinde "Excel
-kaydı" olarak kalır (yuvası dolu sayılır). Önce `git pull`, programı bir kez
-yeniden başlat (göç 052), sonra aynı Excel dosyasıyla:
+kaydı" olarak kalır (yuvası dolu sayılır). TANK 5'in 2.–6. kanisterlerinin
+üst katı (Excel'de numarasız) 150 **yedek** goblet olarak açılır (v6.192):
+program oraya ancak olağan yerler yetmediğinde yer önerir. "TANK 2 /
+CANNİSTER 2" kopya tablosu okunmaz. Önce `git pull`, programı bir kez
+yeniden başlat (göç 052 ve 053), sonra aynı Excel dosyasıyla:
 
 ```
 python3 cryo_esle.py yerlesim CRYO_HARITA.xlsx   # planı basar, "YERLESIM" yazınca yazar
