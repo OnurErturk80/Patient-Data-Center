@@ -14951,3 +14951,60 @@ sperm tüpü tek sayfada basılıyordu). Düzen kurulmamışsa ekran eskisi gibi
 
 Sıradaki: dondurma ekranında boş yer önerisi (v6.190), kendiliğinden
 güncellenen Excel haritası.
+
+# v6.190 — Dondurma ekranında boş yer önerisi
+
+Kullanıcının isteği: "hastanın embriyolarını dondururken program bana
+tanklarda boş yerleri önermesiydi. Yani ben kendim aramayım program bana
+uygun yeri bulsun." Kuralı (2026-09-25): "Bir hastanın birden fazla strawu
+varsa renkleri farklı olsun. Mümkünse birbirine yakın olsun. Kondukları
+goblette aynı renklerin olmadığına dikkat edilsin." v6.189'un tank düzenini
+kullanıyor; düzen kurulmamışsa ekran eskisi gibi.
+
+## Öneri (`yerlesim.oneriler()`)
+
+Vitrifikasyon ekranının Konum kartında en çok 6 aday; ilki konum kutularına
+ve renk seçimine yazılı, başkasına dokunmak kutuları değiştiriyor. Sıra:
+
+1. Hastanın **bugün** dondurulmuş straw'ının gobleti (boş yuvası varsa).
+2. Hastanın başka straw'larının gobleti.
+3. Aynı kanisterde onlara en yakın goblet (Excel'deki sıra).
+4. Geri kalanlar, **bugün kaç straw** dondurulacağına göre (1 / 2 / 3 / 4+,
+   ekranda seçiliyor; hasta bugün straw dondurduysa seçici görünmüyor):
+   o kadar boş yuvası olan gobletlerin en az boş olanı -- boş gobletler çok
+   straw'lı hastaya kalsın -- eşitse düzen sırası.
+
+Excel'deki alışkanlık da bu: aynı günün straw'ları çoğunlukla aynı gobletde
+(2 straw'da 452'ye 36), dolunca yanındaki gobletde devam ediyor.
+
+**Renk**: gobletteki straw'ların renkleri dışında kalan ilk palet rengi;
+hastanın bugünkü straw'larının renkleri sona. **Palet veriden**
+(`renk_paleti()`): son bir yılın tüplerinde payı %5'ten çok olan renkler,
+renk listesinin sırasıyla (yönetici sıralıyor). Listenin tamamı
+kullanılsaydı üç straw'lı bir gobletin boş rengi "beyaz" önerilirdi;
+laboratuvar 2022'den beri dört renk kullanıyor (mavi, sarı, turuncu,
+yeşil). Bütün palet renkleri dolu olan goblet önerilmiyor (aynı renk ikinci
+kez girerdi). Rengi yazılmamış straw'ı olan gobletde bu ekranda turuncuyla
+yazıyor ("2 straw'ın rengi yazılmamış" -- önerilen renk onunla çakışabilir)
+ve eşitlikte o goblet sona. Kapasitesi bilinmeyen yer hiç önerilmiyor.
+
+## Denetim (engel değil, onay)
+
+Seçilen yer yazılınca ekran soruyor (`/cycle/{id}/vitrifikasyon/yer-kontrol`,
+izni vitrifikasyonun): goblet dolu mu, bu renkte straw zaten var mı, yazılan
+goblet tank düzeninde var mı (yazım hatası ya da yeni bir yer), kapasitesi
+biliniyor mu. Sorun varsa uyarı ve "Biliyorum, yine de bu yere kaydet" kutusu
+çıkıyor; kutu işaretlenmeden form gönderilmiyor. Sunucu kaydederken aynı
+denetimi yeniden yapıyor (eski bir sekme, bu arada aynı gobleti dolduran
+başka bir telefon) ve onaysız kaydı reddediyor. v6.55'in "uyarı engellemez,
+karar kullanıcının" kuralı: yeni bir tank/goblet de gerçek olabilir.
+
+Yazılan yer düzendeki bir gobletse tüp **o gobletin konum satırına**
+yazılıyor: "t1 / k1 / 24 üst" yazılsa da haritada tek goblet kalıyor.
+
+**Denendi** (veritabanı kopyası): ilk straw önerilen goblete ve renge
+kaydedildi; aynı hastanın ikinci straw'ında ilk öneri "bu hastanın
+straw'larına yakın" (önceki goblet dolmuştu) ve seçici gizli; dolu goblet
+onaysız doğrudan POST edilince sunucu reddetti, tüp açılmadı; küçük harfli,
+kısaltılmış yazım (onaylı) düzendeki gobletin kendi konum satırına düştü.
+Ekran 390 ve 1280 px'te yatay taşmıyor.

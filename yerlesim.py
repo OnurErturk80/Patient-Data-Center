@@ -221,3 +221,162 @@ def kanister_gobletleri(harita, tank, kanister) -> dict:
                            if x["anahtar"] and x["anahtar"][:2] == a],
             "yersiz_excel": [x for x in harita["excel_disi"]
                              if x["anahtar"] and x["anahtar"][:2] == a]}
+
+
+# ------------------------------------------------ boş yer önerisi (v6.190)
+#
+# Kullanıcının kuralı (2026-09-25): "Bir hastanın birden fazla strawu varsa
+# renkleri farklı olsun. Mümkünse birbirine yakın olsun. Kondukları goblette
+# aynı renklerin olmadığına dikkat edilsin." Excel'de de böyle: aynı günün
+# straw'ları çoğunlukla aynı gobletde (2 straw'da 452'ye 36), dolunca yanındaki
+# gobletde devam ediyor; bir gobletin straw'ları renkle ayırt ediliyor.
+#
+# Öneri bir SIRA, karar değil: ilk aday ekrandaki kutulara yazılıyor,
+# embriyolog başkasını seçebilir ya da elle yazabilir. Kapasitesi bilinmeyen
+# yer (eski "cane" yerleri, sperm yerleri) hiç önerilmez.
+
+# Son bir yılın dondurmalarında bu paydan az görülen renk palete girmez:
+# listede beyaz/kırmızı/mor/siyah da var ama laboratuvar 2022'den beri dört
+# renk kullanıyor (Excel: mavi, sarı, turuncu, yeşil). Listenin tamamı
+# kullanılsaydı üç straw'lı bir gobletin boş rengi "beyaz" önerilirdi.
+PALET_EN_AZ_PAY = 0.05
+PALET_GUN = 365
+EN_COK_ONERI = 6
+
+
+def renk_paleti(b=None) -> list:
+    """Laboratuvarın bugün kullandığı straw renkleri, renk listesinin
+    sırasıyla (yönetici listeden sıralıyor). Veriden: son bir yılın embriyo/
+    yumurta tüplerinde payı %5'ten çok olan renkler. Hiç renkli tüp yoksa
+    boş -- renk önerilmez, uydurulmaz."""
+    kapat = b is None
+    if b is None:
+        b = db.baglan()
+    try:
+        sayim = {r[0]: r[1] for r in b.execute(
+            "SELECT renk, COUNT(*) FROM tasiyici WHERE lab_id=? AND kategori='embriyo' "
+            "AND renk IS NOT NULL AND vitrifikasyon_zamani >= date('now', ?) "
+            "GROUP BY renk", (db.LAB_ID, f"-{PALET_GUN} days"))}
+        toplam = sum(sayim.values())
+        if not toplam:
+            return []
+        sira = [r[0] for r in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_renk' "
+            "AND aktif_mi=1 ORDER BY sira", (db.LAB_ID,))]
+        return [k for k in sira if sayim.get(k, 0) / toplam >= PALET_EN_AZ_PAY]
+    finally:
+        if kapat:
+            b.close()
+
+
+def goblet_bul(harita, tank, kanister, goblet):
+    """Yazılan yerin düzen gobleti (anahtarla), yoksa None."""
+    if not (tank or kanister or goblet):
+        return None
+    return harita["gobletler"].get(yer_anahtari(tank, kanister, goblet))
+
+
+def gobletin_renkleri(g) -> list:
+    """Gobletteki straw'ların renkleri (tüpler + Excel kayıtları); rengi
+    yazılmamış straw sayılmıyor."""
+    return [x["renk"] for x in g["tupler"] + g["excel"] if x["renk"]]
+
+
+def yer_uyarilari(harita, tank, kanister, goblet, renk) -> list:
+    """Dondurmadan önce seçilen yerin sorunları: [(kod, parametreler)].
+
+    Kodlar: `duzende_yok` (yazılan goblet tank düzeninde yok -- yazım hatası
+    ya da yeni bir yer), `kapasite_yok` (kaç straw aldığı bilinmiyor),
+    `dolu` (boş yuva yok), `renk_var` (bu renkte straw zaten gobletde).
+    Uyarı engel değil: ekran ve sunucu "yine de kaydet" onayı istiyor.
+    """
+    if not (tank or kanister or goblet):
+        return []
+    g = goblet_bul(harita, tank, kanister, goblet)
+    if g is None:
+        return [("duzende_yok", {})]
+    uyari = []
+    if not g["kapasite"]:
+        uyari.append(("kapasite_yok", {}))
+    elif g["dolu"] >= g["kapasite"]:
+        uyari.append(("dolu", {"dolu": g["dolu"], "kapasite": g["kapasite"]}))
+    if renk and renk in gobletin_renkleri(g):
+        uyari.append(("renk_var", {"renk": renk}))
+    return uyari
+
+
+def _duzen_sirasi(g):
+    return (_dogal(g["tank"]), _dogal(g["kanister"]), g["sira"] or 0)
+
+
+def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
+    """Bu hastanın sıradaki straw'ı için boş yer adayları, en iyisi önce.
+
+    `hasta_tupleri`: hastanın dolu embriyo/yumurta tüpleri [{id, gun}].
+    -> {"bugun": hastanın bugün dondurulmuş straw'ı var mı (varsa sıradaki
+        onun gobletine ya da yanına; "kaç straw" sorusu anlamsız), "listeler":
+        {kaç straw: [aday, ...]}}
+
+    Sıra: (1) bu hastanın BUGÜNKÜ straw'ının gobleti, (2) başka straw'larının
+    gobleti, (3) aynı kanisterde onlara en yakın goblet, (4) geri kalanlar --
+    bugün kaç straw dondurulacağına göre "en iyi sığan": o kadar boş yuvası
+    olan gobletlerin en azı dolu olanı (boş gobletleri çok straw'lı hastaya
+    saklar), eşitse düzen sırası. Renk: gobletteki renkler dışında kalan
+    palet rengi, hastanın bugünkü straw'larının renkleri sona.
+    """
+    tup_goblet = {}
+    for g in harita["gobletler"].values():
+        for t in g["tupler"]:
+            tup_goblet[t["id"]] = g
+    bugunku = [t for t in hasta_tupleri if t["gun"] == gun and t["id"] in tup_goblet]
+    bugun_g = {id(tup_goblet[t["id"]]) for t in bugunku}
+    hasta_g = {id(tup_goblet[t["id"]]) for t in hasta_tupleri if t["id"] in tup_goblet}
+    bugun_renk = {r["renk"] for g in harita["gobletler"].values() for r in g["tupler"]
+                  if r["id"] in {t["id"] for t in bugunku} and r["renk"]}
+    yakinlar = {}                                   # (tank, kanister) -> [sira]
+    for g in harita["gobletler"].values():
+        if id(g) in hasta_g:
+            yakinlar.setdefault(yer_anahtari(g["tank"], g["kanister"], "")[:2],
+                                []).append(g["sira"] or 0)
+    adaylar = []
+    for g in harita["gobletler"].values():
+        if g["kategori"] != "embriyo" or not g["kapasite"]:
+            continue
+        bos = bos_yuva(g)
+        if bos < 1:
+            continue
+        kullanilan = set(gobletin_renkleri(g))
+        serbest = [r for r in palet if r not in kullanilan]
+        if palet and not serbest:
+            continue                    # renkleri dolu: aynı renk ikinci kez girerdi
+        serbest.sort(key=lambda r: r in bugun_renk)
+        yer = yer_anahtari(g["tank"], g["kanister"], "")[:2]
+        if id(g) in bugun_g:
+            grup, ince = 0, 0
+        elif id(g) in hasta_g:
+            grup, ince = 1, 0
+        elif yer in yakinlar:
+            grup, ince = 2, min(abs((g["sira"] or 0) - s) for s in yakinlar[yer])
+        else:
+            grup, ince = 3, 0
+        # Rengi yazılmamış straw: önerilen renk onunla çakışabilir -- ekranda
+        # söyleniyor, eşitlikte bu goblet sona.
+        renksiz = sum(1 for x in g["tupler"] + g["excel"] if not x["renk"])
+        adaylar.append({"g": g, "bos": bos, "renkler": sorted(kullanilan),
+                        "renk": serbest[0] if serbest else None, "grup": grup,
+                        "ince": ince, "renksiz": renksiz})
+    sebep = {0: "bugun", 1: "hasta", 2: "yakin", 3: "yer"}
+    listeler = {}
+    for kac in (1, 2, 3, 4):
+        def anahtar(a):
+            sigar = a["bos"] >= kac
+            return (a["grup"], a["ince"], 0 if sigar else 1,
+                    a["bos"] if sigar else -a["bos"], a["renksiz"] > 0,
+                    _duzen_sirasi(a["g"]))
+        secilen = sorted(adaylar, key=anahtar)[:EN_COK_ONERI]
+        listeler[kac] = [{
+            "tank": a["g"]["tank"], "kanister": a["g"]["kanister"],
+            "goblet": a["g"]["goblet"], "kapasite": a["g"]["kapasite"],
+            "bos": a["bos"], "renkler": a["renkler"], "renk": a["renk"],
+            "renksiz": a["renksiz"], "sebep": sebep[a["grup"]]} for a in secilen]
+    return {"bugun": bool(bugunku), "listeler": listeler}

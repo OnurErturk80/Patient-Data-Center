@@ -64,7 +64,8 @@ henüz çalıştırmadı). v6.188'in onarımı (`cryo_esle.py onar`: TANK 3
 kanisterleri, üst kat, yeşil/pembe) kullanıcının Mac'inde çalıştırılacak;
 çalıştırıp çalıştırmadığını sormadan haritanın konumlarına güvenme. Tank
 düzeni (v6.189, `cryo_esle.py yerlesim`, önce `onar` ve `sperm` ister) de
-kullanıcının makinesinde çalıştırılacak -- boş yer önerisi ondan önce çalışmaz. Göç, kalıcı silme, geri yükleme gibi
+kullanıcının makinesinde çalıştırılacak -- boş yer önerisi (v6.190) ondan
+önce görünmez. Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -2147,6 +2148,22 @@ besleniyor.
     `duzen_agaci`), kanister sayfası `/cryo/yer?tank=&kanister=` (adres
     yalnızca aranıyor, düzende yoksa `/cryo`'ya dönüyor), yeri belirsizler
     `/cryo/yersiz?kategori=` (beyaz liste). Düzen yoksa eski ekran.
+- **Dondurma ekranında boş yer önerisi** (v6.190, README v6.190;
+  kullanıcının kuralı: "Bir hastanın birden fazla strawu varsa renkleri
+  farklı olsun. Mümkünse birbirine yakın olsun. Kondukları goblette aynı
+  renklerin olmadığına dikkat edilsin"). `yerlesim.oneriler()`: hastanın
+  bugünkü straw'ının gobleti → başka straw'larının gobleti → aynı kanisterde
+  en yakını → "bugün kaç straw"a en iyi sığan (az boşu olan önce; boş
+  gobletler çok straw'lıya kalsın). Renk: gobletde olmayan ilk palet rengi.
+  - **Palet veriden** (`renk_paleti()`: son bir yılda payı %5'ten çok olan
+    renkler, liste sırasıyla). Listenin tamamını kullanma -- beyaz/kırmızı/
+    mor/siyah listede ama kullanılmıyor, "beyaz" önerilirdi.
+  - **Denetim onaylı, engel değil**: dolu goblet, aynı renk, düzende olmayan
+    ya da kapasitesi bilinmeyen yer için uyarı + "yine de kaydet" kutusu;
+    ekran (`yer-kontrol`, vitrifikasyon izniyle) ve sunucu (`vit_kaydet`)
+    aynı `yer_uyarilari()`'ni soruyor. Yazılan yer düzendeki bir gobletse
+    tüp onun konum satırına yazılıyor (`goblet_bul()`), varyant açılmıyor.
+  - Rengi yazılmamış straw'ı olan gobletde uyarı yazıyor, eşitlikte sona.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
   istemediği. Excel'in iki belirsiz yeri (README v6.189): sayfanın altındaki
   ikinci "TANK 3" tablosu (1. kanisterinde 2015'ten 4 embriyo) sağ üstteki

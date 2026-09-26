@@ -1512,3 +1512,31 @@ form.satir.aday .dugme.kucuk {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   width: auto; margin: 0; padding: 8px 12px; min-height: 0; font-size: 13px;
 }
+
+/* Bos yer onerisi (v6.190), dondurma ekraninin Konum kartinda. Onerinin
+   satirlari <button>: tuzak #12 -- `appearance: none` sart, yoksa iOS
+   Safari flex cocugun yazisini basmiyor. Secili satir ve secili "kac straw"
+   `--vurgu` (v6.186'nin kurali). */
+.oneri { padding: 10px 14px 4px; border-bottom: 1px solid var(--line); }
+.oneribas { font-size: 13px; font-weight: 700; color: var(--baslik); margin-bottom: 6px; }
+.onerikac { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.onerikac .ipucu { margin: 0 4px 0 0; }
+.kacsec {
+  -webkit-appearance: none; appearance: none;
+  min-width: 40px; min-height: 36px; padding: 4px 10px;
+  font: inherit; font-size: 14px; color: var(--ink);
+  background: var(--zemin); border: 1px solid var(--line); border-radius: var(--r);
+  cursor: pointer;
+}
+.kacsec.aktif { background: var(--vurgu); border-color: var(--vurgu); color: #fff; font-weight: 600; }
+.onerisatir {
+  -webkit-appearance: none; appearance: none;
+  display: flex; gap: 8px; align-items: flex-start; width: 100%;
+  margin: 0 0 6px; padding: 8px 10px; text-align: left;
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--zemin); border: 1px solid var(--line); border-radius: var(--r);
+  cursor: pointer;
+}
+.onerisatir .yuvabilgi { display: flex; flex-direction: column; min-width: 0; }
+.onerisatir .meta { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.onerisatir.secili { border-color: var(--vurgu); box-shadow: 0 0 0 1px var(--vurgu); }

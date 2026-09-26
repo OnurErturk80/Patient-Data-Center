@@ -84,6 +84,7 @@
              else "dondurulacak_kalmadi") }}</div></div>
 {% else %}
 
+{% set ilk = (oneri.listeler[1] or [None])[0] if oneri else None %}
 <form method="post" action="/cycle/{{ c.id }}/vitrifikasyon" id="vitform">
 
   <div class="kart">
@@ -131,7 +132,7 @@
         <label for="renk">{{ metin("renk") }}</label>
         <select id="renk" name="renk">
           <option value="">—</option>
-          {% for r in renkler %}<option value="{{ r.kod }}">{{ r.etiket }}</option>{% endfor %}
+          {% for r in renkler %}<option value="{{ r.kod }}"{% if ilk and ilk.renk == r.kod %} selected{% endif %}>{{ r.etiket }}</option>{% endfor %}
         </select>
       </div>
     </div>
@@ -139,11 +140,48 @@
 
   <div class="kart">
     <h2>{{ metin("konum") }}</h2>
+    {# Boş yer önerisi (v6.190): ilk aday aşağıdaki kutulara yazılı, renk
+       seçimi de onun rengi; başka bir adaya dokunmak kutuları değiştirir.
+       Sıralama sunucuda (`yerlesim.oneriler()`): hastanın bugünkü straw'ının
+       gobleti, başka straw'larının gobleti, onlara yakın goblet, sonra
+       bugün kaç straw dondurulacaksa ona en iyi sığan goblet. #}
+    {% if oneri %}
+    <div class="oneri" id="oneri">
+      <div class="oneribas">{{ metin("oneri_baslik") }}</div>
+      {% if not oneri.bugun %}
+      <div class="onerikac"><span class="ipucu">{{ metin("oneri_kac") }}</span>
+        {% for n in (1, 2, 3, 4) %}<button type="button" class="kacsec{% if n == 1 %} aktif{% endif %}"
+          data-kac="{{ n }}">{{ n }}{% if n == 4 %}+{% endif %}</button>{% endfor %}
+      </div>
+      {% endif %}
+      {% for n, liste in oneri.listeler.items() %}
+      <div class="onerilistesi" data-kac="{{ n }}"{% if n != 1 %} hidden{% endif %}>
+        {% for a in liste %}
+        <button type="button" class="onerisatir{% if n == 1 and loop.first %} secili{% endif %}"
+                data-tank="{{ a.tank }}" data-kanister="{{ a.kanister or '' }}"
+                data-goblet="{{ a.goblet }}" data-renk="{{ a.renk or '' }}">
+          <span class="renknokta{% if a.renk %} renk-{{ a.renk }}{% endif %}"></span>
+          <span class="yuvabilgi">
+            <span><b>{{ a.tank }} · {{ metin("kanister") }} {{ a.kanister or "—" }} · {{ metin("goblet") }} {{ a.goblet }}</b></span>
+            <span class="meta">{% if a.sebep != "yer" %}{{ metin("oneri_" ~ a.sebep) }} · {% endif %}{{ say("n_bos_yuva", a.bos) }}</span>
+            <span class="meta">{% if a.renkler or a.renksiz %}{{ metin("oneri_gobletde") }}: {% for r in a.renkler %}{{ liste_etiket("tasiyici_renk", r) }}{% if not loop.last %}, {% endif %}{% endfor %}
+              {%- if a.renksiz %}{% if a.renkler %}, {% endif %}<span style="color:var(--uyari)">{{ say("n_renksiz", a.renksiz) }}</span>{% endif %}{% else %}{{ metin("oneri_goblet_bos") }}{% endif %}
+              {%- if a.renk %} · {{ metin("oneri_renk") }}: <b>{{ liste_etiket("tasiyici_renk", a.renk) }}</b>{% endif %}</span>
+          </span>
+        </button>
+        {% else %}
+        <div class="bos">{{ metin("oneri_yok") }}</div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% for s in sema %}
     <div class="alan">
       <label for="seviye{{ s.seviye_sirasi }}">{{ s.seviye_adi }}</label>
       <input id="seviye{{ s.seviye_sirasi }}" name="seviye{{ s.seviye_sirasi }}"
-             type="text" autocomplete="off">
+             type="text" autocomplete="off"
+             value="{{ {1: ilk.tank, 2: ilk.kanister, 3: ilk.goblet}.get(s.seviye_sirasi) or '' if ilk else '' }}">
     </div>
     {% endfor %}
     <div class="alan" style="border:0;padding-top:0">
@@ -157,6 +195,16 @@
       <input id="islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ simdi }}">
     </div>
   </div>
+
+  {# Seçilen yerin sorunu (v6.190): dolu goblet, gobletde aynı renk, tank
+     düzeninde olmayan yer. Engel değil, "yine de kaydet" onayı (v6.55'in
+     "uyarı engellemez" kuralı); sunucu aynı denetimi kaydederken yapıyor. #}
+  <div class="uyari" id="yeruyari" hidden></div>
+  <label class="secsatir" id="yeronay" hidden>
+    <input type="checkbox" name="yer_onay" value="1">
+    <span class="kutu"></span>
+    <span class="bilgi">{{ metin("yer_onay") }}</span>
+  </label>
 
   <button class="dugme" type="submit">{{ metin("vitrifikasyonu_kaydet") }}</button>
 </form>
@@ -173,6 +221,61 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
     i.closest('.secsatir').classList.toggle('secili', i.checked);
   });
 });
+/* Boş yer önerisi ve yer denetimi (v6.190). Form yoksa (dondurulacak
+   embriyo kalmadıysa) hiçbir şey yapma -- tuzak #10. */
+(function () {
+  if (!document.getElementById('vitform')) return;
+  var girdiler = [1, 2, 3, 4].map(function (i) { return document.getElementById('seviye' + i); });
+  var renk = document.getElementById('renk');
+  var kutu = document.getElementById('yeruyari');
+  var onay = document.getElementById('yeronay');
+  var onayGirdi = onay.querySelector('input');
+  var zaman = null, sira = 0;
+  function deger(i) { return girdiler[i] ? girdiler[i].value : ''; }
+  function denetle() {
+    var bu = ++sira;
+    var q = new URLSearchParams({tank: deger(0), kanister: deger(1), goblet: deger(2),
+                                 renk: renk ? renk.value : ''});
+    fetch('/cycle/{{ c.id }}/vitrifikasyon/yer-kontrol?' + q.toString(),
+          {credentials: 'same-origin'})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || bu !== sira) return;           /* eski cevap yenisini ezmesin */
+        var var_ = j.uyarilar && j.uyarilar.length > 0;
+        kutu.textContent = var_ ? j.uyarilar.join(' ') : '';
+        kutu.hidden = !var_;
+        onay.hidden = !var_;
+        onayGirdi.required = var_;
+        if (!var_) { onayGirdi.checked = false; onay.classList.remove('secili'); }
+      }).catch(function () {});
+  }
+  function planla() { clearTimeout(zaman); zaman = setTimeout(denetle, 300); }
+  girdiler.forEach(function (g) { if (g) g.addEventListener('input', planla); });
+  if (renk) renk.addEventListener('change', planla);
+  document.querySelectorAll('.onerisatir').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.onerisatir').forEach(function (x) { x.classList.remove('secili'); });
+      b.classList.add('secili');
+      if (girdiler[0]) girdiler[0].value = b.dataset.tank;
+      if (girdiler[1]) girdiler[1].value = b.dataset.kanister;
+      if (girdiler[2]) girdiler[2].value = b.dataset.goblet;
+      if (girdiler[3]) girdiler[3].value = '';
+      if (renk && b.dataset.renk) renk.value = b.dataset.renk;
+      denetle();
+    });
+  });
+  document.querySelectorAll('.kacsec').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.kacsec').forEach(function (x) { x.classList.toggle('aktif', x === b); });
+      document.querySelectorAll('.onerilistesi').forEach(function (l) {
+        l.hidden = l.dataset.kac !== b.dataset.kac;
+      });
+      var ilk = document.querySelector('.onerilistesi[data-kac="' + b.dataset.kac + '"] .onerisatir');
+      if (ilk) ilk.click();
+    });
+  });
+  denetle();
+})();
 </script>
 {% set buyutec_ad = vit_ad %}
 {% include "_buyutec.html" %}

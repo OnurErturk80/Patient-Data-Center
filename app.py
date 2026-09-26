@@ -6590,9 +6590,16 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
     # çevriliyor (`cycle_listesi()`'nin deseni).
     embriyolar = [_vit_satiri(dict(e)) for e in embriyolar]
 
+    # Boş yer önerisi (v6.190): tank düzeni kuruluysa (v6.189). Hastanın
+    # straw'ları bir arada, gobletteki renklerle çakışmadan (`yerlesim`).
+    oneri = None
+    if yerlesim.duzen_var():
+        oneri = yerlesim.oneriler(yerlesim.doluluk(), _hasta_tupleri(c["hasta_id"]),
+                                  _d.now().date().isoformat(), yerlesim.renk_paleti())
+
     return sablon.TemplateResponse(
         request, "vitrifikasyon.html",
-        {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(),
+        {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(), "oneri": oneri,
          "gezinme": asama_gezinme(cycle_id, "vitrifikasyon"),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
@@ -6606,6 +6613,44 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
          # etiket kimin". Aynı sorgu `/hastalar`'ın aramasını da besliyor.
          "ara": ara, "etiket_sonuc": etiket_ara(ara),
          "onerilen": f"{c['cycle_no']}-{_d.now().strftime('%H%M')}"})
+
+
+def _hasta_tupleri(hasta_id) -> list:
+    """Hastanın tankta duran embriyo/yumurta tüpleri, dondurma günüyle --
+    boş yer önerisi hastanın straw'larını bir arada tutmak için soruyor."""
+    return [dict(r) for r in db.sorgu(
+        "SELECT DISTINCT t.id, date(t.vitrifikasyon_zamani) AS gun FROM tasiyici t "
+        "JOIN olay o ON o.vit_tasiyici_id = t.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        "JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
+        "WHERE c.hasta_id=? AND t.durum='dolu' AND t.kategori='embriyo'", (hasta_id,))]
+
+
+def _yer_uyari_metni(kod, a) -> str:
+    """`yerlesim.yer_uyarilari()`'nin kodu -> ekran metni. Kod koddan geliyor
+    (adresten değil), renk etiketi listeden."""
+    if kod == "renk_var":
+        a = {**a, "renk": _liste_etiket("tasiyici_renk", a["renk"])}
+    return metinler.t("yer_" + kod).format(**a)
+
+
+@uygulama.get("/cycle/{cycle_id}/vitrifikasyon/yer-kontrol")
+def vit_yer_kontrol(cycle_id: int, tank: str = "", kanister: str = "",
+                    goblet: str = "", renk: str = ""):
+    """Dondurma ekranının canlı denetimi (v6.190): yazılan yer ve renk için
+    uyarılar. Hiçbir şey yazmaz; kaydederken sunucu aynısını yeniden soruyor
+    (`vit_kaydet`). Adres `/cycle/.../vitrifikasyon` altında: izni
+    vitrifikasyonunki (Cryo izni olmayan embriyolog da görsün)."""
+    if not yerlesim.duzen_var():
+        return JSONResponse({"uyarilar": [], "goblet": None})
+    harita = yerlesim.doluluk()
+    uyarilar = yerlesim.yer_uyarilari(harita, tank, kanister, goblet, renk)
+    g = yerlesim.goblet_bul(harita, tank, kanister, goblet)
+    return JSONResponse({
+        "uyarilar": [_yer_uyari_metni(k, a) for k, a in uyarilar],
+        "goblet": ({"kapasite": g["kapasite"], "dolu": g["dolu"],
+                    "renkler": [_liste_etiket("tasiyici_renk", r)
+                                for r in yerlesim.gobletin_renkleri(g)]}
+                   if g else None)})
 
 
 @uygulama.post("/cycle/{cycle_id}/vitrifikasyon")
@@ -6667,8 +6712,25 @@ async def vit_kaydet(request: Request, cycle_id: int):
     if db.tek("SELECT id FROM tasiyici WHERE lab_id=? AND etiket=?", (db.LAB_ID, etiket)):
         return hata(f"'{etiket}' etiketli bir taşıyıcı zaten var.")
 
-    seviyeler = [f.get(f"seviye{i}") for i in (1, 2, 3, 4)]
-    konum_id = konum_bul_veya_olustur(seviyeler)
+    seviyeler = [(f.get(f"seviye{i}") or "").strip() for i in (1, 2, 3, 4)]
+    konum_id = None
+    if yerlesim.duzen_var():
+        # Tank düzeni (v6.189-v6.190): yazılan yer düzendeki bir gobletse
+        # onun konum satırı -- "t1 / k3 / 12a" yazılsa da haritada tek goblet
+        # kalsın. Sorunu varsa (dolu, aynı renk, düzende yok) "yine de
+        # kaydet" onayı olmadan kaydedilmez; ekran aynı uyarıyı önceden
+        # gösteriyor (`vit_yer_kontrol`), bu ikinci kapı eski bir sekme ya da
+        # bu arada aynı gobleti dolduran başka bir telefon için.
+        harita = yerlesim.doluluk()
+        uyarilar = yerlesim.yer_uyarilari(harita, *seviyeler[:3], f.get("renk") or "")
+        if uyarilar and not f.get("yer_onay"):
+            return hata(" ".join(_yer_uyari_metni(k, a) for k, a in uyarilar)
+                        + " " + metinler.t("yer_onay_gerekli"))
+        g = yerlesim.goblet_bul(harita, *seviyeler[:3])
+        if g and not seviyeler[3]:
+            konum_id = g["konum_id"]
+    if konum_id is None:
+        konum_id = konum_bul_veya_olustur(seviyeler)
 
     kid = request.state.kullanici["id"]
     simdi = islem_zamani(f.get("islem_zamani"))
