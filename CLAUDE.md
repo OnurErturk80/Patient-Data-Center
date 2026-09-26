@@ -167,7 +167,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..053.py   veritabanı göçleri (sırayla)
+  goc_002..054.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -183,6 +183,7 @@ Patient Data Center/
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
   yerlesim.py       tank düzeni: goblet doluluğu, yer anahtarı, haritanın ağacı (v6.189)
   harita_excel.py   Cryo Haritası'nın Excel'ini her değişiklikte yazar (v6.191)
+  cryo_sablon.py    laboratuvarın kendi Cryo Excel'ini bugünkü haliyle doldurur (v6.199)
   sertifika.py      kliniğin HTTPS sertifikası -- kütüphanesiz, açılışta kendini yeniler (v6.196)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
@@ -2243,7 +2244,8 @@ besleniyor.
     dosya yazılamaz -> hata karta, sonraki turda yeniden. Hiçbir hata
     programı durdurmaz, günlüğe bir kez yazılır; `print` değil `logging`.
   - Soyad/ad tek sütun (HASTA): `ad_soyad`'ı bölme, soyadın yerini tahmin
-    etme. DOSYA NO sütunu eklendi.
+    etme. DOSYA NO sütunu eklendi. (Bu programın kendi düzeni için;
+    laboratuvarın dosyası yüklüyken SOYAD/AD ayrı, aşağıdaki madde.)
   - İndirme `/disari/cryo/harita` (izin `cryo`, `yol_modulu()`'nın `disari`
     kuralı), kart `/cryo`'nun sol sütununda (yol yalnızca yöneticiye).
     Yedekleme son hali yedek diskine de kopyalıyor (`yedek.harita_yedekle()`,
@@ -2253,6 +2255,39 @@ besleniyor.
   - Goblet ekranının tüp satırı `yerlesim.tup_ayrintilari()` (app'teki
     `_tup_ayrintilari` onun adı): ekran ile dosya aynı satırı basıyor --
     ikinci bir sorgu yazma.
+- **Excel çıktısı laboratuvarın KENDİ dosyası, birebir** (v6.199, README
+  v6.199; kullanıcı: "Farklı yapıda excel oluşturma benim orjinal cryo harita
+  excelimi birebir kullan"). Yönetici dosyayı bir kez yüklüyor (`/cryo` kartı,
+  `POST /cryo/sablon`), `lab.db`'de duruyor (`goc_054`, `cryo_sablon`,
+  `tasi.py` ile gider; tam dökümüne girmez). O yüklüyken "Tankları Excel'e
+  aktar" (`/disari/cryo`) ve otomatik dosya (kullanıcının seçimi) O dosyayı
+  veriyor (`cryo_sablon.kur()` + `yaz()`), yoksa eski çıktılar.
+  - **Dosyanın yapısına dokunma**: yalnızca straw satırlarının değer
+    hücreleri (`cryo_sablon.ALANLAR`, NO değil); satır EKLEME (kanister
+    blokları yan yana, komşular kayar) -- yer yoksa straw "sığmayan" olarak
+    kartta. Stil, tablo, sütun XML'i olduğu gibi kopyalanıyor.
+  - **Satır kararı**: straw hâlâ o gobletteyse satır AYNEN (eşleştirme
+    `cryo_esle.esle()` + sperm ad/gün + Excel kaydı anahtarı, `yerlesim`'in
+    "temsil" ölçüsü); tanktan çıktıysa boşalt; programın HİÇBİR kaydıyla
+    eşleşmeyen satıra dokunma (Excel'de sonradan elle eklenmiş olabilir);
+    gobletin yeni straw'ı boş satıra (önce Excel'de boş olan, sonra
+    boşalan). Taşınan tüp eski satırının yazısını götürür.
+  - **Yeni straw'ın yazısı laboratuvarın yazımından ölçüldü**
+    (`_yeni_satirlar()`): "D5 (3BA-1BB)", "OOSİT (4M2-1M1)", "... REFREEZE",
+    "1 CRYOLOCKMAVİ 2" (sondaki sayı aynı tedavide AYNI GÜN dondurulanlar
+    arasındaki sıra), sperm "EJAKÜLAT(-CA)"/"TESE". SOYAD/AD: hastanın
+    Excel'deki yazımı, yoksa son kelime soyad (kullanıcının kararı,
+    2026-09-26). Yazımı değiştirmeden önce kullanıcıya sor.
+  - **Paylaşılan metin tablosu her yazımda baştan**: yalnızca bir hücrenin
+    gösterdiği metin kalır -- boşalan satırın adı dosyada gizli kalmasın.
+    Başka bir yere hasta metni yazan bir parça eklersen (yorum, not) aynı
+    temizliği düşün.
+  - `cryo_excel._veri_satirlari()`'nin satırları v6.199'dan beri `alanlar`
+    (alan -> sütun) taşıyor; doldurucu hücreyi oradan buluyor. Okumayı
+    değiştirirsen değişmeyen dosyanın çıktısı şablonla hücre hücre aynı
+    kalmalı (v6.199'da 38.138 hücre) -- karşılaştırmayı tekrar çalıştır.
+  - Dosyayı okuyup programa geri alan bir yol YAZMA (v6.191'in kuralı
+    burada da): kaynak programın kayıtları; dosya türetilmiş.
 - **Excel'in iki belirsiz yeri cevaplandı** (kullanıcı, 2026-09-26; README
   v6.192): sayfanın altındaki ikinci "TANK 3" tablosu "KÜÇÜK TANK / TANK 3"
   ile AYNI tank (v6.173'ten beri zaten birleşiyor); en alttaki "TANK 2 /

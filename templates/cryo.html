@@ -114,26 +114,64 @@
 </div>
 {% endif %}
 
-{# Tankların dökümü: sayım ve envanter için. Arama süzgecini uygulamaz --
-   çıktı her zaman tankların tamamı, Excel'de süzmek zaten kolay. #}
+{# Tankların Excel'i. Arama süzgecini uygulamaz -- çıktı her zaman tankların
+   tamamı. Laboratuvarın kendi Cryo Haritası Excel'i yüklüyse (v6.199) o
+   dosya bugünkü haliyle; değilse sayım ve envanter listesi (v6.36). #}
 <a class="dugme ikincil" href="/disari/cryo">{{ metin("excel_cryo") }}</a>
 
 {# Cryo Haritası'nın Excel'i (v6.191): program harita her değiştiğinde veri
-   klasöründeki dosyayı kendiliğinden yeniden yazıyor; buradan indirilen
-   oradakiyle aynı içerik. Klasörün yolu yalnızca yöneticiye (Klasörler
-   ekranının düzeni). #}
-<div class="kart">
+   klasöründeki dosyayı kendiliğinden yeniden yazıyor. v6.199'dan beri
+   laboratuvarın dosyası yüklüyse yazılan o dosya (kullanıcı: "Farklı yapıda
+   excel oluşturma"), düğme de aynısını veriyor. Klasörün yolu ve yükleme
+   yalnızca yöneticiye (Klasörler ekranının düzeni). #}
+{% set yonetici = kullanici and kullanici.rol == "yonetici" %}
+<div class="kart" id="excelharita">
   <h2>{{ metin("excel_harita") }}</h2>
+  {% if sablon_sonucu %}
+    {% if sablon_sonucu.hata %}<div class="tehlike" style="margin:8px 14px">{{ sablon_sonucu.hata }}</div>
+    {% elif sablon_sonucu.dosya %}<div class="uyari tamam" style="margin:8px 14px">{{ metin("sablon_yuklendi").format(dosya=sablon_sonucu.dosya) }}</div>{% endif %}
+  {% endif %}
+  {% if cryo_sablon %}
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("sablon_ipucu").format(
+      dosya=cryo_sablon.dosya_adi, zaman=gg_aa_yyyy_saat(cryo_sablon.yukleme_zamani)) }}</div>
+  {% set o = harita_excel.ozet %}
+  {% if harita_excel.sablon_hata %}<div class="uyari" style="margin:4px 14px">{{ metin("sablon_doldurulamadi") }}</div>
+  {% elif o and o.sablon %}
+  <div class="ipucu" style="margin:4px 14px">{{ metin("sablon_ozet").format(
+      korunan=o.korunan or 0, bosalan=o.bosalan or 0, yeni=o.yeni or 0) }}</div>
+  {% if o.bilinmeyen %}<div class="uyari" style="margin:4px 14px">{{ metin("sablon_bilinmeyen").format(n=o.bilinmeyen) }}</div>{% endif %}
+  {% if o.sigmayan %}
+  <div class="uyari" style="margin:4px 14px">{{ metin("sablon_sigmayan").format(n=o.sigmayan) }}
+    <ul style="margin:6px 0 0 18px;padding:0">
+      {% for s in o.sigmayanlar[:20] %}<li>{{ s.etiket or metin("excel_kaydi") }} · {{ s.yer }}</li>{% endfor %}
+    </ul></div>
+  {% endif %}
+  {% endif %}
+  {% else %}
   <div class="ipucu" style="margin:8px 14px 4px">{{ metin("excel_harita_ipucu") }}</div>
+  {% if yonetici %}<div class="ipucu" style="margin:4px 14px">{{ metin("sablon_yok_ipucu") }}</div>{% endif %}
+  {% endif %}
   <div class="ipucu" style="margin:4px 14px 10px">
     {% if harita_excel.kurulamadi %}<span style="color:var(--uyari)">{{ metin("excel_harita_kurulamadi") }}</span>
     {%- elif harita_excel.hata %}<span style="color:var(--uyari)">{{ metin("excel_harita_yazilamadi") }}</span>
     {%- elif harita_excel.zaman %}{{ metin("excel_harita_guncel").format(zaman=gg_aa_yyyy_saat(harita_excel.zaman)) }}
     {%- else %}{{ metin("excel_harita_henuz") }}{% endif %}
-    {% if kullanici and kullanici.rol == "yonetici" %}<br>{{ metin("excel_harita_klasor") }}: {{ harita_excel.klasor }}{% endif %}
+    {% if yonetici %}<br>{{ metin("excel_harita_klasor") }}: {{ harita_excel.klasor }}{% endif %}
   </div>
+  {% if yonetici %}
+  <form method="post" action="/cryo/sablon" enctype="multipart/form-data" style="margin:0 14px 12px">
+    <div class="alan" style="border:0;padding-left:0;padding-right:0">
+      <label for="sablondosya">{{ metin("sablon_yukle_etiket") }}</label>
+      <input id="sablondosya" type="file" name="dosya" accept=".xlsx" required>
+      <div class="ipucu">{{ metin("sablon_yukle_ipucu") }}</div>
+    </div>
+    <button class="dugme ikincil" type="submit">{{ metin("sablon_yukle") }}</button>
+  </form>
+  {% endif %}
 </div>
-<a class="dugme ikincil" href="/disari/cryo/harita">{{ metin("excel_harita_indir") }}</a>
+{# Laboratuvarın dosyası yüklüyken "Tankları Excel'e aktar" aynı dosyayı
+   veriyor; ikinci bir düğme aynı şeyi iki adla öğretirdi. #}
+{% if not cryo_sablon %}<a class="dugme ikincil" href="/disari/cryo/harita">{{ metin("excel_harita_indir") }}</a>{% endif %}
 
 </div><div class="sutun">
 

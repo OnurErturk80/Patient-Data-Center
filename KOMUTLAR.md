@@ -614,6 +614,15 @@ söyler, kapatınca program yeniden dener). Dosyada yaptığın değişiklik
 programa girmez, bir sonraki güncellemede silinir. Yedekleme son halini yedek
 diskine de kopyalar (`<yedek klasörü>/cryo_harita/`).
 
+**Kendi Cryo Haritası Excel'iniz, birebir (v6.199).** Programı bir kez yeniden
+başlat (göç 054), sonra **tank düzeninin kurulduğu makinede** (Mac) yönetici
+olarak: Cryo Haritası → "Excel haritası" kartı → "Laboratuvarın Cryo Haritası
+Excel'i" → `yerlesim`'i çalıştırırken kullandığın dosyayı seç → "Dosyayı
+yükle". Bundan sonra "Tankları Excel'e aktar" ve veri klasöründeki dosya o
+Excel'in kendisi: sayfalar, tablolar, yazılar aynen, yalnızca straw satırları
+programın bugünkü haliyle. Dosya `lab.db`'de saklanıyor, `tasi.py` ile öteki
+makineye de gider. Yeni bir sürümünü yüklemek eskisinin yerine geçer.
+
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı
 klasöre. Etiketler ay + yıl (`OCAK2019` … `ARALIK2023`); 2020'nin mayısı

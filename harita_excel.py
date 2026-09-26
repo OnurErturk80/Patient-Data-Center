@@ -10,6 +10,14 @@ Dosya programın veri klasöründe, `lab.db`'nin yanında durur:
 `cryo_harita/Cryo_Haritasi.xlsx`. Her günün son hali ayrıca
 `Cryo_Haritasi_YYYY-AA-GG.xlsx` olarak `GUNLUK_SAKLA_GUN` gün saklanır.
 
+**v6.199'dan beri laboratuvarın kendi Cryo Haritası Excel'i yüklüyse
+(`cryo_sablon.py`) yazılan O dosyadır**, bugünkü haliyle -- kullanıcı:
+"Farklı yapıda excel oluşturma benim orjinal cryo harita excelimi birebir
+kullan" (otomatik dosyanın da öyle olmasını seçti). Aşağıdaki sayfalar
+(Bilgi, tank sayfaları, Liste, Boş yerler) yalnızca dosya yüklü değilken ya
+da doldurulamadığında yazılıyor. İki yolun ortak kısmı `guncelle()`: imza,
+atomik yazım, günlük kopya, kart.
+
 - **Türetilmiş, kayıt değil.** Harita her seferinde tank düzeninden, dolu
   tüplerden ve Excel kayıtlarından baştan kuruluyor ("cryo haritası
   türetilmiştir", CLAUDE.md). Dosyada elle yapılan değişiklik programa
@@ -38,6 +46,7 @@ import os
 import re
 import threading
 
+import cryo_sablon
 import db
 import excel
 import yerlesim
@@ -468,19 +477,46 @@ def _temizle(bugun) -> None:
             pass
 
 
+def _sablonlu():
+    """Laboratuvarın kendi dosyası yüklüyse (v6.199, `cryo_sablon.py`) onun
+    bugünkü haliyle doldurulma planı; yoksa ya da doldurulamazsa None --
+    o zaman programın düzeni yazılır (dosyasız kalmaktansa), sebebi karta."""
+    if not cryo_sablon.var():
+        _DURUM.pop("sablon_hata", None)
+        return None
+    try:
+        plan = cryo_sablon.kur()
+    except Exception as e:               # hiçbir hata haritayı durdurmasın
+        if _DURUM.get("sablon_hata") != repr(e):
+            _gunluk.exception("CRYO EXCEL: laboratuvarin dosyasi doldurulamadi")
+        _DURUM["sablon_hata"] = repr(e)
+        return None
+    _DURUM.pop("sablon_hata", None)
+    return plan
+
+
 def guncelle(bayt_iste: bool = False) -> dict:
     """Haritayı kurar; içeriği son yazılandan farklıysa (ya da dosya yoksa)
     ana dosyayı ve bugünün kopyasını yazar.
+
+    Laboratuvarın Cryo Haritası Excel'i yüklüyse (v6.199) yazılan O dosya,
+    bugünkü haliyle (`cryo_sablon.py`); değilse programın düzeni (v6.191).
 
     -> {"yazildi": bool, "veri": .xlsx baytları ya da None}. `bayt_iste`:
     indirme için -- içerik değişmemiş olsa da baytlar üretilir. Veritabanı
     hatası yükselir; dosya yazılamazsa yükselmez, `durum()`'a düşer.
     """
     with _KILIT:
-        v = _kur()
         simdi = _dt.datetime.now()
+        plan = _sablonlu()
+        if plan is not None:
+            v = {"imza": plan["imza"], "ozet": {**plan["ozet"], "sablon": True}}
+            uret = lambda: cryo_sablon.cikti(plan)
+        else:
+            v = _kur()
+            uret = lambda: excel.kitap(_sayfalar(v, simdi))
         degisti = v["imza"] != _DURUM.get("imza") or not ana_dosya().exists()
-        veri = excel.kitap(_sayfalar(v, simdi)) if (degisti or bayt_iste) else None
+        veri = uret() if (degisti or bayt_iste) else None
         if not degisti:
             _DURUM.pop("kurulamadi", None)
             return {"yazildi": False, "veri": veri}
@@ -499,8 +535,14 @@ def guncelle(bayt_iste: bool = False) -> dict:
             _gunluk.warning("CRYO EXCEL: gunluk kopya yazilamadi: %s", e)
         _DURUM.update(imza=v["imza"], zaman=simdi.isoformat(" ", "seconds"),
                       hata=None, kurulamadi=None, ozet=v["ozet"])
-        _gunluk.info("CRYO EXCEL: harita yazildi (%d tup, %d Excel kaydi).",
-                     v["ozet"]["tup"], v["ozet"]["excel"])
+        o = v["ozet"]
+        if o.get("sablon"):
+            _gunluk.info("CRYO EXCEL: laboratuvarin dosyasi yazildi (%d satir aynen, "
+                         "%d bosaldi, %d yeni, %d yer bulamadi).", o.get("korunan", 0),
+                         o.get("bosalan", 0), o.get("yeni", 0), o.get("sigmayan", 0))
+        else:
+            _gunluk.info("CRYO EXCEL: harita yazildi (%d tup, %d Excel kaydi).",
+                         o["tup"], o["excel"])
         return {"yazildi": True, "veri": veri}
 
 

@@ -2367,6 +2367,62 @@ METINLER = {
         "tr": "Excel haritası kurulamadı; ayrıntı program.log'da.",
         "en": "The Excel map could not be built; see program.log."},
     "excel_harita_klasor": {"tr": "Klasör", "en": "Folder"},
+    # ---- Laboratuvarın kendi Cryo Haritası Excel'i (v6.199) ----
+    "sablon_ipucu": {
+        "tr": "Excel çıktıları laboratuvarın kendi Cryo Haritası Excel'inin "
+              "biçiminde ({dosya}, {zaman} yüklendi): sayfalar, tablolar ve "
+              "yazılar aynen. Straw hâlâ o gobletteyse satırı olduğu gibi kalır; "
+              "çözülen, taşınan ya da başka yere konan straw'ın satırı boşalır; "
+              "programda dondurulan straw gobletin boş satırına yazılır. Harita "
+              "her değiştiğinde dosya veri klasörüne de yazılır, her günün son "
+              "hali 30 gün saklanır. Dosyada elle yapılan değişiklik programa girmez.",
+        "en": "Excel output uses the lab's own Cryo Map workbook ({dosya}, "
+              "uploaded {zaman}): same sheets, tables and wording. A straw still "
+              "in its goblet keeps its row as written; the row of a thawed, "
+              "transferred or moved straw is emptied; a straw frozen in the "
+              "program is written into a free row of its goblet. The file is also "
+              "rewritten in the data folder whenever the map changes; each day's "
+              "last version is kept for 30 days. Edits made in the file are not "
+              "read back."},
+    "sablon_ozet": {
+        "tr": "Son yazımda {korunan} satır aynen kaldı, {bosalan} satır boşaldı, "
+              "{yeni} straw boş satıra yazıldı.",
+        "en": "Last write: {korunan} rows unchanged, {bosalan} rows emptied, "
+              "{yeni} straws written into free rows."},
+    "sablon_bilinmeyen": {
+        "tr": "{n} dolu satırın programda hiçbir karşılığı yok (dosya tank düzeni "
+              "kurulduktan sonra Excel'de değiştirilmiş olabilir); olduğu gibi "
+              "bırakıldı. Programa almak için: python3 cryo_esle.py yerlesim <dosya>",
+        "en": "{n} filled rows have no record in the program (the workbook may have "
+              "been edited after the tank layout was built); they were left as they "
+              "are. To bring them in: python3 cryo_esle.py yerlesim <file>"},
+    "sablon_sigmayan": {
+        "tr": "{n} straw yazılamadı: gobleti dolu ya da gobleti dosyada yok.",
+        "en": "{n} straws could not be written: the goblet is full or not in the file."},
+    "sablon_doldurulamadi": {
+        "tr": "Laboratuvarın dosyası doldurulamadı, programın düzeni yazıldı; "
+              "ayrıntı program.log'da.",
+        "en": "The lab's workbook could not be filled; the program's layout was "
+              "written instead (see program.log)."},
+    "sablon_yuklendi": {
+        "tr": "{dosya} yüklendi. Excel çıktıları bundan sonra bu dosyanın biçiminde.",
+        "en": "{dosya} uploaded. Excel output now uses this workbook."},
+    "sablon_islenemedi": {
+        "tr": "Dosya işlenemedi; ayrıntı program.log'da.",
+        "en": "The file could not be processed; see program.log."},
+    "sablon_yok_ipucu": {
+        "tr": "Çıktıyı laboratuvarın kendi Cryo Haritası Excel'inin biçiminde "
+              "almak için dosyayı bir kez aşağıdan yükleyin.",
+        "en": "Upload the lab's own Cryo Map workbook once below to get the "
+              "output in its format."},
+    "sablon_yukle_etiket": {"tr": "Laboratuvarın Cryo Haritası Excel'i",
+                            "en": "The lab's Cryo Map workbook"},
+    "sablon_yukle_ipucu": {
+        "tr": "Tank düzeni kurulurken kullanılan dosya (.xlsx). Yenisi yüklenirse "
+              "öncekinin yerine geçer.",
+        "en": "The workbook the tank layout was built from (.xlsx). A new upload "
+              "replaces the previous one."},
+    "sablon_yukle": {"tr": "Dosyayı yükle", "en": "Upload the file"},
     "excel_harita_indir": {"tr": "Excel haritasını indir",
                            "en": "Download the Excel map"},
     "excel_tumu": {"tr": "Tüm veriyi Excel'e aktar",

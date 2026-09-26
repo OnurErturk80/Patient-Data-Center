@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+import cryo_sablon
 import db
 import disari
 import excel
@@ -1002,6 +1003,7 @@ KULLANICI_KAYITLARI = [
     ("lab_formu", "kullanici_id", "yüklediği form kalıbı"),
     ("excel_kaydi", "kullanici_id", "Excel kaydı"),
     ("excel_kaydi", "islem_kullanici_id", "işaretlediği Excel kaydı"),
+    ("cryo_sablon", "kullanici_id", "yüklediği Cryo Haritası Excel'i"),
 ]
 
 
@@ -4482,8 +4484,50 @@ def disari_cycle(request: Request, cycle_id: int):
 
 @uygulama.get("/disari/cryo")
 def disari_cryo(request: Request):
-    """Tankların dökümü — sayım ve envanter için."""
+    """"Tankları Excel'e aktar". Laboratuvarın kendi Cryo Haritası Excel'i
+    yüklüyse (v6.199) O dosya, programın bugünkü haliyle -- kullanıcı:
+    "Farklı yapıda excel oluşturma benim orjinal cryo harita excelimi birebir
+    kullan". Veri klasöründeki otomatik dosyayla aynı içerik
+    (`harita_excel.guncelle()`). Yüklü değilse eski döküm: sayım ve envanter
+    listesi (v6.36)."""
+    if cryo_sablon.var():
+        sonuc = harita_excel.guncelle(bayt_iste=True)
+        return Response(
+            sonuc["veri"], media_type=EXCEL_TURU,
+            headers={"Content-Disposition":
+                     f'attachment; filename="{excel.dosya_adi(harita_excel.DOSYA_KOKU)}"'})
     return excel_yaniti("cryo", disari.cryo_sayfalari())
+
+
+@uygulama.post("/cryo/sablon")
+async def cryo_sablon_yukle(request: Request):
+    """Laboratuvarın kendi Cryo Haritası Excel'i (v6.199): Excel çıktıları
+    bundan sonra bu dosyanın biçiminde (`cryo_sablon.py`). Yalnızca yönetici.
+    Sonuç adrese değil belleğe yazılıyor, adreste yalnızca "gösterilecek sonuç
+    var" işareti (tuzak #9)."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = await request.form()
+    dosya = f.get("dosya")
+    ad = (getattr(dosya, "filename", "") or "")[:120]
+    icerik = await dosya.read() if hasattr(dosya, "read") else b""
+    sonuc = cryo_sablon.SON_YUKLEME
+    sonuc.clear()
+    try:
+        ozet = cryo_sablon.yukle(ad, icerik, request.state.kullanici["id"])
+    except cryo_sablon.Hata as e:
+        sonuc["hata"] = str(e)
+    except Exception:
+        _gunluk.exception("Cryo Haritası Excel'i yüklenemedi")
+        sonuc["hata"] = metinler.t("sablon_islenemedi")
+    else:
+        sonuc.update(dosya=ad, ozet=ozet)
+        try:                     # veri klasöründeki dosya da hemen bu biçimde
+            harita_excel.guncelle()
+        except Exception:
+            _gunluk.exception("CRYO EXCEL: yuklemeden sonra yazilamadi")
+    return RedirectResponse("/cryo?sablon=1#excelharita", status_code=303)
 
 
 @uygulama.get("/disari/cryo/harita")
@@ -7149,6 +7193,10 @@ def cryo_harita(request: Request, ara: str = ""):
          "konumsuz_sayisi": konumsuz_sayisi,
          "excel_sonuc": excel_kaydi_ara(ara),
          "harita_excel": harita_excel.durum(),
+         # Laboratuvarın kendi Excel'i (v6.199) ve az önceki yüklemenin sonucu.
+         "cryo_sablon": cryo_sablon.bilgi(),
+         "sablon_sonucu": (dict(cryo_sablon.SON_YUKLEME)
+                           if request.query_params.get("sablon") else None),
          "etiketler": etiketler, "kullanici": request.state.kullanici})
 
 

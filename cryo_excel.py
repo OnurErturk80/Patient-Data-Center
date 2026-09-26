@@ -413,6 +413,10 @@ def _veri_satirlari(hucreler: dict, sayfa: str, bloklar: list):
                 "vial_metni": al("vial"), "notlar": al("notlar"),
                 # Hangi blok: `duzen()` hazırlanmış boş katı blok blok tanıyor.
                 "blok": (blok["baslik_satiri"], a["soyad"]),
+                # Alanların sütunları (v6.199): laboratuvarın dosyasını
+                # dolduran `cryo_sablon.py` hangi hücreye yazacağını buradan
+                # biliyor. Bloğun hepsinde aynı sözlük, kopyalanmıyor.
+                "alanlar": a,
             }
 
 

@@ -15454,3 +15454,95 @@ tedavisinde: ilk embriyonun kaydı vitrifikasyon ekranına döndü, mesaj doğru
 tüpü yazdı, ikinci embriyo listede kaldı; aynı dakikadaki ikinci öneri bir
 dakika ilerledi ve ikinci tüp hatasız kaydedildi. Başka bir tüpün numarası
 verilince mesaj basılmadı.
+
+# v6.199 — "Tankları Excel'e aktar" laboratuvarın kendi Cryo Haritası Excel'ini veriyor
+
+Kullanıcının isteği (2026-09-26): "Tankları Excel'e aktar dediğimde benim
+kullandığım orjinal cryo haritaya çıktı alsam. Farklı yapıda excel oluşturma
+benim orjinal cryo harita excelimi birebir kullan." Düğme v6.36'dan beri
+programın kendi düz listesini, veri klasöründeki otomatik dosya (v6.191)
+programın kendi tank düzenini yazıyordu; ikisi de laboratuvarın 6 sayfalık,
+36 Excel tablolu (NO, SOYAD, AD, EŞİ, TARİH, HÜCRE, VİAL) dosyasından farklıydı.
+
+## Nasıl çalışıyor
+
+Program laboratuvarın dosyasını bir kez alıyor (Cryo Haritası → "Excel
+haritası" kartı, yönetici; `POST /cryo/sablon`), `lab.db`'de saklıyor
+(`goc_054`, `cryo_sablon` tablosu: `lab.db` USB ile taşınan tek dosya, şablon
+ayrı dursaydı öteki makinede olmazdı -- `lab_formu`'nun gerekçesi) ve her
+çıktıda **o dosyayı dolduruyor** (`cryo_sablon.py`). Sayfalar, Excel
+tabloları, sütun genişlikleri, biçimler, başlıklar, NO sütunu, yazıcı
+ayarları bayt bayt aynı; yalnızca straw satırlarının değer hücreleri
+değişiyor:
+
+- **Straw hâlâ o gobletteyse satırı aynen kalır** (laboratuvarın yazdığı
+  gibi). Hangi satırın hangi straw olduğu `cryo_esle.py`'nin eşleştirmesiyle
+  (hasta + gün + içerik; sperm satırında ad + gün) ve Excel kayıtlarında
+  içerik anahtarıyla bulunuyor -- `yerlesim_plani()`'nin "temsil" ölçüsü:
+  tüp tankta ve konumu bu goblet. Eşleştirme 1 saniye sürdüğü için
+  saklanmıyor, her çıktıda yeniden kuruluyor (şablonun okunmuş hali bellekte).
+- **Straw artık orada değilse** (çözüldü, başka merkeze taşındı, başka yere
+  kondu, Excel kaydı "tanktan çıkarıldı") satırın değerleri silinir; NO ve
+  hücre biçimi kalır.
+- **Programda o goblete konmuş straw** gobletin boş satırına yazılır: önce
+  Excel'de zaten boş olan satırlar, sonra boşalanlar (yazılı straw'lar yer
+  değiştirmesin). Başka gobletten taşınmışsa eski satırının yazısı taşınır.
+  Programda dondurulmuşsa laboratuvarın son yıllardaki yazımıyla (Excel'den
+  ölçüldü): TARİH gerçek tarih hücresi (sütunun biçimiyle), HÜCRE "D5
+  (3BA-1BB)", yumurtada "OOSİT (4M2-1M1)", FET'te yeniden dondurulan
+  "... REFREEZE", VİAL "1 CRYOLOCKMAVİ 2" (baştaki sayı straw adedi, sondaki
+  aynı tedavide aynı gün dondurulanlar arasındaki sırası -- iki ayrı günde
+  numaralı straw'ı olan 78 hastanın 50'sinde ikinci gün 1'den başlıyor; tek
+  straw'da yok), sperm "EJAKÜLAT" / "EJAKÜLAT-CA" (onkolojik) / "TESE", VİAL "1".
+- **SOYAD / AD** (kullanıcının kararı): hastanın Excel'de satırı varsa
+  oradaki yazım; yoksa son kelime soyad, gerisi ad (programdaki adların
+  3.125'te 3.116'sı "AD SOYAD" sırasında; iki kelimelik soyadında ilk kelime
+  AD'a kayar ama ad yine tam okunur). Çiftin kaydındaki sperm eşindir
+  (`es_adi`), EŞİ o zaman kadının adı.
+- **"2 CRYOLOCK" gibi birden çok straw'ı tek satırda anlatan satır** aynı
+  hastanın aynı gün dondurulmuş öteki tüplerini de taşıyor, onlar ayrıca
+  yazılmıyor (v6.189'da 6 goblet).
+- **Programın hiçbir kaydıyla eşleşmeyen dolu satır boşaltılmıyor**: dosya
+  tank düzeni kurulduktan sonra Excel'de elle değiştirilmişse program o
+  straw hakkında hiçbir şey bilmiyor, "gitti" sayamaz. Kart sayısını söyler.
+- **Yer bulamayan straw** (goblet dolu, gobleti dosyada yok) yazılmıyor;
+  sayısı ve etiketiyle listesi kartta. Konumu girilmemiş ya da tank
+  düzeninde olmayan tüpler laboratuvarın dosyasında da yoktu, yine yok.
+- **Paylaşılan metin tablosu (sharedStrings) baştan kuruluyor**: boşalan
+  satırın adı başka hiçbir hücrede geçmiyorsa dosyada görünmeyen bir köşede
+  de kalmıyor (denendi).
+
+Dosya kütüphanesiz, XML düzeyinde değiştiriliyor (`excel.py`/`xlsx_oku.py`
+gibi): satırlar ve hücreler sırasıyla okunuyor, beklenmeyen bir yapı varsa
+dosyaya dokunulmuyor (hata); yazılan her parça XML olarak yeniden
+denetleniyor. Dışarıdan gelen dosya için `xlsx_oku.py`'nin korumaları
+(boyut, parça sayısı, DOCTYPE/ENTITY).
+
+## Otomatik dosya ve düğme
+
+Kullanıcı veri klasöründeki otomatik dosyanın da bu biçimde olmasını seçti.
+`harita_excel.guncelle()` şablon yüklüyse onu dolduruyor (imza, atomik yazım,
+günlük kopya aynı); doldurulamazsa programın düzenine düşüyor, sebebi karta
+(dosyasız kalmaktansa). "Tankları Excel'e aktar" (`/disari/cryo`) aynı dosyayı
+veriyor; şablon yokken eski düz liste. Şablon yüklüyken kartın ikinci indirme
+düğmesi gizli: aynı dosyayı iki adla göstermesin.
+
+## Denendi
+
+Kullanıcının veritabanının bir kopyasında (`yerlesim`'den sonraki hal) ve
+laboratuvarın dosyasıyla: değişiklik yokken 38.138 değerli hücrenin hepsi
+değeri ve biçimiyle birebir aynı, öteki bütün parçalar bayt bayt aynı,
+openpyxl 36 tabloyla açıyor. Senaryolar: çözülen tüpün satırı boşaldı,
+başka gobletlere taşınan tüpün eski satırı boşaldı ve yeni gobletinde kendi
+yazısıyla çıktı, tanktan çıkarılan Excel kaydının satırı boşaldı, programda
+dondurulan yeni straw boş satıra doğru yazımla yazıldı (TARİH hücresi tarih
+biçiminde). Yükleme, kart ve düğme uygulamadan denendi; .xlsx olmayan,
+bozuk ve yanlış dosya reddedildi, önceki şablon yerinde kaldı. Süre:
+eşleştirme + doldurma ~1 sn (şablonun ilk okunması 2 sn).
+
+**Bilinen sınırlar**: gerçek Excel'de açılarak denenmedi -- bu ortamdaki
+LibreOffice hiçbir .xlsx'i açamıyor, programın kendi ürettiği en basit
+dosyayı bile. Satır eklenmiyor (kanister blokları yan yana, bir satır
+eklemek komşu kanisterleri kaydırırdı): gobletin satırı yetmezse straw
+yazılmıyor, kart söylüyor. Tank düzeni Mac'teki veritabanında; dosya da
+orada yüklenmeli, `tasi.py` ile kliniğe gider.
