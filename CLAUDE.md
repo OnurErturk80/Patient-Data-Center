@@ -1572,6 +1572,17 @@ Yönetici, altında ayrı grupta işlemler (Yeni hasta, Şifre değiştir).
 Menüdeki izin kontrolü yalnızca bağlantıyı gizler; asıl engel middleware ve
 `yonetici_kontrol()`.
 
+**Telefonda menü üst çubuktaki düğmeyle açılır** (v6.195, kullanıcı:
+"menüler aşağıda kaldığı için kaydırma yapmazsak görünmüyor ... açılır menü
+tarzı"). Düğme (`#menudugme`, `base.html`) yeni bir menü açmıyor, sayfadaki
+`.yanmenu`'yü (ana menü ya da aşama menüsü) dar ekranda üst çubuğun altında
+panel yapıyor (`body.menuacik`). Menü öğesi eklersen yalnızca `_gezinme.html`'e
+ekle, panel kendiliğinden gösterir. `.yanmenu` olmayan ekranda düğme gizli.
+- **Alt alta düğme yığını yerine `.dugmeizgara`** (iki sütun, `.genis` iki
+  sütunu kaplar): ana ekranın telefon menüsü (arama kutusunun hemen altında,
+  sayfanın dibinde DEĞİL), tedavi ekranının aşama düğmeleri, yönetici paneli.
+  Telefonda sayfayı uzatan yeni bir düğme yığını yazarsan bunu kullan.
+
 **Menü artık her yerde olduğu için genişleyen ekranlar `yanmenusuz` değil
 `genis` kullanmalı** (`.kap.genis.yanmenusuz` → `.kap.genis`, `--genis-sutun`
 menü payını içeriyor). Yeni bir genişleyen (`kap genis`) ekran yazarsan
@@ -3043,6 +3054,12 @@ ekranı karekod + adım adım yönerge veriyor, yazdırılıp laboratuvara asıl
   verisi de yok) ve **giriş ekranındaki bağlantıdan** açılıyor. Ana ekrandan
   açılırsa `location.replace('/')` ile programa geçiyor — v6.47 döneminde
   yanlış adresi yakalamış simgeler böyle kendiliğinden düzeliyor.
+- **Service worker `/sw.js`** (v6.195, `ACIK_YOLLAR`'da, kök adreste):
+  HİÇBİR ŞEYİ önbelleğe almıyor (hasta verisi telefonda kalmasın, ekran hep
+  güncel), yalnızca sunucuya ulaşılamazsa "Programa ulaşılamıyor" sayfası.
+  Önbelleğe alma ekleme -- kullanıcıya sormadan. Kaydı yalnızca güvenli
+  bağlantıda; düz HTTP'de sessizce atlanıyor. Manifest renkleri koyu tema,
+  simgeler `any`/`maskable` ayrı, üç kısayol.
 - **Bir web sayfası kendini ana ekrana ekleyemez.** iOS'ta API yok;
   Android'de `beforeinstallprompt` var ama HTTPS + service worker istiyor.
   Kod hazır duruyor, HTTPS gelince kendiliğinden çalışacak. "Otomatik ekle"

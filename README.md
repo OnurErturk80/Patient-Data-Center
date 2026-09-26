@@ -15224,3 +15224,74 @@ Center"), o satır kopyalanınca yine bölünürdü. İki düzeltme:
 
 KOMUTLAR.md'nin "Sık sorunlar"ına eklendi. Denendi: tırnaksız `CRYO
 HARİTA.xlsx` dosyayı buldu; olmayan adda tırnaklı öneri çıktı.
+
+# v6.195 — Telefonda açılır menü, düğme ızgaraları ve uygulama kurulumu
+
+Kullanıcının isteği (2026-09-26): "Android ve iOS için programı daha güzel
+kurulabilir ve kullanılabilir hale getir. Yani app gibi ikisine de
+yükleyebileyim. Ve bazı menüler yukarıdan aşağıya sıralanıyor. Aşağıda
+kaldığı için kaydırma yapmazsak görünmüyor ... Mesela açılır menü tarzı."
+Ölçüldü (390px telefon): ana ekranın menü düğmeleri 1.419px'lik sayfanın en
+dibindeydi, tedavi ekranının on bir aşama düğmesi 2.848px'lik sayfanın sağ
+sütununda -- telefonda iki sütun alt alta dizildiği için bütün kartların
+altında. Yönetici paneli dokuz büyük düğmeyle iki ekran boyuydu.
+
+## Açılır menü
+
+- Üst çubukta, sağda **menü düğmesi (☰)**, yalnızca dar ekranda (<1100px).
+  Açtığı şey yeni bir menü değil, sayfada zaten duran `.yanmenu`: geniş
+  ekranda solda sabit duran ana menü ya da tedavi ekranlarının aşama menüsü
+  (v6.65). Dar ekranda gizliydi; artık üst çubuğun hemen altında panel
+  olarak açılıyor, arkası karartılıyor. Tek yerde (`base.html` + CSS):
+  60 şablonun hiçbirine dokunulmadı.
+- Kapanma: menünün dışına dokununca, bir bağlantıya basınca, Esc, ekran
+  genişleyince, geri tuşuyla dönülünce (`pageshow`). Menü açıkken arkadaki
+  sayfa kaymıyor.
+- Menüsü olmayan ekranda (giriş) düğme görünmüyor -- betik yalnızca
+  `.yanmenu` varsa açıyor.
+- Panelin tepesi üst çubuğun **ölçülen** alt kenarı (`--menu-ust`): iPhone'un
+  çentiği çubuğun boyunu değiştiriyor, sabit bir sayı yazılmadı.
+
+## Düğme ızgarası (`.dugmeizgara`)
+
+İki sütunlu ızgara; `.genis` alan düğme iki sütunu kaplıyor. Üç yerde:
+ana ekranın telefon menüsü (artık sayfanın dibinde değil, arama kutusunun
+hemen altında; "Hasta kayıtları" geniş), tedavi ekranının aşama düğmeleri,
+yönetici paneli ("Kullanıcılar" geniş). Sıra ve yazılar değişmedi; ana
+ekranın düğmeleri sol menüyle hâlâ birebir aynı yazıyı kullanıyor.
+Ölçüldü: ana ekran 1.419 → 1.280px, tedavi ekranı 2.848 → 2.498px, yönetici
+paneli 2.755 → 2.448px; menü her ekranda tek dokunuşta.
+
+## Uygulama gibi kurulum
+
+- **Manifest**: renkler koyu temaya çekildi (`background_color` hâlâ v6.72
+  öncesinin açık zeminiydi, Android'in açılış ekranı beyaz yanıp sönerdi),
+  `id`, simgeler `any` ve `maskable` diye ayrı (birleşik yazım Chrome'un
+  uyardığı biçim), simgeye uzun basınca üç kısayol (Hasta kayıtları, Cryo
+  Haritası, Yeni hasta). `theme-color` da üst çubuğun rengi (`#111a25`).
+- **Service worker** (`/sw.js`, kök adreste çünkü kapsamı bulunduğu klasör;
+  `ACIK_YOLLAR`'da). **Hiçbir şeyi önbelleğe almıyor**: hasta verisi
+  personelin telefonunda kalmasın, ekran her zaman sunucudaki güncel kaydı
+  göstersin. Tek işi, sunucuya ulaşılamazsa (telefon klinik ağından çıktıysa)
+  boş tarayıcı hatası yerine "Programa ulaşılamıyor -- Wi-Fi'ye bağlı mı,
+  bilgisayar açık mı? [Tekrar dene]" sayfası. Kaydı yalnızca güvenli
+  bağlantıda (`isSecureContext`); düz HTTP'de tarayıcı zaten izin vermiyor,
+  sessizce atlanıyor.
+- Uygulama olarak açıldığında sayfa sonunda esneme ve dokunma gölgesi yok;
+  yatay tutulan iPhone'da üst çubuk çentiğin altında kalmıyor.
+- Yönerge metinleri güncellendi: yeni iOS'ta paylaş düğmesi `•••` altında,
+  Chrome'da seçenek artık "Uygulamayı yükle" de olabiliyor.
+- Denendi (Chromium, localhost -- güvenli sayılan tek adres): service worker
+  etkin, Chrome'un kurulabilirlik denetiminin tek itirazı test tarayıcısının
+  gizli pencere olması; çevrimdışıyken sayfa açılınca yukarıdaki sayfa çıktı.
+
+**Bilinen sınır -- Android için karar bekliyor:** Android'de "uygulama gibi"
+(adres çubuksuz, kendi penceresinde) açılış ve "Uygulamayı yükle" düğmesi
+**HTTPS** istiyor; program iç ağda düz HTTP ile çalışıyor (bekleyen iş 3).
+iPhone'da bugün de tam ekran açılıyor. Bu sürümün parçaları HTTPS gelince
+kendiliğinden devreye girecek şekilde yazıldı; HTTPS'in nasıl kurulacağı
+(yerel sertifika, her telefona bir kez yüklenmesi) kullanıcıya soruldu.
+
+Denendi: 390 ve 360px telefonda 17 ekranda yatay kaydırma yok, menü düğmesi
+menüsü olan her ekranda var, girişte yok; 29 adres 200; geniş ekranda (1280px)
+sol menü eskisi gibi, düğme gizli.

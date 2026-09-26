@@ -24,6 +24,26 @@
          inputmode="search" autocomplete="off">
 </form>
 
+{# Telefonun menüsü. Genis ekranda ayni baglantilar solda duruyor, orada
+   CSS bu izgarayi gizliyor. Sira ve yazilar sol menuyle birebir ayni.
+   v6.195'e kadar sayfanin EN ALTINDA alt alta dizilmis bes buyuk dugmeydi
+   -- kullanici: "asagida kaldigi icin kaydirma yapmazsak gorunmuyor". Artik
+   arama kutusunun hemen altinda, iki sutunlu izgara. Ayni menu ust
+   cubuktaki menu dugmesinden de aciliyor. #}
+<div class="anadugmeler dugmeizgara">
+  <a class="dugme genis" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
+  {% if yetkim("cryo") %}
+  <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
+  {% endif %}
+  {% if kullanici.rol == "yonetici" %}
+  <a class="dugme ikincil" href="/yonetim">{{ metin("yonetim") }}</a>
+  {% endif %}
+  {% if yetkim("hasta") %}
+  <a class="dugme ikincil" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>
+  {% endif %}
+  <a class="dugme ikincil" href="/sifre">{{ metin("sifre_degistir") }}</a>
+</div>
+
 {# Devam Eden Tedaviler, Bugun Biten Tedaviler ve Yaklasan Tedaviler UCU DE
    YAN YANA (v6.67, kullanicinin istegi -- v6.34'te ilk ikisi yan yana, ucuncusu
    altindaydi). `.ucsutun` medya sorgusu kullanmiyor: her kart en az 260px
@@ -106,22 +126,6 @@
     </div>
   </dl>
   {% endif %}
-</div>
-
-{# Telefonun menusu. Genis ekranda ayni baglantilar solda duruyor,
-   orada CSS bu yigini gizliyor. Sira ve yazilar sol menuyle birebir ayni. #}
-<div class="anadugmeler">
-  <a class="dugme" href="/hastalar">{{ metin("hasta_kayitlari") }}</a>
-  {% if yetkim("cryo") %}
-  <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
-  {% endif %}
-  {% if kullanici.rol == "yonetici" %}
-  <a class="dugme ikincil" href="/yonetim">{{ metin("yonetim") }}</a>
-  {% endif %}
-  {% if yetkim("hasta") %}
-  <a class="dugme ikincil" href="/hasta/yeni">{{ metin("yeni_hasta") }}</a>
-  {% endif %}
-  <a class="dugme ikincil" href="/sifre">{{ metin("sifre_degistir") }}</a>
 </div>
 
 <div class="ipucu" style="margin-top:14px;text-align:center">

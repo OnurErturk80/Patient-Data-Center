@@ -77,6 +77,15 @@ body {
 
 .kap { max-width: 640px; margin: 0 auto; padding: 0 16px 96px; }
 
+/* Uygulama gibi (ana ekrandan) açıldığında (v6.195): dokunulan bağlantının
+   üstünde çıkan gri kutu ve sayfanın sonunda "lastik gibi" esneyip üst
+   çubuğun altından zeminin görünmesi uygulama hissini bozuyordu. Metin
+   seçimi kapatılmadı -- dosya no, örnek kodu kopyalanabilmeli. */
+html { -webkit-tap-highlight-color: transparent; }
+@media (display-mode: standalone) {
+  html, body { overscroll-behavior-y: none; }
+}
+
 /* `hidden` niteligi her zaman kazansin. Tarayicinin kendi kurali
    `display: none` ama bizim `display: flex` veren siniflarimiz onu eziyor:
    `.aygezgin .ok` boyle bir sinifti ve `el.hidden = true` hicbir ise
@@ -97,6 +106,13 @@ body {
   z-index: 30;
 }
 .ust a { color: #fff; text-decoration: none; }
+/* Telefon yan çevrilince (yatay) çentik soldan/sağdan içeri giriyor;
+   uygulama tam ekran açıldığında çubuğun düğmeleri onun altında kalmasın
+   (v6.195). Düz tarayıcıda bu değerler 0, hiçbir şey değişmiyor. */
+.ust {
+  padding-left: calc(16px + env(safe-area-inset-left));
+  padding-right: calc(16px + env(safe-area-inset-right));
+}
 .ust .geri {
   font-size: 22px; line-height: 1;
   width: 36px; height: 36px;
@@ -523,6 +539,28 @@ form { margin: 0; }
   color: var(--ink);
   border: 1px solid var(--line);
 }
+
+/* Düğme ızgarası (v6.195): telefonda alt alta dizilen düğme yığınları
+   (ana ekranın menüsü, tedavi ekranının aşamaları, yönetici paneli) ekranın
+   dibine iniyor, kaydırmadan görünmüyordu. İki sütunlu ızgarada aynı
+   düğmeler yarı boyda yer kaplıyor. `.genis` alan düğme iki sütunu birden
+   kaplıyor (öne çıkan iş). Yazı iki satıra sarabilsin diye flex ile
+   ortalanıyor. */
+.dugmeizgara {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.dugmeizgara .dugme {
+  margin-top: 0;
+  min-height: 54px;
+  padding: 10px 8px;
+  font-size: 15px;
+  line-height: 1.25;
+  display: flex; align-items: center; justify-content: center;
+}
+.dugmeizgara .dugme.genis { grid-column: 1 / -1; }
 
 /* --- uyarı --- */
 .uyari {
@@ -1097,16 +1135,117 @@ body.kilitli { overflow: hidden; }
 .gezinme .gez:active { background: var(--zemin); }
 .gezinme .gez.orta:active { filter: brightness(1.4); }
 
-/* --- yan aşama menüsü (yalnızca geniş ekran) ---
-   Telefon bu programın birinci ekranı; menü orada YOK, 640px'lik sütunun
-   yanında yer olmadığı için. Klinikteki mini PC ve masaüstünde ise aşamalar
+/* --- yan menü (geniş ekranda solda, dar ekranda açılır panel) ---
+   Telefonda 640px'lik sütunun yanında yer yok; orada menü v6.195'ten beri
+   üst çubuktaki düğmeyle açılıyor (aşağıda). Klinikteki mini PC ve masaüstünde ise aşamalar
    arasında cycle ekranına dönmeden geçilebilsin diye solda duruyor.
    Eşik 1100px: içerik sütunu 640px, ortalanınca solda (1100-640)/2 = 230px
    kalıyor, menü 200px. Dar ekranda `display:none` -- DOM'da durması zararsız,
    böylece her aşama şablonuna ayrı ayrı eklemek gerekmiyor. */
 .yanmenu { display: none; }
 
+/* Menünün öğeleri iki halde de aynı: geniş ekranda solda sabit, dar ekranda
+   üst çubuğun menü düğmesiyle açılan panel (v6.195). Yalnızca konum ve
+   görünürlük medya sorgusuna bağlı. */
+.yanmenu .baslik {
+  display: block;
+  padding: 10px 12px;
+  background: var(--ust-bg);
+  color: #fff;
+  text-decoration: none;
+}
+.yanmenu .baslik .no { display: block; font-size: 17px; font-weight: 700; }
+.yanmenu .baslik .ad { display: block; font-size: 12px; color: #9fb0bc; }
+.yanmenu .oge {
+  display: block;
+  padding: 11px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 14px;
+}
+.yanmenu .oge:hover { background: var(--zemin); }
+.yanmenu .oge.aktif {
+  background: var(--vurgu-ac);
+  color: var(--vurgu);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--vurgu);
+}
+/* Ana menüde alt grup: ekranlar üstte, işlemler altta. Kalın çizgi ikisini
+   ayırıyor, yazı daha sönük -- göz önce üsttekilere gitsin. */
+.yanmenu .altgrup { border-top: 3px solid var(--line); }
+.yanmenu .altgrup .oge { color: var(--ink-2); font-size: 13px; }
+
+/* --- menü düğmesi ve açılır panel (dar ekran, v6.195) ---
+   Telefonda menü sayfanın dibindeydi (ana ekranın düğme yığını, tedavi
+   ekranının aşama düğmeleri); kaydırmadan görünmüyordu. Düğme üst çubukta,
+   çubuk yapışkan olduğu için her an elin altında. `<button>`: tuzak #12,
+   `appearance: none` şart. */
+.ust .menudugme {
+  -webkit-appearance: none; appearance: none;
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  margin-right: -6px;
+  padding: 0;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: var(--r);
+  cursor: pointer;
+}
+.ust .menudugme svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round;
+}
+.ust .menudugme:active,
+body.menuacik .ust .menudugme { background: var(--vurgu); border-color: var(--vurgu); }
+.menuperde {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  top: var(--menu-ust, 60px);
+  background: rgba(0, 0, 0, .5);
+  z-index: 35;
+}
+@media (max-width: 1099.98px) {
+  body.menuacik .yanmenu {
+    display: block;
+    position: fixed;
+    top: calc(var(--menu-ust, 60px) + 6px);
+    left: 8px; right: 8px;
+    max-width: 520px;
+    margin: 0 auto;
+    max-height: calc(100vh - var(--menu-ust, 60px) - 20px - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--yuzey);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, .6);
+    z-index: 40;
+    animation: menuinis .16s ease-out;
+  }
+  body.menuacik .yanmenu .baslik { padding: 12px 16px; }
+  body.menuacik .yanmenu .oge {
+    padding: 14px 16px;
+    font-size: 16px;
+    min-height: 50px;
+  }
+  body.menuacik .yanmenu .altgrup .oge { font-size: 15px; }
+  /* Menü açıkken arkadaki sayfa kaymasın -- parmak menüyü kaydırırken
+     sayfa da kayıyordu. */
+  body.menuacik { overflow: hidden; }
+}
+@keyframes menuinis {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.menuacik .yanmenu { animation: none; }
+}
+
 @media (min-width: 1100px) {
+  .ust .menudugme, .menuperde { display: none !important; }
   .yanmenu {
     display: block;
     position: fixed;
@@ -1120,39 +1259,10 @@ body.kilitli { overflow: hidden; }
     border-radius: var(--r);
     z-index: 20;
   }
-  .yanmenu .baslik {
-    display: block;
-    padding: 10px 12px;
-    background: var(--ust-bg);
-    color: #fff;
-    text-decoration: none;
-  }
-  .yanmenu .baslik .no { display: block; font-size: 17px; font-weight: 700; }
-  .yanmenu .baslik .ad { display: block; font-size: 12px; color: #9fb0bc; }
-  .yanmenu .oge {
-    display: block;
-    padding: 11px 12px;
-    border-top: 1px solid var(--line);
-    color: var(--ink);
-    text-decoration: none;
-    font-size: 14px;
-  }
-  .yanmenu .oge:hover { background: var(--zemin); }
-  .yanmenu .oge.aktif {
-    background: var(--vurgu-ac);
-    color: var(--vurgu);
-    font-weight: 600;
-    box-shadow: inset 3px 0 0 var(--vurgu);
-  }
   /* Aynı bağlantılar solda duruyor; cycle ekranındaki yığın gereksiz kalıyor.
      Ana ekranda da öyle: `.anadugmeler` telefonun menüsü. */
   .asama-dugmeler { display: none; }
   .anadugmeler { display: none; }
-
-  /* Ana menüde alt grup: ekranlar üstte, işlemler altta. Kalın çizgi ikisini
-     ayırıyor, yazı daha sönük -- göz önce üsttekilere gitsin. */
-  .yanmenu .altgrup { border-top: 3px solid var(--line); }
-  .yanmenu .altgrup .oge { color: var(--ink-2); font-size: 13px; }
 
   /* Hasta kimlik bandı tam genişlikte; menü onun üstüne binmesin diye
      yazısı içerik sütunuyla hizalanıyor. "Hasta kimliği her ekranda

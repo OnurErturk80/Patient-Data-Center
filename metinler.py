@@ -1576,6 +1576,7 @@ METINLER = {
     # Adlar ancak /hastalar'a girilince gorunur.
     "ana_ekran": {"tr": "Ana ekran", "en": "Home"},
     "ana_menu": {"tr": "Ana menü", "en": "Main menu"},
+    "menu": {"tr": "Menü", "en": "Menu"},
 
     # Ekran kendini tazeleme (v6.54). "yenile" zaten yukarida var.
     "yeni_kayit_var": {"tr": "Başka bir cihazdan yeni kayıt girildi.",
@@ -2121,7 +2122,8 @@ METINLER = {
         "tr": "Karekodu telefonun kamerasıyla okutun, çıkan bağlantıya dokunun.",
         "en": "Scan the code with the phone's camera and tap the link."},
     "baglan_ios_2": {
-        "tr": "Safari'de alttaki paylaşma simgesine dokunun (kutudan çıkan ok).",
+        "tr": "Safari'de paylaşma simgesine dokunun (kutudan çıkan ok; yeni "
+              "iOS'ta önce alttaki \u2022\u2022\u2022 düğmesine).",
         "en": "In Safari tap the share icon at the bottom (the box with an "
               "arrow)."},
     "baglan_ios_3": {"tr": "\u201cAna Ekrana Ekle\u201d seçeneğine dokunun.",
@@ -2136,8 +2138,9 @@ METINLER = {
         "tr": "Chrome'da sağ üstteki üç noktaya dokunun.",
         "en": "In Chrome tap the three dots at the top right."},
     "baglan_android_3": {
-        "tr": "\u201cAna ekrana ekle\u201d seçeneğine dokunun.",
-        "en": "Tap \u201cAdd to Home screen\u201d."},
+        "tr": "\u201cUygulamayı yükle\u201d ya da \u201cAna ekrana ekle\u201d "
+              "seçeneğine dokunun.",
+        "en": "Tap \u201cInstall app\u201d or \u201cAdd to Home screen\u201d."},
     "listeden_sec": {"tr": "Listeden seç", "en": "Pick from list"},
     "klasor_araniyor": {"tr": "\u201c{ad}\u201d bu bilgisayarda aranıyor…",
                         "en": "Looking for \u201c{ad}\u201d on this computer…"},

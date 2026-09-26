@@ -140,7 +140,9 @@
 </div>
 {% endif %}
 
-<div class="asama-dugmeler">
+{# Telefonda iki sutunlu izgara (v6.195): on bir asama alt alta sayfanin
+   dibine iniyordu. Ayni liste ust cubuktaki menu dugmesinden de aciliyor. #}
+<div class="asama-dugmeler dugmeizgara">
 {% for a in asamalar %}
 <a class="dugme" href="{{ a[2]|replace('{id}', c.id) }}">{{ asama_adi(a[0]) }}</a>
 {% endfor %}

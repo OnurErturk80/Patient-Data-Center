@@ -15,7 +15,7 @@
    sayfanin uzerine biniyor; ust cubuk `env(safe-area-inset-top)` kadar
    asagidan basliyor, yoksa baslik saatin altinda kalirdi. #}
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#17222b">
+<meta name="theme-color" content="#111a25">
 <link rel="apple-touch-icon" href="/static/ikon_180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -57,7 +57,21 @@
     <h1>{% block ustbaslik %}{{ metin("program_adi") }}{% endblock %}</h1>
   </span>
   <span class="sag">{% block ustsag %}{% endblock %}</span>
+  {# Telefonun menü düğmesi (v6.195, kullanıcının isteği: "bazı menüler
+     yukarıdan aşağıya sıralanıyor, aşağıda kaldığı için kaydırma yapmazsak
+     görünmüyor ... açılır menü tarzı"). Açtığı şey yeni bir menü DEĞİL,
+     sayfada zaten duran `.yanmenu`: geniş ekranda solda sabit duran ana menü
+     ya da tedavi ekranlarının aşama menüsü. Dar ekranda o menü gizliydi;
+     artık bu düğmeyle üst çubuğun altında açılıyor. Menüsü olmayan ekranda
+     (giriş, yazdırma) düğme gizli kalıyor -- aşağıdaki betik açıyor. #}
+  <button type="button" class="menudugme" id="menudugme" hidden
+          aria-label="{{ metin('menu') }}" aria-expanded="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 6.5h16M4 12h16M4 17.5h16"/>
+    </svg>
+  </button>
 </div>
+<div class="menuperde" id="menuperde" hidden></div>
 {% import "_gezinme.html" as gz %}
 {# Ana menü, cycle ekranları HARİÇ her ekranda solda (v6.65, kullanıcının
    isteği). Cycle ekranları (opu, androloji, ..., cycle_detay, cycle_thaw)
@@ -276,6 +290,66 @@
       kaydedilen form. Geri ok orada formun kendisine dönmemeli.
    4. Ekranda geri oku yok (ana ekran, giriş) — zaten yapacak iş yok.
 #}
+{# ------------------------------------------------------------ açılır menü
+   Menü düğmesi `.yanmenu`'yü açıp kapatıyor (v6.195). Menü sayfada bir kez
+   duruyor: geniş ekranda CSS onu solda sabit gösteriyor, dar ekranda
+   `body.menuacik` iken üst çubuğun hemen altında açılır panel oluyor. Tek
+   yerde: 60 şablonun hiçbirine dokunmak gerekmedi (tuzak #1).
+   Kapanma: perdeye (menünün dışına) dokununca, bir bağlantıya basınca,
+   Esc'ye basınca, ekran genişleyip menü yana geçince. #}
+<script>
+(function () {
+  var dugme = document.getElementById('menudugme');
+  var menu = document.querySelector('.yanmenu');
+  var perde = document.getElementById('menuperde');
+  if (!dugme || !menu || !perde) return;
+  dugme.hidden = false;
+  var genis = window.matchMedia('(min-width: 1100px)');
+
+  function kapat() {
+    document.body.classList.remove('menuacik');
+    dugme.setAttribute('aria-expanded', 'false');
+    perde.hidden = true;
+  }
+  function ac() {
+    // Panel üst çubuğun hemen altından başlıyor; çubuğun boyu iPhone'un
+    // çentiğine (safe-area) göre değiştiği için ölçülüyor, sabit yazılmadı.
+    var alt = document.querySelector('.ust').getBoundingClientRect().bottom;
+    document.documentElement.style.setProperty('--menu-ust', Math.max(0, alt) + 'px');
+    document.body.classList.add('menuacik');
+    dugme.setAttribute('aria-expanded', 'true');
+    perde.hidden = false;
+    var secili = menu.querySelector('.aktif');
+    if (secili && secili.scrollIntoView) secili.scrollIntoView({block: 'nearest'});
+  }
+  dugme.addEventListener('click', function () {
+    if (document.body.classList.contains('menuacik')) kapat(); else ac();
+  });
+  perde.addEventListener('click', kapat);
+  menu.addEventListener('click', function (o) {
+    if (o.target.closest('a')) kapat();
+  });
+  document.addEventListener('keydown', function (o) {
+    if (o.key === 'Escape') kapat();
+  });
+  var degisti = function () { if (genis.matches) kapat(); };
+  if (genis.addEventListener) genis.addEventListener('change', degisti);
+  else if (genis.addListener) genis.addListener(degisti);
+  // Geri tuşuyla dönülen sayfa önbellekten açık menüyle gelmesin.
+  window.addEventListener('pageshow', kapat);
+})();
+</script>
+
+{# Service worker (v6.195): Android'in "Uygulamayı yükle"si için şart.
+   Tarayıcı yalnızca güvenli bağlantıda (HTTPS ya da bu makinenin kendisi)
+   izin veriyor; düz HTTP'de sessizce atlanıyor, hiçbir şey bozulmuyor.
+   Neden hiçbir şey önbelleğe almadığı app.py `_SW_KODU`'nda. #}
+<script>
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('/sw.js').catch(function () {});
+}
+</script>
+
 <script>
 (function () {
   var ok = document.querySelector('.ust .geri');

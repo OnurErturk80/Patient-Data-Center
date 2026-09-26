@@ -93,7 +93,7 @@ uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
 ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre",
-                "/manifest.json", "/ekle"}
+                "/manifest.json", "/ekle", "/sw.js"}
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
 TIP_KODLARI = ("ivf_icsi", "fet", "fet_kultur", "oosit_cryo", "yumurta_cozme", "taze")   # taze: eski kod
@@ -1219,22 +1219,82 @@ def manifest():
     adsız/ikonsuz eklenirdi. İçinde hasta verisi yok -- program adı ve
     simge yolları.
     """
+    # v6.195: renkler koyu temaya çekildi (v6.72'den beri tek tema koyu;
+    # `background_color` hâlâ eski açık zemindi, Android'in açılış ekranı
+    # beyaz yanıp sönüyordu). Simgeler "any" ve "maskable" diye AYRI
+    # yazıldı -- ikisini tek girdide birleştirmek Chrome'un uyardığı bir
+    # yazım, simge bazı telefonlarda gereğinden küçük kırpılıyordu.
+    # Kısayollar: simgeye uzun basınca açılan menü (Android), üç ana ekran.
     return JSONResponse({
+        "id": "/",
         "name": metinler.t("program_adi"),
         "short_name": metinler.t("kisa_ad"),
         "start_url": "/",
         "scope": "/",
         "display": "standalone",
-        "background_color": "#eef2f4",       # sayfa zemini
-        "theme_color": "#17222b",            # üst çubuk
+        "display_override": ["standalone", "minimal-ui"],
+        "background_color": "#0e1620",       # sayfa zemini (--zemin)
+        "theme_color": "#111a25",            # üst çubuk (--ust-bg)
         "lang": metinler.dil(),
         "icons": [
             {"src": "/static/ikon_192.png", "sizes": "192x192",
-             "type": "image/png", "purpose": "any maskable"},
+             "type": "image/png", "purpose": "any"},
             {"src": "/static/ikon_512.png", "sizes": "512x512",
-             "type": "image/png", "purpose": "any maskable"},
+             "type": "image/png", "purpose": "any"},
+            {"src": "/static/ikon_192.png", "sizes": "192x192",
+             "type": "image/png", "purpose": "maskable"},
+            {"src": "/static/ikon_512.png", "sizes": "512x512",
+             "type": "image/png", "purpose": "maskable"},
+        ],
+        "shortcuts": [
+            {"name": metinler.t("hasta_kayitlari"), "url": "/hastalar",
+             "icons": [{"src": "/static/ikon_192.png", "sizes": "192x192"}]},
+            {"name": metinler.t("cryo_haritasi"), "url": "/cryo",
+             "icons": [{"src": "/static/ikon_192.png", "sizes": "192x192"}]},
+            {"name": metinler.t("yeni_hasta"), "url": "/hasta/yeni",
+             "icons": [{"src": "/static/ikon_192.png", "sizes": "192x192"}]},
         ],
     })
+
+
+# Service worker (v6.195). Android'in "Uygulamayı yükle"si ve tam ekran
+# açılışı bunu istiyor. Bilerek HİÇBİR ŞEYİ ÖNBELLEĞE ALMIYOR: hasta verisi
+# personelin telefonunda kalmasın, ekran her zaman sunucudaki güncel kaydı
+# göstersin (iki telefonun aynı anda kayıt girdiği bir laboratuvarda eski
+# bir sayfa yanlış bilgidir). Tek işi: sunucuya ulaşılamazsa (telefon klinik
+# ağından çıktıysa) tarayıcının boş hata sayfası yerine ne yapılacağını
+# söyleyen kısa bir sayfa. Kayıt `base.html`'de ve yalnızca güvenli
+# bağlantıda (HTTPS ya da localhost) -- tarayıcılar düz HTTP'de service
+# worker'a izin vermiyor. Kök adreste (/sw.js) çünkü kapsamı bulunduğu
+# klasör: /static/ altında olsaydı yalnızca /static/'i kapsardı.
+_SW_KODU = """
+const CEVRIMDISI = `<!doctype html><html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bağlantı yok</title><style>
+body{margin:0;background:#0e1620;color:#e9eef3;font:16px/1.5 -apple-system,
+Segoe UI,Roboto,sans-serif;display:flex;min-height:100vh;align-items:center;
+justify-content:center;padding:24px;box-sizing:border-box;text-align:center}
+h1{font-size:20px;color:#e76491;margin:0 0 8px}p{margin:0 0 20px;color:#9fb0bc}
+button{-webkit-appearance:none;appearance:none;border:0;border-radius:6px;
+background:#e0356f;color:#fff;font:600 16px inherit;padding:14px 28px}
+</style></head><body><div><h1>Programa ulaşılamıyor</h1>
+<p>Telefon klinik ağına (Wi-Fi) bağlı mı? Laboratuvardaki bilgisayar açık
+mı?</p><button onclick="location.reload()">Tekrar dene</button></div>
+</body></html>`;
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', e => {
+  if (e.request.mode !== 'navigate') return;   // yalnızca sayfa açılışları
+  e.respondWith(fetch(e.request).catch(() =>
+    new Response(CEVRIMDISI, {headers: {'Content-Type': 'text/html; charset=utf-8'}})));
+});
+"""
+
+
+@uygulama.get("/sw.js")
+def service_worker():
+    return Response(_SW_KODU, media_type="text/javascript",
+                    headers={"Cache-Control": "no-cache"})
 
 
 def _yerel_ip():

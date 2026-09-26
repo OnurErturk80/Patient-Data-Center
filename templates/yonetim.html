@@ -24,7 +24,10 @@
 <div class="sutunlar">
 <div class="sutun">
 
-<a class="dugme" href="/kullanicilar">Kullanıcılar
+{# Iki sutunlu izgara (v6.195): dokuz buyuk dugme alt alta telefonda iki
+   ekran boyu tutuyordu. #}
+<div class="dugmeizgara">
+<a class="dugme genis" href="/kullanicilar">Kullanıcılar
   ({{ aktif_kullanici }} aktif{% if toplam_kullanici > aktif_kullanici %},
   {{ toplam_kullanici - aktif_kullanici }} pasif{% endif %})</a>
 {# Bekleyen istek varsa ONDE dursun: onaylanmayan sifre, kullanicinin
@@ -41,6 +44,7 @@
    yanında, kendi doğrudan bağlantısı. #}
 <a class="dugme ikincil" href="/yedekleme">{{ metin("yedekleme") }}</a>
 <a class="dugme ikincil" href="/baglan">{{ metin("baglan") }}</a>
+</div>
 
 {# Panel salt okunur; bu da bir okuma -- veriyi değiştirmiyor, dosyaya
    yazıyor. Yönetici işi: ötekiler ekrandaki veriyi verir, bu laboratuvarın
