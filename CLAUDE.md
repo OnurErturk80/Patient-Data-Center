@@ -616,6 +616,14 @@ tarih alanına değil, bu artan sıra numarasına güven (aynı desen
 v6.144'ten beri numaranın kendisi tarih sırasından geliyor (aşağıdaki
 madde), yani bu sıralama zaten tarih sırası — NULL sorunu olmadan.
 
+**Hasta kartının tedavi satırı işlemin gününü yazar** (v6.202, kullanıcı:
+"FET, FET 3-5, Yumurta çözme tedavilerinin altında tarih hasta kartında
+görünmüyor"). OPU'lu tipte OPU; `db.FET_TIPLERI`'nde çözme, transfer başka
+bir gündeyse o da (`app._islem_gunleri_sql()`: bu tedavi İÇİN yapılan
+olaylar, `db.olay_tedavisi()`'nin kuralı). IVF/ICSI'de çözme günü aranmıyor
+(v6.155 öncesi ICSI'ye yazılmış çözme). Satırdaki yaş da o günden. Ay
+listesinin ölçüsü değişmedi (OPU, yoksa açılış; v6.29).
+
 **Hastanın tedavileri tarih sırasıyla numaralanır** (v6.144, `goc_047`,
 kullanıcının isteği: "eski tedavi kaydı eklenirse tarih sırasına göre en
 eski tedavi 1. tedavi olarak eklensin. Bu daha sonra hep uygulansın").
@@ -2281,6 +2289,18 @@ besleniyor.
     aynı `yer_uyarilari()`'ni soruyor. Yazılan yer düzendeki bir gobletse
     tüp onun konum satırına yazılıyor (`goblet_bul()`), varyant açılmıyor.
   - Rengi yazılmamış straw'ı olan gobletde uyarı yazıyor, eşitlikte sona.
+  - **Otomatik öneri + tank / kanister sorgusu** (v6.202, README v6.202;
+    kullanıcı: "boş yer önerisi sabit, değiştirilebilsin ... tank belirterek
+    de öneri versin. Hem otomatik öneri versin hem de ben
+    sorgulayabileyim"). Ekran otomatik öneriyle açılıyor; tank / kanister
+    seçilince AYNI kural o yer için (`oneriler(..., tank=, kanister=)`),
+    ilk aday kutulara. Seçicinin boş yuva sayısı öneriyle aynı ölçüden
+    (`_aday()`), yedek yuva ayrı. Liste tek yerde: `_yer_oneri.html` --
+    ekran ile `GET .../vitrifikasyon/yer-oneri` (HTML, hiçbir şey yazmaz)
+    aynı makroyu basıyor; ikinci bir satır şablonu ya da JS'te liste kurma
+    yazma. Liste başına 6 görünür, gerisi "daha fazla göster". Elle yazılan
+    goblet de sorgulanıyor: `yer-kontrol`'ün `bilgi` metni ("Seçilen
+    goblet: 3 / 4 straw · renkler").
 - **Excel haritası kendiliğinden yazılıyor** (v6.191, README v6.191;
   kullanıcının sözü: "ben istediğim zaman bu excel cryo haritayı
   kopyalıyabileyim", seçimi "Bugünkü düzen + düz liste").

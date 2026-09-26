@@ -1,0 +1,37 @@
+{# Boş yer önerisinin listesi (v6.190; v6.202'den beri tek yerde). İki yer
+   basıyor: dondurma ekranı ilk açılışta otomatik öneriyi (`vitrifikasyon.html`
+   bu makroyu çağırıyor), `GET /cycle/{id}/vitrifikasyon/yer-oneri` sorgunun
+   cevabını (bu dosyayı `yanit` ile doğrudan basıyor; içe aktarılınca aşağıdaki
+   satır hiçbir şey basmaz). İki ayrı kopya olsaydı sorgunun satırı ekranınkinden
+   ayrı düşerdi.
+
+   Bir liste = bir "bugün kaç straw" seçimi. İlk `oneri.gorunen` satır görünür,
+   gerisi "daha fazla göster"in arkasında (`data-fazla`). İlk satır seçili:
+   ekran onu konum kutularına yazıyor. #}
+{% macro liste(oneri, kac) %}
+{%- set satirlar = oneri.listeler[kac] %}
+<div class="onerilistesi" data-kac="{{ kac }}">
+  {% for a in satirlar %}
+  <button type="button" class="onerisatir{% if loop.first %} secili{% endif %}"
+          data-tank="{{ a.tank }}" data-kanister="{{ a.kanister or '' }}"
+          data-goblet="{{ a.goblet }}" data-renk="{{ a.renk or '' }}"
+          {%- if loop.index > oneri.gorunen %} data-fazla="1" hidden{% endif %}>
+    <span class="renknokta{% if a.renk %} renk-{{ a.renk }}{% endif %}"></span>
+    <span class="yuvabilgi">
+      <span><b>{{ a.tank }} · {{ metin("kanister") }} {{ a.kanister or "—" }} · {{ metin("goblet") }} {{ a.goblet }}</b></span>
+      <span class="meta">{% if a.sebep != "yer" %}{{ metin("oneri_" ~ a.sebep) }} · {% endif %}
+        {%- if a.yedek and a.sebep == "yer" %}<span style="color:var(--uyari)">{{ metin("oneri_yedek") }}</span> · {% endif %}{{ say("n_bos_yuva", a.bos) }}</span>
+      <span class="meta">{% if a.renkler or a.renksiz %}{{ metin("oneri_gobletde") }}: {% for r in a.renkler %}{{ liste_etiket("tasiyici_renk", r) }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {%- if a.renksiz %}{% if a.renkler %}, {% endif %}<span style="color:var(--uyari)">{{ say("n_renksiz", a.renksiz) }}</span>{% endif %}{% else %}{{ metin("oneri_goblet_bos") }}{% endif %}
+        {%- if a.renk %} · {{ metin("oneri_renk") }}: <b>{{ liste_etiket("tasiyici_renk", a.renk) }}</b>{% endif %}</span>
+    </span>
+  </button>
+  {% else %}
+  <div class="bos">{{ metin("oneri_yok_burada" if oneri.tank else "oneri_yok") }}</div>
+  {% endfor %}
+  {% if satirlar|length > oneri.gorunen %}
+  <button type="button" class="onerifazla">{{ say("n_oneri_daha", satirlar|length - oneri.gorunen) }}</button>
+  {% endif %}
+</div>
+{%- endmacro %}
+{% if yanit is defined and yanit %}{{ liste(oneri, kac) }}{% endif %}

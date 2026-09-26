@@ -15742,3 +15742,75 @@ kopyada yok):
 - gebelik ekranından girilen `evet`li bir gebelik kontrol ayında, ikiz
   doğum doğum ayında bir kez sayıldı; istatistik ekranı da artık onu
   görüyor.
+
+# v6.202 — Hasta kartında FET tiplerinin günü; dondurmada tanka göre boş yer önerisi
+
+Kullanıcının isteği (2026-09-26): "FET, FET 3-5, Yumurta çözme
+tedavilerinin altında tarih hasta kartında görünmüyor. Hangi tarihte
+yapıldığı görünsün. Bir de dondurma işlemi yapılacağı zaman boş yer önerisi
+sabit, değiştirilebilsin. Eğer olabiliyorsa tank belirterek de öneri
+versin. Hem otomatik öneri versin hem de ben sorgulayabileyim."
+
+## Hasta kartı: işlemin günü
+
+Tedavi satırı yalnızca OPU tarihini basıyordu. FET, FET (3→5) ve Yumurta
+Çözme'de OPU yok, satırda hiç tarih yoktu. Artık bu üç tipte çözme günü
+yazıyor ("FET · Çözme 14.10.2025"); transfer başka bir gündeyse o da
+("Çözme 10.03.2026 · Transfer 12.03.2026", FET (3→5)'te ve Yumurta
+Çözme'de olağan).
+
+- Gün bu tedavi İÇİN yapılan olaylardan: çözme `thaw_cycle_id`, transfer
+  `tr_cycle_id`, boşsa örneğin kendi tedavisi (aktarılmış FET'in kendi
+  örnekleri) -- `db.olay_tedavisi()`'nin kuralı. Sorgu
+  `app._islem_gunleri_sql()`.
+- Yalnızca `db.FET_TIPLERI`'nde: IVF/ICSI'nin günü OPU. v6.155'ten önce
+  ICSI'ye yazılmış bir çözme IVF satırına "Çözme" diye düşmesin.
+- Satırdaki yaş da o günün yılından. Eskiden kaydın açıldığı andan
+  hesaplanıyordu; önceden açılan bir FET'te bu gün çözme günü değildi.
+- Ay listesi (`/hastalar`) değişmedi: ayın ölçüsü OPU, yoksa açılış
+  (v6.29, kullanıcının kararı).
+
+## Dondurma: otomatik öneri ve sorgu
+
+v6.190'ın önerisi her açılışta aynı kuralla aynı yerleri gösteriyordu.
+Başka bir tank istenirse kutulara elle yazmak gerekiyordu; orada da o
+gobletin durumu görünmüyordu, yalnızca sorun varsa uyarı çıkıyordu.
+
+- **Otomatik öneri aynı**: ekran bütün tanklara bakan öneriyle açılıyor,
+  ilk aday kutulara ve renge yazılı.
+- **Tank / kanister seçicisi**: tank seçilince aynı kural (hastanın o
+  yerdeki straw'ları önce, sonra yakını, sonra "bugün kaç straw"a en iyi
+  sığan) yalnızca o tankın gobletleri için soruluyor; kanister de
+  seçilebiliyor. İlk aday kutulara yazılıyor, başka bir adaya dokunmak yine
+  değiştiriyor. "Bütün tanklar (otomatik)" otomatik öneriye döndürüyor.
+- Seçicide her tankın ve kanisterin **önerilebilir boş yuvası** yazıyor:
+  öneriyle aynı ölçü (`yerlesim._aday()`: embriyo gobleti, kapasitesi
+  bilinen, paletin boş bir rengi olan). Yedek katların yuvası ayrı sayılıyor
+  ("TANK 5 · 25 boş yuva · 599 yedek yuva"), olağan yer biterse diye
+  hazırlandılar (v6.192).
+- Liste başına 6 aday görünüyor, gerisi "N öneri daha göster"in arkasında:
+  otomatikte 12 aday, sorguda o yerin bütün adayları (en çok 60; bugünkü
+  düzende bir kanisterin kapasitesi bilinen gobleti en çok 60).
+- **Elle yazılan yer de sorgulanıyor**: yazılan ya da seçilen goblet
+  düzendeyse altında "Seçilen goblet: 3 / 4 straw · Yeşil, Mavi, Sarı"
+  (`yer-kontrol`'ün cevabı).
+
+Liste tek yerde, `templates/_yer_oneri.html`. Ekran ilk açılışta onu
+basıyor; sorgunun cevabı
+`GET /cycle/{id}/vitrifikasyon/yer-oneri?kac=&tank=&kanister=` aynı
+makronun HTML'i. Hiçbir şey yazmaz, izni vitrifikasyonun (`yer-kontrol`
+gibi). "Kaç straw" değişince de liste sunucudan geliyor: sayfada dört
+liste değil tek liste var. Kaydetme değişmedi: denetim, onay kutusu ve
+sunucunun reddi aynı (`yer_uyarilari()`).
+
+## Denendi
+
+Kullanıcının veritabanının bir kopyasında (tank düzeni v6.192'deki
+haliyle):
+- 705 FET tipi tedavinin 701'i gün aldı; 4'ünde henüz çözme ya da transfer
+  yok. 1.909 tedavinin sorgusu 0,01 sn.
+- Tank seçilince listede yalnızca o tank, kanister seçilince yalnızca o
+  kanister vardı. "3 straw"da ilk aday 3 boş yuvalı goblet oldu. Otomatiğe
+  dönünce kanister seçicisi kapandı.
+- 390 ve 1280 px'te sayfa taşmıyor. Telefonda iki seçici yan yana
+  sığmıyordu, yazıları kesikti; artık dar ekranda alt alta diziliyorlar.

@@ -307,6 +307,14 @@ def kanister_gobletleri(harita, tank, kanister) -> dict:
 PALET_EN_AZ_PAY = 0.05
 PALET_GUN = 365
 EN_COK_ONERI = 6
+# Önerinin uzunluğu (v6.202, kullanıcı: "boş yer önerisi sabit,
+# değiştirilebilsin ... tank belirterek de öneri versin. Hem otomatik öneri
+# versin hem de ben sorgulayabileyim"). Ekran her listede EN_COK_ONERI satır
+# gösteriyor, gerisi "daha fazla göster"in arkasında. Otomatik öneride 12
+# aday; tank / kanister sorgusunda o yerin bütün adayları (bugünkü düzende
+# bir kanisterin kapasitesi bilinen gobleti en çok 60).
+OTOMATIK_EN_COK = 12
+SORGU_EN_COK = 60
 
 
 def renk_paleti(b=None) -> list:
@@ -374,7 +382,62 @@ def _duzen_sirasi(g):
     return (_dogal(g["tank"]), _dogal(g["kanister"]), g["sira"] or 0)
 
 
-def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
+def _aday(g, palet):
+    """Goblet önerilebilir mi -> (boş yuva, gobletteki renkler, serbest palet
+    renkleri) ya da None. Embriyo gobleti, kapasitesi biliniyor, boş yuvası
+    var ve paletin en az bir rengi gobletde yok (yoksa aynı renk ikinci kez
+    girerdi). `oneriler()` ile sorgunun sayıları (`oneri_yerleri()`) aynı
+    ölçüyü kullansın diye tek yerde."""
+    if g["kategori"] != "embriyo" or not g["kapasite"]:
+        return None
+    bos = bos_yuva(g)
+    if bos < 1:
+        return None
+    kullanilan = set(gobletin_renkleri(g))
+    serbest = [r for r in palet if r not in kullanilan]
+    if palet and not serbest:
+        return None
+    return bos, kullanilan, serbest
+
+
+def _yer_suzgeci(tank, kanister):
+    """Sorgunun yeri -> gobletin `yer_anahtari()` önekiyle karşılaştırılacak
+    anahtar; tank yoksa None (bütün tanklar). Kanister tanksız anlamsız."""
+    if not tank:
+        return None
+    a = yer_anahtari(tank, kanister or "", "")
+    return a[:2] if kanister else a[:1]
+
+
+def oneri_yerleri(harita, palet) -> list:
+    """Öneri sorgusunun seçicisi (v6.202): embriyo gobleti olan tanklar ve
+    kanisterleri, önerilebilir boş yuva sayısıyla -- `oneriler()`'in
+    adaylarıyla aynı ölçü (`_aday()`); yedek gobletlerin yuvası ayrı sayılıyor
+    (`yedek_bos`), olağan yer biterse diye hazırlandılar.
+
+    -> [{"tank", "bos", "yedek_bos", "kanisterler": [{"kanister", "bos",
+        "yedek_bos"}]}], düzen sırasıyla. Adlar Excel'in yazımı (seçicinin
+    değeri de o; sunucu anahtarla karşılaştırıyor)."""
+    tanklar = {}
+    for g in sorted(harita["gobletler"].values(), key=_duzen_sirasi):
+        if g["kategori"] != "embriyo" or not g["kapasite"]:
+            continue
+        a = yer_anahtari(g["tank"], g["kanister"], "")
+        t = tanklar.setdefault(a[0], {"tank": g["tank"], "bos": 0, "yedek_bos": 0,
+                                      "kanisterler": {}})
+        k = t["kanisterler"].setdefault(a[1], {"kanister": g["kanister"] or "",
+                                               "bos": 0, "yedek_bos": 0})
+        aday = _aday(g, palet)
+        if aday:
+            alan = "yedek_bos" if g.get("yedek") else "bos"
+            t[alan] += aday[0]
+            k[alan] += aday[0]
+    return [{**t, "kanisterler": list(t["kanisterler"].values())}
+            for t in tanklar.values()]
+
+
+def oneriler(harita, hasta_tupleri, gun, palet, tank="", kanister="",
+             en_cok=EN_COK_ONERI) -> dict:
     """Bu hastanın sıradaki straw'ı için boş yer adayları, en iyisi önce.
 
     `hasta_tupleri`: hastanın dolu embriyo/yumurta tüpleri [{id, gun}].
@@ -395,6 +458,10 @@ def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
     bugünkü straw'ları alabilen bütün olağan gobletlerden sonra, ama
     alamayanlardan ÖNCE: olağan yer hastanın straw'larını alamadığında bir
     hastanın straw'ları dağılmasın.
+
+    Tank / kanister (v6.202, embriyoloğun sorgusu): adaylar yalnızca o yerin
+    gobletleri, sıra aynı kural -- hastanın o yerdeki straw'ları yine önce.
+    Boşsa bütün tanklar (otomatik öneri). `en_cok`: liste başına aday.
     """
     tup_goblet = {}
     for g in harita["gobletler"].values():
@@ -410,17 +477,15 @@ def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
         if id(g) in hasta_g:
             yakinlar.setdefault(yer_anahtari(g["tank"], g["kanister"], "")[:2],
                                 []).append(g["sira"] or 0)
+    suzgec = _yer_suzgeci(tank, kanister)
     adaylar = []
     for g in harita["gobletler"].values():
-        if g["kategori"] != "embriyo" or not g["kapasite"]:
+        aday = _aday(g, palet)
+        if aday is None:
             continue
-        bos = bos_yuva(g)
-        if bos < 1:
+        if suzgec and yer_anahtari(g["tank"], g["kanister"], "")[:len(suzgec)] != suzgec:
             continue
-        kullanilan = set(gobletin_renkleri(g))
-        serbest = [r for r in palet if r not in kullanilan]
-        if palet and not serbest:
-            continue                    # renkleri dolu: aynı renk ikinci kez girerdi
+        bos, kullanilan, serbest = aday
         serbest.sort(key=lambda r: r in bugun_renk)
         yer = yer_anahtari(g["tank"], g["kanister"], "")[:2]
         yedek = bool(g.get("yedek"))
@@ -448,11 +513,12 @@ def oneriler(harita, hasta_tupleri, gun, palet) -> dict:
             return (a["grup"], a["ince"], sinif,
                     a["bos"] if sigar else -a["bos"], a["renksiz"] > 0,
                     _duzen_sirasi(a["g"]))
-        secilen = sorted(adaylar, key=anahtar)[:EN_COK_ONERI]
+        secilen = sorted(adaylar, key=anahtar)[:en_cok]
         listeler[kac] = [{
             "tank": a["g"]["tank"], "kanister": a["g"]["kanister"],
             "goblet": a["g"]["goblet"], "kapasite": a["g"]["kapasite"],
             "bos": a["bos"], "renkler": a["renkler"], "renk": a["renk"],
             "renksiz": a["renksiz"], "sebep": sebep[a["grup"]],
             "yedek": a["yedek"]} for a in secilen]
-    return {"bugun": bool(bugunku), "listeler": listeler}
+    return {"bugun": bool(bugunku), "listeler": listeler,
+            "tank": tank if suzgec else "", "kanister": kanister if suzgec else ""}

@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form, Request, Response
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -2961,8 +2961,8 @@ def hasta_detay(request: Request, hasta_id: int):
         f"SELECT h.*, ({_sadece_sperm_kosulu()}) AS sperm_hastasi "
         "FROM hasta h WHERE h.id = ?", (hasta_id,))
     cycles = db.sorgu(
-        "SELECT * FROM cycle WHERE hasta_id = ? "
-        "ORDER BY hasta_cycle_no DESC, id DESC", (hasta_id,)
+        f"SELECT c.*{_islem_gunleri_sql()} FROM cycle c WHERE c.hasta_id = ? "
+        "ORDER BY c.hasta_cycle_no DESC, c.id DESC", (hasta_id,)
     )
     # Bu dosya numarasına ait dondurulmuş sperm kayıtları (v6.125,
     # kullanıcının isteği: "hasta kartında dondurulmuş sperm işlemi varsa
@@ -3010,6 +3010,34 @@ def hasta_detay(request: Request, hasta_id: int):
          "yeniden": hastanin_yeniden_dondurmalari(cycles),
          "tasinan": hastanin_tasinan_tupleri(hasta_id)}
     )
+
+
+def _islem_gunleri_sql(c: str = "c") -> str:
+    """Hasta kartının tedavi satırı için çözme ve transfer günü -- SELECT'e
+    eklenen iki kolon (`cozme_gunu`, `transfer_gunu`), v6.202.
+
+    Kullanıcının isteği: "FET, FET 3-5, Yumurta çözme tedavilerinin altında
+    tarih hasta kartında görünmüyor. Hangi tarihte yapıldığı görünsün." Satır
+    yalnızca OPU tarihini basıyordu, bu tiplerde OPU yok. Gün bu tedavi İÇİN
+    yapılan olaylardan: çözme `thaw_cycle_id`, transfer `tr_cycle_id`, boşsa
+    örneğin kendi tedavisi (`db.olay_tedavisi()`'nin kuralı; aktarılmış FET'in
+    kendi örnekleri). Alt sorgular yalnızca `db.FET_TIPLERI`'nde çalışıyor --
+    IVF/ICSI'nin günü OPU, eski bir kayıtta ICSI'ye yazılmış bir çözme
+    (v6.155 öncesi) satırına "Çözme" diye düşmesin. Kolon yoksa (çok eski
+    şema) NULL."""
+    tipler = ", ".join(f"'{t}'" for t in db.FET_TIPLERI)
+    parca = []
+    for ad, tip, alan in (("cozme_gunu", "thaw", "thaw_cycle_id"),
+                          ("transfer_gunu", "transfer", "tr_cycle_id")):
+        if not db.kolon_var("olay", alan):
+            parca.append(f", NULL AS {ad}")
+            continue
+        parca.append(
+            f", CASE WHEN {c}.cycle_tipi IN ({tipler}) THEN "
+            f"(SELECT MIN(date(o.zaman)) FROM olay o WHERE o.tip = '{tip}' "
+            f"AND o.iptal_mi = 0 AND (o.{alan} = {c}.id "
+            f"OR (o.{alan} IS NULL AND o.cycle_id = {c}.id))) END AS {ad}")
+    return "".join(parca)
 
 
 def hastanin_tasinan_tupleri(hasta_id: int) -> list:
@@ -6998,10 +7026,12 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
 
     # Boş yer önerisi (v6.190): tank düzeni kuruluysa (v6.189). Hastanın
     # straw'ları bir arada, gobletteki renklerle çakışmadan (`yerlesim`).
-    oneri = None
+    # v6.202: ekran bütün tanklara bakan otomatik öneriyle açılıyor; tank /
+    # kanister seçicisi (`oneri_yerleri`) aynı öneriyi o yer için soruyor
+    # (`vit_yer_oneri`).
+    oneri = oneri_yerleri = None
     if yerlesim.duzen_var():
-        oneri = yerlesim.oneriler(yerlesim.doluluk(), _hasta_tupleri(c["hasta_id"]),
-                                  _d.now().date().isoformat(), yerlesim.renk_paleti())
+        oneri, oneri_yerleri = _yer_onerisi(c["hasta_id"], yerler=True)
 
     # Az önce kaydedilen tüp (v6.198): kayıt bu ekrana dönüyor, üstte hangi
     # taşıyıcıya ne konduğu yazıyor. Adresten yalnızca sayı geliyor, metin
@@ -7021,6 +7051,7 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
     return sablon.TemplateResponse(
         request, "vitrifikasyon.html",
         {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(), "oneri": oneri,
+         "oneri_yerleri": oneri_yerleri,
          "gezinme": asama_gezinme(cycle_id, "vitrifikasyon"),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,
@@ -7054,6 +7085,46 @@ def _etiket_onerisi(cycle_no) -> str:
     return f"{cycle_no}-{an:%H%M}"
 
 
+def _yer_onerisi(hasta_id, tank="", kanister="", yerler=False):
+    """Dondurma ekranının boş yer önerisi (v6.190; tank / kanister sorgusu
+    v6.202). Ekran ile sorgunun cevabı aynı işlevden: tank boşsa bütün
+    tanklara bakan otomatik öneri (liste başına `OTOMATIK_EN_COK` aday), tank
+    verilirse o yerin bütün adayları (`SORGU_EN_COK`). `yerler`: seçicinin
+    tank / kanister listesi de dönsün (aynı haritadan, ikinci kez kurulmasın).
+    -> oneri ya da (oneri, yerler)."""
+    from datetime import date as _gun
+    harita = yerlesim.doluluk()
+    palet = yerlesim.renk_paleti()
+    oneri = yerlesim.oneriler(
+        harita, _hasta_tupleri(hasta_id), _gun.today().isoformat(), palet,
+        tank=tank, kanister=kanister,
+        en_cok=yerlesim.SORGU_EN_COK if tank else yerlesim.OTOMATIK_EN_COK)
+    oneri["gorunen"] = yerlesim.EN_COK_ONERI
+    if yerler:
+        return oneri, yerlesim.oneri_yerleri(harita, palet)
+    return oneri
+
+
+@uygulama.get("/cycle/{cycle_id}/vitrifikasyon/yer-oneri")
+def vit_yer_oneri(request: Request, cycle_id: int, tank: str = "",
+                  kanister: str = "", kac: int = 1):
+    """Boş yer önerisini bir tank / kanister için sorar (v6.202, kullanıcının
+    isteği: "tank belirterek de öneri versin. Hem otomatik öneri versin hem de
+    ben sorgulayabileyim"). Tank boşsa otomatik öneri. Cevap tek bir listenin
+    HTML'i (`_yer_oneri.html`, ekranın kendi listesiyle aynı makro): ekran onu
+    öneri kutusuna koyuyor. Hiçbir şey yazmaz. Adres vitrifikasyonun altında,
+    izni onunki (`yer-kontrol` gibi). Tank / kanister adresten geliyor ama
+    yalnızca düzenin anahtarıyla karşılaştırılıyor; ekrana Jinja kaçışıyla."""
+    c = db.tek("SELECT hasta_id FROM cycle WHERE id = ?", (cycle_id,))
+    if not c or not yerlesim.duzen_var():
+        return HTMLResponse("")
+    kac = kac if kac in (1, 2, 3, 4) else 1
+    return sablon.TemplateResponse(
+        request, "_yer_oneri.html",
+        {"oneri": _yer_onerisi(c["hasta_id"], tank.strip(), kanister.strip()),
+         "kac": kac, "yanit": True})
+
+
 def _hasta_tupleri(hasta_id) -> list:
     """Hastanın tankta duran embriyo/yumurta tüpleri, dondurma günüyle --
     boş yer önerisi hastanın straw'larını bir arada tutmak için soruyor."""
@@ -7080,16 +7151,26 @@ def vit_yer_kontrol(cycle_id: int, tank: str = "", kanister: str = "",
     (`vit_kaydet`). Adres `/cycle/.../vitrifikasyon` altında: izni
     vitrifikasyonunki (Cryo izni olmayan embriyolog da görsün)."""
     if not yerlesim.duzen_var():
-        return JSONResponse({"uyarilar": [], "goblet": None})
+        return JSONResponse({"uyarilar": [], "goblet": None, "bilgi": None})
     harita = yerlesim.doluluk()
     uyarilar = yerlesim.yer_uyarilari(harita, tank, kanister, goblet, renk)
     g = yerlesim.goblet_bul(harita, tank, kanister, goblet)
+    renkler = ([_liste_etiket("tasiyici_renk", r) for r in yerlesim.gobletin_renkleri(g)]
+               if g else [])
+    # Gobletin bugünkü hali (v6.202): embriyolog elle yazdığı yeri de
+    # sorgulayabilsin -- kaç straw, hangi renkler. Metin sunucuda (dil).
+    bilgi = None
+    if g:
+        bilgi = (metinler.t("yer_bilgi").format(dolu=g["dolu"], kapasite=g["kapasite"])
+                 if g["kapasite"] else
+                 metinler.t("yer_bilgi_kapasitesiz").format(dolu=g["dolu"]))
+        if renkler:
+            bilgi += " · " + ", ".join(renkler)
     return JSONResponse({
         "uyarilar": [_yer_uyari_metni(k, a) for k, a in uyarilar],
-        "goblet": ({"kapasite": g["kapasite"], "dolu": g["dolu"],
-                    "renkler": [_liste_etiket("tasiyici_renk", r)
-                                for r in yerlesim.gobletin_renkleri(g)]}
-                   if g else None)})
+        "goblet": ({"kapasite": g["kapasite"], "dolu": g["dolu"], "renkler": renkler}
+                   if g else None),
+        "bilgi": bilgi})
 
 
 @uygulama.post("/cycle/{cycle_id}/vitrifikasyon")

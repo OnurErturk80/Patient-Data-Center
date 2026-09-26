@@ -7,6 +7,7 @@
 {% import "_kucukfoto.html" as kf %}
 {% import "_ornekkart.html" as ok %}
 {% import "_etiketsonuc.html" as es %}
+{% import "_yer_oneri.html" as yo %}
 {% block ustbaslik %}{{ metin("asama_vitrifikasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -149,7 +150,13 @@
        seçimi de onun rengi; başka bir adaya dokunmak kutuları değiştirir.
        Sıralama sunucuda (`yerlesim.oneriler()`): hastanın bugünkü straw'ının
        gobleti, başka straw'larının gobleti, onlara yakın goblet, sonra
-       bugün kaç straw dondurulacaksa ona en iyi sığan goblet. #}
+       bugün kaç straw dondurulacaksa ona en iyi sığan goblet.
+       v6.202 (kullanıcı: "boş yer önerisi sabit, değiştirilebilsin ... tank
+       belirterek de öneri versin. Hem otomatik öneri versin hem de ben
+       sorgulayabileyim"): ekran bütün tanklara bakan otomatik öneriyle
+       açılıyor; tank / kanister seçilince aynı kural o yer için soruluyor
+       (`yer-oneri`, liste `_yer_oneri.html`'den), ilk aday kutulara yazılıyor.
+       Her listede 6 satır, gerisi "daha fazla göster"de. #}
     {% if oneri %}
     <div class="oneri" id="oneri">
       <div class="oneribas">{{ metin("oneri_baslik") }}</div>
@@ -159,27 +166,33 @@
           data-kac="{{ n }}">{{ n }}{% if n == 4 %}+{% endif %}</button>{% endfor %}
       </div>
       {% endif %}
-      {% for n, liste in oneri.listeler.items() %}
-      <div class="onerilistesi" data-kac="{{ n }}"{% if n != 1 %} hidden{% endif %}>
-        {% for a in liste %}
-        <button type="button" class="onerisatir{% if n == 1 and loop.first %} secili{% endif %}"
-                data-tank="{{ a.tank }}" data-kanister="{{ a.kanister or '' }}"
-                data-goblet="{{ a.goblet }}" data-renk="{{ a.renk or '' }}">
-          <span class="renknokta{% if a.renk %} renk-{{ a.renk }}{% endif %}"></span>
-          <span class="yuvabilgi">
-            <span><b>{{ a.tank }} · {{ metin("kanister") }} {{ a.kanister or "—" }} · {{ metin("goblet") }} {{ a.goblet }}</b></span>
-            <span class="meta">{% if a.sebep != "yer" %}{{ metin("oneri_" ~ a.sebep) }} · {% endif %}
-              {%- if a.yedek and a.sebep == "yer" %}<span style="color:var(--uyari)">{{ metin("oneri_yedek") }}</span> · {% endif %}{{ say("n_bos_yuva", a.bos) }}</span>
-            <span class="meta">{% if a.renkler or a.renksiz %}{{ metin("oneri_gobletde") }}: {% for r in a.renkler %}{{ liste_etiket("tasiyici_renk", r) }}{% if not loop.last %}, {% endif %}{% endfor %}
-              {%- if a.renksiz %}{% if a.renkler %}, {% endif %}<span style="color:var(--uyari)">{{ say("n_renksiz", a.renksiz) }}</span>{% endif %}{% else %}{{ metin("oneri_goblet_bos") }}{% endif %}
-              {%- if a.renk %} · {{ metin("oneri_renk") }}: <b>{{ liste_etiket("tasiyici_renk", a.renk) }}</b>{% endif %}</span>
-          </span>
-        </button>
-        {% else %}
-        <div class="bos">{{ metin("oneri_yok") }}</div>
-        {% endfor %}
+      {% if oneri_yerleri %}
+      <div class="onerisorgu">
+        <div>
+          <label for="onertank">{{ metin("oneri_tank") }}</label>
+          <select id="onertank">
+            <option value="">{{ metin("oneri_butun_tanklar") }}</option>
+            {% for t in oneri_yerleri %}<option value="{{ t.tank }}">{{ t.tank }} · {{ say("n_bos_yuva", t.bos) }}{% if t.yedek_bos %} · {{ say("n_yedek_yuva", t.yedek_bos) }}{% endif %}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="onerkanister">{{ metin("kanister") }}</label>
+          <select id="onerkanister" disabled>
+            <option value="">{{ metin("oneri_butun_kanisterler") }}</option>
+          </select>
+        </div>
       </div>
+      {# Tankın kanisterleri: tank seçilince kanister seçicisine kopyalanıyor
+         (iOS Safari gizli <option>'ı yok saymıyor, süzmek yerine yeniden
+         kuruluyor). #}
+      {% for t in oneri_yerleri %}
+      <template class="onerikanisterleri" data-tank="{{ t.tank }}">
+        <option value="">{{ metin("oneri_butun_kanisterler") }}</option>
+        {% for k in t.kanisterler %}<option value="{{ k.kanister }}">{{ k.kanister or "—" }} · {{ say("n_bos_yuva", k.bos) }}{% if k.yedek_bos %} · {{ say("n_yedek_yuva", k.yedek_bos) }}{% endif %}</option>{% endfor %}
+      </template>
       {% endfor %}
+      {% endif %}
+      <div id="onerilisteler">{{ yo.liste(oneri, 1) }}</div>
     </div>
     {% endif %}
     {% for s in sema %}
@@ -190,6 +203,11 @@
              value="{{ {1: ilk.tank, 2: ilk.kanister, 3: ilk.goblet}.get(s.seviye_sirasi) or '' if ilk else '' }}">
     </div>
     {% endfor %}
+    {# Yazılan (ya da seçilen) gobletin bugünkü hali (v6.202): kaç straw,
+       hangi renkler -- `yer-kontrol`'ün cevabından. #}
+    <div class="alan" id="yerbilgi" style="border:0;padding-bottom:0" hidden>
+      <div class="ipucu"></div>
+    </div>
     <div class="alan" style="border:0;padding-top:0">
       <div class="ipucu">{{ metin("konum_ipucu") }}</div>
     </div>
@@ -227,8 +245,8 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
     i.closest('.secsatir').classList.toggle('secili', i.checked);
   });
 });
-/* Boş yer önerisi ve yer denetimi (v6.190). Form yoksa (dondurulacak
-   embriyo kalmadıysa) hiçbir şey yapma -- tuzak #10. */
+/* Boş yer önerisi ve yer denetimi (v6.190; tank sorgusu v6.202). Form
+   yoksa (dondurulacak embriyo kalmadıysa) hiçbir şey yapma -- tuzak #10. */
 (function () {
   if (!document.getElementById('vitform')) return;
   var girdiler = [1, 2, 3, 4].map(function (i) { return document.getElementById('seviye' + i); });
@@ -236,6 +254,7 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
   var kutu = document.getElementById('yeruyari');
   var onay = document.getElementById('yeronay');
   var onayGirdi = onay.querySelector('input');
+  var bilgi = document.getElementById('yerbilgi');
   var zaman = null, sira = 0;
   function deger(i) { return girdiler[i] ? girdiler[i].value : ''; }
   function denetle() {
@@ -253,14 +272,23 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
         onay.hidden = !var_;
         onayGirdi.required = var_;
         if (!var_) { onayGirdi.checked = false; onay.classList.remove('secili'); }
+        if (bilgi) {
+          bilgi.querySelector('.ipucu').textContent = j.bilgi || '';
+          bilgi.hidden = !j.bilgi;
+        }
       }).catch(function () {});
   }
   function planla() { clearTimeout(zaman); zaman = setTimeout(denetle, 300); }
   girdiler.forEach(function (g) { if (g) g.addEventListener('input', planla); });
   if (renk) renk.addEventListener('change', planla);
-  document.querySelectorAll('.onerisatir').forEach(function (b) {
-    b.addEventListener('click', function () {
-      document.querySelectorAll('.onerisatir').forEach(function (x) { x.classList.remove('secili'); });
+
+  var yer = document.getElementById('onerilisteler');
+  if (yer) {
+    var tankSec = document.getElementById('onertank');
+    var kanSec = document.getElementById('onerkanister');
+    var kac = 1, istek = 0;
+    function sec(b) {
+      yer.querySelectorAll('.onerisatir').forEach(function (x) { x.classList.remove('secili'); });
       b.classList.add('secili');
       if (girdiler[0]) girdiler[0].value = b.dataset.tank;
       if (girdiler[1]) girdiler[1].value = b.dataset.kanister;
@@ -268,18 +296,60 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
       if (girdiler[3]) girdiler[3].value = '';
       if (renk && b.dataset.renk) renk.value = b.dataset.renk;
       denetle();
+    }
+    /* Seçili "kaç straw", tank ve kanister için listeyi sunucudan ister; ilk
+       aday kutulara yazılır. Eski cevap yenisini ezmesin (`istek`). */
+    function getir() {
+      var bu = ++istek;
+      var q = new URLSearchParams({kac: kac, tank: tankSec ? tankSec.value : '',
+                                   kanister: kanSec ? kanSec.value : ''});
+      yer.classList.add('bekliyor');
+      fetch('/cycle/{{ c.id }}/vitrifikasyon/yer-oneri?' + q.toString(),
+            {credentials: 'same-origin'})
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (h) {
+          if (bu !== istek) return;
+          yer.classList.remove('bekliyor');
+          if (h === null) return;
+          yer.innerHTML = h;
+          var ilk = yer.querySelector('.onerisatir');
+          if (ilk) sec(ilk);
+        }).catch(function () { if (bu === istek) yer.classList.remove('bekliyor'); });
+    }
+    /* Liste sunucudan yeniden gelebildiği için tıklama kabın üzerinden. */
+    yer.addEventListener('click', function (e) {
+      var b = e.target.closest('.onerisatir');
+      if (b) { sec(b); return; }
+      var f = e.target.closest('.onerifazla');
+      if (f) {
+        f.parentNode.querySelectorAll('[data-fazla]').forEach(function (x) { x.hidden = false; });
+        f.hidden = true;
+      }
     });
-  });
-  document.querySelectorAll('.kacsec').forEach(function (b) {
-    b.addEventListener('click', function () {
-      document.querySelectorAll('.kacsec').forEach(function (x) { x.classList.toggle('aktif', x === b); });
-      document.querySelectorAll('.onerilistesi').forEach(function (l) {
-        l.hidden = l.dataset.kac !== b.dataset.kac;
+    document.querySelectorAll('.kacsec').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.kacsec').forEach(function (x) { x.classList.toggle('aktif', x === b); });
+        kac = parseInt(b.dataset.kac, 10) || 1;
+        getir();
       });
-      var ilk = document.querySelector('.onerilistesi[data-kac="' + b.dataset.kac + '"] .onerisatir');
-      if (ilk) ilk.click();
     });
-  });
+    if (tankSec && kanSec) {
+      tankSec.addEventListener('change', function () {
+        var sablon = null;
+        document.querySelectorAll('template.onerikanisterleri').forEach(function (t) {
+          if (t.dataset.tank === tankSec.value) sablon = t;
+        });
+        var bos = kanSec.options[0].cloneNode(true);
+        kanSec.innerHTML = '';
+        if (sablon) kanSec.appendChild(sablon.content.cloneNode(true));
+        else kanSec.appendChild(bos);
+        kanSec.value = '';
+        kanSec.disabled = !sablon;
+        getir();
+      });
+      kanSec.addEventListener('change', getir);
+    }
+  }
   denetle();
 })();
 </script>
