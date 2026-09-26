@@ -978,6 +978,16 @@ METINLER = {
     "maturasyon": {"tr": "Maturasyon", "en": "Maturation"},
     "oosit_bulgulari": {"tr": "Yumurta bulguları", "en": "Oocyte findings"},
     "bulgu_yok": {"tr": "Bulgu yok", "en": "No findings"},
+    # ICSI'nin genel bulguları (v6.200): yumurtanın değil tedavinin.
+    "genel_bulgular": {"tr": "Genel bulgular", "en": "General findings"},
+    "genel_bulgular_ipucu": {
+        "tr": "Bütün tedavi için. ART Lab formunun en altındaki Yorum satırına yazılır.",
+        "en": "For the whole treatment. Printed on the Comment line at the bottom of the ART Lab form."},
+    "genel_bulgu_yumurta": {"tr": "Yumurta", "en": "Oocyte"},
+    "genel_bulgu_sperm": {"tr": "Sperm", "en": "Sperm"},
+    "genel_bulgu_diger": {"tr": "Diğer", "en": "Other"},
+    "genel_bulgu_diger_ipucu": {"tr": "Listede olmayan bir bulgu varsa buraya yazın.",
+                                "en": "Type a finding that is not in the list."},
     "oosit_degerlendirmesi": {"tr": "Yumurta değerlendirmesi",
                               "en": "Oocyte assessment"},
     "temizle": {"tr": "Temizle", "en": "Clear"},

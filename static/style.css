@@ -951,8 +951,8 @@ body.kilitli { overflow: hidden; }
 }
 .acici:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 1px;
                        border-color: var(--vurgu); }
-.acici #bulguOzet { flex: 1; line-height: 1.35; }
-.acici #bulguOzet.dolu { color: var(--ink); }
+.acici #bulguOzet, .acici .acozet { flex: 1; line-height: 1.35; }
+.acici #bulguOzet.dolu, .acici .acozet.dolu { color: var(--ink); }
 
 .tabaka { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; }
 .tabaka[hidden] { display: none; }
@@ -977,6 +977,10 @@ body.kilitli { overflow: hidden; }
   border-top: 1px solid var(--line);
 }
 .tabaka .talt .dugme { margin-top: 0; }
+/* Genel bulgular penceresi (v6.200): listelerin başlıklı grupları + "Diğer". */
+.tabaka .tgrup { padding: 14px 16px 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.tabaka .tgrup + .cipler { padding-top: 8px; }
+.tabaka .tgovde .alan { border-bottom: 0; }
 
 .serit .sn b { font-weight: inherit; font-size: 15px; }
 .serit .sn i {

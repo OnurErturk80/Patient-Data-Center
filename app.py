@@ -992,6 +992,7 @@ KULLANICI_KAYITLARI = [
     ("olay", "kullanici_id", "olay"),
     ("olay", "iptal_kullanici_id", "iptal ettiği olay"),
     ("specimen_bulgu", "kullanici_id", "bulgu"),
+    ("tedavi_bulgu", "kullanici_id", "tedavinin genel bulgusu"),
     ("sperm_ornek", "kullanici_id", "sperm örneği"),
     ("sperm_analiz", "kullanici_id", "sperm analizi"),
     ("tasiyici", "kullanici_id", "taşıyıcı"),
@@ -5441,7 +5442,8 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
              "bekleyen": bekleyen_ozet(),
              "bulgular": [], "secili_bulgular": set(), "kareler": [],
              "maturasyonlar": db.liste("maturasyon"),
-             "zorluklar": db.liste("gecis_zorlugu"), "duzenle": duzenle},
+             "zorluklar": db.liste("gecis_zorlugu"), "duzenle": duzenle,
+             **_genel_bulgu_baglami(c)},
         )
 
     # Hangi oosit gösterilecek: adreste yazan, yoksa **ilki** (v6.35).
@@ -5476,6 +5478,7 @@ def icsi_ekran(request: Request, cycle_id: int, oosit: str = "",
             "maturasyonlar": db.liste("maturasyon"),
             "zorluklar": db.liste("gecis_zorlugu"), "duzenle": duzenle,
             "hata": _asama_hatasi(hata, sp, cycle_id),
+            **_genel_bulgu_baglami(c),
         },
     )
 
@@ -5568,6 +5571,114 @@ async def icsi_kaydet(request: Request, cycle_id: int):
     hedef = f"/cycle/{cycle_id}/icsi"
     if sonraki:
         hedef += f"?oosit={sonraki['id']}"
+    return RedirectResponse(hedef, status_code=303)
+
+
+# --------------------------------------------- ICSI'nin genel bulguları (v6.200)
+
+# "Diğer" kutusuna elle yazılan bulgunun üst sınırı. ART Lab'ın alttaki
+# "Yorum:" satırı tek satır: uzun yazı orada küçülüyor (`.sigdir`), sınır
+# yazının okunur kaldığı ölçüde tutuldu.
+GENEL_BULGU_DIGER_EN_COK = 120
+
+# Penceredeki grup başlıkları, `db.GENEL_BULGU_LISTELERI`'nin sırasıyla.
+_GENEL_BULGU_BASLIK = {"bulgu_icsi": "genel_bulgu_yumurta",
+                       "bulgu_sperm": "genel_bulgu_sperm"}
+
+
+def _genel_bulgu_baglami(c):
+    """ICSI ekranının "Genel bulgular" bölümü (v6.200, kullanıcının isteği):
+    seçenek grupları, kayıtlı seçim, özet.
+
+    Bulgular yumurtanın değil TEDAVİNİN (`tedavi_bulgu`, goc_055): yumurta
+    bulgularının aynı listesi + sperm sorunları + elle "Diğer". ART Lab
+    formunun alttaki "Yorum:" satırına bunlar yazılıyor, yumurta yumurta
+    bulgular değil (`formlar.artlab_verisi()`). Göç çalışmamışsa ya da tipin
+    ICSI aşaması yoksa bölüm basılmıyor (tuzak #3)."""
+    if not (db.tablo_var("tedavi_bulgu")
+            and "icsi" in TIP_ASAMALARI.get(c["cycle_tipi"], ())):
+        return {"genel_bulgu_var": False}
+    secili, elle = db.tedavi_bulgulari(c["id"])
+    gruplar = []
+    for ad in db.GENEL_BULGU_LISTELERI:
+        degerler = [{"kod": d["kod"], "etiket": d["etiket"]} for d in db.liste(ad)]
+        kodlar = {d["kod"] for d in degerler}
+        # Listeden kaldırılmış ama bu tedavide kayıtlı değer kendi seçeneğiyle
+        # kalır -- pencere onu göstermeseydi "Kaydet" sessizce silerdi
+        # (tuzak #6).
+        degerler += [{"kod": s["kod"], "etiket": s["etiket"]} for s in secili
+                     if s["liste"] == ad and s["kod"] not in kodlar]
+        gruplar.append({"ad": ad, "baslik": metinler.t(_GENEL_BULGU_BASLIK[ad]),
+                        "degerler": degerler})
+    return {"genel_bulgu_var": True, "genel_gruplar": gruplar,
+            "genel_secili": {f"{s['liste']}:{s['kod']}" for s in secili},
+            "genel_elle": elle, "genel_ozet": db.tedavi_bulgu_metni(c["id"]),
+            "genel_diger_en_cok": GENEL_BULGU_DIGER_EN_COK}
+
+
+@uygulama.post("/cycle/{cycle_id}/icsi/genel-bulgu")
+async def icsi_genel_bulgu_kaydet(request: Request, cycle_id: int):
+    """Genel bulgular küme olarak yazılır (sil + ekle), "Diğer" metniyle.
+
+    Adres `yol_modulu()`'nda ICSI modülüne düşüyor (`-sil`/`geri-al` ile
+    bitmiyor). Yumurta formundan ayrı bir form: yumurtanın kaydına dokunmaz,
+    dönüş aynı yumurtaya."""
+    f = await request.form()
+    c = db.tek("SELECT id, cycle_tipi FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    hedef = f"/cycle/{cycle_id}/icsi"
+    # Dönüş adresine formdan gelen değer değil, veritabanındaki kimlik yazılır.
+    sp = db.tek("SELECT id FROM specimen WHERE id = ?",
+                (str(f.get("oosit") or "")[:40],))
+    if sp:
+        hedef += "?" + urlencode({"oosit": sp["id"]})
+    hedef += "#genelbulgu"
+    if not _genel_bulgu_baglami(c)["genel_bulgu_var"]:
+        return RedirectResponse(hedef, status_code=303)
+
+    # Yalnızca iki listenin değerleri (pasif olanı da: kayıtlıyken yeniden
+    # gönderilebilir); başka her şey düşer.
+    isaret = ",".join("?" * len(db.GENEL_BULGU_LISTELERI))
+    gecerli = {(r["liste_adi"], r["kod"]) for r in db.sorgu(
+        "SELECT liste_adi, kod FROM liste_degeri WHERE lab_id = ? "
+        f"AND liste_adi IN ({isaret})", (db.LAB_ID, *db.GENEL_BULGU_LISTELERI))}
+    yeni = set()
+    for v in f.getlist("genel_bulgu"):
+        liste, _, kod = str(v).partition(":")
+        if (liste, kod) in gecerli:
+            yeni.add((liste, kod))
+    # Tek satırlık "Yorum:" kutusu: satır sonları ve fazla boşluk tek boşluk.
+    elle = " ".join(str(f.get("genel_bulgu_diger") or "").split())
+    elle = elle[:GENEL_BULGU_DIGER_EN_COK] or None
+
+    eski_secili, eski_elle = db.tedavi_bulgulari(cycle_id)
+    eski = {(s["liste"], s["kod"]) for s in eski_secili}
+    if yeni == eski and elle == eski_elle:
+        return RedirectResponse(hedef, status_code=303)
+
+    kid = request.state.kullanici["id"]
+
+    def _kodlar(k):
+        return ", ".join(f"{liste}:{kod}" for liste, kod in sorted(k))
+
+    # Günlük kendi bağlantısını açıyor: işlemin dışında (`yazma_islemi()`'nin
+    # kilidi içinde beklerdi).
+    guvenlik.degisiklikleri_yaz("tedavi_bulgu", cycle_id,
+                                {"bulgu": _kodlar(eski), "diger": eski_elle},
+                                {"bulgu": _kodlar(yeni), "diger": elle}, kid)
+    simdi = _dt.now().isoformat(" ", "seconds")
+    with db.yazma_islemi() as b:
+        b.execute("DELETE FROM tedavi_bulgu WHERE cycle_id = ? AND asama = 'icsi'",
+                  (cycle_id,))
+        for liste, kod in sorted(yeni):
+            b.execute("INSERT INTO tedavi_bulgu (cycle_id, asama, liste_adi, "
+                      "bulgu_kodu, zaman, kullanici_id) VALUES (?,'icsi',?,?,?,?)",
+                      (cycle_id, liste, kod, simdi, kid))
+        if elle:
+            b.execute("INSERT INTO tedavi_bulgu (cycle_id, asama, metin, zaman, "
+                      "kullanici_id) VALUES (?,'icsi',?,?,?)",
+                      (cycle_id, elle, simdi, kid))
     return RedirectResponse(hedef, status_code=303)
 
 
@@ -9106,6 +9217,9 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
            "(SELECT id FROM sperm_ornek WHERE cycle_id=?)", (cycle_id,))
     db.yaz("DELETE FROM sperm_ornek WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM islem_yapan WHERE cycle_id=?", (cycle_id,))
+    # Tedavinin genel bulguları (v6.200, goc_055; tuzak #4)
+    if db.tablo_var("tedavi_bulgu"):
+        db.yaz("DELETE FROM tedavi_bulgu WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM specimen WHERE cycle_id=?", (cycle_id,))
     db.yaz("DELETE FROM cycle WHERE id=?", (cycle_id,))
 

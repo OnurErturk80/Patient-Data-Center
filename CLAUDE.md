@@ -167,7 +167,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..054.py   veritabanı göçleri (sırayla)
+  goc_002..055.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -1211,13 +1211,35 @@ kalıptan**: `form_kalip.json`.
   kullanıcının kararı: fertilizasyon kontrolünün sonucu embriyo yorumu
   değil, PN satırı zaten 2PN diyor; süzgeç etikete değil koda bakıyor);
   kâğıdın altındaki "Raporu dolduran … Yorum:" satırı ise sayfa
-  genişliğinde tek hücre. **Yumurta bulguları alttakine** yazılıyor
-  (v6.135, kullanıcıya soruldu, o seçti): ızgaraya konduğunda
-  "3AA, Vakuol, Geniş PVS" kutudan 52px taşıyordu. Bulgular oosit
-  numarasıyla (`1: Vakuol, Geniş PVS · 3: Kalın zona`), basılı yazının
-  arkasına `ek` ile ekleniyor. Bulgu iki aşamada da girilebildiği için
-  (ICSI / denüdasyon, v6.96) aşama süzülmüyor, tekrar eden bulgu bir kez
-  yazılıyor.
+  genişliğinde tek hücre. **Alttakine v6.200'den beri ICSI'nin GENEL
+  bulguları** yazılıyor (aşağıdaki madde), yumurta yumurta bulgular değil
+  (kullanıcının isteği: "yumurtaların bulguları tek tek yazılıyor ... Bunu
+  kaldıralım"). ICSI'si olmayan tipte (Yumurta Dondurma) genel bulgu
+  bölümü yok; orada denüdasyonun yumurta bulguları v6.135'teki gibi,
+  numarasıyla (`1: Vakuol, Geniş PVS · 3: Kalın zona`, `_bulgu_notu()`).
+  İkisi de basılı yazının arkasına `ek` ile. **Basılı yazı satırın ~%80'ini
+  kaplıyor**, "Yorum:"dan sonra tam puntoda ~35 harf sığıyor (ölçüldü):
+  hücre `.sigdir` (`ARTLAB_SIGDIR_HUCRELER`), uzun satır küçülüyor.
+- **ICSI'nin genel bulguları** (v6.200, `goc_055`, kullanıcının isteği:
+  "ICSI bölümüne genel bulgular bölümü olsun, açılır pencere şeklinde, aynı
+  yumurta bulguları gibi ... ek olarak sperm problemleri ... diğer elle
+  yazılabilir"). Yumurtanın değil TEDAVİNİN: `tedavi_bulgu` (`cycle_id`,
+  `asama='icsi'`, `liste_adi` + `bulgu_kodu` ya da elle `metin`), küme
+  olarak yazılıyor. Seçenekler `db.GENEL_BULGU_LISTELERI`: `bulgu_icsi`
+  (yumurta yumurta bulgunun aynı listesi) + `bulgu_sperm` (kullanıcının üç
+  sorunu, onun yazımıyla). Okuma tek yerde: `db.tedavi_bulgulari()` /
+  `db.tedavi_bulgu_metni()` -- ekrandaki özet ile formun satırı aynı metin.
+  - ICSI ekranında "İşlemi yapan"ın üstünde kart + açılır pencere, yumurta
+    formundan AYRI bir form (`POST /cycle/{id}/icsi/genel-bulgu`, dönüş aynı
+    yumurtaya). Kart kayıtlı hali gösteriyor; "Kaydet"siz kapatılan pencere
+    kayıtlı hale döner (`form.reset()`).
+  - Sayfada iki çip penceresi var: yumurta bulgusunun betiği yalnızca kendi
+    penceresine (`#bulguTabaka`) bakıyor. Yeni bir çip penceresi eklersen
+    `document.querySelectorAll('.cip ...')` yazma, penceresine sor.
+  - Yumurta yumurta bulgu ICSI ekranında KALDI (bilgi kartında görünüyor),
+    yalnızca forma yazılmıyor.
+  - Listeden kaldırılan (pasif) değer kayıtlıysa pencerede kendi çipiyle
+    kalıyor (tuzak #6); sunucu yalnızca iki listenin değerlerini kabul ediyor.
 - **`formlar.py`'deki bir hücre koordinatı kalıptaki gerçek satırla eşleşmeyebilir
   — kalıba değil, o sabite bak.** `_OZET_NOTLAR = (70, 2)` NOTLAR kutusunu hiç
   bulamıyordu (v6.102'de bulundu): kalıpta satır 70 (0'dan sayarak) boş,

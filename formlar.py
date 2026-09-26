@@ -603,7 +603,8 @@ _ARTLAB_FREEZE_SATIR = (28, 29, 30, 31)
 _ARTLAB_FREEZE_SUTUN = 12
 
 # Kâğıdın altındaki "Raporu dolduran ... Yorum:" satırı: tek birleşik hücre,
-# sayfanın tamamı kadar geniş. Yumurta bulguları oraya ekleniyor.
+# sayfanın tamamı kadar geniş. Tedavinin genel bulguları oraya ekleniyor
+# (v6.200; ICSI'si olmayan tipte yumurta bulguları, v6.135).
 _ARTLAB_YORUM_SATIR = 36
 
 # FREEZE kutusu bir oosit sütunu kadar dar; bir tüpte üç embriyo varsa
@@ -641,6 +642,10 @@ def _transfer_satirlari(cycle_id, cozulenler) -> list:
 
 def _bulgu_notu(c, h) -> str:
     """Yumurta bulguları, ART Lab'ın alttaki geniş "Yorum:" satırı için.
+
+    v6.200'den beri yalnızca ICSI'si olmayan tipte (Yumurta Dondurma):
+    ICSI'li tipte o satıra tedavinin genel bulguları yazılıyor
+    (`db.tedavi_bulgu_metni()`, kullanıcının isteği).
 
     "1: Vakuol, Geniş PVS · 3: Kalın zona" -- hangi yumurtanın bulgusu
     olduğu numarasıyla yazılıyor, çünkü bu satır tek ve bütün tedaviyi
@@ -1382,7 +1387,15 @@ def artlab_verisi(cycle_id: int):
           ORDER BY s.cycle_id, s.cycle_sira_no
         """, (cycle_id,))
 
-    bulgu_notu = _bulgu_notu(c, h)
+    # Kâğıdın altındaki "Yorum:" satırı (v6.200, kullanıcının isteği): ICSI'si
+    # olan tipte tedavinin GENEL bulguları (ICSI ekranı, `tedavi_bulgu`);
+    # yumurta yumurta bulgular artık oraya yazılmıyor. ICSI'si olmayan tipte
+    # (Yumurta Dondurma) genel bulgu bölümü yok, orada denüdasyonda
+    # işaretlenen yumurta bulguları eskisi gibi (v6.135).
+    if "icsi" in db.TIP_ASAMALARI.get(c["cycle_tipi"], ()):
+        bulgu_notu = db.tedavi_bulgu_metni(cycle_id)
+    else:
+        bulgu_notu = _bulgu_notu(c, h)
 
     sutunlar = []
     for o in ornekler:
@@ -1468,7 +1481,8 @@ def artlab_verisi(cycle_id: int):
         # ediyor (v6.161, kullanıcının isteği -- önce son kutu "+2 tüp"
         # diyordu), `artlab_dolgu()`. Liste burada kırpılmıyor.
         "freeze_satirlari": [tup_metni(t) for t in tupler],
-        # Kâğıdın altındaki geniş "Yorum:" satırına eklenir (v6.135).
+        # Kâğıdın altındaki geniş "Yorum:" satırına eklenir (v6.135; v6.200'den
+        # beri ICSI'li tipte genel bulgular).
         "bulgu_notu": bulgu_notu,
         # THAW ve TRANSFER sütunları da dört kutu (v6.152, kullanıcının
         # isteği): önceden ikisi de yalnızca bir sayıydı. THAW'da çözülen
@@ -1511,7 +1525,11 @@ _ARTLAB_OZET_EK = [
 
 # ART Lab'ın ad kutuları (Adı, Eşinin adı) yedi sütun genişliğinde, bugün
 # sığıyor; kural iki formda aynı olsun diye yine de işaretli (v6.150).
-ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2)}
+# Alttaki "Yorum:" satırı da (v6.200): kâğıdın basılı yazısı satırın ~%80'ini
+# kaplıyor, "Yorum:"dan sonra tam puntoda ~35 harf sığıyor (ölçüldü). Satır
+# sayfanın sağ kenarında bitiyor -- taşma olmaz, genel bulgular uzunsa satır
+# küçülüyor. Bulgu yokken basılı yazı zaten sığıyor, punto değişmiyor.
+ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2), (_ARTLAB_YORUM_SATIR, 0)}
 
 
 def sigdir_hucreleri(ad: str, deger=None) -> set:
@@ -1612,8 +1630,8 @@ def artlab_dolgu(v: dict) -> list:
         ek[(6, 21)] = v["hekim"]              # Hekimler: OPU
         ek[(7, 17)] = v["laboratuvar"]        # Labratuvar
         # Kâğıdın altındaki tek satırlık "... Yorum:" alanı (tüm sayfa
-        # genişliğinde tek birleşik hücre). Yumurta bulguları oraya, basılı
-        # yazının arkasına ekleniyor -- `ek`'in tam işi (v6.135).
+        # genişliğinde tek birleşik hücre). Bulgular oraya, basılı yazının
+        # arkasına ekleniyor -- `ek`'in tam işi (v6.135, v6.200).
         if sayfa == 0 and v.get("bulgu_notu"):
             ek[(_ARTLAB_YORUM_SATIR, 0)] = " " + v["bulgu_notu"]
 

@@ -364,6 +364,55 @@ def liste(liste_adi):
     )
 
 
+# ------------------------------------- tedavinin genel bulguları (v6.200)
+
+# ICSI ekranının "Genel bulgular" penceresindeki listeler, ekrandaki sırayla:
+# yumurta bulguları (yumurta yumurta işaretlenenin aynı listesi) ve sperm
+# sorunları (goc_055). Form da bu sırayla yazıyor.
+GENEL_BULGU_LISTELERI = ("bulgu_icsi", "bulgu_sperm")
+
+
+def tedavi_bulgulari(cycle_id, asama="icsi"):
+    """Tedavinin genel bulguları (v6.200, goc_055): `(seçililer, elle)`.
+
+    `seçililer` ekrandaki sırayla `{"liste", "kod", "etiket"}` -- önce
+    listelerin sırası, listede `sira`. Listeden kaldırılmış (pasif) değer de
+    etiketiyle geliyor, etiketi hiç yoksa koduyla (tuzak #6: kayıtlı değer
+    sessizce kaybolmasın). `elle`: "Diğer" kutusuna yazılan metin ya da None.
+    Göç çalışmamışsa ikisi de boş (tuzak #3)."""
+    if not tablo_var("tedavi_bulgu"):
+        return [], None
+    secili, elle = [], None
+    for r in sorgu(
+            "SELECT tb.id, tb.liste_adi, tb.bulgu_kodu, tb.metin, "
+            "       ld.etiket, ld.sira "
+            "  FROM tedavi_bulgu tb LEFT JOIN liste_degeri ld "
+            "    ON ld.lab_id = ? AND ld.liste_adi = tb.liste_adi "
+            "   AND ld.kod = tb.bulgu_kodu "
+            " WHERE tb.cycle_id = ? AND tb.asama = ? ORDER BY tb.id",
+            (LAB_ID, cycle_id, asama)):
+        if r["bulgu_kodu"]:
+            secili.append(r)
+        elif r["metin"]:
+            elle = r["metin"]
+    sira = {ad: i for i, ad in enumerate(GENEL_BULGU_LISTELERI)}
+    secili.sort(key=lambda r: (sira.get(r["liste_adi"], len(sira)),
+                               r["sira"] if r["sira"] is not None else 10**9,
+                               r["id"]))
+    return ([{"liste": r["liste_adi"], "kod": r["bulgu_kodu"],
+              "etiket": r["etiket"] or r["bulgu_kodu"]} for r in secili], elle)
+
+
+def tedavi_bulgu_metni(cycle_id, asama="icsi"):
+    """Genel bulguların tek satırı: "Kalın zona, Sperm motilitesi kötü, ...".
+
+    ICSI ekranındaki özet ve ART Lab formunun alttaki "Yorum:" satırı
+    (`formlar.artlab_verisi()`) aynı metni basıyor. Bulgu yoksa None."""
+    secili, elle = tedavi_bulgulari(cycle_id, asama)
+    return ", ".join([s["etiket"] for s in secili] + ([elle] if elle else [])) \
+        or None
+
+
 # ------------------------------------------------- göç çalıştı mı (tuzak #3)
 
 _KOLONLAR = {}

@@ -15546,3 +15546,86 @@ dosyayı bile. Satır eklenmiyor (kanister blokları yan yana, bir satır
 eklemek komşu kanisterleri kaydırırdı): gobletin satırı yetmezse straw
 yazılmıyor, kart söylüyor. Tank düzeni Mac'teki veritabanında; dosya da
 orada yüklenmeli, `tasi.py` ile kliniğe gider.
+
+# v6.200 — ICSI'de genel bulgular; ART Lab'ın Yorum satırına onlar yazılıyor
+
+Kullanıcının isteği (2026-09-26): "ICSI bölümünde de yumurtaların bulguları
+tek tek yazılıyor. ART lab formunda en altta yorum bölümüne yazılıyordu.
+Bunu kaldıralım. Onun yerine ICSI bölümüne genel bulgular bölümü olsun,
+açılır pencere şeklinde, aynı yumurta bulguları gibi bulgular olsun; bunlara
+ek olarak sperm problemleri olsun: Sperm morfolojisi kötü, Baş Boyun
+anomalisi var, Sperm motilitesi kötü, diğer elle yazılabilir olsun. Bunlar
+ART lab formunun en alt kısmındaki yorum bölümüne eklensin."
+
+## Ne değişti
+
+- **ICSI ekranında "Genel bulgular" kartı**, "İşlemi yapan"ın hemen üstünde
+  (ikisi de tedavinin, yumurtanın değil). Karta basınca yumurta
+  bulgularınınkiyle aynı açılır pencere: "Yumurta" grubu (yumurta yumurta
+  bulgunun aynı listesi, `bulgu_icsi`), "Sperm" grubu (kullanıcının üç
+  sorunu, onun yazımıyla) ve elle yazılan "Diğer". Pencerenin kendi
+  "Kaydet"i var; kaydetmeden kapatılan pencere kayıtlı hale döner, kart hep
+  kayıtlı hali gösteriyor.
+- **ART Lab formunun alttaki "Raporu dolduran … Yorum:" satırına** bu
+  bulgular yazılıyor: "Yorum: Kalın zona, Vakuol, Sperm motilitesi kötü,
+  …". Yumurta yumurta bulgular (v6.135) artık oraya yazılmıyor.
+- **Yumurta yumurta bulgu ICSI ekranında duruyor**: yumurtanın bilgi
+  kartında görünüyor, değiştirilebiliyor; yalnızca forma basılmıyor.
+  "Bunu kaldıralım"ı formdaki satır olarak okudum. Ekrandan da kalksın
+  denirse kaldırmak kolay.
+- **Yumurta Dondurma'nın formu değişmedi**: orada ICSI yok, genel bulgu
+  bölümü de yok; denüdasyonda işaretlenen yumurta bulguları eskisi gibi
+  numarasıyla yazılıyor. Yumurta Çözme'de ICSI var, genel bulgular geçerli.
+
+## Nasıl
+
+- **`goc_055`**: `tedavi_bulgu` tablosu (tedavi + aşama; satır ya bir liste
+  değeri, `liste_adi` + `bulgu_kodu`, ya da elle `metin`) ve `bulgu_sperm`
+  listesi. `specimen_bulgu`'nun tedavi hali, küme olarak yazılıyor (sil +
+  ekle, tek işlemde). Liste adı tutuluyor, çünkü seçenekler iki listeden
+  geliyor ve etiket listesinden aranıyor. Etiketler `liste_degeri`'nde.
+- **Okuma tek yerde**: `db.tedavi_bulgulari()` (listelerin sırasıyla) ve
+  `db.tedavi_bulgu_metni()`. Karttaki özet ile formun satırı aynı metin.
+- **Yumurta formundan ayrı bir form** (`POST /cycle/{id}/icsi/genel-bulgu`):
+  yumurtanın kaydına dokunmuyor, dönüş aynı yumurtaya. Adres ICSI modülüne
+  düşüyor, izin ekranınkiyle aynı. Sunucu yalnızca iki listenin değerlerini
+  kabul ediyor; "Diğer" tek satıra indiriliyor, en çok 120 harf.
+- **Listeden kaldırılmış değer** bir tedavide kayıtlıysa pencerede kendi
+  çipiyle kalıyor, "Kaydet" onu sessizce silmiyor (tuzak #6).
+- **Sayfada artık iki çip penceresi var**: yumurta bulgusunun betiği
+  sayfadaki bütün çiplere bakıyordu ("Temizle" genel bulguları da
+  silerdi). Artık yalnızca kendi penceresine bakıyor.
+- **Kalıcı silme** tabloyu biliyor (`cycle_tamamen_sil()`, `teshis_silme.py`,
+  tuzak #4); tam dökümde sayfası var; `liste_duzenle.py` iki listenin
+  kullanımını sayıyor. Göç çalışmamışsa kart basılmıyor, form eskisi gibi
+  (tuzak #3).
+
+## Satıra sığma
+
+Kâğıdın basılı "Raporu dolduran … Yorum:" yazısı satırın ~%80'ini
+kaplıyor: "Yorum:"dan sonra tam puntoda ~35 harf sığıyor (ölçüldü). Satır
+sayfanın sağ kenarında bitiyor, taşarsa kâğıdın dışına çıkar. v6.150'nin
+kuralı: taşma yoksa küçült, asla kesme. Hücre `.sigdir` oldu, Excel'de
+`shrinkToFit`. 94 harflik bir bulgu satırı puntoyu %79'a indiriyor ve tam
+sığıyor; bulgusuz formda punto değişmiyor. **Bilinen sınır**: küçültme en
+çok yarıya iniyor (~200 harf); bütün çipler birden seçilirse sığmaz.
+
+## Denendi
+
+Kullanıcının veritabanının bir kopyasında (telefon boyutu, 390px) bir
+IVF/ICSI tedavisinde:
+- iki yumurta ve iki sperm bulgusu + "Diğer" kaydedildi, karta ve ART Lab
+  formunun Yorum satırına (ekran, yazdırma ve Excel) aynı metin yazıldı;
+- kaydetmeden kapatılan pencere kayıtlı hale döndü;
+- yumurta penceresinin "Temizle"si genel bulgulara dokunmadı;
+- sayfa hatası ve yatay taşma yok;
+- sahte bir kod ve dönüş adresine yazılmış başka bir değer düştü;
+- pasif yapılan bir değer pencerede işaretli kaldı, yeniden kaydedince
+  silinmedi;
+- ICSI'li formda yumurta yumurta bulgu artık yok, Yumurta Dondurma'nın
+  formunda eskisi gibi var;
+- "Temizle" + "Kaydet" hepsini sildi, Yorum satırı kâğıttaki gibi kaldı;
+- yumurtası olmayan tedavide kart çıkmadı;
+- kalıcı silme (`cycle_tamamen_sil()` bir kopyada, `teshis_silme.py`)
+  kırık bağ bırakmadı;
+- göçsüz veritabanında ekran ve form hatasız.

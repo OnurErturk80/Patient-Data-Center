@@ -20,6 +20,8 @@ b.row_factory = sqlite3.Row
 b.execute("PRAGMA foreign_keys = ON")
 # Göçü çalışmamış makinede olmayan kolonlar sorulmasın (tuzak #3).
 OLAY_KOLONLARI = {r[1] for r in b.execute("PRAGMA table_info(olay)")}
+TEDAVI_BULGU_VAR = b.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                             "AND name='tedavi_bulgu'").fetchone() is not None
 
 # --------------------------------------------------------------- liste
 if len(sys.argv) < 2:
@@ -93,6 +95,12 @@ if cycles:
         ("islem_yapan.cycle_id",
          f"SELECT COUNT(*) FROM islem_yapan WHERE cycle_id IN ({q})", cycles),
     ]
+    # Tedavinin genel bulguları (v6.200, goc_055) -- göçü çalışmamış makinede
+    # tablo yok (tuzak #3).
+    if TEDAVI_BULGU_VAR:
+        taramalar.append(("tedavi_bulgu.cycle_id",
+                          f"SELECT COUNT(*) FROM tedavi_bulgu WHERE cycle_id IN ({q})",
+                          cycles))
     for ad, sql, par in taramalar:
         n = b.execute(sql, par).fetchone()[0]
         if n:
@@ -162,6 +170,9 @@ for cid in cycles:
          "(SELECT id FROM sperm_ornek WHERE cycle_id=?)", (cid,)),
         (f"cycle {cid}: sperm_ornek", "DELETE FROM sperm_ornek WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: islem_yapan", "DELETE FROM islem_yapan WHERE cycle_id=?", (cid,)),
+    ] + ([
+        (f"cycle {cid}: tedavi_bulgu", "DELETE FROM tedavi_bulgu WHERE cycle_id=?", (cid,)),
+    ] if TEDAVI_BULGU_VAR else []) + [
         (f"cycle {cid}: specimen", "DELETE FROM specimen WHERE cycle_id=?", (cid,)),
         (f"cycle {cid}: CYCLE", "DELETE FROM cycle WHERE id=?", (cid,)),
     ]

@@ -251,7 +251,7 @@
 
   function ozetGuncelle() {
     var secili = Array.prototype.slice
-      .call(document.querySelectorAll('.cip input:checked'))
+      .call(tabaka.querySelectorAll('.cip input:checked'))
       .map(function (i) { return i.parentNode.querySelector('span').textContent; });
     if (!secili.length) {
       ozet.textContent = {{ metin("bulgu_yok")|tojson }};
@@ -261,7 +261,7 @@
       ozet.classList.add('dolu');
     }
   }
-  document.querySelectorAll('.cip input').forEach(function (i) {
+  tabaka.querySelectorAll('.cip input').forEach(function (i) {
     i.addEventListener('change', function () {
       i.closest('.cip').classList.toggle('secili', i.checked);
       ozetGuncelle();
@@ -276,7 +276,7 @@
     e.addEventListener('click', tabakaKapat);
   });
   document.getElementById('bulguTemizle').addEventListener('click', function () {
-    document.querySelectorAll('.cip input:checked').forEach(function (i) {
+    tabaka.querySelectorAll('.cip input:checked').forEach(function (i) {
       i.checked = false;
       i.closest('.cip').classList.remove('secili');
     });
@@ -316,6 +316,100 @@
   });
 })();
 </script>
+
+{#- Genel bulgular (v6.200, kullanıcının isteği): yumurtanın değil TEDAVİNİN
+    bulguları -- yumurta bulgularının aynı listesi, sperm sorunları ve elle
+    "Diğer". ART Lab formunun alttaki "Yorum:" satırına bunlar yazılıyor.
+    Yumurta formundan ayrı bir form (yumurtanın kaydına dokunmaz); kart
+    kayıtlı hali gösteriyor, pencere düzenliyor, "Kaydet"siz kapatılan pencere
+    kayıtlı hale döner. Yumurta yoksa ancak daha önce yazılmışsa görünür. -#}
+{% if genel_bulgu_var and (oositler or genel_ozet) %}
+<div class="kart" id="genelbulgu" style="margin-top:16px">
+  <div class="alan" style="border:0">
+    <label for="genelBulguAc">{{ metin("genel_bulgular") }}</label>
+    <button type="button" class="acici" id="genelBulguAc">
+      <span class="acozet {% if genel_ozet %}dolu{% endif %}">{{ genel_ozet or metin("bulgu_yok") }}</span>
+    </button>
+    <div class="ipucu">{{ metin("genel_bulgular_ipucu") }}</div>
+  </div>
+</div>
+
+<div class="tabaka" id="genelBulguTabaka" hidden>
+  <div class="tperde" data-kapat></div>
+  <form class="tsayfa" id="genelBulguForm" role="dialog" aria-modal="true"
+        aria-labelledby="gbaslik" method="post" action="/cycle/{{ c.id }}/icsi/genel-bulgu">
+    <input type="hidden" name="oosit" value="{{ sp.id if sp else '' }}">
+    <div class="tust">
+      <span id="gbaslik">{{ metin("genel_bulgular") }}</span>
+      <button type="button" class="tkapat" data-kapat aria-label="{{ metin('kapat') }}">&times;</button>
+    </div>
+    <div class="tgovde">
+      {% for g in genel_gruplar %}
+      <div class="tgrup">{{ g.baslik }}</div>
+      <div class="cipler">
+        {% for d in g.degerler %}
+        {% set deger = g.ad ~ ":" ~ d.kod %}
+        <label class="cip {% if deger in genel_secili %}secili{% endif %}">
+          <input type="checkbox" name="genel_bulgu" value="{{ deger }}"
+                 {% if deger in genel_secili %}checked{% endif %}>
+          <span>{{ d.etiket }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      {#- Çipler `.alan`'ın DIŞINDA: `.alan input { width: 100% }` gizli
+          kutuya da uyar, sayfayı uzatırdı (tuzak #14). -#}
+      <div class="alan">
+        <label for="genel_bulgu_diger">{{ metin("genel_bulgu_diger") }}</label>
+        <input id="genel_bulgu_diger" name="genel_bulgu_diger" type="text"
+               maxlength="{{ genel_diger_en_cok }}" autocomplete="off"
+               value="{{ genel_elle or '' }}">
+        <div class="ipucu">{{ metin("genel_bulgu_diger_ipucu") }}</div>
+      </div>
+    </div>
+    <div class="talt">
+      <button type="button" class="dugme ikincil" id="genelBulguTemizle">{{ metin("temizle") }}</button>
+      <button type="submit" class="dugme">{{ metin("kaydet") }}</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  // Bilgi kartı kipinde de çalışır: yumurtanın formundan bağımsız.
+  var tabaka = document.getElementById('genelBulguTabaka');
+  if (!tabaka) return;
+  var form = document.getElementById('genelBulguForm');
+  function cipleriBoya() {
+    tabaka.querySelectorAll('.cip input').forEach(function (i) {
+      i.closest('.cip').classList.toggle('secili', i.checked);
+    });
+  }
+  tabaka.querySelectorAll('.cip input').forEach(function (i) {
+    i.addEventListener('change', cipleriBoya);
+  });
+  function ac() { tabaka.hidden = false; document.body.classList.add('kilitli'); }
+  // Kaydetmeden kapatılan pencere kayıtlı hale döner: kart kayıtlı hali
+  // gösteriyor, yarım kalmış bir seçim ikisini ayrı düşürmesin.
+  function kapat() {
+    form.reset(); cipleriBoya();
+    tabaka.hidden = true; document.body.classList.remove('kilitli');
+  }
+  document.getElementById('genelBulguAc').addEventListener('click', ac);
+  tabaka.querySelectorAll('[data-kapat]').forEach(function (e) {
+    e.addEventListener('click', kapat);
+  });
+  document.getElementById('genelBulguTemizle').addEventListener('click', function () {
+    tabaka.querySelectorAll('.cip input').forEach(function (i) { i.checked = false; });
+    document.getElementById('genel_bulgu_diger').value = '';
+    cipleriBoya();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !tabaka.hidden) kapat();
+  });
+})();
+</script>
+{% endif %}
 {{ iy.kutu(c.id, "icsi") }}
 {{ gez.cubuk(c, gezinme) }}
 {% include "_buyutec.html" %}

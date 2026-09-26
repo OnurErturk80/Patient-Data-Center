@@ -46,6 +46,8 @@ KULLANIM = {
     "viskozite": [("sperm_ornek", "viskozite")],
     "sonlanma": [("gebelik_sonucu", "sonlanma")],
     "pgt_sonuc": [("pgt_sonuc", "sonuc")],
+    "bulgu_icsi": [("specimen_bulgu", "bulgu_kodu"), ("tedavi_bulgu", "bulgu_kodu")],
+    "bulgu_sperm": [("tedavi_bulgu", "bulgu_kodu")],
 }
 
 
