@@ -93,7 +93,14 @@ uygulama.mount("/static", StaticFiles(directory=KOK / "static"), name="static")
 sablon = Jinja2Templates(directory=KOK / "templates")
 
 ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre",
-                "/manifest.json", "/ekle", "/sw.js"}
+                "/manifest.json", "/ekle", "/sw.js",
+                "/sertifika", "/sertifika/kok.crt"}
+
+# Güvenli kapının (HTTPS) portu -- `baslat.py` açabildiyse yazıyor (v6.196).
+# None: program yalnızca düz HTTP ile çalışıyor (`python3 -m uvicorn` ile
+# açıldı, `LAB_HTTPS=0`, ya da sertifika hazırlanamadı).
+HTTPS_PORTU = None
+DUZ_PORTU = None          # düz HTTP kapısı; `baslat.py` yazıyor
 
 # Başlıklarda kullanılan kısa tedavi tipi gösterimi
 TIP_KODLARI = ("ivf_icsi", "fet", "fet_kultur", "oosit_cryo", "yumurta_cozme", "taze")   # taze: eski kod
@@ -1321,11 +1328,72 @@ def _baglanti_adresi(request: Request):
     doğrusu: çalıştığı kanıtlanmış. Sunucunun kendi tarayıcısından
     bakılıyorsa (localhost) yerel ağ adresi bulunuyor.
     """
+    ana = _ana_makine(request)
+    # Güvenli kapıdan (HTTPS, v6.196) bakılıyorsa düz adres düz kapının portu.
+    if request.url.scheme == "https":
+        port = DUZ_PORTU or 8000
+    else:
+        port = request.url.port or 80
+    return f"http://{ana}:{port}" if port != 80 else f"http://{ana}"
+
+
+def _ana_makine(request: Request):
     ana = request.url.hostname or ""
     if ana in ("localhost", "127.0.0.1", "::1", ""):
         ana = _yerel_ip() or ana
-    port = request.url.port or 8000
-    return f"http://{ana}:{port}" if port != 80 else f"http://{ana}"
+    return ana
+
+
+def _sertifika_adresleri(request: Request):
+    """(`/sertifika` sayfasının düz adresi, programın güvenli adresi).
+
+    Sertifika sayfası bilerek DÜZ HTTP'de: telefon köke henüz güvenmiyorken
+    güvenli adres "bağlantınız gizli değil" uyarısı verir -- ilk adım o
+    uyarıyı görmeden atılabilmeli. Güvenli adres HTTPS kapalıysa None.
+    """
+    duz = _baglanti_adresi(request)
+    if not HTTPS_PORTU:
+        return duz + "/sertifika", None
+    return duz + "/sertifika", f"https://{_ana_makine(request)}:{HTTPS_PORTU}"
+
+
+@uygulama.get("/sertifika")
+def sertifika_ekrani(request: Request):
+    """Telefona kök sertifikayı yükleten sayfa (v6.196).
+
+    **Giriş istemiyor** (`ACIK_YOLLAR`): sertifika yüklenmeden güvenli adrese
+    girilemiyor, giriş de o adreste yapılacak. Sayfada hasta verisi yok; kök
+    sertifika zaten herkese verilen bir şey (gizli olan anahtarı, o bu
+    bilgisayardan çıkmıyor).
+    """
+    import sertifika
+    _, guvenli = _sertifika_adresleri(request)
+    # Güvenli adresin ana makinesi, bu sayfanın açıldığı ad olsun: telefon
+    # hangi adresle geldiyse o adres sertifikada var (yoksa `hazirla()`
+    # açılışta ekliyor).
+    if guvenli and request.url.hostname:
+        guvenli = f"https://{request.url.hostname}:{HTTPS_PORTU}"
+    return sablon.TemplateResponse(request, "sertifika.html", {
+        "guvenli": guvenli,
+        "var": bool(guvenli) and sertifika.kok_der() is not None,
+        "parmak_izi": sertifika.kok_parmak_izi(),
+        "guvenli_mi": request.url.scheme == "https",
+    })
+
+
+@uygulama.get("/sertifika/kok.crt")
+def sertifika_indir():
+    """Kök sertifika, telefonun tanıdığı biçimde (DER). `x-x509-ca-cert`:
+    iPhone bunu görünce "Profil indirildi" diyor, Android dosyayı indiriyor
+    (Android 11'den beri tarayıcıdan doğrudan yüklenemiyor, Ayarlar'dan
+    seçiliyor -- sayfada yazılı)."""
+    import sertifika
+    der = sertifika.kok_der()
+    if der is None:
+        return RedirectResponse("/sertifika", status_code=303)
+    return Response(der, media_type="application/x-x509-ca-cert", headers={
+        "Content-Disposition": 'attachment; filename="PDC-sertifika.crt"',
+        "Cache-Control": "no-store"})
 
 
 @uygulama.get("/ekle")
@@ -1341,7 +1409,10 @@ def ekle_ekrani(request: Request):
     (HTTPS) ve service worker istiyor. Yapılabilecek en yakın şey bu:
     okutan kişi doğrudan yönergeye düşsün, giriş ekranına değil.
     """
-    return sablon.TemplateResponse(request, "ekle.html", {})
+    return sablon.TemplateResponse(request, "ekle.html", {
+        "https_var": bool(HTTPS_PORTU),
+        "guvenli_mi": request.url.scheme == "https",
+    })
 
 
 @uygulama.get("/baglan")
@@ -1360,7 +1431,20 @@ def baglan_ekrani(request: Request):
         kare = karekod.svg(adres, kutu=6)
     except karekod.Hata:
         kare = ""
+    # Android (v6.196): önce sertifika sayfası -- ikinci karekod. Sayfa
+    # oradan güvenli adrese geçiriyor, tek karekod yetiyor.
+    sertifika_adresi, guvenli = _sertifika_adresleri(request)
+    sertifika_kare = ""
+    if guvenli:
+        try:
+            sertifika_kare = karekod.svg(sertifika_adresi, kutu=6)
+        except karekod.Hata:
+            sertifika_kare = ""
+    import sertifika
     return sablon.TemplateResponse(request, "baglan.html", {
+        "sertifika_adresi": sertifika_adresi, "sertifika_kare": sertifika_kare,
+        "guvenli": guvenli, "sertifika_durum": sertifika.durum(),
+        "parmak_izi": sertifika.kok_parmak_izi() if guvenli else "",
         "adres": adres, "karekod": kare,
         "makine_adi": socket.gethostname(),
         "kullanici": request.state.kullanici,

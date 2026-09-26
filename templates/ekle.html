@@ -36,6 +36,14 @@
 
 <div class="kart" id="kandroid" style="margin-top:12px" hidden>
   <h2>{{ metin("baglan_android") }}</h2>
+  {# v6.196: güvenli bağlantı varken Android önce sertifikaya gitsin --
+     uygulama gibi açılış ancak orada. Zaten güvenli adresteysek gereksiz. #}
+  {% if https_var and not guvenli_mi %}
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("ekle_android_sertifika") }}</div>
+    <a class="dugme" href="/sertifika">{{ metin("sertifika_baslik") }}</a>
+  </div>
+  {% endif %}
   <div class="alan" style="border:0">
     <ol class="adimlar">
       <li>{{ metin("baglan_android_2") }}</li>

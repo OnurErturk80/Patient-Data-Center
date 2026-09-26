@@ -571,6 +571,9 @@ form { margin: 0; }
   font-size: 14px;
   margin-top: 12px;
 }
+/* Olumlu haber (v6.196, "sertifika bu telefonda güvenilir"): uyarının
+   yeşil kardeşi. Zemin koyu, yazı açık -- ikisi de sabit (koyu tema tek). */
+.uyari.tamam { background: #16301f; border-color: #2e6b40; color: #cdeed7; }
 .uyari a { color: var(--uyari); font-weight: 600; }
 .uyari[hidden] { display: none; }
 

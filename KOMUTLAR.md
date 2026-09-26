@@ -17,10 +17,16 @@ Mac'te `python3`, Windows'ta `python`. Aşağıda Mac hali yazılı.
 ## Programı çalıştır
 
 ```
-python3 -m uvicorn app:uygulama --host 0.0.0.0 --port 8000
+python3 baslat.py
 ```
 
-Durdurmak: **Ctrl+C**.
+Durdurmak: **Ctrl+C**. (Eski yol `python3 -m uvicorn app:uygulama --host
+0.0.0.0 --port 8000` de çalışır ama **güvenli adres (HTTPS) açılmaz** --
+Android'de uygulama gibi açılış için `baslat.py` gerekir.)
+
+`baslat.py` iki adres açar (v6.196): `http://...:8000` (eskisi gibi) ve
+`https://...:8443` (güvenli, Android için). Açılışta terminale ikisini de
+yazar.
 
 Kendi bilgisayarında: <http://localhost:8000>
 
@@ -33,6 +39,33 @@ ipconfig                      # Windows — "IPv4 Adresi" satırı
 
 Çıkan adresle: `http://192.168.1.42:8000` (numara sizde farklı olacak).
 Telefon aynı Wi-Fi'da olmalı. Program açık kalmalı.
+
+---
+
+## Telefona uygulama olarak ekleme ve HTTPS (v6.195, v6.196)
+
+Yönetici paneli → **Telefona ekle**: karekodlar ve adımlar orada, yazdırıp
+laboratuvara asılabilir.
+
+- **iPhone**: ana karekodu okut → Safari'de paylaş → "Ana Ekrana Ekle".
+- **Android** (her telefonda bir kez): Android kartındaki karekodu okut →
+  açılan "Güvenlik sertifikası" sayfasında sertifikayı indir ve Ayarlar'dan
+  yükle (sayfa adım adım söylüyor, yüklenince yeşil "güvenilir" yazar) →
+  "Güvenli adresi aç" → Chrome ⋮ → "Uygulamayı yükle".
+
+Sertifika bu bilgisayarın veri klasöründe, `sertifika/` altında; program her
+açılışta kendisi denetler, adres değişirse yeniler. Durumunu görmek için:
+
+```
+python3 sertifika.py
+```
+
+`sertifika/` klasörünü silme, başka bilgisayara kopyalama, git'e ekleme:
+silinirse yeni sertifika üretilir ve **bütün telefonlara yeniden yüklemek**
+gerekir.
+
+HTTPS'i kapatmak (yalnızca düz adres): `LAB_HTTPS=0 python3 baslat.py`
+(Windows: `set LAB_HTTPS=0` sonra `python baslat.py`).
 
 ---
 
@@ -831,6 +864,14 @@ terminal penceresine sürüklemek de olur (adı kendisi doğru yazar).
 **Yeni bir kutu/düğme göründü ama hiçbir şey yapmıyor**
 `git pull` yaptın, programı yeniden başlatmadın. Şablonlar diskten tazelenir,
 Python kodu tazelenmez. `Ctrl+C` → `python3 baslat.py`.
+
+**Android'de "Güvenli adresi aç" açılmıyor / "bağlantınız gizli değil"**
+Sertifika telefona yüklenmemiş ya da yanlış yere yüklenmiş: "Güvenlik
+sertifikası" sayfasını yeniden aç, yeşil "güvenilir" yazısı çıkmalı. Yazı
+çıkıyor ama adres hiç açılmıyorsa bilgisayarın güvenlik duvarı 8443'ü
+engelliyor olabilir (Windows: Güvenlik Duvarı → uygulamaya izin ver →
+Python, "Özel ağ" işaretli). Program `python3 -m uvicorn` ile açıldıysa
+güvenli adres yoktur -- `python3 baslat.py` ile aç.
 
 **Bir ekran veya gün eksik görünüyor**
 Göç uygulanamamış olabilir: `/yonetim` → Veritabanı güncellemeleri kartına bak, ya da `python3 goc_hepsi.py` çalıştır.

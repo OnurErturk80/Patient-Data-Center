@@ -46,6 +46,20 @@
 <div class="sutun">
   <div class="kart">
     <h2>{{ metin("baglan_android") }}</h2>
+    {# v6.196: Android'de uygulama gibi açılış HTTPS istiyor. Bu karekod
+       sertifika sayfasına açılıyor; sayfa sertifikayı yükletip güvenli
+       adrese geçiriyor, oradan "Uygulamayı yükle". Aşağıdaki eski adımlar
+       sertifikasız yol (tarayıcı içinde açılan simge). #}
+    {% if sertifika_kare %}
+    <div class="alan" style="border:0;text-align:center">
+      <div class="ipucu" style="text-align:left">{{ metin("baglan_android_sertifika") }}</div>
+      <div class="karekod">{{ sertifika_kare|safe }}</div>
+      <div class="baglantiadres">{{ sertifika_adresi }}</div>
+      <div class="ipucu">{{ metin("baglan_guvenli") }} <b>{{ guvenli }}</b>
+        {% if sertifika_durum.bitis %}<br>{{ metin("baglan_sertifika_bitis") }}
+        {{ gg_aa_yyyy(sertifika_durum.bitis[:10]) }}{% endif %}</div>
+    </div>
+    {% else %}
     <div class="alan" style="border:0">
       <ol class="adimlar">
         <li>{{ metin("baglan_android_1") }}</li>
@@ -53,6 +67,7 @@
         <li>{{ metin("baglan_android_3") }}</li>
       </ol>
     </div>
+    {% endif %}
   </div>
 </div>
 </div>

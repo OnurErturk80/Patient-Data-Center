@@ -19,13 +19,26 @@ Ayarlar ortam değişkeninden (kurulum dosyası bunları servise yazacak):
     LAB_ADRES   varsayılan 0.0.0.0   -- iç ağdan erişim için
     LAB_PORT    varsayılan 8000
     LAB_VERI    veri klasörü (bkz. db.py "iki kök")
+    LAB_HTTPS_PORT  varsayılan 8443 -- güvenli bağlantı (v6.196)
+    LAB_HTTPS   "0" ise HTTPS hiç açılmaz, yalnızca düz HTTP
+
+HTTPS (v6.196): program iki kapıdan birden dinliyor -- düz HTTP (8000,
+bugünkü adres, eski simgeler ve bilgisayarlar çalışmaya devam etsin; kök
+sertifika telefona buradan indiriliyor) ve HTTPS (8443, Android'in
+"uygulama gibi" açılışı için). Aynı süreç, aynı uygulama nesnesi: "aynı
+kaydı iki kişi düzenliyor" uyarısı (bellekte, v6.55) iki kapıda da ortak.
+Sertifika `sertifika.py`'de, her açılışta denetleniyor. Hazırlanamazsa
+program yalnızca HTTP ile açılır -- HTTPS yüzünden program açılmaz olmasın.
 
 Günlük **dosyaya** da yazılıyor: servis olarak çalışırken terminal yok,
 bir şey ters giderse bakılacak tek yer o dosya olacak.
 """
 
+import asyncio
+import contextlib
 import logging
 import os
+import signal
 import socket
 import sys
 from logging.handlers import RotatingFileHandler
@@ -33,6 +46,7 @@ from logging.handlers import RotatingFileHandler
 import db
 
 VARSAYILAN_PORT = 8000
+VARSAYILAN_HTTPS_PORT = 8443
 
 
 def _gunluk_kur():
@@ -94,9 +108,24 @@ def main():
                 "mevcut lab.db dosyasini bu klasore koyun.")
         return 2
 
+    try:
+        https_port = int(os.environ.get("LAB_HTTPS_PORT") or VARSAYILAN_HTTPS_PORT)
+    except ValueError:
+        https_port = VARSAYILAN_HTTPS_PORT
+    sertifikalar = None
+    if os.environ.get("LAB_HTTPS", "1") != "0" and https_port != port:
+        try:
+            import sertifika
+            sertifikalar = sertifika.hazirla()
+        except Exception as e:           # HTTPS olmasa da program açılsın
+            g.error("HTTPS hazirlanamadi, yalnizca HTTP ile aciliyor: %s", e)
+
     ip = _yerel_ip()
     if ip and adres == "0.0.0.0":
         g.info("Personel bu adresi kullanacak: http://%s:%d", ip, port)
+        if sertifikalar:
+            g.info("Guvenli adres (telefona uygulama olarak): https://%s:%d",
+                   ip, https_port)
     g.info("Sunucu basliyor: http://%s:%d", adres, port)
 
     # `app` burada import ediliyor: veritabanı yoksa yukarıda çıkılmış olsun,
@@ -105,12 +134,74 @@ def main():
 
     import app
 
-    try:
-        uvicorn.run(app.uygulama, host=adres, port=port, log_level="info")
-    except OSError as e:
-        g.error("Sunucu acilamadi (%s). Port %d baska bir program tarafindan "
-                "kullaniliyor olabilir.", e, port)
-        return 3
+    if not sertifikalar:
+        try:
+            uvicorn.run(app.uygulama, host=adres, port=port, log_level="info")
+        except OSError as e:
+            g.error("Sunucu acilamadi (%s). Port %d baska bir program tarafindan "
+                    "kullaniliyor olabilir.", e, port)
+            return 3
+        return 0
+
+    app.HTTPS_PORTU = https_port
+    app.DUZ_PORTU = port
+    return asyncio.run(_iki_kapi(uvicorn, app, adres, port, https_port,
+                                 sertifikalar, g))
+
+
+def _sessiz_sunucu(uvicorn):
+    """uvicorn.Server'ın sinyal yakalamayan hali. İki sunucu aynı süreçte
+    kendi Ctrl+C işleyicisini kurarsa sonraki öncekini eziyor, biri hiç
+    durmuyordu. Sinyali `_iki_kapi` tutuyor, ikisine birden "dur" diyor."""
+    class S(uvicorn.Server):
+        def install_signal_handlers(self):          # eski uvicorn
+            pass
+
+        @contextlib.contextmanager
+        def capture_signals(self):                  # yeni uvicorn
+            yield
+    return S
+
+
+async def _iki_kapi(uvicorn, app, adres, port, https_port, sertifikalar, g):
+    S = _sessiz_sunucu(uvicorn)
+    duz = S(uvicorn.Config(app.uygulama, host=adres, port=port, log_level="info"))
+    # Açılış işleri (göçler, harita yazıcısı) yalnızca bir kez: ikinci kapıda
+    # `lifespan="off"`.
+    guvenli = S(uvicorn.Config(app.uygulama, host=adres, port=https_port,
+                               log_level="info", lifespan="off",
+                               ssl_certfile=str(sertifikalar[0]),
+                               ssl_keyfile=str(sertifikalar[1])))
+
+    def dur(*_):
+        for s in (duz, guvenli):
+            if s.should_exit:                         # ikinci Ctrl+C: hemen
+                s.force_exit = True
+            s.should_exit = True
+    for sinyal in (signal.SIGINT, getattr(signal, "SIGTERM", None)):
+        if sinyal is not None:
+            try:
+                signal.signal(sinyal, dur)
+            except (ValueError, OSError):
+                pass
+
+    async def izle(s, ad, p, oteki):
+        if s is guvenli:
+            # Güvenli kapı, düz kapının açılış işleri (göçler) bitince açılsın:
+            # göç bitmeden gelen bir istek eski şemaya çarpmasın.
+            while not duz.started and not duz.should_exit:
+                await asyncio.sleep(0.1)
+            if duz.should_exit:
+                return
+        try:
+            await s.serve()
+        except (OSError, SystemExit) as e:
+            g.error("%s kapisi acilamadi (port %d): %s", ad, p, e)
+        if ad == "HTTP":                              # ana kapı kapandıysa hepsi
+            oteki.should_exit = True
+
+    await asyncio.gather(izle(duz, "HTTP", port, guvenli),
+                         izle(guvenli, "HTTPS", https_port, duz))
     return 0
 
 

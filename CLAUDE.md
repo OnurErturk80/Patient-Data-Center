@@ -183,6 +183,7 @@ Patient Data Center/
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
   yerlesim.py       tank düzeni: goblet doluluğu, yer anahtarı, haritanın ağacı (v6.189)
   harita_excel.py   Cryo Haritası'nın Excel'ini her değişiklikte yazar (v6.191)
+  sertifika.py      kliniğin HTTPS sertifikası -- kütüphanesiz, açılışta kendini yeniler (v6.196)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
@@ -3039,9 +3040,28 @@ ekranı karekod + adım adım yönerge veriyor, yazdırılıp laboratuvara asıl
   altında kalır.
 - Simgeler `simge_uret.py` ile üretildi; aynı dosya hem normal hem maskable
   (içerik merkezin %25'inde bitiyor, Android'in istediği sınır %40).
-- **Android'de tam ekran HTTPS istiyor**, programda yok (bekleyen iş 3):
-  orada simge tarayıcı içinde açılabiliyor. iOS'ta tam ekran çalışıyor.
-  HTTPS kararı paketleme aşamasına bırakıldı.
+- **Android'de tam ekran HTTPS istiyor** -- v6.196'dan beri var (kullanıcının
+  kararı, 2026-09-26: kliniğe özel yerel sertifika, her telefona bir kez):
+  - `sertifika.py` (kütüphanesiz RSA + X.509): kök (on yıl, telefona
+    yüklenir) + sunucu sertifikası (397 gün, adresler SAN'da). Sunucu
+    sertifikası **her açılışta** denetlenip gerekirse yeniden imzalanıyor
+    (adres/makine adı değişti, 30 gün kaldı) -- telefonlara yeniden bir şey
+    yüklenmez. `sertifika/` veri klasöründe, **`.gitignore`'da** (kök anahtarı).
+  - `baslat.py` iki kapı açıyor: düz HTTP (8000, KALIYOR -- eski simgeler,
+    iPhone, bilgisayarlar ve sertifikanın indirildiği yer) + HTTPS (8443).
+    Açılış işleri yalnızca düz kapıda, güvenli kapı ondan sonra açılıyor;
+    Ctrl+C ikisini birden kapatıyor. **HTTPS programı asla açılmaz yapmaz**:
+    sertifika hazırlanamazsa yalnızca HTTP. `python3 -m uvicorn` ile
+    açılırsa HTTPS yok (`app.HTTPS_PORTU` None, ekranlar adımı gizliyor).
+  - `/sertifika` (giriş istemiyor): indir + telefona göre adımlar + "Güvenli
+    adresi aç" + parmak izi; telefonun köke güvenip güvenmediğini güvenli
+    adresten bir resim isteyerek ölçüyor. `/baglan`'ın Android kartında
+    ona açılan ikinci karekod; ana karekod bilerek düz adres (iPhone'da
+    sertifika isteğe bağlı, eklenmiş simgeler bozulmasın).
+  - Düz kapıyı kapatma ya da HTTPS'e yönlendirme -- sertifika oradan
+    iniyor ve iPhone simgeleri oraya bağlı. Kullanıcıya sormadan değiştirme.
+  - Chromium'da (köke güvenen) kurulabilirlik denetimi engelsiz; gerçek
+    telefonda henüz denenmedi (2026-09-26).
 - Adres seçimi: yöneticinin kullandığı adres varsa o, yoksa `_yerel_ip()`.
   O da UDP soketiyle **paket göndermeden** buluyor; `gethostbyname` çoğu
   makinede 127.0.0.1 döndürüyor.
@@ -3572,7 +3592,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      (yol, seçenek, açık/kapalı)? Eylemse kendi menü öğesi olmayı hak
      eder — kullanıcı burada tam bunu söyledi, bir ayar ekranının
      içindeki eylemi bulamadı.
-3. **HTTPS yok** — iç ağ dışına açılmamalı.
+3. **HTTPS** — v6.196'dan beri kliniğin kendi sertifikasıyla (aşağıdaki
+   "Program telefonun ana ekranına eklenebilir" bölümü). Program yine iç ağ
+   dışına açılmamalı: sertifika bağlantıyı şifreliyor, dışarıya açmak ayrı ve
+   bilinçli olarak yapılmayan bir iş.
 4. **Kullanıcı yönetimi — v6.11'de arayüze taşındı, v6.12'de panele bağlandı.**
    Yönetici `/yonetim` panelinden `/kullanicilar`'a girer; ekler, şifre sıfırlar,
    pasif yapar, siler. Şifre değiştirme `/sifre` — giriş ekranından da açılır.

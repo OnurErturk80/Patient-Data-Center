@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block baslik %}{{ metin("sertifika_baslik") }}{% endblock %}
+{% block ustbaslik %}{{ metin("sertifika_baslik") }}{% endblock %}
+{% block icerik %}
+
+{# Telefona kliniğin kök sertifikasını yükleten sayfa (v6.196). Giriş
+   istemiyor, hasta verisi yok. Düz HTTP'de açılıyor: telefon köke henüz
+   güvenmiyorken güvenli adres uyarı verirdi. Android'de "uygulama gibi"
+   açılış için şart, iPhone'da isteğe bağlı (iPhone düz adresle de tam ekran
+   açılıyor). #}
+
+{% if not var %}
+<div class="uyari" style="margin-top:12px">{{ metin("sertifika_kapali") }}</div>
+{% else %}
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("sertifika_giris")|safe }}</div>
+  </div>
+</div>
+
+{# Telefon köke zaten güveniyor mu? Güvenli adresten küçük bir resim
+   isteniyor: sertifika güvenilir değilse tarayıcı resmi yüklemiyor. Kesin
+   bir ölçü, ek bir rota gerektirmiyor. #}
+<div class="uyari tamam" id="guvendurum" hidden>{{ metin("sertifika_tamam") }}</div>
+
+<a class="dugme" href="/sertifika/kok.crt" id="indir">{{ metin("sertifika_indir") }}</a>
+
+<div class="kart" id="sandroid" style="margin-top:16px" hidden>
+  <h2>{{ metin("baglan_android") }}</h2>
+  <div class="alan" style="border:0">
+    <ol class="adimlar">
+      <li>{{ metin("sertifika_android_1") }}</li>
+      <li>{{ metin("sertifika_android_2") }}</li>
+      <li>{{ metin("sertifika_android_3") }}</li>
+      <li>{{ metin("sertifika_android_4") }}</li>
+    </ol>
+    <div class="ipucu">{{ metin("sertifika_android_ipucu") }}</div>
+  </div>
+</div>
+
+<div class="kart" id="sios" style="margin-top:16px" hidden>
+  <h2>{{ metin("baglan_ios") }}</h2>
+  <div class="alan" style="border:0">
+    <ol class="adimlar">
+      <li>{{ metin("sertifika_ios_1") }}</li>
+      <li>{{ metin("sertifika_ios_2") }}</li>
+      <li>{{ metin("sertifika_ios_3") }}</li>
+    </ol>
+    <div class="ipucu">{{ metin("sertifika_ios_ipucu") }}</div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:16px">
+  <h2>{{ metin("sertifika_sonra") }}</h2>
+  <div class="alan" style="border:0">
+    <ol class="adimlar">
+      <li>{{ metin("sertifika_sonra_1") }}</li>
+      <li>{{ metin("sertifika_sonra_2") }}</li>
+      <li>{{ metin("sertifika_sonra_3") }}</li>
+    </ol>
+  </div>
+</div>
+<a class="dugme" href="{{ guvenli }}/" id="guvenligec">{{ metin("sertifika_guvenli_ac") }}</a>
+
+<div class="ipucu" style="margin-top:16px">
+  {{ metin("sertifika_parmak_izi") }}<br><code style="word-break:break-all">{{ parmak_izi }}</code>
+</div>
+
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  var ios = /iPad|iPhone|iPod/.test(ua) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios) document.getElementById('sios').hidden = false;
+  else document.getElementById('sandroid').hidden = false;   // bilgisayarda da Android adımları dursun
+
+  var dene = new Image();
+  dene.onload = function () {
+    document.getElementById('guvendurum').hidden = false;
+    document.getElementById('indir').classList.add('ikincil');
+  };
+  dene.src = {{ guvenli|tojson }} + '/static/ikon_192.png?d=' + Date.now();
+})();
+</script>
+{% endif %}
+{% endblock %}

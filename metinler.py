@@ -2108,6 +2108,109 @@ METINLER = {
         "en": "This page is for phones. On a computer you can bookmark the "
               "program instead."},
     "baglan_adres": {"tr": "Programın adresi", "en": "The program's address"},
+    # ---- HTTPS: telefona kök sertifika (v6.196) ----
+    "sertifika_baslik": {"tr": "Güvenlik sertifikası", "en": "Security certificate"},
+    "sertifika_kapali": {
+        "tr": "Bu bilgisayarda güvenli bağlantı (HTTPS) açık değil. Program "
+              "\u201cpython3 baslat.py\u201d ile başlatılınca kendiliğinden açılır.",
+        "en": "Secure connection (HTTPS) is not on for this computer. It turns "
+              "on by itself when the program is started with \u201cpython3 baslat.py\u201d."},
+    "sertifika_giris": {
+        "tr": "Telefonun programı uygulama gibi (adres çubuğu olmadan, kendi "
+              "penceresinde) açabilmesi için laboratuvar bilgisayarının "
+              "sertifikasını <b>bir kez</b> yükleyin. Sertifika yalnızca bu "
+              "bilgisayarın bağlantısını tanıtır; telefondaki başka hiçbir şeyi "
+              "değiştirmez.",
+        "en": "Install the laboratory computer's certificate <b>once</b> so the "
+              "phone can open the program like an app (no address bar, its own "
+              "window). It only identifies this computer's connection; nothing "
+              "else on the phone changes."},
+    "sertifika_indir": {"tr": "1. Sertifikayı indir", "en": "1. Download the certificate"},
+    "sertifika_tamam": {
+        "tr": "Sertifika bu telefonda yüklü ve güvenilir. Aşağıdaki "
+              "\u201cGüvenli adresi aç\u201d ile devam edin.",
+        "en": "The certificate is installed and trusted on this phone. Continue "
+              "with \u201cOpen the secure address\u201d below."},
+    "sertifika_android_1": {
+        "tr": "Yukarıdaki düğmeye dokunun; dosya (PDC-sertifika.crt) indirilir. "
+              "Açmaya çalışmayın.",
+        "en": "Tap the button above; the file (PDC-sertifika.crt) downloads. "
+              "Don't try to open it."},
+    "sertifika_android_2": {
+        "tr": "Telefonun Ayarlar'ını açın, en üstteki arama kutusuna "
+              "\u201csertifika\u201d yazın.",
+        "en": "Open the phone's Settings and type \u201ccertificate\u201d in the "
+              "search box at the top."},
+    "sertifika_android_3": {
+        "tr": "\u201cCA sertifikası\u201d seçeneğine dokunun (uyarı çıkarsa "
+              "\u201cYine de yükle\u201d), telefon kilit şifresini girin.",
+        "en": "Tap \u201cCA certificate\u201d (if warned, \u201cInstall anyway\u201d) "
+              "and enter the phone's lock code."},
+    "sertifika_android_4": {
+        "tr": "İndirilenler'den PDC-sertifika.crt dosyasını seçin.",
+        "en": "Pick PDC-sertifika.crt from Downloads."},
+    "sertifika_android_ipucu": {
+        "tr": "Arama sonuç vermezse: Ayarlar \u2192 Güvenlik (ya da Güvenlik ve "
+              "gizlilik) \u2192 Diğer güvenlik ayarları / Şifreleme ve kimlik "
+              "bilgileri \u2192 Sertifika yükle \u2192 CA sertifikası. Yol "
+              "telefonun markasına göre biraz değişir.",
+        "en": "If search finds nothing: Settings \u2192 Security (or Security and "
+              "privacy) \u2192 More security settings / Encryption & credentials "
+              "\u2192 Install a certificate \u2192 CA certificate. The path varies "
+              "a little by brand."},
+    "sertifika_ios_1": {
+        "tr": "Yukarıdaki düğmeye dokunun, \u201cİzin Ver\u201d deyin: "
+              "\u201cProfil indirildi\u201d yazar.",
+        "en": "Tap the button above and choose \u201cAllow\u201d: it says "
+              "\u201cProfile Downloaded\u201d."},
+    "sertifika_ios_2": {
+        "tr": "Ayarlar'ı açın; en üstte \u201cProfil İndirildi\u201d satırına "
+              "dokunun, \u201cYükle\u201d deyin (iki kez) ve telefon şifresini girin.",
+        "en": "Open Settings, tap \u201cProfile Downloaded\u201d at the top, then "
+              "\u201cInstall\u201d (twice) and enter the passcode."},
+    "sertifika_ios_3": {
+        "tr": "Ayarlar \u2192 Genel \u2192 Hakkında \u2192 en altta Sertifika Güven "
+              "Ayarları: \u201cPatient Data Center Yerel Kok\u201d anahtarını açın.",
+        "en": "Settings \u2192 General \u2192 About \u2192 at the bottom Certificate "
+              "Trust Settings: turn on \u201cPatient Data Center Yerel Kok\u201d."},
+    "sertifika_ios_ipucu": {
+        "tr": "iPhone programı sertifikasız da uygulama gibi açıyor; bu adım "
+              "isteğe bağlı.",
+        "en": "The iPhone opens the program like an app without it too; this "
+              "step is optional."},
+    "sertifika_sonra": {"tr": "2. Uygulamayı ekleyin", "en": "2. Add the app"},
+    "sertifika_sonra_1": {
+        "tr": "Aşağıdaki \u201cGüvenli adresi aç\u201d düğmesine dokunun ve "
+              "giriş yapın.",
+        "en": "Tap \u201cOpen the secure address\u201d below and sign in."},
+    "sertifika_sonra_2": {
+        "tr": "Chrome'da sağ üstteki üç noktaya (\u22ee) dokunun.",
+        "en": "In Chrome tap the three dots (\u22ee) at the top right."},
+    "sertifika_sonra_3": {
+        "tr": "\u201cUygulamayı yükle\u201d ya da \u201cAna ekrana ekle\u201d "
+              "seçeneğine dokunun. Eski simge varsa silin.",
+        "en": "Tap \u201cInstall app\u201d or \u201cAdd to Home screen\u201d. "
+              "Delete the old icon if there is one."},
+    "sertifika_guvenli_ac": {"tr": "Güvenli adresi aç", "en": "Open the secure address"},
+    "sertifika_parmak_izi": {
+        "tr": "Sertifikanın parmak izi (telefonda sertifika ayrıntısında "
+              "görünenle aynı olmalı):",
+        "en": "Certificate fingerprint (should match the one shown in the "
+              "certificate details on the phone):"},
+    "baglan_android_sertifika": {
+        "tr": "Android'de programı uygulama gibi açmak için önce bu karekodu "
+              "okutun: sayfa telefona sertifikayı yükletip güvenli adrese "
+              "geçiriyor. Her telefonda bir kez.",
+        "en": "To open the program like an app on Android, scan this code "
+              "first: the page installs the certificate on the phone and moves "
+              "to the secure address. Once per phone."},
+    "baglan_guvenli": {"tr": "Güvenli adres:", "en": "Secure address:"},
+    "baglan_sertifika_bitis": {"tr": "Sertifika geçerliliği:", "en": "Certificate valid until:"},
+    "ekle_android_sertifika": {
+        "tr": "Android'de programın uygulama gibi açılması için önce "
+              "sertifikayı yükleyin.",
+        "en": "On Android, install the certificate first so the program opens "
+              "like an app."},
     "baglan_makine": {"tr": "Bu bilgisayarın adı:", "en": "This computer's name:"},
     "baglan_ipucu": {
         "tr": "Telefon <b>kliniğin kablosuz ağına bağlı</b> olmalı; program "

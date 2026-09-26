@@ -15295,3 +15295,91 @@ kendiliğinden devreye girecek şekilde yazıldı; HTTPS'in nasıl kurulacağı
 Denendi: 390 ve 360px telefonda 17 ekranda yatay kaydırma yok, menü düğmesi
 menüsü olan her ekranda var, girişte yok; 29 adres 200; geniş ekranda (1280px)
 sol menü eskisi gibi, düğme gizli.
+
+# v6.196 — HTTPS: kliniğin kendi sertifikası, Android'de uygulama gibi açılış
+
+Kullanıcının kararı (2026-09-26): "Android için sertifikalı HTTPS'i hazırla"
+(v6.195'in sonunda sunulan yol: kliniğe özel yerel sertifika, her telefona
+bir kez). Android'de programın adres çubuksuz, kendi penceresinde açılması
+ve "Uygulamayı yükle" güvenli bağlantı istiyor; program iç ağda düz HTTP
+ile çalışıyordu (bekleyen iş 3). Bir sertifika kurumu iç ağ adresine
+(192.168.x.x) sertifika vermediği için tek yol kliniğin kendi sertifikası.
+
+## Sertifika: `sertifika.py`, kütüphanesiz
+
+- **Kök** (`kok.crt` + `kok.key`, on yıl): telefona bir kez yüklenen "bu
+  bilgisayarın imzasına güven". Özel anahtarı bilgisayardan çıkmıyor.
+- **Sunucu sertifikası** (`sunucu.crt`, 397 gün): bilgisayarın adresleri
+  (iç ağ IP'leri, 127.0.0.1, makine adı, `ad.local`, `localhost`) "Subject
+  Alternative Name"de, kök tarafından imzalı. **Her açılışta denetleniyor**:
+  yoksa, bugünkü adres sertifikada yoksa (DHCP adresi değiştirdi), makine
+  adı değiştiyse ya da bitmesine 30 gün kaldıysa yeniden imzalanıyor --
+  telefonlara bir şey yüklemek gerekmiyor, çünkü telefon köke güveniyor.
+- Hepsi veri klasöründe `sertifika/`. **`.gitignore`'da**: bugünkü
+  kurulumlarda veri klasörü depo klasörü; kök anahtarı ele geçen kliniğin
+  telefonlarına sahte bir sunucu tanıtabilir.
+- Kütüphanesiz (`excel.py`, `karekod.py`'nin gerekçesi: klinikteki makineye
+  kurulum yok). RSA-2048 anahtar (Miller-Rabin ile asal arama), SHA-256 +
+  PKCS#1 v1.5 imza, X.509 v3 (DER) elle yazılıyor; ilk üretim ~1,3 saniye.
+  Telefonların kuralları: Apple (iOS 13+) RSA ≥ 2048, SHA-2, adres SAN'da,
+  "serverAuth", sunucu sertifikası ≤ 825 gün; Chrome adresi SAN'da istiyor.
+- Doğrulandı: OpenSSL `verify -x509_strict -purpose sslserver -verify_ip`
+  geçti, yanlış adres reddedildi; curl kök sertifikayla IP'ye, makine adına
+  ve `.local`'e bağlandı, sertifikada olmayan bir adı reddetti; ikinci
+  çalıştırma hiçbir şeyi yeniden üretmedi, adres değişince yeniledi.
+
+## İki kapı: düz HTTP (8000) ve HTTPS (8443)
+
+`baslat.py` aynı süreçte iki sunucu açıyor. **Düz kapı kalıyor**: bugünkü
+adres, iPhone simgeleri ve bilgisayarlar değişmeden çalışsın; kök sertifika
+telefona oradan indiriliyor (köke güvenmeyen telefon güvenli adreste
+"bağlantınız gizli değil" uyarısı görürdü). Aynı süreç olduğu için "aynı
+kaydı iki kişi düzenliyor" uyarısı (bellekte, v6.55) iki kapıda ortak;
+oturum çerezi de (çerezler porta bağlı değil).
+- Açılış işleri (göçler, Excel haritası) yalnızca düz kapıda; güvenli kapı
+  düz kapı açıldıktan SONRA açılıyor -- göç bitmeden gelen istek eski şemaya
+  çarpmasın.
+- Ctrl+C iki kapıyı birden kapatıyor: iki uvicorn sunucusu kendi sinyal
+  işleyicisini kursa sonraki öncekini eziyordu, sinyali `baslat.py` tutuyor.
+- **HTTPS hiçbir koşulda programı açılmaz yapmıyor**: sertifika
+  hazırlanamazsa günlüğe yazılıp yalnızca HTTP ile açılıyor. `LAB_HTTPS=0`
+  tümden kapatır, `LAB_HTTPS_PORT` portu değiştirir.
+- `python3 -m uvicorn app:uygulama` ile açılan program HTTPS'siz (eskisi
+  gibi); HTTPS `python3 baslat.py` ile. `app.HTTPS_PORTU` None ise ekranlar
+  sertifika adımını göstermiyor.
+
+## Telefonun yolu
+
+- **`/sertifika`** (giriş istemiyor, `ACIK_YOLLAR`; hasta verisi yok):
+  "Sertifikayı indir" (`/sertifika/kok.crt`, `application/x-x509-ca-cert`:
+  iPhone "Profil indirildi" diyor, Android dosyayı indiriyor -- Android 11'den
+  beri tarayıcıdan doğrudan yüklenemiyor, Ayarlar'dan seçiliyor), telefona
+  göre adımlar, "Güvenli adresi aç", kökün SHA-256 parmak izi. Sayfa
+  telefonun köke güvenip güvenmediğini **ölçüyor** (güvenli adresten küçük
+  bir resim istiyor; güvenilmeyen sertifikada tarayıcı yüklemiyor) ve
+  güveniyorsa yeşil "yüklü ve güvenilir" yazıyor.
+- **"Telefona ekle" (`/baglan`)**: ana karekod eskisi gibi düz adres
+  (iPhone düz adresle de tam ekran açılıyor, eklenmiş simgeler bozulmasın);
+  Android kartında ikinci karekod `/sertifika`'ya açılıyor, altında güvenli
+  adres ve sertifikanın geçerlilik sonu. Güvenli kapıdan bakılsa da düz
+  adres düz kapının portuyla kuruluyor (`app.DUZ_PORTU`).
+- `/ekle`'nin Android kartı güvenli bağlantı varken önce sertifikaya
+  yönlendiriyor.
+- iPhone için sertifika **isteğe bağlı** (sayfada yazılı).
+
+## Denendi
+
+Kök sertifikaya güvenen Chromium'da (telefon görünümü) güvenli adreste
+`isSecureContext` doğru, service worker (v6.195) etkin, Chrome'un
+kurulabilirlik denetimi **hiç engel bildirmedi**; aynı tarayıcıda düz adreste
+tek engel "not-from-secure-origin" (bugünkü durum). 14 ekran iki kapıda da
+200; HTTPS kapalıyken (`LAB_HTTPS=0`) program eskisi gibi açıldı, sertifika
+sayfası "açık değil" dedi.
+
+**Bilinen sınırlar**: gerçek bir Android telefonda ve iPhone'da henüz
+denenmedi (menü adları markaya göre değişiyor, sayfa bunu söylüyor).
+`sertifika/` yedeklenmiyor: bilgisayar değişir ya da klasör silinirse yeni
+kök üretilir ve telefonlara sertifika yeniden yüklenir. Mac ile klinik
+bilgisayarının kökleri ayrı (her makine kendi kökünü üretiyor; `tasi.py`
+yalnızca `lab.db`'yi taşıyor). Windows güvenlik duvarı 8443'ü engellerse
+telefon güvenli adrese ulaşamaz (KOMUTLAR.md).
