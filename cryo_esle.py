@@ -1132,7 +1132,7 @@ def _yerlesim_kipi(dosya, cozum, sonuc):
     if bekleyen:
         print("Önce şunlar çalıştırılmalı (tank düzeni hiçbir şey yazmadı):")
         for kip, n, ne in bekleyen:
-            print(f"  python3 cryo_esle.py {kip} {dosya}   -- {n} {ne}")
+            print(f"  python3 cryo_esle.py {kip} {_komut_yolu(dosya)}   -- {n} {ne}")
         return
     g = duzen["gobletler"]
     emb = [x for x in g if x["kategori"] == "embriyo"]
@@ -1857,13 +1857,34 @@ def _sperm_kipi(satirlar):
 
 # ------------------------------------------------------------------- main
 
+def _komut_yolu(dosya) -> str:
+    """Önerilen komut satırındaki dosya adı (v6.194): boşluk varsa tırnak
+    içinde. Proje klasörü ("Patient Data Center") ve Excel'in adı boşluklu;
+    tırnaksız satır kopyalanınca terminal adı sözlere bölüyor, araç
+    ".../Patient bulunamadı" diyordu. Çift tırnak Mac'te de Windows'ta da
+    geçiyor."""
+    s = str(dosya)
+    return f'"{s}"' if any(c.isspace() for c in s) else s
+
+
 def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta", "sperm",
                                                  "eksik", "onar", "yerlesim"):
         sys.exit(__doc__)
     kip, dosya = sys.argv[1], Path(sys.argv[2])
+    # Boşluklu ad tırnaksız yazılınca terminal onu sözlere böler (v6.194):
+    # `CRYO HARİTA.xlsx` -> "CRYO", "HARİTA.xlsx". Kiplerin hepsi tek dosya
+    # alıyor; sözler birleşince bir dosya çıkıyorsa o.
+    if not dosya.is_file() and len(sys.argv) > 3:
+        birlesik = Path(" ".join(sys.argv[2:]))
+        if birlesik.is_file():
+            dosya = birlesik
     if not dosya.is_file():
-        sys.exit(f"{dosya} bulunamadı.")
+        ipucu = ""
+        if len(sys.argv) > 3:
+            ipucu = ("\nDosya adında boşluk varsa adı tırnak içine yazın: "
+                     f'python3 cryo_esle.py {kip} "{" ".join(sys.argv[2:])}"')
+        sys.exit(f"{dosya} bulunamadı.{ipucu}")
     if not _db.DB_YOLU.exists():
         sys.exit("lab.db bulunamadi.")
     print(f"Veritabanı: {_db.DB_YOLU}")

@@ -823,6 +823,11 @@ Klasör ZIP ile kurulmuş. Yukarıdaki `git clone` adımını uygula.
 **`git status` → "ahead of 'origin/main' by N commits"**
 Commit etmişsin, push etmemişsin. `git push origin main`.
 
+**Araç "CRYO bulunamadı" / ".../Patient bulunamadı" diyor**
+Dosya adında boşluk var, terminal adı sözlere bölüyor. Adı tırnak içine
+yaz: `python3 cryo_esle.py yerlesim "CRYO HARİTA.xlsx"`. Dosyayı Finder'dan
+terminal penceresine sürüklemek de olur (adı kendisi doğru yazar).
+
 **Yeni bir kutu/düğme göründü ama hiçbir şey yapmıyor**
 `git pull` yaptın, programı yeniden başlatmadın. Şablonlar diskten tazelenir,
 Python kodu tazelenmez. `Ctrl+C` → `python3 baslat.py`.

@@ -15207,3 +15207,20 @@ eklendi. Eski göç (`goc_034`) ve README'nin eski bölümleri olduğu gibi
 kaldı: biri çalışmış bir göç, öteki o günün kaydı. Bu döküm, v6.191'in
 Excel haritasından ayrı: dondurulan her embriyo/yumurta bir satır ve
 çözülenler de listede; harita ise bugünkü tankın goblet goblet hali.
+
+# v6.194 — `cryo_esle.py` boşluklu dosya adını da tanıyor
+
+Kullanıcı `python3 cryo_esle.py yerlesim CRYO HARİTA.xlsx` yazdı, araç
+"CRYO bulunamadı" dedi: terminal boşluklu adı iki söze böldü. Tam yolla
+çalıştırınca `yerlesim` önce `uygula`'yı istedi (2 tüp) ve önerdiği komutu
+tırnaksız yazdı -- proje klasörünün adı da boşluklu ("Patient Data
+Center"), o satır kopyalanınca yine bölünürdü. İki düzeltme:
+
+- **Önerilen komutta dosya adı tırnak içinde** (`_komut_yolu()`): boşluk
+  varsa çift tırnak, Mac'te de Windows'ta da geçiyor.
+- **Bölünmüş ad birleştiriliyor**: ilk söz bir dosya değilse ve sözler
+  birleşince bir dosya çıkıyorsa o kullanılıyor (kiplerin hepsi tek dosya
+  alıyor). Yine bulunamazsa hata tırnaklı komutu gösteriyor.
+
+KOMUTLAR.md'nin "Sık sorunlar"ına eklendi. Denendi: tırnaksız `CRYO
+HARİTA.xlsx` dosyayı buldu; olmayan adda tırnaklı öneri çıktı.
