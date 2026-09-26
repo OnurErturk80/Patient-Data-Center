@@ -24,6 +24,9 @@ Kullanım (proje klasöründe):
                                                      # okumanın yazdığı konumları
                                                      # ve boş renkleri onarır
                                                      # ("ONAR" onayıyla)
+    python3 cryo_esle.py yerlesim CRYO_HARITA.xlsx   # tank düzeni: bütün
+                                                     # gobletler + Excel kaydı
+                                                     # ("YERLESIM", v6.189)
 
 İkisi de `cryo_esle_rapor.txt` dosyasına satır satır rapor yazar (hasta
 adı içerir -- depoya girmez, `.gitignore`). Terminale yalnızca sayılar.
@@ -69,6 +72,7 @@ sayılır. Değişiklikler `degisiklik_log`'a düşer (tablo `tasiyici`, alan
 
 import collections
 import datetime as _dt
+import hashlib
 import re
 import sys
 from pathlib import Path
@@ -76,6 +80,7 @@ from pathlib import Path
 import db as _db          # veritabanının yeri tek yerde: db.py (tuzak #8)
 import cryo_excel
 import aktar_access       # `_skor_coz()`: skor yazımının tek sözlüğü
+import yerlesim as _yerlesim   # yer adlarının karşılaştırma anahtarı (v6.189)
 
 RAPOR = Path("cryo_esle_rapor.txt")
 
@@ -845,6 +850,311 @@ def _onar_kipi(sonuc):
           + ".")
 
 
+# --------------------------------------------------- yerleşim (v6.189)
+#
+# Kullanıcının isteği (2026-09-25): "Laboratuvarda cryo harita en önemli
+# kayıt ... Bu haritanın kesinlikle bozulmaması gerekiyor. ... dondururken
+# program bana tanklarda boş yerleri önermesi." Program boş gobleti hiç
+# bilmiyordu: `konum` yalnızca bir tüpe yazılmış yerdi. `yerlesim` Excel'in
+# BÜTÜN gobletlerini (boşlar dahil) programa açar ve Excel'de duran ama
+# programda karşılığı olan bir tüp bulunamayan her satırı gobletinde bir
+# "Excel kaydı" olarak bırakır (kullanıcının seçimi: "Gobletinde 'Excel
+# kaydı' olarak dursun") -- yuvası dolu sayılsın, haritadan hiçbir straw
+# kaybolmasın.
+#
+# ÖNCE öteki kipler: bekleyen `uygula` / `onar` / `yeni_hasta` / `sperm`
+# yazısı varsa hiçbir şey yazmadan durur. Yoksa aynı straw hem Excel kaydı
+# olarak açılır hem de sonradan tüpüne konum yazılırdı -- goblet iki kez
+# dolu görünürdü.
+#
+# Bir satır "programda temsil ediliyor" = eşleştiği tüp dolu ve o gobletde
+# (`yerlesim.yer_anahtari()` ile: "p" = "P"). Temsil edilmeyen her dolu satır
+# -- hasta yok, içerik tutmuyor, tüp programda boşaltılmış, tüp başka konumda,
+# yalnızca adı yazılı satır -- Excel kaydı olur, sebebiyle. Sahte tüp
+# açılmıyor (v6.127'nin gerekçesi aynen geçerli).
+#
+# İkinci çalıştırma hiçbir şeyi değiştirmez (goblet zaten düzende, Excel
+# kaydı içerik anahtarıyla zaten var). Excel'e sonradan satır eklenmiş olsa
+# da anahtar tutar (sayfa/satır numarasına değil içeriğe bakıyor); Excel'den
+# silinmiş bir satırın Excel kaydı ise KENDİLİĞİNDEN kaldırılmaz, raporda
+# listelenir -- straw'ın tanktan çıktığını söyleyecek olan kullanıcı.
+
+YERLESIM_RAPOR = Path("cryo_esle_rapor_yerlesim.txt")
+
+# Excel kaydının "neden programdaki bir tüp değil" sebebi: eşleştirmenin
+# sınıfı, yoksa bunlar.
+_BILGISIZ = "bilgisiz"          # yalnızca ad yazılı, tarih/hücre/VİAL yok
+_GOBLETSIZ = "gobletsiz"        # NO sütunu boş
+
+
+def _satir_kimligi(s):
+    return (s["sayfa"], s["satir"], s["sutun"])
+
+
+def _duzen_yolu(g):
+    return [g["tank"] or "", g["kanister"] or "", g["goblet"] or "", ""]
+
+
+def _anahtarlar(satirlar):
+    """Excel kaydının içerik anahtarı: yer + ad + tarih + hücre + VİAL, aynı
+    içerikteki kaçıncı satır olduğuyla. Sayfa/satır numarası YOK: Excel'e
+    satır eklenince kayar, aynı straw ikinci kez açılırdı."""
+    sayac = collections.Counter()
+    sonuc = {}
+    for s in satirlar:
+        yer = _yerlesim.yer_anahtari(s["tank"], s["kanister"], s["goblet"])
+        ic = "\x1f".join([*yer, s["soyad"], s["ad"], s["tarih_ham"],
+                          s["icerik"], s["vial_metni"]])
+        ozet = hashlib.sha1(ic.encode("utf-8")).hexdigest()
+        sayac[ozet] += 1
+        sonuc[_satir_kimligi(s)] = f"{ozet}:{sayac[ozet]}"
+    return sonuc
+
+
+def yerlesim_bekleyenler(sonuc, satirlar, b) -> list:
+    """Önce çalıştırılması gereken kipler: [(kip, kaç kayıt, açıklama)]."""
+    bekleyen = []
+    n = sum(1 for _s, k, t, _e in sonuc if k in YAZILIR and t)
+    if n:
+        bekleyen.append(("uygula", n, "tüpe konum yazılacak"))
+    konum, _renk, _dok = onar_plani(sonuc)
+    if konum:
+        bekleyen.append(("onar", len(konum), "tüpün konumu düzeltilecek"))
+    plan, _atlanan = yeni_hasta_plani(sonuc)
+    if plan:
+        bekleyen.append(("yeni_hasta", len(plan), "2018 öncesi hasta açılacak"))
+    sp, _kisiler = sperm_plani(satirlar, b)
+    n = sum(1 for _s, k, _e in sp if k in ("yeni", "konum_yaz", "sebep_yaz"))
+    if n:
+        bekleyen.append(("sperm", n, "sperm satırı yazılacak"))
+    return bekleyen
+
+
+def yerlesim_plani(duzen, sonuc, satirlar, b) -> dict:
+    """Excel'in düzeni + eşleştirme -> ne yazılacak (hiçbir şey yazmaz)."""
+    konumlar = {}
+    anahtar_of = {}
+    for r in b.execute("SELECT id, seviye1, seviye2, seviye3, tam_yol, kapasite, "
+                       "kategori, sira FROM konum WHERE lab_id=?", (_db.LAB_ID,)):
+        konumlar[r["tam_yol"]] = r
+        anahtar_of[r["id"]] = _yerlesim.konum_anahtari(r)
+    # 1) Gobletler. "Sayfa1"in tankı yok (v6.180): gobletleri düzene girmiyor.
+    gobletler = []
+    for g in duzen["gobletler"]:
+        if _KONUMSUZ_SAYFA.match(cryo_excel._n(g["tank"])):
+            continue
+        yol = " / ".join(x for x in _duzen_yolu(g) if x)
+        k = konumlar.get(yol)
+        istenen = (g["kapasite"], g["kategori"], g["sira"])
+        if k is None:
+            gobletler.append((g, "yeni"))
+        elif (k["kapasite"], k["kategori"], k["sira"]) != istenen:
+            gobletler.append((g, "degisecek" if k["sira"] is not None else "duzene"))
+        else:
+            gobletler.append((g, "zaten"))
+    # 2) Excel'in dolu satırları: programda temsil ediliyor mu?
+    temsil = set()
+    sebep = {}
+    for s, k, t, ek in sonuc:
+        kim = _satir_kimligi(s)
+        yer = _yerlesim.yer_anahtari(s["tank"], s["kanister"], s["goblet"])
+        if (k != "cakisma" and t and t["durum"] == "dolu" and t["konum_id"]
+                and anahtar_of.get(t["konum_id"]) == yer):
+            temsil.add(kim)
+            continue
+        not_ = ek or ""
+        if t:
+            not_ = (not_ + "; " if not_ else "") + f"tüp {t['etiket']}"
+        sebep[kim] = (k, not_)
+    sp, _kisiler = sperm_plani(satirlar, b)
+    for s, k, ek in sp:
+        kim = _satir_kimligi(s)
+        if k == "zaten":
+            temsil.add(kim)
+        else:
+            sebep[kim] = (f"sperm_{k}", ek if isinstance(ek, str) else "")
+    # Satırın kategorisi `coz()`'unki (eşleştirmenin baktığı); yalnızca adı
+    # yazılı satır orada yok, düzeninki. Excel kaydı gobletin Excel'deki
+    # yazımına açılıyor ("p" satırı da "P" gobletine).
+    coz_kat = {_satir_kimligi(s): s["kategori"] for s in satirlar}
+    yolu = {}
+    dolu = []
+    for g in duzen["gobletler"]:
+        for r in g["satirlar"]:
+            if r["dolu"]:
+                dolu.append(r)
+                yolu[_satir_kimligi(r)] = _duzen_yolu(g)
+    for r in duzen["gobletsiz"]:
+        dolu.append(r)
+        yolu[_satir_kimligi(r)] = [r["tank"] or "", r["kanister"] or "", "", ""]
+    anahtarlar = _anahtarlar(dolu)
+    mevcut = {r["anahtar"]: r for r in b.execute(
+        "SELECT id, anahtar, durum FROM excel_kaydi WHERE lab_id=?", (_db.LAB_ID,))}
+    yeni, zaten = [], 0
+    for r in dolu:
+        kim = _satir_kimligi(r)
+        if kim in temsil:
+            continue
+        if anahtarlar[kim] in mevcut:
+            zaten += 1
+            continue
+        k, not_ = sebep.get(kim, (_BILGISIZ if r["no"] else _GOBLETSIZ, ""))
+        if not r["no"] and k != _GOBLETSIZ:
+            not_ = (not_ + "; " if not_ else "") + "Excel'de NO (goblet) yazmıyor"
+        yol = ([] if _KONUMSUZ_SAYFA.match(cryo_excel._n(r["tank"])) else yolu[kim])
+        yeni.append((r, anahtarlar[kim], k, not_, coz_kat.get(kim, r["kategori"]), yol))
+    bu_dosyada = set(anahtarlar.values())
+    excel_yok = [r for a, r in mevcut.items()
+                 if r["durum"] == "tankta" and a not in bu_dosyada]
+    return {"gobletler": gobletler, "yeni": yeni, "zaten": zaten,
+            "temsil": len(temsil), "excel_yok": excel_yok, "notlar": duzen["notlar"]}
+
+
+def yerlesim_yaz(baytlar) -> dict:
+    """Düzeni ve Excel kayıtlarını yazar -- kilidin içinde her şeyi yeniden
+    hesaplayarak (program açıkken biri bu arada dondurma yapmış olabilir)."""
+    cozum = cryo_excel.coz(baytlar)
+    duzen = cryo_excel.duzen(baytlar)
+    sayac = collections.Counter()
+    with _db.yazma_islemi() as b:
+        idx, tup = hastalar(b), tupler(b)
+        sonuc = esle(cozum["satirlar"], idx, tup)
+        if yerlesim_bekleyenler(sonuc, cozum["satirlar"], b):
+            raise RuntimeError("bu arada eşleştirilecek yeni kayıt çıktı -- "
+                               "önce öteki kipleri çalıştırın")
+        plan = yerlesim_plani(duzen, sonuc, cozum["satirlar"], b)
+        kid = _kullanici_id(b)
+        simdi = _dt.datetime.now().isoformat(" ", "seconds")
+        renkler, _ = _renk_kodlari(b, {cryo_excel.vial_coz(r["vial_metni"])[2]
+                                       for r, *_x in plan["yeni"]} - {None})
+        tipler = {x[0] for x in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
+            (_db.LAB_ID,))}
+        for g, durum in plan["gobletler"]:
+            if durum == "zaten":
+                continue
+            konum_id = _db.konum_bul_veya_olustur(_duzen_yolu(g), b)
+            b.execute("UPDATE konum SET kapasite=?, kategori=?, sira=? WHERE id=?",
+                      (g["kapasite"], g["kategori"], g["sira"], konum_id))
+            sayac["goblet_" + durum] += 1
+        for r, anahtar, sebep, not_, kategori, yol in plan["yeni"]:
+            konum_id = _db.konum_bul_veya_olustur(yol, b) if yol else None
+            tarih, tarih_notu = cryo_excel.tarih_coz(r["tarih_ham"])
+            _adet, tip, renk = cryo_excel.vial_coz(r["vial_metni"])
+            b.execute(
+                "INSERT INTO excel_kaydi (lab_id, anahtar, konum_id, kategori, soyad, ad, "
+                "es_adi, tarih, tarih_ham, icerik, vial, notlar, tip, renk, "
+                "eslesmeme_sebebi, eslesmeme_notu, kaynak_sayfa, kaynak_satir, "
+                "durum, kullanici_id, olusturma_zamani) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'tankta',?,?)",
+                (_db.LAB_ID, anahtar, konum_id, kategori or "embriyo",
+                 r["soyad"] or None, r["ad"] or None, r["es_adi"] or None, tarih,
+                 r["tarih_ham"] or None, r["icerik"] or None, r["vial_metni"] or None,
+                 r["notlar"] or None, tip if tip in tipler else None,
+                 renk if renk in renkler else None, sebep, not_ or None,
+                 r["sayfa"], r["satir"], kid, simdi))
+            sayac["excel_" + (kategori or "embriyo")] += 1
+        b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                  "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                  (_db.LAB_ID, "konum", "*", "duzen", None,
+                   f"Cryo Excel'inden tank düzeni: {sum(1 for _ in plan['gobletler'])} "
+                   f"goblet; {sayac['excel_embriyo'] + sayac['excel_sperm']} yeni "
+                   "Excel kaydı", kid, simdi))
+    return sayac
+
+
+def yerlesim_raporu(plan, bekleyen):
+    with YERLESIM_RAPOR.open("w", encoding="utf-8") as f:
+        f.write(f"Cryo haritası -- tank düzeni (v6.189) -- "
+                f"{_dt.datetime.now():%d.%m.%Y %H:%M}\n")
+        f.write("Hasta adı içerir: bu dosyayı paylaşma, depoya koyma.\n")
+        if bekleyen:
+            f.write("\nÖNCE ÇALIŞTIRILMALI (hiçbir şey yazılmadı):\n")
+            for kip, n, ne in bekleyen:
+                f.write(f"  python3 cryo_esle.py {kip} ...  -- {n} {ne}\n")
+            return
+        durum = collections.Counter(d for _g, d in plan["gobletler"])
+        f.write(f"\nGobletler: {len(plan['gobletler'])} ({dict(durum)})\n")
+        f.write("Kapasitesi bilinmeyen embriyo yerleri (önerilmez):\n")
+        for g, _d in plan["gobletler"]:
+            if g["kategori"] == "embriyo" and not g["kapasite"]:
+                f.write(f"  {' / '.join(x for x in _duzen_yolu(g) if x)}  "
+                        f"({len(g['satirlar'])} satır)\n")
+        f.write(f"\n== Yeni Excel kaydı: {len(plan['yeni'])}\n")
+        sira = collections.defaultdict(list)
+        for r, _a, sebep, not_, _k, _y in plan["yeni"]:
+            sira[sebep].append((r, not_))
+        for sebep in sorted(sira):
+            f.write(f"\n-- {sebep}: {len(sira[sebep])}\n")
+            for r, not_ in sira[sebep]:
+                yer = " / ".join(x for x in (r["tank"], r["kanister"], r["goblet"]) if x)
+                f.write(f'  {r["sayfa"]} satır {r["satir"]} ({yer}) | {r["soyad"]} '
+                        f'{r["ad"]} | {r["tarih_ham"] or "tarih?"} | {r["icerik"]} | '
+                        f'{r["vial_metni"]}' + (f"  | {not_}" if not_ else "") + "\n")
+        f.write(f"\n== Excel'de artık olmayan Excel kaydı (dokunulmadı): "
+                f"{len(plan['excel_yok'])}\n")
+        for r in plan["excel_yok"]:
+            f.write(f"  /cryo/excel-kaydi/{r['id']}\n")
+        f.write(f"\n== Not satırları (NO sütununa yazılmış; programa geçmiyor): "
+                f"{len(plan['notlar'])}\n")
+        for r in plan["notlar"]:
+            f.write(f'  {r["sayfa"]} satır {r["satir"]} ({r["tank"]} / {r["kanister"]}): '
+                    f'{r["no"]}\n')
+
+
+def _yerlesim_kipi(dosya, cozum, sonuc):
+    if not _db.kolon_var("konum", "sira") or not _db.tablo_var("excel_kaydi"):
+        sys.exit("Veritabanında tank düzeninin yeri yok (göç 052). Programı bir kez "
+                 "açıp kapatın, sonra tekrar çalıştırın.")
+    baytlar = dosya.read_bytes()
+    duzen = cryo_excel.duzen(baytlar)
+    with _db.baglan() as b:
+        bekleyen = yerlesim_bekleyenler(sonuc, cozum["satirlar"], b)
+        plan = None if bekleyen else yerlesim_plani(duzen, sonuc, cozum["satirlar"], b)
+    yerlesim_raporu(plan, bekleyen)
+    if bekleyen:
+        print("Önce şunlar çalıştırılmalı (tank düzeni hiçbir şey yazmadı):")
+        for kip, n, ne in bekleyen:
+            print(f"  python3 cryo_esle.py {kip} {dosya}   -- {n} {ne}")
+        return
+    g = duzen["gobletler"]
+    emb = [x for x in g if x["kategori"] == "embriyo"]
+    print(f"Tank düzeni (Excel): {len(g)} goblet -- {len(emb)} embriyo "
+          f"({sum(1 for x in emb if x['kapasite'])} tanesi {cryo_excel.GOBLET_KAPASITESI} "
+          f"yuvalı), {len(g) - len(emb)} sperm.")
+    durum = collections.Counter(d for _g, d in plan["gobletler"])
+    print(f"  Programda: {durum.get('zaten', 0)} goblet zaten düzende; açılacak "
+          f"{durum.get('yeni', 0)}, düzene alınacak {durum.get('duzene', 0)}, "
+          f"değişecek {durum.get('degisecek', 0)}.")
+    kat = collections.Counter(k or "embriyo" for _r, _a, _s, _n, k, _y in plan["yeni"])
+    print(f"Excel'in dolu satırı: {plan['temsil']} tanesi programdaki tüpte (gobletinde); "
+          f"yeni Excel kaydı {len(plan['yeni'])} (embriyo {kat.get('embriyo', 0)}, "
+          f"sperm {kat.get('sperm', 0)}); zaten açılmış {plan['zaten']}.")
+    sebep = collections.Counter(s for _r, _a, s, _n, _k, _y in plan["yeni"])
+    if sebep:
+        print("  Excel kaydı olma sebebi: " + ", ".join(
+            f"{k} {n}" for k, n in sebep.most_common()))
+    if plan["excel_yok"]:
+        print(f"Excel'de artık olmayan Excel kaydı: {len(plan['excel_yok'])} "
+              "(dokunulmadı -- raporda).")
+    print(f"Not satırı (programa geçmiyor): {len(plan['notlar'])}.")
+    print(f"Ayrıntı: {YERLESIM_RAPOR}")
+    if not (plan["yeni"] or any(d != "zaten" for _g, d in plan["gobletler"])):
+        print("Yazılacak bir şey yok.")
+        return
+    print("\nDevam için YERLESIM yazın:")
+    if input("> ").strip() != "YERLESIM":
+        print("Vazgeçildi, hiçbir şey yazılmadı.")
+        return
+    try:
+        y = yerlesim_yaz(baytlar)
+    except RuntimeError as e:
+        sys.exit(f"Yazılmadı: {e}.")
+    print(f"Yazıldı: {y['goblet_yeni']} goblet açıldı, "
+          f"{y['goblet_duzene'] + y['goblet_degisecek']} goblet düzene alındı; "
+          f"{y['excel_embriyo']} embriyo ve {y['excel_sperm']} sperm Excel kaydı.")
+
+
 # ------------------------------------------------------ yeni hasta (v6.179)
 #
 # Kullanıcının isteği (2026-09-25): "390: hastanın programda kaydı yok. Büyük
@@ -1524,7 +1834,7 @@ def _sperm_kipi(satirlar):
 
 def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta", "sperm",
-                                                 "eksik", "onar"):
+                                                 "eksik", "onar", "yerlesim"):
         sys.exit(__doc__)
     kip, dosya = sys.argv[1], Path(sys.argv[2])
     if not dosya.is_file():
@@ -1550,6 +1860,8 @@ def main():
         return _eksik_kipi(sonuc, cozum["satirlar"], idx, tup)
     if kip == "onar":
         return _onar_kipi(sonuc)
+    if kip == "yerlesim":
+        return _yerlesim_kipi(dosya, cozum, sonuc)
     sayac, sperm = rapor_yaz(sonuc, cozum["satirlar"], cozum["uyarilar"], kip)
     yazilacak = ozet_bas(sayac, sperm, len(cozum["satirlar"]))
     if kip == "liste":

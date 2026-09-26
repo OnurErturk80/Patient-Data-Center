@@ -546,6 +546,27 @@ adı içerir). Renk yalnızca boşsa yazılır; pembe renk listeye eklenir. İki
 çalıştırma "Onarılacak bir şey yok" der. Değişiklikler değişiklik geçmişine
 düşer. Sperm satırları bu üç hatadan etkilenmedi (`sperm` kipi ayrı).
 
+**Tank düzeni (v6.189) -- bir kez, `onar`'dan sonra.** Programın boş yer
+önerebilmesi için Excel'in bütün gobletleri (boşlar dahil) programa açılır;
+Excel'de duran ama programda tüpü bulunamayan her satır gobletinde "Excel
+kaydı" olarak kalır (yuvası dolu sayılır). Önce `git pull`, programı bir kez
+yeniden başlat (göç 052), sonra aynı Excel dosyasıyla:
+
+```
+python3 cryo_esle.py yerlesim CRYO_HARITA.xlsx   # planı basar, "YERLESIM" yazınca yazar
+```
+
+Önce çalışması gereken bir kip varsa (bekleyen `uygula`, `onar`, `yeni_hasta`
+ya da `sperm`) hiçbir şey yazmadan hangisini çalıştıracağını söyler -- büyük
+olasılıkla önce `python3 cryo_esle.py sperm CRYO_HARITA.xlsx` ("SPERM")
+isteyecek. Rapor `cryo_esle_rapor_yerlesim.txt` (hasta adı içerir). İkinci
+çalıştırma "Yazılacak bir şey yok" der. Sonra Cryo Haritası tank → kanister
+ağacı olarak açılır; bir kanistere basınca gobletleri, her birinin 4 yuvası.
+Excel kaydının sayfasından programdaki tüpe bağlanabilir ya da "tanktan
+çıkarıldı" işaretlenebilir (ikisi de geri alınabilir). **Bundan sonra harita
+programda tutulur**: yeni dondurmaları eski Excel'e değil programa girin
+(Excel'i program üretecek -- sıradaki sürüm).
+
 **2019–2022 ve temmuz–aralık 2023 (v6.172).** Önce `git pull`, sonra programı
 bir kez yeniden başlat. 53 CSV ve `tarih_duzeltme_2019_2023.txt` aynı
 klasöre. Etiketler ay + yıl (`OCAK2019` … `ARALIK2023`); 2020'nin mayısı

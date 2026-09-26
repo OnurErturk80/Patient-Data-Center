@@ -14837,3 +14837,117 @@ goblet 4 straw), dondurma ekranında boş yer önerisi (hastanın straw'ları
 farklı renkte, mümkünse birbirine yakın, gobletteki renklerle çakışmadan) ve
 her değişiklikte kendiliğinden güncellenen Excel haritası (bugünkü düzen +
 düz liste).
+
+# v6.189 — Tank düzeni: bütün gobletler ve Excel kaydı
+
+Kullanıcının isteği (2026-09-25): "Laboratuvarda cryo harita en önemli kayıt
+... Bu haritanın kesinlikle bozulmaması gerekiyor. Benim programı yaparken
+istediğim bir hastanın embriyolarını dondururken program bana tanklarda boş
+yerleri önermesiydi ... zaten kayıtlı olan embriyo bilgileri de cryo haritaya
+kendiliğinden geçsin ... cryo harita excel olarak hep arkada yapılan her
+değişiklikte dinamik olarak işlensin ve saklansın." Üç iş; bu sürüm ilki,
+ötekilerin temeli: program tankların **düzenini** bilmiyordu. `konum`
+yalnızca bir tüpe yazılmış yerdi, boş goblet programda hiç yoktu; boş yer
+önermek için hangi gobletlerin var olduğunu, kaçar straw aldığını ve
+hangisinde ne durduğunu bilmek gerek.
+
+## Düzen Excel'den bir kez, sonra program türetiyor
+
+- `cryo_excel.duzen()`: Excel'in bütün gobletleri, **boş satırlarıyla**.
+  `coz()` ile aynı satır yürüyüşünü paylaşıyor (`_veri_satirlari()`; yeniden
+  yazılan `coz()`'un çıktısı eskisiyle birebir aynı, 5.401 satır). Goblet =
+  aynı tank + kanister içinde aynı ad; Excel'de bir gobletin satırları bazen
+  iki yerde yazılmış ("G" önce 3, en altta 1 satır) -- ad aynıysa birleşiyor,
+  büyük/küçük harf farkı yok ("p" = "P"). NO sütunundaki not satırları
+  ("***** kuyuda 17 tane cane var ...", "KÜÇÜK TANK") goblet değil.
+- **Kapasite**: kullanıcı "Her goblete 4 straw/Cryotop konuyor". Excel'de
+  düzenli goblet 4 satır (973 goblet; 31'i 5, 3'ü 6 satır -- sığdırılmış
+  fazladan straw). En az 3 satırlı embriyo gobleti 4 yuvalı sayılıyor (1.014
+  goblet); TANK 2'nin 2–4. kanisterlerindeki 2014–2017 tek satırlık yerler
+  ("cane") ve tek satırlık birkaç harfli yer (TANK 4'ün 21 ve 23.
+  kanisterlerinde) kapasitesi **bilinmeyen** yer: haritada görünüyor, hiç
+  önerilmeyecek. Sperm yerlerinin kapasitesi yok (öneri embriyo için).
+- `goc_052`: `konum.kapasite`, `konum.kategori`, `konum.sira` (kanister
+  içinde Excel'deki sıra; üst kat 1000'den) ve `excel_kaydi` tablosu.
+- Doluluk **türetiliyor** (`yerlesim.doluluk()`), sayaç yok: goblet = içinde
+  duran dolu tüpler + Excel kayıtları. Yer adları serbest metin olduğu için
+  (dondurma ekranında elle yazılıyordu) tüpün gobleti `konum_id` ile değil
+  **`yerlesim.yer_anahtari()`** ile soruluyor: "T1 / K3 / 12a" ile
+  "TANK 1 / 3 / 12A" aynı goblet. Anahtar yalnızca karşılaştırma için;
+  ekrana ve veritabanına Excel'deki yazım yazılıyor. Excel'in 2.920
+  gobletinde iki farklı goblet aynı anahtara düşmüyor (ölçüldü).
+
+## Excel kaydı
+
+Kullanıcının seçimi: Excel'de bir gobletde duran ama programda karşılığı olan
+tüp bulunamayan satır "gobletinde 'Excel kaydı' olarak dursun" -- Excel'deki
+ad, tarih, hücre ve VİAL yazısıyla, yuvası dolu sayılsın. Sahte tüp
+açılmıyor (v6.127'nin gerekçesi). Sebebi kayıtta (hasta yok, o gün tüp yok,
+içerik tutmuyor, tüp programda çözülmüş görünüyor, tüp başka konumda, yalnızca
+adı yazılı satır ...). Çözülmüş görünen ya da başka konumdaki tüpün satırı
+da Excel kaydı: hangisi doğru bilinmeden yuva boş sayılırsa oraya yeni bir
+straw önerilebilirdi.
+
+Excel kaydının sayfasında (`/cryo/excel-kaydi/{id}`) iki iş, ikisi de geri
+alınabilir, kayıt silinmez:
+- **Tüpe bağla**: aynı gün dondurulmuş tüpler aday olarak listeleniyor
+  (konumu olmayanlar önce -- Excel'le eşleşemeyen tüp çoğu zaman o), ya da
+  etiket yazılıyor. Tüp Excel kaydının gobletini alıyor, rengi/tipi boşsa
+  Excel'inki yazılıyor; straw artık tüpün kendisiyle sayılıyor, iki kez
+  değil. "Bağı çöz" tüpü bağlamadan önceki konumuna döndürüyor, bağlarken
+  doldurulan rengi/tipi siliyor.
+- **Tanktan çıkarıldı**: tarih + not; yuva boşalıyor. "Tanka geri koy".
+Hepsi `degisiklik_log`'da. Tüp kalıcı silinirse bağlı Excel kaydı yeniden
+"tankta" oluyor (tüpün kaydı silindi diye straw haritadan düşmesin;
+`excel_kaydi_bagini_birak()`, `teshis_silme.py` de biliyor).
+
+## `cryo_esle.py yerlesim`
+
+Gobletleri açar/düzene alır ve Excel kayıtlarını yazar ("YERLESIM" onayı).
+**Önce öteki kipler**: bekleyen `uygula` / `onar` / `yeni_hasta` / `sperm`
+yazısı varsa hiçbir şey yazmadan hangisinin çalıştırılacağını söylüyor --
+yoksa aynı straw hem Excel kaydı olur hem de sonradan tüpüne konum yazılır,
+goblet iki kez dolu görünürdü. Bir satır "programda temsil ediliyor" =
+eşleştiği tüp dolu ve o gobletde (anahtarla). Excel kaydının kimliği içerik
+anahtarı (yer + ad + tarih + hücre + VİAL, aynı içerikteki sırası; sayfa/
+satır numarası değil): ikinci çalıştırma hiçbir şey yazmıyor; Excel'e satır
+eklenmişse yenisi ekleniyor; Excel'den silinmiş satırın Excel kaydı
+kendiliğinden kaldırılmıyor, raporda listeleniyor (straw'ın çıktığını
+söyleyecek olan kullanıcı). Rapor `cryo_esle_rapor_yerlesim.txt`.
+
+**Denendi** (veritabanının kopyası; yalnızca bazı ayların aktarıldığı eski
+bir kopya, o yüzden "hasta yok" çok): önce kip `yeni_hasta` ve `sperm`'i
+istedi; ikisi çalışınca 941 goblet açıldı, 1.963 goblet düzene alındı, 2.799
+Excel kaydı yazıldı. Tablo tablo karşılaştırma: `tasiyici`, `olay`,
+`specimen`, `sperm_dondurma`, `hasta`, `cycle` tek satır değişmedi; eski
+`konum` satırlarının hiçbiri değişmedi (945 yeni satır, kapasite/kategori/
+sıra kolonları). **Her gobletin programdaki doluluğu Excel'deki dolu satır
+sayısına eşit** (2.904 gobletin 2.898'i birebir; kalan 6'sı 2011–2017'nin
+tek satırında "2 straw" yazan yerler, programda iki tüp -- straw sayısı
+doğru). İkinci çalıştırma: "Yazılacak bir şey yok". Bağla / bağı çöz /
+tanktan çıkar / geri koy denendi: doluluk her adımda tutarlı.
+
+## Cryo Haritası
+
+Düzen kurulunca Embriyo ve Sperm Dondurma sütunları düz liste değil **tank →
+kanister ağacı** (sayılar her düzeyde: tüp, Excel kaydı, boş yuva); kanister
+sayfası (`/cryo/yer`) gobletleri Excel'deki sırasıyla, alt kat / üst kat,
+her yuvası renginin noktasıyla. Kapasitesi bilinmeyen yerde "boş yuva"
+yazılmıyor. Konumu girilmemiş ya da düzende olmayan bir yere yazılmış tüpler
+`/cryo/yersiz`'de (gizlenecek şey değil: tankta, yeri programda yok).
+Arama Excel kayıtlarını da buluyor. Sayfa 517 KB'tan 29 KB'a indi (1.531
+sperm tüpü tek sayfada basılıyordu). Düzen kurulmamışsa ekran eskisi gibi.
+
+## Kullanıcıya sorulacak (Excel'in belirsiz iki yeri)
+
+- "TANK 1+2+3" sayfasının altında ikinci bir "TANK 3" tablosu (6 kanister):
+  yalnızca 1. kanisterinde 2015'ten 4 embriyo satırı (A4–A7) dolu. Sağ
+  üstteki "KÜÇÜK TANK / TANK 3" tablosuyla aynı tank mı, o embriyolar hâlâ
+  orada mı? Bugün ikisi TANK 3'te birleşiyor (v6.173'ten beri böyle).
+- En altta "TANK 2 / CANNİSTER 2" başlıklı küçük bir sperm tablosu (9
+  satır, 2015–2017); 5'i TANK 2'nin 6. kanisterindeki satırların birebir
+  aynısı. Kopya mı? `sperm` kipi bugün ikisini ayrı tüp açıyor; kopyaysa
+  aynı vial iki kez sayılır.
+
+Sıradaki: dondurma ekranında boş yer önerisi (v6.190), kendiliğinden
+güncellenen Excel haritası.

@@ -1458,11 +1458,57 @@ body.kilitli { overflow: hidden; }
    `.yardim`'in notu burada da gecerli: ozet satirina `display: flex` verme,
    tarayicinin acilir ucgeni gider. Dokunma hedefi dolguyla. */
 .agac { border-top: 1px solid var(--line); }
-.agac > summary { cursor: pointer; padding: 11px 2px; font-size: 14px; }
+.agac > summary { cursor: pointer; padding: 11px 14px; font-size: 14px; }
 .agac.ic { margin-left: 14px; }
-.agac.ic > summary { padding: 9px 2px; font-size: 13px; color: var(--ink-2); }
+.agac.ic > summary { padding: 9px 14px; font-size: 13px; color: var(--ink-2); }
 .agacgoblet {
   margin: 8px 0 2px 28px; font-size: 12px; font-weight: 700;
   color: var(--baslik); text-transform: none;
 }
 .agac.ic .satir { margin-left: 28px; }
+
+/* Tank duzeni (v6.189): kanister sayfasinin goblet izgarasi. Her goblet bir
+   kart, icinde yuvalar (4 straw). Izgara sarmayla (`auto-fill`), sabit
+   kirilma noktasi yok -- telefonda tek sutun. */
+.agac > .satir.agacsatir { padding: 10px 14px 10px 32px; }
+.katbaslik { font-size: 15px; color: var(--baslik); margin: 18px 2px 8px; }
+.gobletizgara {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.kart.goblet { margin: 0; padding: 10px 12px; }
+.gobletbas {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line);
+}
+.yuva {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 7px 0; border-bottom: 1px solid var(--line);
+  text-decoration: none; color: inherit; font-size: 13px;
+}
+.yuva:last-child { border-bottom: 0; }
+.yuva .yuvabilgi { display: flex; flex-direction: column; min-width: 0; }
+.yuva .meta { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.yuva.excel b { color: var(--uyari); }
+.yuva.bosyuva { color: var(--ink-3); font-style: italic; }
+/* Straw'in rengi -- programin tasarim rengi degil, fiziksel straw'in rengi,
+   o yuzden sabit (degiskenle degil). Rengi yazilmamis straw bos halka. */
+.renknokta {
+  flex: none; width: 12px; height: 12px; margin-top: 3px; border-radius: 50%;
+  border: 1px solid var(--ink-3); background: transparent;
+}
+.renk-beyaz { background: #f4f4f4; }
+.renk-sari { background: #f2d024; }
+.renk-mavi { background: #2f7de1; }
+.renk-kirmizi { background: #d93a3a; }
+.renk-yesil { background: #2fa84f; }
+.renk-turuncu { background: #f08a24; }
+.renk-mor { background: #8a4fd6; }
+.renk-siyah { background: #111111; }
+.renk-pembe { background: #f27db4; }
+/* Excel kaydinin aday tuplerinden biri: satir + sagda dugme. */
+form.satir.aday { position: relative; padding-right: 110px; }
+form.satir.aday .dugme.kucuk {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: auto; margin: 0; padding: 8px 12px; min-height: 0; font-size: 13px;
+}

@@ -62,7 +62,9 @@ verilmedi (Cryo Excel'inde o yıllardan ~200 satır var). Sonra sıra Cryo
 Excel'inde: `cryo_esle.py` (aşağıda; v6.180'de sperm satırları da, kullanıcı
 henüz çalıştırmadı). v6.188'in onarımı (`cryo_esle.py onar`: TANK 3
 kanisterleri, üst kat, yeşil/pembe) kullanıcının Mac'inde çalıştırılacak;
-çalıştırıp çalıştırmadığını sormadan haritanın konumlarına güvenme. Göç, kalıcı silme, geri yükleme gibi
+çalıştırıp çalıştırmadığını sormadan haritanın konumlarına güvenme. Tank
+düzeni (v6.189, `cryo_esle.py yerlesim`, önce `onar` ve `sperm` ister) de
+kullanıcının makinesinde çalıştırılacak -- boş yer önerisi ondan önce çalışmaz. Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -160,7 +162,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..051.py   veritabanı göçleri (sırayla)
+  goc_002..052.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
@@ -174,6 +176,7 @@ Patient Data Center/
   aktar_toplu.py    klasördeki bütün Access CSV'lerini sırayla aktarır (v6.172)
   cryo_excel.py     laboratuvarın cryo haritası Excel'ini çözer (v6.173)
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
+  yerlesim.py       tank düzeni: goblet doluluğu, yer anahtarı, haritanın ağacı (v6.189)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
   kullanici.py      kullanıcı listesi / şifre sıfırlama / yeni kullanıcı
   tasi.py           iki makine arasında USB ile veri taşıma
@@ -2107,8 +2110,49 @@ besleniyor.
   okumasını değiştirirsen** eski/yeni okumayı satır satır karşılaştır
   (v6.176'nın kuralı) ve kullanıcının veritabanına yazılmış yanlışın onarım
   yolunu da yaz -- okumayı düzeltmek yazılmış konumu düzeltmez.
+- **Tank düzeni programda** (v6.189, README v6.189; kullanıcının isteği:
+  "dondururken program bana tanklarda boş yerleri önermesi"). Her goblet bir
+  `konum` satırı + `kapasite` (düzenli embriyo gobletinde 4, en az 3 satırlı;
+  eski tek satırlık "cane" yerleri, sperm yerleri ve elle yazılmış yerler
+  NULL -- **kapasitesi bilinmeyen yer hiç önerilmez**), `kategori`, `sira`
+  (Excel'deki sıra, üst kat 1000'den). Kuran `cryo_esle.py yerlesim`
+  (`cryo_excel.duzen()`: boş satırlar dahil bütün gobletler; aynı ad iki
+  yerde yazılmışsa birleşir, "p" = "P", NO sütunundaki "*..." not satırları
+  goblet değil).
+  - **Doluluk türetiliyor** (`yerlesim.doluluk()`): goblet = dolu tüpler +
+    `excel_kaydi` ('tankta'). Sayaç YAZMA. Tüpün gobleti `konum_id` ile değil
+    **`yerlesim.yer_anahtari()` / `konum_anahtari()`** ile ("T1 / K3 / 12a" =
+    "TANK 1 / 3 / 12A"); anahtar yalnızca karşılaştırma, yazılan Excel'in
+    yazımı. Bir tüpün "hangi gobletde" sorusunu yeni bir yerde soracaksan
+    anahtarı kullan, `tam_yol` eşitliği yazma.
+  - **Excel kaydı** (kullanıcının seçimi: "Gobletinde 'Excel kaydı' olarak
+    dursun"): Excel'de duran, programda o gobletde tüpü olmayan satır --
+    hasta yok, içerik tutmuyor, tüp programda çözülmüş ya da başka konumda,
+    yalnızca adı yazılı satır. Sahte tüp AÇMA. Kimliği içerik anahtarı
+    (sayfa/satır no değil); `durum` 'tankta' / 'baglandi' (`tasiyici_id`,
+    `onceki_konum_id`) / 'kaldirildi'; silinmez. Sayfası
+    `/cryo/excel-kaydi/{id}`: tüpe bağla (tüp gobletin konumunu alır,
+    boşsa rengi/tipi; "bağı çöz" konumu ve bağlarken doldurulanı geri alır),
+    tanktan çıkarıldı (tarih + not; "tanka geri koy"). `tasiyici`'ye FK:
+    tüpü kalıcı silen yol önce `excel_kaydi_bagini_birak()` (tuzak #4).
+  - **`yerlesim` önce öteki kipleri ister** (bekleyen `uygula`/`onar`/
+    `yeni_hasta`/`sperm` -- yoksa aynı straw hem Excel kaydı hem tüp olurdu)
+    ve Excel'den silinmiş satırın Excel kaydını kendiliğinden kaldırmaz
+    (raporda listeler; straw'ın çıktığını kullanıcı söyler).
+  - **Doğrulama ölçüsü**: her gobletin programdaki doluluğu Excel'deki dolu
+    satır sayısına eşit (v6.189'da 2.904 gobletin 2.898'i; kalan 6'sı "2
+    straw" yazan tek satır, programda iki tüp). Düzen ya da Excel kaydı
+    mantığını değiştirirsen bu karşılaştırmayı tekrar çalıştır.
+  - `/cryo` düzen varken tank → kanister ağacı (embriyo ve sperm aynı makro,
+    `duzen_agaci`), kanister sayfası `/cryo/yer?tank=&kanister=` (adres
+    yalnızca aranıyor, düzende yoksa `/cryo`'ya dönüyor), yeri belirsizler
+    `/cryo/yersiz?kategori=` (beyaz liste). Düzen yoksa eski ekran.
 - **Kullanıcıya sorulan, cevabı bekleyen**: geçen sefer (v6.127) neyi
-  istemediği. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını
+  istemediği. Excel'in iki belirsiz yeri (README v6.189): sayfanın altındaki
+  ikinci "TANK 3" tablosu (1. kanisterinde 2015'ten 4 embriyo) sağ üstteki
+  "KÜÇÜK TANK / TANK 3" ile aynı tank mı; en alttaki "TANK 2 / CANNİSTER 2"
+  sperm tablosu (5 satırı 6. kanisterin birebir aynısı) kopya mı -- kopyaysa
+  `sperm` kipi aynı vial'i iki kez açıyor. Sperm VİAL'deki "1(A,B,C)" yazımının anlamını
   kullanıcı da bilmiyor (2026-09-25) -- yorumlanmıyor, notta olduğu gibi
   duruyor; ondan tüp sayısı ya da konum ÇIKARMA.
 

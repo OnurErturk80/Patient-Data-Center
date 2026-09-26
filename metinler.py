@@ -247,6 +247,155 @@ METINLER = {
     "henuz_dondurulmus_yok": {"tr": "Henüz dondurulmuş embriyo yok.",
                               "en": "No frozen embryos yet."},
 
+    # ---- tank düzeni ve Excel kaydı (v6.189) ----
+    "tank_duzeni_ipucu": {"tr": "Tank → kanister → goblet (her goblet 4 straw)",
+                          "en": "Tank → canister → goblet (4 straws per goblet)"},
+    "n_goblet": {"tr": "{n} goblet", "en": "{n} goblets"},
+    "n_goblet_tekil": {"tr": "{n} goblet", "en": "{n} goblet"},
+    "n_bos_yuva": {"tr": "{n} boş yuva", "en": "{n} free slots"},
+    "n_bos_yuva_tekil": {"tr": "{n} boş yuva", "en": "{n} free slot"},
+    "n_excel_kaydi": {"tr": "{n} Excel kaydı", "en": "{n} Excel records"},
+    "n_excel_kaydi_tekil": {"tr": "{n} Excel kaydı", "en": "{n} Excel record"},
+    "n_yeri_belirsiz": {"tr": "{n} gobleti belirsiz", "en": "{n} without goblet"},
+    "ust_kati_var": {"tr": "üst katı var", "en": "has upper level"},
+    "alt_kat": {"tr": "Alt kat", "en": "Lower level"},
+    "ust_kat": {"tr": "Üst kat", "en": "Upper level"},
+    "bos_yuva": {"tr": "boş yuva", "en": "free slot"},
+    "goblet_bos": {"tr": "Excel'de satırı yok", "en": "No rows in the Excel"},
+    "kapasite_bilinmiyor": {"tr": "kaç straw aldığı bilinmiyor",
+                            "en": "capacity unknown"},
+    "gobleti_belirsiz": {"tr": "Gobleti belirsiz", "en": "Goblet unknown"},
+    "gobleti_belirsiz_ipucu": {
+        "tr": "Bu kanisterde, ama yazılan goblet tank düzeninde yok ya da hiç "
+              "yazılmamış.",
+        "en": "In this canister, but the goblet written is not in the tank "
+              "layout or was not written at all."},
+    "yeri_belirsizler": {"tr": "Haritada yeri belirsiz", "en": "Location unknown"},
+    "konumu_girilmemis_tupler": {"tr": "Konumu girilmemiş tüpler",
+                                 "en": "Tubes without a location"},
+    "konumu_girilmemis_ipucu": {
+        "tr": "Tankta duruyor, yeri programda yok. Excel'le eşleşmeyen tüpler "
+              "çoğunlukla bunlar: gobletinde duran Excel kaydından bağlanabilir.",
+        "en": "In the tank, location not recorded. Usually the tubes that did "
+              "not match the Excel: link them from the Excel record in their goblet."},
+    "duzende_olmayan_konum": {"tr": "Tank düzeninde olmayan konum",
+                              "en": "Location not in the tank layout"},
+    "duzende_olmayan_konum_ipucu": {
+        "tr": "Girilen yer (Tank / Kanister / Goblet) düzendeki hiçbir gobletle "
+              "tutmuyor.",
+        "en": "The location entered (tank / canister / goblet) matches no "
+              "goblet in the layout."},
+    "girilen_konum": {"tr": "Girilen konum", "en": "Location entered"},
+    "excel_kaydi": {"tr": "Excel kaydı", "en": "Excel record"},
+    "excel_kayitlari": {"tr": "Excel kayıtları", "en": "Excel records"},
+    "excel_kaydi_ipucu": {
+        "tr": "Cryo Haritası Excel'inde duran, programda tüpü bulunamamış satırlar",
+        "en": "Rows of the cryo map Excel with no matching tube in the program"},
+    "excel_kaydi_aciklama": {
+        "tr": "Cryo Haritası Excel'inde bu gobletde duran ama programda karşılığı "
+              "olan tüp bulunamayan bir straw. Excel'deki yazısıyla duruyor; yuvası "
+              "dolu sayılıyor.",
+        "en": "A straw listed in this goblet of the cryo map Excel with no "
+              "matching tube in the program. Shown as written in the Excel; its "
+              "slot counts as occupied."},
+    "excel_kaydi_kaldirildi": {"tr": "Tanktan çıkarıldı", "en": "Removed from tank"},
+    "excel_kaydi_baglandi": {"tr": "Tüpe bağlandı", "en": "Linked to a tube"},
+    "excel_soyad_ad": {"tr": "Soyad, ad (Excel)", "en": "Surname, name (Excel)"},
+    "excel_hucre": {"tr": "Hücre (Excel)", "en": "Cells (Excel)"},
+    "excel_vial": {"tr": "VİAL (Excel)", "en": "VIAL (Excel)"},
+    "excel_kaynak": {"tr": "Excel'deki yeri", "en": "Place in the Excel"},
+    "satir_n": {"tr": "satır {n}", "en": "row {n}"},
+    "tarih": {"tr": "Tarih", "en": "Date"},
+    "notlar": {"tr": "Notlar", "en": "Notes"},
+    "isaretleyen": {"tr": "İşaretleyen", "en": "Marked by"},
+    "eslesmeme_sebebi": {"tr": "Neden tüp değil", "en": "Why not a tube"},
+    "eslesmeme_hasta_yok": {"tr": "Excel'deki hasta programda yok",
+                            "en": "The patient in the Excel is not in the program"},
+    "eslesmeme_hasta_cok": {"tr": "Aynı adlı birden çok hasta var, hangisi olduğu "
+                                  "ayırt edilemedi",
+                            "en": "Several patients share the name; not resolved"},
+    "eslesmeme_gun_yok": {"tr": "Hasta programda var ama o gün dondurulmuş tüpü yok",
+                          "en": "Patient found, but no tube frozen that day"},
+    "eslesmeme_tup_yok": {"tr": "Hasta programda var ama hiç dondurma tüpü yok",
+                          "en": "Patient found, but no frozen tubes at all"},
+    "eslesmeme_tutmuyor": {"tr": "O gün tüp var ama içerik tutmuyor",
+                           "en": "A tube exists that day but the contents differ"},
+    "eslesmeme_es_tutmuyor": {"tr": "Ad tutuyor, eş adı tutmuyor",
+                              "en": "Name matches, partner's name does not"},
+    "eslesmeme_cakisma": {"tr": "İki Excel satırı aynı tüpü istiyor",
+                          "en": "Two Excel rows claim the same tube"},
+    "eslesmeme_bosaltilmis": {
+        "tr": "Tüp programda çözülmüş/boşaltılmış görünüyor, Excel tankta diyor",
+        "en": "The tube is thawed/emptied in the program; the Excel says in tank"},
+    "eslesmeme_farkli_konum": {"tr": "Tüp programda başka bir konumda",
+                               "en": "The tube is at another location in the program"},
+    "eslesmeme_tarihsiz": {"tr": "Excel'de tarih yok ya da okunamadı",
+                           "en": "No readable date in the Excel"},
+    "eslesmeme_bilgisiz": {"tr": "Excel'de yalnızca ad yazılı (tarih, hücre, VİAL yok)",
+                           "en": "Only a name in the Excel (no date, cells, vial)"},
+    "eslesmeme_gobletsiz": {"tr": "Excel'de gobleti (NO) yazmıyor",
+                            "en": "No goblet (NO) in the Excel"},
+    "eslesmeme_sperm_tarih_yok": {"tr": "Sperm: tarih yok ya da okunamadı",
+                                  "en": "Sperm: no readable date"},
+    "eslesmeme_sperm_tarih_ileri": {"tr": "Sperm: tarih bugünden ileri (yazım hatası)",
+                                    "en": "Sperm: date in the future (typo)"},
+    "eslesmeme_sperm_ayni_ad": {"tr": "Sperm: aynı adla birden çok kayıt",
+                                "en": "Sperm: several records with the name"},
+    "eslesmeme_sperm_es_belirsiz": {
+        "tr": "Sperm: aynı adla iki farklı eş, bu satırda eş yazmıyor",
+        "en": "Sperm: two partners with the name, none on this row"},
+    "eslesmeme_sperm_baska_konum": {
+        "tr": "Sperm: programda o gün kaydı var, konumu farklı",
+        "en": "Sperm: a record that day exists at another location"},
+    "tupe_bagla": {"tr": "Tüpe bağla", "en": "Link to a tube"},
+    "tupe_bagla_ipucu": {
+        "tr": "Straw programdaki bir tüpse bağlayın: tüp bu gobletin konumunu alır, "
+              "Excel kaydı onunla birleşir. Aynı gün dondurulmuş tüpler:",
+        "en": "If the straw is a tube in the program, link it: the tube takes this "
+              "goblet's location and the Excel record merges into it. Tubes frozen "
+              "the same day:"},
+    "bu_tupe_bagla": {"tr": "Bu tüp", "en": "This tube"},
+    "tupe_bagla_onay": {"tr": "Excel kaydı {etiket} tüpüne bağlanacak; tüp bu "
+                              "gobletin konumunu alacak. Devam edilsin mi?",
+                        "en": "The Excel record will be linked to tube {etiket}; "
+                              "the tube takes this goblet's location. Continue?"},
+    "tupe_bagla_onay_elle": {"tr": "Excel kaydı yazılan etiketteki tüpe bağlanacak; "
+                                   "tüp bu gobletin konumunu alacak. Devam edilsin mi?",
+                             "en": "The Excel record will be linked to the tube with "
+                                   "this label; the tube takes this goblet's location. "
+                                   "Continue?"},
+    "tup_etiketi": {"tr": "Tüp etiketi", "en": "Tube label"},
+    "ayni_gun_tup_yok": {"tr": "Aynı gün dondurulmuş dolu tüp yok.",
+                         "en": "No occupied tube frozen that day."},
+    "excel_bagla_tup_yok": {"tr": "Bu etiketle bir tüp yok",
+                            "en": "No tube with this label"},
+    "excel_bagla_tup_dolu_degil": {"tr": "Tüp dolu değil (çözülmüş ya da taşınmış)",
+                                   "en": "The tube is not occupied (thawed or moved)"},
+    "excel_bagla_kategori": {"tr": "Tüp başka türden (embriyo / sperm)",
+                             "en": "The tube is of another kind (embryo / sperm)"},
+    "excel_kaldir_tarih": {"tr": "Tarih girilmeli.", "en": "A date is required."},
+    "excel_bagi_coz": {"tr": "Bağı çöz", "en": "Unlink"},
+    "excel_bagi_coz_onay": {"tr": "Bağ çözülecek; tüp bağlamadan önceki konumuna döner. "
+                                  "Devam edilsin mi?",
+                            "en": "The link will be removed; the tube returns to its "
+                                  "previous location. Continue?"},
+    "tanktan_cikarildi": {"tr": "Tanktan çıkarıldı olarak işaretle",
+                          "en": "Mark as removed from the tank"},
+    "tanktan_cikarildi_ipucu": {
+        "tr": "Straw çözüldü, atıldı ya da başka yere taşındıysa. Yuva boşalır; "
+              "kayıt silinmez, geri alınabilir.",
+        "en": "If the straw was thawed, discarded or moved. The slot is freed; the "
+              "record is kept and can be restored."},
+    "tanktan_cikarildi_ornek": {"tr": "Örn. çözüldü, atıldı, başka merkeze gitti",
+                                "en": "E.g. thawed, discarded, sent elsewhere"},
+    "tanktan_cikarildi_onay": {"tr": "Straw tanktan çıkarıldı olarak işaretlenecek. "
+                                     "Devam edilsin mi?",
+                               "en": "The straw will be marked as removed. Continue?"},
+    "tanktan_cikarildi_kaydet": {"tr": "Tanktan çıkarıldı", "en": "Removed"},
+    "tanka_don": {"tr": "Tanka geri koy", "en": "Put back in the tank"},
+    "tanka_don_onay": {"tr": "Straw yeniden tankta sayılacak. Devam edilsin mi?",
+                       "en": "The straw will count as in the tank again. Continue?"},
+
     # ---- sperm dondurma (v6.84) ----
     "sperm_dondurma": {"tr": "Sperm Dondurma", "en": "Sperm Freezing"},
     "yeni_sperm_dondurma": {"tr": "Yeni Sperm Dondurma", "en": "New Sperm Freezing"},

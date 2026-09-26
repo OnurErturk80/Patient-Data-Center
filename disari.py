@@ -446,6 +446,9 @@ TUM_TABLOLAR = [
     "islem_yapan", "gebelik_sonucu",
     "beta_hcg", "dogan_bebek", "pgt_sonuc", "tasiyici", "konum", "konum_semasi",
     "liste_degeri", "degisiklik_log",
+    # Cryo Haritası Excel'inde duran, programda tüpü bulunamamış straw'lar
+    # (v6.189) -- haritanın parçası, dökümde de olmalı.
+    "excel_kaydi",
 ]
 
 # Kullanıcı tablosundan yalnızca bunlar: `kullanici_id` kolonlarının kimi

@@ -172,6 +172,14 @@ for sdid in sperm_dondurmalar:
         (f"sperm_dondurma {sdid}: onam dosyalari",
          "DELETE FROM sperm_dondurma_dosya WHERE sperm_dondurma_id=?", (sdid,)),
         (f"sperm_dondurma {sdid}: kayit", "DELETE FROM sperm_dondurma WHERE id=?", (sdid,)),
+    ]
+    # Tüpe bağlı Excel kaydı (v6.189): uygulama önce bağı bırakıyor.
+    if b.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                 "AND name='excel_kaydi'").fetchone():
+        ADIMLAR.append((f"sperm_dondurma {sdid}: excel_kaydi bagi",
+                        "UPDATE excel_kaydi SET tasiyici_id=NULL, durum='tankta' "
+                        "WHERE tasiyici_id=?", (tid,)))
+    ADIMLAR += [
         (f"sperm_dondurma {sdid}: tasiyici", "DELETE FROM tasiyici WHERE id=?", (tid,)),
     ]
 ADIMLAR.append(("HASTA", "DELETE FROM hasta WHERE id=?", (h["id"],)))

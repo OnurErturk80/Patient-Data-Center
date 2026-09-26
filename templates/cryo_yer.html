@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("cryo_haritasi") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block kimlik %}
+<div class="kimlik tekli">
+  <div class="dosya">{{ tank }} · {{ metin("kanister") }} {{ kanister or "—" }}</div>
+  <div class="alt">{{ say("n_goblet", alt|length + ust|length) }} · {{ say("n_bos_yuva", bos_yuva) }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{# Kanisterin gobletleri, Excel'deki sırasıyla (v6.189). Her goblet 4 yuva
+   (kullanıcı: "Her goblete 4 straw/Cryotop konuyor"); dolu yuva tüp ya da
+   Excel kaydı, boşu "boş yuva". Straw'lar goblette rengiyle ayırt edildiği
+   için renge göre sıralı. Kapasitesi bilinmeyen eski yerde boş yuva
+   yazılmaz -- orada kaç straw sığdığını program bilmiyor. #}
+{% macro yuva_tup(x) %}
+  <a class="yuva" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
+    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
+    <span class="yuvabilgi">
+      <span><b>{{ x.etiket }}</b>{% if x.renk %} · {{ etiketler.get(x.renk, x.renk) }}{% endif %}
+      {%- if x.tip %} · {{ etiketler.get(x.tip, x.tip) }}{% endif %}</span>
+      <span class="meta">{{ x.dosya_no or "" }} · {{ x.ad_soyad or "—" }}</span>
+      <span class="meta">{{ gg_aa_yyyy(x.vitrifikasyon_zamani) if x.vitrifikasyon_zamani else "—" }}
+        {%- if x.parantez %} · {% if x.yumurta %}{{ metin("oosit_ad") }}{% else %}{{ x.gun }}{% endif %} {{ x.parantez }}{% endif %}</span>
+    </span>
+  </a>
+{% endmacro %}
+{% macro yuva_excel(x) %}
+  <a class="yuva excel" href="/cryo/excel-kaydi/{{ x.id }}">
+    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
+    <span class="yuvabilgi">
+      <span><b>{{ metin("excel_kaydi") }}</b>{% if x.renk %} · {{ etiketler.get(x.renk, x.renk) }}{% endif %}</span>
+      <span class="meta">{{ x.soyad or "" }} {{ x.ad or "" }}</span>
+      <span class="meta">{{ gg_aa_yyyy(x.tarih) if x.tarih else (x.tarih_ham or "—") }}
+        {%- if x.icerik %} · {{ x.icerik }}{% endif %}{% if x.vial %} · {{ x.vial }}{% endif %}</span>
+    </span>
+  </a>
+{% endmacro %}
+{% macro gobletler(liste) %}
+<div class="gobletizgara">
+  {% for g, dolu, bos in liste %}
+  <div class="kart goblet">
+    <div class="gobletbas">
+      <b>{{ metin("goblet") }} {{ g.goblet }}</b>
+      <span class="ipucu">{% if g.kapasite %}{{ dolu|length }}/{{ g.kapasite }}{% else %}{{ metin("kapasite_bilinmiyor") }}{% endif %}</span>
+    </div>
+    {% for tur, x in dolu %}{% if tur == "tup" %}{{ yuva_tup(x) }}{% else %}{{ yuva_excel(x) }}{% endif %}{% endfor %}
+    {% for i in range(bos) %}<div class="yuva bosyuva">{{ metin("bos_yuva") }}</div>{% endfor %}
+    {% if not dolu and not bos %}<div class="yuva bosyuva">{{ metin("goblet_bos") }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% if ust %}<h2 class="katbaslik">{{ metin("alt_kat") }}</h2>{% endif %}
+{{ gobletler(alt) }}
+{% if ust %}
+<h2 class="katbaslik">{{ metin("ust_kat") }}</h2>
+{{ gobletler(ust) }}
+{% endif %}
+
+{% if yersiz_tup or yersiz_excel %}
+<div class="kart">
+  <h2>{{ metin("gobleti_belirsiz") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("gobleti_belirsiz_ipucu") }}</div>
+  {% for x in yersiz_tup %}{{ yuva_tup(x) }}{% endfor %}
+  {% for x in yersiz_excel %}{{ yuva_excel(x) }}{% endfor %}
+</div>
+{% endif %}
+
+<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
+{% endblock %}

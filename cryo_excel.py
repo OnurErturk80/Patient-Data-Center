@@ -331,6 +331,62 @@ def _tank(tanklar: list, baslik_satiri: int, alanlar: dict, sayfa: str):
     return re.sub(r"\s+", " ", str(sayfa or "").strip()).replace("i", "İ").upper()
 
 
+def _izgara(baytlar: bytes) -> dict:
+    try:
+        izgara = xlsx_oku.izgara(baytlar, EN_COK_SATIR, EN_COK_SUTUN)
+    except xlsx_oku.Hata as e:
+        raise Hata(str(e)) from None
+    if not izgara:
+        raise Hata("dosyada sayfa yok")
+    return izgara
+
+
+def _veri_satirlari(hucreler: dict, sayfa: str, bloklar: list):
+    """Sayfanın bloklarındaki HER veri satırı -- boş olanlar da (v6.189).
+
+    `coz()` bunlardan hasta satırlarını, `duzen()` gobletleri (boş yuvalarla
+    birlikte) çıkarıyor; ikisinin aynı satırları aynı yere koyması için tek
+    yürüyüş. Atlanan: blok içindeki kanister/tank ayraçları ve tekrarlanan
+    başlık satırları.
+    """
+    # Kanisterin üst katı (v6.188): sayfanın adı söylüyor ("Tank 1-5 üst").
+    ust_kat = "ÜST" in _n(sayfa).split()
+    for blok in bloklar:
+        a = blok["alanlar"]
+        # Bir blok birden çok kanister taşıyabiliyor: TANK 3'ün 2-5.
+        # kanisterleri tek sütunda alt alta, araya NO sütununa "CANİSTER 2"
+        # gibi satırlar konarak yazılmış. v6.188'e kadar bu ayraçlar
+        # tanınmıyordu, 49 embriyo satırı 1. kanister sayıldı.
+        tank, kanister = blok["tank"], blok["kanister"]
+        for satir in range(blok["veri_bas"], blok["veri_son"] + 1):
+            def al(ad):
+                return str(hucreler.get((satir, a[ad]), "")).strip() if ad in a else ""
+            no = al("no")
+            ayrac = _KANISTER_AYRAC.match(_n(no))
+            if ayrac:
+                kanister = ayrac.group(1)
+                continue
+            ayrac = _TANK.match(_n(no))
+            if ayrac:
+                tank, kanister = "TANK " + ayrac.group(1), None
+                continue
+            soyad, ad_ = al("soyad"), al("ad")
+            if _n(soyad) in _BASLIKLAR or _n(ad_) in _BASLIKLAR:
+                continue                      # tekrarlanan başlık satırı
+            yield {
+                "sayfa": sayfa, "satir": satir, "sutun": a["soyad"],
+                "tank": tank, "kanister": kanister, "no": no,
+                "goblet": f"{no} {UST_KAT}" if ust_kat and no else no,
+                "ust_kat": ust_kat,
+                # v6.188'den önceki okumanın yeri: `cryo_esle.py onar`
+                # yalnızca o okumanın yazdığı konumu düzeltiyor.
+                "eski_yer": (blok["tank"], blok["kanister"], no),
+                "soyad": soyad, "ad": ad_, "es_adi": al("es"),
+                "tarih_ham": al("tarih"), "icerik": al("icerik"),
+                "vial_metni": al("vial"), "notlar": al("notlar"),
+            }
+
+
 def coz(baytlar: bytes) -> dict:
     """Yüklenen `.xlsx`'i çözer.
 
@@ -338,13 +394,7 @@ def coz(baytlar: bytes) -> dict:
 
     Hiçbir şey veritabanına yazılmaz; eşleştirme ve yazma `cryo_esle.py`'de.
     """
-    try:
-        izgara = xlsx_oku.izgara(baytlar, EN_COK_SATIR, EN_COK_SUTUN)
-    except xlsx_oku.Hata as e:
-        raise Hata(str(e)) from None
-    if not izgara:
-        raise Hata("dosyada sayfa yok")
-
+    izgara = _izgara(baytlar)
     satirlar, uyarilar = [], []
     sayfa_ozeti = {}
     for sayfa, hucreler in izgara.items():
@@ -355,53 +405,27 @@ def coz(baytlar: bytes) -> dict:
             continue
         sayfa_satirlari = []
         eksik = 0
-        # Kanisterin üst katı (v6.188): sayfanın adı söylüyor ("Tank 1-5 üst").
-        ust_kat = "ÜST" in _n(sayfa).split()
-        for blok in bloklar:
-            a = blok["alanlar"]
-            # Bir blok birden çok kanister taşıyabiliyor: TANK 3'ün 2-5.
-            # kanisterleri tek sütunda alt alta, araya NO sütununa "CANİSTER 2"
-            # gibi satırlar konarak yazılmış. v6.188'e kadar bu ayraçlar
-            # tanınmıyordu, 49 embriyo satırı 1. kanister sayıldı.
-            tank, kanister = blok["tank"], blok["kanister"]
-            for satir in range(blok["veri_bas"], blok["veri_son"] + 1):
-                def al(ad):
-                    return str(hucreler.get((satir, a[ad]), "")).strip() if ad in a else ""
-                soyad, ad_, es = al("soyad"), al("ad"), al("es")
-                tarih_ham, icerik, vial = al("tarih"), al("icerik"), al("vial")
-                no, not_ = al("no"), al("notlar")
-                ayrac = _KANISTER_AYRAC.match(_n(no))
-                if ayrac:
-                    kanister = ayrac.group(1)
-                    continue
-                ayrac = _TANK.match(_n(no))
-                if ayrac:
-                    tank, kanister = "TANK " + ayrac.group(1), None
-                    continue
-                if _n(soyad) in _BASLIKLAR or _n(ad_) in _BASLIKLAR:
-                    continue                      # tekrarlanan başlık satırı
-                if not (soyad or ad_):
-                    continue
-                if not (tarih_ham or icerik or vial):
-                    # Adı var ama örnek bilgisi hiç yok: kayıt saymıyoruz,
-                    # ama sessizce yutmuyoruz da.
-                    eksik += 1
-                    continue
-                tarih, tarih_notu = tarih_coz(tarih_ham)
-                adet, tip, renk = vial_coz(vial)
-                sayfa_satirlari.append({
-                    "sayfa": sayfa, "satir": satir, "sutun": a["soyad"],
-                    "tank": tank, "kanister": kanister,
-                    "goblet": f"{no} {UST_KAT}" if ust_kat and no else no,
-                    # v6.188'den önceki okumanın yeri: `cryo_esle.py onar`
-                    # yalnızca o okumanın yazdığı konumu düzeltiyor.
-                    "eski_yer": (blok["tank"], blok["kanister"], no),
-                    "soyad": soyad, "ad": ad_, "es_adi": es,
-                    "tarih": tarih, "tarih_notu": tarih_notu,
-                    "icerik": icerik, "vial_metni": vial,
-                    "adet": adet, "tip": tip, "renk": renk, "notlar": not_,
-                    "kategori": kategori_coz(icerik),
-                })
+        for r in _veri_satirlari(hucreler, sayfa, bloklar):
+            if not (r["soyad"] or r["ad"]):
+                continue
+            if not (r["tarih_ham"] or r["icerik"] or r["vial_metni"]):
+                # Adı var ama örnek bilgisi hiç yok: kayıt saymıyoruz,
+                # ama sessizce yutmuyoruz da. (Tank düzeni -- `duzen()` --
+                # bu satırın yuvasını yine de dolu sayıyor, v6.189.)
+                eksik += 1
+                continue
+            tarih, tarih_notu = tarih_coz(r["tarih_ham"])
+            adet, tip, renk = vial_coz(r["vial_metni"])
+            sayfa_satirlari.append({
+                "sayfa": sayfa, "satir": r["satir"], "sutun": r["sutun"],
+                "tank": r["tank"], "kanister": r["kanister"],
+                "goblet": r["goblet"], "eski_yer": r["eski_yer"],
+                "soyad": r["soyad"], "ad": r["ad"], "es_adi": r["es_adi"],
+                "tarih": tarih, "tarih_notu": tarih_notu,
+                "icerik": r["icerik"], "vial_metni": r["vial_metni"],
+                "adet": adet, "tip": tip, "renk": renk, "notlar": r["notlar"],
+                "kategori": kategori_coz(r["icerik"]),
+            })
         # Kategorisi metinden anlaşılmayan satırlar sayfanın baskın
         # kategorisine düşer (YENİ SPERM'de HÜCRE'si boş 74 satır gibi).
         baskin = _baskin_kategori(sayfa_satirlari)
@@ -417,6 +441,99 @@ def coz(baytlar: bytes) -> dict:
     if not satirlar:
         raise Hata("dosyada okunabilir kayıt bulunamadı")
     return {"satirlar": satirlar, "sayfalar": sayfa_ozeti, "uyarilar": uyarilar}
+
+
+# ------------------------------------------------------------ tank düzeni
+
+# Kullanıcı (2026-09-25): "Her goblete 4 straw/Cryotop konuyor. Ve Goblette
+# farklı renkler konuyor." Excel'de düzenli bir goblet 4 satır: her satır bir
+# straw, boşalan straw'ın satırı boş kalıyor (v6.189'da ölçüldü: 973 goblet
+# 4 satır, 31'i 5, 3'ü 6 -- sığdırılmış fazladan straw).
+GOBLET_KAPASITESI = 4
+# Bu kadar satırı olmayan goblet "düzenli" sayılmıyor, kapasitesi bilinmiyor:
+# TANK 2'nin 2-4. kanisterlerindeki 2014-2017 yerleri tek satır ("cane",
+# Excel'in kendi notu: "kuyuda 17 tane cane var"). Öyle bir yer önerilmez.
+_DUZENLI_EN_AZ_SATIR = 3
+# NO sütununa yazılmış not satırları ("***** kuyuda 17 tane cane var ...",
+# "*** DEJENERE ÇIKAR ...") ve bölüm başlığı -- goblet değil.
+_NOT_SATIRI = re.compile(r"^\*|^KÜÇÜK TANK$")
+
+
+def duzen(baytlar: bytes) -> dict:
+    """Excel'in tank düzeni: bütün gobletler, BOŞ yuvalarıyla (v6.189).
+
+    `coz()` yalnızca hasta satırlarını veriyor; boş yer önermek için boş
+    gobleti ve gobletin boş satırını da bilmek gerek.
+
+    -> {"gobletler": [...], "gobletsiz": [...], "notlar": [...]}
+
+    Goblet = aynı tank + kanister içinde aynı ad (büyük/küçük harf farkı
+    yok sayılıyor: "p" ile "P" bir goblet). Excel'de bir gobletin satırları
+    bazen iki ayrı yerde yazılmış ("G" önce 3, en altta 1 satır) -- ad aynıysa
+    birleşiyor. Her gobletin: `tank`, `kanister`, `goblet` (Excel'deki yazım),
+    `kategori`, `sira` (kanister içinde Excel'deki sırası; üst kat 1000'den),
+    `kapasite` (düzenli embriyo gobletinde 4, yoksa None) ve `satirlar`
+    (her satır: sayfa/satır/sütun, `dolu`, Excel'deki yazılar).
+    `gobletsiz`: adı olan ama NO'su boş satırlar (gobleti bilinmiyor).
+    """
+    izgara = _izgara(baytlar)
+    gobletler, gobletsiz, notlar = {}, [], []
+    siralar = {}
+    for sayfa, hucreler in izgara.items():
+        bloklar = _bloklar(hucreler, sayfa)
+        if not bloklar:
+            continue
+        sayfa_satirlari = list(_veri_satirlari(hucreler, sayfa, bloklar))
+        for r in sayfa_satirlari:
+            r["dolu"] = bool(r["soyad"] or r["ad"])
+            r["kategori"] = kategori_coz(r["icerik"]) if r["dolu"] else ""
+        baskin = _baskin_kategori([r for r in sayfa_satirlari if r["dolu"]])
+        for r in sayfa_satirlari:
+            if r["dolu"] and not r["kategori"]:
+                r["kategori"] = baskin
+            if _NOT_SATIRI.match(_n(r["no"])):
+                notlar.append(r)
+                continue
+            if not r["no"]:
+                if r["dolu"]:
+                    gobletsiz.append(r)
+                continue
+            anahtar = (r["tank"], r["kanister"], _n(r["goblet"]))
+            g = gobletler.get(anahtar)
+            if g is None:
+                dizi = (r["tank"], r["kanister"], r["ust_kat"])
+                siralar[dizi] = siralar.get(dizi, 0) + 1
+                g = gobletler[anahtar] = {
+                    "tank": r["tank"], "kanister": r["kanister"],
+                    "sira": (1000 if r["ust_kat"] else 0) + siralar[dizi],
+                    "yazimlar": {}, "satirlar": [], "sayfa_kategorisi": baskin}
+            g["yazimlar"][r["goblet"]] = g["yazimlar"].get(r["goblet"], 0) + 1
+            g["satirlar"].append(r)
+    # Kategori: gobletin dolu satırlarından; boş gobletin kanisterinden.
+    kanister_kat = {}
+    for g in gobletler.values():
+        for r in g["satirlar"]:
+            if r["dolu"]:
+                k = kanister_kat.setdefault((g["tank"], g["kanister"]), {})
+                k[r["kategori"]] = k.get(r["kategori"], 0) + 1
+    sonuc = []
+    for g in gobletler.values():
+        sayim = {}
+        for r in g["satirlar"]:
+            if r["dolu"]:
+                sayim[r["kategori"]] = sayim.get(r["kategori"], 0) + 1
+        sayim = sayim or kanister_kat.get((g["tank"], g["kanister"])) or {}
+        kategori = (max(sorted(sayim), key=lambda k: sayim[k]) if sayim
+                    else g["sayfa_kategorisi"])
+        # Excel'deki yazım: en çok kullanılanı, eşitse ilk görüleni.
+        yazim = max(g["yazimlar"], key=lambda y: g["yazimlar"][y])
+        duzenli = kategori == "embriyo" and len(g["satirlar"]) >= _DUZENLI_EN_AZ_SATIR
+        sonuc.append({
+            "tank": g["tank"], "kanister": g["kanister"], "goblet": yazim,
+            "yazimlar": sorted(g["yazimlar"]), "kategori": kategori,
+            "sira": g["sira"], "kapasite": GOBLET_KAPASITESI if duzenli else None,
+            "satirlar": g["satirlar"]})
+    return {"gobletler": sonuc, "gobletsiz": gobletsiz, "notlar": notlar}
 
 
 def _baskin_kategori(satirlar: list) -> str:

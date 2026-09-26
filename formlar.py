@@ -415,8 +415,34 @@ def dondurma_tupleri(cycle_id: int) -> list:
     # Kalite bu tedavinin değerlendirmesinden, yoksa en sonuncudan (v6.148,
     # `db.bu_tedavinin_skoru()`): embriyo sonra bir FET'te yeniden
     # değerlendirildiyse kaynak tedavinin formuna FET'in skoru yazılmasın.
-    bu = f"AND {db.bu_tedavinin_skoru(str(int(cycle_id)), 'x')}"
-    satirlar = db.sorgu(
+    return _tuplere_topla(_dondurma_satirlari(
+        f"{db.vit_tedavisi('o')} = ?", (cycle_id,), str(int(cycle_id))))
+
+
+def tup_icerikleri(tasiyici_idler) -> dict:
+    """Tüplerin içeriği -- `dondurma_tupleri()`'nin tüp tüp hali (v6.189).
+
+    -> {taşıyıcı id: tüp} (öğeleri `dondurma_tupleri()`'ninkiyle aynı). Cryo
+    Haritası'nın goblet görünümü ve Excel haritası soruyor; kalite her tüpün
+    KENDİ dondurmasının tedavisinden (`db.bu_tedavinin_skoru()`), formlarla
+    aynı kural -- iki yerde iki ayrı yazım olmasın.
+    """
+    sonuc = {}
+    idler = [int(x) for x in tasiyici_idler]
+    for i in range(0, len(idler), 500):          # SQLite'ın parametre sınırı
+        parca = idler[i:i + 500]
+        yer = ",".join("?" * len(parca))
+        for t in _tuplere_topla(_dondurma_satirlari(
+                f"o.vit_tasiyici_id IN ({yer})", tuple(parca), db.vit_tedavisi("o"))):
+            sonuc[t["tup"]] = t
+    return sonuc
+
+
+def _dondurma_satirlari(kosul, parametre, tedavi):
+    """Dondurma olayları, örnek örnek, kalite ve olgunlukla. `kosul` ve
+    `tedavi` (kalitenin tedavisi, SQL ifadesi) koddan gelir."""
+    bu = f"AND {db.bu_tedavinin_skoru(tedavi, 'x')}"
+    return db.sorgu(
         f"""
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
                o.notlar LIKE ? || '%' AS aktarim,
@@ -434,11 +460,13 @@ def dondurma_tupleri(cycle_id: int) -> list:
                  AS cl_gun
           FROM olay o JOIN specimen s ON s.id = o.specimen_id
           LEFT JOIN tasiyici t ON t.id = o.vit_tasiyici_id
-         WHERE {db.vit_tedavisi('o')} = ? AND o.tip='vitrifikasyon'
+         WHERE {kosul} AND o.tip='vitrifikasyon'
            AND o.iptal_mi = 0
          ORDER BY o.vit_tasiyici_id, s.cycle_sira_no
-        """, (db.KAYNAK_DONDURMA_NOTU, cycle_id))
+        """, (db.KAYNAK_DONDURMA_NOTU, *parametre))
 
+
+def _tuplere_topla(satirlar) -> list:
     tupler, sira = [], {}
     for r in satirlar:
         # Taşıyıcısı olmayan eski bir kayıt tek bir "tüp" sayılır: uydurma
@@ -446,8 +474,8 @@ def dondurma_tupleri(cycle_id: int) -> list:
         anahtar = r["tup"] or 0
         if anahtar not in sira:
             sira[anahtar] = len(tupler)
-            tupler.append({"etiket": r["etiket"], "ogeler": [], "gunler": [],
-                           "olgunluk": [], "aktarim": True,
+            tupler.append({"tup": r["tup"], "etiket": r["etiket"], "ogeler": [],
+                           "gunler": [], "olgunluk": [], "aktarim": True,
                            "yumurta": bool(r["yumurta"])})
         t = tupler[sira[anahtar]]
         t["ogeler"].append(_dondurma_kalitesi(r))

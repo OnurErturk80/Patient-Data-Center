@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("excel_kaydi") }}{% endblock %}
+{% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik tekli">
+  <div class="dosya">{{ e.tam_yol or metin("konum_girilmemis") }}</div>
+  <div class="alt">{{ metin("excel_kaydi") }}
+    {% if e.durum == "kaldirildi" %}<span class="rozet arsiv">{{ metin("excel_kaydi_kaldirildi") }}</span>
+    {%- elif e.durum == "baglandi" %}<span class="rozet arsiv">{{ metin("excel_kaydi_baglandi") }}</span>{% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{% if hata %}<div class="tehlike">{{ metin(hata) }}{% if etiket %}: {{ etiket }}{% endif %}</div>{% endif %}
+
+{# Excel kaydı (v6.189): Cryo Haritası Excel'inde bu gobletde duran, programda
+   karşılığı olan tüp bulunamamış satır. Excel'deki yazısıyla, olduğu gibi. #}
+<div class="kart">
+  <div class="ipucu" style="margin:10px 14px 4px">{{ metin("excel_kaydi_aciklama") }}</div>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("excel_soyad_ad") }}</dt><dd>{{ e.soyad or "" }} {{ e.ad or "" }}</dd></div>
+    {% if e.es_adi %}<div class="veri"><dt>{{ metin("es_adi") }}</dt><dd>{{ e.es_adi }}</dd></div>{% endif %}
+    <div class="veri"><dt>{{ metin("tarih") }}</dt>
+      <dd {% if not e.tarih %}class="yok"{% endif %}>{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or metin("girilmemis")) }}</dd></div>
+    <div class="veri"><dt>{{ metin("excel_hucre") }}</dt><dd {% if not e.icerik %}class="yok"{% endif %}>{{ e.icerik or "—" }}</dd></div>
+    <div class="veri"><dt>{{ metin("excel_vial") }}</dt><dd {% if not e.vial %}class="yok"{% endif %}>{{ e.vial or "—" }}</dd></div>
+    {% if e.renk or e.tip %}<div class="veri"><dt>{{ metin("tasiyici") }}</dt>
+      <dd>{{ etiketler.get(e.tip, e.tip or "") }}{% if e.renk %} · {{ etiketler.get(e.renk, e.renk) }}{% endif %}</dd></div>{% endif %}
+    {% if e.notlar %}<div class="veri"><dt>{{ metin("notlar") }}</dt><dd>{{ e.notlar }}</dd></div>{% endif %}
+    <div class="veri"><dt>{{ metin("eslesmeme_sebebi") }}</dt>
+      <dd>{{ metin("eslesmeme_" ~ e.eslesmeme_sebebi) if e.eslesmeme_sebebi else "—" }}
+        {%- if e.eslesmeme_notu %}<div class="ipucu">{{ e.eslesmeme_notu }}</div>{% endif %}</dd></div>
+    <div class="veri"><dt>{{ metin("excel_kaynak") }}</dt><dd>{{ e.kaynak_sayfa }} · {{ metin("satir_n").format(n=e.kaynak_satir) }}</dd></div>
+  </dl>
+</div>
+
+{% if e.durum == "kaldirildi" %}
+<div class="kart">
+  <h2>{{ metin("excel_kaydi_kaldirildi") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("tarih") }}</dt><dd>{{ gg_aa_yyyy(e.islem_zamani) if e.islem_zamani else "—" }}</dd></div>
+    {% if e.islem_notu %}<div class="veri"><dt>{{ metin("not") }}</dt><dd>{{ e.islem_notu }}</dd></div>{% endif %}
+    {% if islem_yapan %}<div class="veri"><dt>{{ metin("isaretleyen") }}</dt><dd>{{ islem_yapan }}</dd></div>{% endif %}
+  </dl>
+</div>
+{% if yetkim("cryo") %}
+<form method="post" action="/cryo/excel-kaydi/{{ e.id }}/tanka-don"
+      onsubmit="return confirm({{ metin('tanka_don_onay')|tojson }})">
+  <button class="dugme ikincil" type="submit">{{ metin("tanka_don") }}</button>
+</form>
+{% endif %}
+{% endif %}
+
+{% if e.durum == "baglandi" %}
+<div class="kart">
+  <h2>{{ metin("excel_kaydi_baglandi") }}</h2>
+  {% if bagli %}
+  <a class="satir" href="/cryo/tasiyici/{{ bagli.id }}">
+    <div class="no">{{ bagli.etiket }}</div>
+    <div class="meta">{{ bagli.dosya_no or "" }} · {{ bagli.ad_soyad or "—" }}</div>
+    <div class="meta">{{ bagli.tam_yol or metin("konum_girilmemis") }}</div>
+  </a>
+  {% endif %}
+</div>
+{% if yetkim("cryo") %}
+<form method="post" action="/cryo/excel-kaydi/{{ e.id }}/bagi-coz"
+      onsubmit="return confirm({{ metin('excel_bagi_coz_onay')|tojson }})">
+  <button class="dugme ikincil" type="submit">{{ metin("excel_bagi_coz") }}</button>
+</form>
+{% endif %}
+{% endif %}
+
+{% if e.durum == "tankta" and yetkim("cryo") %}
+<div class="kart">
+  <h2>{{ metin("tupe_bagla") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("tupe_bagla_ipucu") }}</div>
+  {% for a in adaylar %}
+  <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/bagla" class="satir aday"
+        onsubmit="return confirm({{ metin('tupe_bagla_onay').format(etiket=a.etiket)|tojson }})">
+    <input type="hidden" name="etiket" value="{{ a.etiket }}">
+    <div class="no">{{ a.etiket }}</div>
+    <div class="meta">{{ a.dosya_no or "" }} · {{ a.ad_soyad or "—" }}
+      {%- if a.parantez %} · {% if a.yumurta %}{{ metin("oosit_ad") }}{% else %}{{ a.gun }}{% endif %} {{ a.parantez }}{% endif %}</div>
+    <div class="meta">{{ a.tam_yol or metin("konum_girilmemis") }}</div>
+    <button class="dugme ikincil kucuk" type="submit">{{ metin("bu_tupe_bagla") }}</button>
+  </form>
+  {% else %}
+  <div class="bos">{{ metin("ayni_gun_tup_yok") }}</div>
+  {% endfor %}
+  <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/bagla"
+        onsubmit="return confirm({{ metin('tupe_bagla_onay_elle')|tojson }})">
+    <div class="alan"><label for="etiket">{{ metin("tup_etiketi") }}</label>
+      <input id="etiket" name="etiket" type="text" autocomplete="off" required value="{{ etiket }}"></div>
+    <button class="dugme ikincil" type="submit">{{ metin("tupe_bagla") }}</button>
+  </form>
+</div>
+
+<details class="kart yardim" style="padding:0 14px 14px">
+  <summary>{{ metin("tanktan_cikarildi") }}</summary>
+  <div class="ipucu" style="margin:0 0 6px">{{ metin("tanktan_cikarildi_ipucu") }}</div>
+  <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/kaldir"
+        onsubmit="return confirm({{ metin('tanktan_cikarildi_onay')|tojson }})">
+    <div class="alan"><label for="tarih">{{ metin("tarih") }}</label>
+      <input type="date" id="tarih" name="tarih" min="1900-01-01" value="{{ bugun }}" required></div>
+    <div class="alan"><label for="not">{{ metin("not") }}</label>
+      <input type="text" id="not" name="not" placeholder="{{ metin('tanktan_cikarildi_ornek') }}"></div>
+    <button class="dugme" type="submit">{{ metin("tanktan_cikarildi_kaydet") }}</button>
+  </form>
+</details>
+{% endif %}
+
+<a class="dugme ikincil" href="{{ geri }}">{{ metin("cryo_haritasi") }}</a>
+{% endblock %}

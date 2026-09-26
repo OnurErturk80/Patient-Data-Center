@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("yeri_belirsizler") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+
+{# Haritada yeri olmayan dolu tüpler ve Excel kayıtları (v6.189). Gizlenecek
+   şey değil: tankta duruyorlar, yalnızca yeri programda bilinmiyor. Excel
+   kaydının sayfasından bir tüpe bağlamak ikisinin de yerini bulur. #}
+{% macro tup(x, yol=None) %}
+  <a class="satir" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
+    <div class="no">{{ x.etiket }}</div>
+    <div class="meta">{{ x.dosya_no or "" }} · {{ x.ad_soyad or "—" }}
+      · {{ gg_aa_yyyy(x.vitrifikasyon_zamani) if x.vitrifikasyon_zamani else "—" }}
+      {%- if x.parantez %} · {% if x.yumurta %}{{ metin("oosit_ad") }}{% else %}{{ x.gun }}{% endif %} {{ x.parantez }}{% endif %}</div>
+    {% if yol %}<div class="meta">{{ metin("girilen_konum") }}: {{ yol }}</div>{% endif %}
+  </a>
+{% endmacro %}
+
+<div class="sutunlar">
+<div class="sutun">
+<div class="kart">
+  <h2>{{ metin("konumu_girilmemis_tupler") }} ({{ konumsuz|length }})</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("konumu_girilmemis_ipucu") }}</div>
+  {% for x in konumsuz %}{{ tup(x) }}{% else %}<div class="bos">—</div>{% endfor %}
+</div>
+</div><div class="sutun">
+{% if duzen_disi %}
+<div class="kart">
+  <h2>{{ metin("duzende_olmayan_konum") }} ({{ duzen_disi|length }})</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("duzende_olmayan_konum_ipucu") }}</div>
+  {% for x in duzen_disi %}{{ tup(x, x.tam_yol) }}{% endfor %}
+</div>
+{% endif %}
+{% if excel_disi %}
+<div class="kart">
+  <h2>{{ metin("excel_kayitlari") }} ({{ excel_disi|length }})</h2>
+  {% for e in excel_disi %}
+  <a class="satir" href="/cryo/excel-kaydi/{{ e.id }}">
+    <div class="no">{{ e.soyad or "" }} {{ e.ad or "" }}</div>
+    <div class="meta">{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or "—") }}
+      {%- if e.icerik %} · {{ e.icerik }}{% endif %}{% if e.vial %} · {{ e.vial }}{% endif %}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+</div>
+</div>
+{% endblock %}
