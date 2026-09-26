@@ -2403,6 +2403,8 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
     (yazım hatası mı, yeniden değerlendirme mi) tahmin edip kesin bilgi gibi
     yazma -- v6.183'te yapıldı, kullanıcı düzeltti. Bağlanmamış FET'in tüpü "dolu" kalır ve sonraki FET'in
     formunda "Kalan dondurulmuş"a girer (bildirilen hata buydu).
+    Kullanıcı v6.184'ten sonra `bagla`'yı çalıştırdı (2026-09-26):
+    bildirilen hastanın formu artık kalan embriyo yazmıyor ("Halledildi").
   - **Bağlı olanı yeniden sına, çözme**: `_baglantilari_yeniden_sina()`
     bağlı FET'lere bugünkü tüplerle bakıyor; başka tüp de tutuyorsa "Bağlı
     ama artık kesin değil" listesi. Bağ çözülmüyor (FET'in örnekleri silindi,
