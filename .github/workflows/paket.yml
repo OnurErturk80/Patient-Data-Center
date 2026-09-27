@@ -85,7 +85,7 @@ jobs:
           if ($xml -notmatch '<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>') { $xml; throw "gorevin sure siniri var" }
           if ($xml -notmatch 'S-1-5-18') { $xml; throw "gorev SYSTEM olarak calismiyor" }
           if ($xml -notmatch '--servis') { $xml; throw "gorev --servis ile acmiyor" }
-          if ($xml -notmatch '<BootTrigger>') { $xml; throw "gorev acilista baslamiyor" }
+          if ($xml -notmatch '<BootTrigger') { $xml; throw "gorev acilista baslamiyor" }
           $sahip = Get-CimInstance Win32_Process -Filter "Name='PatientDataCenter.exe'" | Invoke-CimMethod -MethodName GetOwner
           Write-Host "Surecin sahibi: $($sahip.Domain)\$($sahip.User)"
           if ($sahip.User -ne 'SYSTEM') { throw "program SYSTEM olarak calismiyor" }
@@ -128,14 +128,21 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+      # Yükleme adımı çalışma klasörünün dışındaki dosyayı almıyor: önce topla.
+      - name: Günlükleri topla (başarısızlıkta)
+        if: failure()
+        run: |
+          New-Item -ItemType Directory -Force gunluk | Out-Null
+          Copy-Item kurulum*.log gunluk -ErrorAction SilentlyContinue
+          Copy-Item "$env:ProgramData\PatientDataCenter\program.log" gunluk -ErrorAction SilentlyContinue
+          exit 0
+
       - name: Günlükler (başarısızlıkta)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: gunlukler-windows
-          path: |
-            kurulum*.log
-            C:\ProgramData\PatientDataCenter\program.log
+          path: gunluk
           if-no-files-found: ignore
 
   # Hangi Mac'ler derlenecek: Mac dakikası pahalı, seçilmeyen makine hiç açılmasın.
