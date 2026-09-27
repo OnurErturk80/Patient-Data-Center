@@ -16072,5 +16072,11 @@ program pencereli.
   2 sn bekliyor (`_adin_adresleri()`), dönmezse o ek adresler atlanıyor --
   asıl adres UDP yolundan geliyor. `dene.py` artık açılış süresini ölçüyor,
   45 sn'yi aşarsa başarısız sayıyor.
-- Intel Mac (`macos-15-intel`) son derlemede ilk kez.
+- **Son derleme** (commit 7c5b286, üç makine birden): Windows yine baştan
+  sona geçti; Mac'te takılma gitti -- makine adı 2 sn'de bırakıldı, ilk
+  açılış 2,3 sn, yenisinin yerine geçmesi 3,3 sn, Uygulamalar'dan açılış
+  4,5 sn (önce 70 sn). **Intel Mac** (`macos-15-intel`) de aynı denemelerden
+  geçti; yükleme adımı bir kez GitHub'ın dosya servisinin zaman aşımına düştü
+  (kodla ilgisiz), yeniden çalıştırınca yüklendi. Dosyalar: Windows 16,2 MB,
+  Mac Apple Silicon 18,4 MB, Mac Intel 19,4 MB.
 - **Gerçek bir bilgisayarda ilk kurulum henüz yapılmadı.**

@@ -182,6 +182,10 @@ Setup BOM'suz dosyayı ANSI okur, Türkçe bozulur).
   geçmesi, LaunchAgent, DMG. Bulunan ve düzeltilen: açılışta makine adını
   çözmek 70 sn takılıyordu, artık en çok 2 sn (README v6.204). `dene.py`
   açılışı 45 sn'den uzun süren derlemeyi başarısız sayıyor.
+- **Mac Intel** (GitHub, `macos-15-intel`): aynı denemeler geçti.
+- Yükleme adımı ara sıra GitHub'ın kendi zaman aşımına düşüyor ("Request
+  timeout: CreateArtifact"): derleme ve denemeler geçmişse yalnızca o işi
+  yeniden çalıştır (Actions → çalışma → Re-run failed jobs).
 - **Gerçek bir bilgisayarda henüz denenmedi**: ilk kurulumu kullanıcı yapacak.
 
 ## Sırada ne var
