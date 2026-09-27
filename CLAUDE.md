@@ -2305,7 +2305,9 @@ besleniyor.
   kullanıcının sözü: "ben istediğim zaman bu excel cryo haritayı
   kopyalıyabileyim", seçimi "Bugünkü düzen + düz liste").
   `harita_excel.py`: `<veri klasörü>/cryo_harita/Cryo_Haritasi.xlsx` + günün
-  kopyası (30 gün). Sayfalar: Bilgi, tank başına bir sayfa (kanisterler yan
+  kopyası (30 gün); klasör v6.203'ten beri Klasörler ekranından seçilebiliyor
+  (`harita_excel.klasor()`; değişince dosya hedefte yoksa döngü veri
+  değişmeden de yazıyor, en geç bir dakikada). Sayfalar: Bilgi, tank başına bir sayfa (kanisterler yan
   yana, her goblet kapasitesi kadar satır, boş yuva boş satır), Liste, Boş
   yerler.
   - **Tetik**: açılışta (`_yasam`, göçlerden sonra) başlayan arka plan iş
@@ -3121,8 +3123,9 @@ oraya yalnızca bağlantı kondu — dil seçimindeki düzenin aynısı.
 - **Değer veritabanında değil** `yerel_ayar.json`'da, makine adına göre
   bölümlü. `lab.db` USB ile taşınıyor; yol `ayarlar` tablosunda olsaydı Mac'te
   girilen klasör klinikte de geçerli olurdu. `ayarlar`'a yol yazma.
-- **Dosyaya yazan tek yer `db.yerel_yaz()`** — kaydetme öteki makinelerin
-  bölümüne dokunmuyor. Kendi `json.dumps`'ını yazma (tuzak #8'in yazma hali;
+- **Dosyaya yazanlar yalnızca `db.py`'de** (`db.yerel_yaz()`, v6.203'ten
+  beri `db.ag_erisimi_yaz()` da) — kaydetme öteki makinelerin bölümüne
+  dokunmuyor. Kendi `json.dumps`'ını yazma (tuzak #8'in yazma hali;
   `yerel_kur.py` de v6.41'de buna çevrildi).
 - **Üçü farklı davranır, sebebi programın onlarla ilişkisi:** kamera klasörünü
   program yalnızca **okur** → var olmayan yol **reddedilir** (yazım hatası
@@ -3130,6 +3133,12 @@ oraya yalnızca bağlantı kondu — dil seçimindeki düzenin aynısı.
   **yazar** → yoksa oluşturulur; yedek olduğu gibi kaydedilir, oluşturulmaz
   (çoğu zaman takılı olmayan disk; Mac'te `E:\yedek` klasörü açmak v6.8'de
   başa geldi). Bu üçünü tek kurala indirgeme.
+- **Dördüncüsü Cryo haritası** (v6.203, `cryo_harita_klasor`, varsayılan
+  veri klasöründe `cryo_harita/`): program yazıyor → kaydederken yoksa
+  oluşturulur (arşiv gibi); açılışta bulunamazsa varsayılana DÖNÜLMEZ (yedek
+  gibi) -- kullanıcının seçtiği yer sessizce kaybolmasın, harita kartı
+  "yazılamadı" diyor. Yolu `harita_excel.klasor()` soruyor; ikinci bir okuyucu
+  yazma.
 - Hata anahtarları adresten geliyor, `KLASOR_HATALARI` beyaz listesinden
   geçiyor (tuzak #9).
 - **Gözat gezgini sunucunun klasörlerini geziyor** (v6.43). Tarayıcı sayfaya
@@ -3180,6 +3189,10 @@ ekranı karekod + adım adım yönerge veriyor, yazdırılıp laboratuvara asıl
     sertifikası **her açılışta** denetlenip gerekirse yeniden imzalanıyor
     (adres/makine adı değişti, 30 gün kaldı) -- telefonlara yeniden bir şey
     yüklenmez. `sertifika/` veri klasöründe, **`.gitignore`'da** (kök anahtarı).
+    Yeni bilgisayara geçişte yalnızca `tasi.py disari <usb> sertifika` taşır
+    (v6.203); günlük Mac ↔ klinik taşıması dokunmaz -- iki bilgisayarın her
+    birinin kendi kökü var, biri ötekinin üzerine yazılırsa o bilgisayarın
+    telefonları düşer.
   - `baslat.py` iki kapı açıyor: düz HTTP (8000, KALIYOR -- eski simgeler,
     iPhone, bilgisayarlar ve sertifikanın indirildiği yer) + HTTPS (8443).
     Açılış işleri yalnızca düz kapıda, güvenli kapı ondan sonra açılıyor;
@@ -3500,6 +3513,32 @@ daha yeniyse durup açık onay istiyor ve üzerine yazmadan önce
 `lab_ONCEKI_<tarih>.db` yedeği bırakıyor. "Daha yeni" ölçüsü `olusturma_zamani`
 kolonları — klinik zamanları (`opu_zamani` gibi) elle geri tarihlenebildiği için
 onlara bakılmaz.
+- **Yeni bilgisayara geçiş** (v6.203, `KOMUTLAR.md`'de adım adım):
+  `disari <usb> sertifika` telefonların güvendiği sertifikayı da koyuyor,
+  `iceri` alıp USB'den siliyor; bu makinenin kendi sertifikası varsa ve
+  farklıysa "EVET" istiyor, eskisini `sertifika_ONCEKI_*` diye saklıyor.
+  Sertifikasız `disari` USB'de kalmış eski sertifikayı siliyor. Boş makineye
+  ilk `iceri` ağ erişimini kapalı yazıyor (yeni kurulum, aşağıda).
+  `yerel_ayar.json` taşınmıyor: yollar makineye özel.
+
+**Ağ erişimi: "Yalnızca bu bilgisayar" / "İç ağa açık"** (v6.203,
+`/ag-erisimi`, yalnızca yönetici; kullanıcının kararı: "yeni bir bilgisayara
+kurulunca kapalı başlasın, ben açarım").
+- **Denetim middleware'in en başında** (`oturum_kontrolu`): kapalıyken
+  bu bilgisayar olmayan her istek -- `/static`, `ACIK_YOLLAR` dahil --
+  `_ag_kapali_yaniti()`'ni alıyor (403, hasta verisiz, biçimi satır içi).
+  Yeni bir açık yol ya da mount eklersen bu denetimin önüne koyma.
+- **"Bu bilgisayar" = bağlantının öteki ucu** (`_bu_bilgisayardan()`):
+  döngü adresi ya da bilgisayarın kendi ağ adresi. Başlığa güvenme:
+  `baslat.py` uvicorn'a `proxy_headers=False` veriyor; yeni bir sunucu
+  başlatma yolu yazarsan aynısını ver.
+- **Makineye özel** (`yerel_ayar.json`, `db.ag_erisimi()`); **yazılmamışsa
+  açık** (bugünkü kurulumlar değişmesin). Kapalıyı yalnızca yeni kurulum
+  yazar: `sifirdan_kur.py`, boş makineye ilk `tasi.py iceri`, ilk açılış
+  ekranı (v6.204). "Makinenin bölümü yok = yeni" deme: Mac'in adı ağa göre
+  değişebiliyor.
+- **Hemen geçerli**, yeniden başlatma yok; sunucu hep `0.0.0.0`'da dinliyor.
+  Açmak ancak programın bilgisayarından (kapalıyken başkası giremez).
 
 **Veritabanı kopyalarken SQLite backup API kullan**, düz dosya kopyası değil.
 WAL modunda yeni kayıtlar `lab.db-wal`'da olabilir; uygulama çalışırken

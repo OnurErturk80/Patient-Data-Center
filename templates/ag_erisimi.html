@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("ag_erisimi") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block icerik %}
+
+{# Program iç ağa açık mı, yalnızca bu bilgisayardan mı (v6.203). Ayar bu
+   bilgisayara özel (`yerel_ayar.json`, lab.db ile taşınmaz) ve hemen geçerli:
+   middleware her istekte soruyor. Ağ kapalıyken bu ekrana da yalnızca bu
+   bilgisayardan girilebiliyor. Düzen `/dil`'inki: form ekranı, dar. #}
+{% if kaydedildi %}<div class="uyari tamam">{{ metin("ag_kaydedildi_" ~ durum) }}</div>{% endif %}
+{% if hata %}<div class="uyari">{{ metin(hata) }}</div>{% endif %}
+
+<form method="post" action="/ag-erisimi" id="agform">
+  <div class="kart" style="margin-top:12px">
+    <h2>{{ metin("ag_erisimi") }}</h2>
+    {% for kod, ad, aciklama in [("yerel", "ag_yerel", "ag_yerel_aciklama"),
+                                 ("acik", "ag_acik", "ag_acik_aciklama")] %}
+    <label class="alan" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="radio" name="durum" value="{{ kod }}"
+             style="width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px"
+             {% if durum == kod %}checked{% endif %}>
+      <span>
+        <span style="font-size:16px;font-weight:600">{{ metin(ad) }}</span>
+        {% if durum == kod %}<span class="rozet">{{ metin("ag_simdiki") }}</span>{% endif %}
+        <span class="ipucu" style="display:block">{{ metin(aciklama) }}</span>
+      </span>
+    </label>
+    {% endfor %}
+    {% if not bu_bilgisayar %}
+    <div class="alan">
+      <div class="ipucu" style="color:var(--uyari)">{{ metin("ag_uzaktan_uyari") }}</div>
+    </div>
+    {% endif %}
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">{{ metin("kaydet") }}</button>
+    </div>
+  </div>
+</form>
+
+<div class="kart">
+  <h2>{{ metin("ag_adresler") }}</h2>
+  <div class="alan"{% if not adres %} style="border:0"{% endif %}>
+    <label>{{ metin("ag_bu_bilgisayarda") }}</label>
+    <div style="word-break:break-all"><code>{{ yerel_adres }}</code></div>
+  </div>
+  {% if adres %}
+  <div class="alan" style="border:0">
+    <label>{{ metin("ag_telefonlarda") }}</label>
+    <div style="word-break:break-all"><code>{{ adres }}</code>
+      {%- if guvenli_adres %} · <code>{{ guvenli_adres }}</code>{% endif %}</div>
+    <div class="ipucu">{{ metin("ag_telefon_ipucu") }} <a href="/baglan">{{ metin("baglan") }}</a></div>
+  </div>
+  {% endif %}
+</div>
+
+{# Ağ üzerinden bağlı biri kapatırsa kendi bağlantısını da keser: onay iste.
+   Asıl kural sunucuda değil çünkü kapatmak geçerli bir seçim. #}
+{% if not bu_bilgisayar %}
+<script>
+(function () {
+  var f = document.getElementById('agform');
+  if (!f) return;
+  f.addEventListener('submit', function (e) {
+    var s = f.querySelector('input[name=durum]:checked');
+    if (s && s.value === 'yerel' && !confirm({{ metin("ag_uzaktan_onay")|tojson }})) {
+      e.preventDefault();
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

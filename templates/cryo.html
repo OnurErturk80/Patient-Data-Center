@@ -156,7 +156,8 @@
     {%- elif harita_excel.hata %}<span style="color:var(--uyari)">{{ metin("excel_harita_yazilamadi") }}</span>
     {%- elif harita_excel.zaman %}{{ metin("excel_harita_guncel").format(zaman=gg_aa_yyyy_saat(harita_excel.zaman)) }}
     {%- else %}{{ metin("excel_harita_henuz") }}{% endif %}
-    {% if yonetici %}<br>{{ metin("excel_harita_klasor") }}: {{ harita_excel.klasor }}{% endif %}
+    {% if yonetici %}<br>{{ metin("excel_harita_klasor") }}: {{ harita_excel.klasor }}
+      · <a href="/klasorler">{{ metin("klasorler") }}</a>{% endif %}
   </div>
   {% if yonetici %}
   <form method="post" action="/cryo/sablon" enctype="multipart/form-data" style="margin:0 14px 12px">

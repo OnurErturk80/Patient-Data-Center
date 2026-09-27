@@ -218,5 +218,11 @@ if sonuc.returncode != 0:
     if sonuc.stderr.strip():
         print("  " + sonuc.stderr.strip().splitlines()[-1])
 
+# Yeni kurulum ağa kapalı başlıyor (v6.203, kullanıcının kararı: "yeni bir
+# bilgisayara kurulunca kapalı başlasın, ben açarım"). Ayar bu makineye özel.
+if db.ag_erisimi_yaz(db.AG_YEREL):
+    print("\nAg erisimi KAPALI: program yalnizca bu bilgisayardan acilir.")
+    print("  Telefonlar icin: Yonetici -> Ag erisimi -> Ic aga acik")
+
 print("\nKurulum tamam. Baslatmak icin:")
 print(f"  {komut} -m uvicorn app:uygulama --host 0.0.0.0 --port 8000")

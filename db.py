@@ -801,7 +801,8 @@ KOK = VERI_KOK          # `snapshot/` ve `arsiv/` varsayılanları buna göre
 MAKINE = platform.node() or "bilinmeyen"
 
 # Bu anahtarlar makineye özgüdür: her bilgisayarda kendi değeri olur
-YOL_ANAHTARLARI = ("goruntu_kaynak_klasor", "goruntu_arsiv_klasor", "yedek_klasor")
+YOL_ANAHTARLARI = ("goruntu_kaynak_klasor", "goruntu_arsiv_klasor", "yedek_klasor",
+                   "cryo_harita_klasor")
 
 
 def _varsayilan_yollar() -> dict:
@@ -815,6 +816,8 @@ def _varsayilan_yollar() -> dict:
         "goruntu_kaynak_klasor": str(KOK / "snapshot"),
         "goruntu_arsiv_klasor": str(KOK / "arsiv"),
         "yedek_klasor": yedek,
+        # Cryo Haritası'nın Excel'i (v6.191; klasörü v6.203'ten beri seçilebilir).
+        "cryo_harita_klasor": str(KOK / "cryo_harita"),
     }
 
 
@@ -856,7 +859,10 @@ def yerel_ayarlar() -> dict:
 
     for anahtar in YOL_ANAHTARLARI:
         deger = bolum.get(anahtar)
-        if anahtar == "yedek_klasor":
+        # Yedek ve Cryo haritası: yazılanı olduğu gibi tut, yoksa diye
+        # varsayılana dönme -- takılı olmayan bir disk olabilir; yazılamazsa
+        # yedek ve harita bunu kendi ekranlarında söylüyor (v6.203).
+        if anahtar in ("yedek_klasor", "cryo_harita_klasor"):
             if not deger:
                 bolum[anahtar] = varsayilan[anahtar]
                 degisti = True
@@ -888,8 +894,9 @@ def yerel_yaz(degerler: dict) -> dict:
     tamamı USB ile taşındığında klinik bilgisayarı Mac'in yollarını kullanmaya
     başlamasın diye. `YOL_ANAHTARLARI` dışındaki anahtarlar yok sayılır.
 
-    Yazan tek yer burası: ayarı iki yerden okumak (ya da yazmak) v6.8'de
-    `yedek.py`'de başa geldi, Mac'te `E:\yedek` adında klasör açılmıştı.
+    Dosyaya yazanlar yalnızca bu modülde (bu ve `ag_erisimi_yaz()`): ayarı
+    iki yerden okumak (ya da yazmak) v6.8'de `yedek.py`'de başa geldi, Mac'te
+    `E:\yedek` adında klasör açılmıştı.
     """
     veri = _dosyayi_oku()
     bolum = dict(veri.get(MAKINE) or {})
@@ -900,6 +907,56 @@ def yerel_yaz(degerler: dict) -> dict:
     veri[MAKINE] = bolum
     _dosyaya_yaz(veri)
     return bolum
+
+
+# ------------------------------------------------------------ ağ erişimi
+
+# Program iç ağa açık mı, yalnızca bu bilgisayardan mı kullanılıyor (v6.203).
+# Kullanıcının isteği: "Program sadece olduğu PC'de çalışsın ... önce yerelde
+# açıp daha sonra ağdan yaysak"; kararı: "yeni bir bilgisayara kurulunca
+# kapalı başlasın, ben açarım".
+# - Makineye özel (`yerel_ayar.json`): `lab.db` USB ile taşınıyor, ayar
+#   veritabanında olsaydı Mac'in "açık"ı yeni bilgisayara da giderdi.
+# - Yazılmamışsa AÇIK: bugünkü Mac ve klinik kurulumu değişmesin. "Yalnızca bu
+#   bilgisayar"ı yeni kurulum yazıyor -- ilk veritabanı bu bilgisayarda
+#   açıldığı an (`sifirdan_kur.py`, boş makineye `tasi.py iceri`, ilk açılış
+#   ekranı). Makine adına bakıp "bölüm yoksa yeni kurulum" demek güvenilir
+#   değil: Mac'in adı ağa göre değişebiliyor, telefonlar sessizce düşerdi.
+AG_YEREL = "yerel"
+AG_ACIK = "acik"
+_AG_ONBELLEK = {"damga": None, "deger": AG_ACIK}
+
+
+def ag_erisimi() -> str:
+    """`AG_YEREL` ya da `AG_ACIK`. Her istekte soruluyor (middleware): dosya
+    yalnızca değiştiyse yeniden okunuyor (değişme zamanı + boyut)."""
+    try:
+        st = YEREL_DOSYA.stat()
+        damga = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return AG_ACIK
+    if _AG_ONBELLEK["damga"] != damga:
+        bolum = _dosyayi_oku().get(MAKINE)
+        deger = bolum.get("ag_erisimi") if isinstance(bolum, dict) else None
+        _AG_ONBELLEK["deger"] = AG_YEREL if deger == AG_YEREL else AG_ACIK
+        _AG_ONBELLEK["damga"] = damga
+    return _AG_ONBELLEK["deger"]
+
+
+def ag_erisimi_yaz(deger: str) -> bool:
+    """Bu makinenin ağ erişimini yazar; öteki makinelerin bölümüne dokunmaz
+    (`yerel_yaz()` gibi). Yazılamadıysa (disk salt okunur, izin yok) False --
+    ekran bunu söylüyor, sessizce "kaydedildi" demiyor."""
+    if deger not in (AG_YEREL, AG_ACIK):
+        raise ValueError(deger)
+    veri = _dosyayi_oku()
+    bolum = dict(veri.get(MAKINE) or {})
+    bolum["ag_erisimi"] = deger
+    veri[MAKINE] = bolum
+    _dosyaya_yaz(veri)
+    _AG_ONBELLEK["damga"] = None
+    bolum = _dosyayi_oku().get(MAKINE)
+    return isinstance(bolum, dict) and bolum.get("ag_erisimi") == deger
 
 
 def ayar(anahtar, varsayilan=""):

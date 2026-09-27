@@ -2013,6 +2013,18 @@ METINLER = {
               "disk</b>, otherwise a disk failure takes the backup with it. A "
               "disk that is not plugged in (E: for example) may be entered; "
               "it is not created, it is looked for when a backup runs."},
+    "cryo_harita_klasor": {"tr": "Cryo haritası (Excel)", "en": "Cryo map (Excel)"},
+    "cryo_harita_klasor_ipucu": {
+        "tr": "Programın her değişiklikte yazdığı Cryo Haritası Excel'i "
+              "(Cryo_Haritasi.xlsx ve son 30 günün kopyaları) buraya yazılır. "
+              "Varsayılanı programın veri klasörü. Yoksa oluşturulur. Değişince "
+              "dosya en geç bir dakika içinde yeni klasöre yazılır; eski "
+              "klasördekiler silinmez.",
+        "en": "The Cryo map Excel the program writes after every change "
+              "(Cryo_Haritasi.xlsx and copies of the last 30 days) goes here. "
+              "The default is the program's data folder. Created if it does not "
+              "exist. After a change the file is written to the new folder "
+              "within a minute; files in the old folder are not deleted."},
     # Elle yedekleme (v6.119, kullanıcının isteği: "Elle yedekleme olsun").
     # `/klasorler`'de, yedek klasörü ayarının hemen altında -- panel yine
     # `/yonetim` DEĞİL, o salt okunur kalıyor (v6.12).
@@ -2191,6 +2203,44 @@ METINLER = {
     "goc_veritabani_yok": {"tr": "Veritabanı bulunamadı.",
                            "en": "The database was not found."},
     "baglan": {"tr": "Telefona ekle", "en": "Add to a phone"},
+    # ---- ağ erişimi (v6.203) ----
+    "ag_erisimi": {"tr": "Ağ erişimi", "en": "Network access"},
+    "ag_yerel": {"tr": "Yalnızca bu bilgisayar", "en": "This computer only"},
+    "ag_yerel_aciklama": {
+        "tr": "Program yalnızca kurulu olduğu bilgisayardan açılır. Telefonlar ve öteki bilgisayarlar bağlanamaz.",
+        "en": "The program opens only on the computer it is installed on. Phones and other computers cannot connect."},
+    "ag_acik": {"tr": "İç ağa açık", "en": "Open to the local network"},
+    "ag_acik_aciklama": {
+        "tr": "Aynı ağdaki telefonlar ve bilgisayarlar giriş şifresiyle bağlanabilir.",
+        "en": "Phones and computers on the same network can connect with their password."},
+    "ag_simdiki": {"tr": "şu an", "en": "current"},
+    "ag_uzaktan_uyari": {
+        "tr": "Şu an bu bilgisayardan değil, ağ üzerinden bağlısınız. “Yalnızca bu bilgisayar”ı seçerseniz bu cihazdan da giremezsiniz; yeniden açmak için programın kurulu olduğu bilgisayara gitmek gerekir.",
+        "en": "You are connected over the network, not from this computer. If you choose “This computer only” you will lose access from this device; to open it again you must use the computer the program is installed on."},
+    "ag_uzaktan_onay": {
+        "tr": "Bu cihazın bağlantısı kesilecek. Yeniden açmak için programın kurulu olduğu bilgisayara gitmeniz gerekecek. Devam edilsin mi?",
+        "en": "This device will be disconnected. To open it again you will need the computer the program is installed on. Continue?"},
+    "ag_kaydedildi_yerel": {"tr": "Ağ erişimi kapatıldı: program artık yalnızca bu bilgisayardan açılıyor.",
+                            "en": "Network access closed: the program now opens only on this computer."},
+    "ag_kaydedildi_acik": {"tr": "Ağ erişimi açıldı: aynı ağdaki telefonlar ve bilgisayarlar bağlanabilir.",
+                           "en": "Network access opened: phones and computers on the same network can connect."},
+    "ag_yazilamadi": {"tr": "Ayar kaydedilemedi: veri klasörüne yazılamıyor.",
+                      "en": "The setting could not be saved: the data folder is not writable."},
+    "ag_adresler": {"tr": "Adresler", "en": "Addresses"},
+    "ag_bu_bilgisayarda": {"tr": "Bu bilgisayarda", "en": "On this computer"},
+    "ag_telefonlarda": {"tr": "Telefonlarda ve öteki bilgisayarlarda (ağ açıkken)",
+                        "en": "On phones and other computers (when open)"},
+    "ag_telefon_ipucu": {"tr": "Telefona eklemek için karekod:", "en": "QR code for phones:"},
+    "ag_kapali_baslik": {"tr": "Program yalnızca kurulu olduğu bilgisayarda açık",
+                         "en": "The program is open only on its own computer"},
+    "ag_kapali_metin": {
+        "tr": "Patient Data Center şu anda yalnızca kurulu olduğu bilgisayardan kullanılabiliyor. Telefonların ve öteki bilgisayarların bağlanması için yönetici o bilgisayarda Yönetici → Ağ erişimi ekranından ağı açmalı.",
+        "en": "Patient Data Center can currently be used only on the computer it is installed on. For phones and other computers to connect, an administrator must open the network on that computer under Administration → Network access."},
+    "ag_kapali_baglan": {
+        "tr": "Ağ erişimi kapalı: telefonlar şu anda bağlanamaz. Önce Ağ erişimi ekranından açın.",
+        "en": "Network access is closed: phones cannot connect now. Open it first under Network access."},
+    "ag_durum_yerel": {"tr": "yalnızca bu bilgisayar", "en": "this computer only"},
+    "ag_durum_acik": {"tr": "iç ağa açık", "en": "open to the network"},
     "ekle_baslik": {"tr": "Ana ekrana ekle", "en": "Add to home screen"},
     "ekle_giris": {
         "tr": "Programı telefonunuzun ana ekranına ekleyin — sonra tek "
@@ -2371,6 +2421,10 @@ METINLER = {
               "bu bilgisayarda var olması gerekir.",
         "en": "The camera folder was not found. Type the path exactly; the "
               "folder must exist on this computer."},
+    "klasor_hata_cryo": {
+        "tr": "Cryo haritası klasörü oluşturulamadı. Yolu ve yazma iznini kontrol edin.",
+        "en": "The cryo map folder could not be created. Check the path and "
+              "the write permission."},
     "klasor_hata_arsiv": {
         "tr": "Arşiv klasörü oluşturulamadı. Yolu ve yazma iznini kontrol edin.",
         "en": "The archive folder could not be created. Check the path and "

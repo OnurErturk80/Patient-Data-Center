@@ -15814,3 +15814,106 @@ haliyle):
   dönünce kanister seçicisi kapandı.
 - 390 ve 1280 px'te sayfa taşmıyor. Telefonda iki seçici yan yana
   sığmıyordu, yazıları kesikti; artık dar ekranda alt alta diziliyorlar.
+
+# v6.203 — Ağ erişimi anahtarı, Cryo haritası klasörü, yeni bilgisayara geçiş
+
+Kullanıcının soruları (2026-09-27): "Uygulamayı başka PC'de çalıştırmak
+istersem nasıl bir yol izlemeliyim ... Cryo haritanınki başka bir PC'de
+programı açarsam nasıl olacak, hangi klasöre gidecek? ... Program sadece
+olduğu PC'de çalışsın ... önce yerelde açıp daha sonra ağdan yaysak?"
+Kararları: yeni kurulum ağa kapalı başlasın (kendisi açacak), yeni bilgisayara
+geçerken sertifika da taşınsın, kurulum dosyası Windows ve Mac için birlikte
+(v6.204).
+
+## Ağ erişimi
+
+Yönetici → **Ağ erişimi** (`/ag-erisimi`): "Yalnızca bu bilgisayar" ya da
+"İç ağa açık". Kapalıyken başka bir bilgisayardan ya da telefondan gelen
+**her** istek (giriş ekranı, `/static`, sertifika sayfası dahil) tek bir
+sayfa görüyor: "Program yalnızca kurulu olduğu bilgisayarda açık". Sayfada
+hasta verisi, menü, bağlantı yok; biçimi satır içinde, çünkü `/static` de
+kapalı.
+
+- **Hemen geçerli.** Middleware her istekte soruyor (`db.ag_erisimi()`,
+  dosyanın değişme zamanına bakan küçük önbellek); programı yeniden başlatmak
+  gerekmiyor. Sunucu yine `0.0.0.0`'da dinliyor, kararı uygulama veriyor.
+  Açılışta dinleme adresini değiştirmek (127.0.0.1) değişikliği yeniden
+  başlatmaya bağlardı; kullanıcının istediği "önce yerelde aç, sonra ağdan
+  yay" buydu.
+- **"Bu bilgisayar"**: bağlantının öteki ucu döngü adresi (localhost) ya da
+  bilgisayarın kendi ağ adresi. Başlık okunmuyor: `baslat.py` uvicorn'a
+  `proxy_headers=False` veriyor, `X-Forwarded-For: 127.0.0.1` yazan cihaz
+  yine engelleniyor (denendi).
+- **Makineye özel** (`yerel_ayar.json`, `ag_erisimi`): `lab.db` USB ile
+  taşınıyor, ayar veritabanında olsaydı bir bilgisayarın "açık"ı ötekine
+  giderdi.
+- **Yazılmamışsa açık**: bugünkü Mac ve klinik kurulumu değişmedi.
+  "Yalnızca bu bilgisayar"ı yeni kurulum yazıyor: `sifirdan_kur.py`, boş bir
+  makineye ilk `tasi.py iceri`, v6.204'ün ilk açılış ekranı. "Makinenin
+  bölümü yoksa yeni kurulum" demek güvenilir olmazdı: Mac'in makine adı ağa
+  göre değişebiliyor, telefonlar sessizce düşerdi.
+- Ağ üzerinden bağlı yönetici kapatırsa kendi bağlantısını da keser: ekran
+  bunu yazıyor ve onay istiyor. Açmak ancak programın bilgisayarından.
+- Yönetim panelinde düğmenin yazısı durumu söylüyor ("Ağ erişimi: yalnızca bu
+  bilgisayar"); Telefona ekle sayfası ağ kapalıyken uyarıyor; açılış günlüğü
+  kapalıyken personel adresi yerine `http://localhost:8000` yazıyor.
+
+## Cryo haritası klasörü
+
+Program Excel haritasını (v6.191) hep veri klasörüne yazıyordu; klasör
+seçilemiyordu. Artık Klasörler ekranında dördüncü satır: "Cryo haritası
+(Excel)" (`cryo_harita_klasor`, makineye özel; varsayılanı yine veri
+klasöründe `cryo_harita/`).
+
+- Arşiv gibi: program yazıyor, yoksa oluşturuluyor; oluşturulamayan yol
+  reddediliyor.
+- Yedek gibi: açılışta klasör yoksa (takılı olmayan disk) varsayılana
+  dönülmüyor. Harita kartı "yazılamadı" diyor, disk gelince yazım sürüyor.
+  Arşivin "yoksa varsayılana dön" kuralı burada seçilmedi: kullanıcının
+  seçtiği yer sessizce kaybolurdu.
+- Klasör değişince dosya **en geç bir dakika içinde** yeni yere yazılıyor.
+  Yazıcı döngü yalnızca veri değişince kuruyordu; artık dosya hedef klasörde
+  yoksa da kuruyor. Eski klasördeki dosyalar silinmiyor.
+- Cryo Haritası kartı (yönetici) klasörü ve Klasörler'e bağlantıyı gösteriyor.
+
+Başka bilgisayarda program o bilgisayarın ayarını kullanıyor; ayar yoksa veri
+klasörü. Taşımaya gerek yok: harita veritabanından yeniden yazılıyor.
+
+## Yeni bilgisayara geçiş
+
+`KOMUTLAR.md`'de adım adım "Yeni bilgisayara geçiş" bölümü. `tasi.py`
+sertifikayı yalnızca açıkça istenince taşıyor:
+`python3 tasi.py disari <usb> sertifika`.
+
+- **Günlük Mac ↔ klinik taşıması sertifikaya dokunmuyor.** İki bilgisayarın
+  her birinin kendi sertifikası var (v6.196); birininki ötekinin üzerine
+  yazılsaydı o bilgisayarın telefonları güvenli adrese giremezdi. Sertifikasız
+  `disari`, USB'de önceki bir geçişten kalmış sertifikayı da siliyor.
+- `iceri` USB'de sertifika bulursa alıyor ve **USB'deki kopyayı siliyor**:
+  kök anahtarı ele geçen, kliniğin telefonlarına sahte bir sayfa
+  gösterebilir. Bu makinenin kendi sertifikası varsa ve farklıysa "EVET"
+  onayı istiyor, eskisini `sertifika_ONCEKI_<zaman>` diye saklıyor. "Hayır"
+  denirse hiçbir şeye dokunmuyor.
+- Boş makineye ilk `iceri` ağ erişimini kapalı yazıyor (yeni kurulum).
+- Sunucu sertifikası yeni bilgisayarın adresine açılışta kendiliğinden
+  yenileniyor (v6.196); telefonlarda yalnızca simge yeniden ekleniyor. IP de
+  eskisiyle aynı verilirse (modemde DHCP rezervasyonu) telefonlarda hiçbir
+  şey yapmak gerekmiyor.
+- `iceri`'nin son satırı artık `python3 baslat.py` diyor (göçler açılışta
+  kendiliğinden, v6.49).
+
+## Denendi
+
+Kullanıcının veritabanının bir kopyasında; uzaktaki cihaz, bu makinenin ağ
+adresinin "başka cihaz" sayıldığı bir deneme sunucusuyla taklit edildi:
+
+- Uzaktan kapatıldı: aynı cihazın sonraki istekleri (giriş, `/static`,
+  `manifest.json`, `/sertifika`, `/degisim`, `/sw.js`) 403 aldı; bu
+  bilgisayar her şeye girdi. Bu bilgisayardan açılınca uzaktaki cihaz hemen
+  geri geldi; değişiklik günlüğe yazıldı.
+- Cryo haritası klasörü değişince dosya birkaç saniye içinde yeni klasöre
+  yazıldı (deneme sunucusunda döngü 5 saniye); oluşturulamayan yol reddedildi.
+- `tasi.py` sahte verili bir veritabanıyla: boş makineye veritabanı, arşiv ve
+  sertifika geldi, USB'deki sertifika silindi, ağ erişimi kapalı yazıldı.
+  Kendi sertifikası olan makinede onay soruldu; "hayır"da hiçbir şey
+  değişmedi, "EVET"te eskisi saklandı.

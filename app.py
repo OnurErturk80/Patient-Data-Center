@@ -2,6 +2,7 @@
 
 import contextlib
 import contextvars
+import ipaddress
 import logging
 import json
 import os
@@ -910,9 +911,71 @@ def degisim(anahtar: str = "", sekme: str = ""):
     return JSONResponse(cevap, headers={"Cache-Control": "no-store"})
 
 
+# ------------------------------------------------------------ ağ erişimi
+
+# Bu bilgisayarın kendi ağ adresi, kısa bir süre saklı: ağ kapalıyken dışarıdan
+# gelen her istekte UDP soketi açılmasın.
+_KENDI_ADRES = {"zaman": 0.0, "adres": ""}
+_KENDI_ADRES_SN = 60
+
+
+def _kendi_adresim() -> str:
+    if time.monotonic() - _KENDI_ADRES["zaman"] > _KENDI_ADRES_SN:
+        _KENDI_ADRES["adres"] = _yerel_ip()
+        _KENDI_ADRES["zaman"] = time.monotonic()
+    return _KENDI_ADRES["adres"]
+
+
+def _bu_bilgisayardan(request: Request) -> bool:
+    """İstek programın çalıştığı bilgisayarın kendisinden mi (v6.203).
+
+    Ölçü bağlantının öteki ucu (`request.client`), başlık değil: `X-Forwarded-
+    For` gibi başlıkları istemci kendisi yazabilir; `baslat.py` uvicorn'a
+    onları okutmuyor (`proxy_headers=False`). Bu bilgisayar sayılanlar: döngü
+    adresi (localhost, 127.0.0.1, ::1) ve bilgisayarın kendi ağ adresi -- kendi
+    tarayıcısında ağ adresiyle de açılabilir; başka bir cihaz o adresten
+    bağlanamaz."""
+    ana = request.client.host if request.client else ""
+    try:
+        ip = ipaddress.ip_address(ana)
+    except ValueError:
+        return False
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    return ip.is_loopback or str(ip) == _kendi_adresim()
+
+
+def _ag_kapali_yaniti() -> HTMLResponse:
+    """Ağ erişimi kapalıyken başka cihaza gösterilen tek sayfa. Hasta verisi,
+    menü, bağlantı yok; `/static` de kapalı olduğu için biçim satır içinde
+    (renkler koyu temanın değerleri, sabit)."""
+    j = metinler.dil_ayarla(db.ayar("dil", metinler.VARSAYILAN))
+    try:
+        baslik, metin_ = metinler.t("ag_kapali_baslik"), metinler.t("ag_kapali_metin")
+    finally:
+        metinler.dil_sifirla(j)
+    import html as _html
+    sayfa = (
+        '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f"<title>{_html.escape(baslik)}</title><style>"
+        "html{color-scheme:dark}body{margin:0;background:#0e1620;color:#e9eef3;"
+        "font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}"
+        "main{max-width:520px;margin:12vh auto;padding:0 20px}"
+        "h1{font-size:20px;color:#e76491;margin:0 0 12px}"
+        "p{margin:0;color:#9fb0bc}</style></head><body><main>"
+        f"<h1>{_html.escape(baslik)}</h1><p>{_html.escape(metin_)}</p>"
+        "</main></body></html>")
+    return HTMLResponse(sayfa, status_code=403, headers={"Cache-Control": "no-store"})
+
+
 @uygulama.middleware("http")
 async def oturum_kontrolu(request: Request, sonraki):
     yol = request.url.path
+    # Ağ erişimi kapalıysa (v6.203) başka cihaz hiçbir şey görmesin: giriş
+    # ekranı, açık yollar ve `/static` dahil. Denetim her şeyden önce.
+    if db.ag_erisimi() == db.AG_YEREL and not _bu_bilgisayardan(request):
+        return _ag_kapali_yaniti()
     if yol.startswith("/static"):
         return await sonraki(request)
 
@@ -1451,7 +1514,56 @@ def baglan_ekrani(request: Request):
         "adres": adres, "karekod": kare,
         "makine_adi": socket.gethostname(),
         "kullanici": request.state.kullanici,
+        # Ağ kapalıyken karekod işe yaramaz (v6.203): sayfa bunu söylüyor.
+        "ag_kapali": db.ag_erisimi() == db.AG_YEREL,
     })
+
+
+# Ağ erişimi ekranının hata anahtarları adresten geliyor -- beyaz liste (tuzak #9).
+AG_HATALARI = {"yazilamadi": "ag_yazilamadi"}
+
+
+@uygulama.get("/ag-erisimi")
+def ag_erisimi_ekrani(request: Request, kaydedildi: int = 0, hata: str = ""):
+    """Program iç ağa açık mı, yalnızca bu bilgisayardan mı (v6.203) --
+    yalnızca yönetici. Değişiklik hemen geçerli (middleware her istekte
+    soruyor), programı yeniden başlatmak gerekmiyor. Ağ kapalıyken bu ekrana
+    da yalnızca bu bilgisayardan girilebiliyor; açmak orada yapılır."""
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    ip = _yerel_ip()
+    duz = DUZ_PORTU or request.url.port or 8000
+    return sablon.TemplateResponse(request, "ag_erisimi.html", {
+        "durum": db.ag_erisimi(), "bu_bilgisayar": _bu_bilgisayardan(request),
+        "adres": f"http://{ip}:{duz}" if ip else "",
+        "guvenli_adres": f"https://{ip}:{HTTPS_PORTU}" if ip and HTTPS_PORTU else "",
+        "yerel_adres": f"http://localhost:{duz}",
+        "kaydedildi": kaydedildi,
+        "hata": AG_HATALARI.get(hata, ""),
+        "kullanici": request.state.kullanici,
+    })
+
+
+@uygulama.post("/ag-erisimi")
+async def ag_erisimi_kaydet(request: Request):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    f = await request.form()
+    deger = f.get("durum")
+    if deger not in (db.AG_YEREL, db.AG_ACIK):
+        return RedirectResponse("/ag-erisimi", status_code=303)
+    eski = db.ag_erisimi()
+    if not db.ag_erisimi_yaz(deger):
+        return RedirectResponse("/ag-erisimi?hata=yazilamadi", status_code=303)
+    if eski != deger:
+        logging.getLogger("ag").info(
+            "Ag erisimi: %s -> %s (%s)", eski, deger,
+            request.state.kullanici["kullanici_adi"])
+    # Kapatan başka bir cihazdaysa bir sonraki isteği zaten engelleniyor;
+    # yönlendirme o cihazda "yalnızca bu bilgisayar" sayfasını gösterir.
+    return RedirectResponse("/ag-erisimi?kaydedildi=1", status_code=303)
 
 
 @uygulama.get("/dil")
@@ -1503,11 +1615,11 @@ def dil_kaydet(request: Request, dil_kodu: str = Form(...)):
 # bağlantı veriliyor (dil seçiminde olduğu gibi).
 
 KLASOR_ALANLARI = ("goruntu_kaynak_klasor", "goruntu_arsiv_klasor",
-                   "yedek_klasor")
+                   "yedek_klasor", "cryo_harita_klasor")
 
 # Hata anahtarları adresten geliyor; `metin()` bulamadığını olduğu gibi
 # döndürdüğü için beyaz listeden geçiyor (tuzak #9).
-KLASOR_HATALARI = {"klasor_hata_kamera", "klasor_hata_arsiv"}
+KLASOR_HATALARI = {"klasor_hata_kamera", "klasor_hata_arsiv", "klasor_hata_cryo"}
 
 
 @uygulama.get("/klasorler")
@@ -1904,8 +2016,9 @@ async def klasor_bul(request: Request):
 def klasorler_kaydet(request: Request,
                      goruntu_kaynak_klasor: str = Form(""),
                      goruntu_arsiv_klasor: str = Form(""),
-                     yedek_klasor: str = Form("")):
-    """Üç klasörün üçü de farklı davranıyor, sebepleri farklı.
+                     yedek_klasor: str = Form(""),
+                     cryo_harita_klasor: str = Form("")):
+    """Klasörler farklı davranıyor, sebepleri farklı.
 
     - **Kamera klasörünü program yalnızca okur**; oraya kareleri mikroskop
       yazıyor. Var olmayan bir yol kabul edilmiyor: yoksa yazım hatasıdır ve
@@ -1915,10 +2028,22 @@ def klasorler_kaydet(request: Request,
     - **Yedek klasörü olduğu gibi kaydediliyor**, oluşturulmuyor: çoğu zaman
       takılı olmayan bir disk (klinikte `E:`). Mac'te `E:\yedek` adında klasör
       açmak v6.8'de başa geldi; `yedek.py` yolu çalışma anında doğruluyor.
+    - **Cryo haritasının Excel'ine program yazıyor** (v6.203): arşiv gibi
+      yoksa oluşturuluyor. Açılışta kaybolursa (takılı olmayan disk)
+      varsayılana dönülmüyor, harita kartı "yazılamadı" diyor.
     """
     red = yonetici_kontrol(request)
     if red:
         return red
+
+    cryo = cryo_harita_klasor.strip()
+    if cryo:
+        try:
+            Path(cryo).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            _gunluk.error("cryo haritasi klasoru olusturulamadi: %s", e)
+            return RedirectResponse("/klasorler?hata=klasor_hata_cryo",
+                                    status_code=303)
 
     kamera = goruntu_kaynak_klasor.strip()
     arsiv = goruntu_arsiv_klasor.strip()
@@ -1937,7 +2062,8 @@ def klasorler_kaydet(request: Request,
 
     db.yerel_yaz({"goruntu_kaynak_klasor": kamera,
                   "goruntu_arsiv_klasor": arsiv,
-                  "yedek_klasor": yedek})
+                  "yedek_klasor": yedek,
+                  "cryo_harita_klasor": cryo})
     return RedirectResponse("/klasorler?kaydedildi=1", status_code=303)
 
 
@@ -1998,7 +2124,8 @@ def yonetim_ekran(request: Request):
     yollar = []
     for anahtar, ad in [("goruntu_kaynak_klasor", "Kamera klasörü (snapshot)"),
                         ("goruntu_arsiv_klasor", "Arşiv"),
-                        ("yedek_klasor", "Yedek")]:
+                        ("yedek_klasor", "Yedek"),
+                        ("cryo_harita_klasor", "Cryo haritası (Excel)")]:
         yol = db.ayar(anahtar, "")
         yollar.append({"ad": ad, "yol": yol,
                        "var": bool(yol) and Path(yol).is_dir()})
@@ -2023,7 +2150,8 @@ def yonetim_ekran(request: Request):
          "aktif_kullanici": sum(r["n"] for r in kullanicilar if r["aktif_mi"]),
          "yonetici_sayisi": aktif_yonetici_sayisi(),
          "sifre_istegi": len(bekleyen_sifre_istekleri()),
-         "calisan_surum": CALISAN_SURUM, "diskteki_surum": kod_surumu()})
+         "calisan_surum": CALISAN_SURUM, "diskteki_surum": kod_surumu(),
+         "ag_durum": db.ag_erisimi()})
 
 
 @uygulama.get("/kullanicilar")

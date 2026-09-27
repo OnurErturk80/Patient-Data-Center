@@ -17,6 +17,13 @@ Kullanım:
     python3 tasi.py disari /Volumes/USB     bu makineden USB'ye
     python3 tasi.py iceri  /Volumes/USB     USB'den bu makineye
 
+    python3 tasi.py disari /Volumes/USB sertifika
+        YENİ BİLGİSAYARA GEÇİŞTE: telefonların güvendiği sertifikayı da
+        götürür (v6.203) -- Android telefonlara sertifika yeniden yüklenmez.
+        Günlük Mac <-> klinik taşımasında KULLANMA: iki bilgisayarın her
+        birinin kendi sertifikası var, birininki ötekinin üzerine yazılırsa
+        o bilgisayarın telefonları güvenli adrese giremez.
+
 Windows'ta `python tasi.py durum E:\\` gibi.
 
 Uygulama çalışırken de güvenli: veritabanı kopyası SQLite backup API ile
@@ -124,6 +131,85 @@ def usb_klasoru(usb: str) -> Path:
     return Path(usb) / KLASOR_ADI
 
 
+# Telefonların güvendiği sertifika (v6.196, `sertifika.py`). Yalnızca yeni
+# bilgisayara geçişte, açıkça istenince taşınır (v6.203, kullanıcının kararı:
+# "sertifika da taşınsın"): kök anahtarı ele geçen kliniğin telefonlarına sahte
+# bir sayfa gösterebilir, USB'de kalmamalı -- `iceri` aldıktan sonra siliyor.
+SERTIFIKA_ADI = "sertifika"
+
+
+def sertifika_klasoru() -> Path:
+    import sertifika                     # yol tek yerde (tuzak #8)
+    return sertifika.KLASOR
+
+
+def _ayni_klasor(a: Path, b: Path) -> bool:
+    """İki klasördeki dosyalar birebir aynı mı (ad ve içerik)."""
+    if not (a.is_dir() and b.is_dir()):
+        return False
+    adlar = sorted(p.name for p in a.iterdir() if p.is_file())
+    if adlar != sorted(p.name for p in b.iterdir() if p.is_file()):
+        return False
+    return all((a / ad).read_bytes() == (b / ad).read_bytes() for ad in adlar)
+
+
+def sertifika_disari(hedef: Path):
+    kaynak = sertifika_klasoru()
+    if not (kaynak / "kok.key").is_file():
+        print("  sertifika: bu makinede yok, atlandi (yeni bilgisayar kendisi uretir)")
+        return
+    usb_s = hedef / SERTIFIKA_ADI
+    if usb_s.exists():
+        shutil.rmtree(usb_s)
+    shutil.copytree(kaynak, usb_s)
+    print(f"  sertifika kopyalandi ({len(list(usb_s.iterdir()))} dosya)")
+    print("    'iceri' bitince USB'den kendiliginden silinir. Eski bilgisayar")
+    print("    artik sunucu olmayacaksa oradaki sertifika klasorunu de sil:")
+    print(f"    {kaynak}")
+
+
+def sertifika_iceri(usb: str):
+    """USB'de sertifika varsa (yalnızca `disari ... sertifika` koyar) bu
+    makineye alır, sonra USB'den siler. Bu makinenin kendi sertifikası varsa
+    ve farklıysa onay ister ve eskisini `sertifika_ONCEKI_<zaman>` diye
+    saklar: yanlış makineye alınırsa o makinenin telefonları bozulurdu."""
+    usb_s = usb_klasoru(usb) / SERTIFIKA_ADI
+    if not (usb_s / "kok.key").is_file():
+        return
+    hedef = sertifika_klasoru()
+    if _ayni_klasor(usb_s, hedef):
+        print("  sertifika: bu makinedekiyle ayni")
+    else:
+        if (hedef / "kok.key").is_file():
+            print("\n" + "!" * 58)
+            print("USB'de ESKI BILGISAYARIN SERTIFIKASI var, bu makinenin de")
+            print("kendi sertifikasi var. Bu makine eski bilgisayarin YERINI")
+            print("aliyorsa al: telefonlara sertifika yeniden yuklenmez.")
+            print("Gunluk Mac <-> klinik tasimasiysa ALMA: bu makinenin")
+            print("telefonlari guvenli adrese giremez olur.")
+            print("!" * 58)
+            if not onay_iste("Eski bilgisayarin sertifikasi bu makineye alinsin mi?"):
+                print("  sertifika alinmadi (USB'deki kopya silinmedi)")
+                return
+            eski = hedef.parent / f"{SERTIFIKA_ADI}_ONCEKI_{datetime.now():%Y%m%d_%H%M%S}"
+            hedef.rename(eski)
+            print(f"  bu makinenin sertifikasi saklandi: {eski.name}")
+        elif hedef.exists():
+            shutil.rmtree(hedef)
+        shutil.copytree(usb_s, hedef)
+        print("  sertifika alindi (telefonlara yeniden yuklemek gerekmiyor)")
+        try:
+            import sertifika
+            print(f"    parmak izi: {sertifika.kok_parmak_izi()}")
+        except Exception:
+            pass
+    try:
+        shutil.rmtree(usb_s)
+        print("  USB'deki sertifika silindi")
+    except OSError as e:
+        print(f"  UYARI: USB'deki sertifika silinemedi ({e}) -- elle sil: {usb_s}")
+
+
 def karsilastir(usb: str, sessiz: bool = False):
     """İki tarafın özetini döndürür. Yoksa o taraf None olur.
 
@@ -169,7 +255,7 @@ def onay_iste(soru: str) -> bool:
 
 # --------------------------------------------------------------------- disari
 
-def disari(usb: str):
+def disari(usb: str, sertifika_da: bool = False):
     burasi, oradaki = karsilastir(usb)
     if not burasi:
         sys.exit(f"\nBu makinede lab.db yok: {db.DB_YOLU}\n"
@@ -202,6 +288,12 @@ def disari(usb: str):
     arsiv = Path(db.ayar("goruntu_arsiv_klasor", str(KOK / "arsiv")))
     yeni, guncel = arsiv_kopyala(arsiv, hedef / "arsiv")
     print(f"  arsiv: {yeni} yeni dosya, {guncel} zaten guncel")
+
+    if sertifika_da:
+        sertifika_disari(hedef)
+    elif (hedef / SERTIFIKA_ADI).exists():
+        # Önceki bir geçişten kalmış olabilir; günlük taşımada götürülmesin.
+        shutil.rmtree(hedef / SERTIFIKA_ADI, ignore_errors=True)
 
     (hedef / "TASIMA_BILGI.txt").write_text(
         f"Kaynak makine : {db.MAKINE}\n"
@@ -282,10 +374,18 @@ def iceri(usb: str):
     yeni, guncel = arsiv_kopyala(usb_klasoru(usb) / "arsiv", arsiv)
     print(f"  arsiv: {yeni} yeni dosya, {guncel} zaten guncel")
 
-    print("\nTamam. Simdi sirasiyla:")
+    sertifika_iceri(usb)
+
+    # Boş makineye ilk veri: yeni kurulum. Ağa kapalı başlıyor (v6.203,
+    # kullanıcının kararı: "yeni bir bilgisayara kurulunca kapalı başlasın").
+    if not burasi and db.ag_erisimi_yaz(db.AG_YEREL):
+        print("\n  Ag erisimi KAPALI: program once yalnizca bu bilgisayardan acilir.")
+        print("  Telefonlar icin: Yonetici -> Ag erisimi -> Ic aga acik")
+
+    print("\nTamam. Programi baslat (guncellemeler acilista kendiliginden "
+          "uygulanir):")
     komut = "python" if platform.system() == "Windows" else "python3"
-    print(f"  {komut} goc_hepsi.py")
-    print(f"  {komut} -m uvicorn app:uygulama --host 0.0.0.0 --port 8000")
+    print(f"  {komut} baslat.py")
     if gz:
         print(f"\nHer sey yolundaysa {gz.name} dosyasini silebilirsin.")
 
@@ -293,7 +393,9 @@ def iceri(usb: str):
 def main():
     komut = sys.argv[1].lower() if len(sys.argv) > 1 else ""
     usb = sys.argv[2] if len(sys.argv) > 2 else ""
-    if komut not in ("durum", "disari", "iceri") or not usb:
+    ek = [a.lower() for a in sys.argv[3:]]
+    if komut not in ("durum", "disari", "iceri") or not usb or \
+            any(a != "sertifika" for a in ek) or (ek and komut != "disari"):
         sys.exit(__doc__)
     if not Path(usb).is_dir():
         sys.exit(f"'{usb}' diye bir klasor yok. USB takili mi?\n"
@@ -302,7 +404,7 @@ def main():
         karsilastir(usb)
         print("\n(Sadece bakildi, hicbir sey degismedi.)")
     elif komut == "disari":
-        disari(usb)
+        disari(usb, sertifika_da="sertifika" in ek)
     else:
         iceri(usb)
 

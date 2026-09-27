@@ -46,6 +46,10 @@
    yanında, kendi doğrudan bağlantısı. #}
 <a class="dugme ikincil" href="/yedekleme">{{ metin("yedekleme") }}</a>
 <a class="dugme ikincil" href="/baglan">{{ metin("baglan") }}</a>
+{# Ağ erişimi (v6.203): düğmenin yazısı bugünkü durumu da söylüyor; panel
+   salt okunur, değiştirmek kendi ekranında. #}
+<a class="dugme genis{% if ag_durum == 'acik' %} ikincil{% endif %}" href="/ag-erisimi">
+  {{ metin("ag_erisimi") }}: {{ metin("ag_durum_" ~ ag_durum) }}</a>
 </div>
 
 {# Panel salt okunur; bu da bir okuma -- veriyi değiştirmiyor, dosyaya

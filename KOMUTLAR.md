@@ -40,6 +40,15 @@ ipconfig                      # Windows — "IPv4 Adresi" satırı
 Çıkan adresle: `http://192.168.1.42:8000` (numara sizde farklı olacak).
 Telefon aynı Wi-Fi'da olmalı. Program açık kalmalı.
 
+**Ağ erişimi** (v6.203): Yönetici → **Ağ erişimi**. "Yalnızca bu bilgisayar"
+seçiliyken telefonlar ve öteki bilgisayarlar bağlanamaz (yalnızca "Program
+yalnızca kurulu olduğu bilgisayarda açık" sayfasını görürler); "İç ağa açık"
+seçilince bağlanırlar. Hemen geçerli, programı yeniden başlatmak gerekmez.
+Ayar her bilgisayarın kendisine özel. **Yeni bir bilgisayara kurulan program
+kapalı başlar**; bugünkü Mac ve klinik kurulumu açık kaldı. Kapalıyken açmak
+için programın kurulu olduğu bilgisayarda `http://localhost:8000` adresinden
+girilir.
+
 ---
 
 ## Telefona uygulama olarak ekleme ve HTTPS (v6.195, v6.196)
@@ -60,9 +69,10 @@ açılışta kendisi denetler, adres değişirse yeniler. Durumunu görmek için
 python3 sertifika.py
 ```
 
-`sertifika/` klasörünü silme, başka bilgisayara kopyalama, git'e ekleme:
+`sertifika/` klasörünü silme, elle başka bilgisayara kopyalama, git'e ekleme:
 silinirse yeni sertifika üretilir ve **bütün telefonlara yeniden yüklemek**
-gerekir.
+gerekir. Yeni bilgisayara **geçerken** taşımanın yolu `tasi.py ... sertifika`
+(aşağıda "Yeni bilgisayara geçiş").
 
 HTTPS'i kapatmak (yalnızca düz adres): `LAB_HTTPS=0 python3 baslat.py`
 (Windows: `set LAB_HTTPS=0` sonra `python baslat.py`).
@@ -93,6 +103,51 @@ Windows'ta yol `E:\` gibi olur: `python tasi.py durum E:\`
 - `iceri`, bu makinedeki veri USB'dekinden yeniyse **durur ve onay ister**.
 - Üzerine yazmadan önce `lab_ONCEKI_<tarih>.db` yedeği bırakır.
 - **Aynı anda tek makinede kayıt gir.** Birleştirmenin yolu yok.
+
+---
+
+## Yeni bilgisayara geçiş (program başka bilgisayara taşınıyor)
+
+Programın çalıştığı bilgisayar değişiyorsa (eski bilgisayar emekli oluyor).
+Günlük Mac ↔ klinik taşıması bu değil, o yukarıdaki rutin.
+
+**Eski bilgisayarda**
+
+1. Programı durdur (Ctrl+C).
+2. Veriyi ve telefonların sertifikasını USB'ye al:
+   ```
+   python3 tasi.py disari /Volumes/USB sertifika     # Mac
+   python  tasi.py disari E:\ sertifika               # Windows
+   ```
+   `sertifika` sözü telefonların güvendiği sertifikayı da götürür: Android
+   telefonlara sertifika yeniden yüklenmez.
+
+**Yeni bilgisayarda**
+
+3. Programı kur: Python 3.10+, sonra
+   ```
+   git clone https://github.com/OnurErturk80/Patient-Data-Center.git "Patient Data Center"
+   cd "Patient Data Center"
+   pip install fastapi uvicorn jinja2 python-multipart
+   ```
+   (Mac'te `pip3`, `python3`.)
+4. USB'den al: `python3 tasi.py iceri /Volumes/USB` (Windows: `python tasi.py
+   iceri E:\`). Veritabanı, fotoğraf arşivi ve sertifika gelir; USB'deki
+   sertifika kopyası kendiliğinden silinir.
+5. Başlat: `python3 baslat.py`. Program **ağa kapalı** açılır; bu bilgisayarda
+   `http://localhost:8000` ile gir.
+6. Yönetici → **Klasörler**: kamera, arşiv, yedek ve Cryo haritası klasörleri
+   (bu bilgisayarın kendi yolları; eski bilgisayarınkiler gelmez).
+7. Yönetici → **Ağ erişimi** → "İç ağa açık".
+8. Telefonlar: bilgisayarın IP'si değiştiyse telefonlardaki simgeler eski
+   adresi tutar. Yönetici → **Telefona ekle** yeni adresi kendisi gösterir,
+   simgeyi her telefonda yeniden ekle. **Daha kolayı**: modemden ya da bilgi
+   işlemden yeni bilgisayara eskisinin IP'sini verdirmek (DHCP rezervasyonu)
+   -- o zaman telefonlarda hiçbir şey yapmak gerekmez.
+9. Eski bilgisayar artık sunucu olmayacaksa oradaki `sertifika/` klasörünü sil.
+
+Cryo haritasının Excel'ini taşımaya gerek yok: program açılınca veritabanından
+yeniden yazıyor (laboratuvarın kendi Excel şablonu veritabanında).
 
 ---
 
@@ -152,8 +207,10 @@ Kullanıcı adını `<...>` içine alma, düz yaz.
 
 ## Veri nerede duruyor
 
-`lab.db`, `yerel_ayar.json`, `arsiv/`, `snapshot/` ve `cryo_harita/`
-(Excel haritası, v6.191) **veri klasöründe**.
+`lab.db`, `yerel_ayar.json`, `arsiv/`, `snapshot/`, `sertifika/` ve
+`cryo_harita/` (Excel haritası, v6.191) **veri klasöründe**. Arşiv, kamera,
+yedek ve Cryo haritası klasörü Yönetici → Klasörler'den başka bir yere
+alınabilir (Cryo haritası v6.203'ten beri).
 Bugünkü kurulumlarda bu proje klasörünün kendisi (kodun yanında `lab.db`
 varsa orası kullanılıyor). Paketlenmiş kurulumlarda işletim sisteminin veri
 klasörü olacak. Nerede olduğunu görmek için:

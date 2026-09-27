@@ -121,7 +121,12 @@ def main():
             g.error("HTTPS hazirlanamadi, yalnizca HTTP ile aciliyor: %s", e)
 
     ip = _yerel_ip()
-    if ip and adres == "0.0.0.0":
+    if db.ag_erisimi() == db.AG_YEREL:
+        # v6.203: yeni kurulum ağa kapalı başlıyor; yönetici açıyor.
+        g.info("Ag erisimi KAPALI: program yalnizca bu bilgisayardan acilir: "
+               "http://localhost:%d", port)
+        g.info("Telefonlarin baglanmasi icin: Yonetici -> Ag erisimi -> Ic aga acik")
+    elif ip and adres == "0.0.0.0":
         g.info("Personel bu adresi kullanacak: http://%s:%d", ip, port)
         if sertifikalar:
             g.info("Guvenli adres (telefona uygulama olarak): https://%s:%d",
@@ -136,7 +141,8 @@ def main():
 
     if not sertifikalar:
         try:
-            uvicorn.run(app.uygulama, host=adres, port=port, log_level="info")
+            uvicorn.run(app.uygulama, host=adres, port=port, log_level="info",
+                        proxy_headers=False)
         except OSError as e:
             g.error("Sunucu acilamadi (%s). Port %d baska bir program tarafindan "
                     "kullaniliyor olabilir.", e, port)
@@ -165,11 +171,15 @@ def _sessiz_sunucu(uvicorn):
 
 async def _iki_kapi(uvicorn, app, adres, port, https_port, sertifikalar, g):
     S = _sessiz_sunucu(uvicorn)
-    duz = S(uvicorn.Config(app.uygulama, host=adres, port=port, log_level="info"))
+    # `proxy_headers=False` (v6.203): istemcinin adresi bağlantının kendisinden,
+    # `X-Forwarded-For` başlığından değil -- ağ erişimi kapalıyken "bu
+    # bilgisayardan mı" sorusu (`app._bu_bilgisayardan()`) buna dayanıyor.
+    duz = S(uvicorn.Config(app.uygulama, host=adres, port=port, log_level="info",
+                           proxy_headers=False))
     # Açılış işleri (göçler, harita yazıcısı) yalnızca bir kez: ikinci kapıda
     # `lifespan="off"`.
     guvenli = S(uvicorn.Config(app.uygulama, host=adres, port=https_port,
-                               log_level="info", lifespan="off",
+                               log_level="info", lifespan="off", proxy_headers=False,
                                ssl_certfile=str(sertifikalar[0]),
                                ssl_keyfile=str(sertifikalar[1])))
 

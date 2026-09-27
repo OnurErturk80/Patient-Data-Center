@@ -11,6 +11,11 @@
    Sayfa yazdirilabilir: duvara asilinca yeni gelen personel okutup
    telefonuna ekliyor. #}
 
+{# Ağ erişimi kapalıyken karekod okutan telefon bağlanamaz (v6.203). #}
+{% if ag_kapali %}
+<div class="uyari" style="margin-top:12px">{{ metin("ag_kapali_baglan") }}
+  <a href="/ag-erisimi">{{ metin("ag_erisimi") }}</a></div>
+{% endif %}
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("baglan_adres") }}</h2>
   <div class="alan" style="border:0;text-align:center">

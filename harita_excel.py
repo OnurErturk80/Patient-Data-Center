@@ -45,6 +45,7 @@ import logging
 import os
 import re
 import threading
+from pathlib import Path
 
 import cryo_sablon
 import db
@@ -100,7 +101,11 @@ _DURUM = {}
 
 
 def klasor():
-    return db.VERI_KOK / KLASOR_ADI
+    """Excel'in yazıldığı klasör: bu bilgisayarın ayarı (Klasörler ekranı,
+    v6.203), yoksa veri klasöründe `cryo_harita/`. Her bilgisayarın kendi
+    değeri (`yerel_ayar.json`)."""
+    yol = db.ayar("cryo_harita_klasor", "")
+    return Path(yol) if yol else db.VERI_KOK / KLASOR_ADI
 
 
 def ana_dosya():
@@ -567,7 +572,9 @@ def _dongu(damga) -> None:
         try:
             if db.DB_YOLU.exists():
                 d = damga()
-                if d != son:
+                # Dosya yoksa da (klasör değişti, dosya silindi) kur: veri
+                # değişmeden yeni klasöre de yazılsın.
+                if d != son or not ana_dosya().exists():
                     guncelle()
                     if not _DURUM.get("hata"):
                         son = d
