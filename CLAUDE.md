@@ -130,12 +130,18 @@ uygulama nesnesi doğrudan veriliyor. Geliştirmede de aynı yol:
   görevi "3 günden uzun sürerse durdur" ile kuruyor, sunucu üç günde bir
   kapanırdı. Kurulum tarifi `paket/pdc_kurulum.iss` ve `gorev.ps1` UTF-8
   **BOM'lu** (Inno Setup ve Windows PowerShell 5.1 BOM'suz dosyayı ANSI okur).
+- **Açılışta ağ/ad çözümü yapan bir şey yazarsan süre sınırı koy.**
+  `sertifika.yerel_ipler()` makinenin adını en çok 2 sn çözüyor
+  (`_adin_adresleri()`): GitHub'ın Mac'inde Uygulamalar'a kopyalanan
+  uygulamada 70 sn sürdü, program o arada hiç açılmadı (v6.204). `dene.py`
+  45 sn'yi aşan açılışı başarısız sayıyor.
 - **Mac'te LaunchAgent** yalnızca uygulama Uygulamalar'dan açılınca yazılıyor
   (`baslat._mac_oturum_acilisi()`; etiket `com.patientdatacenter.pdc`, tarifin
   uygulama kimliğiyle aynı).
 - Paket denendi (v6.204): Linux'ta kaynak klasörünün dışında, `PYTHONPATH`
   temizlenmiş halde ilk kurulum, 53 göç, 23 ekran, formlar, Excel, HTTPS;
-  Windows ve Mac GitHub'da (README v6.204).
+  GitHub'da Windows (sessiz kurulum, SYSTEM görevi, güncelleme, kaldırma) ve
+  Mac (yerine geçme, LaunchAgent, DMG) -- README v6.204.
 
 **Göçler açılışta kendiliğinden çalışır** (v6.49) — yedekten geri
 yüklemeden hemen sonra da (v6.145, tuzak #15). Elle bir şey yapmak

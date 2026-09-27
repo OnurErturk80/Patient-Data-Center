@@ -43,6 +43,10 @@ from pathlib import Path
 KULLANICI = "deneme"
 SIFRE = "deneme-1234"
 MAC_ETIKETI = "com.patientdatacenter.pdc"      # baslat.MAC_ETIKETI
+# Program açılışı bundan uzun sürerse bir şey takılıyor demek (v6.204: Mac'te
+# makine adını çözmek 70 sn sürmüş, program o arada hiç açılmamıştı). İlk
+# açılışta kök sertifikanın anahtarı üretiliyor, o yüzden pay var.
+ACILIS_SINIRI_SN = 45
 
 # Giriş yapmış yöneticinin açabilmesi gereken ekranlar (200).
 EKRANLAR = [
@@ -124,6 +128,13 @@ def pdc_bekle(port, sure, surec=None, pid=None):
             return bilgi
         time.sleep(0.5)
     raise DenemeHatasi(f"program {sure} sn icinde port {port}'ta cevap vermedi")
+
+
+def _sure_denetle(ne, t0):
+    sure = time.time() - t0
+    print(f"  {ne}: {sure:.1f} sn")
+    ok(sure <= ACILIS_SINIRI_SN,
+       f"{ne} {sure:.0f} sn surdu ({ACILIS_SINIRI_SN} sn'den uzun): acilista bir sey takiliyor")
 
 
 def ayni_yer(a, b):
@@ -254,9 +265,11 @@ def kip_program(exe, port=18000, https_port=18443):
     print(f"Program: {exe}\nVeri   : {veri}")
     surecler = []
     try:
+        t0 = time.time()
         p1 = subprocess.Popen([exe, "--servis"], env=ortam, cwd=str(veri))
         surecler.append(p1)
         bilgi = pdc_bekle(port, 180, surec=p1)
+        _sure_denetle("ilk acilis", t0)
         ok(ayni_yer(bilgi.get("veri"), veri), f"veri klasoru yanlis: {bilgi.get('veri')}")
         ok(bilgi.get("paket"), "paket_bilgisi.json pakete girmemis")
         ok(bilgi.get("surum"), "README.md pakete girmemis (surum yok)")
@@ -303,6 +316,7 @@ def _devral(exe, ortam, veri, eski, port):
     # Değişen dosya uygulamanın imzasını bozdu: kopyayı yeniden imzala.
     subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(kopya)], check=True)
     yeni_exe = kopya / "Contents" / "MacOS" / Path(exe).name
+    t0 = time.time()
     yeni = subprocess.Popen([str(yeni_exe)], env=ortam, cwd=str(veri))
     try:
         eski.wait(60)
@@ -310,6 +324,7 @@ def _devral(exe, ortam, veri, eski, port):
         raise DenemeHatasi("yeni derleme eskisini 60 sn icinde kapatmadi")
     ok(eski.returncode == 0, f"eski derlemenin cikis kodu {eski.returncode}")
     bilgi = pdc_bekle(port, 120, surec=yeni, pid=yeni.pid)
+    _sure_denetle("yenisinin yerine gecmesi", t0)
     ok(bilgi.get("paket", "").endswith("(yeni)"), f"yerine gecen derleme yanlis: {bilgi.get('paket')}")
     i = Istemci(port)
     d, h, _ = i.iste("/giris", {"kullanici_adi": KULLANICI, "sifre": SIFRE})
@@ -348,9 +363,11 @@ def kip_oturum(exe, port=18000, https_port=18443):
     if plist.exists():
         plist.unlink()
     veri = Path(tempfile.mkdtemp(prefix="pdc_oturum_"))
+    t0 = time.time()
     p = subprocess.Popen([exe], env=_ortam(veri, port, https_port), cwd=str(veri))
     try:
         pdc_bekle(port, 180, surec=p)
+        _sure_denetle("Uygulamalar'dan acilis", t0)
         ok(plist.exists(), f"LaunchAgent yazilmadi: {plist}")
         with open(plist, "rb") as f:
             icerik = plistlib.load(f)

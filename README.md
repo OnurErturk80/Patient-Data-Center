@@ -16051,5 +16051,26 @@ program pencereli.
 - Kurulum ekranı ilk kurulum ve taşıma (USB taşıma klasörü ve eski programın
   klasörü) için sahte veriyle denendi: sayılar kaynakla birebir, geçici dosya
   kalmadı, yol aşımı reddedildi, telefonda ve masaüstünde taşma yok.
-- Windows ve Mac: GitHub'ın makinelerinde (sonuç aşağıda).
+- **Windows** (GitHub'ın `windows-latest` makinesi): paket kurulmadan
+  duman testinden geçti. Kurulum dosyası (16 MB) sessizce kuruldu: program
+  Görev Zamanlayıcı'yla `NT AUTHORITY\SYSTEM` olarak açıldı, veri
+  `C:\ProgramData\PatientDataCenter`, görevin süre sınırı yok (`PT0S`),
+  tetik açılış, öncelik 4, güvenlik duvarında 8000,8443 yalnızca yerel alt ağ;
+  aynı deneme (ilk kurulum, 23 ekran, formlar, Excel, HTTPS) geçti. İkinci
+  kurulum (güncelleme) programı yeniden başlattı, veritabanı korundu, tek
+  kural kaldı. Kaldırma: program, görev ve kural gitti, `lab.db` yerinde.
+  İlk çalışmada yalnızca iş akışının kendi denetimi yanlıştı (`<BootTrigger />`).
+- **Mac** (Apple Silicon, `macos-latest`): imza geçerli, duman testi geçti,
+  yenilenmiş uygulama eski derlemeyi kapatıp yerine geçti, Uygulamalar'dan
+  açılan uygulama LaunchAgent'ı yazdı, DMG doğrulanıp açıldı.
+- **Bulunan: Mac'te açılış 70 saniye takılıyordu.** Uygulamalar'a kopyalanan
+  uygulama (ve yerine geçme denemesindeki kopya) açılırken
+  `sertifika.yerel_ipler()`'in makine adını çözmesi (`gethostbyname_ex`)
+  70 sn sürdü; program o arada hiç cevap vermedi. Aynı çağrı ilk derlemede
+  anında dönmüştü: sebep macOS'un "yerel ağ" izni ya da makinenin adını
+  bilmeyen ad sunucusu olabilir, gerçek bir Mac'te de olabilir. Çözüm en çok
+  2 sn bekliyor (`_adin_adresleri()`), dönmezse o ek adresler atlanıyor --
+  asıl adres UDP yolundan geliyor. `dene.py` artık açılış süresini ölçüyor,
+  45 sn'yi aşarsa başarısız sayıyor.
+- Intel Mac (`macos-15-intel`) son derlemede ilk kez.
 - **Gerçek bir bilgisayarda ilk kurulum henüz yapılmadı.**

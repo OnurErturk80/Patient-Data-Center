@@ -46,6 +46,7 @@ import logging
 import os
 import secrets
 import socket
+import threading
 from pathlib import Path
 
 import db
@@ -361,14 +362,41 @@ def yerel_ipler():
         pass
     finally:
         s.close()
-    try:
-        for ip in socket.gethostbyname_ex(socket.gethostname())[2]:
-            if ip not in ipler and not ip.startswith("127."):
-                ipler.append(ip)
-    except OSError:
-        pass
+    for ip in _adin_adresleri(socket.gethostname()):
+        if ip not in ipler and not ip.startswith("127."):
+            ipler.append(ip)
     ipler.append("127.0.0.1")
     return ipler
+
+
+AD_COZME_SN = 2
+
+
+def _adin_adresleri(ad, sure=AD_COZME_SN):
+    """Makine adının adresleri (iki ağ kartlı bilgisayarda ikincisi de
+    sertifikaya girsin), en çok `sure` saniye beklenerek (v6.204).
+
+    Mac'te makinenin kendi adını çözmek takılabiliyor: GitHub'ın Mac'inde
+    Uygulamalar'a kopyalanan uygulamada 70 saniye sürdü, program o arada hiç
+    açılmadı (macOS'un "yerel ağ" izni ya da cevap vermeyen ad sunucusu).
+    Süre dolarsa bu adresler atlanıyor; asıl adres `yerel_ipler()`'in UDP
+    yolundan zaten geliyor. Çözüm arka planda sürüp kendiliğinden biterse
+    zararı yok (daemon iş parçacığı)."""
+    sonuc = []
+
+    def coz():
+        try:
+            sonuc.extend(socket.gethostbyname_ex(ad)[2])
+        except OSError:
+            pass
+
+    is_ = threading.Thread(target=coz, name="ad-cozme", daemon=True)
+    is_.start()
+    is_.join(sure)
+    if is_.is_alive():
+        _g.info("HTTPS: makine adi %d sn icinde cozulemedi, ek adresler atlandi", sure)
+        return []
+    return list(sonuc)
 
 
 def yerel_adlar():

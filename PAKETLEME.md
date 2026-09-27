@@ -174,7 +174,14 @@ Setup BOM'suz dosyayı ANSI okur, Türkçe bozulur).
   resmî form, altı Excel çıktısı, HTTPS; ikinci açılış çalışan programı tanıyıp
   çıktı; SIGTERM ile düzgün kapandı; günlükte hata yok. Eski derlemeyi
   kapatma ve LaunchAgent yazma Linux'ta ayrıca denendi.
-- **Windows ve Mac**: GitHub'ın makinelerinde (aşağıda, README v6.204).
+- **Windows** (GitHub, v6.204): kurulmamış paket, sessiz kurulum (program
+  SYSTEM olarak, görevin süre sınırı yok, güvenlik duvarı 8000,8443 yerel
+  alt ağ), güncelleme (yeniden başladı, veritabanı korundu, tek kural),
+  kaldırma (veri yerinde). Kurulum dosyası 16 MB.
+- **Mac** (GitHub, Apple Silicon): duman testi, yenilenmiş uygulamanın yerine
+  geçmesi, LaunchAgent, DMG. Bulunan ve düzeltilen: açılışta makine adını
+  çözmek 70 sn takılıyordu, artık en çok 2 sn (README v6.204). `dene.py`
+  açılışı 45 sn'den uzun süren derlemeyi başarısız sayıyor.
 - **Gerçek bir bilgisayarda henüz denenmedi**: ilk kurulumu kullanıcı yapacak.
 
 ## Sırada ne var
