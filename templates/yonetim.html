@@ -123,6 +123,10 @@
   <h2>{{ metin("program_surumu") }}</h2>
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("calisan_surum") }}</dt><dd>{{ calisan_surum }}</dd></div>
+    {# Kurulum dosyasıyla kurulduysa hangi derleme (v6.204, `paket_bilgisi.json`). #}
+    {% if paket and paket.kimlik %}
+    <div class="veri"><dt>{{ metin("paket_derleme") }}</dt><dd>{{ paket.kimlik }}</dd></div>
+    {% endif %}
     {% if diskteki_surum and diskteki_surum != calisan_surum %}
     <div class="veri"><dt>{{ metin("diskteki_surum") }}</dt><dd>{{ diskteki_surum }}</dd></div>
     {% endif %}

@@ -1,0 +1,218 @@
+# Windows kurulum dosyası ve Mac uygulaması (v6.204, PAKETLEME.md).
+#
+# Elle çalıştırılıyor: GitHub'da Actions -> Paketler -> Run workflow. Depo özel;
+# her dakika hesabın aylık ücretsiz dakikasından düşüyor ve Windows 2, Mac 10
+# kat sayılıyor (Windows + Apple Silicon Mac ~150 dakika). Bu yüzden her
+# gönderimde değil, istenince çalışıyor ve makineler tek tek seçilebiliyor.
+#
+# Her makinede program derlenip açılıyor ve deneniyor (paket/dene.py): ilk
+# kurulum, ekranlar, hasta/tedavi, resmî formlar, Excel, HTTPS, ikinci açılış.
+# Windows'ta kurulum dosyası sessizce kurulup (Görev Zamanlayıcı, güvenlik
+# duvarı), güncellenip kaldırılıyor. Çıkan dosyalar "Artifacts" altında.
+name: Paketler
+
+on:
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: "Windows kurulum dosyası"
+        type: boolean
+        default: true
+      mac:
+        description: "Mac (Apple Silicon: M1 ve sonrası)"
+        type: boolean
+        default: true
+      mac_intel:
+        description: "Mac (Intel işlemcili Mac'ler)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_SURUMU: "3.12"
+  BAGIMLILIKLAR: "fastapi uvicorn jinja2 python-multipart pyinstaller pillow"
+
+jobs:
+  windows:
+    if: inputs.windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_SURUMU }}
+
+      - name: Bağımlılıklar
+        run: |
+          python -m pip install --upgrade pip
+          $paketler = $env:BAGIMLILIKLAR -split ' '
+          python -m pip install @paketler
+
+      - name: Paket (PyInstaller)
+        run: pyinstaller --noconfirm --clean paket/pdc.spec
+
+      - name: Sürüm
+        run: |
+          $b = Get-Content build/paket/paket_bilgisi.json -Raw | ConvertFrom-Json
+          "SURUM=$($b.surum.TrimStart('v'))" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          Write-Host "Paket: $($b.kimlik)"
+
+      - name: Paketi dene (kurmadan)
+        run: python paket/dene.py program dist/PatientDataCenter/PatientDataCenter.exe
+
+      - name: Kurulum dosyası (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          if (-not (Test-Path $iscc)) { throw "ISCC bulunamadi" }
+          & $iscc "/DSurum=$env:SURUM" paket\pdc_kurulum.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC hata verdi" }
+
+      - name: Kur ve dene
+        run: |
+          $kur = "dist\PatientDataCenter-Kurulum-$env:SURUM.exe"
+          $p = Start-Process $kur -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LOG=kurulum1.log' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content kurulum1.log; throw "kurulum cikis kodu $($p.ExitCode)" }
+          python paket/dene.py kurulu
+          if ($LASTEXITCODE -ne 0) { throw "kurulu program denemesi basarisiz" }
+          $xml = Export-ScheduledTask -TaskName PatientDataCenter
+          if ($xml -notmatch '<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>') { $xml; throw "gorevin sure siniri var" }
+          if ($xml -notmatch 'S-1-5-18') { $xml; throw "gorev SYSTEM olarak calismiyor" }
+          if ($xml -notmatch '--servis') { $xml; throw "gorev --servis ile acmiyor" }
+          if ($xml -notmatch '<BootTrigger>') { $xml; throw "gorev acilista baslamiyor" }
+          $sahip = Get-CimInstance Win32_Process -Filter "Name='PatientDataCenter.exe'" | Invoke-CimMethod -MethodName GetOwner
+          Write-Host "Surecin sahibi: $($sahip.Domain)\$($sahip.User)"
+          if ($sahip.User -ne 'SYSTEM') { throw "program SYSTEM olarak calismiyor" }
+          $kural = (netsh advfirewall firewall show rule name="Patient Data Center") -join "`n"
+          if ($kural -notmatch '8000,8443' -or $kural -notmatch 'LocalSubnet') { $kural; throw "guvenlik duvari kurali eksik" }
+          Write-Host "Gorev ve guvenlik duvari tamam"
+          exit 0
+
+      - name: Güncelleme (ikinci kurulum) ve dene
+        run: |
+          $kur = "dist\PatientDataCenter-Kurulum-$env:SURUM.exe"
+          $p = Start-Process $kur -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LOG=kurulum2.log' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content kurulum2.log; throw "guncelleme cikis kodu $($p.ExitCode)" }
+          python paket/dene.py kurulu --yeniden
+          if ($LASTEXITCODE -ne 0) { throw "guncellemeden sonra deneme basarisiz" }
+          $n = @(netsh advfirewall firewall show rule name="Patient Data Center" | Select-String 'LocalPort').Count
+          if ($n -ne 1) { throw "guvenlik duvarinda $n kural var (1 olmali)" }
+          exit 0
+
+      - name: Kaldır ve dene
+        run: |
+          $klasor = "${env:ProgramFiles}\Patient Data Center"
+          Start-Process "$klasor\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          # Kaldırıcı kendini geçici bir kopyadan çalıştırıyor: bitmesini bekle.
+          for ($i = 0; $i -lt 120 -and (Test-Path "$klasor\PatientDataCenter.exe"); $i++) { Start-Sleep 1 }
+          if (Test-Path "$klasor\PatientDataCenter.exe") { throw "program kaldirilmadi" }
+          if (Get-Process PatientDataCenter -ErrorAction SilentlyContinue) { throw "program hala calisiyor" }
+          schtasks /Query /TN PatientDataCenter 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { throw "gorev silinmedi" }
+          $kural = (netsh advfirewall firewall show rule name="Patient Data Center") -join "`n"
+          if ($kural -match 'LocalPort') { throw "guvenlik duvari kurali silinmedi" }
+          if (-not (Test-Path "$env:ProgramData\PatientDataCenter\lab.db")) { throw "veri silinmis: lab.db yok" }
+          Write-Host "Kaldirma tamam, veri yerinde"
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PatientDataCenter-Windows-${{ env.SURUM }}
+          path: dist/PatientDataCenter-Kurulum-*.exe
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Günlükler (başarısızlıkta)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gunlukler-windows
+          path: |
+            kurulum*.log
+            C:\ProgramData\PatientDataCenter\program.log
+          if-no-files-found: ignore
+
+  # Hangi Mac'ler derlenecek: Mac dakikası pahalı, seçilmeyen makine hiç açılmasın.
+  mac_secimi:
+    runs-on: ubuntu-latest
+    outputs:
+      liste: ${{ steps.s.outputs.liste }}
+    steps:
+      - id: s
+        run: |
+          l=""
+          if [ "${{ inputs.mac }}" = "true" ]; then l='{"ad":"arm64","makine":"macos-latest"}'; fi
+          if [ "${{ inputs.mac_intel }}" = "true" ]; then l="${l:+$l,}"'{"ad":"intel","makine":"macos-15-intel"}'; fi
+          echo "liste=[$l]" >> "$GITHUB_OUTPUT"
+
+  mac:
+    needs: mac_secimi
+    if: needs.mac_secimi.outputs.liste != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.mac_secimi.outputs.liste) }}
+    runs-on: ${{ matrix.makine }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_SURUMU }}
+
+      - name: Bağımlılıklar
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install $BAGIMLILIKLAR
+
+      - name: Paket (PyInstaller)
+        run: |
+          pyinstaller --noconfirm --clean paket/pdc.spec
+          # Bütün uygulamayı (tek tek dosyalar değil) imzasız-yerel ("ad-hoc")
+          # imzala: imzasız paket Apple Silicon'da "hasarlı" diye açılmaz.
+          codesign --force --deep --sign - "dist/Patient Data Center.app"
+          codesign --verify --deep --strict --verbose=2 "dist/Patient Data Center.app"
+          file "dist/Patient Data Center.app/Contents/MacOS/PatientDataCenter"
+          python -c "import json;b=json.load(open('build/paket/paket_bilgisi.json'));print('SURUM='+b['surum'][1:])" >> "$GITHUB_ENV"
+          cat build/paket/paket_bilgisi.json
+
+      - name: Paketi dene
+        run: python paket/dene.py program "dist/Patient Data Center.app/Contents/MacOS/PatientDataCenter"
+
+      - name: Oturum açılışında başlama
+        run: |
+          sudo ditto "dist/Patient Data Center.app" "/Applications/Patient Data Center.app"
+          python paket/dene.py oturum "/Applications/Patient Data Center.app/Contents/MacOS/PatientDataCenter"
+          sudo rm -rf "/Applications/Patient Data Center.app"
+
+      - name: DMG
+        run: |
+          mkdir dmg
+          ditto "dist/Patient Data Center.app" "dmg/Patient Data Center.app"
+          ln -s /Applications dmg/Applications
+          cp paket/mac_kurulum.txt dmg/Kurulum.txt
+          dmg="dist/PatientDataCenter-$SURUM-mac-${{ matrix.ad }}.dmg"
+          # hdiutil GitHub'ın makinelerinde ara sıra "Resource busy" diyor.
+          for i in 1 2 3; do
+            hdiutil create -volname "Patient Data Center" -srcfolder dmg -ov -format UDZO "$dmg" && break
+            sleep 15
+          done
+          hdiutil verify "$dmg"
+          hdiutil attach -readonly -nobrowse -mountpoint /tmp/pdc_dmg "$dmg"
+          ls -la /tmp/pdc_dmg
+          test -x "/tmp/pdc_dmg/Patient Data Center.app/Contents/MacOS/PatientDataCenter"
+          hdiutil detach /tmp/pdc_dmg
+          echo "DMG=$dmg" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PatientDataCenter-Mac-${{ matrix.ad }}-${{ env.SURUM }}
+          path: ${{ env.DMG }}
+          retention-days: 14
+          if-no-files-found: error

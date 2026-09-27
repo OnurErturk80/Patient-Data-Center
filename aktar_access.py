@@ -272,8 +272,9 @@ import textwrap
 import db as _db          # veritabanının yeri tek yerde: db.py (tuzak #8)
 
 DB = _db.DB_YOLU
-if not DB.exists():
-    sys.exit("lab.db bulunamadi.")
+# Veritabanı yoksa durmak `main()`'de (v6.204): modül program tarafından da
+# içe aktarılıyor (cryo_sablon -> cryo_esle -> burası, `_skor_coz()` için) ve
+# ilk kurulumda veritabanı henüz yok -- burada çıkılsaydı program açılmazdı.
 
 
 # --------------------------------------------------------------- yardımcılar
@@ -4751,6 +4752,8 @@ def tamamla(satirlar):
 
 def main():
     global KAYNAK
+    if not DB.exists():
+        sys.exit("lab.db bulunamadi.")
     arg, duzelt = [], None
     for a in sys.argv[1:]:
         if a.lower().startswith("kaynak="):

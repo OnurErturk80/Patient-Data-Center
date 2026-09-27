@@ -1,0 +1,29 @@
+﻿Patient Data Center -- Mac kurulumu
+
+1. "Patient Data Center" simgesini yanındaki "Applications" (Uygulamalar)
+   klasörüne sürükleyin.
+
+2. Uygulamalar klasöründe "Patient Data Center"a çift tıklayın.
+   Dosya imzasız olduğu için macOS ilk açılışta izin ister:
+   - macOS 15 ve sonrası: "açılamadı" penceresini kapatın, sonra
+     Sistem Ayarları -> Gizlilik ve Güvenlik -> en altta "Yine de Aç".
+   - Daha eski macOS: uygulamaya sağ tıklayıp "Aç" deyin.
+   macOS "yerel ağdaki aygıtları bulma" izni sorarsa "İzin Ver" deyin
+   (telefonların bağlanması için).
+
+3. Program tarayıcıda açılır. İlk açılışta kurulum ekranı gelir:
+   - Eski bilgisayardan taşı: eski bilgisayarda hazırlanan USB klasörünü
+     (python3 tasi.py disari <usb> sertifika) ya da eski programın
+     klasörünü seçin.
+   - Yeni laboratuvar kur: ilk yönetici hesabını açın.
+
+Program arka planda çalışır, Dock'ta simgesi yoktur. Tarayıcıyı yeniden
+açmak için uygulamaya yine çift tıklayın. Oturum açılınca kendiliğinden
+başlar (Sistem Ayarları -> Genel -> Oturum Açma Öğeleri'nden kapatılabilir).
+
+Yeni kurulum yalnızca bu bilgisayardan açılır. Telefonlar ve öteki
+bilgisayarlar için: Yönetici -> Ağ erişimi -> İç ağa açık.
+
+Güncelleme: yeni sürümü Uygulamalar'a sürükleyin ("Değiştir"), sonra ona
+çift tıklayın -- eski sürüm kapanır, yenisi açılır. Veriler yerinde kalır:
+  ~/Library/Application Support/PatientDataCenter

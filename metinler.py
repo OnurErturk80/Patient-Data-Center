@@ -2177,6 +2177,8 @@ METINLER = {
     "goc_guncel": {"tr": "Veritabanı güncel.", "en": "The database is up to date."},
     "program_surumu": {"tr": "Program sürümü", "en": "Program version"},
     "calisan_surum": {"tr": "Çalışan", "en": "Running"},
+    # Kurulum dosyasının derlemesi (v6.204): sürüm, commit, tarih.
+    "paket_derleme": {"tr": "Kurulum dosyası", "en": "Installer build"},
     "diskteki_surum": {"tr": "Güncellenen (diskte)", "en": "Updated (on disk)"},
     "surum_yeniden_baslat": {
         "tr": "Program güncellendi ama yeniden başlatılmadı: yeni kod çalışmıyor. "
@@ -2203,6 +2205,62 @@ METINLER = {
     "goc_veritabani_yok": {"tr": "Veritabanı bulunamadı.",
                            "en": "The database was not found."},
     "baglan": {"tr": "Telefona ekle", "en": "Add to a phone"},
+    # ---- ilk kurulum (v6.204) ----
+    "kisa_kod": {"tr": "Kısa kod", "en": "Short code"},
+    "sifre_tekrar": {"tr": "Şifre (tekrar)", "en": "Password (repeat)"},
+    "kurulum_baslik": {"tr": "İlk kurulum", "en": "First-time setup"},
+    "kurulum_aciklama": {
+        "tr": "Bu bilgisayarda henüz programın veritabanı yok. Eski bilgisayardaki verileri alın ya da yeni bir laboratuvar kurun. Veri klasörü:",
+        "en": "There is no database on this computer yet. Bring the data from the old computer or set up a new laboratory. Data folder:"},
+    "kurulum_tasi_baslik": {"tr": "Eski bilgisayardan taşı", "en": "Move from the old computer"},
+    "kurulum_tasi_ipucu": {
+        "tr": "Eski bilgisayarda <code>python3 tasi.py disari &lt;usb&gt; sertifika</code> ile hazırlanan USB klasörünü (<code>lab_tasima</code>), eski programın klasörünü ya da yedek klasörünü seçin. Veritabanı, fotoğraf arşivi ve telefonların sertifikası buradan alınır.",
+        "en": "Choose the USB folder prepared on the old computer with <code>python3 tasi.py disari &lt;usb&gt; sertifika</code> (<code>lab_tasima</code>), the old program's folder or a backup folder. The database, the photo archive and the phones' certificate are taken from there."},
+    "kurulum_klasor": {"tr": "Klasör", "en": "Folder"},
+    "kurulum_bak": {"tr": "Klasöre bak", "en": "Look in folder"},
+    "kurulum_klasor_yok": {"tr": "Bu klasör bu bilgisayarda bulunamadı.", "en": "This folder was not found on this computer."},
+    "kurulum_veritabani_sec": {"tr": "Alınacak veritabanı", "en": "Database to take"},
+    "kurulum_veritabani_yok": {"tr": "Bu klasörde programın veritabanı bulunamadı (lab.db ya da yedek dosyası).",
+                               "en": "No program database (lab.db or a backup file) in this folder."},
+    "kurulum_dosya_sec": {"tr": "Listeden bir veritabanı seçin.", "en": "Choose a database from the list."},
+    "kurulum_son_kayit": {"tr": "son kayıt", "en": "last record"},
+    "kurulum_arsiv_al": {"tr": "Fotoğraf arşivini de al ({n} dosya)", "en": "Also take the photo archive ({n} files)"},
+    "kurulum_sertifika_al": {"tr": "Telefonların sertifikasını da al", "en": "Also take the phones' certificate"},
+    "kurulum_sertifika_silinir": {
+        "tr": "Android telefonlara sertifika yeniden yüklenmez. USB'deki kopya alındıktan sonra silinir.",
+        "en": "Android phones do not need the certificate again. The copy on the USB is deleted afterwards."},
+    "kurulum_sertifika_kalir": {
+        "tr": "Android telefonlara sertifika yeniden yüklenmez. Eski programın klasöründeki sertifikaya dokunulmaz.",
+        "en": "Android phones do not need the certificate again. The certificate in the old program's folder is left as it is."},
+    "kurulum_uzun_surebilir": {
+        "tr": "Fotoğraf arşivi büyükse birkaç dakika sürebilir; sayfayı kapatmayın.",
+        "en": "With a large photo archive this can take a few minutes; do not close the page."},
+    "kurulum_veriyi_al": {"tr": "Veriyi al", "en": "Take the data"},
+    "kurulum_yeni_baslik": {"tr": "Yeni laboratuvar", "en": "New laboratory"},
+    "kurulum_yeni_ipucu": {
+        "tr": "Boş bir veritabanı kurulur. Bu hesap yönetici olur; öteki personeli sonra Yönetici → Kullanıcılar'dan eklersiniz.",
+        "en": "An empty database is set up. This account becomes the administrator; add the other staff later under Administration → Users."},
+    "kurulum_lab_adi": {"tr": "Laboratuvarın adı", "en": "Laboratory name"},
+    "kurulum_yeni_kur": {"tr": "Laboratuvarı kur", "en": "Set up the laboratory"},
+    "kurulum_tamam_yeni": {"tr": "Laboratuvar kuruldu.", "en": "The laboratory is set up."},
+    "kurulum_tamam_tasi": {"tr": "Veriler bu bilgisayara alındı.", "en": "The data is on this computer now."},
+    "kurulum_alinan": {"tr": "Alınan", "en": "Taken"},
+    "kurulum_arsiv": {"tr": "Fotoğraf arşivi", "en": "Photo archive"},
+    "kurulum_arsiv_sonuc": {"tr": "{yeni} dosya kopyalandı, {guncel} zaten vardı", "en": "{yeni} files copied, {guncel} already there"},
+    "kurulum_sertifika": {"tr": "Sertifika", "en": "Certificate"},
+    "kurulum_sertifika_alindi": {"tr": "Alındı: telefonlara yeniden yüklemek gerekmiyor.", "en": "Taken: phones do not need it again."},
+    "kurulum_goc_hatasi": {"tr": "{n} güncelleme uygulanamadı; ayrıntısı Yönetici panelinde.", "en": "{n} updates could not be applied; details on the admin panel."},
+    "kurulum_ag_kapali": {
+        "tr": "Program şimdilik yalnızca bu bilgisayardan açılıyor. Telefonların bağlanması için girişten sonra Yönetici → Ağ erişimi → İç ağa açık.",
+        "en": "For now the program opens only on this computer. For phones to connect: after signing in, Administration → Network access → Open to the local network."},
+    "kurulum_girise_git": {"tr": "Giriş ekranına git", "en": "Go to sign-in"},
+    "kurulum_uzak_baslik": {"tr": "Program henüz kurulmadı", "en": "The program is not set up yet"},
+    "kurulum_uzak_metin": {
+        "tr": "Patient Data Center bu bilgisayarda henüz kurulmadı. İlk kurulum yalnızca programın kurulu olduğu bilgisayardan yapılır.",
+        "en": "Patient Data Center is not set up yet. The first-time setup can be done only on the computer the program is installed on."},
+    "kurulum_suruyor_baslik": {"tr": "Kurulum sürüyor", "en": "Setup in progress"},
+    "kurulum_suruyor_metin": {"tr": "Veriler yerleştiriliyor, birazdan hazır. Sayfa kendini yenileyecek.",
+                              "en": "The data is being put in place, ready shortly. The page will refresh itself."},
     # ---- ağ erişimi (v6.203) ----
     "ag_erisimi": {"tr": "Ağ erişimi", "en": "Network access"},
     "ag_yerel": {"tr": "Yalnızca bu bilgisayar", "en": "This computer only"},

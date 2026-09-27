@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ metin("kurulum_baslik") }} · Patient Data Center</title>
+<link rel="stylesheet" href="/static/style.css?v={{ statik_surum() }}">
+</head>
+{# İlk kurulum (v6.204): veritabanı yokken programın tek ekranı. `base.html`
+   kullanılmıyor -- menüsü, tazelemesi ve kullanıcı alanları veritabanına
+   soruyor, SQLite yoksa boş bir `lab.db` açardı. Yalnızca bu bilgisayardan
+   açılıyor (middleware). İki kart: eski bilgisayardan taşı (çoğu zaman
+   gereken) ve yeni laboratuvar. #}
+<body>
+<main class="kap" style="padding-top:18px">
+  <h1 style="font-size:22px;margin:0 0 4px">{{ metin("kurulum_baslik") }}</h1>
+
+{% if tamam %}
+  {# ------------------------------------------------ kurulum yapıldı #}
+  <div class="uyari tamam" style="margin-top:12px">
+    {{ metin("kurulum_tamam_yeni") if tamam.yol == "yeni" else metin("kurulum_tamam_tasi") }}
+  </div>
+  <div class="kart">
+    {% if tamam.yol == "tasi" and tamam.ozet %}
+    <div class="alan">
+      <label>{{ metin("kurulum_alinan") }}</label>
+      <div>{% for ad, n in tamam.ozet.sayilar.items() %}{{ n }} {{ ad }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+      <div class="ipucu">{{ metin("kurulum_son_kayit") }}: {{ gg_aa_yyyy_saat(tamam.ozet.son_etkinlik) if tamam.ozet.son_etkinlik else "—" }}</div>
+    </div>
+    {% if tamam.arsiv %}<div class="alan"><label>{{ metin("kurulum_arsiv") }}</label>
+      <div>{{ metin("kurulum_arsiv_sonuc").format(yeni=tamam.arsiv[0], guncel=tamam.arsiv[1]) }}</div></div>{% endif %}
+    {% if tamam.sertifika %}<div class="alan"><label>{{ metin("kurulum_sertifika") }}</label>
+      <div>{{ metin("kurulum_sertifika_alindi") }}</div></div>{% endif %}
+    {% for u in tamam.uyarilar or [] %}<div class="alan"><div class="ipucu" style="color:var(--uyari)">{{ u }}</div></div>{% endfor %}
+    {% else %}
+    <div class="alan"><label>{{ metin("kullanici_adi") }}</label><div><code>{{ tamam.kullanici_adi }}</code></div></div>
+    {% endif %}
+    {% if gocler and gocler.hatali %}
+    <div class="alan"><div class="ipucu" style="color:var(--uyari)">{{ metin("kurulum_goc_hatasi").format(n=gocler.hatali|length) }}</div></div>
+    {% endif %}
+    <div class="alan" style="border:0">
+      <div class="ipucu">{{ metin("kurulum_ag_kapali") }}</div>
+      <a class="dugme" href="/giris" style="margin-top:10px">{{ metin("kurulum_girise_git") }}</a>
+    </div>
+  </div>
+
+{% else %}
+  <div class="ipucu" style="margin:0 0 12px">{{ metin("kurulum_aciklama") }}
+    <code style="word-break:break-all">{{ veri_kok }}</code></div>
+
+  {# ------------------------------------------------ eski bilgisayardan #}
+  <div class="kart" id="tasi">
+    <h2>{{ metin("kurulum_tasi_baslik") }}</h2>
+    <div class="alan">
+      <div class="ipucu">{{ metin("kurulum_tasi_ipucu")|safe }}</div>
+    </div>
+    {% if tasi_hata %}<div class="uyari" style="margin:0 14px 8px">{{ tasi_hata }}</div>{% endif %}
+    <form method="get" action="/kurulum#tasi" id="klasorform">
+      <div class="alan">
+        <label for="klasor">{{ metin("kurulum_klasor") }}</label>
+        <input id="klasor" name="klasor" type="text" value="{{ klasor }}"
+               autocomplete="off" spellcheck="false">
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <button type="button" class="minidugme ikincil" id="gozat">{{ metin("listeden_sec") }}</button>
+          <button type="submit" class="minidugme">{{ metin("kurulum_bak") }}</button>
+        </div>
+        <div class="gezgin" id="gezgin" hidden>
+          <div class="gzyol"></div>
+          <div class="gzliste"></div>
+          <div style="display:flex;gap:8px;padding:8px">
+            <button type="button" class="minidugme" id="gzsec">{{ metin("bu_klasoru_sec") }}</button>
+            <button type="button" class="minidugme ikincil" id="gzkapat">{{ metin("kapat") }}</button>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    {% if klasor and not tasi_hata %}
+    {% if adaylar %}
+    <form method="post" action="/kurulum/tasi">
+      <input type="hidden" name="klasor" value="{{ klasor }}">
+      <div class="alan">
+        <label>{{ metin("kurulum_veritabani_sec") }}</label>
+        {% for a in adaylar %}
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:6px 0;cursor:pointer">
+          <input type="radio" name="dosya" value="{{ a.ad }}" {% if loop.first %}checked{% endif %}
+                 style="width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px">
+          <span><b>{{ a.ad }}</b> · {{ "%.1f"|format(a.boyut_mb) }} MB
+            <span class="ipucu" style="display:block">
+              {% for ad, n in a.sayilar.items() %}{{ n if n is not none else "?" }} {{ ad }}{% if not loop.last %}, {% endif %}{% endfor %}
+              · {{ metin("kurulum_son_kayit") }}: {{ gg_aa_yyyy_saat(a.son_etkinlik) if a.son_etkinlik else "—" }}</span></span>
+        </label>
+        {% endfor %}
+      </div>
+      {% if arsiv_n is not none %}
+      <label class="alan" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="checkbox" name="arsiv" value="1" checked
+               style="width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px">
+        <span>{{ metin("kurulum_arsiv_al").format(n=arsiv_n) }}</span>
+      </label>
+      {% endif %}
+      {% if sertifika_var %}
+      <label class="alan" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="checkbox" name="sertifika" value="1" checked
+               style="width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px">
+        <span>{{ metin("kurulum_sertifika_al") }}
+          <span class="ipucu" style="display:block">{{ metin("kurulum_sertifika_silinir") if tasima else metin("kurulum_sertifika_kalir") }}</span></span>
+      </label>
+      {% endif %}
+      <div class="alan" style="border:0">
+        <div class="ipucu" style="margin-bottom:8px">{{ metin("kurulum_uzun_surebilir") }}</div>
+        <button class="dugme" type="submit">{{ metin("kurulum_veriyi_al") }}</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="uyari" style="margin:0 14px 12px">{{ metin("kurulum_veritabani_yok") }}</div>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  {# ------------------------------------------------ yeni laboratuvar #}
+  <div class="kart" id="yeni">
+    <h2>{{ metin("kurulum_yeni_baslik") }}</h2>
+    <div class="alan"><div class="ipucu">{{ metin("kurulum_yeni_ipucu") }}</div></div>
+    {% if yeni_hata %}<div class="uyari" style="margin:0 14px 8px">{{ yeni_hata }}</div>{% endif %}
+    <form method="post" action="/kurulum/yeni">
+      <div class="alan">
+        <label for="lab_adi">{{ metin("kurulum_lab_adi") }}</label>
+        <input id="lab_adi" name="lab_adi" type="text" value="{{ v.lab_adi or '' }}"
+               placeholder="Embriyoloji Laboratuvarı">
+      </div>
+      <div class="alan ikili">
+        <div>
+          <label for="ad_soyad">{{ metin("ad_soyad") }}</label>
+          <input id="ad_soyad" name="ad_soyad" type="text" required value="{{ v.ad_soyad or '' }}">
+        </div>
+        <div>
+          <label for="kisa_kod">{{ metin("kisa_kod") }}</label>
+          <input id="kisa_kod" name="kisa_kod" type="text" maxlength="4" value="{{ v.kisa_kod or '' }}">
+        </div>
+      </div>
+      <div class="alan">
+        <label for="kullanici_adi">{{ metin("kullanici_adi") }}</label>
+        <input id="kullanici_adi" name="kullanici_adi" type="text" required autocomplete="username"
+               autocapitalize="none" spellcheck="false" value="{{ v.kullanici_adi or '' }}">
+      </div>
+      <div class="alan ikili">
+        <div>
+          <label for="sifre">{{ metin("sifre") }}</label>
+          <input id="sifre" name="sifre" type="password" required minlength="8" autocomplete="new-password">
+        </div>
+        <div>
+          <label for="sifre2">{{ metin("sifre_tekrar") }}</label>
+          <input id="sifre2" name="sifre2" type="password" required minlength="8" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="alan" style="border:0">
+        <button class="dugme" type="submit">{{ metin("kurulum_yeni_kur") }}</button>
+      </div>
+    </form>
+  </div>
+{% endif %}
+</main>
+
+{% if not tamam %}
+<script>
+/* Klasör gezgini: programın kurulu olduğu bilgisayarın klasörleri (Klasörler
+   ekranının gezgininin sade hali, `/kurulum/gozat`). Seçilen klasör formu
+   gönderiyor, ekran oradaki veritabanlarını listeliyor. */
+(function () {
+  var kap = document.getElementById('gezgin');
+  var girdi = document.getElementById('klasor');
+  if (!kap || !girdi) return;
+  var liste = kap.querySelector('.gzliste'), yolu = kap.querySelector('.gzyol');
+  function satir(ad, hedef) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'gzoge'; b.textContent = ad;
+    b.addEventListener('click', function () { yukle(hedef); });
+    return b;
+  }
+  function yukle(yol) {
+    liste.textContent = {{ metin("yukleniyor")|tojson }};
+    fetch('/kurulum/gozat?yol=' + encodeURIComponent(yol), {headers: {'Accept': 'application/json'}})
+      .then(function (c) { return c.ok ? c.json() : Promise.reject(c.status); })
+      .then(function (d) {
+        kap.dataset.yol = d.yol || '';
+        yolu.textContent = d.yol || '—';
+        liste.textContent = '';
+        if (!d.kok) {
+          liste.appendChild(satir('⌂ ' + {{ metin("en_ust")|tojson }}, '*'));
+          if (d.ust) liste.appendChild(satir('‹ ' + {{ metin("ust_klasor")|tojson }}, d.ust));
+        }
+        (d.klasorler || []).forEach(function (ad) {
+          var tam = d.kok ? ad : d.yol.replace(/[\/\\]$/, '') +
+                    (d.yol.indexOf('\\') >= 0 ? '\\' : '/') + ad;
+          liste.appendChild(satir(ad, tam));
+        });
+      })
+      .catch(function () { liste.textContent = {{ metin("klasor_okunamadi")|tojson }}; });
+  }
+  document.getElementById('gozat').addEventListener('click', function () {
+    kap.hidden = false; yukle(girdi.value || '');
+  });
+  document.getElementById('gzkapat').addEventListener('click', function () { kap.hidden = true; });
+  document.getElementById('gzsec').addEventListener('click', function () {
+    if (!kap.dataset.yol) return;
+    girdi.value = kap.dataset.yol;
+    document.getElementById('klasorform').submit();
+  });
+})();
+</script>
+{% endif %}
+</body>
+</html>

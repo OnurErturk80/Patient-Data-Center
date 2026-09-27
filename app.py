@@ -28,6 +28,7 @@ import goc
 import guvenlik
 import harita_excel
 import karekod
+import kurulum
 import metinler
 import xlsx_oku
 import yerlesim
@@ -96,7 +97,10 @@ sablon = Jinja2Templates(directory=KOK / "templates")
 
 ACIK_YOLLAR = {"/giris", "/sifremi-unuttum", "/sifre",
                 "/manifest.json", "/ekle", "/sw.js",
-                "/sertifika", "/sertifika/kok.crt"}
+                "/sertifika", "/sertifika/kok.crt",
+                # İlk kurulumun sonucu (v6.204): kurulumdan sonra henüz
+                # oturum yok; rota yalnızca bu bilgisayara özet gösteriyor.
+                "/kurulum/tamam"}
 
 # Güvenli kapının (HTTPS) portu -- `baslat.py` açabildiyse yazıyor (v6.196).
 # None: program yalnızca düz HTTP ile çalışıyor (`python3 -m uvicorn` ile
@@ -935,30 +939,47 @@ def _bu_bilgisayardan(request: Request) -> bool:
     adresi (localhost, 127.0.0.1, ::1) ve bilgisayarın kendi ağ adresi -- kendi
     tarayıcısında ağ adresiyle de açılabilir; başka bir cihaz o adresten
     bağlanamaz."""
+    ip = _istemci_ip(request)
+    if ip is None:
+        return False
+    return ip.is_loopback or str(ip) == _kendi_adresim()
+
+
+def _istemci_ip(request: Request):
+    """Bağlantının öteki ucunun adresi (`ipaddress` nesnesi) ya da None."""
     ana = request.client.host if request.client else ""
     try:
         ip = ipaddress.ip_address(ana)
     except ValueError:
-        return False
+        return None
     if getattr(ip, "ipv4_mapped", None):
         ip = ip.ipv4_mapped
-    return ip.is_loopback or str(ip) == _kendi_adresim()
+    return ip
 
 
-def _ag_kapali_yaniti() -> HTMLResponse:
-    """Ağ erişimi kapalıyken başka cihaza gösterilen tek sayfa. Hasta verisi,
-    menü, bağlantı yok; `/static` de kapalı olduğu için biçim satır içinde
-    (renkler koyu temanın değerleri, sabit)."""
-    j = metinler.dil_ayarla(db.ayar("dil", metinler.VARSAYILAN))
-    try:
-        baslik, metin_ = metinler.t("ag_kapali_baslik"), metinler.t("ag_kapali_metin")
-    finally:
-        metinler.dil_sifirla(j)
+def program_kimligi() -> dict:
+    """Bu bilgisayarda çalışan program hangisi (v6.204, `GET /__pdc`).
+
+    Soran `baslat.py`: aynı bilgisayarda program ikinci kez açılınca (Windows'ta
+    kısayoldan, Mac'te uygulamaya çift tıklayınca) portu tutanın bu program mı,
+    aynı kurulum mu (veri klasörü), hangi derleme mi olduğuna bakıp tarayıcıyı
+    açıyor ya da Mac'te yenilenmiş uygulamanın eskisini kapatıp yerine
+    geçiyor. Yalnızca döngü adresine (127.0.0.1) cevap veriliyor, hasta verisi
+    yok, veritabanına dokunmuyor (ilk kurulumda da çalışsın)."""
+    return {"program": "patient-data-center", "surum": CALISAN_SURUM,
+            "paket": (PAKET_BILGISI or {}).get("kimlik"),
+            "pid": os.getpid(), "veri": str(db.VERI_KOK)}
+
+
+def _duz_sayfa(baslik: str, metin_: str, durum: int = 200, tazele: int = 0) -> HTMLResponse:
+    """Veritabanına ve `/static`'e dokunmayan tek sayfa (ağ kapalı, kurulum
+    sürüyor). Biçim satır içinde, renkler koyu temanın değerleri (sabit)."""
     import html as _html
+    yenile = f'<meta http-equiv="refresh" content="{tazele}">' if tazele else ""
     sayfa = (
         '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>{_html.escape(baslik)}</title><style>"
+        f"{yenile}<title>{_html.escape(baslik)}</title><style>"
         "html{color-scheme:dark}body{margin:0;background:#0e1620;color:#e9eef3;"
         "font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}"
         "main{max-width:520px;margin:12vh auto;padding:0 20px}"
@@ -966,16 +987,54 @@ def _ag_kapali_yaniti() -> HTMLResponse:
         "p{margin:0;color:#9fb0bc}</style></head><body><main>"
         f"<h1>{_html.escape(baslik)}</h1><p>{_html.escape(metin_)}</p>"
         "</main></body></html>")
-    return HTMLResponse(sayfa, status_code=403, headers={"Cache-Control": "no-store"})
+    return HTMLResponse(sayfa, status_code=durum, headers={"Cache-Control": "no-store"})
+
+
+def _ag_kapali_yaniti(kurulum_kipi: bool = False) -> HTMLResponse:
+    """Ağ erişimi kapalıyken (ya da program henüz kurulmamışken, v6.204)
+    başka cihaza gösterilen tek sayfa. Hasta verisi, menü, bağlantı yok.
+    Kurulum kipinde dil ayarı okunmuyor: veritabanına dokunmak boş bir
+    `lab.db` açardı."""
+    if kurulum_kipi:
+        return _duz_sayfa(metinler.t("kurulum_uzak_baslik"),
+                          metinler.t("kurulum_uzak_metin"), 403)
+    j = metinler.dil_ayarla(db.ayar("dil", metinler.VARSAYILAN))
+    try:
+        baslik, metin_ = metinler.t("ag_kapali_baslik"), metinler.t("ag_kapali_metin")
+    finally:
+        metinler.dil_sifirla(j)
+    return _duz_sayfa(baslik, metin_, 403)
 
 
 @uygulama.middleware("http")
 async def oturum_kontrolu(request: Request, sonraki):
     yol = request.url.path
+    # Aynı bilgisayardaki ikinci açılışın sorusu (v6.204): veritabanına ve ağ
+    # ayarına bakmadan, yalnızca döngü adresine. Başka cihaz sorarsa normal
+    # akışa düşüyor (404 ya da "ağa kapalı").
+    if yol == "/__pdc":
+        ip = _istemci_ip(request)
+        if ip is not None and ip.is_loopback:
+            return JSONResponse(program_kimligi())
+    # Veritabanı yoksa ilk kurulum (v6.204): yalnızca bu bilgisayardan, her şey
+    # `/kurulum`'a. Aşağıdaki hiçbir şey çalışmamalı -- dil ayarı, oturum
+    # denetimi veritabanına soruyor ve SQLite yoksa boş bir `lab.db` açardı.
+    kurulum_kipi = not db.DB_YOLU.exists()
     # Ağ erişimi kapalıysa (v6.203) başka cihaz hiçbir şey görmesin: giriş
     # ekranı, açık yollar ve `/static` dahil. Denetim her şeyden önce.
-    if db.ag_erisimi() == db.AG_YEREL and not _bu_bilgisayardan(request):
-        return _ag_kapali_yaniti()
+    if (kurulum_kipi or db.ag_erisimi() == db.AG_YEREL) \
+            and not _bu_bilgisayardan(request):
+        return _ag_kapali_yaniti(kurulum_kipi)
+    # Kurulum sürerken (veritabanı yerine konuyor, arşiv kopyalanıyor) gelen
+    # istekler bekletiliyor: yarım veritabanına kimse girmesin.
+    if kurulum.SURUYOR.is_set() and not yol.startswith("/static"):
+        return _duz_sayfa(metinler.t("kurulum_suruyor_baslik"),
+                          metinler.t("kurulum_suruyor_metin"), 503, tazele=3)
+    if kurulum_kipi:
+        if yol.startswith("/static") or yol == "/kurulum" \
+                or yol.startswith("/kurulum/"):
+            return await sonraki(request)
+        return RedirectResponse("/kurulum", status_code=303)
     if yol.startswith("/static"):
         return await sonraki(request)
 
@@ -1888,7 +1947,14 @@ def klasor_gozat(request: Request, yol: str = ""):
     red = yonetici_kontrol(request)
     if red:
         return red
+    return _gozat_cevabi(yol)
 
+
+def _gozat_cevabi(yol: str) -> JSONResponse:
+    """Gezginin cevabı: klasörün alt klasörleri ve fotoğraf sayısı. İki yer
+    soruyor: Klasörler ekranı (yönetici) ve ilk kurulum (v6.204, yalnızca bu
+    bilgisayardan, veritabanı yokken). Yalnızca klasör ADLARI -- dosya adı ve
+    içerik yok (v6.43'ün kuralı)."""
     # Yol boşsa ya da okunamıyorsa makul bir yerden başla: önce kayıtlı
     # kamera klasörü, o da yoksa kullanıcının ev klasörü.
     ham = (yol or "").strip()
@@ -1907,6 +1973,131 @@ def klasor_gozat(request: Request, yol: str = ""):
     ust = str(p.parent) if p.parent != p else None
     return JSONResponse({"yol": str(p), "ust": ust, "kok": False,
                          "klasorler": alt, "fotograf": foto})
+
+
+# ---------------------------------------------------------- ilk kurulum
+#
+# v6.204: kurulum dosyasıyla yüklenen program yeni bir bilgisayarda
+# veritabanı olmadan açılıyor. Middleware bu durumda her isteği `/kurulum`'a
+# gönderiyor ve yalnızca bu bilgisayardan izin veriyor; iş `kurulum.py`'de.
+# Buradaki rotalar veritabanı varken hiçbir şey yapmıyor -- kurulmuş bir
+# programın verisinin üzerine yazmanın yolu yedekten geri yükleme (üç
+# kademeli onay), bu ekran değil.
+
+# Kurulum yapıldıktan sonra gösterilen özet (`/kurulum/tamam`). Bellekte:
+# program yeniden açılınca gerek kalmıyor.
+_SON_KURULUM = {}
+
+
+def _kurulum_bitti(gocler: dict, ozet: dict) -> None:
+    """Kurulumdan sonra programın kendi hafızası: açılıştaki göç sonucunun
+    yerine kurulumunki, saklanmış şema cevapları unutuluyor (tuzak #15)."""
+    global GOC_SONUCU, _DEGISIM_TABLOLARI
+    GOC_SONUCU = gocler
+    _goc_ozeti(gocler)
+    _DEGISIM_TABLOLARI = None
+    db.sema_bilgisini_unut()
+    _SON_KURULUM.clear()
+    _SON_KURULUM.update(ozet)
+
+
+def _kurulum_ekrani(request: Request, **baglam):
+    """İlk kurulum ekranı. Şablon `base.html`'i kullanmıyor: oradaki menü ve
+    tazeleme veritabanına soruyor."""
+    klasor = (baglam.pop("klasor", "") or "").strip()
+    adaylar_, arsiv_n, sertifika_var, tasima = [], None, False, False
+    if klasor:
+        k = Path(klasor).expanduser()
+        if k.is_dir():
+            adaylar_ = kurulum.adaylar(k)
+            a = kurulum.arsiv_klasoru(k)
+            arsiv_n = kurulum.dosya_say(a) if a else None
+            sertifika_var = kurulum.sertifika_klasoru(k) is not None
+            tasima = kurulum.tasima_klasoru_mu(k)
+        else:
+            baglam.setdefault("tasi_hata", metinler.t("kurulum_klasor_yok"))
+    return sablon.TemplateResponse(request, "kurulum.html", {
+        "klasor": klasor, "adaylar": adaylar_, "arsiv_n": arsiv_n,
+        "sertifika_var": sertifika_var, "tasima": tasima,
+        "veri_kok": str(db.VERI_KOK), "v": {}, **baglam})
+
+
+@uygulama.get("/kurulum")
+def kurulum_ekrani(request: Request, klasor: str = ""):
+    if db.DB_YOLU.exists():
+        return RedirectResponse("/", status_code=303)
+    return _kurulum_ekrani(request, klasor=klasor)
+
+
+@uygulama.get("/kurulum/gozat")
+def kurulum_gozat(yol: str = ""):
+    """Taşıma klasörünü seçtiren gezgin. Yalnızca kurulum kipinde (middleware
+    zaten yalnızca bu bilgisayara açıyor)."""
+    if db.DB_YOLU.exists():
+        return JSONResponse({}, status_code=404)
+    return _gozat_cevabi(yol)
+
+
+@uygulama.post("/kurulum/yeni")
+async def kurulum_yeni(request: Request):
+    if db.DB_YOLU.exists():
+        return RedirectResponse("/", status_code=303)
+    f = await request.form()
+    try:
+        s = kurulum.yeni_laboratuvar(
+            f.get("lab_adi"), f.get("ad_soyad"), f.get("kisa_kod"),
+            f.get("kullanici_adi"), f.get("sifre"), f.get("sifre2"))
+    except kurulum.KurulumHatasi as e:
+        # Hata formu kapatmıyor, yazılanlar geri geliyor (şifreler hariç).
+        v = {k: f.get(k) or "" for k in ("lab_adi", "ad_soyad", "kisa_kod",
+                                         "kullanici_adi")}
+        return _kurulum_ekrani(request, yeni_hata=str(e), v=v)
+    tum_yetkileri_ver(s["kullanici_id"])
+    _gunluk.info("ILK KURULUM: yeni laboratuvar kuruldu, yonetici %s",
+                 (f.get("kullanici_adi") or "").strip().lower())
+    _kurulum_bitti(s["gocler"], {"yol": "yeni",
+                                 "kullanici_adi": (f.get("kullanici_adi") or "").strip().lower()})
+    return RedirectResponse("/kurulum/tamam", status_code=303)
+
+
+@uygulama.post("/kurulum/tasi")
+async def kurulum_tasi(request: Request):
+    if db.DB_YOLU.exists():
+        return RedirectResponse("/", status_code=303)
+    f = await request.form()
+    klasor = (f.get("klasor") or "").strip()
+    # Seçilen dosya klasörün aday listesinden olmalı: adresten gelen adı yola
+    # eklemek yol aşımına açık olurdu (geri yüklemenin deseni, v6.120).
+    k = Path(klasor).expanduser() if klasor else None
+    secilen = None
+    if k is not None and k.is_dir():
+        secilen = next((a for a in kurulum.adaylar(k)
+                        if a["ad"] == (f.get("dosya") or "")), None)
+    if secilen is None:
+        return _kurulum_ekrani(request, klasor=klasor,
+                               tasi_hata=metinler.t("kurulum_dosya_sec"))
+    try:
+        s = kurulum.veri_al(secilen["yol"], arsiv_al=bool(f.get("arsiv")),
+                            sertifika_al=bool(f.get("sertifika")))
+    except kurulum.KurulumHatasi as e:
+        return _kurulum_ekrani(request, klasor=klasor, tasi_hata=str(e))
+    _gunluk.info("ILK KURULUM: veri alindi (%s), arsiv %s, sertifika %s",
+                 secilen["ad"], s["arsiv"], s["sertifika"])
+    _kurulum_bitti(s["gocler"], {"yol": "tasi", "ozet": s["ozet"], "arsiv": s["arsiv"],
+                                 "sertifika": s["sertifika"], "uyarilar": s["uyarilar"]})
+    return RedirectResponse("/kurulum/tamam", status_code=303)
+
+
+@uygulama.get("/kurulum/tamam")
+def kurulum_tamam(request: Request):
+    """Kurulumun özeti -- yalnızca bu bilgisayara ve yalnızca bu çalışmada
+    (bellekte). Oturum yok (`ACIK_YOLLAR`); sayfada hasta adı yok, sayılar
+    var."""
+    if not _SON_KURULUM or not _bu_bilgisayardan(request):
+        return RedirectResponse("/giris", status_code=303)
+    return sablon.TemplateResponse(request, "kurulum.html", {
+        "tamam": _SON_KURULUM, "gocler": GOC_SONUCU, "veri_kok": str(db.VERI_KOK),
+        "v": {}, "klasor": "", "adaylar": []})
 
 
 # ---------------------------------------------- işletim sisteminin penceresi
@@ -2088,6 +2279,11 @@ def kod_surumu():
 CALISAN_SURUM = kod_surumu()
 
 
+# Kurulum dosyasının derleme bilgisi (v6.204, `db.paket_bilgisi()`): yönetici
+# panelinin sürüm kartı ve `/__pdc`. Git ile çalışan kurulumda None.
+PAKET_BILGISI = db.paket_bilgisi()
+
+
 @uygulama.get("/yonetim")
 def yonetim_ekran(request: Request):
     """Yönetici paneli — sistemin durumu tek ekranda, hepsi salt okunur.
@@ -2151,7 +2347,7 @@ def yonetim_ekran(request: Request):
          "yonetici_sayisi": aktif_yonetici_sayisi(),
          "sifre_istegi": len(bekleyen_sifre_istekleri()),
          "calisan_surum": CALISAN_SURUM, "diskteki_surum": kod_surumu(),
-         "ag_durum": db.ag_erisimi()})
+         "paket": PAKET_BILGISI, "ag_durum": db.ag_erisimi()})
 
 
 @uygulama.get("/kullanicilar")

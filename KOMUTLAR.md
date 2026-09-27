@@ -106,6 +106,55 @@ Windows'ta yol `E:\` gibi olur: `python tasi.py durum E:\`
 
 ---
 
+## Kurulum dosyası (v6.204)
+
+Yeni bir bilgisayara Python ve git kurmadan: Windows için tek bir kurulum
+dosyası (`.exe`), Mac için uygulama (`.dmg`). GitHub'da üretiliyor:
+
+1. GitHub'da depo → **Actions** → solda **Paketler** → sağda **Run workflow**.
+   Hangi makineler: Windows, Mac (Apple Silicon: M1 ve sonrası), Mac (Intel,
+   eski Mac'ler; varsayılan kapalı). **Run workflow**.
+2. 15–25 dakika sürer; her makinede program açılıp denenir. Bitince çalışmanın
+   sayfasında en altta **Artifacts**: `PatientDataCenter-Windows-6.204`,
+   `PatientDataCenter-Mac-arm64-6.204` ... İndir (zip içinde kurulum dosyası).
+   Dosyalar 14 gün durur.
+3. Depo özel olduğu için her çalışma hesabın aylık ücretsiz dakikasından düşer
+   (Windows 2, Mac 10 kat sayılır; Windows + Mac ~150 dakika). Yalnızca
+   gerekince çalıştır.
+
+**Windows'ta kurmak**: dosyaya çift tıkla. İmzasız olduğu için Windows
+"Windows kişisel bilgisayarınızı korudu" der: **Ek bilgi** → **Yine de
+çalıştır**. Yönetici izni ister. Kurulum programı açılışta kendiliğinden
+başlayacak şekilde ayarlar (Görev Zamanlayıcı, kimse oturum açmadan),
+güvenlik duvarında 8000 ve 8443'ü yerel ağa açar, sonunda tarayıcıyı açar.
+Başlat menüsünde: Patient Data Center (tarayıcıda açar), Veri klasörü,
+Program günlüğü, kaldır. Veri: `C:\ProgramData\PatientDataCenter`.
+**Güncellemek**: yeni kurulum dosyasını çalıştır; çalışan program durdurulup
+yenisi başlatılır, veri yerinde kalır. Kaldırınca da veri kalır.
+
+**Mac'te kurmak**: `.dmg`'yi aç, "Patient Data Center"ı **Applications**
+klasörüne sürükle, orada çift tıkla. İlk açılışta macOS izin ister (imzasız):
+"açılamadı" penceresini kapat, **Sistem Ayarları → Gizlilik ve Güvenlik** →
+en altta **Yine de Aç** (eski macOS'ta: sağ tık → Aç). Program arka planda
+çalışır, Dock'ta simgesi yoktur; tarayıcıyı yeniden açmak için uygulamaya
+yine çift tıkla. Oturum açılınca kendiliğinden başlar (kapatmak: Sistem
+Ayarları → Genel → Oturum Açma Öğeleri). **Güncellemek**: yeni uygulamayı
+Applications'a sürükle ("Değiştir"), ona çift tıkla: eski sürüm kapanır,
+yenisi açılır. Veri: `~/Library/Application Support/PatientDataCenter`.
+Kapatmak gerekirse: Etkinlik Monitörü → PatientDataCenter → Çık.
+
+**İlk açılış**: veritabanı olmadığı için program kurulum ekranıyla açılır
+(yalnızca o bilgisayardan):
+- **Eski bilgisayardan taşı** -- aşağıdaki geçişin 2. adımında hazırlanan USB
+  klasörü (`lab_tasima`), eski programın klasörü ya da yedek klasörü.
+  **Listeden seç** ile klasörü bul, **Klasöre bak**, veritabanını seç (sayılar
+  ve son kayıt yazar), **Veriyi al**. Fotoğraf arşivi ve sertifika da gelir.
+- **Yeni laboratuvar kur** -- ilk yönetici hesabı.
+
+Program **ağa kapalı** başlar: telefonlar için Yönetici → Ağ erişimi.
+
+---
+
 ## Yeni bilgisayara geçiş (program başka bilgisayara taşınıyor)
 
 Programın çalıştığı bilgisayar değişiyorsa (eski bilgisayar emekli oluyor).
@@ -122,7 +171,20 @@ Günlük Mac ↔ klinik taşıması bu değil, o yukarıdaki rutin.
    `sertifika` sözü telefonların güvendiği sertifikayı da götürür: Android
    telefonlara sertifika yeniden yüklenmez.
 
-**Yeni bilgisayarda**
+**Yeni bilgisayarda -- kurulum dosyasıyla (v6.204, kolay yol)**
+
+3. Kurulum dosyasını çalıştır (yukarıdaki bölüm). Tarayıcı kurulum ekranıyla
+   açılır: **Eski bilgisayardan taşı** → USB'deki `lab_tasima` → **Veriyi al**.
+   USB'deki sertifika kopyası kendiliğinden silinir.
+4. Aşağıdaki 6–9. adımlar (Klasörler, Ağ erişimi, telefonlar).
+
+**Aynı bilgisayarda git'le çalışan programdan kurulum dosyasına geçmek**:
+önce eski programı kapat (Ctrl+C; ikisi aynı anda çalışamaz, kurulan program
+bunu söyler). Kurulum ekranında **Eski bilgisayardan taşı** → eski programın
+klasörü (içinde `lab.db` olan). Eski klasöre dokunulmaz, yedek olarak kalır;
+bir daha `python3 baslat.py` çalıştırma.
+
+**Yeni bilgisayarda -- Python ve git ile**
 
 3. Programı kur: Python 3.10+, sonra
    ```
@@ -212,8 +274,10 @@ Kullanıcı adını `<...>` içine alma, düz yaz.
 yedek ve Cryo haritası klasörü Yönetici → Klasörler'den başka bir yere
 alınabilir (Cryo haritası v6.203'ten beri).
 Bugünkü kurulumlarda bu proje klasörünün kendisi (kodun yanında `lab.db`
-varsa orası kullanılıyor). Paketlenmiş kurulumlarda işletim sisteminin veri
-klasörü olacak. Nerede olduğunu görmek için:
+varsa orası kullanılıyor). Kurulum dosyasıyla kurulan programda (v6.204)
+işletim sisteminin veri klasörü: Windows'ta `C:\ProgramData\PatientDataCenter`,
+Mac'te `~/Library/Application Support/PatientDataCenter`. Nerede olduğunu
+görmek için (git ile çalışırken):
 
 ```
 python3 -c "import db; print(db.VERI_KOK)"

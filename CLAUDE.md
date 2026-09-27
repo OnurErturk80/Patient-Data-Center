@@ -89,10 +89,17 @@ python  -m uvicorn app:uygulama --host 0.0.0.0 --port 8000   # Windows
 
 Bağımlılıklar: `fastapi uvicorn jinja2 python-multipart`. Python 3.10+.
 
-**Program kurulabilir paket olarak dağıtılacak** (v6.50, `PAKETLEME.md`).
-Giriş noktası `baslat.py`; `python -m uvicorn app:uygulama` pakette çalışmaz
-(`python` yok, `-m` yok). Uvicorn kütüphane gibi çağrılıp uygulama nesnesi
-doğrudan veriliyor. Geliştirmede de aynı yol: `python3 baslat.py`.
+**Program kurulum dosyasıyla da dağıtılıyor** (v6.50 tarif, v6.204 Windows
+kurulum dosyası + Mac uygulaması, `PAKETLEME.md`; kullanıcının adımları
+`KOMUTLAR.md` → "Kurulum dosyası"). Derleme GitHub Actions'ta, **elle**
+(`.github/workflows/paket.yml`): depo özel, Mac dakikası 10 kat sayılıyor --
+her gönderimde çalıştırma, Intel Mac varsayılan kapalı. Her derleme
+`paket/dene.py` ile deneniyor; paketi etkileyen bir şeyi değiştirirsen önce
+burada Linux'ta derleyip `python3 paket/dene.py program dist/...` çalıştır,
+GitHub'a sonra. Giriş noktası `baslat.py`; `python -m uvicorn app:uygulama`
+pakette çalışmaz (`python` yok, `-m` yok). Uvicorn kütüphane gibi çağrılıp
+uygulama nesnesi doğrudan veriliyor. Geliştirmede de aynı yol:
+`python3 baslat.py`.
 - **Şablonlar ve `static/` tarifte veri olarak ekleniyor.** PyInstaller
   yalnızca `import` edilenleri toplar; eksik kalırsa program açılır ama her
   ekran hata verir.
@@ -103,8 +110,32 @@ doğrudan veriliyor. Geliştirmede de aynı yol: `python3 baslat.py`.
   ve `print` tamponda kalıp kayboluyor -- paketlenmiş denemede göç özeti
   günlüğe hiç düşmedi. `baslat.py` günlüğü konsola **ve** veri klasöründeki
   `program.log`'a bağlıyor.
-- Paket denendi: kaynak klasörünün dışında, `PYTHONPATH` temizlenmiş halde
-  27 göç uygulandı ve 22 adres 200 verdi.
+- **`README.md` ve `paket_bilgisi.json` pakete giriyor** (v6.204): çalışan
+  sürüm README'den (sürüm kartı), derleme kimliği tarifin yazdığı dosyadan
+  (`db.paket_bilgisi()`). Kimlik her derlemede farklı: Mac'te yenilenmiş
+  uygulama eski derlemeyi onunla tanıyıp kapatıyor.
+- **Program pencereli** (konsolsuz): `sys.stdout` None. `baslat.py` onu boş
+  bir akışa bağlıyor ve pakette uvicorn'u `log_config=None, access_log=False`
+  ile açıyor (iletiler `program.log`'a). Pakette `print` hiçbir yere gitmez.
+- **`--servis` iken tarayıcı ve pencere yok** (Windows'ta Görev Zamanlayıcı
+  SYSTEM olarak açıyor, masaüstü yok: görünmeyen bir ileti kutusu programı
+  sonsuza dek bekletir). Kullanıcıya pencereyle haber veren yeni bir yer
+  yazarsan `baslat._haber_ver()`'i kullan, `_ARAYUZ`'a bakıyor.
+- **Aynı bilgisayarda ikinci açılış** `GET /__pdc`'ye soruyor (yalnızca
+  127.0.0.1, veritabanına dokunmuyor, ilk kurulumda da cevap veriyor): aynı
+  veri klasörü -> tarayıcı + çık; başka kurulum -> söyle, açılma; Mac'te
+  farklı derleme -> eskisini SIGTERM'le kapat, yerine geç. `/__pdc`'yi
+  middleware'in en başından çıkarma.
+- **Windows'ta görev PowerShell'le** (`paket/gorev.ps1`): `schtasks /Create`
+  görevi "3 günden uzun sürerse durdur" ile kuruyor, sunucu üç günde bir
+  kapanırdı. Kurulum tarifi `paket/pdc_kurulum.iss` ve `gorev.ps1` UTF-8
+  **BOM'lu** (Inno Setup ve Windows PowerShell 5.1 BOM'suz dosyayı ANSI okur).
+- **Mac'te LaunchAgent** yalnızca uygulama Uygulamalar'dan açılınca yazılıyor
+  (`baslat._mac_oturum_acilisi()`; etiket `com.patientdatacenter.pdc`, tarifin
+  uygulama kimliğiyle aynı).
+- Paket denendi (v6.204): Linux'ta kaynak klasörünün dışında, `PYTHONPATH`
+  temizlenmiş halde ilk kurulum, 53 göç, 23 ekran, formlar, Excel, HTTPS;
+  Windows ve Mac GitHub'da (README v6.204).
 
 **Göçler açılışta kendiliğinden çalışır** (v6.49) — yedekten geri
 yüklemeden hemen sonra da (v6.145, tuzak #15). Elle bir şey yapmak
@@ -121,6 +152,31 @@ gerekmiyor; `python3 goc_hepsi.py` yalnızca terminalden kontrol etmek için.
 - **Göç patlarsa program yine açılır**: hata terminale ve `/yonetim` paneline
   yazılır, sıradaki göçler çalıştırılmaz. Açılmayan program teşhis edilemez.
 - İki süreç aynı anda başlarsa `BEGIN IMMEDIATE` işaretini kapan çalıştırır.
+
+**Veritabanı yoksa program ilk kurulum ekranıyla açılır** (v6.204,
+`/kurulum`, `kurulum.py`): bütün istekler oraya, yalnızca o bilgisayardan.
+"Eski bilgisayardan taşı" (USB taşıma klasörü, eski programın ya da yedeğin
+klasörü) ya da "Yeni laboratuvar kur" (ilk yönetici).
+- **Kurulum kipinde veritabanına dokunan hiçbir şey çalışmamalı.**
+  `sqlite3.connect` olmayan dosyayı açınca boş bir `lab.db` yaratır, program
+  kendini kurulmuş sanar. Middleware'de kurulum denetimi dil ayarından ve
+  oturumdan önce; `kurulum.html` `base.html`'i kullanmıyor (menü, tazeleme,
+  kullanıcı alanı veritabanına soruyor). Kurulum kipinde açık olması gereken
+  yeni bir yol eklersen bunu hatırla. Denemede de: var olmayan veritabanına
+  `sqlite3.connect` yazma (`file:...?mode=ro`).
+- **Programın import ettiği modüle modül düzeyinde `sys.exit` yazma.**
+  `aktar_access.py`'nin "lab.db bulunamadı" çıkışı (app onu `cryo_sablon` →
+  `cryo_esle` üzerinden import ediyor) veritabanı yokken programı hiç
+  açtırmıyordu; `main()`'e taşındı. Araçların (`teshis.py` gibi) çıkışları
+  duruyor, program onları import etmiyor.
+- **Kurulum atomik**: geçici `lab.db.kurulum` kurulup denetleniyor, tek
+  hamlede yerine konuyor, sonra göçler; sürerken istekler 503
+  (`kurulum.SURUYOR`). Taşımada SQLite yedek API'si, seçilen dosya klasörün
+  listesine karşı doğrulanıyor (yol aşımı).
+- **Şema, seçim listeleri ve varsayılan ayarlar tek yerde**:
+  `kurulum.sema_kur()` (`LISTELER`, `ayarlar()`); `sifirdan_kur.py` de onu
+  çağırıyor. Yeni bir varsayılan liste ya da ayar oraya.
+- Kurulan program ağa kapalı başlıyor (v6.203).
 
 ---
 
@@ -169,7 +225,10 @@ Patient Data Center/
   static/style.css  tüm görsel tasarım
   goc_002..056.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
-  paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss Windows kurulumu
+  kurulum.py        ilk açılış: yeni laboratuvar / eski bilgisayardan taşı, şema (v6.204)
+  paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss + gorev.ps1 Windows kurulumu,
+                    dene.py duman testi, mac_kurulum.txt DMG'nin notu (v6.204)
+  .github/workflows/paket.yml  Windows + Mac derleme ve deneme, elle (v6.204)
   goc.py            bekleyen göçleri bulur ve çalıştırır (süreç içinde)
   goc_hepsi.py      aynı çalıştırıcının terminal yüzü
   teshis.py         genel sorun teşhisi

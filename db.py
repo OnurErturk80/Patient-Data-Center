@@ -64,6 +64,21 @@ def _veri_kok() -> Path:
 
 PROGRAM_KOK = _program_kok()
 VERI_KOK = _veri_kok()
+
+
+def paket_bilgisi():
+    """Kurulum dosyasının derleme bilgisi (v6.204) ya da None.
+
+    `paket/pdc.spec` pakete `paket_bilgisi.json` koyuyor: sürüm ve derlemenin
+    kimliği ("v6.204 · abc1234 · 2026-09-27"). Git ile çalışan kurulumda dosya
+    yok. Okuyan iki yer: Yönetici panelinin sürüm kartı ve `baslat.py` (Mac'te
+    yenilenmiş uygulama eski derlemeyi bununla tanıyıp kapatıyor)."""
+    try:
+        bilgi = json.loads((PROGRAM_KOK / "paket_bilgisi.json")
+                           .read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return bilgi if isinstance(bilgi, dict) else None
 try:
     VERI_KOK.mkdir(parents=True, exist_ok=True)
 except OSError:

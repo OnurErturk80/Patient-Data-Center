@@ -15917,3 +15917,139 @@ adresinin "başka cihaz" sayıldığı bir deneme sunucusuyla taklit edildi:
   sertifika geldi, USB'deki sertifika silindi, ağ erişimi kapalı yazıldı.
   Kendi sertifikası olan makinede onay soruldu; "hayır"da hiçbir şey
   değişmedi, "EVET"te eskisi saklandı.
+
+# v6.204 — Kurulum dosyası: ilk açılış ekranı, Windows kurulumu, Mac uygulaması
+
+v6.203'teki planın 4. adımı; kullanıcının kararı "Windows ve Mac birlikte".
+Yeni bir bilgisayara Python ve git kurmadan: Windows'ta tek bir kurulum
+dosyası, Mac'te `.dmg` içinde uygulama. Nasıl yapıldığı `PAKETLEME.md`'de,
+kullanıcının adımları `KOMUTLAR.md` → "Kurulum dosyası".
+
+## İlk açılış ekranı (`/kurulum`)
+
+Veritabanı yoksa program artık açılıyor; v6.50'den beri `baslat.py` "önce
+kurulumu tamamlayın" deyip duruyordu, kurulum dosyasıyla kurulan programda
+terminal yok. Bütün istekler `/kurulum`'a gidiyor, yalnızca o bilgisayardan
+(başka cihaz "Program henüz kurulmadı" sayfasını görüyor). İki yol:
+
+- **Eski bilgisayardan taşı**: USB'deki taşıma klasörü (`tasi.py disari <usb>
+  sertifika`), eski programın klasörü ya da yedek klasörü. Klasörde bulunan
+  veritabanları sayılarıyla ve son kayıtla listeleniyor, biri seçiliyor;
+  fotoğraf arşivi ve sertifika isteğe bağlı. Aynı bilgisayarda git'le çalışan
+  programdan kurulum dosyasına geçiş de bu yol (eski klasöre dokunulmuyor).
+- **Yeni laboratuvar kur**: laboratuvarın adı ve ilk yönetici (şifre en az 8).
+
+Kurallar:
+
+- **Kurulum kipinde veritabanına hiç dokunulmuyor.** Middleware'in dil ayarı,
+  oturum denetimi SQLite'a soruyor; `sqlite3.connect` olmayan dosyayı açınca
+  boş bir `lab.db` oluşuyor ve program kendini "kurulmuş" sanırdı.
+  `kurulum.html` bu yüzden `base.html`'i kullanmıyor (menü, tazeleme,
+  kullanıcı alanı veritabanına soruyor).
+- **Kurulum atomik**: geçici dosya (`lab.db.kurulum`) kuruluyor, bütünlüğü
+  denetleniyor, tek hamlede yerine konuyor, sonra göçler. Sürerken gelen
+  istekler "Kurulum sürüyor" sayfası (503, kendini tazeliyor).
+- Taşımada veritabanı SQLite yedek API'siyle kopyalanıyor (düz kopya WAL'da
+  boş dosya verebilir, v6.16); seçilen dosyanın adı klasörün listesine karşı
+  doğrulanıyor (yol aşımı). Sertifika taşıma klasöründen alınınca USB'deki
+  kopya siliniyor (v6.203), eski programın klasöründen alınınca kaynağa
+  dokunulmuyor. Bu bilgisayarda eski bir sertifika varsa saklanıyor.
+- Kurulan program ağa kapalı başlıyor (v6.203).
+- **Şema, seçim listeleri ve varsayılan ayarlar tek yerde**:
+  `kurulum.sema_kur()`; `sifirdan_kur.py` de onu çağırıyor.
+- `aktar_access.py`'nin modül düzeyindeki "lab.db bulunamadı" çıkışı
+  `main()`'e taşındı: program onu (`cryo_sablon` → `cryo_esle` üzerinden)
+  import ediyor, veritabanı yokken program hiç açılmıyordu. Programın import
+  ettiği bir modüle modül düzeyinde `sys.exit` yazma.
+
+## Aynı bilgisayarda ikinci açılış
+
+`GET /__pdc` (yalnızca 127.0.0.1'e, veritabanına dokunmadan): sürüm, derleme
+kimliği, süreç, veri klasörü. `baslat.py` portu dolu bulunca soruyor:
+
+- **Aynı kurulum** (aynı veri klasörü): "Program zaten çalışıyor", 0 ile
+  çıkıyor; kurulum dosyasıyla kurulmuş programda tarayıcıyı açıyor. Git ile
+  çalışırken de: ikinci `python3 baslat.py` artık uvicorn'un "address already
+  in use" hatası yerine bunu söylüyor.
+- **Başka kurulum ya da başka program**: söylüyor (paketlenmiş programda
+  pencereyle), açılmıyor. İki kurulum aynı anda çalışamaz.
+- **Mac'te farklı derleme**: yenilenmiş uygulama eskisini SIGTERM ile
+  kapatıp yerine geçiyor (aşağıda).
+
+Kurulum dosyasıyla kurulan program çift tıklamayla açılınca sunucu hazır
+olunca tarayıcıyı açıyor. `--servis` (Windows'ta Görev Zamanlayıcı, Mac'te
+oturum açılışı) ve `LAB_SESSIZ=1` (denemeler) iken tarayıcı ve pencere yok:
+SYSTEM'in görünmeyen masaüstünde bir pencere programı sonsuza dek bekletirdi.
+
+Pencereli pakette `sys.stdout` yok: uvicorn'un günlük biçimi `isatty()`
+sorup çöküyordu. Boş bir akışa bağlanıyor; uvicorn'un iletileri (açılamayan
+kapı, 500'ün ayrıntısı) `program.log`'a düşüyor, her isteğin satırı değil.
+Git ile çalışırken terminal eskisi gibi.
+
+## Windows kurulum dosyası
+
+`paket/pdc_kurulum.iss` (Inno Setup; v6.50'nin hiç denenmemiş taslağı
+baştan yazıldı):
+
+- Program `C:\Program Files\Patient Data Center`, veri
+  `C:\ProgramData\PatientDataCenter`. Kaldırınca veri kalıyor.
+- **Açılışta başlatma: Görev Zamanlayıcı, PowerShell'le** (`paket/gorev.ps1`).
+  v6.50'nin taslağı `schtasks /Create` kullanıyordu; o görev "3 günden uzun
+  sürerse durdur" ayarıyla geliyor, sunucu üç günde bir kapanırdı. Süre sınırı
+  yok, SYSTEM, kimse oturum açmadan, öncelik normal (varsayılan "normalin
+  altı"), `--servis`.
+- Güvenlik duvarı: 8000 ve 8443 (v6.196'nın güvenli kapısı; taslakta yoktu),
+  yalnızca yerel ağ, tek kural.
+- **Güncelleme**: yeni kurulum dosyası çalışan programı durduruyor, PyInstaller
+  klasörünü baştan yazıyor, görevi ve kuralı yeniden kurup başlatıyor.
+- Kısayollar tarayıcıda açıyor (program zaten arka planda); kurulum bitince
+  tarayıcı program cevap verince açılıyor.
+
+## Mac uygulaması
+
+- `Patient Data Center.app`, DMG'de (Uygulamalar kısayolu + `Kurulum.txt`).
+  Dock'ta simge yok: arka planda çalışan sunucu, ekranı tarayıcıda;
+  uygulamaya çift tıklamak tarayıcıyı açıyor.
+- **Oturum açılışında başlama**: Uygulamalar klasöründen açılınca
+  `~/Library/LaunchAgents/com.patientdatacenter.pdc.plist`. DMG'den ya da
+  İndirilenler'den açılırsa yazılmıyor: macOS oradan açılan uygulamayı geçici
+  bir kopyadan çalıştırıyor, yol sonra kaybolurdu.
+- **Güncelleme**: yeni uygulamayı Uygulamalar'a sürükle, çift tıkla: eski
+  derleme kapanıyor, yenisi açılıyor. Uygulama değiştirilince eski süreç
+  dosyaları altından değişmiş halde çalışmaya devam ediyordu (eski kod, yeni
+  şablonlar -- tuzak #5'in paketteki hali). Ölçü derlemenin kimliği
+  (`paket_bilgisi.json`), sürüm numarası değil: aynı sürümün yeniden derlemesi
+  de yerine geçmeli.
+- Ad-hoc imzalı (Apple hesabı yok): ilk açılışta macOS 15'te Sistem Ayarları
+  → Gizlilik ve Güvenlik → "Yine de Aç". Apple Silicon ve Intel ayrı dosya.
+
+## Derleme GitHub'da, her seferinde deneniyor
+
+`.github/workflows/paket.yml`, elle çalıştırılıyor (Actions → Paketler → Run
+workflow). Depo özel ve Mac dakikası 10 kat sayılıyor: her gönderimde değil,
+istenince; makineler seçilebiliyor, Intel Mac varsayılan kapalı. Her makinede
+program derlenip `paket/dene.py` ile deneniyor (ilk kurulum, 23 ekran, hasta,
+tedavi, resmî formlar, Excel, HTTPS, ikinci açılış, günlük); Windows'ta
+kurulum dosyası sessizce kurulup güncellenip kaldırılıyor, Mac'te yenilenmiş
+uygulamanın yerine geçmesi, LaunchAgent ve DMG deneniyor.
+
+Tarifte (`paket/pdc.spec`): `README.md` pakete giriyor (sürüm kartı),
+`paket_bilgisi.json` (derleme kimliği; Yönetici panelinde "Kurulum dosyası"
+satırı), simgeler telefon simgesinden (Mac'e köşeleri yuvarlatılmış),
+program pencereli.
+
+## Denendi
+
+- Linux'ta paket derlendi ve `dene.py`'den geçti: ilk kurulum ekranı, 53 göç,
+  23 ekran, hasta ve tedavi, iki resmî form, altı Excel çıktısı, HTTPS; ikinci
+  açılış tanındı; SIGTERM ile düzgün kapandı; günlükte hata yok. Eski
+  derlemeyi kapatma (3 sn) ve LaunchAgent yazma (yalnızca Uygulamalar'dan)
+  ayrıca denendi.
+- Git ile çalışırken: aynı veri klasörüyle ikinci `baslat.py` "zaten
+  çalışıyor" deyip 0 ile, başka veri klasörüyle açıklamasıyla 3 ile çıktı;
+  `/__pdc` ağdan gelen isteğe cevap vermedi.
+- Kurulum ekranı ilk kurulum ve taşıma (USB taşıma klasörü ve eski programın
+  klasörü) için sahte veriyle denendi: sayılar kaynakla birebir, geçici dosya
+  kalmadı, yol aşımı reddedildi, telefonda ve masaüstünde taşma yok.
+- Windows ve Mac: GitHub'ın makinelerinde (sonuç aşağıda).
+- **Gerçek bir bilgisayarda ilk kurulum henüz yapılmadı.**
