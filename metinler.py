@@ -400,6 +400,174 @@ METINLER = {
     "tanka_don": {"tr": "Tanka geri koy", "en": "Put back in the tank"},
     "tanka_don_onay": {"tr": "Straw yeniden tankta sayılacak. Devam edilsin mi?",
                        "en": "The straw will count as in the tank again. Continue?"},
+    "excel_bagla_tup_bagli": {"tr": "Bu tüp başka bir Excel kaydının straw'ı",
+                              "en": "This tube is another Excel record's straw"},
+    "baska_kayda_bagli": {"tr": "başka bir Excel kaydının straw'ı",
+                          "en": "another Excel record's straw"},
+
+    # ---- Excel kaydını hastaya bağla (v6.213) ----
+    "hastaya_bagla": {"tr": "Hastaya bağla", "en": "Link to a patient"},
+    "hastaya_bagla_ipucu": {
+        "tr": "Straw'ın tüpü programda yoksa: hastayı dosya numarası ya da adıyla "
+              "bulun. Program o hastaya bu straw'ın tüpünü açar ve bu gobletde "
+              "gösterir; Excel kaydı onunla birleşir. Yalnızca dondurma bilgisi "
+              "yazılır -- OPU, ICSI ve döllenme kaydı uydurulmaz.",
+        "en": "If the straw's tube is not in the program: find the patient by file "
+              "number or name. The program opens this straw's tube for that "
+              "patient in this goblet and merges the Excel record into it. Only "
+              "the freezing is recorded -- no OPU, ICSI or fertilisation is made up."},
+    "excel_sperm_hastaya_bagla_ipucu": {
+        "tr": "Straw'ın tüpü programda yoksa: hastayı dosya numarası ya da adıyla "
+              "bulun. Program o hastaya bir sperm dondurma kaydı açar, tüpü bu "
+              "gobletde gösterir; Excel kaydı onunla birleşir.",
+        "en": "If the straw's tube is not in the program: find the patient by file "
+              "number or name. The program opens a sperm freezing record for that "
+              "patient in this goblet and merges the Excel record into it."},
+    "hastaya_bagla_ara_ipucu": {"tr": "Dosya no ya da ad (sıra önemsiz)",
+                                "en": "File no or name (any order)"},
+    "excel_adiyla_ara": {"tr": "Excel'deki adla ara", "en": "Search the Excel's name"},
+    "hastaya_bagla_hasta_yok": {
+        "tr": "Bu aramayla hasta bulunamadı. Hasta programda yoksa önce "
+              "\"Yeni hasta\" ile açın, sonra buradan bağlayın.",
+        "en": "No patient found. If the patient is not in the program, open them "
+              "with \"New patient\" first, then link here."},
+    "secilen_hasta": {"tr": "Seçilen hasta", "en": "Selected patient"},
+    "excel_ad_ayni": {"tr": "Excel'deki ad bu hastanınkiyle aynı.",
+                      "en": "The name in the Excel is this patient's."},
+    "excel_ad_es": {"tr": "Excel'deki ad bu kaydın eşinin adı.",
+                    "en": "The name in the Excel is this record's partner."},
+    "excel_ad_farkli": {
+        "tr": "Excel'deki ad ({excel}) bu hastanınkinden farklı yazılmış: doğru "
+              "hasta olduğundan emin olun.",
+        "en": "The name in the Excel ({excel}) differs from this patient's: make "
+              "sure this is the right patient."},
+    "excel_es_farkli": {"tr": "Excel'deki eş adı ({excel}) bu hastanın eşininkinden farklı.",
+                        "en": "The partner in the Excel ({excel}) differs from this "
+                              "patient's."},
+    "hastanin_tupleri": {"tr": "Hastanın tanktaki tüpleri",
+                         "en": "The patient's tubes in the tank"},
+    "hastanin_tupleri_ipucu": {
+        "tr": "Straw bunlardan biriyse (Excel'deki tarih yanlış yazılmış olabilir) "
+              "o tüpe bağlayın, yeni tüp açmayın.",
+        "en": "If the straw is one of these (the Excel date may be wrong), link to "
+              "that tube instead of opening a new one."},
+    "hastanin_tupu_yok": {"tr": "Tankta tüpü yok.", "en": "No tubes in the tank."},
+    "acilacak_tup": {"tr": "Bu hastaya açılacak tüp", "en": "Tube to open for this patient"},
+    "tup": {"tr": "Tüp", "en": "Tube"},
+    "dondurma_gunu": {"tr": "Dondurma günü", "en": "Freezing day"},
+    "dondurma_gunu_excel": {"tr": "Excel'deki tarih: {t}", "en": "Date in the Excel: {t}"},
+    "dondurma_gunu_degistir": {"tr": "Dondurma gününü değiştir",
+                               "en": "Change the freezing day"},
+    "dondurma_gunu_uygula": {"tr": "Bu günle göster", "en": "Show with this day"},
+    "opu_gunu": {"tr": "OPU günü", "en": "OPU day"},
+    "opu_gunu_bilinmiyor": {"tr": "bilinmiyor (HÜCRE günü yazmıyor)",
+                            "en": "unknown (the cells column gives no day)"},
+    "acilacak_kayit": {"tr": "Kayıt", "en": "Record"},
+    "acilacak_tedavi_yeni": {
+        "tr": "Yeni bir Cryo Excel tedavisi ({tip}): yalnızca dondurma bilgisi, "
+              "istatistiğe girmez",
+        "en": "A new Cryo Excel treatment ({tip}): freezing only, not in the "
+              "statistics"},
+    "acilacak_tedavi_var": {
+        "tr": "Hastanın aynı güne açılmış Cryo Excel tedavisine eklenir: {no}",
+        "en": "Added to the patient's Cryo Excel treatment of the same day: {no}"},
+    "acilacak_sperm": {"tr": "Yeni bir sperm dondurma kaydı (Cryo Excel)",
+                       "en": "A new sperm freezing record (Cryo Excel)"},
+    "acilis_taninmayan": {"tr": "Okunamayan parça: {p} -- skorsuz embriyo olarak açılır.",
+                          "en": "Unreadable part: {p} -- opened as an embryo without "
+                                "a score."},
+    "acilis_ayni_gun": {
+        "tr": "Bu hastanın o gün programda başka bir tedavisi var: {liste}. Straw o "
+              "tedavinin tüpü olabilir -- öyleyse yukarıdaki listeden o tüpe bağlayın.",
+        "en": "This patient has another treatment that day: {liste}. The straw may be "
+              "its tube -- if so, link to that tube in the list above."},
+    "acilis_ayni_gun_sperm": {
+        "tr": "Bu hastanın o gün bir sperm dondurması var: {liste}. Straw o tüp "
+              "olabilir -- öyleyse yukarıdaki listeden bağlayın.",
+        "en": "This patient has a sperm freezing that day: {liste}. The straw may be "
+              "that tube -- if so, link to it above."},
+    "hastaya_ac": {"tr": "Bu hastaya tüp olarak aç", "en": "Open as this patient's tube"},
+    "hastaya_ac_onay": {"tr": "{ad} ({dosya}) hastasına bu straw'ın tüpü açılacak. "
+                              "Devam edilsin mi?",
+                        "en": "This straw's tube will be opened for {ad} ({dosya}). "
+                              "Continue?"},
+    "excel_acilis_tarih_yok": {
+        "tr": "Dondurma günü girilmeli: Excel'deki tarih yok, okunamadı ya da "
+              "bugünden ileri.",
+        "en": "A freezing day is required: the Excel's date is missing, unreadable "
+              "or in the future."},
+    "excel_acilis_tarih_ileri": {"tr": "Dondurma günü bugünden ileri olamaz.",
+                                 "en": "The freezing day cannot be in the future."},
+    "excel_acilis_tarih_bozuk": {"tr": "Yazılan gün okunamadı.",
+                                 "en": "The day entered could not be read."},
+    "excel_acilis_icerik_okunamadi": {
+        "tr": "Excel'deki HÜCRE okunamadı: tüpün içeriği bilinmiyor, tüp açılamaz. "
+              "Straw programda bir tüpse ona bağlayın.",
+        "en": "The Excel's cells column could not be read: the tube's content is "
+              "unknown, no tube can be opened. If the straw is a tube in the "
+              "program, link to it."},
+    "excel_acilis_cok_tup": {
+        "tr": "Excel'deki yazıda birden çok tüp var (her parantez bir tüp): bu "
+              "kayıttan tek tüp açılabiliyor, açılmadı.",
+        "en": "The Excel text lists several tubes (one per bracket): only one tube "
+              "can be opened from a record, nothing was opened."},
+    "excel_acilis_durum": {"tr": "Excel kaydı artık tankta değil (bu arada bağlanmış "
+                                 "ya da çıkarılmış).",
+                           "en": "The Excel record is no longer in the tank (linked or "
+                                 "removed meanwhile)."},
+    "excel_kaydi_acildi": {"tr": "Straw hastaya bağlandı: tüpü açıldı.",
+                           "en": "The straw was linked to the patient: its tube was opened."},
+    "excel_kaydi_geri_alindi": {"tr": "Açılan tüp geri alındı; Excel kaydı yeniden tankta.",
+                                "en": "The opened tube was undone; the Excel record is "
+                                      "in the tank again."},
+    "excel_kaydi_hastaya_acildi": {"tr": "Hastaya bağlandı", "en": "Linked to a patient"},
+    "acilan_aciklama": {
+        "tr": "Bu straw'ın tüpü bu kayıttan hastaya açıldı (yalnızca dondurma "
+              "bilgisiyle).",
+        "en": "This straw's tube was opened for the patient from this record "
+              "(freezing only)."},
+    "acilan_tedavi": {"tr": "Açılan tedavi", "en": "Treatment opened"},
+    "acilan_tedavi_ipucu": {"tr": "Yalnızca dondurma bilgisi olan Cryo Excel tedavisi",
+                            "en": "Cryo Excel treatment with the freezing only"},
+    "acilan_sperm_kaydi": {"tr": "Açılan sperm dondurma kaydı",
+                           "en": "Sperm freezing record opened"},
+    "acilan_sperm_ipucu": {"tr": "Sayfasında dondurma sebebi ve İşlemi Yapan girilebilir",
+                           "en": "The reason and the person can be entered on its page"},
+    "acilani_geri_al": {"tr": "Açılan tüpü geri al", "en": "Undo the opened tube"},
+    "acilani_geri_al_ipucu": {
+        "tr": "Yanlış hastaya açıldıysa: tüp (tedavisi boş kalırsa o da) silinir, "
+              "Excel kaydı yeniden tankta görünür. Tüpe sonradan işlem yapıldıysa "
+              "(çözme, taşıma) geri alınamaz.",
+        "en": "If opened for the wrong patient: the tube (and its treatment, if left "
+              "empty) is deleted and the Excel record is in the tank again. Not "
+              "possible after further work on the tube (thaw, move)."},
+    "acilani_geri_al_onay": {
+        "tr": "Bu kayıttan açılan tüp silinecek (tedavisi boş kalırsa o da); Excel "
+              "kaydı yeniden tankta görünecek. Devam edilsin mi?",
+        "en": "The tube opened from this record will be deleted (and its treatment, "
+              "if left empty); the Excel record will be in the tank again. Continue?"},
+    "excel_acilan_degil": {"tr": "Bu kayıt hastaya açılan bir tüpe bağlı değil.",
+                           "en": "This record is not linked to a tube opened for a patient."},
+    "excel_acilan_kullanildi": {
+        "tr": "Açılan tüp artık tankta değil (çözülmüş, kullanılmış ya da başka "
+              "merkeze taşınmış): geri alınamaz. Önce o işlemi geri alın.",
+        "en": "The opened tube is no longer in the tank (thawed, used or moved "
+              "elsewhere): cannot be undone. Undo that step first."},
+    "excel_acilan_tasindi": {
+        "tr": "Açılan tüp başka bir gobletde: geri alınamaz. Önce tüpü bu gobletde "
+              "gösterin.",
+        "en": "The opened tube is in another goblet: cannot be undone. Put it back "
+              "in this goblet first."},
+    "excel_acilan_baska_kayit": {"tr": "Açılan tüpe başka bir Excel kaydı da bağlı: "
+                                       "geri alınamaz.",
+                                 "en": "Another Excel record is linked to the opened "
+                                       "tube: cannot be undone."},
+    "excel_acilan_islem_var": {
+        "tr": "Açılan tüpe sonradan kayıt eklenmiş (dondurma ve değerlendirme "
+              "dışında bir işlem, fotoğraf, onam, tedaviye bağlama): geri alınamaz.",
+        "en": "Records were added to the opened tube later (other than freezing and "
+              "grading: a procedure, photo, consent, link to a treatment): cannot be "
+              "undone."},
 
     # ---- boş yer önerisi (v6.190) ----
     "oneri_baslik": {"tr": "Boş yer önerisi", "en": "Free slot suggestion"},

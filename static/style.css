@@ -1684,6 +1684,10 @@ form.satir.aday .dugme.kucuk {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   width: auto; margin: 0; padding: 8px 12px; min-height: 0; font-size: 13px;
 }
+/* Excel kaydinin "hastaya bagla" kartlari (v6.213) sayfa ici baglantiyla
+   aciliyor (#hastaya-bagla, #secilen-hasta): yapiskan ust cubuk (60-64px)
+   kartin basligini kapatmasin. */
+#hastaya-bagla, #secilen-hasta { scroll-margin-top: calc(76px + env(safe-area-inset-top)); }
 
 /* Bos yer onerisi (v6.190), dondurma ekraninin Konum kartinda. Onerinin
    satirlari <button>: tuzak #12 -- `appearance: none` sart, yoksa iOS

@@ -2430,6 +2430,31 @@ besleniyor.
     aynı gobletde aynı içerikli, yeri girilmiş bir tüp ayrı bir straw olabilir
     (deneme kopyasında beş goblet: Excel iki satır, program bir tüp) -- ona
     bağlamak straw'ı haritadan düşürürdü; listelenir, karar kullanıcının.
+    **Bir tüp tek bir Excel kaydının straw'ı** (v6.213): başka kayda bağlı
+    tüpe ikinci kayıt bağlanmaz (`/bagla` reddediyor) -- öteki kayıt
+    "bağlandı" sayıldığı için haritadan bir straw düşerdi.
+  - **Hastaya bağla** (v6.213, README v6.213; kullanıcı: "cryodaki hasta
+    kaydı olmayan dondurulmuş örneği hastaya bağlama olsun"): tüpü programda
+    olmayan straw'a Excel kaydının sayfasında hasta seçiliyor (dosya no / ad;
+    hastayı KULLANICI seçer, ad tek başına kanıt değil), program ona tüp
+    açıyor: embriyo/yumurtada `yeni_hasta`'nın yazımıyla
+    (`cryo_esle._excel_tedavisi_ac()` / `_excel_tupu_ac()`: yalnızca dondurma,
+    Cryo Excel tedavisi; hastanın aynı güne açılmış Cryo Excel tedavisi varsa
+    ona), spermde `sperm` kipinin yazımıyla. Plan tek yerde,
+    `cryo_esle.acilis_plani()`: önizleme ve kayıt aynı. `islem_notu`
+    "açılan: tüp N, tedavi|sperm M" (`cryo_esle.ACILAN`, `acilan_bilgisi()`);
+    "bağı çöz" o kayıtta açılanı siliyor (`acilani_geri_al()`), yalnızca el
+    değmemişse (tüp tankta, kaydın gobletinde, örneklerinde başka kayıt yok).
+    - Straw programdaki bir tedavinin eksik tüpü olsa bile tüp O TEDAVİYE
+      eklenmiyor (yumurtaları orada sayılı, yeni örnek sayıları bozardı);
+      önizleme o günün tedavisini uyarıyla gösteriyor. Bunu değiştirmeden
+      önce kullanıcıya sor.
+    - Okunamayan HÜCRE ve bir satırda birden çok tüp açılmıyor (içeriği
+      bilinmeyen tüp uydurmak olurdu); Excel'in günü yoksa ya da ileriyse
+      gün elle yazılıyor, not Excel'deki tarihi söylüyor.
+    - Excel'den tüp açan yeni bir yol yazarsan: Excel kaydı olan satıra
+      tüp açma (`_excel_kaydi_olan_satirlar()`; `yeni_hasta` ve `sperm`
+      kipleri o satırları atlıyor) -- straw iki kez görünürdü.
   - **`yerlesim` önce öteki kipleri ister** (bekleyen `uygula`/`onar`/
     `yeni_hasta`/`sperm` -- yoksa aynı straw hem Excel kaydı hem tüp olurdu)
     ve Excel'den silinmiş satırın Excel kaydını kendiliğinden kaldırmaz

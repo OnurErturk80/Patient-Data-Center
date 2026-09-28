@@ -16630,3 +16630,101 @@ yazıyor. Onu Freezing ile değiştirelim."*
 "Freezing", transfer edilen ✓; Yumurta Dondurma formunda dondurulan yumurta
 "Freezing". Ekranda ve yazdırırken kesilme yok. Excel'de D22 ve F22
 hücrelerinde "Freezing", ikisinde de `shrinkToFit`.
+
+# v6.213 — Tüpü programda olmayan Excel kaydı hastaya bağlanıyor
+
+Kullanıcı: *"Excelde yeri olup Acsess kaydından oluşturulmamış hastaya excel
+cryo haritasındaki tüpleri hastaya bağlama olsun. Yani cryodaki hasta kaydı
+olmayan dondurulmuş örneği hastaya bağlama olsun."*
+
+Excel kaydı (v6.189) Cryo Haritası Excel'inde bir gobletde duran, programda
+tüpü bulunamayan straw. Tüpü programdaysa "Tüpe bağla" yetiyordu; tüpü hiç
+yoksa (Access kaydı yok, o gün tüp yok, içerik tutmuyor) straw'ı bir hastaya
+vermenin yolu yoktu.
+
+**Excel kaydının sayfasında "Hastaya bağla" kartı:**
+
+- Hasta araması: dosya no, hasta ya da eş adı. Her kelime ayrı aranıyor,
+  sıra önemsiz (Excel'de soyad önde). "Excel'deki adla ara" kutuyu Excel'in
+  adıyla arıyor -- yalnızca arama: ad tek başına kanıt değil, hastayı
+  kullanıcı seçiyor. Arşivlenmiş hasta da çıkıyor (dosyası kapanmış hastanın
+  straw'ı tankta olabilir). Sonuç kutunun hemen altında; "Aramayı temizle" ve
+  geri ok aramasız sayfaya (v6.208'in kuralı).
+- Seçilen hasta: kimliği; Excel'deki adla karşılaştırma (aynı / kaydın eşinin
+  adı / farklı yazılmış -- farklıysa uyarı, eş adı da); hastanın tanktaki
+  bütün tüpleri, **günü ne olursa olsun**. Excel'in tarihi yanlış yazılmışsa
+  straw'ın tüpü başka bir gündedir: o zaman o tüpe bağlanır, yeni tüp açılmaz.
+- "Bu hastaya açılacak tüp": içerik (HÜCRE, programın yazımıyla: "D5
+  (3BA-1BB)", yumurtada "(4*MII-1*MI)"), dondurma günü, OPU günü (HÜCRE'nin
+  "D5"inden, v6.177), hangi tedaviye gireceği, konum/tip/renk (Excel
+  kaydınınki). "Bu hastaya tüp olarak aç" onayla yazıyor. Ekran ile kayıt aynı
+  planı kuruyor (`cryo_esle.acilis_plani()`).
+
+**Ne yazılıyor** (`cryo_esle.excel_kaydindan_ac()`):
+
+- Embriyo / yumurta: v6.179'un `yeni_hasta` kipinin yazımı, aynı işlevlerle
+  (`_excel_tedavisi_ac()`, `_excel_tupu_ac()` -- bu sürümde
+  `yeni_hasta_yaz()`'dan ayrıldı; eski ve yeni kod sahte bir planla bütün
+  tablolarda birebir aynı yazdı). Yalnızca dondurma bilgisi olan bir "Cryo
+  Excel" tedavisi: IVF/ICSI, tüpte yalnızca yumurta varsa Yumurta Dondurma;
+  tamamlanmış, bitiş sebebi dondurma, protokol notunda `[Cryo Excel kaydı]` --
+  istatistik ve Bakanlık verileri bu tedavileri dışlıyor. OPU, ICSI ve
+  döllenme uydurulmuyor; embriyonun skoru değerlendirme, yumurtanın olgunluğu
+  maturasyon olarak, sonra dondurma.
+- Hastanın aynı güne (aynı OPU günü; günü yazmayan embriyoda aynı dondurma
+  günü) açılmış bir Cryo Excel tedavisi varsa tüp ona ekleniyor: aynı
+  dondurmanın ikinci straw'ı ikinci bir tedavi açmasın. Yumurta Dondurma'ya
+  embriyo konmuyor.
+- Hastanın o gün programda başka bir tedavisi varsa uyarı çıkıyor: straw o
+  tedavinin tüpü olabilir. Tüp o tedaviye **eklenmiyor**: yumurtaları orada
+  zaten sayılı, yeni örnek açmak "kayıtlı yumurta" sayısını ve oranları
+  bozardı. Ayrı Cryo Excel tedavisi istatistiğe girmiyor.
+- Sperm: v6.180'in `sperm` kipinin yazımı -- seçilen hastaya bir sperm
+  dondurma kaydı ve tüpü (etiket `<dosya no>-SP-SSDD`; sebep HÜCRE'den: "CA"
+  Onkolojik, yoksa TESE/TESA).
+- Tüp Excel kaydının gobletinde, tipi ve rengi Excel'inki. Excel kaydı
+  'baglandi' oluyor: straw artık tüpün kendisiyle sayılıyor, iki kez değil.
+  Tedavi numaraları tarih sırasıyla yeniden (v6.144), kayan numaralar
+  günlükte.
+- **Dondurma günü** Excel'inki. Excel'de yoksa, okunamıyorsa ya da bugünden
+  ileriyse kullanıcı yazıyor; önizleme o günle yeniden kuruluyor. Elle yazılan
+  günde notlar Excel'deki tarihi de söylüyor.
+- Açılmayanlar: HÜCRE okunamıyorsa (boş, "PGT") -- içeriği bilinmeyen tüp
+  açmak uydurmak olurdu; bir satırda birden çok tüp (parantez) yazıyorsa --
+  Excel kaydı tek straw'ın yeri.
+
+**Geri alma.** Bu yolla açılmış tüpte kaydın "Bağı çöz"ü "Açılan tüpü geri
+al" oluyor: tüp, örnekleri ve olayları (spermde dondurma kaydı) siliniyor,
+tedavi boş kaldıysa o da; Excel kaydı yeniden tankta. Yalnızca el değmemişse:
+tüp tankta ve kaydın gobletinde, ona başka Excel kaydı bağlı değil, örneklerinde
+bu açılışın yazdığından başka kayıt yok (çözme, transfer, fotoğraf, bulgu, PGT;
+spermde tedaviye bağlama, onam eki). Silinen, Excel kaydının programdaki
+karşılığı; kaydın kendisi duruyor, günlükte `KALICI_SILME` satırları. Hasta ya
+da tedavi kalıcı silinince de kayıt tankta kalıyor; bağlamanın notu artık
+temizleniyor (`app.excel_kaydi_bagini_birak()`).
+
+**Aynı straw iki kez görünmesin diye üç koruma daha:**
+
+- "Tüpe bağla" başka bir Excel kaydının straw'ı olan tüpe ikinci kaydı
+  bağlamıyor. v6.189'dan beri açıktı: ikinci bağlama tüpü kendi gobletine
+  alıyor, öteki kayıt "bağlandı" sayıldığı için haritadan bir straw düşüyordu.
+- `cryo_esle.py yeni_hasta` ve `sperm` kipleri Cryo Haritası'nda Excel kaydı
+  olan satırı atlıyor (raporda "Excel kaydı olarak duruyor"): o straw'ın
+  kararı kaydın sayfasında verilmiş olabilir. `yerlesim`'in "önce öteki
+  kipleri çalıştırın" denetimi de bu satırları artık beklemiyor.
+- `eksik` raporu Excel kaydına bağlı tüpü "Excel'de karşılığı yok" diye
+  listelemiyor.
+
+**Deneme** (sahte veritabanında, uçtan uca): blastokist straw'ı yeni Cryo
+Excel tedavisiyle açıldı (OPU "D5"ten), aynı günün ikinci straw'ı aynı
+tedaviye girdi, yumurta straw'ı Yumurta Dondurma'yla, tarihsiz straw elle
+yazılan günle, sperm straw'ı sperm dondurma kaydıyla; okunamayan HÜCRE, iki
+tüplü satır, gün olmadan kayıt ve bağlı tüpe ikinci bağlama reddedildi. Geri
+alma: çözülmüş, taşınmış ve sonradan transfer yazılmış tüpte reddedildi;
+ikinci straw geri alınınca tedavi kaldı, ilki geri alınınca boş tedavi silindi.
+Eski "Tüpe bağla / Bağı çöz" değişmeden çalışıyor. 70 ekranlık taramada sorun
+yok. Gerçek verinin deneme kopyasında (yalnızca sayılar): 2.727 embriyo/yumurta
+Excel kaydından tüp açılabiliyor; 14'ünün HÜCRE'si okunamıyor, 1'inde iki tüp
+yazıyor, 39'unda ve 15 sperm kaydının hepsinde gün elle yazılmalı. 12 kayıtta
+açılıp geri alındı: gobletlerin straw sayısı değişmedi, geri almadan sonra
+düzen birebir aynı.

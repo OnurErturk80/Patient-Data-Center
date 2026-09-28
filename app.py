@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+import cryo_esle
 import cryo_excel
 import cryo_sablon
 import db
@@ -8051,8 +8052,132 @@ EXCEL_KAYDI_HATALARI = {
     "tup_yok": "excel_bagla_tup_yok",
     "tup_dolu_degil": "excel_bagla_tup_dolu_degil",
     "kategori": "excel_bagla_kategori",
+    "tup_bagli": "excel_bagla_tup_bagli",
     "tarih": "excel_kaldir_tarih",
+    # Hastaya bağla (v6.213): `cryo_esle.acilis_plani()` / `acilani_geri_al()`
+    # kodları, önekiyle -- adresten gelen her kod bu listeden geçiyor (tuzak #9).
+    "acilis_tarih_yok": "excel_acilis_tarih_yok",
+    "acilis_tarih_ileri": "excel_acilis_tarih_ileri",
+    "acilis_icerik_okunamadi": "excel_acilis_icerik_okunamadi",
+    "acilis_cok_tup": "excel_acilis_cok_tup",
+    "acilis_durum": "excel_acilis_durum",
+    "acilan_degil": "excel_acilan_degil",
+    "acilan_kullanildi": "excel_acilan_kullanildi",
+    "acilan_tasindi": "excel_acilan_tasindi",
+    "acilan_baska_kayit": "excel_acilan_baska_kayit",
+    "acilan_islem_var": "excel_acilan_islem_var",
 }
+
+
+def _excel_acilis_gunu(v):
+    """Formdan ya da adresten gelen dondurma günü -> ISO gün; boş ya da
+    bozuksa None (yıl sınırı `zaman()`'ın, v6.51)."""
+    try:
+        g = zaman(v, "Dondurma tarihi")
+    except FormHatasi:
+        return None
+    if not g:
+        return None
+    try:
+        return _dt.fromisoformat(g[:10]).date().isoformat()
+    except ValueError:
+        return None
+
+
+_EXCEL_ARAMA_SAYILARI = (
+    "(SELECT COUNT(DISTINCT t.id) FROM tasiyici t JOIN olay o ON o.vit_tasiyici_id = t.id "
+    " JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
+    " WHERE c.hasta_id = h.id AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
+    " AND t.durum = 'dolu' AND t.kategori = 'embriyo') AS embriyo_tup, "
+    "(SELECT COUNT(*) FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+    " WHERE sd.hasta_id = h.id AND sd.iptal_mi = 0 AND t.durum = 'dolu') AS sperm_tup")
+
+
+def excel_kaydi_hasta_ara(ara: str) -> list:
+    """Excel kaydının "hastaya bağla" araması (v6.213): dosya no, hasta ya da
+    eş adı. Her kelime ayrı aranıyor, hepsi geçmeli -- sıra önemsiz: Excel'de
+    soyad önde, programda çoğu zaman arkada. Adlar büyük harfle kayıtlı,
+    terim `tr_buyuk()`'ten (v6.116), dosya no ham. Arşivlenmiş hasta da
+    çıkar: tanktaki straw'ın dosyası kapanmış olabilir. En çok 30."""
+    kelimeler = (ara or "").split()[:6]
+    if not kelimeler:
+        return []
+    kosul = " AND ".join("(CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ? "
+                         "OR COALESCE(h.es_adi, '') LIKE ?)" for _ in kelimeler)
+    par = [x for k in kelimeler for x in (f"%{k}%", f"%{tr_buyuk(k)}%", f"%{tr_buyuk(k)}%")]
+    return db.sorgu(
+        f"SELECT h.id, h.dosya_no, h.ad_soyad, h.es_adi, h.durum, {_EXCEL_ARAMA_SAYILARI} "
+        f"FROM hasta h WHERE h.lab_id = ? AND {kosul} ORDER BY h.ad_soyad LIMIT 30",
+        (db.LAB_ID, *par))
+
+
+def _excel_kaydi_tup_satirlari(idler) -> list:
+    """Excel kaydının sayfasındaki tüp satırları: goblet satırının ayrıntısı
+    (`yerlesim.tup_ayrintilari()`), yeri, bağlı olduğu Excel kaydı -- zaten
+    bir Excel kaydını temsil eden tüpe ikincisi bağlanmıyor."""
+    idler = list(dict.fromkeys(idler))
+    if not idler:
+        return []
+    ayrinti = _tup_ayrintilari(idler)
+    yer = ",".join("?" * len(idler))
+    yollar = {r["id"]: r["tam_yol"] for r in db.sorgu(
+        f"SELECT t.id, k.tam_yol FROM tasiyici t JOIN konum k ON k.id = t.konum_id "
+        f"WHERE t.id IN ({yer})", tuple(idler))}
+    bagli = {r["tasiyici_id"]: r["id"] for r in db.sorgu(
+        f"SELECT id, tasiyici_id FROM excel_kaydi WHERE durum = 'baglandi' "
+        f"AND tasiyici_id IN ({yer})", tuple(idler))}
+    return [{**ayrinti[i], "tam_yol": yollar.get(i), "bagli_kayit": bagli.get(i)}
+            for i in idler if i in ayrinti]
+
+
+def _hastanin_dolu_tupleri(hid, kategori) -> list:
+    """Hastanın tankta (dolu) tüpleri, günü ne olursa olsun (v6.213): Excel'in
+    tarihi yanlış yazılmışsa straw'ın tüpü başka bir gündedir. Embriyo /
+    yumurta tüpünde hasta örneğin tedavisinden, spermde dondurma kaydından."""
+    if kategori == "sperm":
+        idler = [r["id"] for r in db.sorgu(
+            "SELECT t.id FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+            "WHERE sd.hasta_id = ? AND sd.iptal_mi = 0 AND t.durum = 'dolu' "
+            "ORDER BY t.vitrifikasyon_zamani, t.etiket", (hid,))]
+    else:
+        idler = [r["id"] for r in db.sorgu(
+            "SELECT DISTINCT t.id, t.vitrifikasyon_zamani, t.etiket FROM tasiyici t "
+            "JOIN olay o ON o.vit_tasiyici_id = t.id JOIN specimen s ON s.id = o.specimen_id "
+            "JOIN cycle c ON c.id = s.cycle_id WHERE c.hasta_id = ? "
+            "AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 AND t.durum = 'dolu' "
+            "AND t.kategori = 'embriyo' ORDER BY t.vitrifikasyon_zamani, t.etiket", (hid,))]
+    return _excel_kaydi_tup_satirlari(idler)
+
+
+def excel_kaydi_hasta_secimi(e, hid, tarih_adres) -> dict:
+    """Excel kaydının sayfasında seçilen hasta (v6.213): kimliği, adın Excel'le
+    karşılaştırması, dolu tüpleri ve bu hastaya ne açılacağı
+    (`cryo_esle.acilis_plani()` -- kayıt aynı planı yeniden kuruyor).
+    Hasta yoksa None."""
+    h = db.tek("SELECT * FROM hasta WHERE id=? AND lab_id=?", (hid, db.LAB_ID))
+    if not h:
+        return None
+    bugun = _dt.now().date().isoformat()
+    tarih = _excel_acilis_gunu(tarih_adres) if tarih_adres else None
+    if not tarih_adres and e["tarih"] and e["tarih"] <= bugun:
+        tarih = e["tarih"]
+    excel_ad = cryo_excel.kelimeler(f"{e['soyad'] or ''} {e['ad'] or ''}")
+    if excel_ad and excel_ad == cryo_excel.kelimeler(h["ad_soyad"]):
+        ad = "ayni"
+    elif excel_ad and excel_ad == cryo_excel.kelimeler(h["es_adi"]):
+        ad = "es"
+    else:
+        ad = "farkli"
+    es_farkli = bool(e["es_adi"] and h["es_adi"] and cryo_excel.kelimeler(e["es_adi"])
+                     != cryo_excel.kelimeler(h["es_adi"]))
+    b = db.baglan()
+    try:
+        plan = cryo_esle.acilis_plani(b, e, h, tarih)
+    finally:
+        b.close()
+    return {"h": h, "ad": ad, "es_farkli": es_farkli, "tarih": tarih or "",
+            "tarih_hata": bool(tarih_adres) and not tarih,
+            "tupler": _hastanin_dolu_tupleri(h["id"], e["kategori"]), "plan": plan}
 
 
 def _excel_kaydi(eid):
@@ -8062,11 +8187,18 @@ def _excel_kaydi(eid):
 
 
 @uygulama.get("/cryo/excel-kaydi/{eid}")
-def excel_kaydi_ekran(request: Request, eid: int, hata: str = "", etiket: str = ""):
+def excel_kaydi_ekran(request: Request, eid: int, hata: str = "", etiket: str = "",
+                      hasta_ara: str = "", hasta: str = "", tarih: str = "",
+                      sonuc: str = ""):
     """Excel kaydı: Excel'de bir gobletde duran, programda karşılığı olan tüp
     bulunamamış satır (v6.189, kullanıcının seçimi). Excel'deki yazısıyla
     gösteriliyor; bir tüpe bağlanabilir ya da tanktan çıkarıldı diye
-    işaretlenebilir (kayıt silinmez, ikisi de geri alınabilir)."""
+    işaretlenebilir (kayıt silinmez, ikisi de geri alınabilir).
+
+    Tüpü programda yoksa hastaya bağlanabilir (v6.213): `?hasta_ara=` hasta
+    araması, `?hasta=<id>` seçilen hastanın tüpleri ve ona açılacak tüpün
+    önizlemesi, `?tarih=` elle yazılan dondurma günü (Excel'inki yoksa ya da
+    yanlışsa)."""
     if not yerlesim.excel_kaydi_var():
         return RedirectResponse("/cryo", status_code=303)
     e = _excel_kaydi(eid)
@@ -8080,27 +8212,38 @@ def excel_kaydi_ekran(request: Request, eid: int, hata: str = "", etiket: str = 
             "SELECT id FROM tasiyici WHERE lab_id=? AND durum='dolu' AND kategori=? "
             "AND date(vitrifikasyon_zamani)=? ORDER BY konum_id IS NOT NULL, etiket "
             "LIMIT 30", (db.LAB_ID, e["kategori"], e["tarih"]))]
-    ayrinti = _tup_ayrintilari(adaylar + ([e["tasiyici_id"]] if e["tasiyici_id"] else []))
-    yollar = {r["id"]: r["tam_yol"] for r in db.sorgu(
-        f"SELECT t.id, k.tam_yol FROM tasiyici t JOIN konum k ON k.id=t.konum_id "
-        f"WHERE t.id IN ({','.join('?' * len(ayrinti)) or 'NULL'})", tuple(ayrinti))}
+    satirlar = {t["id"]: t for t in _excel_kaydi_tup_satirlari(
+        adaylar + ([e["tasiyici_id"]] if e["tasiyici_id"] else []))}
     islem_yapan = None
     if e["islem_kullanici_id"]:
         islem_yapan = db.tek("SELECT ad_soyad FROM kullanici WHERE id=?",
                              (e["islem_kullanici_id"],))
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    geri_cryo = ("/cryo/yer?" + urlencode({"tank": e["seviye1"] or "",
+                                           "kanister": e["seviye2"] or ""})
+                 if e["seviye1"] else "/cryo")
+    # Hastaya bağla (v6.213). Arama ya da seçim varken geri ok aramasız
+    # sayfaya (programın arama kuralı, v6.208); yoksa kaydın gobletine.
+    arama = (hasta_ara or "").strip()
+    secim = None
+    if e["durum"] == "tankta" and hasta.isdigit():
+        secim = excel_kaydi_hasta_secimi(e, int(hasta), tarih.strip())
+    acilan = cryo_esle.acilan_bilgisi(e)
     return sablon.TemplateResponse(
         request, "excel_kaydi.html",
-        {"e": e, "adaylar": [{**ayrinti[i], "tam_yol": yollar.get(i)} for i in adaylar],
-         "bagli": ({**ayrinti[e["tasiyici_id"]], "tam_yol": yollar.get(e["tasiyici_id"])}
-                   if e["tasiyici_id"] in ayrinti else None),
+        {"e": e, "adaylar": [satirlar[i] for i in adaylar if i in satirlar],
+         "bagli": satirlar.get(e["tasiyici_id"]),
          "islem_yapan": islem_yapan["ad_soyad"] if islem_yapan else None,
          "hata": EXCEL_KAYDI_HATALARI.get(hata), "etiket": etiket,
          "etiketler": etiketler, "bugun": _dt.now().date().isoformat(),
-         "geri": ("/cryo/yer?" + urlencode({"tank": e["seviye1"] or "",
-                                            "kanister": e["seviye2"] or ""})
-                  if e["seviye1"] else "/cryo")})
+         "hasta_ara": arama,
+         "hasta_sonuclari": (excel_kaydi_hasta_ara(arama)
+                             if arama and e["durum"] == "tankta" else []),
+         "secim": secim, "acilan": acilan, "sonuc": sonuc if sonuc in (
+             "acildi", "geri_alindi") else "",
+         "geri": (f"/cryo/excel-kaydi/{e['id']}" if arama or secim else geri_cryo),
+         "geri_cryo": geri_cryo})
 
 
 def _excel_logla(b, eid, alan, eski, yeni, kid, simdi):
@@ -8176,49 +8319,115 @@ async def excel_kaydi_bagla(request: Request, eid: int):
         if t["kategori"] != e["kategori"]:
             return RedirectResponse(
                 f"{geri}?hata=kategori&{urlencode({'etiket': etiket})}", status_code=303)
+        # Tüp zaten başka bir Excel kaydının straw'ı (v6.213): ikinci kayıt da
+        # bağlansaydı tüp bu gobletde, öteki kayıt "bağlandı" diye haritadan
+        # düşerdi -- bir straw kaybolurdu.
+        if b.execute("SELECT 1 FROM excel_kaydi WHERE tasiyici_id=? AND id<>? "
+                     "AND durum='baglandi'", (t["id"], eid)).fetchone():
+            return RedirectResponse(
+                f"{geri}?hata=tup_bagli&{urlencode({'etiket': etiket})}", status_code=303)
         # Yazım tek yerde (v6.207): aktarımın kendiliğinden bağlaması da bu.
         yerlesim.excel_kaydini_bagla(b, e, t, kid, simdi)
     return RedirectResponse(geri, status_code=303)
 
 
-@uygulama.post("/cryo/excel-kaydi/{eid}/bagi-coz")
-async def excel_kaydi_bagi_coz(request: Request, eid: int):
-    """Yanlış tüpe bağlamayı geri alır: tüp bağlamadan önceki konumuna döner
-    (bu arada başka bir yere taşınmadıysa), Excel kaydı yeniden 'tankta'."""
+@uygulama.post("/cryo/excel-kaydi/{eid}/hastaya-bagla")
+async def excel_kaydi_hastaya_bagla(request: Request, eid: int):
+    """Tüpü programda olmayan straw'ı hastaya bağlar (v6.213, kullanıcının
+    isteği: "cryodaki hasta kaydı olmayan dondurulmuş örneği hastaya bağlama
+    olsun"): seçilen hastaya straw'ın tüpü açılır -- embriyo / yumurtada
+    yalnızca dondurma bilgisi olan Cryo Excel tedavisiyle, spermde bir sperm
+    dondurma kaydıyla (`cryo_esle.excel_kaydindan_ac()`) -- tüp bu gobletde,
+    Excel kaydı ona bağlanır. Hastayı kullanıcı seçiyor; ekrandaki önizleme
+    ile burada yazılan aynı plan (`cryo_esle.acilis_plani()`)."""
+    f = await request.form()
+    hid = (f.get("hasta") or "").strip()
+    geri = f"/cryo/excel-kaydi/{eid}"
+    if not hid.isdigit():
+        return RedirectResponse(geri, status_code=303)
+    secim = urlencode({"hasta": hid, "tarih": (f.get("tarih") or "").strip()})
+    gun = _excel_acilis_gunu(f.get("tarih"))
+    if not gun:
+        return RedirectResponse(f"{geri}?{secim}&hata=acilis_tarih_yok", status_code=303)
     kid = request.state.kullanici["id"]
     simdi = _dt.now().isoformat(" ", "seconds")
     with db.yazma_islemi() as b:
         e = b.execute("SELECT * FROM excel_kaydi WHERE id=? AND lab_id=?",
                       (eid, db.LAB_ID)).fetchone()
+        h = b.execute("SELECT * FROM hasta WHERE id=? AND lab_id=?",
+                      (int(hid), db.LAB_ID)).fetchone()
+        if not e or not h:
+            return RedirectResponse(geri, status_code=303)
+        sonuc = cryo_esle.excel_kaydindan_ac(b, e, h, gun, kid, simdi)
+    if sonuc.get("hata"):
+        return RedirectResponse(f"{geri}?{secim}&hata=acilis_{sonuc['hata']}",
+                                status_code=303)
+    # Kayan tedavi numaraları: günlüğe kendi bağlantısıyla, işlemden sonra.
+    tedavi_sirasini_logla(sonuc["degisen"], kid)
+    return RedirectResponse(f"{geri}?sonuc=acildi", status_code=303)
+
+
+@uygulama.post("/cryo/excel-kaydi/{eid}/bagi-coz")
+async def excel_kaydi_bagi_coz(request: Request, eid: int):
+    """Yanlış tüpe bağlamayı geri alır: tüp bağlamadan önceki konumuna döner
+    (bu arada başka bir yere taşınmadıysa), Excel kaydı yeniden 'tankta'.
+
+    Tüp bu kayıttan hastaya açılmışsa (v6.213) bağı çözmek açılanı siler
+    (`cryo_esle.acilani_geri_al()`): tüp kalsaydı straw iki kez görünürdü.
+    Yalnızca el değmemişse -- engel varsa sebebi ekrana yazılır."""
+    kid = request.state.kullanici["id"]
+    simdi = _dt.now().isoformat(" ", "seconds")
+    geri = f"/cryo/excel-kaydi/{eid}"
+    geri_alinan = None
+    with db.yazma_islemi() as b:
+        e = b.execute("SELECT * FROM excel_kaydi WHERE id=? AND lab_id=?",
+                      (eid, db.LAB_ID)).fetchone()
         if not e or e["durum"] != "baglandi":
-            return RedirectResponse(f"/cryo/excel-kaydi/{eid}", status_code=303)
-        t = b.execute("SELECT t.id, t.konum_id, k.tam_yol FROM tasiyici t LEFT JOIN konum k "
-                      "ON k.id=t.konum_id WHERE t.id=?", (e["tasiyici_id"],)).fetchone()
-        if t and t["konum_id"] == e["konum_id"] and e["konum_id"] != e["onceki_konum_id"]:
-            eski = (b.execute("SELECT tam_yol FROM konum WHERE id=?",
-                              (e["onceki_konum_id"],)).fetchone() if e["onceki_konum_id"]
-                    else None)
-            b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?",
-                      (e["onceki_konum_id"], t["id"]))
-            b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
-                      "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
-                      (db.LAB_ID, "tasiyici", str(t["id"]), "konum", t["tam_yol"],
-                       eski[0] if eski else None, kid, simdi))
-        if t and (e["islem_notu"] or "").startswith("doldurulan: "):
-            for alan in e["islem_notu"][len("doldurulan: "):].split(","):
-                if alan in ("renk", "tip"):
-                    b.execute(f"UPDATE tasiyici SET {alan}=NULL WHERE id=? AND {alan}=?",
-                              (t["id"], e[alan]))
-                    b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, "
-                              "alan, eski_deger, yeni_deger, kullanici_id, zaman) "
-                              "VALUES (?,?,?,?,?,?,?,?)",
-                              (db.LAB_ID, "tasiyici", str(t["id"]), alan, e[alan], None,
-                               kid, simdi))
-        b.execute("UPDATE excel_kaydi SET durum='tankta', tasiyici_id=NULL, "
-                  "onceki_konum_id=NULL, islem_zamani=NULL, islem_notu=NULL, "
-                  "islem_kullanici_id=NULL WHERE id=?", (eid,))
-        _excel_logla(b, eid, "durum", "baglandi", "tankta", kid, simdi)
-    return RedirectResponse(f"/cryo/excel-kaydi/{eid}", status_code=303)
+            return RedirectResponse(geri, status_code=303)
+        if cryo_esle.acilan_bilgisi(e):
+            geri_alinan = cryo_esle.acilani_geri_al(b, e, kid, simdi)
+        else:
+            _excel_bagini_coz(b, e, kid, simdi)
+    if geri_alinan is None:
+        return RedirectResponse(geri, status_code=303)
+    if geri_alinan.get("hata"):
+        return RedirectResponse(f"{geri}?hata={geri_alinan['hata']}", status_code=303)
+    # Kayan tedavi numaraları: günlüğe kendi bağlantısıyla, işlemden sonra.
+    tedavi_sirasini_logla(geri_alinan["degisen"], kid)
+    return RedirectResponse(f"{geri}?sonuc=geri_alindi", status_code=303)
+
+
+def _excel_bagini_coz(b, e, kid, simdi):
+    """Var olan bir tüpe bağlanmış Excel kaydının bağını çözer (v6.189):
+    tüp bağlamadan önceki konumuna, bağlarken doldurulan rengi/tipi boşa
+    döner (`yerlesim.excel_kaydini_bagla()`'nın yazdığı `islem_notu`)."""
+    eid = e["id"]
+    t = b.execute("SELECT t.id, t.konum_id, k.tam_yol FROM tasiyici t LEFT JOIN konum k "
+                  "ON k.id=t.konum_id WHERE t.id=?", (e["tasiyici_id"],)).fetchone()
+    if t and t["konum_id"] == e["konum_id"] and e["konum_id"] != e["onceki_konum_id"]:
+        eski = (b.execute("SELECT tam_yol FROM konum WHERE id=?",
+                          (e["onceki_konum_id"],)).fetchone() if e["onceki_konum_id"]
+                else None)
+        b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?",
+                  (e["onceki_konum_id"], t["id"]))
+        b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                  "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                  (db.LAB_ID, "tasiyici", str(t["id"]), "konum", t["tam_yol"],
+                   eski[0] if eski else None, kid, simdi))
+    if t and (e["islem_notu"] or "").startswith("doldurulan: "):
+        for alan in e["islem_notu"][len("doldurulan: "):].split(","):
+            if alan in ("renk", "tip"):
+                b.execute(f"UPDATE tasiyici SET {alan}=NULL WHERE id=? AND {alan}=?",
+                          (t["id"], e[alan]))
+                b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, "
+                          "alan, eski_deger, yeni_deger, kullanici_id, zaman) "
+                          "VALUES (?,?,?,?,?,?,?,?)",
+                          (db.LAB_ID, "tasiyici", str(t["id"]), alan, e[alan], None,
+                           kid, simdi))
+    b.execute("UPDATE excel_kaydi SET durum='tankta', tasiyici_id=NULL, "
+              "onceki_konum_id=NULL, islem_zamani=NULL, islem_notu=NULL, "
+              "islem_kullanici_id=NULL WHERE id=?", (eid,))
+    _excel_logla(b, eid, "durum", "baglandi", "tankta", kid, simdi)
 
 
 def _dogal_sira(metin):
@@ -10317,10 +10526,12 @@ def excel_kaydi_bagini_birak(tasiyici_id):
     """Silinecek tüpe bağlı Excel kaydı (v6.189, `excel_kaydi.tasiyici_id`
     FK'sı -- tuzak #4): bağ kalkar, kayıt yeniden 'tankta'. Excel straw'ı
     orada gösteriyordu; tüpün kaydı silindi diye straw'ı haritadan düşürmek
-    haritayı bozardı."""
+    haritayı bozardı. Bağlamanın notu da silinir, "bağı çöz"ün yaptığı gibi
+    (v6.213: "açılan: tüp ..." notu artık olmayan tüpü gösterirdi)."""
     if yerlesim.excel_kaydi_var():
         db.yaz("UPDATE excel_kaydi SET tasiyici_id=NULL, onceki_konum_id=NULL, "
-               "durum='tankta' WHERE tasiyici_id=?", (tasiyici_id,))
+               "durum='tankta', islem_zamani=NULL, islem_notu=NULL, "
+               "islem_kullanici_id=NULL WHERE tasiyici_id=?", (tasiyici_id,))
 
 
 def silme_logla(tablo, kayit_id, ozet, kullanici_id):

@@ -80,6 +80,7 @@ import datetime as _dt
 import hashlib
 import re
 import sys
+import textwrap
 from pathlib import Path
 
 import db as _db          # veritabanının yeri tek yerde: db.py (tuzak #8)
@@ -931,7 +932,7 @@ def yerlesim_bekleyenler(sonuc, satirlar, b) -> list:
     konum, _renk, _dok = onar_plani(sonuc)
     if konum:
         bekleyen.append(("onar", len(konum), "tüpün konumu düzeltilecek"))
-    plan, _atlanan = yeni_hasta_plani(sonuc)
+    plan, _atlanan = yeni_hasta_plani(sonuc, b)
     if plan:
         bekleyen.append(("yeni_hasta", len(plan), "2018 öncesi hasta açılacak"))
     sp, _kisiler = sperm_plani(satirlar, b)
@@ -1222,19 +1223,30 @@ def _excel_gunu(s):
     return int(m.group(1)) if m else None
 
 
-def yeni_hasta_plani(sonuc):
+def yeni_hasta_plani(sonuc, b=None):
     """"Hasta programda yok" ve TARİH'i 2018'den önce olan satırlar ->
     ([(ad kelimeleri, eş adı, [satır, ...]), ...], [(satır, sebep), ...]).
 
     Hasta ad kelime kümesiyle gruplanıyor (eşleştirmenin kendi ölçüsü,
     `cryo_excel.kelimeler()`); aynı adın iki farklı eşi varsa iki kişi, eşi
-    yazılmamış satırı hangisinin bilinmiyor -- atlanıyor, uydurulmuyor."""
+    yazılmamış satırı hangisinin bilinmiyor -- atlanıyor, uydurulmuyor.
+
+    `b` verilirse Cryo Haritası'nda Excel kaydı olarak duran satırlar da
+    atlanıyor (v6.213): o straw'ın kararı kaydın sayfasında (tüpe ya da
+    hastaya bağla), burada ikinci bir tüp açılırsa iki kez görünürdü."""
     adaylar = [s for s, k, _t, _e in sonuc
                if k == "hasta_yok" and s["tarih"] and s["tarih"] < YENI_HASTA_SON]
+    atlanan = []
+    if b is not None and adaylar:
+        kayitli = _excel_kaydi_olan_satirlar(adaylar, b)
+        atlanan = [(s, "Cryo Haritası'nda Excel kaydı olarak duruyor -- kaydın "
+                       "sayfasından hastaya bağlanır") for s in adaylar
+                   if _satir_kimligi(s) in kayitli]
+        adaylar = [s for s in adaylar if _satir_kimligi(s) not in kayitli]
     gruplar = collections.defaultdict(list)
     for s in adaylar:
         gruplar[cryo_excel.kelimeler(f'{s["soyad"]} {s["ad"]}')].append(s)
-    plan, atlanan = [], []
+    plan = []
     for kel, satirlar in gruplar.items():
         okunan = []
         for s in satirlar:
@@ -1271,6 +1283,83 @@ def _yeni_ad(s) -> str:
     return cryo_excel.buyuk(f'{s["ad"]} {s["soyad"]}'.strip())
 
 
+def _excel_tedavisi_ac(b, hid, gun, opu_biliniyor, son, tip, notu):
+    """Cryo Haritası Excel'inden yalnızca dondurma bilgisiyle açılan tedavi
+    (v6.179'un yazımı; v6.213'ten beri Excel kaydının sayfası da açıyor --
+    `excel_kaydindan_ac()`): tamamlanmış, bitiş sebebi dondurma. OPU günü
+    biliniyorsa `gun` OPU'dur; bilinmiyorsa OPU boş kalır ve `gun` dondurma
+    günüdür (tedavinin günü o zaman açılışından, `db.tedavi_tarihi()`).
+    Protokol notunda `db.CRYO_EXCEL_ISARETI` olmalı: istatistik ve Bakanlık
+    verileri bu tedavileri dışlıyor. -> (tedavi id, lab kayıt no)."""
+    cycle_no = aktar_access._lab_no(b, gun[:4])
+    sira_no = (b.execute("SELECT COALESCE(MAX(hasta_cycle_no),0)+1 FROM cycle "
+                         "WHERE hasta_id=?", (hid,)).fetchone()[0])
+    b.execute(
+        "INSERT INTO cycle (lab_id, hasta_id, cycle_no, hasta_cycle_no, cycle_tipi, "
+        "protokol_notu, opu_zamani, durum, bitis_sebebi, bitis_zamani, "
+        "olusturma_zamani) VALUES (?,?,?,?,?,?,?,'tamamlandi','dondurma',?,?)",
+        (_db.LAB_ID, hid, cycle_no, sira_no, tip, notu,
+         f"{gun} 09:00:00" if opu_biliniyor else None,
+         f"{son} 16:00:00", f"{gun} 08:30:00"))
+    return b.execute("SELECT last_insert_rowid()").fetchone()[0], cycle_no
+
+
+def _excel_tupu_ac(b, kid, cid, cycle_no, s, tup, an, konum_id, tip, renk, gun, sira,
+                   sayac, vit_notu=_YENI_VIT_NOTU):
+    """Excel satırının bir tüpü (v6.179'un yazımı, v6.213'ten beri Excel
+    kaydının sayfası da): taşıyıcı `konum_id`'de (boşsa konumsuz), tipi ve
+    rengi verilmişse onlar; tüpteki her öğe bir örnek (`sira`dan sonra
+    numaralanıyor), yumurtada olgunluk, embriyoda Excel'in yazımıyla
+    değerlendirme, sonra dondurma. OPU, ICSI ve döllenme yazılmıyor.
+
+    `s`: satırın TARİH'i ve HÜCRE'si (`tarih`, `icerik`), `tup`:
+    `excel_ogeleri()`'nin bir tüpü, `gun`: tedavinin günü (örneğin açılışı),
+    `an`: dondurma anı (etiket onun saatinden, aynı dakikada tüp varsa ilerler).
+    -> (tüp id, etiket, son sıra no)."""
+    tid, etiket, an = aktar_access._tasiyici_ac(b, kid, cycle_no, an)
+    if konum_id:
+        b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (konum_id, tid))
+        b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+    if tip:
+        b.execute("UPDATE tasiyici SET tip=? WHERE id=?", (tip, tid))
+    if renk:
+        b.execute("UPDATE tasiyici SET renk=? WHERE id=?", (renk, tid))
+    sayac["tup"] += 1
+    egun = _excel_gunu(s)
+    for o in tup:
+        sira += 1
+        sid = aktar_access._specimen_ac(b, cid, cycle_no, sira, "dondurulmus",
+                                        f"{gun} 08:30:00")
+        sayac["ornek"] += 1
+        if o["tur"] == "oosit":
+            if o["mat"]:
+                aktar_access._olay(b, kid, sid, cid, "maturasyon_kontrolu",
+                                   f"{s['tarih']} 11:30:00", mat_deger=o["mat"],
+                                   notlar=vit_notu)
+        else:
+            if o["tur"] == "taninmadi":
+                sayac["skorsuz"] += 1
+                sayac.setdefault("okunamayan", []).append(o["ham"])
+            g = egun or (5 if o["tur"] == "blast" else 3)
+            alan = aktar_access._oge_alanlari(o, g)
+            if alan and o["tur"] == "cleavage":
+                if not o.get("skor"):
+                    alan[1]["cl_skor_kaynagi"] = None
+                if o.get("frag") is not None:
+                    alan[1]["cl_fragmentasyon"] = o["frag"]
+                if o.get("simetri"):
+                    alan[1]["cl_simetri"] = o["simetri"]
+            if alan:
+                aktar_access._degerlendirme_yaz(
+                    b, kid, sid, cid, alan[0],
+                    max(g, 4) if o["tur"] == "blast" else min(g, 3),
+                    f"{s['tarih']} 09:00:00", alan[1], o.get("ham", ""),
+                    onek=_YENI_YAZIM)
+        aktar_access._olay(b, kid, sid, cid, "vitrifikasyon", an,
+                           vit_tasiyici_id=tid, notlar=vit_notu)
+    return tid, etiket, sira
+
+
 def yeni_hasta_yaz(plan) -> dict:
     sayac = collections.Counter()
     with _db.yazma_islemi() as b:
@@ -1303,70 +1392,24 @@ def yeni_hasta_yaz(plan) -> dict:
                 # çapraz eşleşip "başka konum yazılmış" derlerdi.
                 tuplar = [(s, tup) for s in grup for tup in excel_ogeleri(s["icerik"])]
                 tip = "oosit_cryo" if all(_tup_yumurta_mu(t) for _s, t in tuplar) else "ivf_icsi"
-                cycle_no = aktar_access._lab_no(b, gun[:4])
                 son = max(s["tarih"] for s in grup)
                 yerler = "; ".join(sorted({f'{s["sayfa"]} satır {s["satir"]}' for s in grup}))
                 notu = ("Program öncesi kayıt: yalnızca Cryo Haritası Excel'indeki dondurma "
                         f"bilgisi ({yerler}). OPU, ICSI ve döllenme kaydı yok.\n"
                         + _db.CRYO_EXCEL_ISARETI)
-                sira_no = (b.execute("SELECT COALESCE(MAX(hasta_cycle_no),0)+1 FROM cycle "
-                                     "WHERE hasta_id=?", (hid,)).fetchone()[0])
-                b.execute(
-                    "INSERT INTO cycle (lab_id, hasta_id, cycle_no, hasta_cycle_no, cycle_tipi, "
-                    "protokol_notu, opu_zamani, durum, bitis_sebebi, bitis_zamani, "
-                    "olusturma_zamani) VALUES (?,?,?,?,?,?,?,'tamamlandi','dondurma',?,?)",
-                    (_db.LAB_ID, hid, cycle_no, sira_no, tip, notu,
-                     f"{gun} 09:00:00" if olcu == "opu" else None,
-                     f"{son} 16:00:00", f"{gun} 08:30:00"))
-                cid = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+                cid, cycle_no = _excel_tedavisi_ac(b, hid, gun, olcu == "opu", son, tip, notu)
                 sayac["tedavi"] += 1
                 sira = 0
                 for i, (s, tup) in enumerate(tuplar):
                     an = f'{s["tarih"]} {12 + i // 60:02d}:{i % 60:02d}:00'
-                    tid, _etiket, an = aktar_access._tasiyici_ac(b, kid, cycle_no, an)
                     konum_id = _db.konum_bul_veya_olustur(_seviyeler(s), b)
-                    b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (konum_id, tid))
-                    b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
                     if s["tip"] and s["tip"] not in tipler and s["tip"] in TIP_ETIKETLERI:
                         _liste_kodu_ekle(b, "tasiyici_tipi", s["tip"], TIP_ETIKETLERI[s["tip"]])
                         tipler.add(s["tip"])
-                    if s["tip"] in tipler:
-                        b.execute("UPDATE tasiyici SET tip=? WHERE id=?", (s["tip"], tid))
-                    if s["renk"] in renkler:
-                        b.execute("UPDATE tasiyici SET renk=? WHERE id=?", (s["renk"], tid))
-                    sayac["tup"] += 1
-                    egun = _excel_gunu(s)
-                    for o in tup:
-                        sira += 1
-                        sid = aktar_access._specimen_ac(b, cid, cycle_no, sira, "dondurulmus",
-                                                        f"{gun} 08:30:00")
-                        sayac["ornek"] += 1
-                        if o["tur"] == "oosit":
-                            if o["mat"]:
-                                aktar_access._olay(b, kid, sid, cid, "maturasyon_kontrolu",
-                                                   f"{s['tarih']} 11:30:00", mat_deger=o["mat"],
-                                                   notlar=_YENI_VIT_NOTU)
-                        else:
-                            if o["tur"] == "taninmadi":
-                                sayac["skorsuz"] += 1
-                                sayac.setdefault("okunamayan", []).append(o["ham"])
-                            g = egun or (5 if o["tur"] == "blast" else 3)
-                            alan = aktar_access._oge_alanlari(o, g)
-                            if alan and o["tur"] == "cleavage":
-                                if not o.get("skor"):
-                                    alan[1]["cl_skor_kaynagi"] = None
-                                if o.get("frag") is not None:
-                                    alan[1]["cl_fragmentasyon"] = o["frag"]
-                                if o.get("simetri"):
-                                    alan[1]["cl_simetri"] = o["simetri"]
-                            if alan:
-                                aktar_access._degerlendirme_yaz(
-                                    b, kid, sid, cid, alan[0],
-                                    max(g, 4) if o["tur"] == "blast" else min(g, 3),
-                                    f"{s['tarih']} 09:00:00", alan[1], o.get("ham", ""),
-                                    onek=_YENI_YAZIM)
-                        aktar_access._olay(b, kid, sid, cid, "vitrifikasyon", an,
-                                           vit_tasiyici_id=tid, notlar=_YENI_VIT_NOTU)
+                    _tid, _etiket, sira = _excel_tupu_ac(
+                        b, kid, cid, cycle_no, s, tup, an, konum_id,
+                        s["tip"] if s["tip"] in tipler else None,
+                        s["renk"] if s["renk"] in renkler else None, gun, sira, sayac)
             _db.tedavileri_sirala(b, hid)
     return sayac
 
@@ -1440,6 +1483,8 @@ SPERM_SINIFLARI = [
     ("ayni_ad", "aynı adla birden çok yalnızca-sperm hasta kaydı -- açılmadı", False),
     ("es_belirsiz", "aynı adla iki farklı eş var, bu satırda eş yazmıyor -- açılmadı",
      False),
+    ("excel_kaydi", "Cryo Haritası'nda Excel kaydı olarak duruyor -- kaydın sayfasından "
+     "hastaya bağlanır (v6.213)", False),
 ]
 
 
@@ -1545,6 +1590,13 @@ def sperm_plani(satirlar, b):
                               f"programdaki konum: {mevcut[0]['tam_yol'] or '-'}"])
             else:
                 adaylar.append(s)
+    # Excel kaydı olarak duran satır (v6.213): kararı kaydın sayfasında --
+    # burada ikinci bir tüp açılırsa straw iki kez görünürdü.
+    kayitli = _excel_kaydi_olan_satirlar(adaylar, b) if adaylar else set()
+    for s in adaylar:
+        if _satir_kimligi(s) in kayitli:
+            sonuc.append([s, "excel_kaydi", ""])
+    adaylar = [s for s in adaylar if _satir_kimligi(s) not in kayitli]
     # Yeni satırların hastası: ada göre topla, eşe göre ayır.
     ada_gore = collections.defaultdict(list)
     for s in adaylar:
@@ -1745,6 +1797,12 @@ def eksik_plani(sonuc, satirlar, idx, tup, b):
     -> (sınıf -> [(hasta id, tüp, ek not)], Excel'den yeni tüp sayısı, son gün)
     """
     alinan = {t["tid"] for _s, _k, t, _e in sonuc if t}
+    # Excel kaydına bağlanmış tüp (v6.189 "tüpe bağla", v6.213 "hastaya
+    # bağla"): Excel'in satırı onu anlatıyor, ad orada başka yazılmış olsa da.
+    if _db.tablo_var("excel_kaydi"):
+        alinan |= {r[0] for r in b.execute(
+            "SELECT tasiyici_id FROM excel_kaydi WHERE lab_id = ? AND durum = 'baglandi' "
+            "AND tasiyici_id IS NOT NULL", (_db.LAB_ID,))}
     gunler = [s["tarih"] for s in satirlar if s["kategori"] != "sperm" and s["tarih"]]
     excel_son = max(gunler) if gunler else "9999"
     hasta_satiri = collections.defaultdict(list)
@@ -2100,6 +2158,363 @@ def ad_farkli_excel_kayitlari(b, tidler, ek_adlar=None) -> list:
     return cikti
 
 
+# ------------------------------------------ Excel kaydından hastaya (v6.213)
+#
+# Kullanıcının isteği (2026-09-28): "Excel'de yeri olup Access kaydından
+# oluşturulmamış ... tüpleri hastaya bağlama olsun. Yani cryodaki hasta kaydı
+# olmayan dondurulmuş örneği hastaya bağlama olsun." Excel kaydı (v6.189)
+# gobletinde duran, programda tüpü olmayan straw. Tüpü programdaysa "tüpe
+# bağla" (v6.189) yetiyor; yoksa straw'ı bir hastaya vermenin yolu yoktu.
+#
+# Hastayı KULLANICI seçiyor (Excel kaydının sayfasında dosya no ya da adla
+# arayarak): ad tek başına kanıt değil, program hasta seçmiyor. Program o
+# hastaya straw'ın tüpünü açıyor:
+# - embriyo / yumurta: `yeni_hasta` kipinin (v6.179) yazımı, aynı işlevler
+#   (`_excel_tedavisi_ac()`, `_excel_tupu_ac()`). Yalnızca dondurma bilgisi
+#   olan bir "Cryo Excel" tedavisi -- istatistik ve Bakanlık verileri
+#   dışlıyor; OPU, ICSI, döllenme uydurulmuyor. Hastanın aynı güne açılmış
+#   bir Cryo Excel tedavisi varsa tüp ona ekleniyor: aynı dondurmanın ikinci
+#   straw'ı ikinci bir tedavi açmasın.
+# - sperm: `sperm` kipinin (v6.180) yazımı -- bir sperm dondurma kaydı + tüp.
+# Tüp Excel kaydının gobletinde, rengi ve tipi Excel'inki; Excel kaydı
+# 'baglandi' olur (straw artık tüpün kendisiyle sayılıyor, iki kez değil).
+# Kaydın `islem_notu`'su `ACILAN` ile başlıyor: "bağı çöz" bu kayıtta
+# açılanı siliyor (`acilani_geri_al()`) -- yalnızca el değmemişse.
+#
+# Excel'deki satırın yazımı okunamıyorsa (HÜCRE boş, "PGT" gibi) ya da bir
+# satırda birden çok tüp yazıyorsa açılmıyor: içeriği bilinmeyen tüp açmak
+# uydurmak olurdu (v6.127'nin "sahte tüp açılmaz" kuralı).
+
+ACILAN = "açılan: "                 # excel_kaydi.islem_notu öneki
+_ACILAN_KALIP = re.compile(r"^" + re.escape(ACILAN) + r"tüp (\d+), (tedavi|sperm) (\d+)")
+_ACILAN_VIT_NOTU = "Cryo Haritası'ndaki Excel kaydından hastaya açıldı"
+_ACILAN_OLAYLARI = ("maturasyon_kontrolu", "cleavage_degerlendirme",
+                    "blastokist_degerlendirme", "vitrifikasyon")
+
+
+def acilan_bilgisi(e):
+    """Excel kaydı bu yoldan açılan bir tüpe bağlıysa ne açıldığı:
+    {"tid", "tur": "tedavi" / "sperm", "id"} (tedavinin ya da sperm dondurma
+    kaydının kimliği); değilse None."""
+    m = (_ACILAN_KALIP.match(e["islem_notu"] or "")
+         if e["durum"] == "baglandi" else None)
+    if not m or int(m.group(1)) != e["tasiyici_id"]:
+        return None
+    return {"tid": int(m.group(1)), "tur": m.group(2), "id": int(m.group(3))}
+
+
+def _oge_yazimi(o) -> str:
+    """Önizlemede öğenin yazımı: açılacak örneğin ekranda göreceği kalite."""
+    if o["tur"] == "oosit":
+        return {"mii": "MII", "mi": "MI", "gv": "GV"}.get(o.get("mat"), "?")
+    if o["tur"] == "blast":
+        return o["skor"]
+    if o["tur"] == "cleavage":
+        return _db.cleavage_yazimi(o["hucre"], o.get("skor")) or "?"
+    if o["tur"] == "embriyo":
+        if o.get("birlesme"):
+            return _db.cleavage_yazimi(_db.BIRLESME, o.get("skor"))
+        return o.get("skor") or "?"
+    return "?"
+
+
+def _parantez(tup) -> str:
+    """Tüpün laboratuvar yazımı -- `formlar.tup_metni()`'nin biçimi:
+    "(3BA-1BB)", yumurtada olgunluk sayısıyla "(4*MII-1*MI)"."""
+    if _tup_yumurta_mu(tup):
+        say = collections.Counter(_oge_yazimi(o) for o in tup)
+        return "(" + "-".join(f"{say[k]}*{k}" for k in ("MII", "MI", "GV", "?")
+                              if say.get(k)) + ")"
+    return "(" + "-".join(_oge_yazimi(o) for o in tup) + ")"
+
+
+def acilis_plani(b, e, hasta, tarih) -> dict:
+    """Excel kaydından `hasta`ya ne açılacağı -- ekranın önizlemesi ve kaydın
+    kendisi aynı planı kullanıyor. Hiçbir şey yazmaz (`b` açık bağlantı;
+    kayıtta yazma işleminin kendisi).
+
+    `tarih`: dondurma günü (ISO, doğrulanmış) -- Excel'deki ya da kullanıcının
+    yazdığı. -> {"hata": kod} ya da plan:
+      kategori, tarih; embriyo/yumurtada tup (öğeler), parantez, yumurta,
+      adet, gun (HÜCRE'nin "D5"i), opu (OPU günü, bilinmiyorsa None),
+      tedavi_tipi, tedavi (tüpün ekleneceği Cryo Excel tedavisi ya da None),
+      taninmayan (okunamayan parçalar -- skorsuz embriyo açılır);
+      spermde sebep; ikisinde de ayni_gun (hastanın o günkü öteki
+      tedavileri / sperm dondurmaları: straw onlardan birinin tüpü olabilir).
+    """
+    if not tarih:
+        return {"hata": "tarih_yok"}
+    if tarih > _dt.date.today().isoformat():
+        return {"hata": "tarih_ileri"}
+    p = {"kategori": e["kategori"], "tarih": tarih}
+    s = {"icerik": e["icerik"] or "", "tarih": tarih}
+    if e["kategori"] == "sperm":
+        p["sebep"] = _sperm_sebebi(s)
+        p["ayni_gun"] = [dict(r) for r in b.execute(
+            "SELECT sd.id, t.etiket, t.durum FROM sperm_dondurma sd "
+            "JOIN tasiyici t ON t.id = sd.tasiyici_id WHERE sd.hasta_id = ? "
+            "AND sd.iptal_mi = 0 AND date(sd.dondurma_zamani) = ? ORDER BY sd.id",
+            (hasta["id"], tarih))]
+        return p
+    tupler_ = excel_ogeleri(e["icerik"])
+    if not tupler_:
+        return {"hata": "icerik_okunamadi"}
+    if len(tupler_) > 1:
+        return {"hata": "cok_tup"}
+    tup = tupler_[0]
+    yumurta = _tup_yumurta_mu(tup)
+    opu = _excel_opu(s)
+    p.update(tup=tup, parantez=_parantez(tup), yumurta=yumurta, adet=len(tup),
+             gun=None if yumurta else _excel_gunu(s), opu=opu,
+             tedavi_tipi="oosit_cryo" if yumurta else "ivf_icsi",
+             taninmayan=[o["ham"] for o in tup if o["tur"] == "taninmadi"], tedavi=None)
+    isaret = f"%{_db.CRYO_EXCEL_ISARETI}%"
+    # Aynı dondurmanın Cryo Excel tedavisi: OPU günü biliniyorsa o gün, yoksa
+    # (günü yazmayan embriyo) OPU'suz ve o gün tüp dondurulmuş tedavi --
+    # `_tedavileri()`'nin anahtarı. Yumurta Dondurma'ya embriyo konmaz.
+    if opu:
+        kosul, par = "date(c.opu_zamani) = ?", (opu,)
+    else:
+        kosul = ("c.opu_zamani IS NULL AND EXISTS (SELECT 1 FROM olay o JOIN specimen s "
+                 "ON s.id = o.specimen_id WHERE s.cycle_id = c.id AND o.tip = 'vitrifikasyon' "
+                 "AND o.iptal_mi = 0 AND date(o.zaman) = ?)")
+        par = (tarih,)
+    for c in b.execute(
+            "SELECT c.id, c.cycle_no, c.cycle_tipi FROM cycle c WHERE c.hasta_id = ? "
+            f"AND c.lab_id = ? AND COALESCE(c.protokol_notu, '') LIKE ? AND {kosul} "
+            "ORDER BY c.id", (hasta["id"], _db.LAB_ID, isaret, *par)):
+        if yumurta or c["cycle_tipi"] != "oosit_cryo":
+            p["tedavi"] = dict(c)
+            break
+    ayni_opu = "date(c.opu_zamani) = ? OR " if opu else ""
+    p["ayni_gun"] = [dict(r) for r in b.execute(
+        "SELECT c.id, c.cycle_no, c.cycle_tipi, c.opu_zamani FROM cycle c "
+        "WHERE c.hasta_id = ? AND COALESCE(c.protokol_notu, '') NOT LIKE ? "
+        f"AND ({ayni_opu}EXISTS (SELECT 1 FROM olay o WHERE o.tip = 'vitrifikasyon' "
+        f"AND o.iptal_mi = 0 AND {_db.vit_tedavisi('o')} = c.id AND date(o.zaman) = ?)) "
+        "ORDER BY c.id", (hasta["id"], isaret, *((opu,) if opu else ()), tarih))]
+    return p
+
+
+def _logla(b, tablo, kayit, alan, eski, yeni, kid, simdi):
+    b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+              "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+              (_db.LAB_ID, tablo, str(kayit), alan, eski, yeni, kid, simdi))
+
+
+def excel_kaydindan_ac(b, e, hasta, tarih, kid, simdi) -> dict:
+    """Excel kaydından `hasta`ya straw'ın tüpünü açar ve kaydı ona bağlar.
+    `b` yazma işleminin bağlantısı: denetim ve yazım aynı kilidin içinde, `e`
+    ve `hasta` o bağlantıyla okunmuş olmalı. -> {"hata": kod} ya da
+    {"tid", "etiket", "tedavi": id ya da None, "yeni_tedavi", "degisen"}
+    (`degisen`: kayan tedavi numaraları, `db.tedavileri_sirala()`)."""
+    if e["durum"] != "tankta":
+        return {"hata": "durum"}
+    p = acilis_plani(b, e, hasta, tarih)
+    if p.get("hata"):
+        return p
+    kaynak = f'{e["kaynak_sayfa"]} satır {e["kaynak_satir"]}'
+    elle = ("" if tarih == e["tarih"] else
+            f" Excel'deki tarih: {e['tarih_ham'] or 'yok'}; dondurma günü elle yazıldı.")
+    sonuc = {"tedavi": None, "yeni_tedavi": False, "degisen": []}
+    if e["kategori"] == "sperm":
+        tipler = {r[0] for r in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
+            (_db.LAB_ID,))}
+        etiket, an, _dk = _sperm_etiketi(b, hasta["dosya_no"], tarih, 0)
+        b.execute(
+            "INSERT INTO tasiyici (lab_id, tip, etiket, renk, konum_id, "
+            "vitrifikasyon_zamani, kullanici_id, durum, kategori) "
+            "VALUES (?,?,?,?,?,?,?,'dolu','sperm')",
+            (_db.LAB_ID, e["tip"] if e["tip"] in tipler else "vial", etiket, e["renk"],
+             e["konum_id"], an, kid))
+        tid = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+        if e["konum_id"]:
+            b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (e["konum_id"],))
+        notu = (f'Örnek: {e["icerik"] or "-"} · VİAL: {e["vial"] or "-"}\n'
+                f"Cryo Haritası'ndaki Excel kaydından açıldı ({kaynak}).{elle}\n"
+                + _db.CRYO_EXCEL_ISARETI)
+        b.execute(
+            "INSERT INTO sperm_dondurma (lab_id, hasta_id, tasiyici_id, dondurma_zamani, "
+            "sebep, notlar, kullanici_id, olusturma_zamani) VALUES (?,?,?,?,?,?,?,?)",
+            (_db.LAB_ID, hasta["id"], tid, an, p["sebep"], notu, kid, simdi))
+        kayit = b.execute("SELECT last_insert_rowid()").fetchone()[0]
+        islem = f"{ACILAN}tüp {tid}, sperm {kayit}"
+    else:
+        sayac = collections.Counter()
+        gun = p["opu"] or tarih
+        if p["tedavi"] is None:
+            notu = (textwrap.fill(
+                f"Cryo Haritası'ndaki Excel kaydından açıldı ({kaynak}): yalnızca "
+                "Excel'deki dondurma bilgisi. OPU, ICSI ve döllenme kaydı yok." + elle, 68)
+                + "\n" + _db.CRYO_EXCEL_ISARETI)
+            cid, cycle_no = _excel_tedavisi_ac(b, hasta["id"], gun, bool(p["opu"]), tarih,
+                                               p["tedavi_tipi"], notu)
+            sonuc["yeni_tedavi"] = True
+            _logla(b, "cycle", cid, "excel_kaydindan", None,
+                   f"Excel kaydı #{e['id']} için açıldı", kid, simdi)
+        else:
+            cid, cycle_no = p["tedavi"]["id"], p["tedavi"]["cycle_no"]
+        sira = b.execute("SELECT COALESCE(MAX(cycle_sira_no), 0) FROM specimen "
+                         "WHERE cycle_id = ?", (cid,)).fetchone()[0]
+        tid, etiket, _sira = _excel_tupu_ac(
+            b, kid, cid, cycle_no, {"icerik": e["icerik"], "tarih": tarih}, p["tup"],
+            f"{tarih} 12:00:00", e["konum_id"], e["tip"], e["renk"], gun, sira, sayac,
+            vit_notu=_ACILAN_VIT_NOTU)
+        sonuc["tedavi"] = cid
+        sonuc["degisen"] = _db.tedavileri_sirala(b, hasta["id"])
+        islem = f"{ACILAN}tüp {tid}, tedavi {cid}"
+    b.execute("UPDATE excel_kaydi SET durum='baglandi', tasiyici_id=?, onceki_konum_id=NULL, "
+              "islem_zamani=?, islem_notu=?, islem_kullanici_id=? WHERE id=?",
+              (tid, simdi[:10], islem, kid, e["id"]))
+    _logla(b, "excel_kaydi", e["id"], "durum", "tankta",
+           f"hastaya bağlandı: {hasta['dosya_no']}, tüp {etiket}", kid, simdi)
+    _logla(b, "tasiyici", tid, "excel_kaydindan", None,
+           f"Excel kaydı #{e['id']} için açıldı", kid, simdi)
+    sonuc.update(tid=tid, etiket=etiket)
+    return sonuc
+
+
+def _kolonlu_tablolar(b, kolonlar) -> list:
+    """[(tablo, kolon)]: bu adlardan bir kolonu olan tablolar. Silmeden önceki
+    "başka bir şey bağlı mı" denetimi için -- yeni tablo kendiliğinden
+    kapsanır (tuzak #4)."""
+    sonuc = []
+    for (ad,) in b.execute("SELECT name FROM sqlite_master WHERE type='table' "
+                           "AND name NOT LIKE 'sqlite_%'").fetchall():
+        for r in b.execute(f"PRAGMA table_info({ad})").fetchall():
+            if r[1] in kolonlar:
+                sonuc.append((ad, r[1]))
+    return sonuc
+
+
+def acilani_geri_al(b, e, kid, simdi) -> dict:
+    """Excel kaydından açılanı siler (tüp, örnekleri ve olayları ya da sperm
+    dondurma kaydı; tedavi boş kaldıysa o da) ve kaydı yeniden 'tankta'
+    yapar. `b` yazma işleminin bağlantısı.
+
+    Yalnızca el değmemişse: tüp tankta ve kaydın gobletinde (çözülmemiş,
+    taşınmamış, başka merkeze gitmemiş), başka bir Excel kaydı ona bağlı
+    değil; örneklerinde bu açılışın yazdığından başka kayıt yok (çözme,
+    transfer, görüntü, bulgu, PGT) -- spermde tedaviye bağlanmamış, onam
+    eki yok. Önce en son adım geri alınır (v6.143'ün kuralı).
+    -> {"hata": kod} ya da {"tedavi_silindi": lab kayıt no ya da None,
+    "hasta_id", "degisen"}."""
+    a = acilan_bilgisi(e)
+    if not a:
+        return {"hata": "acilan_degil"}
+    tid = a["tid"]
+    t = b.execute("SELECT * FROM tasiyici WHERE id = ?", (tid,)).fetchone()
+    if not t:
+        return {"hata": "acilan_degil"}
+    if t["durum"] != "dolu":
+        return {"hata": "acilan_kullanildi"}
+    if t["konum_id"] != e["konum_id"]:
+        return {"hata": "acilan_tasindi"}
+    if b.execute("SELECT 1 FROM excel_kaydi WHERE tasiyici_id = ? AND id <> ?",
+                 (tid, e["id"])).fetchone():
+        return {"hata": "acilan_baska_kayit"}
+    sonuc = {"tedavi_silindi": None, "hasta_id": None, "degisen": []}
+    if a["tur"] == "sperm":
+        sd = b.execute("SELECT * FROM sperm_dondurma WHERE tasiyici_id = ?", (tid,)).fetchall()
+        if len(sd) != 1 or sd[0]["id"] != a["id"]:
+            return {"hata": "acilan_islem_var"}
+        sd = sd[0]
+        if sd["iptal_mi"] or sd["kullanim_cycle_id"]:
+            return {"hata": "acilan_kullanildi"}
+        if (_db.tablo_var("sperm_dondurma_dosya") and b.execute(
+                "SELECT 1 FROM sperm_dondurma_dosya WHERE sperm_dondurma_id = ?",
+                (sd["id"],)).fetchone()):
+            return {"hata": "acilan_islem_var"}
+        if b.execute("SELECT 1 FROM olay WHERE vit_tasiyici_id = ?", (tid,)).fetchone():
+            return {"hata": "acilan_islem_var"}
+        sonuc["hasta_id"] = sd["hasta_id"]
+        b.execute("UPDATE excel_kaydi SET durum='tankta', tasiyici_id=NULL, "
+                  "onceki_konum_id=NULL, islem_zamani=NULL, islem_notu=NULL, "
+                  "islem_kullanici_id=NULL WHERE id=?", (e["id"],))
+        b.execute("DELETE FROM sperm_dondurma WHERE id = ?", (sd["id"],))
+        b.execute("DELETE FROM tasiyici WHERE id = ?", (tid,))
+        _logla(b, "sperm_dondurma", sd["id"], "KALICI_SILME",
+               f"Excel kaydı #{e['id']} için açılmıştı (tüp {t['etiket']})", "silindi",
+               kid, simdi)
+    else:
+        cid = a["id"]
+        ornekler = [r[0] for r in b.execute(
+            "SELECT DISTINCT specimen_id FROM olay WHERE vit_tasiyici_id = ?", (tid,))]
+        if not ornekler:
+            return {"hata": "acilan_islem_var"}
+        if _db.cozme_tupu_var() and b.execute(
+                "SELECT 1 FROM olay WHERE thaw_tasiyici_id = ?", (tid,)).fetchone():
+            return {"hata": "acilan_kullanildi"}
+        yer = ",".join("?" * len(ornekler))
+        vit_kolonu = _db.kolon_var("olay", "vit_cycle_id")
+        for o in b.execute(
+                "SELECT o.*, s.cycle_id AS ornek_tedavisi FROM olay o JOIN specimen s "
+                f"ON s.id = o.specimen_id WHERE o.specimen_id IN ({yer})", ornekler):
+            if (o["tip"] not in _ACILAN_OLAYLARI or o["ornek_tedavisi"] != cid
+                    or o["cycle_id"] != cid or o["thaw_cycle_id"] or o["tr_cycle_id"]
+                    or (vit_kolonu and o["vit_cycle_id"] not in (None, cid))
+                    or (o["tip"] == "vitrifikasyon" and o["vit_tasiyici_id"] != tid)):
+                return {"hata": "acilan_islem_var"}
+        for tablo, kolon in _kolonlu_tablolar(b, {"specimen_id"}):
+            if tablo != "olay" and b.execute(
+                    f"SELECT 1 FROM {tablo} WHERE {kolon} IN ({yer}) LIMIT 1",
+                    ornekler).fetchone():
+                return {"hata": "acilan_islem_var"}
+        c = b.execute("SELECT * FROM cycle WHERE id = ?", (cid,)).fetchone()
+        sonuc["hasta_id"] = c["hasta_id"] if c else None
+        b.execute("UPDATE excel_kaydi SET durum='tankta', tasiyici_id=NULL, "
+                  "onceki_konum_id=NULL, islem_zamani=NULL, islem_notu=NULL, "
+                  "islem_kullanici_id=NULL WHERE id=?", (e["id"],))
+        b.execute(f"DELETE FROM olay WHERE specimen_id IN ({yer})", ornekler)
+        b.execute(f"DELETE FROM specimen WHERE id IN ({yer})", ornekler)
+        b.execute("DELETE FROM tasiyici WHERE id = ?", (tid,))
+        _logla(b, "tasiyici", tid, "KALICI_SILME",
+               f"{t['etiket']}: Excel kaydı #{e['id']} için açılmıştı "
+               f"({len(ornekler)} örnek)", "silindi", kid, simdi)
+        # Tedavi boş kaldıysa (yalnızca Cryo Excel tedavisi): ona bağlı hiçbir
+        # kayıt yoksa silinir -- boş bir "dondurma" tedavisi hasta kartında
+        # kalmasın. Bir şey bağlıysa dokunulmuyor.
+        if c and _db.CRYO_EXCEL_ISARETI in (c["protokol_notu"] or "") and not any(
+                b.execute(f"SELECT 1 FROM {tablo} WHERE {kolon} = ? LIMIT 1",
+                          (cid,)).fetchone()
+                for tablo, kolon in _kolonlu_tablolar(
+                    b, {"cycle_id", "thaw_cycle_id", "tr_cycle_id", "vit_cycle_id",
+                        "kullanim_cycle_id"})):
+            b.execute("DELETE FROM cycle WHERE id = ?", (cid,))
+            _logla(b, "cycle", cid, "KALICI_SILME",
+                   f"{c['cycle_no']}: Excel kaydı #{e['id']} için açılmıştı, boş kaldı",
+                   "silindi", kid, simdi)
+            sonuc["tedavi_silindi"] = c["cycle_no"]
+        if sonuc["hasta_id"]:
+            sonuc["degisen"] = _db.tedavileri_sirala(b, sonuc["hasta_id"])
+    _logla(b, "excel_kaydi", e["id"], "durum", "baglandi", "tankta", kid, simdi)
+    return sonuc
+
+
+def _excel_kaydi_olan_satirlar(satirlar, b) -> set:
+    """Cryo Haritası'nda Excel kaydı olarak duran satırlar (`_satir_kimligi()`
+    kümesi). O straw'ın ne olacağına kaydın sayfasında karar veriliyor (tüpe
+    ya da hastaya bağla, tanktan çıkarıldı -- v6.189, v6.213): `yeni_hasta`
+    ve `sperm` kipleri bu satırlara ikinci bir tüp açmamalı, yoksa straw iki
+    kez görünür. Eşleme `_anahtarlar()`'ın metin alanlarıyla (ad, tarih,
+    HÜCRE, VİAL); birebir aynı satırlar Excel kaydı sayısı kadar."""
+    if not _db.tablo_var("excel_kaydi"):
+        return set()
+    kayitlar = collections.Counter(
+        (r[0] or "", r[1] or "", r[2] or "", r[3] or "", r[4] or "") for r in b.execute(
+            "SELECT soyad, ad, tarih_ham, icerik, vial FROM excel_kaydi WHERE lab_id = ?",
+            (_db.LAB_ID,)))
+    sonuc = set()
+    for s in satirlar:
+        a = (s["soyad"] or "", s["ad"] or "", s["tarih_ham"] or "", s["icerik"] or "",
+             s["vial_metni"] or "")
+        if kayitlar[a] > 0:
+            kayitlar[a] -= 1
+            sonuc.add(_satir_kimligi(s))
+    return sonuc
+
+
 def _excel_bagla_kipi():
     if not _db.tablo_var("excel_kaydi"):
         sys.exit("Excel kaydı yok -- önce `python3 cryo_esle.py yerlesim <Excel>`.")
@@ -2195,7 +2610,8 @@ def main():
 
 
 def _yeni_hasta_kipi(sonuc):
-    plan, atlanan = yeni_hasta_plani(sonuc)
+    with _db.baglan() as b:
+        plan, atlanan = yeni_hasta_plani(sonuc, b)
     yeni_hasta_raporu(plan, atlanan)
     tedavi = sum(len(_tedavileri(g)) for _k, _e, g in plan)
     tup = sum(len(excel_ogeleri(s["icerik"])) for _k, _e, g in plan for s in g)
