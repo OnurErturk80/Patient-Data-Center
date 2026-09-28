@@ -93,6 +93,22 @@ yazınca taşır; şimdiki tüp dolu olarak geri döner, yeni tüp boşaltılır
 
     python3 aktar_access.py tasi TEMMUZ2019#54 2018-0890-1200
 
+**Programa ekrandan zaten girilmiş tedavi atlanır** (v6.207, eylül 2026:
+bazı hastalar hem Access'e hem programa girildi). Aynı hasta (dosya no),
+aynı tür (yumurta toplanan / çözme), günleri 30 günden yakın, işaretsiz
+(ekrandan girilmiş) bir tedavi varsa `liste` "PROGRAMDA VAR" der, aktarım
+atlar; aynı gün başka bir Access dosyasından aktarılmış tedavi ve dosya
+numarası programda olmayıp aynı adlı hastanın aynı dönemdeki ekran tedavisi
+de öyle (numara farklı yazılmış olabilir). Gerçekten başka bir tedaviyse
+düzeltme dosyasına `KAYNAK#KAYIT  AKTAR` (`programdaki_tedavi()`).
+
+**Cryo Haritası'ndaki Excel kaydı tüpüne bağlanır** (v6.207). Hastası
+programda yokken Cryo Excel'inden gelen straw gobletde "Excel kaydı" olarak
+duruyor; aktarım tüpü konumsuz açıyor. Aktarımın sonunda ikisi `cryo_esle.py
+uygula`'nın ölçüsüyle (ad + gün + içerik) eşleştirilip bağlanıyor, tüp
+gobletine yazılıyor; bağlanamayanlar sayfalarıyla listeleniyor
+(`cryo_haritasina_bagla()`). Sonradan: `python3 cryo_esle.py excel_bagla`.
+
 ------------------------------------------------------------------------
 ACCESS'TEN CSV NASIL ÇIKAR
 
@@ -583,10 +599,12 @@ def duzeltmeleri_oku(yol: str) -> list:
             parca = satir.split()
             if not parca:
                 continue
-            if len(parca) == 2 and "#" in parca[0] and parca[1].upper() == "ATLA":
+            if len(parca) == 2 and "#" in parca[0] and parca[1].upper() in ("ATLA", "AKTAR"):
+                # ATLA: bu kayıt aktarılmasın (v6.167). AKTAR: programda
+                # aynı döneme ait bir tedavi olsa da aktarılsın (v6.207).
                 kaynak, kimlik = parca[0].split("#", 1)
                 satirlar.append((_kaynak_ayikla(kaynak) if kaynak else "", kimlik,
-                                 "ATLA", None, None))
+                                 parca[1].upper(), None, None))
                 continue
             alan = parca[1].upper() if len(parca) > 1 else ""
             sayi = alan in _SAYI_ALANI
@@ -599,7 +617,8 @@ def duzeltmeleri_oku(yol: str) -> list:
                          "KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih\n"
                          "ya da: KAYNAK#KAYIT  ICSI  eski-sayi  yeni-sayi\n"
                          "ya da: KAYNAK#KAYIT  DOSYA  eski-no  yeni-no\n"
-                         "ya da: KAYNAK#KAYIT  ATLA")
+                         "ya da: KAYNAK#KAYIT  ATLA\n"
+                         "ya da: KAYNAK#KAYIT  AKTAR")
             kaynak, kimlik = parca[0].split("#", 1)
             # Eski tarih "-": kaynakta okunamayan tarih ("01/00/00", ocak
             # 2018, v6.173) -- araç onu boş okuyor, düzeltme boşu eşliyor.
@@ -616,7 +635,7 @@ def duzeltmeleri_uygula(satirlar, duzeltmeler, kaynak) -> list:
     kimlige = {r["kimlik"]: r for r in satirlar}
     tutmayan = []
     for k, kimlik, alan, eski, yeni in duzeltmeler:
-        if k != kaynak or alan == "ATLA":
+        if k != kaynak or alan in ("ATLA", "AKTAR"):
             continue
         r = kimlige.get(kimlik)
         anahtar = _DUZELTILEBILIR[alan]
@@ -642,12 +661,25 @@ def atla_satirlarini_ayikla(satirlar, duzeltmeler, kaynak) -> tuple:
     return atlanan, [f"{kaynak}#{k} ATLA" for k in sorted(istenen - bulunan)]
 
 
+def zorla_satirlarini_isaretle(satirlar, duzeltmeler, kaynak) -> list:
+    """Düzeltme dosyasında AKTAR yazan satırlar programda aynı döneme ait bir
+    tedavi olsa da aktarılır (v6.207, `programdaki_tedavi()`). Döner:
+    bulunamayan AKTAR satırları."""
+    istenen = {kimlik for k, kimlik, alan, _e, _y in duzeltmeler
+               if k == kaynak and alan == "AKTAR"}
+    for r in satirlar:
+        if r["kimlik"] in istenen:
+            r["zorla"] = True
+    bulunan = {r["kimlik"] for r in satirlar if r.get("zorla")}
+    return [f"{kaynak}#{k} AKTAR" for k in sorted(istenen - bulunan)]
+
+
 # İki satırı karşılaştırırken bakılmayan alanlar: Access kayıt numarası,
 # ad (hasta kartına gidiyor, tedaviye değil; eşleşme dosya numarasıyla) ve
 # araçların satıra sonradan eklediği türetilmiş işaretler.
 _IKIZ_DISI = ("kimlik", "duzeltme", "tarih_yaklasik", "ad_soyad", "es_adi",
               "olgunluk_duzeltme", "icsi_duzeltme", "icsi_hatali", "tip_duzeltme",
-              "yumurta_fazla", "yumurta_nottan")
+              "yumurta_fazla", "yumurta_nottan", "zorla", "programda")
 _ALAN_ADI = {"toplanan": "toplanan", "mii": "MII", "immatur": "immatür",
              "empty_zona": "empty zona", "dejenere": "dejenere",
              "atretik": "atretik", "islenen": "ICSI", "iki_pn": "2PN",
@@ -946,7 +978,9 @@ _IPTAL_AYRINTI = (
 # "DONDURULRAK", "DONDURULARK", "DONDURULAK". v6.147'ye kadar yalnızca ilk
 # ikisi tanınıyordu: ocak-haziranda altmışa yakın dondurma (yedi tüplük bir
 # dondurma dahil) hiç yazılmayacaktı, temmuzda bir yeniden dondurma
-# yazılmamıştı.
+# yazılmamıştı. v6.207: "DONDURULARAK AKLANDI" (S düşmüş; eylül 2026, bir
+# yumurta tüpü -- Cryo Excel'inde de duruyor). Okunan 23 dosyanın 1.858
+# satırında başka yerde geçmiyor.
 #
 # "DONDURULMUŞ EMBRİYOSU KALDI" (önceki tedaviden artan) ve "DONDURULMUŞ
 # ŞEKİLDE SAKLANDI" (sperm tüpü) bilerek eşleşmiyor: fiil "dondurulmak"
@@ -971,7 +1005,7 @@ _IPTAL_AYRINTI = (
 # FET'te bunların çoğu stok cümlesi; ayırt eden `_dondurma_coz()`'ün
 # "fazla" kuralı (çözülen − transfer edilen).
 _DONDURMA_FIILI = re.compile(
-    r"DONDUR\w*\s+(?:SAKLAN|KORUN)\w*|DONDURULDU\b|DONDURULMUSTUR\b"
+    r"DONDUR\w*\s+(?:S?AKLAN|KORUN)\w*|DONDURULDU\b|DONDURULMUSTUR\b"
     r"|REFREEZ\w*\s+EDIL(?!EN\b)\w*|REFREEZ\w*\s+YAPILDI\b"
     r"|(?P<sonra>REFREEZ\w*\s+EDILEN\b"
     r"|(?<!\()REFREEZE?\b(?!\s*\))"
@@ -1845,6 +1879,20 @@ def olgunlugu_nottan_duzelt(satirlar) -> None:
         if fark > 0:
             r["mii"] -= fark
             r["immatur"] += fark
+        # Kutularda hiç sayılmamış yumurta (v6.207, eylül 2026: TOPLANAN 1,
+        # MII ve İMMATÜR boş, not "1 ADET OOSİT (1*M2) ... DONDURULARAK
+        # SAKLANDI"). Aynı kural -- not kazanır; fark immatürden değil,
+        # olgunluğu kutuya yazılmamış yumurtalardan. Yoksa yumurta
+        # olgunluksuz açılıyor, tüp "(1)" diyordu ve Cryo Excel'indeki
+        # "OOSİT (1 M2)" satırı tüpüyle eşleşmiyordu. Okunan 23 dosyanın 1.858
+        # satırında başka bir satıra dokunmuyor.
+        sayilmamis = (r["toplanan"] or 0) - (r["mii"] + r["immatur"] + r["empty_zona"]
+                                             + r["dejenere"] + r["atretik"])
+        for alan, nottaki in (("mii", m2), ("immatur", m1)):
+            fark = min(nottaki - r[alan], sayilmamis)
+            if fark > 0:
+                r[alan] += fark
+                sayilmamis -= fark
         if (r["mii"], r["immatur"]) != once:
             r["olgunluk_duzeltme"] = once
         # Kaynakta HİÇBİR sayı yok (v6.173, 2018'in üç Yumurta Dondurma
@@ -3884,6 +3932,222 @@ def _carpismalar(satirlar) -> list:
             and str(var["dosya_no"]) != str(r["dosya_no"])]
 
 
+# ---------------------------------------------- programda zaten girilmiş
+
+# Eylül 2026'dan beri bazı hastalar programın ekranlarından giriliyor, Access'e
+# de yazılıyor (kullanıcı, 2026-09-28: "Programa kayıt yapılmış hastalar var
+# ... Kaydı yapılmış cryo haritaya da kaydedilmiş hastayı kaydetmene gerek
+# yok"). Aktarım o tedaviyi ikinci kez açardı: iki tedavi, tankta olmayan
+# ikinci bir tüp takımı. İşaret aynı satırın ikinci aktarımını tanıyor
+# (`_zaten_var()`), ekranda girileni tanımıyor.
+#
+# Ekrandan girilmiş tedavi: protokol notunda ne Access işareti ne Cryo Excel
+# işareti var. Aynı tedavi: aynı hasta (dosya numarası), aynı tür (yumurta
+# toplanan / çözme, `_aile()`), günleri en çok `_PROGRAMDA_PENCERE` gün farklı.
+# Pencere geniş, çünkü ekranda açılıp OPU'su girilmemiş tedavinin günü
+# planlanan tarih ya da açıldığı an (`db.tedavi_tarihi()`); aynı türden iki
+# tedavi bir ay içinde neredeyse hiç olmuyor. Olursa düzeltme dosyasına
+# `KAYNAK#KAYIT  AKTAR` yazılır, satır yine aktarılır.
+_PROGRAMDA_PENCERE = 30
+
+_PROGRAMDA_SEBEPLER = {
+    "ekrandan": "programda ekrandan girilmiş",
+    "baska_dosya": "başka bir Access dosyasından aynı gün aktarılmış",
+    "ayni_ad": "dosya numarası programda yok, AYNI ADLI hastanın ekrandan "
+               "girilmiş tedavisi var -- numara farklı yazılmış olabilir",
+}
+
+
+def _aile(tip) -> str:
+    """Yumurta toplanan (IVF/ICSI, Yumurta Dondurma) ya da çözme (FET, FET
+    3->5, Yumurta Çözme). Ekranda türü farklı seçilmiş aynı tedavi (Access
+    "OOSİT CRYO", ekranda IVF/ICSI) yine aynı tedavi."""
+    return "cozme" if tip in FET_TIPLERI else "opu"
+
+
+def _tedavi_ozeti_sql(b) -> str:
+    """Tedavinin günü ve içinde ne olduğu -- programda var denen tedavinin
+    satırı kullanıcıya bunu söylüyor ("3 tüp, 3'ü Cryo Haritası'nda")."""
+    # "Bu tedavide yapılan" (`vit_tedavisi()` ve `thaw_cycle_id` /
+    # `tr_cycle_id` deseni) OR ile: COALESCE dizin kullanamıyor, her tedavi
+    # için bütün `olay` taranırdı (goc_056'nın dersi).
+    def bu(kolon):
+        if not _db.kolon_var("olay", kolon):
+            return "o.cycle_id = c.id"
+        return f"(o.{kolon} = c.id OR (o.{kolon} IS NULL AND o.cycle_id = c.id))"
+    return (f"SELECT c.id, c.cycle_no, c.cycle_tipi, c.durum, c.bitis_sebebi, "
+            f"c.hasta_id, c.protokol_notu, {_db.tedavi_tarihi(b, 'c')} gun, "
+            "(SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id) ornek, "
+            "(SELECT COUNT(DISTINCT o.vit_tasiyici_id) FROM olay o "
+            f" WHERE o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 AND {bu('vit_cycle_id')}) tup, "
+            "(SELECT COUNT(DISTINCT o.vit_tasiyici_id) FROM olay o "
+            " JOIN tasiyici t ON t.id = o.vit_tasiyici_id "
+            f" WHERE o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 AND {bu('vit_cycle_id')} "
+            "   AND t.konum_id IS NOT NULL) konumlu, "
+            "(SELECT COUNT(*) FROM olay o WHERE o.tip = 'thaw' AND o.iptal_mi = 0 "
+            f" AND {bu('thaw_cycle_id')}) cozme, "
+            "(SELECT COUNT(*) FROM olay o WHERE o.tip = 'transfer' AND o.iptal_mi = 0 "
+            f" AND {bu('tr_cycle_id')}) transfer "
+            "FROM cycle c WHERE c.lab_id = ? ")
+
+
+def _tek_satir(not_) -> str:
+    """İşaret sarılmış olabilir (`_zaten_var()`'ın notu): satır sonu boşluk."""
+    return (not_ or "").replace("\r", " ").replace("\n", " ")
+
+
+def _isaretli_mi(not_) -> bool:
+    n = _tek_satir(not_)
+    return "[Access kaydı" in n or _db.CRYO_EXCEL_ISARETI in n
+
+
+def _silinmis(c) -> bool:
+    """Silme ekranından iptal edilen tedavi (bitiş sebebi yok): yanlış açılmış,
+    sayılmaz. "İptal" diye BİTİRİLEN tedavi (bitis_sebebi dolu) sayılır."""
+    return c["durum"] == "iptal" and not c["bitis_sebebi"]
+
+
+def _gun_uzakligi(a, b) -> int:
+    return abs((_dt.date.fromisoformat(a[:10]) - _dt.date.fromisoformat(b[:10])).days)
+
+
+_AD_DIZINI = {}
+
+
+def _hasta_ad_dizini(b) -> dict:
+    """{ad kelime kümesi: [hasta id]} -- bir çalıştırmada bir kez kurulur
+    (yalnızca `ayni_ad` sorusu için; eşleştirme yine dosya numarasıyla)."""
+    if not _AD_DIZINI:
+        import cryo_excel             # yalnızca burada: tek sözlük (v6.173)
+        for h in b.execute("SELECT id, ad_soyad FROM hasta WHERE lab_id = ?",
+                           (_db.LAB_ID,)):
+            _AD_DIZINI.setdefault(cryo_excel.kelimeler(h["ad_soyad"]), []).append(h["id"])
+        _AD_DIZINI.setdefault(None, [])
+    return _AD_DIZINI
+
+
+def programdaki_tedavi(b, r):
+    """Bu Access satırının tedavisi programda zaten var mı (v6.207)?
+
+    -> (neden, tedavi satırı) ya da (None, None). `neden`
+    `_PROGRAMDA_SEBEPLER`'in anahtarı. Satır düzeltme dosyasında `AKTAR`
+    diyorsa (`r["zorla"]`) sorulmuyor. Hiçbir şey yazmaz.
+    """
+    if r.get("zorla") or not r["tarih"]:
+        return None, None
+    aile = _aile(r["tip"])
+    q = _tedavi_ozeti_sql(b)
+    h = b.execute("SELECT id FROM hasta WHERE lab_id = ? AND dosya_no = ?",
+                  (_db.LAB_ID, r["dosya_no"])).fetchone()
+    if h:
+        adaylar = []
+        for c in b.execute(q + "AND c.hasta_id = ?", (_db.LAB_ID, h["id"])):
+            if _aile(c["cycle_tipi"]) != aile or not c["gun"] or _silinmis(c):
+                continue
+            fark = _gun_uzakligi(c["gun"], r["tarih"])
+            if not _isaretli_mi(c["protokol_notu"]):
+                if fark <= _PROGRAMDA_PENCERE:
+                    adaylar.append((fark, "ekrandan", c))
+            elif fark == 0 and f"[Access kaydı {KAYNAK}#" not in _tek_satir(
+                    c["protokol_notu"]):
+                adaylar.append((fark, "baska_dosya", c))
+        if adaylar:
+            _f, neden, c = min(adaylar, key=lambda x: (x[0], x[1] != "ekrandan"))
+            return neden, c
+        return None, None
+    # Dosya numarası programda yok: aynı adlı bir hastanın aynı dönemde
+    # ekrandan girilmiş tedavisi varsa numara farklı yazılmış olabilir.
+    # Ad TEK BAŞINA hiçbir şeye bağlamıyor (v6.125) -- yalnızca durduruyor.
+    import cryo_excel
+    for hid in _hasta_ad_dizini(b).get(cryo_excel.kelimeler(r["ad_soyad"]), []):
+        for c in b.execute(q + "AND c.hasta_id = ?", (_db.LAB_ID, hid)):
+            if (_aile(c["cycle_tipi"]) == aile and c["gun"] and not _silinmis(c)
+                    and not _isaretli_mi(c["protokol_notu"])
+                    and _gun_uzakligi(c["gun"], r["tarih"]) <= _PROGRAMDA_PENCERE):
+                return "ayni_ad", c
+    return None, None
+
+
+def programda_satiri(b, r, neden, c) -> str:
+    """"PROGRAMDA VAR" satırı: programdaki tedavinin numarası, günü ve içinde
+    ne olduğu; Access'in söylediği yanında -- eksik girilmişse görünsün."""
+    dosya = b.execute("SELECT dosya_no FROM hasta WHERE id = ?", (c["hasta_id"],)).fetchone()
+    if _aile(c["cycle_tipi"]) == "cozme":
+        prog = f'{c["cozme"]} çözme, {c["transfer"]} transfer'
+    else:
+        prog = f'{c["ornek"]} yumurta'
+    prog += (f', {c["tup"]} tüp' + (f' ({c["konumlu"]}\'i Cryo Haritası\'nda)'
+                                   if c["tup"] else ""))
+    coz = _satir_dondurmasi(r)
+    tup = len(coz["gruplar"]) if coz and coz.get("gruplar") else 0
+    if r["tip"] in ("fet", "fet_kultur"):
+        acc = f'{_cozulen_sayisi(r)} çözme, {r["transfer_adet"] or 0} transfer'
+    else:
+        acc = f'{_yumurta_sayisi(r)} yumurta'
+    acc += f", {tup} tüp"
+    return (f'#{r["kimlik"]:>3}  PROGRAMDA VAR — atlanır: {_PROGRAMDA_SEBEPLER[neden]}: '
+            f'tedavi {c["cycle_no"]} ({c["cycle_tipi"]}, {_gg(c["gun"])}, '
+            + (f'dosya {dosya["dosya_no"]}, ' if neden == "ayni_ad" and dosya else "")
+            + f'{prog}) -- Access: {acc}')
+
+
+def programdakileri_isaretle(satirlar) -> None:
+    """Her satıra `programda` = (neden, tedavi, rapor satırı) ya da None.
+    Önizleme ile aktarım aynı kararı kullanıyor: bir kez, yazmadan önce."""
+    b = _db.baglan()
+    try:
+        for r in satirlar:
+            r["programda"] = None
+            if _zaten_var(r["kimlik"]):
+                continue
+            neden, c = programdaki_tedavi(b, r)
+            if neden:
+                r["programda"] = (neden, c, programda_satiri(b, r, neden, c))
+    finally:
+        b.close()
+
+
+# Önizlemede satırın hastasının Cryo Haritası'ndaki Excel kayıtları (v6.207):
+# ad kelime kümesi + tedavinin gününden bu kadar gün öncesi/sonrası. Yalnızca
+# gösteriyor ("bu hasta haritada Excel kaydı olarak duruyor"); bağlama
+# aktarımın sonunda içerikle (`cryo_esle.excel_kayitlarini_bagla()`).
+_EXCEL_ONCE, _EXCEL_SONRA = 1, 7
+_EXCEL_DIZINI = {}
+
+
+def excel_kaydi_onizleme(r) -> list:
+    """-> [Excel kaydı satırı] (konum, tarih, içerik), gün sırasıyla."""
+    if not _db.tablo_var("excel_kaydi") or not r["tarih"]:
+        return []
+    import cryo_excel
+    if "dizin" not in _EXCEL_DIZINI:
+        dizin = {}
+        for e in _db.sorgu(
+                "SELECT e.id, e.soyad, e.ad, e.tarih, e.icerik, k.tam_yol FROM excel_kaydi e "
+                "LEFT JOIN konum k ON k.id = e.konum_id WHERE e.lab_id = ? "
+                "AND e.durum = 'tankta' AND e.kategori <> 'sperm'", (_db.LAB_ID,)):
+            anahtar = cryo_excel.kelimeler(f'{e["soyad"] or ""} {e["ad"] or ""}')
+            dizin.setdefault(anahtar, []).append(dict(e))
+        _EXCEL_DIZINI["dizin"] = dizin
+    # Programdaki kartın adı ve Access'teki ad: aktarım sonunda ikisiyle de
+    # eşleştiriliyor (`cryo_esle._ad_dizini()`).
+    h = _db.tek("SELECT ad_soyad FROM hasta WHERE lab_id = ? AND dosya_no = ?",
+                (_db.LAB_ID, r["dosya_no"]))
+    adlar = {cryo_excel.kelimeler(r["ad_soyad"])}
+    if h:
+        adlar.add(cryo_excel.kelimeler(h["ad_soyad"]))
+    bas, son = _gun_ekle(r["tarih"], -_EXCEL_ONCE), _gun_ekle(r["tarih"], _EXCEL_SONRA)
+    return sorted((e for ad in adlar for e in _EXCEL_DIZINI["dizin"].get(ad, [])
+                   if e["tarih"] and bas <= e["tarih"] <= son),
+                  key=lambda e: (e["tarih"], e["tam_yol"] or "", e["id"]))
+
+
+def excel_onizleme_satiri(ekler) -> str:
+    parca = [f'{e["tam_yol"] or "konum yok"}: {e["icerik"] or "?"}' for e in ekler]
+    return (f"        Cryo Haritası'nda Excel kaydı olarak {len(ekler)} straw: "
+            + "; ".join(parca))
+
+
 def _satiri_yaz(r) -> list:
     """Bir Access satırını tek işlemde yazar. Patlarsa hiçbiri yazılmaz."""
     rapor = []
@@ -3978,12 +4242,27 @@ def onizleme(satirlar, kopyalar=(), tutmayan=(), atla=(), ikizler=()):
             print(f'#{r["kimlik"]:>3}  ATLANIR — zaten aktarılmış '
                   f'(tedavi {var["cycle_no"]})')
             continue
+        if r.get("programda"):
+            # Programın ekranlarından girilmiş (v6.207): ikinci kez açılmaz.
+            atlanan += 1
+            print(r["programda"][2])
+            ekler = excel_kaydi_onizleme(r)
+            if ekler:
+                print(excel_onizleme_satiri(ekler))
+            continue
         h = _db.tek("SELECT id FROM hasta WHERE lab_id=? AND dosya_no=?",
                     (_db.LAB_ID, r["dosya_no"]))
         if not h and r["dosya_no"] not in gorulen:
             yeni_hasta += 1
         gorulen.add(r["dosya_no"])
         print(_ozet_satiri(r) + ("   [YENİ HASTA]" if not h else ""))
+        if r.get("zorla"):
+            print("        düzeltme dosyasında AKTAR: programda aynı döneme ait bir "
+                  "tedavi olsa da aktarılacak")
+        ekler = excel_kaydi_onizleme(r)
+        if ekler:
+            print(excel_onizleme_satiri(ekler) + "   <- aktarımın sonunda tüplerine "
+                  "bağlanacak (içerik tutarsa)")
         if r.get("tip_duzeltme"):
             print(f'        tip: Yumurta Dondurma -- protokol "{r["protokol"]}" ama '
                   "ICSI, 2PN ve transfer yok, yalnızca yumurta dondurulmuş")
@@ -4026,9 +4305,15 @@ def onizleme(satirlar, kopyalar=(), tutmayan=(), atla=(), ikizler=()):
         if r["tip"] in FET_TIPLERI:
             print("        çözülen örnekler hastanın programdaki dolu tüpleriyle "
                   "eşleştirilecek")
+    programda = sum(1 for r in satirlar if r.get("programda"))
     print(f'\n{len(satirlar) - atlanan} tedavi yazılacak, {yeni_hasta} yeni '
           f'hasta kartı açılacak, {atlanan + len(kopyalar) + len(atla) + len(ikizler)} '
           'satır atlanacak.')
+    if programda:
+        print(f"{programda} satırın tedavisi programda zaten var (PROGRAMDA VAR) -- "
+              "aktarılmayacak. Programdaki tedavi eksik girildiyse ekrandan tamamla;\n"
+              "aynı tedavi DEĞİLSE düzeltme dosyasına şöyle bir satır yaz, o kayıt "
+              f"yine aktarılır:  {KAYNAK}#<kayıt no>  AKTAR")
     print("Yazmak için: python3 aktar_access.py <dosya.csv>\n")
 
 
@@ -4053,14 +4338,87 @@ def _bagla_ozeti(sonuclar):
             print(f'  #{k:>3}  {"birden çok tüp seçeneği" if d == "belirsiz" else "dolu tüpler tutmuyor"}')
 
 
+def cryo_haritasina_bagla(tedaviler, adlar=None, kayitlar=None) -> None:
+    """Aktarımın sonunda (v6.207): bu tedavilerin hastalarının Cryo
+    Haritası'nda Excel kaydı olarak duran straw'ları tüplerine bağlanır --
+    `cryo_esle.py uygula`'nın ölçüsü (ad kelime kümesi + gün + içerik). Tüp
+    gobletin konumunu alır, Excel kaydı kapanır (straw iki kez sayılmaz).
+    Bağlanamayanlar ve adı farklı yazılmış olabilecekler listelenir; onları
+    Excel kaydının sayfasından kullanıcı bağlar. `kayitlar`: önizlemenin
+    gösterdiği Excel kayıtları (satırların günleri) -- hastanın başka
+    yıllardan kalan Excel kayıtları bu aktarımın işi değil."""
+    if not tedaviler or not _db.tablo_var("excel_kaydi"):
+        return
+    import cryo_esle              # cryo_esle bu modülü import ediyor: burada
+    yer = ",".join("?" * len(tedaviler))
+    hidler = {r["hasta_id"] for r in _db.sorgu(
+        f"SELECT hasta_id FROM cycle WHERE id IN ({yer})", tuple(tedaviler))}
+    tidler = {r["t"] for r in _db.sorgu(
+        f"SELECT DISTINCT o.vit_tasiyici_id t FROM olay o WHERE o.tip = 'vitrifikasyon' "
+        f"AND o.iptal_mi = 0 AND {_db.vit_tedavisi('o')} IN ({yer})", tuple(tedaviler))}
+    print("\nCryo Haritası'ndaki Excel kayıtları bu hastaların tüpleriyle "
+          "eşleştiriliyor...")
+    try:
+        plan = cryo_esle.excel_kayitlarini_bagla(hidler, adlar, kayitlar)
+    except Exception as hata:             # aktarım bitti; bu adım onu bozmasın
+        print(f"  HATA, hiçbir Excel kaydı bağlanmadı: {hata}\n"
+              "  Sonra tekrar: python3 cryo_esle.py excel_bagla")
+        return
+    bagli = [x for x in plan if cryo_esle.excel_kaydi_baglanir(x[1])]
+    kalan = [x for x in plan if not cryo_esle.excel_kaydi_baglanir(x[1])]
+    print(f"Cryo Haritası: {len(bagli)} Excel kaydı tüpüne bağlandı (tüp gobletine "
+          "yazıldı).")
+    basliklar = {k: b for k, b, _y in cryo_esle.SINIFLAR}
+    basliklar.update({k: v[0] for k, v in cryo_esle.EXCEL_BAGLA_KARARLARI.items()})
+    if kalan:
+        print("Bu hastaların bağlanamayan Excel kaydı (sayfasından elle bağlanır):")
+        for s_, karar, t, ek in kalan:
+            print(f'  /cryo/excel-kaydi/{s_["excel_kaydi"]}  '
+                  f'{" / ".join(x for x in (s_["tank"], s_["kanister"], s_["goblet"]) if x)}'
+                  f'  {_gg(s_["tarih"]) if s_["tarih"] else "tarih?"}  {s_["icerik"]}'
+                  f'  -- {basliklar.get(karar, karar)}' + (f" ({ek})" if ek else ""))
+    b = _db.baglan()
+    try:
+        ipucu = cryo_esle.ad_farkli_excel_kayitlari(b, tidler, adlar)
+        bos = b.execute(
+            f"SELECT COUNT(*) FROM tasiyici WHERE id IN ({','.join('?' * len(tidler)) or 'NULL'}) "
+            "AND konum_id IS NULL AND durum = 'dolu'", tuple(tidler)).fetchone()[0]
+    finally:
+        b.close()
+    if ipucu:
+        print("Adı Excel'de farklı yazılmış olabilir (aynı gün, aynı içerik; "
+              "BAĞLANMADI -- doğruysa sayfasından bağla):")
+        for t, benzer in ipucu:
+            for x in benzer:
+                print(f'  tüp {t["etiket"]}  <->  /cryo/excel-kaydi/{x["excel_kaydi"]}  '
+                      f'{" / ".join(y for y in (x["tank"], x["kanister"], x["goblet"]) if y)}'
+                      f'  {x["icerik"]}')
+    if bos:
+        print(f"Konumu hâlâ boş {bos} tüp (Cryo Haritası'nda \"yeri belirsiz\"; "
+              "tüpün sayfasından konum girilir).")
+
+
 def aktar(satirlar, ikizler=()):
     toplam = {"tedavi": 0, "atlanan": 0, "hata": 0}
     sonuclar = []
+    tedaviler = []                  # bu aktarımın açtığı (ve programda olan) tedaviler
+    adlar = {}                      # hasta id -> Access'teki ad, eş adı (Excel kaydı için)
+    kayitlar = set()                # satırların günlerindeki Excel kayıtları
     for r in satirlar:
+        if not _zaten_var(r["kimlik"]):
+            kayitlar.update(e["id"] for e in excel_kaydi_onizleme(r))
         var = _zaten_var(r["kimlik"])
         if var:
             toplam["atlanan"] += 1
             print(f'#{r["kimlik"]:>3}  atlandı (zaten aktarılmış: {var["cycle_no"]})')
+            continue
+        if r.get("programda"):
+            toplam["atlanan"] += 1
+            tedaviler.append(r["programda"][1]["id"])
+            if r["programda"][0] != "ayni_ad":     # ad yalnızca dosya no ile bağlanır
+                adlar[r["programda"][1]["hasta_id"]] = (r["ad_soyad"], r["es_adi"])
+            print(f'#{r["kimlik"]:>3}  atlandı (programda var: '
+                  f'{r["programda"][1]["cycle_no"]})')
             continue
         try:
             rapor, durum = _satiri_yaz(r)
@@ -4069,6 +4427,11 @@ def aktar(satirlar, ikizler=()):
             print(f'#{r["kimlik"]:>3}  HATA: {hata}')
             continue
         toplam["tedavi"] += 1
+        yazilan = _zaten_var(r["kimlik"])
+        if yazilan:
+            tedaviler.append(yazilan["id"])
+            h = _db.tek("SELECT hasta_id FROM cycle WHERE id = ?", (yazilan["id"],))
+            adlar[h["hasta_id"]] = (r["ad_soyad"], r["es_adi"])
         if durum:
             sonuclar.append((r["kimlik"], durum))
         print(f'#{r["kimlik"]:>3}  aktarıldı')
@@ -4076,6 +4439,12 @@ def aktar(satirlar, ikizler=()):
             print(satir)
     print(f'\nBitti. {toplam["tedavi"]} tedavi aktarıldı, '
           f'{toplam["atlanan"]} atlandı, {toplam["hata"]} hata.')
+    programda = [r for r in satirlar if r.get("programda")]
+    if programda:
+        # Uzun çıktının sonunda da görünsün (ikizlerin deseni, v6.167).
+        print("\nTedavisi programda zaten olan -- AKTARILMADI:")
+        for r in programda:
+            print("  " + r["programda"][2])
     farkli = [x for x in ikizler if x[3] == "farkli"]
     if farkli:
         # Uzun çıktının başında kalmasın (v6.167): karar kullanıcının.
@@ -4083,6 +4452,7 @@ def aktar(satirlar, ikizler=()):
         for satir in ikiz_satirlari(farkli):
             print("  " + satir)
     _bagla_ozeti(sonuclar)
+    cryo_haritasina_bagla(tedaviler, adlar, kayitlar)
     # Daha önce aktarılmış FET'ler: çözdükleri tüp bu dosyayla gelmiş
     # olabilir (v6.163). Bu dosyanın FET'leri zaten yukarıda denendi.
     print("\nDaha önce aktarılmış FET'ler yeni gelen tüplerle eşleştiriliyor...")
@@ -4826,6 +5196,8 @@ def main():
                  "  duzelt=<dosya>  yazim hatali tarihlerin duzeltmeleri (satir:\n"
                  "               KAYNAK#KAYIT  OPU|TRANSFER  eski-tarih  yeni-tarih)\n"
                  "               ve aktarilmayacak kayitlar (KAYNAK#KAYIT  ATLA),\n"
+                 "               programda ayni doneme ait tedavi olsa da\n"
+                 "               aktarilacak kayitlar (KAYNAK#KAYIT  AKTAR),\n"
                  "               yer tutucu dosya no (KAYNAK#KAYIT  DOSYA  eski  yeni)")
     # Dosya yoksa Python'un hata dökümü yerine ne olduğunu söyle: Windows
     # uzantıyı gizlediği için "temmuz" görünen dosya "temmuz_2026.csv" ya da
@@ -4857,6 +5229,7 @@ def main():
     atla, ikizler = [], []
     if kip in ("liste", "aktar"):
         atla, atla_tutmayan = atla_satirlarini_ayikla(satirlar, duzeltmeler, KAYNAK)
+        atla_tutmayan += zorla_satirlarini_isaretle(satirlar, duzeltmeler, KAYNAK)
         tutmayan += [f"{t} (bu dosyada böyle bir kayıt yok)" for t in atla_tutmayan]
         ikizler = ikizleri_ayikla(satirlar)
     satirlar.sort(key=lambda r: (r["tarih"] or "9999-99-99", int(r["kimlik"] or 0)))
@@ -4875,6 +5248,9 @@ def main():
               "aktarilmis' sanilip\nSESSIZCE atlanir:\n\n"
               f'  python3 aktar_access.py kaynak=<AD> {arg[0]}\n')
         sys.exit(1)
+    if kip in ("liste", "aktar"):
+        # Ekrandan girilmiş tedavi (v6.207): önizleme ve aktarım aynı kararla.
+        programdakileri_isaretle(satirlar)
     if kip == "liste":
         onizleme(satirlar, kopyalar, tutmayan, atla, ikizler)
         return

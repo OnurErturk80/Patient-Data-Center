@@ -8080,31 +8080,8 @@ async def excel_kaydi_bagla(request: Request, eid: int):
         if t["kategori"] != e["kategori"]:
             return RedirectResponse(
                 f"{geri}?hata=kategori&{urlencode({'etiket': etiket})}", status_code=303)
-        yeni_yol = None
-        if e["konum_id"]:
-            yeni_yol = b.execute("SELECT tam_yol FROM konum WHERE id=?",
-                                 (e["konum_id"],)).fetchone()[0]
-            b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (e["konum_id"], t["id"]))
-            b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
-                      "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
-                      (db.LAB_ID, "tasiyici", str(t["id"]), "konum", t["tam_yol"],
-                       yeni_yol, kid, simdi))
-        doldurulan = []
-        for alan in ("renk", "tip"):
-            if e[alan] and not t[alan]:
-                b.execute(f"UPDATE tasiyici SET {alan}=? WHERE id=?", (e[alan], t["id"]))
-                b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
-                          "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
-                          (db.LAB_ID, "tasiyici", str(t["id"]), alan, None, e[alan], kid, simdi))
-                doldurulan.append(alan)
-        # Hangi alanın bağlarken doldurulduğu `islem_notu`nda (bağlı kayıtta
-        # başka bir not yok): bağ çözülünce yalnızca onlar geri alınıyor.
-        b.execute("UPDATE excel_kaydi SET durum='baglandi', tasiyici_id=?, "
-                  "onceki_konum_id=?, islem_zamani=?, islem_notu=?, islem_kullanici_id=? "
-                  "WHERE id=?",
-                  (t["id"], t["konum_id"], simdi[:10],
-                   ("doldurulan: " + ",".join(doldurulan)) if doldurulan else None, kid, eid))
-        _excel_logla(b, eid, "durum", "tankta", f"baglandi: {t['etiket']}", kid, simdi)
+        # Yazım tek yerde (v6.207): aktarımın kendiliğinden bağlaması da bu.
+        yerlesim.excel_kaydini_bagla(b, e, t, kid, simdi)
     return RedirectResponse(geri, status_code=303)
 
 

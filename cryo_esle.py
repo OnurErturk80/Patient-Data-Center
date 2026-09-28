@@ -27,6 +27,11 @@ Kullanım (proje klasöründe):
     python3 cryo_esle.py yerlesim CRYO_HARITA.xlsx   # tank düzeni: bütün
                                                      # gobletler + Excel kaydı
                                                      # ("YERLESIM", v6.189)
+    python3 cryo_esle.py excel_bagla                 # Excel dosyası istemez:
+                                                     # Cryo Haritası'ndaki Excel
+                                                     # kaydını sonradan açılan
+                                                     # konumsuz tüpüne bağlar
+                                                     # ("BAGLA", v6.207)
 
 İkisi de `cryo_esle_rapor.txt` dosyasına satır satır rapor yazar (hasta
 adı içerir -- depoya girmez, `.gitignore`). Terminale yalnızca sayılar.
@@ -167,6 +172,11 @@ _KAV_TEKRAR = re.compile(r"^(?:KAV){2,}$")
 _ADETLI_OOSIT = re.compile(r"^(\d+)OOS")
 _ADET_BOSLUK = re.compile(r"(?<![\dH.,])(\d+)\s+(G\d)\b")      # "2 G1"
 _ADETLI_EVRE = re.compile(r"^(\d+)(MORULA|MOR|KAV)(G\d)?$")        # "2MOR"
+# Parantez içinde sayı ile olgunluk arasında boşluk (v6.207): "OOSİT (1 M2)",
+# "(4 M2)", "(1 MII 2MI)" -- sayı ayrı öğe ("?") okunuyor, tüp tutmuyordu.
+# Parantezsiz "3 M2 OOSİT" zaten okunuyordu (`_parantezsiz_yumurta()`).
+# 5.392 satırlık Excel'de yalnızca bu üç satırın okuması değişiyor.
+_ADET_OLGUNLUK = re.compile(r"(?<![\dH.,])(\d+)\s+(MII|MI|M2|M1|GV)\b")
 # Parantezsiz embriyo satırında tüpün öğesi olmayan sözler: "D3 1G3",
 # "5.GÜN 4AA 4AA BİRARADA", "G1 BLAST".
 _PARANTEZSIZ_ATLA = re.compile(r"\bD\d\b|\d+\s*[.,]\s*GÜN|\bBİRARADA\b|\bBLAST\b")
@@ -177,6 +187,7 @@ def _yazimi_duzelt(ic: str) -> str:
     ic = re.sub(r"GRD(\d)", r"G\1", ic)                       # "4H GRD1"
     ic = _HUCRE_DERECE.sub(r"\1\2", ic)
     ic = _ADET_BOSLUK.sub(r"\1\2", ic)
+    ic = _ADET_OLGUNLUK.sub(r"\1\2", ic)
     ic = _YILDIZ_ARASI.sub(" ", ic)
     return _BITISIK_EVRE.sub(r"\1 ", ic)
 
@@ -1867,7 +1878,262 @@ def _komut_yolu(dosya) -> str:
     return f'"{s}"' if any(c.isspace() for c in s) else s
 
 
+# ------------------------------------------ Excel kaydını tüpe bağla (v6.207)
+#
+# Cryo Haritası'nda "Excel kaydı" olarak duran straw (v6.189): `yerlesim`
+# çalıştığında Excel'de o gobletde duruyordu ama programda karşılığı olan tüp
+# yoktu -- çoğu zaman hastası henüz aktarılmamıştı. Hasta sonradan
+# aktarılınca tüpü açılıyor, konumu boş (Access'te konum yok); straw hem
+# "yeri belirsiz" tüp hem gobletde Excel kaydı olarak İKİ KEZ görünürdü.
+# Eylül 2026'nın Access dosyasında bu hastaların hepsi böyle (kullanıcı,
+# 2026-09-28: "Programa kayıt yapılmadan cryo harita kaydı olan hasta var").
+#
+# Ölçü `uygula`'nınki (`esle()`: ad kelime kümesi, gün, içerik) -- Excel
+# dosyası gerekmiyor, satırın yazısı Excel kaydının kendisinde. Yazım Excel
+# kaydının sayfasındaki "tüpe bağla" ile aynı (`yerlesim.excel_kaydini_bagla()`),
+# bağ o sayfadan çözülebilir. Aktarım sonunda kendiliğinden (`aktar_access.py`),
+# sonradan: `python3 cryo_esle.py excel_bagla`.
+
+EXCEL_BAGLA_RAPOR = Path("cryo_esle_rapor_excel_bagla.txt")
+
+# Karar -> (başlık, bağlanır mı). Bağlanmayan kararların öteki adları
+# `esle()`'nin sınıfları (SINIFLAR: hasta_yok, gun_yok, tutmuyor, ...).
+#
+# YALNIZCA konumu boş, hiçbir Excel kaydına bağlı olmayan tüp aday. Konumu
+# olan tüp bir straw'ı zaten anlatıyor: `uygula` ona Excel'in bir satırını
+# yazdı ya da personel dondururken yerini girdi. Aynı gobletde aynı içerikli
+# bir Excel kaydı İKİ ayrı straw olabilir (Excel iki satır, programda bir tüp
+# -- deneme kopyasında böyle beş goblet var) ya da ekranda sonradan girilmiş
+# aynı straw; içerik ikisini ayırmıyor. Ona bağlamak bir straw'ı haritadan
+# düşürebilirdi -- o karar Excel kaydının sayfasında, kullanıcının.
+EXCEL_BAGLA_KARARLARI = {
+    "bagla": ("Tüpe bağlandı -- tüp Excel kaydının gobletine yazıldı", True),
+    "ayni_yer": ("Aynı gobletde aynı gün aynı içerikli, yeri girilmiş tüp var -- "
+                 "dokunulmadı (aynı straw ise sayfasından bağla, ayrı straw ise kalır)",
+                 False),
+    "bosaltilmis": ("Tüp programda boşaltılmış / kullanılmış / taşınmış -- dokunulmadı",
+                    False),
+}
+
+
+def excel_kaydi_satirlari(b) -> list:
+    """Cryo Haritası'nda 'tankta' duran embriyo/yumurta Excel kayıtları,
+    `esle()`'nin Excel satırı biçiminde. Sperm kayıtları dışarıda: onları
+    `sperm` kipi açıyor, `esle()` de atlıyor."""
+    satirlar = []
+    for e in b.execute(
+            "SELECT e.*, k.seviye1, k.seviye2, k.seviye3 FROM excel_kaydi e "
+            "LEFT JOIN konum k ON k.id = e.konum_id "
+            "WHERE e.lab_id = ? AND e.durum = 'tankta' AND e.kategori <> 'sperm'",
+            (_db.LAB_ID,)):
+        tarih, notu = ((e["tarih"], "") if e["tarih"]
+                       else cryo_excel.tarih_coz(e["tarih_ham"]))
+        satirlar.append({
+            "sayfa": e["kaynak_sayfa"] or "Excel kaydı", "satir": e["kaynak_satir"] or 0,
+            "sutun": 0, "tank": e["seviye1"] or "", "kanister": e["seviye2"] or "",
+            "goblet": e["seviye3"] or "", "soyad": e["soyad"] or "", "ad": e["ad"] or "",
+            "es_adi": e["es_adi"] or "", "tarih": tarih, "tarih_notu": notu,
+            "icerik": e["icerik"] or "", "vial_metni": e["vial"] or "",
+            "kategori": "embriyo", "excel_kaydi": e["id"], "konum_id": e["konum_id"]})
+    return satirlar
+
+
+def _ad_dizini(b, ek_adlar=None) -> dict:
+    """`hastalar()` + aktarımın bildiği ikinci ad (v6.207): Access satırı
+    hastaya DOSYA NUMARASIYLA bağlı, Excel satırı Access'teki adla yazılmış
+    olabilir -- programdaki kart daha önce başka yazımla açıldıysa (ikinci ad,
+    harf farkı) ad kelime kümesi tutmazdı. `ek_adlar`: {hasta id: (ad, eş adı)}.
+    Zincir kesin: Excel'in adı = Access'in adı, Access'in dosyası = hasta."""
+    idx = hastalar(b)
+    for hid, (ad, es) in (ek_adlar or {}).items():
+        anahtar = cryo_excel.kelimeler(ad)
+        if not anahtar or any(a[0] == hid for a in idx.get(anahtar, [])):
+            continue
+        h = b.execute("SELECT dosya_no FROM hasta WHERE id = ?", (hid,)).fetchone()
+        idx[anahtar].append((hid, cryo_excel.kelimeler(es), h["dosya_no"] if h else None,
+                             es or ""))
+    return idx
+
+
+def excel_kaydi_plani(b, hidler=None, ek_adlar=None, kayitlar=None) -> list:
+    """Excel kayıtları -> programdaki tüpler. Hiçbir şey yazmaz.
+
+    -> [(satır, karar, tüp|None, not)]. `hidler` verilirse yalnızca o
+    hastaların (adı onlarla tutan) kayıtları -- aktarımın hastaları;
+    `kayitlar` verilirse yalnızca o Excel kayıtları (aktarımın günleri).
+    Eşleştirme yine bütün kayıtlarla: aynı günün satırları birlikte
+    dağıtılıyor (`_dagit()`). `ek_adlar`: `_ad_dizini()`.
+    """
+    if not _db.tablo_var("excel_kaydi"):
+        return []
+    satirlar = excel_kaydi_satirlari(b)
+    if not satirlar:
+        return []
+    # Bir Excel kaydına zaten bağlı tüp o straw'ın kendisi: ikinci bir Excel
+    # kaydı ona bağlanamaz (aynı içerikli iki satır bir tüpü paylaşırdı).
+    bagli = {r[0] for r in b.execute(
+        "SELECT tasiyici_id FROM excel_kaydi WHERE lab_id = ? AND durum = 'baglandi' "
+        "AND tasiyici_id IS NOT NULL", (_db.LAB_ID,))}
+    butun = tupler(b)
+    tup = {hid: [t for t in liste if t["tid"] not in bagli and not t["konum_id"]]
+           for hid, liste in butun.items()}
+    plan = []
+    for s, sinif, t, ek in esle(satirlar, _ad_dizini(b, ek_adlar), tup):
+        if hidler is not None and s.get("hid") not in hidler:
+            continue
+        if kayitlar is not None and s["excel_kaydi"] not in kayitlar:
+            continue
+        if t is None and s.get("hid") and s["konum_id"]:
+            # Aynı gobletde aynı gün aynı içerikli, yeri girilmiş tüp: aynı
+            # straw olabilir (ekrandan sonradan girilmiş) -- söyle, bağlama.
+            ayni = [x["etiket"] for x in butun.get(s["hid"], [])
+                    if x["konum_id"] == s["konum_id"] and x["gun"] == s["tarih"]
+                    and x["durum"] == "dolu"
+                    and any(_uyar(ic, x["skorlar"]) for ic in (excel_icerik(s["icerik"]) or []))]
+            if ayni:
+                plan.append((s, "ayni_yer", None, "aynı gobletde aynı içerikli tüp: "
+                             + ", ".join(ayni)))
+                continue
+            yerli = [x["etiket"] for x in butun.get(s["hid"], [])
+                     if x["konum_id"] and x["gun"] == s["tarih"]]
+            if yerli and sinif in ("tup_yok", "gun_yok"):
+                # Aday yalnızca yeri boş tüp; "o gün tüp yok" yanıltmasın.
+                ek = "o gün yeri girilmiş tüpleri var: " + ", ".join(yerli)
+        if t is None or sinif in ("cakisma", "es_tutmuyor"):
+            plan.append((s, sinif, t, ek))
+        elif t["durum"] != "dolu":
+            plan.append((s, "bosaltilmis", t, f"program: {t['durum']}"))
+        elif sinif in YAZILIR:
+            plan.append((s, "bagla", t, "" if sinif == "eslesti" else sinif))
+        else:
+            plan.append((s, sinif, t, ek))
+    return plan
+
+
+def excel_kaydi_baglanir(karar) -> bool:
+    return EXCEL_BAGLA_KARARLARI.get(karar, ("", False))[1]
+
+
+def excel_kayitlarini_bagla(hidler=None, ek_adlar=None, kayitlar=None) -> list:
+    """Planı yazar -- kilidin içinde yeniden hesaplayarak (program açıkken
+    biri bu arada bir tüp bağlamış olabilir). -> yazılan plan.
+
+    Aktarımın açtığı tüpün tipi (`aktar_access` "cryotop" yazıyor, kaynakta
+    yok) Excel kaydınınkiyle değişiyor -- `uygula`'nın yaptığı gibi. Ekrandan
+    girilen tüpün tipi değişmiyor: onu personel seçti.
+    """
+    with _db.yazma_islemi() as b:
+        plan = excel_kaydi_plani(b, hidler, ek_adlar, kayitlar)
+        if not any(excel_kaydi_baglanir(k) for _s, k, _t, _e in plan):
+            return plan
+        kid = _kullanici_id(b)
+        simdi = _dt.datetime.now().isoformat(" ", "seconds")
+        for s, karar, t, _ek in plan:
+            if not excel_kaydi_baglanir(karar):
+                continue
+            e = b.execute("SELECT * FROM excel_kaydi WHERE id = ?",
+                          (s["excel_kaydi"],)).fetchone()
+            tt = b.execute("SELECT t.*, k.tam_yol FROM tasiyici t LEFT JOIN konum k "
+                           "ON k.id = t.konum_id WHERE t.id = ?", (t["tid"],)).fetchone()
+            aktarim = b.execute(
+                "SELECT 1 FROM olay WHERE vit_tasiyici_id = ? AND tip = 'vitrifikasyon' "
+                "AND notlar LIKE ? LIMIT 1",
+                (t["tid"], _db.KAYNAK_DONDURMA_NOTU + "%")).fetchone()
+            _yerlesim.excel_kaydini_bagla(b, e, tt, kid, simdi,
+                                          ezilebilir=("tip",) if aktarim else ())
+    return plan
+
+
+def excel_bagla_raporu(plan, b):
+    """Satır satır rapor (hasta adı içerir -- depoya girmez)."""
+    kim = {r["id"]: r for r in b.execute(
+        "SELECT id, dosya_no, ad_soyad FROM hasta WHERE lab_id=?", (_db.LAB_ID,))}
+    basliklar = {k: v[0] for k, v in EXCEL_BAGLA_KARARLARI.items()}
+    basliklar.update({k: b_ for k, b_, _y in SINIFLAR if k not in basliklar})
+    gruplar = collections.defaultdict(list)
+    for s, karar, t, ek in plan:
+        gruplar[karar].append((s, t, ek))
+    satirlar = [f"Cryo Haritası -- Excel kaydını tüpe bağla (v6.207) -- "
+                f"{_dt.datetime.now():%d.%m.%Y %H:%M}",
+                "Hasta adı içerir: bu dosyayı paylaşma, depoya koyma.", ""]
+    for karar in dict.fromkeys([*EXCEL_BAGLA_KARARLARI, *(k for k, _b, _y in SINIFLAR)]):
+        if not gruplar.get(karar):
+            continue
+        satirlar.append(f"== {basliklar.get(karar, karar)}: {len(gruplar[karar])}")
+        for s, t, ek in gruplar[karar]:
+            h = kim.get(s.get("hid"))
+            satirlar.append(
+                f'   /cryo/excel-kaydi/{s["excel_kaydi"]} | {_tam_yol(s) or "konum yok"} | '
+                f'{s["soyad"]} {s["ad"]} | {s["tarih"] or "tarih?"} | {s["icerik"]}'
+                + (f' | {h["dosya_no"]}' if h else "")
+                + (f' | tüp {t["etiket"]}' if t else "") + (f" | {ek}" if ek else ""))
+        satirlar.append("")
+    EXCEL_BAGLA_RAPOR.write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+
+
+def ad_farkli_excel_kayitlari(b, tidler, ek_adlar=None) -> list:
+    """Konumu hâlâ boş tüpler için aynı gün dondurulmuş, içeriği tutan ama
+    adı hiçbir hastayla tutmayan 'tankta' Excel kaydı -- ad Excel'de farklı
+    yazılmış olabilir (`eksik` kipinin "adı farklı" ölçüsü, v6.182). Ad tek
+    başına kanıt değil, adsız eşleşme de: BAĞLAMAZ, gösterir; kullanıcı
+    Excel kaydının sayfasından bağlar. -> [(tüp, [Excel kaydı satırı])]"""
+    if not tidler or not _db.tablo_var("excel_kaydi"):
+        return []
+    satirlar = excel_kaydi_satirlari(b)
+    if not satirlar:
+        return []
+    tup = tupler(b)
+    sahipsiz = collections.defaultdict(list)
+    for s, k, _t, _e in esle(satirlar, _ad_dizini(b, ek_adlar), tup):
+        if k in ("hasta_yok", "hasta_cok") and s["tarih"]:
+            sahipsiz[s["tarih"]].append(s)
+    cikti = []
+    for tuplar in tup.values():
+        for t in tuplar:
+            if t["tid"] not in tidler or t["konum_id"] or t["durum"] != "dolu":
+                continue
+            benzer = [x for x in sahipsiz.get(t["gun"], [])
+                      if any(_uyar(ic, t["skorlar"])
+                             for ic in (excel_icerik(x["icerik"]) or []))]
+            if benzer:
+                cikti.append((t, benzer))
+    return cikti
+
+
+def _excel_bagla_kipi():
+    if not _db.tablo_var("excel_kaydi"):
+        sys.exit("Excel kaydı yok -- önce `python3 cryo_esle.py yerlesim <Excel>`.")
+    with _db.baglan() as b:
+        plan = excel_kaydi_plani(b)
+        excel_bagla_raporu(plan, b)
+    say = collections.Counter(k for _s, k, _t, _e in plan)
+    print(f"'Tankta' Excel kaydı (embriyo/yumurta): {len(plan)}")
+    for karar, (baslik, baglanir) in EXCEL_BAGLA_KARARLARI.items():
+        if say.get(karar):
+            print(f"  {say[karar]:5}  {baslik}" + ("  [yazılır]" if baglanir else ""))
+    digerleri = sum(n for k, n in say.items() if k not in EXCEL_BAGLA_KARARLARI)
+    print(f"  {digerleri:5}  programda karşılığı yok (hasta yok, o gün tüp yok, ...)")
+    print(f"Ayrıntı: {EXCEL_BAGLA_RAPOR}")
+    n = sum(1 for _s, k, _t, _e in plan if excel_kaydi_baglanir(k))
+    if not n:
+        print("Bağlanacak bir şey yok.")
+        return
+    print(f"\n{n} Excel kaydı tüpüne bağlanacak. Devam için BAGLA yazın:")
+    if input("> ").strip() != "BAGLA":
+        print("Vazgeçildi, hiçbir şey yazılmadı.")
+        return
+    yazilan = excel_kayitlarini_bagla()
+    print(f"Bağlandı: {sum(1 for _s, k, _t, _e in yazilan if excel_kaydi_baglanir(k))} "
+          "Excel kaydı.")
+
+
 def main():
+    if len(sys.argv) == 2 and sys.argv[1] == "excel_bagla":
+        # Excel dosyası istemiyor: kayıtlar programda (v6.207).
+        if not _db.DB_YOLU.exists():
+            sys.exit("lab.db bulunamadi.")
+        print(f"Veritabanı: {_db.DB_YOLU}")
+        return _excel_bagla_kipi()
     if len(sys.argv) < 3 or sys.argv[1] not in ("liste", "uygula", "yeni_hasta", "sperm",
                                                  "eksik", "onar", "yerlesim"):
         sys.exit(__doc__)

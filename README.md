@@ -16224,3 +16224,131 @@ Denendi: bilerek hata veren geçici bir rotada sayfa `TypeError · formlar.py:53
 (tup_metni)` yazdı, `program.log`'a satır ve traceback düştü. Formun asıl
 sebebi kullanıcının ekran görüntüsü ya da `program.log` satırı gelince
 düzeltilecek.
+
+# v6.207 — Eylül 2026 Access kayıtları: programda olan atlanıyor, Cryo Haritası'ndaki Excel kaydı tüpüne bağlanıyor
+
+Kullanıcının isteği (2026-09-28): "Eylül 2026 hasta kayıtları. Programa kayıt
+yapılmış hastalar var. Programa kayıt yapılmadan cryo harita kaydı olan hasta
+var. Bunları analiz edip programa hastaları kaydet. Kaydı yapılmış cryo
+haritaya da kaydedilmiş hastayı kaydetmene gerek yok."
+
+Eylül dosyasında 48 kayıt var (27 OPU'lu, 20 FET, bir yumurta çözme). İki şey
+şimdiye kadarki aylardan farklı: bazı hastalar bu ay programın ekranlarından
+da girildi, ve Cryo Excel'inde duran eylül straw'ları programda hastası
+olmadığı için Cryo Haritası'nda "Excel kaydı" olarak (v6.189) duruyor.
+Kullanıcının veritabanı burada yok (deneme kopyası 2026-09-20'ye kadarki
+Access aylarından kurulu, ekrandan girilmiş gerçek tedavi yok); o yüzden
+ayrım aracın içinde, kullanıcının makinesinde yapılıyor ve `liste` hepsini
+yazmadan gösteriyor.
+
+**Programa ekrandan girilmiş tedavi atlanıyor** (`aktar_access.
+programdaki_tedavi()`). İşaret (`[Access kaydı EYLUL#12]`) aynı satırın
+ikinci aktarımını tanıyor, ekranda girileni tanımıyordu: aynı tedavi ikinci
+kez açılır, tankta olmayan ikinci bir tüp takımı yazılırdı. Ölçü:
+- **Aynı hasta** (dosya numarası -- eşleştirmenin tek anahtarı, v6.125),
+  **aynı tür** (yumurta toplanan: IVF/ICSI, Yumurta Dondurma; çözme: FET, FET
+  3→5, Yumurta Çözme -- ekranda türü farklı seçilmiş aynı tedavi yine aynı),
+  günleri **en çok 30 gün** farklı, protokol notunda ne Access ne Cryo Excel
+  işareti olan tedavi. Pencere geniş: ekranda açılıp OPU'su girilmemiş
+  tedavinin günü planlanan tarih ya da açıldığı an (`db.tedavi_tarihi()`);
+  aynı türden iki tedavi bir ay içinde neredeyse hiç olmuyor.
+- Silme ekranından iptal edilen tedavi (bitiş sebebi yok) sayılmıyor, "İptal"
+  diye bitirilen sayılıyor.
+- **Aynı gün başka bir Access dosyasından aktarılmış** tedavi de (ayın sonu
+  bir sonraki ayın dosyasına girilmiş olabilir, 2025'te oldu).
+- **Dosya numarası programda yok ama aynı adlı hastanın** aynı dönemde ekrandan
+  girilmiş tedavisi var: numara farklı yazılmış olabilir. Ad tek başına hiçbir
+  şeye bağlamıyor, yalnızca durduruyor; satır o hastanın dosya numarasını
+  yazıyor.
+- `liste` satırı: "PROGRAMDA VAR — atlanır: ... tedavi 2026-0xxx (ivf_icsi,
+  07.09.2026, 19 yumurta, 3 tüp (3'ü Cryo Haritası'nda)) -- Access: 19
+  yumurta, 3 tüp". Programdaki eksik girilmişse görünsün diye iki taraf yan
+  yana; eksik ekrandan tamamlanır. Aynı tedavi değilse düzeltme dosyasına
+  `EYLUL#12  AKTAR` (yeni satır türü): o kayıt yine aktarılır. Aktarımın
+  sonunda da liste olarak basılıyor.
+- Önizleme ile aktarım aynı kararı kullanıyor (`programdakileri_isaretle()`,
+  yazmadan önce bir kez). `liste`'nin "N tedavi yazılacak" satırı atlananları
+  saymıyor (`aktar_toplu.py` o satırı okuyor).
+
+**Cryo Haritası'ndaki Excel kaydı tüpüne bağlanıyor** (`cryo_esle.
+excel_kayitlarini_bagla()`, aktarımın sonunda `aktar_access.
+cryo_haritasina_bagla()`). Hastası programda yokken `yerlesim` straw'ı
+gobletde Excel kaydı olarak açmıştı; aktarım tüpü **konumsuz** açıyor
+(Access'te konum yok) ve straw iki kez görünürdü: gobletde Excel kaydı, "yeri
+belirsiz"de tüp. Artık:
+- Ölçü `cryo_esle.py uygula`'nınki (`esle()`: ad kelime kümesi + gün +
+  içerik); Excel dosyası gerekmiyor, satırın yazısı Excel kaydında
+  (`excel_kaydi_satirlari()`).
+- Yazım Excel kaydının sayfasındaki "tüpe bağla" ile aynı: ikisi de
+  `yerlesim.excel_kaydini_bagla()` (v6.189'un route'u oraya taşındı). Tüp
+  gobletin konumunu alıyor, rengi/tipi boşsa Excel'inki; Excel kaydı
+  'baglandi'. Bağ o sayfadan çözülüyor. Aktarımın açtığı tüpün tipi
+  ("cryotop" varsayılan, kaynakta yok) Excel'in VİAL'iyle değişiyor --
+  `uygula` da öyle yazıyor; ekranda girilen tüpün tipine dokunulmuyor.
+- **Yalnızca konumu boş, bir Excel kaydına bağlı olmayan tüp aday.** Konumu
+  olan tüp bir straw'ı zaten anlatıyor. Aynı gobletde aynı içerikli bir Excel
+  kaydı İKİ ayrı straw olabilir (Excel iki satır, programda bir tüp: deneme
+  kopyasında böyle beş goblet var) ya da ekranda sonradan girilmiş aynı straw;
+  içerik ayırmıyor. Kendiliğinden bağlamak bir straw'ı haritadan
+  düşürebilirdi: listeleniyor ("aynı gobletde aynı içerikli tüp: ..."),
+  kararı kullanıcı sayfasında veriyor. İlk denemede bağlanıyordu; kopyadaki
+  o beş goblet görülünce geri alındı.
+- Aktarımda yalnızca bu dosyanın hastalarının, satırların günlerindeki
+  (tedavinin gününden bir gün önce, yedi gün sonrasına kadar) Excel kayıtları
+  -- hastanın başka yıllardan kalan kayıtları bu işin konusu değil.
+- **Programdaki ad Access'teki addan farklıysa** (kart daha önce başka yazımla
+  açılmış: ikinci ad, harf farkı) Excel'deki ad Access'inkiyle tutuyor olabilir.
+  Access satırı hastaya dosya numarasıyla bağlı, o yüzden eşleştirme o adı da
+  kullanıyor (`_ad_dizini()`'nin `ek_adlar`'ı): zincir kesin.
+- Bağlanamayanlar sayfa adresiyle ve sebebiyle basılıyor; aynı gün aynı
+  içerikli ama adı hiçbir hastayla tutmayan Excel kaydı "adı farklı yazılmış
+  olabilir" diye (`ad_farkli_excel_kayitlari()`, `eksik` kipinin ölçüsü) --
+  bağlanmıyor, gösteriliyor.
+- `liste` her satırın altında hastanın Excel kaydı straw'larını yazıyor
+  ("Cryo Haritası'nda Excel kaydı olarak 3 straw: TANK 5 / 1 / 28 Üst: D5
+  (4AA); ..."): hangi hastanın haritada programdan önce durduğu buradan
+  okunuyor.
+- Sonradan (ekrandan girilen tüpler, düzeltilen bir ad): `python3 cryo_esle.py
+  excel_bagla` -- dosyasız, bütün Excel kayıtları, "BAGLA" onayıyla, satır
+  satır rapor `cryo_esle_rapor_excel_bagla.txt`'ye.
+
+**İki okuma düzeltmesi** (eski/yeni okuma satır satır karşılaştırıldı):
+- Access notunda "DONDURULARAK **AKLANDI**" (S düşmüş, #32, bir yumurta):
+  dondurma okunmuyordu, tüp yazılmayacaktı. Okunan 23 dosyanın 1.858
+  satırında başka bir satırın okuması değişmedi.
+- Aynı satırda MII ve İMMATÜR kutuları boş, TOPLANAN 1, not "(1*M2)": not
+  kazanır kuralı (v6.161) yalnızca immatürden MII'ye geçiriyordu; kutuya hiç
+  sayılmamış yumurtada da artık notun olgunluğu yazılıyor
+  (`olgunlugu_nottan_duzelt()`), not "Access'te MII 0 ... yazıyordu" diyor.
+  Aynı 1.858 satırda yalnızca bu satır değişti.
+- Cryo Excel'inde parantez içinde sayı ile olgunluk arasında boşluk ("OOSİT
+  (1 M2)", "(4 M2)", "(1 MII 2MI)"): sayı ayrı öğe okunuyor, tüp tutmuyordu
+  (`cryo_esle._ADET_OLGUNLUK`). 5.392 satırlık Excel'de yalnızca bu üç satırın
+  okuması değişti; üçü de doğruya. Laboratuvarın kendi Excel çıktısı
+  (v6.199) bu satırları artık tanıyor: tüpü tankta ve gobletindeyse satır
+  aynen, tüpü yoksa Excel kaydıyla yine aynen kalıyor.
+
+**Eylül dosyasının kendisi** (deneme kopyasında, adlar ve numaralar yok):
+- #19 ve #22 aynı hastanın aynı günkü iki farklı kaydı (v6.167'nin ikizi):
+  ikisi de atlanıyor, kullanıcı doğru olmayanı `ATLA` ile söyleyecek. Farklar:
+  protokol yazımı, immatür/dejenere, bazal volüm, hazırlık sonrası değerler,
+  fertilizasyon yöntemi yazımı, not; hasta adının yazımı da farklı.
+- #8 (yumurta çözme) tarihsiz: bir önceki kaydın günü yazılıyor, not
+  "yaklaşık" diyor.
+- #35'in altı straw'ı Excel'de 14.09.2026 "D5", Access'te OPU 08.09.2026 + 5.
+  gün = 13.09.2026 ve 5×4AA + 1×4BA (Excel 6×4AA): bağlanmıyor (serbest ±N gün
+  toleransı yok, v6.177), elle.
+- #11, #20, #29, #37'nin birer-ikişer straw'ının içeriği Excel ile Access
+  arasında farklı (tüp dağılımı ya da sayı); #5'in straw'ı Excel'de adı farklı
+  yazılmış (aynı gün aynı içerik): hepsi aktarımın sonunda sayfalarıyla
+  listeleniyor.
+- Deneme kopyasında: 46 tedavi aktarıldı, 32 Excel kaydı tüpüne bağlandı, 12
+  tüpün konumu boş kaldı (yukarıdakiler), 0 hata. Gobletlerin doluluğu
+  aktarımdan önce ve sonra aynı (bağlanan straw Excel kaydından tüpe geçti),
+  tek fark bir FET'in çözdüğü tüpün boşalması. Aktarılan 46 tedavinin tedavi
+  ekranı, iki resmî formu, hasta kartları, Cryo Haritası sayfaları (199
+  sayfa) hatasız açıldı. Senaryo kopyasında (ekrandan girilmiş IVF, planlı
+  FET, başka dosya numarasıyla aynı ad, başka etiketli aktarım, başka türde
+  tedavi, silinmiş ve iptalle bitmiş tedavi, `AKTAR`) her biri beklenen
+  kararı verdi. Excel kaydı sayfasının "tüpe bağla / bağı çöz"u ortak işlevle
+  denendi: konum, renk, günlük ve geri alma aynı.

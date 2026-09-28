@@ -867,6 +867,57 @@ sonra program yeniden açılmamış demektir. Programı bir kez kapatıp aç —
 güncellemeler açılışta kendiliğinden uygulanır — sonra komutu tekrar
 çalıştır. Araç bu durumda hiçbir şey yazmadan durur.
 
+### Eylül 2026 (v6.207)
+
+Önce `git pull origin main`, programı bir kez kapatıp aç, yedek al
+(`/yedekleme` → "Şimdi yedekle"). Sohbette verilen `eylul.csv`'yi aktarımı
+çalıştırdığın klasöre koy. **Veritabanının olduğu bilgisayarda** çalıştır
+(Cryo Haritası'nın düzeni Mac'te; klinikteki makinede yapacaksan önce
+`tasi.py` ile taşı). Etiket `EYLUL` (2026'nın ayları yılsız: `OCAK` … `TEMMUZ`;
+`EYLUL2024` ve `EYLUL2025` başka yılların):
+
+```
+python3 aktar_access.py liste kaynak=EYLUL eylul.csv
+```
+
+Bu ay bazı hastalar programa ekrandan da girildi. `liste` onları **PROGRAMDA
+VAR — atlanır** diye yazar; programdaki tedavinin numarası, günü, yumurta ve
+tüp sayısı (kaçının Cryo Haritası'nda olduğu) ile Access'in sayıları yan
+yana. Programdaki eksikse ekrandan tamamla. Aynı tedavi DEĞİLSE (aynı ay
+içinde ikinci bir tedavi) düzeltme dosyasına `EYLUL#<kayıt no>  AKTAR` yaz, o
+kayıt yine aktarılır.
+
+Cryo Haritası'nda Excel kaydı olarak duran straw'lar satırın altında yazar
+("Cryo Haritası'nda Excel kaydı olarak 3 straw: ..."). Aktarımın sonunda
+bunlar tüplerine bağlanır (tüp gobletine yazılır, straw bir kez sayılır);
+bağlanamayanlar sayfa adresleriyle listelenir (`/cryo/excel-kaydi/<no>`,
+tarayıcıda o sayfadan "tüpe bağla").
+
+\#19 ve \#22 aynı hastanın aynı günkü iki farklı kaydı: ikisi de atlanır.
+Hangisi doğruysa ÖTEKİNİ bir düzeltme dosyasına yaz (`tarih_duzeltme_eylul.txt`,
+tek satır, ör. `EYLUL#19  ATLA`) ve dosyayla aktar:
+
+```
+python3 aktar_access.py kaynak=EYLUL duzelt=tarih_duzeltme_eylul.txt eylul.csv
+```
+
+(Düzeltme dosyası yoksa `duzelt=` olmadan: `python3 aktar_access.py
+kaynak=EYLUL eylul.csv`.) `AKTAR` yazınca yazar; iki kez çalıştırmak güvenli
+(aktarılmış satır atlanır). Sonradan bir ikizi seçersen aynı komutu yeniden
+ver: yalnızca o kayıt aktarılır, Excel kaydı da bağlanır.
+
+**Excel kaydını sonradan bağlamak** (ekrandan girilen bir tüp, düzeltilen bir
+ad; Excel dosyası gerekmez):
+
+```
+python3 cryo_esle.py excel_bagla
+```
+
+Ne bağlanacağını sayar, ayrıntıyı `cryo_esle_rapor_excel_bagla.txt`'ye yazar,
+`BAGLA` yazınca bağlar. Yalnızca konumu boş tüplere bağlar; aynı gobletde aynı
+içerikli, yeri girilmiş bir tüp varsa dokunmaz (ayrı bir straw olabilir),
+raporda yazar.
+
 ---
 
 ## Sorun teşhisi

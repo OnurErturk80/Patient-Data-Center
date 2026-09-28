@@ -268,6 +268,54 @@ def excel_ayrintilari(idler) -> dict:
     return sonuc
 
 
+def excel_kaydini_bagla(b, e, t, kid, simdi, ezilebilir=()) -> list:
+    """Excel kaydını programdaki tüpe bağlar: tüp Excel kaydının gobletine
+    geçer (konumu yazılır, eski konumu kayda saklanır), rengi/tipi boşsa
+    Excel'inki yazılır, Excel kaydı 'baglandi' olur -- straw artık tüpün
+    kendisiyle sayılıyor, iki kez değil.
+
+    İki yol aynı yazımı kullanıyor (v6.207): Excel kaydının sayfasındaki
+    "tüpe bağla" (`app.excel_kaydi_bagla`, v6.189) ve aktarımın sonunda
+    kendiliğinden bağlama (`cryo_esle.excel_kayitlarini_bagla()`). Bağı çözen
+    yol (`/bagi-coz`) `islem_notu`'na ("doldurulan: renk,tip") ve
+    `onceki_konum_id`'ye güveniyor -- yazımı bir yerde değiştirirsen ikisi
+    birlikte değişir.
+
+    `b` yazma işleminin bağlantısı, `e` Excel kaydı satırı, `t` tüp satırı
+    (`tam_yol` ile). Denetim (tüp dolu mu, türü tutuyor mu) çağıranın işi.
+    `ezilebilir`: dolu olsa da Excel'inkiyle değişecek alanlar -- aktarımın
+    açtığı tüpün tipi ("cryotop" varsayılan, kaynakta yok; Excel'in VİAL'i
+    gerçeği söylüyor, `uygula` da öyle yazıyor). Bağ çözülünce doldurulan
+    alanlar boşalıyor. -> doldurulan alanlar.
+    """
+    def logla(tablo, kayit, alan, eski, yeni):
+        b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                  "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                  (db.LAB_ID, tablo, str(kayit), alan, eski, yeni, kid, simdi))
+
+    if e["konum_id"] and e["konum_id"] != t["konum_id"]:
+        yeni_yol = b.execute("SELECT tam_yol FROM konum WHERE id=?",
+                             (e["konum_id"],)).fetchone()[0]
+        b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (e["konum_id"], t["id"]))
+        logla("tasiyici", t["id"], "konum", t["tam_yol"], yeni_yol)
+    doldurulan = []
+    for alan in ("renk", "tip"):
+        if e[alan] and (not t[alan] or (alan in ezilebilir and t[alan] != e[alan])):
+            b.execute(f"UPDATE tasiyici SET {alan}=? WHERE id=?", (e[alan], t["id"]))
+            logla("tasiyici", t["id"], alan, t[alan], e[alan])
+            doldurulan.append(alan)
+    # Hangi alanın bağlarken doldurulduğu `islem_notu`nda (bağlı kayıtta
+    # başka bir not yok): bağ çözülünce yalnızca onlar geri alınıyor.
+    b.execute("UPDATE excel_kaydi SET durum='baglandi', tasiyici_id=?, "
+              "onceki_konum_id=?, islem_zamani=?, islem_notu=?, islem_kullanici_id=? "
+              "WHERE id=?",
+              (t["id"], t["konum_id"], simdi[:10],
+               ("doldurulan: " + ",".join(doldurulan)) if doldurulan else None,
+               kid, e["id"]))
+    logla("excel_kaydi", e["id"], "durum", "tankta", f"baglandi: {t['etiket']}")
+    return doldurulan
+
+
 def kanister_gobletleri(harita, tank, kanister) -> dict:
     """Bir kanisterin gobletleri, Excel'deki sırasıyla (alt kat, üst kat),
     ve kanisterde olup hiçbir düzen gobletine düşmeyen tüp/Excel kaydı.

@@ -69,7 +69,13 @@ Haritası'nda tank → kanister ağacı görünüyor (o gün programda 5.590 has
 veritabanında artık devrede (kullanıcı henüz denemedi). **Düzen Mac'teki
 veritabanında**: klinikteki Windows makinesi onu ancak `lab.db` `tasi.py`
 ile taşınınca görür -- "haritada yok" denirse hangi makineye bakıldığını
-sor. Göç, kalıcı silme, geri yükleme gibi
+sor. **Eylül 2026** (48 kayıt) v6.207'de hazırlandı (`kaynak=EYLUL`, 2026'nın
+yılsız etiketleri gibi): bazı hastalar bu ay programa ekrandan da girildi,
+aracın `liste`'si onları "PROGRAMDA VAR" diye atlıyor; eylül straw'ları Cryo
+Haritası'nda Excel kaydı olarak duruyor, aktarım sonunda tüplerine bağlanıyor.
+Kullanıcının veritabanı burada yok -- hangilerinin programda olduğu ancak onun
+makinesinde görünüyor; çalıştırıp çalıştırmadığını ve #19/#22 ikizinden
+hangisini seçtiğini sor. Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -2210,7 +2216,9 @@ besleniyor.
   (app.py'den taşındı; `b` verilirse açık bağlantıda) bunun için.
 - **Excel'in hücre yazımı** (v6.176, `_yazimi_duzelt()`): "MORULA G2",
   "KAV G3", "BİRLEŞME G1" (boşluklu), "3BB*3BB" (yıldız ayırıcı), "2CCKAVG3"
-  (bitişik evre), "3*KAVG3" / "3 ADET MORULA G2" (çarpan, yalnızca embriyo).
+  (bitişik evre), "3*KAVG3" / "3 ADET MORULA G2" (çarpan, yalnızca embriyo),
+  v6.207'de parantez içinde "(1 M2)" / "(1 MII 2MI)" (sayı ile olgunluk
+  arasında boşluk; 5.392 satırda üçü değişti).
   Yeni bir okuma eklerken eski/yeni aracı satır satır karşılaştır: daha önce
   eşleşen satır değişmemeli.
 - **Excel'in TARİH'i dondurma günü, HÜCRE'nin "D5"i OPU'dan sayılan gün**
@@ -2344,6 +2352,15 @@ besleniyor.
     boşsa rengi/tipi; "bağı çöz" konumu ve bağlarken doldurulanı geri alır),
     tanktan çıkarıldı (tarih + not; "tanka geri koy"). `tasiyici`'ye FK:
     tüpü kalıcı silen yol önce `excel_kaydi_bagini_birak()` (tuzak #4).
+  - **Bağlamanın yazımı tek yerde: `yerlesim.excel_kaydini_bagla()`**
+    (v6.207): sayfanın "tüpe bağla"sı ve kendiliğinden bağlama
+    (`cryo_esle.excel_kayitlarini_bagla()`: aktarımın sonu ve dosyasız
+    `python3 cryo_esle.py excel_bagla`). "Bağı çöz" `islem_notu`'na
+    ("doldurulan: ...") ve `onceki_konum_id`'ye güveniyor; ikinci bir bağlama
+    yazımı açma. **Kendiliğinden bağlama yalnızca konumu boş, bağsız tüpe**:
+    aynı gobletde aynı içerikli, yeri girilmiş bir tüp ayrı bir straw olabilir
+    (deneme kopyasında beş goblet: Excel iki satır, program bir tüp) -- ona
+    bağlamak straw'ı haritadan düşürürdü; listelenir, karar kullanıcının.
   - **`yerlesim` önce öteki kipleri ister** (bekleyen `uygula`/`onar`/
     `yeni_hasta`/`sperm` -- yoksa aynı straw hem Excel kaydı hem tüp olurdu)
     ve Excel'den silinmiş satırın Excel kaydını kendiliğinden kaldırmaz
@@ -2700,7 +2717,12 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   immatürden MII'ye geçer, not "Access'te MII 4 ... yazıyordu" der. Aktarım
   anında çalışıyor (yumurtalar o an açılıyor); daha önce aktarılmış
   tedavinin maturasyon kayıtlarına dokunmuyor. MI yazılmış yumurta yine M2
-  yerine konmuyor — sayı baştan doğru açılıyor.
+  yerine konmuyor — sayı baştan doğru açılıyor. v6.207'den beri fark
+  kutulara HİÇ sayılmamış yumurtalardan da (TOPLANAN 1, MII/İMMATÜR boş,
+  not "(1*M2)"): 1.858 satırda yalnızca eylül #32 değişti.
+- **"DONDURULARAK AKLANDI"** (S düşmüş, v6.207) dondurma fiili; başka yazım
+  hatası eklersen `_DONDURMA_FIILI`'nin yorumuna yaz ve bütün CSV'leri
+  karşılaştır.
 - **İptal kalıpları** (`_IPTAL_AYRINTI`): fertilizasyon olmadı, cleavage
   arrest, 5. gün arrest, v6.149'dan beri "OOSİT ÇIKMADI" → Yumurta Çıkmadı,
   "İNMATÜR OOSİT SEBEBİYLE" → İmmatür Yumurta. Programdaki sebebin adıyla
@@ -2865,6 +2887,26 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   yeni bir aktarım yolu yazarsan sonunda onu çağır.
 - **Access'teki ad programdakinden farklıysa** eşleşme yine dosya
   numarasıyla, rapor "DİKKAT" diyor (ad rapora yazılmıyor).
+- **Programa ekrandan girilmiş tedavi aktarılmaz** (v6.207,
+  `programdaki_tedavi()`; kullanıcı, eylül 2026: "Kaydı yapılmış cryo haritaya
+  da kaydedilmiş hastayı kaydetmene gerek yok"). Aynı dosya no, aynı tür
+  (`_aile()`: yumurta toplanan / çözme), günleri ≤ 30 gün, protokol notunda
+  işaret yok (ne Access ne `db.CRYO_EXCEL_ISARETI`); silme ekranından iptal
+  edilen (bitiş sebebi yok) sayılmaz. Aynı gün başka etiketle aktarılmış
+  tedavi ve dosya no programda yokken AYNI ADLI hastanın aynı dönemdeki ekran
+  tedavisi de durdurur (ad bağlamıyor, yalnızca durduruyor). `liste` "PROGRAMDA
+  VAR" satırında iki tarafın sayıları; başka bir tedaviyse düzeltme dosyasına
+  `KAYNAK#KAYIT  AKTAR`. Kural önizleme ile aktarımda aynı
+  (`programdakileri_isaretle()`, bir kez). İşaret (`_zaten_var()`) yalnızca
+  aynı satırın ikinci aktarımını tanır -- ekranda girileni tanıyan bu.
+- **Aktarım sonunda Cryo Haritası'ndaki Excel kaydı tüpüne bağlanır**
+  (v6.207, `cryo_haritasina_bagla()` → `cryo_esle.excel_kayitlarini_bagla()`):
+  hastası yokken `yerlesim`'in açtığı Excel kaydı ile aktarımın açtığı
+  konumsuz tüp aynı straw'dı, iki kez görünüyordu. `uygula`'nın ölçüsü; yalnızca
+  bu dosyanın hastaları ve satırların günleri (−1..+7). Programdaki ad Access'in
+  adından farklıysa Access'in adı da denenir (dosya no zinciri). Bağlanamayan
+  ve adı farklı yazılmış olabilecekler sayfa adresiyle basılır, bağlanmaz.
+  `liste` her satırın Excel kaydı straw'larını gösteriyor.
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
   verisi. README/CLAUDE.md'ye hasta adı/dosya numarası yazma.
 
