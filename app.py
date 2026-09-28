@@ -972,11 +972,15 @@ def program_kimligi() -> dict:
             "pid": os.getpid(), "veri": str(db.VERI_KOK)}
 
 
-def _duz_sayfa(baslik: str, metin_: str, durum: int = 200, tazele: int = 0) -> HTMLResponse:
+def _duz_sayfa(baslik: str, metin_: str, durum: int = 200, tazele: int = 0,
+               ayrinti: str = "", baglantilar: str = "") -> HTMLResponse:
     """Veritabanına ve `/static`'e dokunmayan tek sayfa (ağ kapalı, kurulum
-    sürüyor). Biçim satır içinde, renkler koyu temanın değerleri (sabit)."""
+    sürüyor, beklenmeyen hata). Biçim satır içinde, renkler koyu temanın
+    değerleri (sabit). `ayrinti` kaçışlı `<pre>`; `baglantilar` koddan gelen
+    hazır HTML (adresten değil)."""
     import html as _html
     yenile = f'<meta http-equiv="refresh" content="{tazele}">' if tazele else ""
+    ek = (f"<pre>{_html.escape(ayrinti)}</pre>" if ayrinti else "") + baglantilar
     sayfa = (
         '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -985,10 +989,61 @@ def _duz_sayfa(baslik: str, metin_: str, durum: int = 200, tazele: int = 0) -> H
         "font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}"
         "main{max-width:520px;margin:12vh auto;padding:0 20px}"
         "h1{font-size:20px;color:#e76491;margin:0 0 12px}"
-        "p{margin:0;color:#9fb0bc}</style></head><body><main>"
-        f"<h1>{_html.escape(baslik)}</h1><p>{_html.escape(metin_)}</p>"
+        "p{margin:0;color:#9fb0bc}"
+        "pre{margin:16px 0;padding:10px 12px;background:#172230;border-radius:6px;"
+        "white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;color:#e9eef3}"
+        "a{color:#e76491}</style></head><body><main>"
+        f"<h1>{_html.escape(baslik)}</h1><p>{_html.escape(metin_)}</p>{ek}"
         "</main></body></html>")
     return HTMLResponse(sayfa, status_code=durum, headers={"Cache-Control": "no-store"})
+
+
+def _hata_yeri(exc: BaseException) -> str:
+    """Hatanın programın içindeki yeri: "formlar.py:1123 (ozet_verisi)".
+
+    Son çerçeve çoğu zaman bir kütüphanenin içinde (sqlite3, jinja2); asıl
+    bakılacak yer programın kendi dosyasındaki son çerçeve -- kaynaktan
+    çalışırken proje klasöründeki `.py`, pakette dizinsiz dosya adı, bir de
+    şablonlar. Bulunamazsa son çerçeve."""
+    import traceback
+    cerceveler = traceback.extract_tb(exc.__traceback__)
+    kendi = [f for f in cerceveler
+             if Path(f.filename).parent in (KOK, Path("."), Path(""))
+             or "templates" in Path(f.filename).parts]
+    f = (kendi or cerceveler or [None])[-1]
+    return f"{Path(f.filename).name}:{f.lineno} ({f.name})" if f else ""
+
+
+@uygulama.exception_handler(Exception)
+async def beklenmeyen_hata(request: Request, exc: Exception):
+    """Yakalanmamış hata (v6.206): düz "Internal Server Error" yerine Türkçe
+    bir sayfa ve hatanın teknik özeti; ayrıntısı (traceback) `program.log`'a.
+
+    Kullanıcı bildirdi: "Embriyoloji özet formu, ART Lab formu bastırmak
+    isteyince Internal Server Error hatası veriyor." Hatanın sebebi hiçbir
+    yerden okunamadı: tarayıcı yalnızca o iki kelimeyi gösteriyordu, kaynaktan
+    çalışırken (`python3 baslat.py`) uvicorn ayrıntıyı yalnızca terminale
+    yazıyor (kendi günlükçüsü köke iletmiyor, `program.log`'a düşmüyordu).
+    Ekrandaki özet hatanın türü ve programın içindeki yeri -- ekran görüntüsü
+    yeter; hata iletisi ekrana basılmıyor (bir değer, bir ad içerebilir), o
+    günlükte. Starlette yanıtı gönderdikten sonra hatayı yeniden fırlatıyor:
+    terminal de görmeye devam ediyor. Bu işlev hiçbir koşulda patlamamalı."""
+    try:
+        ozet = type(exc).__name__
+        yer = _hata_yeri(exc)
+        _gunluk.error("Beklenmeyen hata: %s %s -- %s %s", request.method,
+                      request.url.path, ozet, yer, exc_info=exc)
+        ayrinti = "\n".join(x for x in (
+            f"{ozet} · {yer}" if yer else ozet,
+            f"{request.method} {request.url.path}",
+            f"{CALISAN_SURUM or ''} · {_dt.now():%d.%m.%Y %H:%M}".strip(" ·")) if x)
+        return _duz_sayfa(
+            metinler.t("hata_baslik"), metinler.t("hata_metin"), 500,
+            ayrinti=ayrinti,
+            baglantilar=(f'<p><a href="javascript:history.back()">{metinler.t("geri_don")}</a>'
+                         f' · <a href="/">{metinler.t("ana_ekran")}</a></p>'))
+    except Exception:                       # son çare: yine de bir yanıt
+        return HTMLResponse("Internal Server Error", status_code=500)
 
 
 def _ag_kapali_yaniti(kurulum_kipi: bool = False) -> HTMLResponse:

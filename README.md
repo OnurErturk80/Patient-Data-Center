@@ -16179,3 +16179,48 @@ sperm bağlama engeli, sperm sayfasından ve taşımadan geri alma (tüpler ve
 konumlar geri döndü); telefon (390px) ve masaüstünde yatay kayma yok. Gerçek
 veri kopyasında (1.823 hasta) tek harfle arama 0,3 sn, hastanın ekranının
 sorguları 0,01 sn.
+
+# v6.206 — Beklenmeyen hatada açıklayıcı sayfa; ayrıntısı program.log'a
+
+Kullanıcı bildirdi (2026-09-28): "Embriyoloji özet formu, Art lab formu
+bastırmak isteyince Internal Server Error hatası veriyor."
+
+**Burada tekrarlanamadı.** Gerçek veri kopyalarında iki formun ekranı açıldı:
+b202'de 1.909 tedavinin 3.818 formu, 2024–2026 kopyasında 1.816 tedavinin
+formları ve Excel'leri. v6.205'in Taşınma bölümüyle 26 hastanın tüpleri
+(sperm dahil) taşınınca da o hastaların 74 tedavisinin formları ve Excel'leri
+açıldı. v6.205 formların koduna yalnızca iki alan ekledi (tüpün etiketi ve
+dondurulduğu tedavi); ikisini yalnızca hasta kartı okuyor. Form şablonu
+v6.158'den, `base.html` v6.195'ten beri değişmedi. Yani "yeni şablon + eski
+kod" (tuzak #5) da bu hatayı açıklamıyor. Sebep büyük olasılıkla kullanıcının
+veritabanındaki, deneme kopyalarında olmayan bir kayıt (2018 ayları, v6.205'ten
+sonra girilenler).
+
+**Sebep hiçbir yerden okunamıyordu.** Tarayıcı yalnızca "Internal Server
+Error" gösteriyordu. Kaynaktan çalışırken (`python3 baslat.py`) uvicorn'un
+kendi günlükçüsü hatayı yalnızca terminale yazıyor (köke iletmiyor), yani
+`program.log`'a düşmüyordu.
+
+**Artık** yakalanmamış her hatada (`app.beklenmeyen_hata()`,
+`@exception_handler(Exception)`):
+- Ekranda Türkçe bir sayfa çıkıyor ("Beklenmeyen bir hata oluştu"). Kutuda
+  hatanın türü ve programdaki yeri (`TypeError · formlar.py:1123
+  (ozet_verisi)`), adres, çalışan sürüm ve saat yazıyor. Bir ekran görüntüsü
+  sebebi bulmaya yetiyor.
+- Hatanın **iletisi ekrana basılmıyor**; bir değer ya da ad içerebilir. İleti
+  `program.log`'a traceback'le birlikte yazılıyor ("Beklenmeyen hata: GET
+  /form/ozet/… -- …").
+- Yer, programın kendi dosyasındaki son çerçeve (`_hata_yeri()`: proje
+  klasöründeki `.py`, pakette dizinsiz ad, şablonlar). Son çerçeve çoğu zaman
+  sqlite3 ya da jinja2'nin içinde oluyor.
+- Starlette yanıtı gönderdikten sonra hatayı yeniden fırlatıyor, yani terminal
+  de görmeye devam ediyor. İşlev veritabanına dokunmuyor (metinler bağlam
+  değişkeninden okunuyor) ve kendisi patlarsa düz yanıta düşüyor.
+- Sayfa `_duz_sayfa()`'dan geliyor (ağ kapalı ve kurulum sayfalarının
+  yardımcısı): `ayrinti` kaçışlı bir `<pre>`, `baglantilar` koddan gelen
+  "Geri dön · Ana ekran".
+
+Denendi: bilerek hata veren geçici bir rotada sayfa `TypeError · formlar.py:535
+(tup_metni)` yazdı, `program.log`'a satır ve traceback düştü. Formun asıl
+sebebi kullanıcının ekran görüntüsü ya da `program.log` satırı gelince
+düzeltilecek.

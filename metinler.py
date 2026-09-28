@@ -2368,6 +2368,15 @@ METINLER = {
     "ag_telefonlarda": {"tr": "Telefonlarda ve öteki bilgisayarlarda (ağ açıkken)",
                         "en": "On phones and other computers (when open)"},
     "ag_telefon_ipucu": {"tr": "Telefona eklemek için karekod:", "en": "QR code for phones:"},
+    # Yakalanmamış hata (v6.206): düz "Internal Server Error" yerine.
+    "hata_baslik": {"tr": "Beklenmeyen bir hata oluştu", "en": "An unexpected error occurred"},
+    "hata_metin": {
+        "tr": "Bu ekran açılamadı. Aşağıdaki kutuyu (ya da bu sayfanın ekran "
+              "görüntüsünü) programı yazana iletin; ayrıntısı veri klasöründeki "
+              "program.log dosyasında.",
+        "en": "This screen could not be opened. Send the box below (or a screenshot "
+              "of this page) to the developer; details are in program.log in the "
+              "data folder."},
     "ag_kapali_baslik": {"tr": "Program yalnızca kurulu olduğu bilgisayarda açık",
                          "en": "The program is open only on its own computer"},
     "ag_kapali_metin": {

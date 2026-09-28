@@ -117,6 +117,13 @@ uygulama nesnesi doğrudan veriliyor. Geliştirmede de aynı yol:
 - **Program pencereli** (konsolsuz): `sys.stdout` None. `baslat.py` onu boş
   bir akışa bağlıyor ve pakette uvicorn'u `log_config=None, access_log=False`
   ile açıyor (iletiler `program.log`'a). Pakette `print` hiçbir yere gitmez.
+- **Yakalanmamış hata Türkçe bir sayfa verir** (v6.206, `app.beklenmeyen_hata()`):
+  ekranda türü ve programdaki yeri (`TypeError · formlar.py:1123 (ozet_verisi)`),
+  adres ve sürüm; iletisi ve traceback yalnızca `program.log`'da (ileti bir ad
+  içerebilir). Kaynaktan çalışırken uvicorn hatayı yalnızca terminale yazıyordu.
+  Kullanıcı "Internal Server Error" / "hata veriyor" derse o sayfanın ekran
+  görüntüsünü ya da `program.log`'daki "Beklenmeyen hata" satırını iste; tahminle
+  düzeltme. İşlevi veritabanına dokunur hale getirme.
 - **`--servis` iken tarayıcı ve pencere yok** (Windows'ta Görev Zamanlayıcı
   SYSTEM olarak açıyor, masaüstü yok: görünmeyen bir ileti kutusu programı
   sonsuza dek bekletir). Kullanıcıya pencereyle haber veren yeni bir yer
