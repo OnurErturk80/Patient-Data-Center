@@ -1295,9 +1295,12 @@ kalıptan**: `form_kalip.json`.
     değişmiyor, hücreyi app ekliyor (`form_kalip.not_satiri()` /
     `not_satiri_excel()`: yalnızca kâğıtta hücresi olmayan satıra, tam
     genişlik, ortalı, sarmalı). Yalnızca ilk sayfa, yalnızca ART Lab.
-  - Izgaranın "Transfer" satırındaki **F = Freeze** (o embriyo transfer
-    edilmedi, donduruldu), ✓ = transfer. Kullanıcı sordu, anlamı ekranda
-    yazmıyor.
+  - Izgaranın "Transfer" satırında ✓ = transfer, **"Freezing"** = transfer
+    edilmedi, donduruldu (v6.212, kullanıcı: "F yazıyor. Onu Freezing ile
+    değiştirelim"; v6.211'e kadar "F"). Yazı `formlar.ARTLAB_DONDURULDU`;
+    kutu bir yumurta genişliğinde, bugün sığıyor (68 px), sığmazsa küçülüyor
+    (`sigdir_hucreleri()`, Excel'de `shrinkToFit`) -- yanı öteki yumurtanın
+    kutusu, taşamaz.
 - **"Formda görünmüyor" derse önce `teshis_form.py`** (v6.153). Bilinen
   iki sebep: program `git pull`'dan sonra yeniden başlatılmamış (tuzak #5)
   ya da çözme FET'e değil kaynak ICSI'ye yazılmış — v6.155'e kadar çözme

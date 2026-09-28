@@ -1469,6 +1469,10 @@ ARTLAB_IZGARA = [
 
 # İlk oositin sütunu; kâğıtta her oosit iki sütun geniş.
 _IZGARA_SUTUN0, _IZGARA_ADIM = 3, 2
+# Izgaranın "Transfer" satırı ve donduruldu işareti (v6.212, kullanıcı: "F
+# yazıyor. Onu Freezing ile değiştirelim").
+_ARTLAB_TRANSFER_SATIR = 21
+ARTLAB_DONDURULDU = "Freezing"
 
 def artlab_verisi(cycle_id: int):
     """ART Lab. Raporu'nun (DH.FR.107) verisi.
@@ -1538,7 +1542,11 @@ def artlab_verisi(cycle_id: int):
             "g3_hucre": o["g3_hucre"] if o["g3_hucre"] is not None else "",
             "g3_skor": o["g3_skor"] or "",
             "bl": o["bl"] or "",
-            "transfer": "✓" if o["tr_zaman"] else ("F" if o["vit_zaman"] else ""),
+            # Transfer satırı: ✓ transfer, "Freezing" donduruldu (v6.212,
+            # kullanıcının isteği; v6.211'e kadar yalnızca "F" yazıyordu).
+            # Kutu bir yumurta genişliğinde: yazı sığmazsa küçülüyor
+            # (`sigdir_hucreleri()`), kesilmiyor.
+            "transfer": "✓" if o["tr_zaman"] else (ARTLAB_DONDURULDU if o["vit_zaman"] else ""),
             # Kâğıtta blastokist satırı yok (form gün 3'te bitiyor); blastokist
             # skoru "Yorum" satırına yazılıyor -- orası serbest metin.
             # Yumurta bulguları buraya DEĞİL, kâğıdın altındaki geniş
@@ -1681,7 +1689,11 @@ def sigdir_hucreleri(ad: str, deger=None) -> set:
         deger = deger or {}
         # Deselect'in sağı İŞLEM sütununun basılı yazıları (OPU, Freeze ...):
         # hep küçülür. TRANSFER, yanındaki Deselect doluysa küçülür (v6.208).
+        # Izgaranın Transfer satırındaki "Freezing" bir yumurta kutusuna
+        # sığmıyor, yanı öteki yumurtanın kutusu: küçülür (v6.212).
         return (ARTLAB_SIGDIR_HUCRELER
+                | {k for k, v in deger.items()
+                   if k[0] == _ARTLAB_TRANSFER_SATIR and v == ARTLAB_DONDURULDU}
                 | {(r, _ARTLAB_THAW_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
                 | {(r, _ARTLAB_DESELECT_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
                 | {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR

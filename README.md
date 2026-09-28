@@ -16610,3 +16610,23 @@ yazsın."*
   tedavinin tüpü programda yok (aktarılmış FET), onlarda çözme grubu yok.
   Yalnızca dondurma olan 983 formun satırı v6.210'dakiyle, Özet formu da
   bütün tedavilerde birebir aynı.
+
+# v6.212 — ART Lab ızgarasında "F" yerine "Freezing"
+
+Kullanıcı: *"ART lab formunda dondurma yapılan hastada transfer kısmında F
+yazıyor. Onu Freezing ile değiştirelim."*
+
+- ART Lab formunun yumurta ızgarasında "Transfer" satırı, transfer edilen
+  embriyoya ✓, dondurulana "F" yazıyordu (v6.37'den beri). Artık dondurulana
+  "Freezing" yazıyor; ✓ değişmedi.
+- Yazı tek yerde: `formlar.ARTLAB_DONDURULDU`.
+- Kutu bir yumurta genişliğinde ve yanı öteki yumurtanın kutusu, yani
+  taşamaz. Bugün sığıyor (ekranda 68 px kutuya 68 px yazı, yazdırırken de).
+  Yine de "Freezing" yazan kutular küçülecekler listesinde
+  (`sigdir_hucreleri()`): kâğıt ya da punto değişirse yazı kesilmez, küçülür.
+  Excel'de aynı hücrelere `shrinkToFit`.
+
+**Deneme** (sahte veritabanında): IVF/ICSI formunda iki dondurulan embriyo
+"Freezing", transfer edilen ✓; Yumurta Dondurma formunda dondurulan yumurta
+"Freezing". Ekranda ve yazdırırken kesilme yok. Excel'de D22 ve F22
+hücrelerinde "Freezing", ikisinde de `shrinkToFit`.
