@@ -431,11 +431,13 @@ görünmüyor.
   düğmesi (`gezinme.sonraki`: FET'te Transfer), tankta kalan tüpler. v6.207'ye
   kadar yalnızca form tedaviden açıldıysa (`geri_cycle`) dönüyordu; tüp
   sayfasının "Bu taşıyıcıyı çöz"ü `?cycle=` taşımıyordu (artık taşıyor).
-- **Yumurta Dondurma'da GV çıkan yumurta dondurma adayı değil** (v6.208,
-  `_gv_yumurta()`, kullanıcının isteği): bu tedavideki SON maturasyonu GV,
-  bu tedavide dondurulmamış yumurta; ekran ve kayıt aynı koşul
-  (`_vit_adaylari()`, `db.yumurta_mi(tip)` olan tip). Dondurulmuş GV kalır.
-  Yalnızca GV: MI/dejenere/atretik için kullanıcıya soruldu, sormadan ekleme.
+- **Yumurta Dondurma'da GV, dejenere ve atretik yumurta dondurma adayı
+  değil** (v6.208 GV, v6.209 dejenere + atretik, kullanıcı: "Dejenere ve
+  atretik yumurtalar da gizlensin"; `_dondurulmayan_yumurta()`,
+  `DONDURULMAYAN_OLGUNLUK`): bu tedavideki SON maturasyonu bunlardan biri, bu
+  tedavide dondurulmamış yumurta; ekran ve kayıt aynı koşul (`_vit_adaylari()`,
+  `db.yumurta_mi(tip)` olan tip). Dondurulmuşu kalır. **MI listede**:
+  kullanıcı yalnızca bu üçünü söyledi, MI'ı sormadan ekleme.
 - **Vitrifikasyon ekranı `oosit_cryo` ile de paylaşılıyor — orada bu süzgeç
   UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
   (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**

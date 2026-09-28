@@ -7345,11 +7345,19 @@ def _blastokistte_arrest(cycle_id) -> str:
             f"AND {db.vit_tedavisi('v')} = {cid})")
 
 
-def _gv_yumurta(cycle_id) -> str:
-    """GV çıkan, bu tedavide dondurulmamış yumurta -- SQL koşulu (v6.208,
-    kullanıcının isteği: "Yumurta dondurmada gv çıkan yumurtaları dondurulacak
-    yumurta olarak gösterme"). `_vit_adaylari()` bunun tersini istiyor;
-    yalnızca dondurulan şeyin yumurta olduğu tipte (Yumurta Dondurma).
+# Yumurta Dondurma'da dondurma adayı olmayan olgunluklar (maturasyon listesinin
+# kodları). v6.208'de yalnızca GV; v6.209'da kullanıcı "Dejenere ve atretik
+# yumurtalar da gizlensin" dedi. MI listede kalıyor -- ona sormadan ekleme.
+DONDURULMAYAN_OLGUNLUK = ("gv", "degenere", "atretik")
+
+
+def _dondurulmayan_yumurta(cycle_id) -> str:
+    """Dondurma adayı olmayan (GV, dejenere, atretik), bu tedavide
+    dondurulmamış yumurta -- SQL koşulu (v6.208'de GV, kullanıcının isteği:
+    "Yumurta dondurmada gv çıkan yumurtaları dondurulacak yumurta olarak
+    gösterme"; v6.209'da "Dejenere ve atretik yumurtalar da gizlensin").
+    `_vit_adaylari()` bunun tersini istiyor; yalnızca dondurulan şeyin yumurta
+    olduğu tipte (Yumurta Dondurma).
 
     - Ölçü yumurtanın bu tedavideki SON maturasyon kaydı (Yumurta
       Dondurma'da denüdasyon ekranında soruluyor, v6.96): GV yazılıp sonra
@@ -7360,15 +7368,17 @@ def _gv_yumurta(cycle_id) -> str:
       olmasın (v6.137, v6.197). Access'ten aktarılmış "(4*GV)" tüpleri böyle
       (v6.172).
     - Gizleniyor, kilitlenmiyor: kullanıcı "gösterme" dedi (v6.197'nin
-      arrest kuralı gibi). Yalnızca GV; MI, dejenere, atretik değişmedi.
-    - IVF/ICSI'de gerek yok: GV yumurta enjekte edilmiyor, `_ICSI_YAPILMADI`
-      onu zaten gösterMİyor.
+      arrest kuralı gibi). Olgunluklar `DONDURULMAYAN_OLGUNLUK`'ta; MI
+      değişmedi.
+    - IVF/ICSI'de gerek yok: enjekte edilmeyen yumurta `_ICSI_YAPILMADI`
+      ile zaten görünmüyor.
     """
     cid = int(cycle_id)
+    kodlar = ", ".join(f"'{k}'" for k in DONDURULMAYAN_OLGUNLUK)
     return ("COALESCE((SELECT m.mat_deger FROM olay m "
             "WHERE m.specimen_id = s.id AND m.tip = 'maturasyon_kontrolu' "
             f"AND m.iptal_mi = 0 AND {db.bu_tedavide(cid, 'm')} "
-            "ORDER BY m.zaman DESC, m.id DESC LIMIT 1), '') = 'gv' "
+            f"ORDER BY m.zaman DESC, m.id DESC LIMIT 1), '') IN ({kodlar}) "
             "AND NOT EXISTS (SELECT 1 FROM olay v WHERE v.specimen_id = s.id "
             "AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
             f"AND {db.vit_tedavisi('v')} = {cid})")
@@ -7393,8 +7403,9 @@ def _vit_adaylari(c) -> tuple:
       dondurma kaydı bu tedavininki olmalı (`_degerlendirilmis_burada()`).
     - Blastokist aşaması olan her tipte blastokistte arrest kaydedilen
       embriyo hiç görünmüyor (v6.197, `_blastokistte_arrest()`).
-    - Yumurta Dondurma'da GV çıkan yumurta görünmüyor (v6.208,
-      `_gv_yumurta()`); tip sorusu `db.yumurta_mi()`: dondurulan yumurta.
+    - Yumurta Dondurma'da GV, dejenere ve atretik yumurta görünmüyor
+      (v6.208, v6.209, `_dondurulmayan_yumurta()`); tip sorusu
+      `db.yumurta_mi()`: dondurulan yumurta.
     Aşama soruları tip adıyla değil `TIP_ASAMALARI` ile soruluyor.
     """
     tip, cid = c["cycle_tipi"], c["id"]
@@ -7413,7 +7424,7 @@ def _vit_adaylari(c) -> tuple:
     if "blast" in asamalar:
         kosul += " AND (" + _DEGERLENDIRILMIS + ")"
     if db.yumurta_mi(tip):
-        kosul += " AND NOT (" + _gv_yumurta(cid) + ")"
+        kosul += " AND NOT (" + _dondurulmayan_yumurta(cid) + ")"
     return kosul + arrest, (cid,)
 
 

@@ -16506,3 +16506,26 @@ gecikmeli).
 - Arama ekranları telefon ve masaüstünde sonucu kutunun altında gösterdi.
 - 56 ekran (üç tedavi tipinin bütün aşamaları, formlar, listeler) hatasız ve
   yatay taşmasız açıldı.
+
+# v6.209 — Yumurta Dondurma'da dejenere ve atretik yumurta da dondurma adayı değil
+
+Kullanıcı (v6.208'deki soruya cevap): *"Dejenere ve atretik yumurtalar da
+gizlensin"*.
+
+- v6.208'de Yumurta Dondurma'nın vitrifikasyon listesinden yalnızca GV
+  yumurta çıkmıştı. Artık dejenere ve atretik yumurta da çıkıyor.
+- Olgunluklar tek yerde: `app.DONDURULMAYAN_OLGUNLUK` (`gv`, `degenere`,
+  `atretik`, maturasyon listesinin kodları). `_gv_yumurta()`'nın adı
+  `_dondurulmayan_yumurta()` oldu; kural aynı:
+  - Ölçü yumurtanın bu tedavideki SON maturasyonu (denüdasyonda soruluyor).
+    Dejenere yazılıp sonra MII'ye düzeltilen yumurta listede.
+  - Ekran ve kayıt aynı koşulu soruyor (`_vit_adaylari()`): eski bir
+    sekmeden gönderilen dondurma da reddediliyor.
+  - Bu tedavide zaten dondurulmuş yumurta listede kalıyor.
+  - Yalnızca yumurta donduran tipte (`db.yumurta_mi()`). IVF/ICSI'de
+    enjekte edilmeyen yumurta zaten görünmüyordu (v6.105).
+- **MI değişmedi**: MI yumurta listede. Kullanıcı yalnızca bu üçünü söyledi.
+
+**Deneme** (sahte veritabanında): MII, GV, MI, dejenere ve atretik birer
+yumurta. Listede yalnızca MII ve MI kaldı. GV, dejenere ve atretik yumurtanın
+elle gönderilen dondurması reddedildi, kayıt ve tüp yazılmadı.
