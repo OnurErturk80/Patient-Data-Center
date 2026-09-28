@@ -865,14 +865,16 @@ def _gonderim_var() -> bool:
 def tasinan_tupler(kosul: str, par) -> list:
     """Başka merkeze taşınan tüpler (v6.182), içindekilerle: `tup_metni()`'nin
     beklediği sözlük + gün, yer, yumurta mı. `kosul` dondurma olayı `v`,
-    örnek `s`, tedavi `c`, taşıyıcı `t` üzerinden."""
+    örnek `s`, tedavi `c`, taşıyıcı `t` üzerinden. v6.205'ten beri tüpün
+    kimliği, etiketi ve dondurulduğu tedavi (`tedavi`, `db.vit_tedavisi()`)
+    de dönüyor: hasta kartının tedavi satırı aynı tüpleri basıyor."""
     if not _gonderim_var():
         return []
     vt = db.vit_tedavisi("v")
     satirlar = db.sorgu(
         f"""
         SELECT v.id, v.specimen_id, v.vit_tasiyici_id AS tup, {vt} AS vit_cid,
-               {db.dondurulan_yumurta_sql('v')} AS yumurta,
+               {db.dondurulan_yumurta_sql('v')} AS yumurta, t.etiket,
                t.gonderim_zamani AS gun, t.gonderim_yeri AS yer
           FROM olay v JOIN specimen s ON s.id = v.specimen_id
           JOIN cycle c ON c.id = s.cycle_id
@@ -884,6 +886,7 @@ def tasinan_tupler(kosul: str, par) -> list:
     tupler = {}
     for r in satirlar:
         tp = tupler.setdefault(r["tup"], {
+            "tup": r["tup"], "etiket": r["etiket"], "tedavi": r["vit_cid"],
             "gun": r["gun"], "yer": r["yer"], "yumurta": bool(r["yumurta"]),
             "ogeler": [], "olgunluk": []})
         tp["ogeler"].append(_ornek_kalitesi(r["specimen_id"], r["vit_cid"]))

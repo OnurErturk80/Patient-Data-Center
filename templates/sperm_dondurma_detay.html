@@ -25,6 +25,33 @@
   </dl>
 </div>
 
+{# Başka merkeze taşındı (v6.205): tüp Cryo Haritası'ndan çıktı, kayıt
+   duruyor. Geri almak Taşınma bölümünün yolundan (tek tüp, dönüş buraya). #}
+{% if sd.tasiyici_durum == "gonderildi" %}
+<div class="kart">
+  <h2>{{ metin("gonderim_baslik") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("gonderim_tarihi") }}</dt>
+      <dd>{{ gg_aa_yyyy(sd.gonderim_zamani) if sd.gonderim_zamani else "—" }}</dd></div>
+    <div class="veri"><dt>{{ metin("gonderim_yeri") }}</dt>
+      <dd {% if not sd.gonderim_yeri %}class="yok"{% endif %}>{{ sd.gonderim_yeri or metin("girilmemis") }}</dd></div>
+    {% if sd.gonderim_notu %}
+    <div class="veri"><dt>{{ metin("gonderim_notu") }}</dt><dd>{{ sd.gonderim_notu }}</dd></div>
+    {% endif %}
+  </dl>
+  {% if yetkim("cryo") %}
+  <form method="post" action="/cryo/tasima/hasta/{{ sd.hasta_id }}/geri" style="margin:0 14px 14px"
+        onsubmit="return confirm({{ metin('gonderimi_geri_al_onay')|tojson }})">
+    <input type="hidden" name="tup" value="{{ sd.tasiyici_id }}">
+    <input type="hidden" name="donus" value="sperm">
+    <button class="dugme ikincil" type="submit">{{ metin("gonderimi_geri_al") }}</button>
+  </form>
+  {% endif %}
+</div>
+{% elif sd.tasiyici_durum == "dolu" and yetkim("cryo") %}
+<a class="dugme ikincil" href="/cryo/tasima/hasta/{{ sd.hasta_id }}?sec={{ sd.tasiyici_id }}">{{ metin("gonderim_ac") }}</a>
+{% endif %}
+
 {% if sd.kul_cycle_no %}
 <div class="kart">
   <h2>{{ metin("kullanildigi_tedavi") }}</h2>

@@ -839,6 +839,85 @@ METINLER = {
                                   "olarak işaretlenebilir.",
                             "en": "Only a full straw can be marked as moved."},
     "tasinan_tupler": {"tr": "Başka merkeze taşınan tüpler", "en": "Straws moved to another centre"},
+    # Taşınma bölümü (v6.205): hastanın örnekleri tek ekranda başka merkeze.
+    "tasima": {"tr": "Taşınma", "en": "Transfers out"},
+    "tasima_aciklama": {"tr": "Başka üniteye taşınan embriyo, yumurta ve sperm",
+                        "en": "Embryos, oocytes and sperm moved to another unit"},
+    "tasima_ozeti": {"tr": "{tup} tüp taşındı · son taşıma {tarih}",
+                     "en": "{tup} straws moved · last on {tarih}"},
+    "tasima_dugmesi": {"tr": "Başka merkeze taşıma", "en": "Move to another centre"},
+    "tasima_kaydet_baslik": {"tr": "Taşıma kaydet", "en": "Record a transfer"},
+    "tasima_ara_ipucu": {"tr": "Dosya no, hasta ya da eş adı",
+                         "en": "File no, patient or partner name"},
+    "tasima_ara_aciklama": {
+        "tr": "Hastayı bulun, tanktaki tüplerinden taşınanları seçip günü ve yeri "
+              "yazın. Örnekler Cryo Haritası'ndan çıkar; kayıt silinmez, hasta "
+              "kartında görünür ve geri alınabilir.",
+        "en": "Find the patient, select the straws that were moved and enter the "
+              "date and place. They leave the cryo map; the record is kept, shown "
+              "on the patient card and can be restored."},
+    "tasima_hasta_yok": {"tr": "Aramaya uyan, tankta ya da taşınmış örneği olan hasta yok.",
+                         "en": "No patient with stored or moved samples matches."},
+    "tasima_tankta": {"tr": "Tankta", "en": "In tank"},
+    "tasima_tasinan": {"tr": "Taşınan", "en": "Moved"},
+    "tasinanlar": {"tr": "Taşınanlar", "en": "Moved out"},
+    "tasinan_yok": {"tr": "Henüz başka merkeze taşınan örnek yok.",
+                    "en": "Nothing has been moved to another centre yet."},
+    "n_sperm_tupu": {"tr": "{n} sperm tüpü", "en": "{n} sperm tubes"},
+    "n_sperm_tupu_tekil": {"tr": "{n} sperm tüpü", "en": "{n} sperm tube"},
+    "tanktaki_ornekler": {"tr": "Tanktaki örnekler", "en": "Samples in the tank"},
+    "tanktaki_ornek_yok": {"tr": "Bu hastanın tankta örneği yok.",
+                           "en": "This patient has no samples in the tank."},
+    "tasima_secim_ipucu": {
+        "tr": "İşaretli tüpler taşınmış sayılır; taşınmayanın işaretini kaldırın.",
+        "en": "Ticked straws count as moved; untick the ones that stay."},
+    "tasima_onay": {"tr": "Seçilen örnekler başka merkeze taşındı olarak işaretlenecek "
+                          "ve Cryo Haritası'ndan çıkacak. Emin misiniz?",
+                    "en": "The selected samples will be marked as moved and leave the "
+                          "cryo map. Are you sure?"},
+    "tasima_kaydedildi": {"tr": "{n} örnek başka merkeze taşındı olarak kaydedildi; "
+                                "Cryo Haritası'ndan çıktı.",
+                          "en": "{n} samples recorded as moved; they left the cryo map."},
+    "tasima_geri_alindi": {"tr": "{n} tüp yeniden tankta sayılıyor.",
+                           "en": "{n} straws count as in the tank again."},
+    "tasima_geri_al": {"tr": "Bu taşımayı geri al", "en": "Undo this transfer"},
+    "tasima_geri_al_onay": {"tr": "Bu taşımanın tüpleri yeniden tankta (dolu) sayılacak. "
+                                  "Emin misiniz?",
+                            "en": "These straws will count as in the tank again. Are you sure?"},
+    "tasima_secim_yok": {"tr": "Taşınan en az bir örnek seçin.",
+                         "en": "Select at least one sample."},
+    "tasima_gecersiz": {"tr": "Seçilenlerden biri artık tankta değil (bu arada çözülmüş "
+                              "ya da taşınmış olabilir). Hiçbir şey yazılmadı; güncel "
+                              "listeden yeniden seçin.",
+                        "en": "One of the selected samples is no longer in the tank. "
+                              "Nothing was saved; select again from the current list."},
+    "tasima_tarih_once": {"tr": "Taşındığı gün seçilen örneklerden birinin "
+                                "dondurulmasından önce olamaz.",
+                          "en": "The date cannot be before one of the selected freezings."},
+    "tasima_excel_baslik": {"tr": "Adı bu hastaya benzeyen Excel kayıtları",
+                            "en": "Excel records with this patient's name"},
+    "tasima_excel_ipucu": {
+        "tr": "Cryo Excel'inde duran ama programda tüpü bulunamamış satırlar. Ad tek "
+              "başına kesin değildir: tarihe, içeriğe ve eşin adına bakın. Bu "
+              "hastanınsa işaretleyin; tanktan çıkarılır.",
+        "en": "Rows of the cryo map Excel with no tube in the program. A name alone "
+              "is not proof: check the date, content and partner. Tick it if it "
+              "belongs to this patient; it is removed from the tank."},
+    "tasima_excel_arama_ipucu": {
+        "tr": "Programda tüpü olmayan Excel satırları: hastanın taşıma ekranında ya da "
+              "kendi sayfasından \"Tanktan çıkarıldı\" ile işaretlenir.",
+        "en": "Excel rows with no tube in the program: marked on the patient's "
+              "transfer screen or on their own page."},
+    "tasima_excel_geri_ipucu": {
+        "tr": "Geri almak için kaydı açıp \"Tanka geri koy\"a basın; \"Bu taşımayı "
+              "geri al\" yalnızca programdaki tüpleri geri koyar.",
+        "en": "To undo, open the record and choose \"Put back in the tank\"; "
+              "\"Undo this transfer\" restores only the program's straws."},
+    "tasima_esin_dosyasi": {"tr": "Eşin ayrı dosyasındaki örnekler",
+                            "en": "Samples in the partner's own file"},
+    "tasima_hasta_baglanti": {"tr": "Hastanın bütün örnekleri için: Taşınma",
+                              "en": "For all of the patient's samples: Transfers out"},
+    "tasindi_rozet": {"tr": "Taşındı", "en": "Moved"},
 
     # ---- çözme (thaw) ----
     "konum_girilmemis_uzun": {"tr": "konum girilmemiş",

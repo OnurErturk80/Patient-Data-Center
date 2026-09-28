@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+import cryo_excel
 import cryo_sablon
 import db
 import disari
@@ -3332,7 +3333,10 @@ def hasta_detay(request: Request, hasta_id: int):
          "es_bag_acik": es_dosya_no_var() and bool(sperm_kayitlari),
          "es_hata": ES_BAG_HATALARI.get(request.query_params.get("es_hata", "")),
          "yeniden": hastanin_yeniden_dondurmalari(cycles),
-         "tasinan": hastanin_tasinan_tupleri(hasta_id)}
+         # Başka merkeze taşınanlar tedavi satırında (v6.205); Taşınma
+         # düğmesi tankta ya da taşınmış bir tüpü olan hastada.
+         "tasinan": hastanin_tasinan_tedavileri(hasta_id),
+         "tasima": tasima_sayilari(hasta_id)}
     )
 
 
@@ -3364,21 +3368,35 @@ def _islem_gunleri_sql(c: str = "c") -> str:
     return "".join(parca)
 
 
-def hastanin_tasinan_tupleri(hasta_id: int) -> list:
-    """Hastanın başka merkeze taşınan tüpleri (v6.182) -- hasta kartında ayrı
-    kart. Tüp Cryo Haritası'ndan çıkıyor (`durum='dolu'` süzgeci); geri
-    almak için tüpün sayfasına buradan ulaşılıyor. Göç yoksa boş."""
-    if not gonderim_var():
-        return []
-    return db.sorgu(
-        "SELECT t.id, t.etiket, t.gonderim_zamani, t.gonderim_yeri, "
-        f"COUNT(DISTINCT o.specimen_id) adet, {icerik_sql()}, "
-        "MIN(c.cycle_no) cycle_no "
-        "FROM tasiyici t JOIN olay o ON o.vit_tasiyici_id=t.id "
-        "AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
-        "JOIN specimen s ON s.id=o.specimen_id JOIN cycle c ON c.id=s.cycle_id "
-        "WHERE t.durum='gonderildi' AND c.hasta_id=? "
-        "GROUP BY t.id ORDER BY t.gonderim_zamani, t.etiket", (hasta_id,))
+def hastanin_tasinan_tedavileri(hasta_id: int) -> dict:
+    """Hasta kartının tedavi satırları için (v6.205, kullanıcının isteği: "Bu
+    hastaların hasta kartında tedaviler bölümünde taşıma yapıldığı
+    belirtilsin"): tedavi -> o tedavide DONDURULMUŞ ve başka merkeze taşınan
+    tüpler, taşıma (gün + yer) başına. v6.182'de ayrı bir karttaydı.
+
+    Tedavi dondurmanın YAPILDIĞI tedavi (`db.vit_tedavisi()`): FET'te yeniden
+    dondurulan tüp FET'in satırında -- resmî formun "Taşınan:" satırı da o
+    tedavinin formunda (`formlar.tasinan_notu()`). Tüpler ve parantezleri
+    formun kaynağından (`formlar.tasinan_tupler()`, `tup_metni()`): kart ile
+    form aynı içeriği yazsın. Göç yoksa boş.
+
+    -> {tedavi id: [{"gun", "yer", "parcalar": [{"icerik", "adet", "tup",
+    "parantez"}]}]}"""
+    sonuc = {}
+    for tp in formlar.tasinan_tupler("c.hasta_id = ?", (hasta_id,)):
+        gruplar = sonuc.setdefault(tp["tedavi"], {})
+        g = gruplar.setdefault((tp["gun"] or "", tp["yer"] or ""), {
+            "gun": tp["gun"], "yer": tp["yer"], "parcalar": {}})
+        icerik = "yumurta" if tp["yumurta"] else "embriyo"
+        p = g["parcalar"].setdefault(icerik, {"icerik": icerik, "adet": 0, "tup": 0,
+                                              "parantez": []})
+        p["adet"] += len(tp["ogeler"])
+        p["tup"] += 1
+        p["parantez"].append(formlar.tup_metni(tp))
+    return {tid: [{**g, "parcalar": [{**p, "parantez": " ".join(p["parantez"])}
+                                     for p in g["parcalar"].values()]}
+                  for _a, g in sorted(gruplar.items())]
+            for tid, gruplar in sonuc.items()}
 
 
 # Eşleştirme hataları adresten geliyor -- beyaz liste (tuzak #9).
@@ -4309,7 +4327,9 @@ def androloji_sperm_baglama_ekran(request: Request, cycle_id: int, ara: str = ""
         "  h.dosya_no, h.ad_soyad "
         "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
         "JOIN hasta h ON h.id = sd.hasta_id "
-        "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL")
+        # Başka merkeze taşınan sperm artık laboratuvarda değil (v6.205).
+        "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL "
+        "AND t.durum <> 'gonderildi'")
     if ara.strip():
         # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- SQLite'ın
         # LIKE'ı Türkçe ı/ş/ğ/ö/ü/ç'de büyük/küçük harf eşitlemiyor, arama
@@ -7723,7 +7743,10 @@ def cryo_harita(request: Request, ara: str = ""):
         "JOIN hasta h ON h.id = sd.hasta_id "
         "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
         "LEFT JOIN hasta uh ON uh.id = uc.hasta_id "
-        "WHERE sd.lab_id=? AND sd.iptal_mi=0")
+        # Başka merkeze taşınan sperm tüpü haritadan çıkıyor (v6.205) --
+        # embriyo tüpünün `durum='dolu'` süzgecinin karşılığı. Kullanılmış
+        # tüp v6.86'daki gibi rozetiyle kalıyor.
+        "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND t.durum <> 'gonderildi'")
     if ara.strip():
         # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- arama
         # terimi Türkçe ı/ş/ğ/ö/ü/ç için `tr_buyuk()`'ten geçmeli (v6.116).
@@ -7761,6 +7784,8 @@ def cryo_harita(request: Request, ara: str = ""):
          "embriyo_agaci": embriyo_agaci, "sperm_duzeni": sperm_duzeni,
          "konumsuz_sayisi": konumsuz_sayisi,
          "excel_sonuc": excel_kaydi_ara(ara),
+         # Taşınma bölümünün satırı (v6.205); göç yoksa None, satır yok.
+         "tasima": tasima_ozeti(),
          "harita_excel": harita_excel.durum(),
          # Laboratuvarın kendi Excel'i (v6.199) ve az önceki yüklemenin sonucu.
          "cryo_sablon": cryo_sablon.bilgi(),
@@ -8177,12 +8202,16 @@ def sperm_tedaviye_bagla(sperm_dondurma_id: int, cycle_id: int) -> bool:
 
     Yalnızca **henüz bağlanmamış** bir kayıt bağlanır; zaten bağlıysa sessizce
     hiçbir şey yapmaz (False döner) -- iki ekrandan aynı anda basılırsa
-    ikincisi birincinin bağını başka bir tedaviye çevirmesin.
+    ikincisi birincinin bağını başka bir tedaviye çevirmesin. Başka merkeze
+    taşınan tüp de bağlanmaz (v6.205): laboratuvarda değil, bağlansaydı
+    `durum`'u 'kullanildi' olup taşındığı bilgisi silinirdi.
     """
     c = db.tek("SELECT id FROM cycle WHERE id=? AND lab_id=?", (cycle_id, db.LAB_ID))
     sd = db.tek(
-        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND lab_id=? "
-        "AND iptal_mi=0 AND kullanim_cycle_id IS NULL",
+        "SELECT sd.tasiyici_id FROM sperm_dondurma sd "
+        "JOIN tasiyici t ON t.id = sd.tasiyici_id WHERE sd.id=? AND sd.lab_id=? "
+        "AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL "
+        "AND t.durum <> 'gonderildi'",
         (sperm_dondurma_id, db.LAB_ID))
     if not (c and sd):
         return False
@@ -8214,11 +8243,18 @@ def hastanin_sperm_kayitlari(hasta_id: int, yalnizca_bagsiz: bool = False) -> li
     süzüyor — androloji ekranındaki "bağlanmayı bekleyen kayıt var"
     uyarısı için; hasta kartı ise hepsini gösteriyor, bağlananın hangi
     tedavide kullanıldığını da yazarak.
+
+    Başka merkeze taşınan kayıt (v6.205) hasta kartında taşındığı gün ve
+    yerle görünüyor; "bağlanmayı bekleyen" sayılmıyor -- laboratuvarda değil.
     """
-    ek = " AND sd.kullanim_cycle_id IS NULL" if yalnizca_bagsiz else ""
+    ek = (" AND sd.kullanim_cycle_id IS NULL AND t.durum <> 'gonderildi'"
+          if yalnizca_bagsiz else "")
+    gonderim = ("t.gonderim_zamani, t.gonderim_yeri, t.gonderim_notu"
+                if gonderim_var() else
+                "NULL AS gonderim_zamani, NULL AS gonderim_yeri, NULL AS gonderim_notu")
     return db.sorgu(
         "SELECT sd.id, sd.dondurma_zamani, sd.sebep, sd.kullanim_cycle_id, "
-        "  t.etiket, t.durum AS tasiyici_durum, k.tam_yol, "
+        f"  t.etiket, t.durum AS tasiyici_durum, k.tam_yol, {gonderim}, "
         "  uc.cycle_no AS kul_cycle_no, uh.dosya_no AS kul_dosya_no, "
         "  uh.ad_soyad AS kul_ad_soyad "
         "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
@@ -8373,8 +8409,12 @@ async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
 
 @uygulama.get("/sperm-dondurma/{sperm_dondurma_id}")
 def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int, hata: str = ""):
+    # Başka merkeze taşındıysa (v6.205) günü, yeri, notu.
+    gonderim = ("t.gonderim_zamani, t.gonderim_yeri, t.gonderim_notu, "
+                if gonderim_var() else "")
     sd = db.tek(
         "SELECT sd.*, t.etiket, t.tip, t.renk, t.durum AS tasiyici_durum, "
+        f"  {gonderim}"
         "  k.tam_yol, h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
         "  uh.dosya_no AS kul_dosya_no, uh.ad_soyad AS kul_ad_soyad, "
         "  uc.cycle_no AS kul_cycle_no "
@@ -8601,6 +8641,25 @@ GONDERIM_HATALARI = {
 }
 
 
+def _gonderim_gunu(deger):
+    """Taşındığı gün: (gün, None) ya da (None, hata anahtarı). Gün zorunlu,
+    bugünden sonra olamaz (yapılmış bir işin kaydı), yıl `yil_kontrol()`'den.
+    Tek tüpün formu (v6.182) ve Taşınma bölümü (v6.205) aynı denetimden
+    geçiyor. Dondurmadan önce olmama denetimi çağıranda: tüpün günü orada."""
+    gun = (deger or "").strip()[:10]
+    try:
+        gun = yil_kontrol(bos_ise_none(gun))
+        if gun:
+            _dt.fromisoformat(gun)
+    except (FormHatasi, ValueError):
+        return None, "tarih_hatali"
+    if not gun:
+        return None, "tarih_yok"
+    if gun > _dt.now().date().isoformat():
+        return None, "tarih_ileri"
+    return gun, None
+
+
 def _konum_bosaldi_mi(b_konum_id, haric_tid):
     """Konumda (goblet) başka dolu tüp kalmadıysa konum 'bos' (vit_sil'in
     deseni, ama goblet birden çok tüp taşıyor -- hepsine bakıyor)."""
@@ -8635,32 +8694,45 @@ async def tasiyici_gonder(request: Request, tasiyici_id: int):
     donus = f"/cryo/tasiyici/{tasiyici_id}"
     if not _gonderilebilir(t, tasiyici_icerigi(tasiyici_id)):
         return RedirectResponse(donus + "?hata=dolu_degil", status_code=303)
-    gun = (f.get("gonderim_zamani") or "").strip()[:10]
-    try:
-        gun = yil_kontrol(bos_ise_none(gun))
-        if gun:
-            _dt.fromisoformat(gun)
-    except (FormHatasi, ValueError):
-        return RedirectResponse(donus + "?hata=tarih_hatali", status_code=303)
-    if not gun:
-        return RedirectResponse(donus + "?hata=tarih_yok", status_code=303)
-    if gun > _dt.now().date().isoformat():
-        return RedirectResponse(donus + "?hata=tarih_ileri", status_code=303)
+    gun, hata = _gonderim_gunu(f.get("gonderim_zamani"))
+    if hata:
+        return RedirectResponse(donus + f"?hata={hata}", status_code=303)
     ilk = db.tek("SELECT MIN(zaman) z FROM olay WHERE vit_tasiyici_id=? "
                  "AND tip='vitrifikasyon' AND iptal_mi=0", (tasiyici_id,))
     if ilk and ilk["z"] and gun < ilk["z"][:10]:
         return RedirectResponse(donus + "?hata=tarih_once", status_code=303)
+    _gonderildi_yaz(t, gun, f.get("gonderim_yeri"), f.get("gonderim_notu"),
+                    request.state.kullanici["id"])
+    return RedirectResponse(donus, status_code=303)
+
+
+def _gonderildi_yaz(t, gun, yer, notu, kid) -> None:
+    """Tüpü "başka merkeze taşındı" yapar: durum, gün, yer, not; değişiklik
+    geçmişine yazılır (açık ekranların tazelemesi de oradan görüyor, v6.54)
+    ve goblette başka dolu tüp kalmadıysa konum boşalır. Tek tüpün formu
+    (v6.182) ve Taşınma bölümü (v6.205) aynı yoldan."""
     yeni = {"durum": "gonderildi", "gonderim_zamani": gun,
-            "gonderim_yeri": bos_ise_none((f.get("gonderim_yeri") or "").strip()),
-            "gonderim_notu": bos_ise_none((f.get("gonderim_notu") or "").strip())}
+            "gonderim_yeri": bos_ise_none((yer or "").strip()),
+            "gonderim_notu": bos_ise_none((notu or "").strip())}
     db.yaz("UPDATE tasiyici SET durum=?, gonderim_zamani=?, gonderim_yeri=?, "
            "gonderim_notu=? WHERE id=?",
            (yeni["durum"], yeni["gonderim_zamani"], yeni["gonderim_yeri"],
-            yeni["gonderim_notu"], tasiyici_id))
-    guvenlik.degisiklikleri_yaz("tasiyici", tasiyici_id, t, yeni,
-                                request.state.kullanici["id"])
-    _konum_bosaldi_mi(t["konum_id"], tasiyici_id)
-    return RedirectResponse(donus, status_code=303)
+            yeni["gonderim_notu"], t["id"]))
+    guvenlik.degisiklikleri_yaz("tasiyici", t["id"], t, yeni, kid)
+    _konum_bosaldi_mi(t["konum_id"], t["id"])
+
+
+def _gonderimi_kaldir(t, kid) -> None:
+    """"Taşındı" işaretini kaldırır, tüp yeniden dolu (v6.182). Kayıt hiç
+    silinmediği için geri almak yalnızca durumu ve gönderimin üç alanını
+    geri yazıyor."""
+    yeni = {"durum": "dolu", "gonderim_zamani": None, "gonderim_yeri": None,
+            "gonderim_notu": None}
+    db.yaz("UPDATE tasiyici SET durum='dolu', gonderim_zamani=NULL, "
+           "gonderim_yeri=NULL, gonderim_notu=NULL WHERE id=?", (t["id"],))
+    guvenlik.degisiklikleri_yaz("tasiyici", t["id"], t, yeni, kid)
+    if t["konum_id"]:
+        db.yaz("UPDATE konum SET durum='dolu' WHERE id=?", (t["konum_id"],))
 
 
 @uygulama.post("/cryo/tasiyici/{tasiyici_id}/gonderimi-geri-al")
@@ -8672,15 +8744,387 @@ async def tasiyici_gonderimi_geri_al(request: Request, tasiyici_id: int):
     if not t or not gonderim_var():
         return RedirectResponse("/cryo", status_code=303)
     if t["durum"] == "gonderildi":
-        yeni = {"durum": "dolu", "gonderim_zamani": None, "gonderim_yeri": None,
-                "gonderim_notu": None}
-        db.yaz("UPDATE tasiyici SET durum='dolu', gonderim_zamani=NULL, "
-               "gonderim_yeri=NULL, gonderim_notu=NULL WHERE id=?", (tasiyici_id,))
-        guvenlik.degisiklikleri_yaz("tasiyici", tasiyici_id, t, yeni,
-                                    request.state.kullanici["id"])
-        if t["konum_id"]:
-            db.yaz("UPDATE konum SET durum='dolu' WHERE id=?", (t["konum_id"],))
+        _gonderimi_kaldir(t, request.state.kullanici["id"])
     return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
+
+
+# ------------------------------------------------ Taşınma bölümü (v6.205)
+#
+# Kullanıcının isteği (2026-09-28): "Bazı hastalar embriyo, yumurta ve
+# spermlerini başka üniteye taşıyor. Bu işlem sonrası cryo haritadan örnekler
+# siliniyor. Bunun için cryo harita bölümünde taşınma diye bir bölüm olsun.
+# Embriyosu ve yumurtası taşınan hastanın örneği cryo haritadan silinsin. Bu
+# hastaların hasta kartında tedaviler bölümünde taşıma yapıldığı
+# belirtilsin."
+#
+# v6.182'nin işareti tüp tüptü ve yalnızca embriyo tüpünün kendi sayfasındaydı;
+# burada hastanın bütün örnekleri tek ekranda: hasta aranır, tanktaki tüpleri
+# (embriyo, yumurta, sperm) seçilir, gün / yer / not bir kez yazılır. Kayıt
+# yine SİLİNMİYOR: tüpün durumu 'gonderildi'. Cryo Haritası, boş yer önerisi,
+# iki Excel dosyası ve formların "Kalan dondurulmuş"u yalnızca dolu tüpü
+# saydığı için örnek haritadan çıkıyor; kayıt, hasta kartında ve burada
+# duruyor, geri alınabiliyor.
+
+def _tasima_sayim_sql(h: str, kategori: str, durum: str) -> str:
+    """Bir hastanın belirli durumdaki tüp sayısı -- bağıntılı alt sorgu. Üç
+    değer de koddan gelir (adresten değil). Embriyo tüpünün hastası dondurma
+    olayı üzerinden (olay -> örnek -> tedavi), sperm tüpününki dondurma
+    kaydından; `_ETIKET_HASTA`'nın iki yolu."""
+    if kategori == "embriyo":
+        return ("(SELECT COUNT(DISTINCT t.id) FROM tasiyici t "
+                "JOIN olay o ON o.vit_tasiyici_id = t.id AND o.tip = 'vitrifikasyon' "
+                "AND o.iptal_mi = 0 JOIN specimen s ON s.id = o.specimen_id "
+                f"JOIN cycle c ON c.id = s.cycle_id WHERE c.hasta_id = {h} "
+                f"AND t.kategori = 'embriyo' AND t.durum = '{durum}')")
+    return ("(SELECT COUNT(*) FROM sperm_dondurma sd "
+            "JOIN tasiyici t ON t.id = sd.tasiyici_id "
+            f"WHERE sd.hasta_id = {h} AND sd.iptal_mi = 0 AND t.durum = '{durum}')")
+
+
+# embriyo_tankta, embriyo_tasinan, sperm_tankta, sperm_tasinan -- `h` hasta.
+_TASIMA_SAYIMLARI = ", ".join(
+    f"{_tasima_sayim_sql('h.id', k, d)} AS {k}_{ad}"
+    for k in ("embriyo", "sperm")
+    for d, ad in (("dolu", "tankta"), ("gonderildi", "tasinan")))
+
+
+def tasima_sayilari(hasta_id: int) -> dict:
+    """Hastanın tankta ve taşınmış tüp sayıları; göç yoksa boş. Hasta kartı
+    Taşınma düğmesini buna bakarak basıyor."""
+    if not gonderim_var():
+        return {}
+    r = db.tek(f"SELECT {_TASIMA_SAYIMLARI} FROM hasta h WHERE h.id = ?", (hasta_id,))
+    return dict(r) if r else {}
+
+
+def tasima_hasta_ara(ara: str) -> list:
+    """Taşınma bölümünün araması: dosya no, hasta ya da eş adı; yalnızca tankta
+    ya da taşınmış örneği olan hastalar, sayılarıyla. Adlar büyük harfle
+    kayıtlı -- terim `tr_buyuk()`'ten (v6.116), dosya no ham."""
+    ara = (ara or "").strip()
+    if not ara or not gonderim_var():
+        return []
+    ad = f"%{tr_buyuk(ara)}%"
+    return db.sorgu(
+        f"SELECT * FROM (SELECT h.id, h.dosya_no, h.ad_soyad, h.es_adi, "
+        f"{_TASIMA_SAYIMLARI} FROM hasta h WHERE h.lab_id = ? AND "
+        "(CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ? OR h.es_adi LIKE ?)) "
+        "WHERE embriyo_tankta + embriyo_tasinan + sperm_tankta + sperm_tasinan > 0 "
+        "ORDER BY ad_soyad LIMIT 50", (db.LAB_ID, f"%{ara}%", ad, ad))
+
+
+def hastanin_tasima_tupleri(hasta_id: int) -> list:
+    """Hastanın tankta (dolu) ve başka merkeze taşınmış tüpleri: embriyo,
+    yumurta ve sperm. Çözülmüş (boşaltılmış) ya da kullanılmış tüp yok --
+    taşınamaz. Her satır: `id`, `kategori`, `durum`, `gonderim_*`, `tam_yol`,
+    `dondurma` (en erken dondurma anı: taşıma günü ondan önce olamaz),
+    embriyo tüpünde `tedavi_id` (dondurmanın YAPILDIĞI tedavi,
+    `db.vit_tedavisi()`), sperm tüpünde `sperm_id`; geri kalanı Cryo
+    Haritası'nın goblet satırıyla aynı (`yerlesim.tup_ayrintilari()`: etiket,
+    renk, tip, içerik parantezi, gün)."""
+    if not gonderim_var():
+        return []
+    ortak = ("t.id, t.kategori, t.durum, t.konum_id, t.gonderim_zamani, "
+             "t.gonderim_yeri, t.gonderim_notu, k.tam_yol")
+    satirlar = [dict(r) for r in db.sorgu(
+        f"SELECT {ortak}, MIN(o.zaman) AS dondurma, "
+        f"  MIN({db.vit_tedavisi('o')}) AS tedavi_id, NULL AS sperm_id "
+        "FROM tasiyici t JOIN olay o ON o.vit_tasiyici_id = t.id "
+        "  AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
+        "JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
+        "LEFT JOIN konum k ON k.id = t.konum_id "
+        "WHERE c.hasta_id = ? AND t.lab_id = ? AND t.kategori = 'embriyo' "
+        "  AND t.durum IN ('dolu', 'gonderildi') GROUP BY t.id",
+        (hasta_id, db.LAB_ID))]
+    satirlar += [dict(r) for r in db.sorgu(
+        f"SELECT {ortak}, sd.dondurma_zamani AS dondurma, NULL AS tedavi_id, "
+        "  sd.id AS sperm_id "
+        "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+        "LEFT JOIN konum k ON k.id = t.konum_id "
+        "WHERE sd.hasta_id = ? AND sd.lab_id = ? AND sd.iptal_mi = 0 "
+        "  AND t.durum IN ('dolu', 'gonderildi')", (hasta_id, db.LAB_ID))]
+    ayrinti = yerlesim.tup_ayrintilari([r["id"] for r in satirlar])
+    for r in satirlar:
+        for k, v in ayrinti.get(r["id"], {}).items():
+            r.setdefault(k, v)
+    return satirlar
+
+
+def hastanin_excel_adaylari(hasta) -> list:
+    """Adı bu hastanınkiyle aynı kelimelerden oluşan Excel kayıtları (v6.205):
+    Cryo Excel'inde duran ama programda tüpü bulunamamış satırlar (v6.189).
+    Hasta onlara BAĞLI DEĞİL -- ad tek başına kanıt değil (v6.125, v6.173);
+    ekran onları işaretsiz sunuyor, taşınanı kullanıcı seçiyor. Ölçü
+    `cryo_esle`'nin hasta ölçüsü: SOYAD + AD kelime kümesi = `ad_soyad`
+    kelime kümesi (sıra önemsiz). Tankta duranlar ve tanktan çıkarılmışlar."""
+    if not hasta or not yerlesim.excel_kaydi_var():
+        return []
+    ad = cryo_excel.kelimeler(hasta["ad_soyad"])
+    if not ad:
+        return []
+    return [dict(r) for r in db.sorgu(
+        "SELECT e.id, e.kategori, e.soyad, e.ad, e.es_adi, e.tarih, e.tarih_ham, "
+        "  e.icerik, e.vial, e.renk, e.durum, e.islem_zamani, e.islem_notu, "
+        "  k.tam_yol FROM excel_kaydi e LEFT JOIN konum k ON k.id = e.konum_id "
+        "WHERE e.lab_id = ? AND e.durum IN ('tankta', 'kaldirildi') "
+        "ORDER BY e.tarih, e.id", (db.LAB_ID,))
+        if cryo_excel.kelimeler(f"{r['soyad'] or ''} {r['ad'] or ''}") == ad]
+
+
+def tasinanlar() -> list:
+    """Başka merkeze taşınan örnekler, taşıma taşıma: aynı hastanın aynı gün
+    aynı yere giden tüpleri bir satır (kullanıcı tek seferde işaretliyor; tek
+    tüpün sayfasından ayrı ayrı işaretlenenler de aynı satırda toplanıyor).
+    En yeni üstte. Türetilmiş -- ayrı bir "taşıma" tablosu yok, tüpün kendi
+    alanları (v6.182) yetiyor."""
+    if not gonderim_var():
+        return []
+    gruplar = {}
+
+    def grup(r):
+        return gruplar.setdefault((r["hasta_id"], r["gun"] or "", r["yer"] or ""), {
+            "hasta_id": r["hasta_id"], "gun": r["gun"], "yer": r["yer"],
+            "embriyo": 0, "embriyo_tup": 0, "yumurta": 0, "yumurta_tup": 0,
+            "sperm_tup": 0})
+
+    for r in db.sorgu(
+            "SELECT t.id, t.gonderim_zamani AS gun, t.gonderim_yeri AS yer, "
+            f"  MIN(c.hasta_id) AS hasta_id, COUNT(DISTINCT o.specimen_id) AS adet, "
+            f"  {icerik_sql()} "
+            "FROM tasiyici t JOIN olay o ON o.vit_tasiyici_id = t.id "
+            "  AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
+            "JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
+            "WHERE t.lab_id = ? AND t.kategori = 'embriyo' AND t.durum = 'gonderildi' "
+            "GROUP BY t.id", (db.LAB_ID,)):
+        g = grup(r)
+        tur = "yumurta" if r["icerik"] == "yumurta" else "embriyo"
+        g[tur] += r["adet"]
+        g[tur + "_tup"] += 1
+    for r in db.sorgu(
+            "SELECT t.id, t.gonderim_zamani AS gun, t.gonderim_yeri AS yer, "
+            "  sd.hasta_id FROM tasiyici t "
+            "JOIN sperm_dondurma sd ON sd.tasiyici_id = t.id AND sd.iptal_mi = 0 "
+            "WHERE t.lab_id = ? AND t.kategori = 'sperm' AND t.durum = 'gonderildi'",
+            (db.LAB_ID,)):
+        grup(r)["sperm_tup"] += 1
+    if not gruplar:
+        return []
+    idler = sorted({g["hasta_id"] for g in gruplar.values()})
+    hastalar = {}
+    for i in range(0, len(idler), 500):          # SQLite'ın parametre sınırı
+        parca = idler[i:i + 500]
+        hastalar.update({r["id"]: dict(r) for r in db.sorgu(
+            f"SELECT id, dosya_no, ad_soyad FROM hasta WHERE id IN "
+            f"({','.join('?' * len(parca))})", tuple(parca))})
+    sonuc = []
+    for g in gruplar.values():
+        h = hastalar.get(g["hasta_id"], {})
+        sonuc.append({**g, "dosya_no": h.get("dosya_no"), "ad_soyad": h.get("ad_soyad")})
+    sonuc.sort(key=lambda g: g["ad_soyad"] or "")
+    sonuc.sort(key=lambda g: g["gun"] or "", reverse=True)
+    return sonuc
+
+
+def tasima_ozeti() -> dict | None:
+    """Cryo Haritası'nın Taşınma satırı için: taşınmış tüp sayısı ve son
+    taşımanın günü. Göç yoksa None (bölüm hiç basılmıyor)."""
+    if not gonderim_var():
+        return None
+    r = db.tek("SELECT COUNT(*) AS tup, MAX(gonderim_zamani) AS son FROM tasiyici "
+               "WHERE lab_id = ? AND durum = 'gonderildi'", (db.LAB_ID,))
+    return dict(r)
+
+
+# Adresten gelen hata anahtarı beyaz listeden (tuzak #9).
+TASIMA_HATALARI = {
+    "secim_yok": "tasima_secim_yok",
+    "gecersiz": "tasima_gecersiz",
+    "tarih_yok": "gonderim_tarih_yok",
+    "tarih_hatali": "gonderim_tarih_hatali",
+    "tarih_ileri": "gonderim_tarih_ileri",
+    "tarih_once": "tasima_tarih_once",
+}
+
+
+@uygulama.get("/cryo/tasima")
+def tasima(request: Request, ara: str = ""):
+    """Taşınma bölümü: hasta arama (taşıma kaydetmek için) ve taşınanlar."""
+    if not gonderim_var():
+        return RedirectResponse("/cryo", status_code=303)
+    return sablon.TemplateResponse(
+        request, "tasima.html",
+        {"ara": ara, "hastalar": tasima_hasta_ara(ara),
+         # Programda tüpü olmayan Excel kayıtları da bulunsun (Cryo
+         # Haritası'nın aramasıyla aynı sorgu, v6.189): kendi sayfalarından
+         # "tanktan çıkarıldı" olarak işaretleniyorlar.
+         "excel_sonuc": excel_kaydi_ara(ara),
+         "tasinanlar": tasinanlar()})
+
+
+@uygulama.get("/cryo/tasima/hasta/{hasta_id}")
+def tasima_hasta(request: Request, hasta_id: int, hata: str = "",
+                 kaydedildi: int = 0, geri_alindi: int = 0, sec: int = 0):
+    """Bir hastanın taşıma ekranı: tanktaki tüpleri (işaretli gelir, taşınmayan
+    kaldırılır), gün / yer / not, taşınanlar ve geri alma. `?sec=<tüp>` tek
+    bir tüpün sayfasından gelindiğini söyler: yalnızca o işaretli gelir."""
+    if not gonderim_var():
+        return RedirectResponse("/cryo", status_code=303)
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ? AND lab_id = ?", (hasta_id, db.LAB_ID))
+    if not hasta:
+        return RedirectResponse("/cryo/tasima", status_code=303)
+    tupler = hastanin_tasima_tupleri(hasta_id)
+    idler = sorted({t["tedavi_id"] for t in tupler if t["tedavi_id"]})
+    tedaviler = {}
+    if idler:
+        tedaviler = {r["id"]: dict(r) for r in db.sorgu(
+            "SELECT id, cycle_no, cycle_tipi, hasta_cycle_no FROM cycle WHERE id IN "
+            f"({','.join('?' * len(idler))})", tuple(idler))}
+    # Tanktakiler tedavi tedavi, hasta kartının sırasıyla (son tedavi üstte),
+    # sonra sperm.
+    tankta = []
+    emb = [t for t in tupler if t["durum"] == "dolu" and t["kategori"] == "embriyo"]
+    for tid in sorted({t["tedavi_id"] for t in emb},
+                      key=lambda i: (-(tedaviler.get(i, {}).get("hasta_cycle_no") or 0),
+                                     -(i or 0))):
+        tankta.append({"tedavi": tedaviler.get(tid), "sperm": False,
+                       "tupler": sorted((t for t in emb if t["tedavi_id"] == tid),
+                                        key=lambda t: t.get("etiket") or "")})
+    sp = [t for t in tupler if t["durum"] == "dolu" and t["kategori"] == "sperm"]
+    if sp:
+        tankta.append({"tedavi": None, "sperm": True,
+                       "tupler": sorted(sp, key=lambda t: (t["dondurma"] or "",
+                                                           t.get("etiket") or ""))})
+    # Taşınanlar: taşıma (gün + yer) başına, en yeni üstte.
+    gruplar = {}
+    for t in tupler:
+        if t["durum"] == "gonderildi":
+            gruplar.setdefault((t["gonderim_zamani"] or "", t["gonderim_yeri"] or ""),
+                               []).append(t)
+    tasinan = [{"gun": gun or None, "yer": yer or None,
+                "tupler": sorted(l, key=lambda t: (t["kategori"], t.get("etiket") or "")),
+                "notlar": sorted({t["gonderim_notu"] for t in l if t["gonderim_notu"]})}
+               for (gun, yer), l in sorted(gruplar.items(), key=lambda x: x[0][0],
+                                           reverse=True)]
+    # Eşin ayrı dosyası (v6.139 / v6.180): çiftin taşıması çoğu zaman birlikte;
+    # sperm erkeğin kendi dosya numarasındaysa o dosyanın ekranına bağlantı.
+    esler = []
+    if es_dosya_no_var():
+        adaylar = []
+        if hasta["es_dosya_no"]:
+            e = dosya_no_sahibi(hasta["es_dosya_no"])
+            if e and e["id"] != hasta_id:
+                adaylar.append(e)
+        adaylar += [dict(r) for r in db.sorgu(
+            "SELECT id, dosya_no, ad_soyad FROM hasta WHERE lab_id = ? "
+            "AND es_dosya_no = ? AND id <> ?", (db.LAB_ID, hasta["dosya_no"], hasta_id))]
+        for e in adaylar:
+            s = tasima_sayilari(e["id"])
+            if sum(s.values()):
+                esler.append({**e, **s})
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id = ?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "tasima_hasta.html",
+        {"hasta": hasta, "tankta": tankta, "tasinan": tasinan,
+         "excel": hastanin_excel_adaylari(hasta), "esler": esler,
+         # Daha önce yazılan yerler öneri olarak (`<datalist>`: listede
+         # olmayan bir merkez de yazılabilir, CLAUDE.md'nin öneri menüsü
+         # kuralı).
+         "yerler": [r["gonderim_yeri"] for r in db.sorgu(
+             "SELECT DISTINCT gonderim_yeri FROM tasiyici WHERE lab_id = ? "
+             "AND gonderim_yeri IS NOT NULL ORDER BY gonderim_yeri", (db.LAB_ID,))],
+         "etiketler": etiketler, "hata": TASIMA_HATALARI.get(hata),
+         "kaydedildi": max(0, kaydedildi), "geri_alindi": max(0, geri_alindi),
+         # Yalnızca bu hastanın tanktaki bir tüpüyse; değilse hepsi işaretli.
+         "sec": sec if any(t["id"] == sec for g in tankta for t in g["tupler"]) else 0,
+         "bugun": _dt.now().date().isoformat()})
+
+
+@uygulama.post("/cryo/tasima/hasta/{hasta_id}")
+async def tasima_kaydet(request: Request, hasta_id: int):
+    """Seçilen tüpleri (ve Excel kayıtlarını) başka merkeze taşındı yapar.
+
+    Hepsi ya da hiçbiri: seçilenlerden biri bu hastanın tanktaki tüpü değilse
+    (bu arada çözüldü, başka bir ekrandan taşındı) hiçbir şey yazılmıyor,
+    ekran yeniden açılıp güncel hali gösteriyor. Gün tek (`_gonderim_gunu()`)
+    ve seçilen tüplerin hiçbirinin dondurulmasından önce olamaz."""
+    f = await request.form()
+    don = f"/cryo/tasima/hasta/{hasta_id}"
+    hasta = db.tek("SELECT * FROM hasta WHERE id = ? AND lab_id = ?", (hasta_id, db.LAB_ID))
+    if not hasta or not gonderim_var():
+        return RedirectResponse("/cryo", status_code=303)
+    tupler = {t["id"]: t for t in hastanin_tasima_tupleri(hasta_id)}
+    secilen = {int(x) for x in f.getlist("tup") if str(x).strip().isdigit()}
+    excel_sec = {int(x) for x in f.getlist("excel") if str(x).strip().isdigit()}
+    if not secilen and not excel_sec:
+        return RedirectResponse(don + "?hata=secim_yok", status_code=303)
+    adaylar = ({e["id"]: e for e in hastanin_excel_adaylari(hasta)}
+               if excel_sec else {})
+    if (any(i not in tupler or tupler[i]["durum"] != "dolu" for i in secilen)
+            or any(i not in adaylar or adaylar[i]["durum"] != "tankta" for i in excel_sec)):
+        return RedirectResponse(don + "?hata=gecersiz", status_code=303)
+    gun, hata = _gonderim_gunu(f.get("gonderim_zamani"))
+    if hata:
+        return RedirectResponse(don + f"?hata={hata}", status_code=303)
+    en_gec = max([(tupler[i]["dondurma"] or "")[:10] for i in secilen]
+                 + [(adaylar[i]["tarih"] or "")[:10] for i in excel_sec])
+    if en_gec and gun < en_gec:
+        return RedirectResponse(don + "?hata=tarih_once", status_code=303)
+    kid = request.state.kullanici["id"]
+    yer, notu = f.get("gonderim_yeri"), f.get("gonderim_notu")
+    n = 0
+    for tid in sorted(secilen):
+        t = db.tek("SELECT * FROM tasiyici WHERE id = ?", (tid,))
+        if t and t["durum"] == "dolu":
+            _gonderildi_yaz(t, gun, yer, notu, kid)
+            n += 1
+    if excel_sec:
+        # Excel kaydının "tanktan çıkarıldı"sı (v6.189): tarih ve not -- not,
+        # tüplerin cümlesiyle ("... tarihinde ... taşındı.").
+        cumle = metinler.t("gonderim_cumlesi").format(
+            tarih=gg_aa_yyyy(gun),
+            yer=(yer or "").strip() or metinler.t("gonderim_baska_merkeze"))
+        if (notu or "").strip():
+            cumle += " " + notu.strip()
+        simdi = _dt.now().isoformat(" ", "seconds")
+        with db.yazma_islemi() as b:
+            for eid in sorted(excel_sec):
+                e = b.execute("SELECT durum FROM excel_kaydi WHERE id = ? AND lab_id = ?",
+                              (eid, db.LAB_ID)).fetchone()
+                if e and e["durum"] == "tankta":
+                    b.execute("UPDATE excel_kaydi SET durum='kaldirildi', islem_zamani=?, "
+                              "islem_notu=?, islem_kullanici_id=? WHERE id=?",
+                              (gun, cumle, kid, eid))
+                    _excel_logla(b, eid, "durum", "tankta", "kaldirildi", kid, simdi)
+                    n += 1
+    return RedirectResponse(don + f"?kaydedildi={n}", status_code=303)
+
+
+@uygulama.post("/cryo/tasima/hasta/{hasta_id}/geri")
+async def tasima_geri(request: Request, hasta_id: int):
+    """Bir taşımayı (ya da tek bir tüpün taşınmasını) geri alır: tüpler
+    yeniden dolu. Yalnızca bu hastanın taşınmış tüpleri. Rota adı `geri-al`
+    değil: o ad "silme" modülüne düşer (`yol_modulu()`), bu bir cryo işi.
+    Sperm sayfasından gelindiyse (`donus=sperm`, tek tüp) oraya dönülüyor --
+    adres sunucuda kuruluyor, formdan gelen bir yol değil."""
+    f = await request.form()
+    if not gonderim_var():
+        return RedirectResponse("/cryo", status_code=303)
+    tupler = {t["id"]: t for t in hastanin_tasima_tupleri(hasta_id)}
+    ham = [int(x) for x in f.getlist("tup") if str(x).strip().isdigit()]
+    kid = request.state.kullanici["id"]
+    n = 0
+    for tid in sorted(set(ham)):
+        if tid in tupler and tupler[tid]["durum"] == "gonderildi":
+            t = db.tek("SELECT * FROM tasiyici WHERE id = ?", (tid,))
+            if t and t["durum"] == "gonderildi":
+                _gonderimi_kaldir(t, kid)
+                n += 1
+    if f.get("donus") == "sperm" and len(ham) == 1 and tupler.get(ham[0], {}).get("sperm_id"):
+        return RedirectResponse(f"/sperm-dondurma/{tupler[ham[0]]['sperm_id']}",
+                                status_code=303)
+    return RedirectResponse(f"/cryo/tasima/hasta/{hasta_id}?geri_alindi={n}",
+                            status_code=303)
 
 
 def _vit_kaydi(specimen_id, cycle: int = 0):

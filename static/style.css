@@ -1722,3 +1722,16 @@ form.satir.aday .dugme.kucuk {
   cursor: pointer;
 }
 #onerilisteler.bekliyor { opacity: .5; }
+
+/* Taşınma bölümü (v6.205): hastanın tüpleri tedavi tedavi (ya da taşıma
+   taşıma) gruplanıyor; grup başlığı kartın içinde küçük bir satır. Taşınan
+   tüp satırı seçim satırının yazımıyla, onay kutusu yok. */
+.tasimagrup {
+  padding: 10px 14px 6px; border-top: 1px solid var(--line);
+  font-size: 13px; font-weight: 700; color: var(--baslik);
+}
+.satir.tasimasatir { display: flex; gap: 10px; align-items: flex-start; }
+.tasimasatir .renknokta { margin-top: 5px; }
+.tasimasatir .bilgi em {
+  display: block; font-style: normal; font-size: 13px; color: var(--ink-2);
+}

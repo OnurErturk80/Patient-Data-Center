@@ -16080,3 +16080,102 @@ program pencereli.
   (kodla ilgisiz), yeniden çalıştırınca yüklendi. Dosyalar: Windows 16,2 MB,
   Mac Apple Silicon 18,4 MB, Mac Intel 19,4 MB.
 - **Gerçek bir bilgisayarda ilk kurulum henüz yapılmadı.**
+
+# v6.205 — Cryo Haritası'nda Taşınma bölümü: embriyo, yumurta ve sperm başka merkeze
+
+Kullanıcının isteği (2026-09-28): "Bazı hastalar embriyo, yumurta ve
+spermlerini başka üniteye taşıyor. Bu işlem sonrası cryo haritadan örnekler
+siliniyor. Bunun için cryo harita bölümünde taşınma diye bir bölüm olsun.
+Embriyosu ve yumurtası taşınan hastanın örneği cryo haritadan silinsin. Bu
+hastaların hasta kartında tedaviler bölümünde taşıma yapıldığı belirtilsin."
+
+v6.182'den beri tek bir tüp, kendi sayfasından "başka merkeze taşındı"
+işaretlenebiliyordu (`tasiyici.durum='gonderildi'`, gün / yer / not). Eksik
+olan üç şeydi: hastanın bütün örneklerini tek seferde işaretlemek, sperm
+tüpü (işaret yalnızca embriyo tüpünün sayfasındaydı) ve hasta kartında
+tedavinin satırı. Yeni tablo ya da göç yok: tüpün v6.182 alanları yetiyor.
+
+**"Haritadan silinsin" = haritadan ÇIKAR, kayıt silinmez.** Programın kuralı
+(silme = işaretleme) ve v6.182'nin kararı: tüp 'gonderildi' olur; Cryo
+Haritası, kanister sayfası, boş yer önerisi, iki Excel dosyası (programın
+düzeni ve laboratuvarın kendi Cryo Excel'i) ve formların "Kalan dondurulmuş"u
+yalnızca dolu tüpü saydığı için örnek hepsinden kalkıyor, goblet yuvası
+boşalıyor. Kayıt hasta kartında, Taşınma bölümünde ve resmî formun
+"Taşınan:" satırında duruyor; geri alınabiliyor.
+
+**Taşınma bölümü (`/cryo/tasima`)** -- Cryo Haritası'nın en üstünde tek
+satır ("Taşınma · Başka üniteye taşınan embriyo, yumurta ve sperm · 4 tüp
+taşındı · son taşıma ..."). İki kart:
+- **Taşıma kaydet**: dosya no, hasta ya da eş adıyla arama (ad `tr_buyuk()`,
+  v6.116); yalnızca tankta ya da taşınmış örneği olan hastalar, sayılarıyla.
+  Programda tüpü olmayan Excel kayıtları da bulunuyor (Cryo Haritası'nın
+  araması, v6.189).
+- **Taşınanlar**: aynı hastanın aynı gün aynı yere giden tüpleri bir satır,
+  en yeni üstte ("3 embriyo (2 tüp) · 5 yumurta (1 tüp) · 1 sperm tüpü ·
+  Memorial Hastanesi'ne"). Türetilmiş (`app.tasinanlar()`), ayrı bir "taşıma"
+  kaydı yok.
+
+**Hastanın taşıma ekranı (`/cryo/tasima/hasta/{id}`)** -- kimlik bandı üstte.
+- Tanktaki tüpler tedavi tedavi (hasta kartının sırası: son tedavi üstte),
+  sonra sperm; satır Cryo Haritası'nın goblet satırıyla aynı
+  (`yerlesim.tup_ayrintilari()`: etiket, renk, tip, "D5 (3AB-4BB)", yumurtada
+  "(5*MII)", dondurma günü, konum). **Hepsi işaretli gelir** -- hasta çoğu
+  zaman bütün örneklerini taşıtıyor; kalanın işareti kaldırılır. Tek bir
+  tüpün sayfasından gelindiyse (`?sec=<tüp>`, sperm sayfası) yalnızca o.
+- Gün (varsayılan bugün), nereye (daha önce yazılan yerler öneri olarak,
+  `<datalist>`: listede olmayan merkez de yazılır), not; tarayıcı onayı.
+  Yer kullanıcının yazdığı gibi, ekiyle (v6.182: program Türkçe ek
+  uydurmuyor).
+- **Hepsi ya da hiçbiri**: seçilenlerden biri bu arada tanktan çıktıysa
+  (çözüldü, başka ekrandan taşındı) hiçbir şey yazılmaz, ekran güncel haliyle
+  açılır. Gün zorunlu, bugünden sonra ve seçilenlerin hiçbirinin
+  dondurulmasından önce olamaz (`_gonderim_gunu()`, tek tüpün formuyla aynı
+  denetim). Hata anahtarları beyaz listeden (`TASIMA_HATALARI`, tuzak #9).
+- Her tüp değişiklik geçmişine yazılıyor (`_gonderildi_yaz()`, tek tüpün
+  formu da artık bundan geçiyor): açık ekranlar tazeleniyor, Excel haritası
+  bir dakika içinde yeniden yazılıyor (ikisi de günlüğün damgasına bakıyor).
+- **Taşınanlar** taşıma başına ("03.02.2026 tarihinde Memorial Hastanesi'ne
+  taşındı."), altında "Bu taşımayı geri al" (`/cryo/tasima/hasta/{id}/geri`:
+  `geri-al` adı "silme" modülüne düşerdi).
+- **Adı bu hastaya benzeyen Excel kayıtları** -- Cryo Excel'inde duran,
+  programda tüpü bulunamamış satırlar (v6.189). Hastaya BAĞLI DEĞİLLER: ölçü
+  `cryo_esle`'nin hasta ölçüsü (SOYAD + AD kelime kümesi = ad soyad), ama ad
+  tek başına kanıt değil (v6.125), o yüzden **işaretsiz** geliyor; tarihe,
+  içeriğe, eşin adına bakıp kullanıcı seçiyor. İşaretlenen kayıt v6.189'un
+  "tanktan çıkarıldı"sı oluyor, notu "... tarihinde ... taşındı." Bunların
+  geri alınması kendi sayfasından ("Tanka geri koy"): "Bu taşımayı geri al"
+  yalnızca programın tüplerini geri koyuyor -- hangi Excel kaydının hangi
+  taşımaya ait olduğunu program ad benzerliğinden çıkaramaz.
+- Eşin ayrı dosyası (v6.139 `es_dosya_no`, iki yönde): o dosyada tankta ya da
+  taşınmış örnek varsa bağlantı -- çiftin taşıması çoğu zaman birlikte, sperm
+  erkeğin kendi numarasında olabiliyor.
+
+**Sperm** -- şimdiye kadar taşınamıyordu. Taşınan sperm tüpü Cryo
+Haritası'nın sperm listesinden ve aramasından çıkıyor (ağaçta zaten yalnızca
+dolu tüp vardı), androloji ekranının "bağlanacak sperm" listesine ve hasta
+kartının "bağlanmayı bekleyen" uyarısına girmiyor, tedaviye bağlanamıyor
+(`sperm_tedaviye_bagla()`: bağlansaydı `durum` 'kullanildi' olup taşındığı
+bilgisi silinirdi). Sperm sayfasında "Başka merkeze taşındı" kartı ve geri
+alma; dolu tüpte "Başka merkeze taşındı olarak işaretle" bu hastanın taşıma
+ekranına, yalnızca o tüp işaretli. Kullanılmış tüp taşınmaz.
+
+**Hasta kartı** -- tedavi satırında "Taşındı" rozeti ve taşıma başına bir
+satır: "**3 embriyo**, 2 tüp (3AB-4BB) (8HG1) — 03.02.2026 tarihinde
+Memorial Hastanesi'ne taşındı." Tüp **dondurulduğu tedavinin** satırında
+(`db.vit_tedavisi()`: FET'te yeniden dondurulan tüp FET'in satırında), içerik
+resmî formun "Taşınan:" satırının kaynağından (`formlar.tasinan_tupler()` +
+`tup_metni()`) -- kart ile form aynı şeyi yazsın. Sperm satırında "Taşındı ...
+tarihinde ... taşındı." ve bağlama formu yok. v6.182'nin ayrı "Başka merkeze
+taşınan tüpler" kartı kaldırıldı (içeriği artık tedavinin satırında); yerinde
+"Başka merkeze taşıma" düğmesi (tankta ya da taşınmış tüpü olan hastada)
+Taşınma ekranına gidiyor.
+
+Denendi (sahte veri: iki embriyo tüpü, bir yumurta tüpü, çiftin ve eşin ayrı
+dosyasının sperm tüpleri, bir Excel kaydı, küçük bir tank düzeni): seçimsiz /
+ileri / dondurmadan önceki / geçersiz tüp hiçbir şey yazmadı; toplu taşıma,
+Cryo Haritası'nın ağacı ve kanister sayfası (yuvalar boşaldı), Excel haritası
+(taşınanlar yok, kalanlar var), resmî formun "Taşınan:" satırı, hasta kartı,
+sperm bağlama engeli, sperm sayfasından ve taşımadan geri alma (tüpler ve
+konumlar geri döndü); telefon (390px) ve masaüstünde yatay kayma yok. Gerçek
+veri kopyasında (1.823 hasta) tek harfle arama 0,3 sn, hastanın ekranının
+sorguları 0,01 sn.

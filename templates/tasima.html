@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("tasima") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block govde %}genissayfa{% endblock %}
+{% block icerik %}
+
+{# Taşınma bölümü (v6.205, kullanıcının isteği: "cryo harita bölümünde
+   taşınma diye bir bölüm olsun"). İki bağımsız kart -- taşıma kaydetmek için
+   hasta arama ve taşınanların listesi -- o yüzden iki sütun (CLAUDE.md'nin
+   ölçüsü). Bölme noktası kaynak sırasında: telefonda arama önce. #}
+
+<div class="sutunlar">
+<div class="sutun">
+
+<div class="kart">
+  <h2>{{ metin("tasima_kaydet_baslik") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 0">{{ metin("tasima_ara_aciklama") }}</div>
+  <form class="arama" method="get" action="/cryo/tasima" style="padding:10px 14px">
+    <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
+           inputmode="search" placeholder="{{ metin('tasima_ara_ipucu') }}">
+  </form>
+  {% for h in hastalar %}
+  <a class="satir hasta" href="/cryo/tasima/hasta/{{ h.id }}">
+    <div class="ad">{{ h.ad_soyad }}</div>
+    <div class="no">{{ h.dosya_no }}{% if h.es_adi %} · {{ metin("es") }}: {{ h.es_adi }}{% endif %}</div>
+    <div class="meta">{{ metin("tasima_tankta") }}: <b>{{ say("n_tup", h.embriyo_tankta + h.sperm_tankta) }}</b>
+      {%- if h.embriyo_tasinan + h.sperm_tasinan %} · {{ metin("tasima_tasinan") }}: {{ say("n_tup", h.embriyo_tasinan + h.sperm_tasinan) }}{% endif %}</div>
+  </a>
+  {% else %}
+  {% if ara %}<div class="bos">{{ metin("tasima_hasta_yok") }}</div>{% endif %}
+  {% endfor %}
+</div>
+
+{# Programda tüpü olmayan Excel satırları da aransın (Cryo Haritası'nın
+   araması, v6.189): hastası programda yoksa taşıma ekranında görünmez. #}
+{% if excel_sonuc %}
+<div class="kart">
+  <h2>{{ metin("excel_kayitlari") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("tasima_excel_arama_ipucu") }} ({{ excel_sonuc|length }})</div>
+  {% for e in excel_sonuc %}
+  <a class="satir" href="/cryo/excel-kaydi/{{ e.id }}">
+    <div class="no">{{ e.soyad or "" }} {{ e.ad or "" }}</div>
+    <div class="meta">{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or "—") }}
+      {%- if e.icerik %} · {{ e.icerik }}{% endif %}{% if e.vial %} · {{ e.vial }}{% endif %}</div>
+    <div class="meta">{% if e.tam_yol %}{{ e.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+</div><div class="sutun">
+
+{# Taşınanlar: aynı hastanın aynı gün aynı yere giden tüpleri bir satır
+   (`app.tasinanlar()`), en yeni üstte. Satır hastanın taşıma ekranına --
+   geri alma orada. #}
+<div class="kart">
+  <h2>{{ metin("tasinanlar") }}</h2>
+  {% for g in tasinanlar %}
+  <a class="satir hasta" href="/cryo/tasima/hasta/{{ g.hasta_id }}">
+    <div class="ad">{{ g.ad_soyad or "—" }}</div>
+    <div class="no">{{ g.dosya_no or "" }} · {{ gg_aa_yyyy(g.gun) if g.gun else "—" }}</div>
+    <div class="meta">
+      {%- set parca = [] %}
+      {%- if g.embriyo_tup %}{% set _ = parca.append(icerik_sayisi(g.embriyo, icerik="embriyo") ~ " (" ~ say("n_tup", g.embriyo_tup) ~ ")") %}{% endif %}
+      {%- if g.yumurta_tup %}{% set _ = parca.append(icerik_sayisi(g.yumurta, icerik="yumurta") ~ " (" ~ say("n_tup", g.yumurta_tup) ~ ")") %}{% endif %}
+      {%- if g.sperm_tup %}{% set _ = parca.append(say("n_sperm_tupu", g.sperm_tup)) %}{% endif %}
+      <b>{{ parca|join(" · ") }}</b> · {{ g.yer or metin("gonderim_baska_merkeze") }}</div>
+  </a>
+  {% else %}
+  <div class="bos">{{ metin("tasinan_yok") }}</div>
+  {% endfor %}
+</div>
+
+</div>
+</div>{# sutunlar #}
+{% endblock %}

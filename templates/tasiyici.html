@@ -112,6 +112,9 @@
       <input type="text" id="gonderim_notu" name="gonderim_notu"></div>
     <button class="dugme" type="submit">{{ metin("gonderim_kaydet") }}</button>
   </form>
+  {# Hastanın bütün tüpleri tek ekranda (v6.205). #}
+  {% if icerik %}<div class="ipucu" style="margin:10px 0 0">
+    <a href="/cryo/tasima/hasta/{{ icerik[0].hasta_id }}">{{ metin("tasima_hasta_baglanti") }}</a></div>{% endif %}
 </details>
 {% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("tasima") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cryo/tasima">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ hasta.dosya_no }}</div>
+  <div class="isim">{{ hasta.ad_soyad }}</div>
+  <div class="alt">{% if hasta.es_adi %}{{ metin("es") }}: {{ hasta.es_adi }}{% endif %}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+
+{# Bir hastanın taşıma ekranı (v6.205). Tanktaki tüpler işaretli gelir --
+   hasta çoğu zaman bütün örneklerini taşıtıyor; kalanın işareti kaldırılır.
+   Kayıt silinmiyor: tüp 'gonderildi' olur, Cryo Haritası'ndan çıkar, hasta
+   kartının tedavi satırında görünür ve aşağıdan geri alınır. #}
+
+{% if hata %}<div class="tehlike">{{ metin(hata) }}</div>{% endif %}
+{% if kaydedildi %}<div class="uyari tamam">{{ metin("tasima_kaydedildi").format(n=kaydedildi) }}</div>{% endif %}
+{% if geri_alindi %}<div class="uyari tamam">{{ metin("tasima_geri_alindi").format(n=geri_alindi) }}</div>{% endif %}
+
+{# Tüpün iki satırı: taşıma formunda (onay kutusuyla) ve taşınanlarda aynı
+   yazım. İçerik Cryo Haritası'nın goblet satırından
+   (`yerlesim.tup_ayrintilari()`: "D5 (3AB-1BB)", yumurtada "(5*MII)"). #}
+{% macro tup_bilgisi(x) %}
+  <strong>{{ x.etiket }}</strong>{% if x.renk %} · {{ etiketler.get(x.renk, x.renk) }}{% endif %}
+  {%- if x.tip %} · {{ etiketler.get(x.tip, x.tip) }}{% endif %}
+  <em>{% if x.kategori == "sperm" %}{{ metin("sperm_dondurma") }}{% if x.sperm_sebep %} · {{ x.sperm_sebep }}{% endif %}
+    {%- else %}{{ icerik_sayisi(x.adet, icerik="yumurta" if x.yumurta else "embriyo") }}
+      {%- if x.parantez %} · {% if not x.yumurta and x.gun %}{{ x.gun }} {% endif %}{{ x.parantez }}{% endif %}{% endif %}
+    · {{ gg_aa_yyyy(x.dondurma) if x.dondurma else "—" }}</em>
+  <em>{% if x.tam_yol %}{{ x.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
+{% endmacro %}
+
+{% set excel_tankta = excel|selectattr("durum", "equalto", "tankta")|list %}
+{% set excel_cikan = excel|selectattr("durum", "equalto", "kaldirildi")|list %}
+
+{% if tankta or excel_tankta %}
+<form method="post" action="/cryo/tasima/hasta/{{ hasta.id }}" id="tasimaform"
+      onsubmit="return confirm({{ metin('tasima_onay')|tojson }})">
+  <div class="kart">
+    <h2>{{ metin("tanktaki_ornekler") }}</h2>
+    {% if tankta %}
+    <div class="ipucu" style="margin:8px 14px 4px">{{ metin("tasima_secim_ipucu") }}</div>
+    {% for g in tankta %}
+    <div class="tasimagrup">
+      {%- if g.sperm %}{{ metin("sperm_dondurma") }}
+      {%- elif g.tedavi %}{% if g.tedavi.hasta_cycle_no %}{{ say("n_cycle_sirali", g.tedavi.hasta_cycle_no) }} · {% endif %}{{ g.tedavi.cycle_no }} · {{ tip_kisa(g.tedavi.cycle_tipi) }}
+      {%- endif %}</div>
+    {% for x in g.tupler %}
+    {% set isaretli = not sec or x.id == sec %}
+    <label class="secsatir{% if isaretli %} secili{% endif %}">
+      <input type="checkbox" name="tup" value="{{ x.id }}"{% if isaretli %} checked{% endif %}>
+      <span class="kutu"></span>
+      <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
+      <span class="bilgi">{{ tup_bilgisi(x) }}</span>
+    </label>
+    {% endfor %}
+    {% endfor %}
+    {% else %}
+    <div class="bos">{{ metin("tanktaki_ornek_yok") }}</div>
+    {% endif %}
+  </div>
+
+  {# Adı bu hastaya benzeyen Excel kayıtları (v6.205): hastaya bağlı değiller
+     (ad tek başına kanıt değil), o yüzden İŞARETSİZ geliyorlar. #}
+  {% if excel_tankta %}
+  <div class="kart">
+    <h2>{{ metin("tasima_excel_baslik") }}</h2>
+    <div class="ipucu" style="margin:8px 14px 4px">{{ metin("tasima_excel_ipucu") }}</div>
+    {% for e in excel_tankta %}
+    <label class="secsatir">
+      <input type="checkbox" name="excel" value="{{ e.id }}">
+      <span class="kutu"></span>
+      <span class="renknokta{% if e.renk %} renk-{{ e.renk }}{% endif %}"></span>
+      <span class="bilgi">
+        <strong>{{ metin("excel_kaydi") }}</strong> · {{ e.soyad or "" }} {{ e.ad or "" }}{% if e.es_adi %} · {{ metin("es") }}: {{ e.es_adi }}{% endif %}
+        <em>{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or "—") }}
+          {%- if e.icerik %} · {{ e.icerik }}{% endif %}{% if e.vial %} · {{ e.vial }}{% endif %}</em>
+        <em>{% if e.tam_yol %}{{ e.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="kart">
+    <h2>{{ metin("gonderim_baslik") }}</h2>
+    <div class="alan"><label for="gonderim_zamani">{{ metin("gonderim_tarihi") }}</label>
+      <input type="date" id="gonderim_zamani" name="gonderim_zamani" min="1900-01-01"
+             value="{{ bugun }}" required></div>
+    {# Önceki taşımaların yerleri öneri olarak; listede olmayan bir merkez de
+       yazılabilir (`<datalist>`). Yer kullanıcının yazdığı gibi, ekiyle:
+       notlarda "... tarihinde Memorial Hastanesi'ne taşındı" (v6.182). #}
+    <div class="alan"><label for="gonderim_yeri">{{ metin("gonderim_yeri") }}</label>
+      <input type="text" id="gonderim_yeri" name="gonderim_yeri" list="tasimayerleri"
+             autocomplete="off" placeholder="{{ metin('gonderim_yeri_ornek') }}">
+      <datalist id="tasimayerleri">{% for y in yerler %}<option value="{{ y }}">{% endfor %}</datalist></div>
+    <div class="alan"><label for="gonderim_notu">{{ metin("gonderim_notu") }}</label>
+      <input type="text" id="gonderim_notu" name="gonderim_notu"></div>
+    <button class="dugme" type="submit">{{ metin("gonderim_kaydet") }}</button>
+  </div>
+</form>
+{% else %}
+<div class="kart">
+  <h2>{{ metin("tanktaki_ornekler") }}</h2>
+  <div class="bos">{{ metin("tanktaki_ornek_yok") }}</div>
+</div>
+{% endif %}
+
+{% if tasinan %}
+<div class="kart">
+  <h2>{{ metin("tasinan_tupler") }}</h2>
+  {% for g in tasinan %}
+  <div class="tasimagrup">{{ metin("gonderim_cumlesi").format(
+       tarih=gg_aa_yyyy(g.gun) if g.gun else "—",
+       yer=g.yer or metin("gonderim_baska_merkeze")) }}</div>
+  {% for x in g.tupler %}
+  <a class="satir tasimasatir" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
+    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
+    <span class="bilgi">{{ tup_bilgisi(x) }}</span>
+  </a>
+  {% endfor %}
+  {% for n in g.notlar %}<div class="ipucu" style="margin:6px 14px 0">{{ metin("gonderim_notu") }}: {{ n }}</div>{% endfor %}
+  <form method="post" action="/cryo/tasima/hasta/{{ hasta.id }}/geri" style="margin:8px 14px 14px"
+        onsubmit="return confirm({{ metin('tasima_geri_al_onay')|tojson }})">
+    {% for x in g.tupler %}<input type="hidden" name="tup" value="{{ x.id }}">{% endfor %}
+    <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("tasima_geri_al") }}</button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if excel_cikan %}
+<div class="kart">
+  <h2>{{ metin("tasima_excel_baslik") }} · {{ metin("excel_kaydi_kaldirildi") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("tasima_excel_geri_ipucu") }}</div>
+  {% for e in excel_cikan %}
+  <a class="satir" href="/cryo/excel-kaydi/{{ e.id }}">
+    <div class="no">{{ e.soyad or "" }} {{ e.ad or "" }}</div>
+    <div class="meta">{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or "—") }}
+      {%- if e.icerik %} · {{ e.icerik }}{% endif %}</div>
+    <div class="meta">{{ metin("excel_kaydi_kaldirildi") }}: {{ gg_aa_yyyy(e.islem_zamani) if e.islem_zamani else "—" }}
+      {%- if e.islem_notu %} · {{ e.islem_notu }}{% endif %}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# Eşin ayrı dosyası (v6.139 / v6.180): çiftin taşıması çoğu zaman birlikte,
+   sperm erkeğin kendi dosya numarasında olabiliyor. #}
+{% if esler %}
+<div class="kart">
+  <h2>{{ metin("tasima_esin_dosyasi") }}</h2>
+  {% for e in esler %}
+  <a class="satir hasta" href="/cryo/tasima/hasta/{{ e.id }}">
+    <div class="ad">{{ e.ad_soyad }}</div>
+    <div class="no">{{ e.dosya_no }}</div>
+    <div class="meta">{{ metin("tasima_tankta") }}: <b>{{ say("n_tup", e.embriyo_tankta + e.sperm_tankta) }}</b>
+      {%- if e.embriyo_tasinan + e.sperm_tasinan %} · {{ metin("tasima_tasinan") }}: {{ say("n_tup", e.embriyo_tasinan + e.sperm_tasinan) }}{% endif %}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<a class="dugme ikincil" href="/hasta/{{ hasta.id }}">{{ metin("hasta_kaydi") }}</a>
+
+<script>
+(function () {
+  // Tuzak #10: form basılmadıysa sessizce çık.
+  var form = document.getElementById('tasimaform');
+  if (!form) return;
+  form.querySelectorAll('.secsatir input').forEach(function (i) {
+    i.addEventListener('change', function () {
+      i.closest('.secsatir').classList.toggle('secili', i.checked);
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -44,13 +44,19 @@
       {%- if sd.sebep %} · {{ sd.sebep }}{% endif %}
     </div>
     <div class="meta">
-      {% if sd.kullanim_cycle_id %}
+      {% if sd.tasiyici_durum == "gonderildi" %}
+        {#- Başka merkeze taşındı (v6.205): tüp laboratuvarda değil, bağlanamaz. #}
+        <span class="rozet">{{ metin("tasindi_rozet") }}</span> {{ metin("gonderim_cumlesi").format(
+          tarih=gg_aa_yyyy(sd.gonderim_zamani) if sd.gonderim_zamani else "—",
+          yer=sd.gonderim_yeri or metin("gonderim_baska_merkeze")) }}
+      {% elif sd.kullanim_cycle_id %}
         {{ metin("kullanildigi_tedavi") }}: {{ sd.kul_cycle_no }}
         {%- if sd.kul_ad_soyad %} · {{ sd.kul_dosya_no }} · {{ sd.kul_ad_soyad }}{% endif %}
       {% else %}{{ metin("sperm_bagli_degil") }}{% endif %}
     </div>
   </a>
-  {% if not sd.kullanim_cycle_id %}
+  {% if sd.tasiyici_durum == "gonderildi" %}
+  {% elif not sd.kullanim_cycle_id %}
     {% if baglanabilir %}
     {# Tedavi seçimi BU hastanın tedavileri arasından; başka bir hastanın
        tedavisine bağlamak androloji ekranının arama akışında kalıyor
@@ -172,7 +178,7 @@
   <h2>{{ metin("cycleler") }}</h2>
   {% for c in cycles %}
   <a class="satir" href="/cycle/{{ c.id }}">
-    <div class="no">{% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }}{% else %}{{ c.cycle_no }}{% endif %}{% if c.durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% elif c.durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>{% endif %}{% set _yd = yeniden.get(c.id) %}{% if _yd and _yd.dondurulan %} <span class="rozet">{{ metin("yeniden_dondurma_rozet") }}</span>{% endif %}</div>
+    <div class="no">{% if c.hasta_cycle_no %}{{ say("n_cycle_sirali", c.hasta_cycle_no) }}{% else %}{{ c.cycle_no }}{% endif %}{% if c.durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>{% elif c.durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>{% endif %}{% set _yd = yeniden.get(c.id) %}{% if _yd and _yd.dondurulan %} <span class="rozet">{{ metin("yeniden_dondurma_rozet") }}</span>{% endif %}{% set _ts = tasinan.get(c.id) %}{% if _ts %} <span class="rozet">{{ metin("tasindi_rozet") }}</span>{% endif %}</div>
     <div class="meta">
       {{ c.cycle_no }} · {{ tip_kisa(c.cycle_tipi) }}{% if c.opu_zamani %} · OPU {{ gg_aa_yyyy(c.opu_zamani) }}{% endif %}
       {#- FET, FET (3→5) ve Yumurta Çözme'de OPU yok: işlemin yapıldığı gün
@@ -197,27 +203,29 @@
     <div class="meta">{{ metin("yeniden_dondurulmus_tup_cozuldu") }}{% if t.etiket %}: {{ t.etiket }}{% endif %}{% if t.no %} ({{ say("n_tedaviden", t.no) }}){% endif %}</div>
     {% endfor %}
     {% endif %}
+    {# Başka merkeze taşınanlar (v6.205, kullanıcının isteği: "hasta kartında
+       tedaviler bölümünde taşıma yapıldığı belirtilsin"): bu tedavide
+       DONDURULAN tüpler, taşıma başına bir satır; içerik resmî formun
+       "Taşınan:" satırıyla aynı (`hastanin_tasinan_tedavileri()`). #}
+    {% for g in _ts or [] %}
+    <div class="meta">{% for p in g.parcalar %}{% if not loop.first %}; {% endif %}<b>{{ icerik_sayisi(p.adet, icerik=p.icerik) }}</b>, {{ say("n_tup", p.tup) }} {{ p.parantez }}{% endfor %} — {{ metin("gonderim_cumlesi").format(
+         tarih=gg_aa_yyyy(g.gun) if g.gun else "—",
+         yer=g.yer or metin("gonderim_baska_merkeze")) }}</div>
+    {% endfor %}
   </a>
   {% else %}
   <div class="bos">{{ metin("bu_hastada_cycle_yok") }}</div>
   {% endfor %}
 </div>
 
-{# Başka merkeze taşınan tüpler (v6.182): Cryo Haritası'nda artık yoklar;
-   tüpün sayfası (ve gönderimi geri alma) buradan bulunuyor. #}
-{% if tasinan %}
-<div class="kart">
-  <h2>{{ metin("tasinan_tupler") }}</h2>
-  {% for t in tasinan %}
-  <a class="satir" href="/cryo/tasiyici/{{ t.id }}">
-    <div class="no">{{ t.etiket }}</div>
-    <div class="meta">{{ icerik_sayisi(t.adet, icerik=t.icerik) }} · {{ t.cycle_no }}</div>
-    <div class="meta">{{ metin("gonderim_cumlesi").format(
-         tarih=gg_aa_yyyy(t.gonderim_zamani) if t.gonderim_zamani else "—",
-         yer=t.gonderim_yeri or metin("gonderim_baska_merkeze")) }}</div>
-  </a>
-  {% endfor %}
-</div>
+{# Başka merkeze taşıma (v6.205): hastanın bütün tüpleri Cryo Haritası'nın
+   Taşınma bölümünde, tek ekranda -- taşınanlar ve geri alma da orada.
+   v6.182'deki "Başka merkeze taşınan tüpler" kartının yerine: taşınanlar
+   artık yukarıda, dondurulduğu tedavinin satırında. Tankta ya da taşınmış
+   tüpü olmayan hastada düğme yok. #}
+{% if yetkim("cryo") and tasima and (tasima.embriyo_tankta + tasima.sperm_tankta
+      + tasima.embriyo_tasinan + tasima.sperm_tasinan) %}
+<a class="dugme ikincil" href="/cryo/tasima/hasta/{{ hasta.id }}">{{ metin("tasima_dugmesi") }}</a>
 {% endif %}
 
 {% if hasta.notlar %}

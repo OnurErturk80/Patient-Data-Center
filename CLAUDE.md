@@ -2273,6 +2273,27 @@ besleniyor.
   eksik`: programda dolu, Excel'de karşılığı olmayan tüpler, yalnızca
   rapor; "adı farklı yazılmış" sınıfı (aynı gün aynı içerik, ad tutmuyor)
   taşınmış sayılmamalı. Programın kendisi hiçbir tüpü "taşındı" yapmaz.
+  - **Taşınma bölümü** (v6.205, `/cryo/tasima`, README v6.205; kullanıcı:
+    "cryo harita bölümünde taşınma diye bir bölüm olsun ... hasta kartında
+    tedaviler bölümünde taşıma yapıldığı belirtilsin"): hasta aranır, tanktaki
+    embriyo / yumurta / **sperm** tüpleri işaretli gelir, gün / yer / not bir
+    kez; hepsi ya da hiçbiri. Yeni tablo yok -- v6.182'nin alanları; tek tüpün
+    formu ile bölüm aynı yoldan (`_gonderim_gunu()`, `_gonderildi_yaz()`,
+    `_gonderimi_kaldir()`: değişiklik geçmişine yazıyor, tazeleme ve Excel
+    haritası oradan görüyor). "Haritadan silinsin" = haritadan çıkar, kayıt
+    silinmez. Taşınanlar türetilmiş (`tasinanlar()`: hasta + gün + yer).
+  - Taşınan sperm tüpü /cryo'nun sperm listesinde, androloji'nin bağlama
+    listesinde, "bağlanmayı bekleyen" uyarısında yok ve tedaviye bağlanamaz
+    (bağlama `durum`'u 'kullanildi' yapar, taşındı bilgisi silinirdi). Sperm
+    sorgusu yazarken `t.durum <> 'gonderildi'` süzgecini unutma: sperm
+    listesi 'kullanildi'yi bilerek gösteriyor, `durum='dolu'` yazılamıyor.
+  - Hasta kartında tüp **dondurulduğu tedavinin** satırında (`db.vit_tedavisi()`),
+    içerik formun "Taşınan:" kaynağından (`formlar.tasinan_tupler()`,
+    `hastanin_tasinan_tedavileri()`) -- v6.182'nin ayrı kartı kaldırıldı.
+  - Adı benzeyen Excel kayıtları taşıma ekranında İŞARETSİZ (hastaya bağlı
+    değiller, ad tek başına kanıt değil); işaretlenen v6.189'un "tanktan
+    çıkarıldı"sı olur, geri alması kendi sayfasından. Excel kaydını ad
+    benzerliğiyle kendiliğinden işaretleyen ya da taşımaya bağlayan kod YAZMA.
 - **Tankın fiziksel düzeni** (kullanıcı, 2026-09-25; Excel'den çıkarıldı,
   README v6.188): tank → kanister → goblet; **embriyo gobletine 4
   straw/Cryotop** konuyor ve **bir goblette farklı renkler** duruyor (straw'lar

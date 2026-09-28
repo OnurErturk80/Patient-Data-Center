@@ -17,6 +17,19 @@
          placeholder="{{ metin('cryo_ara_ipucu') }}">
 </form>
 
+{# Taşınma bölümü (v6.205, kullanıcının isteği: "cryo harita bölümünde
+   taşınma diye bir bölüm olsun"). Embriyo, yumurta ve sperm için tek bölüm,
+   o yüzden iki sütunun üstünde -- tek satır, haritayı aşağı itmesin. #}
+{% if tasima %}
+<div class="kart">
+  <a class="satir" href="/cryo/tasima">
+    <div class="no">{{ metin("tasima") }}</div>
+    <div class="meta">{{ metin("tasima_aciklama") }}
+      {%- if tasima.tup %} · {{ metin("tasima_ozeti").format(tup=tasima.tup, tarih=gg_aa_yyyy(tasima.son) if tasima.son else "—") }}{% endif %}</div>
+  </a>
+</div>
+{% endif %}
+
 <div class="sutunlar">
 <div class="sutun">
 
