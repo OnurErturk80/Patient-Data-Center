@@ -667,32 +667,55 @@ def _deselect_satirlari(cozulenler) -> list:
 
 
 # Kâğıtta ÖZET tablosunun hemen altındaki boş ara satır (0'dan sayarak 32;
-# kalıpta o satırın hücresi yok). Bu tedavide dondurulan tüplerin Cryo
-# Haritası'ndaki yeri oraya, tam genişlikte ve ortalı yazılıyor (v6.208).
-# Hücreyi `app.py` ekliyor (`form_kalip.not_satiri()` / `not_satiri_excel()`),
-# kalıp değişmiyor. Satır numarasını değiştirirsen `form_kalip.json`'daki
-# gerçek satıra bak (NOTLAR'ın v6.102'deki dersi).
+# kalıpta o satırın hücresi yok). Bu tedavide dondurulan ve çözülen tüplerin
+# Cryo Haritası'ndaki yeri oraya, tam genişlikte ve ortalı yazılıyor (v6.208,
+# çözülenler v6.211). Hücreyi `app.py` ekliyor (`form_kalip.not_satiri()` /
+# `not_satiri_excel()`), kalıp değişmiyor. Satır numarasını değiştirirsen
+# `form_kalip.json`'daki gerçek satıra bak (NOTLAR'ın v6.102'deki dersi).
 ARTLAB_CRYO_SATIR = 32
 # Bir satıra sığan harf: tam genişlik 10 puntoda ~130 harf alıyor (ölçüldü),
 # pay bırakıldı. Excel satır yüksekliği satır sayısından hesaplanıyor.
 _CRYO_SATIR_HARF = 115
 
 
-def cryo_yeri_satirlari(tupler) -> list:
-    """Bu tedavide dondurulan tüplerin Cryo Haritası'ndaki yeri, içeriğiyle
-    (v6.208, kullanıcının isteği: "dondurma yapılan hastanın dondurulan
-    örneğin cryo haritada nereye yerleştirildiği art lab özet formunun orta
-    alt kısmına yazılsın. Embriyo, yumurta bilgisi ile birlikte").
+def cryo_yeri_satirlari(tupler, cozulenler=()) -> list:
+    """Bu tedavide dondurulan ve çözülen tüplerin Cryo Haritası'ndaki yeri,
+    içeriğiyle (v6.208, kullanıcının isteği: "dondurma yapılan hastanın
+    dondurulan örneğin cryo haritada nereye yerleştirildiği art lab özet
+    formunun orta alt kısmına yazılsın. Embriyo, yumurta bilgisi ile
+    birlikte"; çözülenler v6.211: "dondurulan örneklerin yeri yazdığı gibi
+    çözme işlemlerinde de ART formunda yeri yazsın. Embriyo ve yumurta ikisi
+    de yazsın").
 
     Tüp başına "TANK 1 / 3 / 12 · Mavi Cryotop: 1 embriyo (4AA)": yer
-    tüpün kayıtlı konumu (`tasiyici.konum_id`, Cryo Haritası'nın gösterdiği),
-    girilmemişse "konum girilmemiş"; içerik FREEZE kutularının parantezi
-    (`tup_metni()`), tür tüpün içeriğinden (`dondurma_tupleri()`'nin
-    `yumurta`'sı). Sonradan çözülen ya da taşınan tüp işaretlenmiyor: form
-    bu tedavinin dondurmasını anlatıyor, FREEZE kutuları gibi. Satırlar
-    `_CRYO_SATIR_HARF`'te bölünüyor, bir tüp ortasından bölünmüyor.
-    `tupler`: `dondurma_tupleri()`. -> satırlar (boş liste: dondurma yok).
+    tüpün kayıtlı konumu (`tasiyici.konum_id`, Cryo Haritası'nın gösterdiği;
+    çözme konumu silmiyor, tüp yalnızca boşaltıldı sayılıyor), girilmemişse
+    "konum girilmemiş"; içerik FREEZE / THAW kutularının parantezi
+    (`tup_metni()`), tür tüpün içeriğinden (`yumurta`).
+    - Yalnızca dondurma varsa satır v6.208'deki gibi "Cryo Haritası: ...".
+      Çözme varsa iki grup, çözme önce (FET'te ve Yumurta Çözme'de önce
+      çözülüp sonra dondurulur): "Cryo Haritası (çözülen): ..." ve varsa
+      "Cryo Haritası (dondurulan): ...". Her grup yeni satırda başlıyor.
+    - Tüpü programda olmayan çözme (Access'ten aktarılmış FET'in kendi
+      altına açılan embriyoları, v6.130) yazılmıyor: "konum girilmemiş"
+      demek, programda olmayan bir tüp için yanlış olurdu.
+    - Sonradan çözülen ya da taşınan dondurma tüpü işaretlenmiyor: form bu
+      tedavinin işlemlerini anlatıyor, FREEZE kutuları gibi.
+    Satırlar `_CRYO_SATIR_HARF`'te bölünüyor, bir tüp ortasından bölünmüyor.
+    `tupler`: `dondurma_tupleri()`, `cozulenler`: `cozulen_tupler()`.
+    -> satırlar (boş liste: ikisi de yok).
     """
+    dondurulan = _yer_parcalari(tupler)
+    cozulen = _yer_parcalari(cozulenler)
+    if not cozulen:
+        return _yer_satirlari("Cryo Haritası:", dondurulan)
+    return (_yer_satirlari("Cryo Haritası (çözülen):", cozulen)
+            + _yer_satirlari("Cryo Haritası (dondurulan):", dondurulan))
+
+
+def _yer_parcalari(tupler) -> list:
+    """Tüp başına "yer · renk tip: N embriyo (parantez)" -- programda
+    kaydı olmayan (`tup` boş) tüp atlanıyor."""
     idler = [t["tup"] for t in tupler if t.get("tup")]
     if not idler:
         return []
@@ -713,12 +736,18 @@ def cryo_yeri_satirlari(tupler) -> list:
         icerik = f"{adet} {'yumurta' if t.get('yumurta') else 'embriyo'} {tup_metni(t)}"
         parcalar.append(" · ".join(x for x in (
             b["tam_yol"] or "konum girilmemiş", tasiyici) if x) + ": " + icerik)
+    return parcalar
+
+
+def _yer_satirlari(baslik, parcalar) -> list:
+    """Parçaları `_CRYO_SATIR_HARF`'te satırlara böler, ilk satırın başında
+    `baslik`; bir tüp ortasından bölünmüyor."""
     if not parcalar:
         return []
-    satirlar, simdiki = [], "Cryo Haritası:"
+    satirlar, simdiki = [], baslik
     for p in parcalar:
-        aday = simdiki + (";   " if simdiki != "Cryo Haritası:" else " ") + p
-        if len(aday) > _CRYO_SATIR_HARF and simdiki != "Cryo Haritası:":
+        aday = simdiki + (";   " if simdiki != baslik else " ") + p
+        if len(aday) > _CRYO_SATIR_HARF and simdiki != baslik:
             satirlar.append(simdiki + ";")
             simdiki = p
         else:
@@ -908,14 +937,17 @@ def cozulen_ornekler(cycle_id: int) -> list:
 
 def cozulen_tupler(cozulenler) -> list:
     """Çözülen örnekler tüp tüp -- `dondurma_tupleri()`'nin biçimiyle, ki
-    `tup_metni()` ikisini de aynı parantezle bassın."""
+    `tup_metni()` ikisini de aynı parantezle bassın. `tup` (taşıyıcı id,
+    tüpü programda olmayan çözmede None) ve `yumurta` Cryo Haritası satırı
+    için (v6.211, `cryo_yeri_satirlari()`)."""
     tupler, sira = [], {}
     for o in cozulenler:
         anahtar = o["tup"] or 0
         if anahtar not in sira:
             sira[anahtar] = len(tupler)
-            tupler.append({"etiket": o["etiket"], "ogeler": [], "gunler": [],
-                           "olgunluk": []})
+            tupler.append({"tup": o["tup"], "etiket": o["etiket"], "ogeler": [],
+                           "gunler": [], "olgunluk": [],
+                           "yumurta": bool(o.get("yumurta"))})
         tupler[sira[anahtar]]["ogeler"].append(o["kalite"])
         tupler[sira[anahtar]]["olgunluk"].append(o.get("olgunluk"))
     return tupler
@@ -1589,10 +1621,10 @@ def artlab_verisi(cycle_id: int):
         "transfer_satirlari": _transfer_satirlari(cycle_id, cozulenler),
         # "Deselect grade (x sayı)": çözülüp kullanılmayan embriyolar (v6.208).
         "deselect_satirlari": _deselect_satirlari(cozulenler),
-        # ÖZET tablosunun altındaki boş satır: dondurulan tüplerin Cryo
-        # Haritası'ndaki yeri (v6.208) -- `ARTLAB_CRYO_SATIR`, hücreyi app.py
-        # ekliyor, yalnızca ilk sayfada.
-        "cryo_yeri": cryo_yeri_satirlari(tupler),
+        # ÖZET tablosunun altındaki boş satır: dondurulan (v6.208) ve
+        # çözülen (v6.211) tüplerin Cryo Haritası'ndaki yeri --
+        # `ARTLAB_CRYO_SATIR`, hücreyi app.py ekliyor, yalnızca ilk sayfada.
+        "cryo_yeri": cryo_yeri_satirlari(tupler, cozulen_tupler(cozulenler)),
         # ART Lab'da NOTLAR gibi bir kutu yok; iptal sebebi kalıbın dışına,
         # en alta ayrı bir şerit olarak ekleniyor (v6.104) -- bkz. app.py
         # form_ekrani()/form_excel(), form_kalip.olcu()/hucre_adresi().

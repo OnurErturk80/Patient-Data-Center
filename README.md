@@ -16567,3 +16567,46 @@ ekranlarında da korunsun"*.
   üstten açıldı, hata görünüyor.
 - ICSI'den fertilizasyona geçiş ve vitrifikasyondaki arama: en üstten.
 - 56 ekran hatasız açıldı, betik hatası yok.
+
+# v6.211 — ART Lab formunda çözülen tüplerin Cryo Haritası'ndaki yeri
+
+Kullanıcı: *"ART Lab formunda dondurulan örneklerin yeri yazdığı gibi çözme
+işlemlerinde de ART formunda yeri yazsın. Embriyo ve yumurta ikisi de
+yazsın."*
+
+- v6.208'den beri ART Lab formunda ÖZET tablosunun altındaki boş satırda bu
+  tedavide dondurulan tüplerin yeri yazıyordu. Artık bu tedavi için çözülen
+  tüplerin yeri de yazıyor: FET, FET (3→5), Yumurta Çözme ve Yumurta
+  Dondurma'nın kendi çözmesi.
+- Yazım dondurulanla aynı: "TANK 1 / 3 / 12 · Mavi Cryotop: 2 embriyo
+  (8HG1-7HG2)"; yumurta tüpünde "1 yumurta (1*MII)".
+- Yalnızca dondurma varsa satır değişmedi ("Cryo Haritası: ..."). Çözme
+  varsa iki grup, çözme önce:
+  - "Cryo Haritası (çözülen): ..."
+  - "Cryo Haritası (dondurulan): ..." (FET'te yeniden dondurma olduysa).
+- Çözülen tüpün yeri tüpün kayıtlı konumu. Çözme tüpü yalnızca "boşaltıldı"
+  yapıyor, konumu silmiyor; yani yazılan, tüpün çözülmeden önce durduğu yer.
+- Tüpü programda olmayan çözme yazılmıyor (Access'ten aktarılmış FET'in
+  kendi altına açılan embriyoları, v6.130): "konum girilmemiş" demek
+  programda olmayan bir tüp için yanlış olurdu.
+- Yalnızca ART Lab formu ve ilk sayfası, v6.208'deki gibi. Embriyoloji
+  Özet'in NOTLAR'ı değişmedi.
+- `formlar.cozulen_tupler()` her tüpe `tup` (taşıyıcı) ve `yumurta` alanını
+  da veriyor; `cryo_yeri_satirlari(tupler, cozulenler)` iki grubu kuruyor.
+
+**Deneme** (sahte veritabanında):
+- FET'te iki tüp çözüldü: "Cryo Haritası (çözülen): TANK 1 / 3 / 12 · Mavi
+  Cryotop: 1 embriyo (4AA); TANK 1 / 3 / 12 · Sarı Cryotop: 1 embriyo
+  (7HG2)". Çözülen bir embriyo aynı FET'te yeniden dondurulunca altına
+  "Cryo Haritası (dondurulan): TANK 2 / 1 / 5 · ...: 1 embriyo (7HG2)".
+- Yumurta tüpü bir Yumurta Çözme tedavisinde çözüldü: "Cryo Haritası
+  (çözülen): konum girilmemiş · Cryotop: 1 yumurta (1*MII)".
+- IVF/ICSI ve Yumurta Dondurma'nın formunda satır v6.210'dakiyle aynı.
+- Excel'de aynı metin birleşik `A33:AC33` hücresinde, satır yüksekliği
+  satır sayısından.
+- Gerçek verili deneme kopyasında (1.909 tedavi) bütün ART Lab formları
+  hatasız kuruldu. 255 formda çözülen tüplerin yeri yazıldı (3'ü yumurta,
+  13'ünde yeniden dondurma da var; en çok 6 satır). Çözmesi olan 446
+  tedavinin tüpü programda yok (aktarılmış FET), onlarda çözme grubu yok.
+  Yalnızca dondurma olan 983 formun satırı v6.210'dakiyle, Özet formu da
+  bütün tedavilerde birebir aynı.

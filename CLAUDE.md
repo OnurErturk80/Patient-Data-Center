@@ -1282,13 +1282,19 @@ kalıptan**: `form_kalip.json`.
     bu tedavi için çözülüp bu tedavide transfer edilmeyen ve yeniden
     dondurulmayan EMBRİYO (`_deselect_satirlari()`; çözülen yumurta
     sayılmıyor), "7HG2 x1", canlı çıkmayan "· Dejenere".
-  - **ÖZET tablosunun altındaki boş satırda dondurulan tüplerin Cryo
-    Haritası'ndaki yeri** (v6.208, kullanıcı: "art lab özet formunun orta
-    alt kısmına ... Embriyo, yumurta bilgisi ile birlikte"):
-    `formlar.cryo_yeri_satirlari()`, `ARTLAB_CRYO_SATIR = 32`. Kalıp
+  - **ÖZET tablosunun altındaki boş satırda dondurulan ve çözülen tüplerin
+    Cryo Haritası'ndaki yeri** (v6.208 dondurulan, kullanıcı: "art lab özet
+    formunun orta alt kısmına ... Embriyo, yumurta bilgisi ile birlikte";
+    v6.211 çözülen: "çözme işlemlerinde de ART formunda yeri yazsın. Embriyo
+    ve yumurta ikisi de yazsın"): `formlar.cryo_yeri_satirlari(tupler,
+    cozulenler)`, `ARTLAB_CRYO_SATIR = 32`. Yalnızca dondurma varsa
+    "Cryo Haritası: ..." (v6.208'in yazımı); çözme varsa "Cryo Haritası
+    (çözülen): ..." ve varsa "Cryo Haritası (dondurulan): ...", çözme önce.
+    Çözülen tüpün yeri tüpün kayıtlı konumu (çözme `konum_id`'yi silmiyor);
+    tüpü programda olmayan çözme (aktarılmış FET) yazılmıyor. Kalıp
     değişmiyor, hücreyi app ekliyor (`form_kalip.not_satiri()` /
     `not_satiri_excel()`: yalnızca kâğıtta hücresi olmayan satıra, tam
-    genişlik, ortalı, sarmalı). Yalnızca ilk sayfa.
+    genişlik, ortalı, sarmalı). Yalnızca ilk sayfa, yalnızca ART Lab.
   - Izgaranın "Transfer" satırındaki **F = Freeze** (o embriyo transfer
     edilmedi, donduruldu), ✓ = transfer. Kullanıcı sordu, anlamı ekranda
     yazmıyor.
