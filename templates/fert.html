@@ -18,6 +18,8 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "fert") }}
 
 {# Adresten gelen hata anahtarı sunucuda beyaz listeden geçti (v6.147). #}
 {% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
@@ -308,7 +310,6 @@
   });
 })();
 </script>
-{{ iy.kutu(c.id, "fert") }}
 {{ gez.cubuk(c, gezinme) }}
 {% include "_buyutec.html" %}
 <script>

@@ -17,6 +17,8 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "gebelik") }}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
@@ -213,6 +215,5 @@ document.querySelectorAll('.secenek').forEach(function (g) {
   });
 });
 </script>
-{{ iy.kutu(c.id, "gebelik") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

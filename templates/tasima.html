@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("tasima") }}{% endblock %}
-{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
+{# Aramadayken geri ok aramasız Taşınma ekranına (v6.208). #}
+{% block geri %}<a class="geri" href="{{ '/cryo/tasima' if ara else '/cryo' }}">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis{% endblock %}
 {% block govde %}genissayfa{% endblock %}
 {% block icerik %}
@@ -20,6 +21,8 @@
     <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
            inputmode="search" placeholder="{{ metin('tasima_ara_ipucu') }}">
   </form>
+  {# Aramadan dönüş (v6.208, kullanıcı: "aramadan geriye dönüş olsun"). #}
+  {% if ara %}<div style="padding:0 14px 10px;display:flex"><a class="minidugme ikincil" href="/cryo/tasima">{{ metin("aramayi_temizle") }}</a></div>{% endif %}
   {% for h in hastalar %}
   <a class="satir hasta" href="/cryo/tasima/hasta/{{ h.id }}">
     <div class="ad">{{ h.ad_soyad }}</div>

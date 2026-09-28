@@ -17,6 +17,8 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "denudasyon") }}
 
 {# Bilgi ekranı fertilizasyon/blastokist ekranlarının aynısı: numara şeridi →
    seçilenin fotoğrafı → altında örnek kodu → bilgi kartı. Düzenle'nin
@@ -35,7 +37,7 @@
 {% set opu_toplam = (c.opu_sag_oosit or 0) + (c.opu_sol_oosit or 0) %}
 {% set eksik = opu_toplam - kayitli|length %}
 
-{% if hata %}<div class="uyari">{{ metin(hata) }}</div>{% endif %}
+{% if hata %}<div class="uyari" id="denhata">{{ metin(hata) }}</div>{% endif %}
 
 {% if calisma and not klasor_var %}
 <div class="uyari">
@@ -378,6 +380,33 @@ document.querySelectorAll('.stripkare').forEach(function (b) {
 })();
 </script>
 
-{{ iy.kutu(c.id, "denudasyon") }}
+<script>
+(function () {
+  // Kayıttan sonra sayfa kaldığı yerde açılsın (v6.208, kullanıcı: "Denüdasyon
+  // ekranı işlem yaparken sayfa kayıyor"). Her düğme (Kaydet, Atla, over,
+  // maturasyon) sayfayı yeniden yüklüyor; tarayıcı yeni sayfayı en üstten
+  // açıyordu, telefonda "Kaydet" düğmesi ekranın dışında kalıyordu -- her
+  // karede aşağı kaydırmak gerekiyordu. Gönderirken kaydırma konumu bu
+  // sekmede saklanıyor (sessionStorage); AYNI ekrana bir dakika içinde
+  // dönülürse oraya kaydırılıyor. Hata mesajı varsa kaydırılmıyor: mesaj
+  // en üstte, görünsün. Resmin yeri CSS'te ayrıldığı için (`.foto img`)
+  // düğmeler yüklenirken yerinden oynamıyor.
+  var ANAHTAR = 'pdc-denudasyon-konum';
+  var yol = location.pathname;
+  try {
+    var k = JSON.parse(sessionStorage.getItem(ANAHTAR) || 'null');
+    sessionStorage.removeItem(ANAHTAR);
+    if (k && k.yol === yol && Date.now() - k.an < 60000 && !document.getElementById('denhata')) {
+      window.scrollTo(0, k.y);
+    }
+  } catch (e) {}
+  document.addEventListener('submit', function () {
+    try {
+      sessionStorage.setItem(ANAHTAR, JSON.stringify({yol: yol, y: window.scrollY, an: Date.now()}));
+    } catch (e) {}
+  });
+})();
+</script>
+
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

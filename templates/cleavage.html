@@ -18,6 +18,8 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "cleavage") }}
 
 <div class="gunsec">
   <a href="/cycle/{{ c.id }}/cleavage?gun=2" class="{% if gun == 2 %}aktif{% endif %}">{{ metin("gun_n_buyuk").format(n=2) }}</a>
@@ -306,7 +308,6 @@
   });
 })();
 </script>
-{{ iy.kutu(c.id, "cleavage") }}
 {{ gez.cubuk(c, gezinme) }}
 {% include "_buyutec.html" %}
 <script>

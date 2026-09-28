@@ -1,6 +1,8 @@
-{# İşlemi yapan — her aşama ekranının en altında, personel listesinden
-   seçilen ad. Kaydı giren kullanıcıdan ayrıdır. Aşama başına tek değer.
+{# İşlemi yapan — her aşama ekranının EN ÜSTÜNDE (v6.208; v6.207'ye kadar en
+   altındaydı), personel listesinden seçilen ad. Kaydı giren kullanıcıdan
+   ayrıdır. Aşama başına tek değer.
    Kullanım:  {% import "_islem_yapan.html" as iy %}  ...  {{ iy.kutu(c.id, "denudasyon") }}
+   Çağrı `{% block icerik %}`'in ilk satırı: kutu sayfanın başında dursun.
 
    Etiket normalde "İşlemi yapan". OPU gibi iki ayrı kişinin kaydedildiği bir
    aşamada hangisi olduğu belirsiz kalıyor; oralarda etiket ve ipucu dışarıdan
@@ -11,8 +13,24 @@
    seçim şifresiyle giren kişi (`guncel_kullanici_ad()`) — henüz kaydedilmiş
    bir değer yoksa. Kayıtlı değer listede yoksa (hesabı artık pasif ya da
    göç öncesi serbest metinle yazılmış eski bir ad) tuzak #6: değeri
-   listeye kendi seçeneği olarak ekle, yoksa seçici sessizce ilk isme kayar
-   ve "Kaydet"e basılınca kayıt değişir.
+   listeye kendi seçeneği olarak ekle, yoksa seçici sessizce ilk isme kayar.
+
+   v6.208 (kullanıcı: "işlem yapan kaydı yapılan ekranlarda karışıklık
+   oluyor. Mesela OPU kaydı yapılıyor isim kaydı ayrı yapılıyor. Bazı
+   ekranlarda isim değişince kayıt yenileniyor. İşlemi yapan kaydı üst
+   tarafta olsun aşağıda değil."):
+   - Ayrı "Kaydet" yok: seçmek yetiyor, ad sayfa yenilenmeden yazılıyor
+     (`fetch`, `json=1`). v6.207'ye kadar düğme sayfayı yeniliyordu; aynı
+     ekranda yazılıp henüz kaydedilmemiş form gidiyordu. Aşamanın kendi
+     "Kaydet"i ise adı yazmıyordu: değiştirilen ad sayfa yenilenince eski
+     haline dönüyordu. Betik çalışmazsa düğme görünür, eski yol.
+   - Aşamanın kaydı kaydedilince ad boşsa ekranda görünen (giriş yapan
+     kişi) yazılıyor (`app.islem_yapani_doldur()`): görünen ile formlara
+     basılan ayrı düşmesin.
+   - Kaydettikten sonra seçici "değişmemiş" sayılır ve tazelemenin damgası
+     güncellenir (`pdcDamgaGuncelle`, `base.html`): yoksa beş saniye sonra
+     sayfa kendi kaydı yüzünden yenilenir ya da "yeni kayıt var" şeridi
+     çıkardı.
 #}
 {% macro kutu(cycle_id, asama, etiket=None, ipucu=None) %}
 {% set etiket = etiket or metin("islem_yapan") %}
@@ -20,13 +38,13 @@
 {% set mevcut = islem_yapan_ad(cycle_id, asama) %}
 {% set secenekler = personel_listesi() %}
 {% set secili = mevcut or guncel_kullanici_ad() %}
-<div class="kart" style="margin-top:16px">
+<div class="kart iykart">
   <form method="post" action="/cycle/{{ cycle_id }}/islem-yapan">
     <input type="hidden" name="asama" value="{{ asama }}">
     <div class="alan" style="border:0">
       <label for="iy_{{ asama }}">{{ etiket }}</label>
-      <div style="display:flex;gap:8px">
-        <select id="iy_{{ asama }}" name="yapan_ad" style="flex:1">
+      <div class="iysatir">
+        <select id="iy_{{ asama }}" name="yapan_ad">
           <option value="">—</option>
           {% if mevcut and mevcut not in secenekler %}
           <option value="{{ mevcut }}" selected>{{ mevcut }}</option>
@@ -35,10 +53,39 @@
           <option value="{{ ad }}" {% if ad == secili %}selected{% endif %}>{{ ad }}</option>
           {% endfor %}
         </select>
-        <button class="minidugme" type="submit" style="min-width:88px">{{ metin("kaydet") }}</button>
+        <button class="minidugme" type="submit" id="iykaydet_{{ asama }}" style="min-width:88px">{{ metin("kaydet") }}</button>
       </div>
-      <div class="ipucu">{{ ipucu }}</div>
+      <div class="ipucu" id="iydurum_{{ asama }}" aria-live="polite">{{ ipucu }}</div>
     </div>
   </form>
 </div>
+<script>
+(function () {
+  var sec = document.getElementById('iy_{{ asama }}');
+  var dugme = document.getElementById('iykaydet_{{ asama }}');
+  var durum = document.getElementById('iydurum_{{ asama }}');
+  if (!sec || !dugme || !durum || !window.fetch || !window.FormData) return;
+  var TAMAM = {{ metin("iy_kaydedildi")|tojson }};
+  var OLMADI = {{ metin("iy_kaydedilemedi")|tojson }};
+  dugme.hidden = true;               // seçmek yetiyor
+  sec.addEventListener('change', function () {
+    var v = new FormData(sec.form);
+    v.append('json', '1');
+    durum.textContent = '…';
+    fetch(sec.form.action, {method: 'POST', body: v, credentials: 'same-origin'})
+      .then(function (y) { return y.ok ? y.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) throw new Error('kaydedilemedi');
+        // Kaydedilen değer artık "varsayılan": tazeleme sayfayı kirli sanmasın.
+        for (var i = 0; i < sec.options.length; i++) {
+          sec.options[i].defaultSelected = sec.options[i].selected;
+        }
+        if (d.damga && window.pdcDamgaGuncelle) window.pdcDamgaGuncelle(d.damga);
+        durum.textContent = TAMAM.replace('{ad}', d.ad || '—');
+        sec.blur();
+      })
+      .catch(function () { durum.textContent = OLMADI; dugme.hidden = false; });
+  });
+})();
+</script>
 {% endmacro %}

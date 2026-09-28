@@ -754,6 +754,12 @@ METINLER = {
     "vit_kaydedildi": {"tr": "Kaydedildi: {icerik}, taşıyıcı {etiket}.",
                        "en": "Saved: {icerik}, carrier {etiket}."},
     "cozme_ekrani": {"tr": "Çözme ekranı", "en": "Thaw screen"},
+    # Çözme kaydı tedavinin çözme ekranına dönüyor (v6.208).
+    "cozme_kaydedildi": {"tr": "Kaydedildi: taşıyıcı {etiket} çözüldü, {icerik} ({sagkalim}).",
+                         "en": "Saved: carrier {etiket} thawed, {icerik} ({sagkalim})."},
+    "cozme_kalan_tup": {"tr": "Tankta {n} taşıyıcı daha var, aşağıdan çözebilirsiniz.",
+                        "en": "{n} more carriers in the tank, thaw them below."},
+    "asamaya_gec": {"tr": "{ad} ekranına geç", "en": "Go to {ad}"},
 
     # ---- transfer ----
     "bu_cyclede_transfer": {"tr": "Bu tedavide transfer edilenler",
@@ -1636,6 +1642,10 @@ METINLER = {
               "person entering the record."},
     "ad_soyad": {"tr": "Ad soyad", "en": "Full name"},
     "opu_embriyologu": {"tr": "OPU Embriyoloğu", "en": "OPU Embryologist"},
+    # Seçici seçilince kendisi kaydediyor (v6.208).
+    "iy_kaydedildi": {"tr": "Kaydedildi: {ad}.", "en": "Saved: {ad}."},
+    "iy_kaydedilemedi": {"tr": "Kaydedilemedi. Kaydet düğmesine basın.",
+                         "en": "Could not save. Press Save."},
     "opu_hekimi": {"tr": "OPU Hekimi", "en": "OPU Physician"},
 
     # ---- örnek ızgarası ve bilgi kartı (her aşamada aynı düzen) ----

@@ -640,6 +640,93 @@ def _transfer_satirlari(cycle_id, cozulenler) -> list:
     return satirlar
 
 
+def _deselect_satirlari(cozulenler) -> list:
+    """ART Lab'ın "Deselect grade (x sayı)" kutuları (v6.208, kullanıcının
+    isteği: "Çözülen ama transfer edilmeyen ve tekrar dondurulmayan embriyo
+    art lab deselect bölümüne yazılsın").
+
+    Bu tedavi için çözülüp bu tedavide transfer edilmeyen ve yeniden
+    dondurulmayan embriyolar (`cozulen_ornekler()`'in `transfer`/`yeniden`'i).
+    Yumurta sayılmıyor: Yumurta Çözme'de çözülen şey yumurta, kullanıcı
+    "embriyo" dedi. Yazım "Uterus grade"inkinin (`_transfer_satirlari()`)
+    aynısı: aynı kalite tek satırda sayısıyla, "3AA x2"; kalite embriyonun son
+    değerlendirmesi (FET (3→5)'te kültürden sonraki), kaydı yoksa "?".
+    Çözmede canlı çıkmayanın sağkalımı yazılıyor ("4BB x1 · Dejenere") --
+    neden seçilmediği görünsün; canlı çıkıp kullanılmayanda yalnızca kalite.
+    """
+    gruplar = {}
+    for o in cozulenler:
+        if o["transfer"] or o["yeniden"] or o.get("yumurta"):
+            continue
+        k = _ornek_kalitesi(o["kod"]) or "?"
+        durum = (o["sagkalim"] or "") if o.get("sagkalim_kod") not in (None, "canli") else ""
+        anahtar = (k, durum)
+        gruplar[anahtar] = gruplar.get(anahtar, 0) + 1
+    return [f"{k} x{n}" + (f" · {durum}" if durum else "")
+            for (k, durum), n in gruplar.items()]
+
+
+# Kâğıtta ÖZET tablosunun hemen altındaki boş ara satır (0'dan sayarak 32;
+# kalıpta o satırın hücresi yok). Bu tedavide dondurulan tüplerin Cryo
+# Haritası'ndaki yeri oraya, tam genişlikte ve ortalı yazılıyor (v6.208).
+# Hücreyi `app.py` ekliyor (`form_kalip.not_satiri()` / `not_satiri_excel()`),
+# kalıp değişmiyor. Satır numarasını değiştirirsen `form_kalip.json`'daki
+# gerçek satıra bak (NOTLAR'ın v6.102'deki dersi).
+ARTLAB_CRYO_SATIR = 32
+# Bir satıra sığan harf: tam genişlik 10 puntoda ~130 harf alıyor (ölçüldü),
+# pay bırakıldı. Excel satır yüksekliği satır sayısından hesaplanıyor.
+_CRYO_SATIR_HARF = 115
+
+
+def cryo_yeri_satirlari(tupler) -> list:
+    """Bu tedavide dondurulan tüplerin Cryo Haritası'ndaki yeri, içeriğiyle
+    (v6.208, kullanıcının isteği: "dondurma yapılan hastanın dondurulan
+    örneğin cryo haritada nereye yerleştirildiği art lab özet formunun orta
+    alt kısmına yazılsın. Embriyo, yumurta bilgisi ile birlikte").
+
+    Tüp başına "TANK 1 / 3 / 12 · Mavi Cryotop: 1 embriyo (4AA)": yer
+    tüpün kayıtlı konumu (`tasiyici.konum_id`, Cryo Haritası'nın gösterdiği),
+    girilmemişse "konum girilmemiş"; içerik FREEZE kutularının parantezi
+    (`tup_metni()`), tür tüpün içeriğinden (`dondurma_tupleri()`'nin
+    `yumurta`'sı). Sonradan çözülen ya da taşınan tüp işaretlenmiyor: form
+    bu tedavinin dondurmasını anlatıyor, FREEZE kutuları gibi. Satırlar
+    `_CRYO_SATIR_HARF`'te bölünüyor, bir tüp ortasından bölünmüyor.
+    `tupler`: `dondurma_tupleri()`. -> satırlar (boş liste: dondurma yok).
+    """
+    idler = [t["tup"] for t in tupler if t.get("tup")]
+    if not idler:
+        return []
+    h = _etiketler()
+    yer = ",".join("?" * len(idler))
+    bilgi = {r["id"]: r for r in db.sorgu(
+        "SELECT t.id, t.renk, t.tip, k.tam_yol FROM tasiyici t "
+        f"LEFT JOIN konum k ON k.id = t.konum_id WHERE t.id IN ({yer})",
+        tuple(idler))}
+    parcalar = []
+    for t in tupler:
+        b = bilgi.get(t.get("tup"))
+        if not b:
+            continue
+        tasiyici = " ".join(x for x in (_et(h, "tasiyici_renk", b["renk"]),
+                                        _et(h, "tasiyici_tipi", b["tip"])) if x)
+        adet = len(t["ogeler"])
+        icerik = f"{adet} {'yumurta' if t.get('yumurta') else 'embriyo'} {tup_metni(t)}"
+        parcalar.append(" · ".join(x for x in (
+            b["tam_yol"] or "konum girilmemiş", tasiyici) if x) + ": " + icerik)
+    if not parcalar:
+        return []
+    satirlar, simdiki = [], "Cryo Haritası:"
+    for p in parcalar:
+        aday = simdiki + (";   " if simdiki != "Cryo Haritası:" else " ") + p
+        if len(aday) > _CRYO_SATIR_HARF and simdiki != "Cryo Haritası:":
+            satirlar.append(simdiki + ";")
+            simdiki = p
+        else:
+            simdiki = aday
+    satirlar.append(simdiki)
+    return satirlar
+
+
 def _bulgu_notu(c, h) -> str:
     """Yumurta bulguları, ART Lab'ın alttaki geniş "Yorum:" satırı için.
 
@@ -806,6 +893,12 @@ def cozulen_ornekler(cycle_id: int) -> list:
             "olgunluk": (_yumurta_olgunlugu(r["specimen_id"], v["id"])
                          if v and v["yumurta"] else None),
             "sagkalim": _et(h, "thaw_sagkalim", r["thaw_sagkalim"]),
+            # Kod da (v6.208): Deselect kutusu canlı çıkmayanı etiketiyle
+            # yazıyor, karar koda bakıyor (etiketi laboratuvar değiştirebilir).
+            "sagkalim_kod": r["thaw_sagkalim"],
+            # Tüpte yumurta mı vardı (Yumurta Çözme, Yumurta Dondurma'nın
+            # kendi çözmesi) -- Deselect yalnızca embriyoyu sayıyor (v6.208).
+            "yumurta": bool(v and v["yumurta"]),
             "canlilik": _yuzde(r["thaw_canlilik"]),
             "transfer": transfer,
             "yeniden": yeniden,
@@ -1494,6 +1587,12 @@ def artlab_verisi(cycle_id: int):
         # çözmedeki canlılık oranı.
         "thaw_satirlari": [tup_metni(t) for t in cozulen_tupler(cozulenler)],
         "transfer_satirlari": _transfer_satirlari(cycle_id, cozulenler),
+        # "Deselect grade (x sayı)": çözülüp kullanılmayan embriyolar (v6.208).
+        "deselect_satirlari": _deselect_satirlari(cozulenler),
+        # ÖZET tablosunun altındaki boş satır: dondurulan tüplerin Cryo
+        # Haritası'ndaki yeri (v6.208) -- `ARTLAB_CRYO_SATIR`, hücreyi app.py
+        # ekliyor, yalnızca ilk sayfada.
+        "cryo_yeri": cryo_yeri_satirlari(tupler),
         # ART Lab'da NOTLAR gibi bir kutu yok; iptal sebebi kalıbın dışına,
         # en alta ayrı bir şerit olarak ekleniyor (v6.104) -- bkz. app.py
         # form_ekrani()/form_excel(), form_kalip.olcu()/hucre_adresi().
@@ -1512,11 +1611,13 @@ _ARTLAB_OZET = [
 ]
 
 # Dört kutulu sütunlar: (sütun, verinin anahtarı). Satırlar 28-31.
-_ARTLAB_THAW_SUTUN, _ARTLAB_TRANSFER_SUTUN = 14, 16
+# Deselect grade (x sayı) v6.208'den beri dolu: çözülüp kullanılmayan embriyo.
+_ARTLAB_THAW_SUTUN, _ARTLAB_TRANSFER_SUTUN, _ARTLAB_DESELECT_SUTUN = 14, 16, 21
 _ARTLAB_DORT_KUTU = [
     (_ARTLAB_FREEZE_SUTUN, "freeze_satirlari"),
     (_ARTLAB_THAW_SUTUN, "thaw_satirlari"),
     (_ARTLAB_TRANSFER_SUTUN, "transfer_satirlari"),
+    (_ARTLAB_DESELECT_SUTUN, "deselect_satirlari"),
 ]
 
 # "% Motil" ve "% Normal" kutularında kâğıtta zaten yazı var; sayı onun
@@ -1546,10 +1647,15 @@ def sigdir_hucreleri(ad: str, deger=None) -> set:
     """
     if ad == "artlab":
         deger = deger or {}
+        # Deselect'in sağı İŞLEM sütununun basılı yazıları (OPU, Freeze ...):
+        # hep küçülür. TRANSFER, yanındaki Deselect doluysa küçülür (v6.208).
         return (ARTLAB_SIGDIR_HUCRELER
                 | {(r, _ARTLAB_THAW_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
+                | {(r, _ARTLAB_DESELECT_SUTUN) for r in _ARTLAB_FREEZE_SATIR}
                 | {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR
-                   if deger.get((r, _ARTLAB_THAW_SUTUN))})
+                   if deger.get((r, _ARTLAB_THAW_SUTUN))}
+                | {(r, _ARTLAB_TRANSFER_SUTUN) for r in _ARTLAB_FREEZE_SATIR
+                   if deger.get((r, _ARTLAB_DESELECT_SUTUN))})
     return {"ozet": OZET_SIGDIR_HUCRELER}.get(ad, set())
 
 
@@ -1557,8 +1663,9 @@ def tasan_hucreleri(ad: str, deger=None) -> set:
     """Sığmayan yazısı sağdaki BOŞ kutuya taşan hücreler (v6.135, v6.152).
 
     FREEZE yalnızca yanındaki THAW kutusu boşsa taşar (FET'te ikisi birden
-    dolu olabiliyor); TRANSFER'in sağındaki "Deselect grade" programda
-    tutulmuyor, hep boş -- taşar. THAW'ın sağı TRANSFER, taşmaz, küçülür.
+    dolu olabiliyor); TRANSFER de yalnızca sağındaki "Deselect grade" boşsa
+    (v6.208'e kadar Deselect hep boştu, TRANSFER hep taşıyordu). THAW'ın sağı
+    TRANSFER, Deselect'in sağı İŞLEM: taşmazlar, küçülürler.
     """
     if ad != "artlab":
         return set()
@@ -1566,7 +1673,8 @@ def tasan_hucreleri(ad: str, deger=None) -> set:
     return (ARTLAB_TASAN_HUCRELER
             | {(r, _ARTLAB_FREEZE_SUTUN) for r in _ARTLAB_FREEZE_SATIR
                if not deger.get((r, _ARTLAB_THAW_SUTUN))}
-            | {(r, _ARTLAB_TRANSFER_SUTUN) for r in _ARTLAB_FREEZE_SATIR})
+            | {(r, _ARTLAB_TRANSFER_SUTUN) for r in _ARTLAB_FREEZE_SATIR
+               if not deger.get((r, _ARTLAB_DESELECT_SUTUN))})
 
 
 # FREEZE/THAW/TRANSFER'in taşma kararı veriye bağlı, `tasan_hucreleri()`.

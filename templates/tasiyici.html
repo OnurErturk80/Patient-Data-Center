@@ -94,7 +94,9 @@
   {% endfor %}
 </div>
 {% if t.durum == 'dolu' and icerik %}
-{% if yetkim("thaw") %}<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw">{{ metin("bu_tasiyiciyi_coz") }}</a>{% endif %}
+{# Tedavinin çözme ekranından gelindiyse (`?cycle=`) çözme formu da o
+   tedaviyi bilsin (v6.208): kayıt oraya dönüyor. #}
+{% if yetkim("thaw") %}<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw{% if geri_cycle %}?cycle={{ geri_cycle }}{% endif %}">{{ metin("bu_tasiyiciyi_coz") }}</a>{% endif %}
 {% endif %}
 {% if gonderim_acik and yetkim("cryo") %}
 <details class="kart yardim" style="padding:0 14px 14px" {% if gonderim_hata %}open{% endif %}>

@@ -2,10 +2,12 @@
 {% import "_cyclesatir.html" as cs %}
 {% import "_etiketsonuc.html" as es %}
 {% block ustbaslik %}{{ metin("hasta_kayitlari") }}{% endblock %}
-{# Geri oku: yalnızca arşiv ayrı bir mod olduğu için farklı (v6.63). Arama
-   artık ay görünümünü kapatmıyor, o yüzden geri okunun "arama sonucundan
-   çıkma" diye ayrı bir hedefi kalmadı. #}
-{% block geri %}<a class="geri" href="{{ '/hastalar' if arsiv else '/' }}">&#8249;</a>{% endblock %}
+{# Geri oku: arşiv ayrı bir mod (v6.63) -- /hastalar'a döner. Arama
+   sonucundayken (v6.208, kullanıcı: "aramadan geriye dönüş olsun") aynı
+   ekranın aramasız haline, seçili ay korunarak; yoksa ana ekrana. Arama ana
+   ekrandan yapıldıysa `base.html`'in betiği zaten ana ekrana döndürüyor
+   (gelinen sayfa başka bir yol, v6.126). #}
+{% block geri %}<a class="geri" href="{{ '/hastalar' if arsiv else ('/hastalar?yil=' ~ yil ~ '&ay=' ~ ay if ara else '/') }}">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis{% endblock %}
 {% block icerik %}
 {% if yedek %}<div class="uyari">{{ yedek }}</div>{% endif %}
@@ -66,7 +68,73 @@
    (v6.63). Eskiden arama bu ekranın tamamının yerini alıyordu; kullanıcının
    isteğiyle artık ikisi birlikte görünüyor — hasta kayıtları ve takvim'in
    "aynı şey gibi" görünmesinin bir sebebi de aramanın ay görünümünü tümden
-   kapatması, ekranın amacını belirsizleştirmesiydi. #}
+   kapatması, ekranın amacını belirsizleştirmesiydi.
+
+   Arama kutusu v6.208'den beri sütunların ÜSTÜNDE, sonuç hemen altında
+   (kullanıcı: "Programda arama yapılan her alanda arama sonucu aramanın
+   hemen altında görünsün"). v6.207'ye kadar kutu ve sonuç sağ sütundaydı:
+   telefonda sütunlar alt alta dizilince ay listesinin (50 satıra kadar)
+   altında kalıyordu -- ana ekrandan aranan hasta sayfanın dibindeydi. Ay
+   listesi aramadan bağımsız, sonuçların altında duruyor (v6.63'ün kararı). #}
+
+{# Arama ay süzgecinden bağımsız: dosya no ya da ad aranıyorsa hangi ayda
+   olduğu zaten bilinmiyordur (v6.29). Ay seçili kalıyor (gizli alanlarla
+   taşınıyor). #}
+<form class="arama" method="get" action="/hastalar">
+  <input type="hidden" name="yil" value="{{ yil }}">
+  <input type="hidden" name="ay" value="{{ ay }}">
+  <input type="search" name="ara" value="{{ ara }}" placeholder="{{ metin('ara_ipucu') }}"
+         inputmode="search" autocomplete="off">
+</form>
+{% if ara %}
+<a class="dugme ikincil" href="/hastalar?yil={{ yil }}&ay={{ ay }}">{{ metin("aramayi_temizle") }}</a>
+
+{% if ornekler %}
+{# Örnek kodu araması (v6.35). Kod tüpün üstünde yazıyor; aranan kod ise
+   soru "bu kim" değil "bu hangi tedavi" -- satır o örneğin cycle'ına
+   gidiyor. Hasta satırlarının üstünde duruyor: kod arandıysa aranan şey
+   odur. #}
+<div class="kart">
+  <h2>{{ metin("ornek_kodu_sonucu") }}</h2>
+  {% for o in ornekler %}
+  <a class="satir hasta" href="/cycle/{{ o.cycle_id }}">
+    <div class="ad">{{ o.ad_soyad }}
+      {%- if o.cycle_durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>
+      {%- elif o.cycle_durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>
+      {%- endif %}
+      {%- if o.hasta_durum == "arsiv" %} <span class="rozet arsiv">{{ metin("arsiv") }}</span>
+      {%- endif %}</div>
+    <div class="no">{{ o.dosya_no }}-{{ o.id }}</div>
+    <div class="meta">{{ tip_kisa(o.cycle_tipi) }} · {{ metin("ornek_ad") }} {{ o.cycle_sira_no }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# Taşıyıcı etiketi sonucu (v6.138). Örnek koduyla aynı yerde ve aynı
+   gerekçeyle: elde bir kod varsa aranan şey odur, hasta satırlarının
+   üstünde dursun. Satır taşıyıcının kendi sayfasına gidiyor. #}
+{% if tasiyicilar %}{{ es.sonuc(tasiyicilar) }}{% endif %}
+
+{# Hasta satırları. İsme tıklamak hasta kartını açıyor. #}
+{% if hastalar or not (ornekler or tasiyicilar) %}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("arama_sonucu") }}</h2>
+  {% for h in hastalar %}
+  <a class="satir hasta" href="/hasta/{{ h.id }}">
+    <div class="no">{{ h.dosya_no }}</div>
+    <div class="ad">{{ h.ad_soyad }}{% if h.sperm_hastasi %} <span class="rozet">{{ metin("sperm_dondurma_hastasi") }}</span>{% endif %}</div>
+    <div class="meta">
+      {% if h.es_adi %}{{ metin("es") }}: {{ h.es_adi }} · {% endif %}{{ say("n_cycle", h.cycle_sayisi) }}
+    </div>
+  </a>
+  {% else %}
+  <div class="bos">{{ metin("aramaya_uyan_yok") }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
 <div class="sutunlar">
 <div class="sutun">
 
@@ -141,59 +209,15 @@
 {% if yetkim("cryo") %}<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>{% endif %}
 
 </div>{# sutun #}
+{# Sağ sütun: Tüm Hastalar (aktif hastaların tamamı, alfabetik). Arama
+   doluyken sonuç yukarıda, sütun basılmıyor (sorgusu da çalışmıyor); ay
+   listesi o zaman tam genişlikte. Sütun sınırı bu `if`'in İÇİNDE bütün
+   olarak -- `</div><div class="sutun">` ikiye bölünmüyor (v6.52'nin dersi). #}
+{% if not ara %}
 <div class="sutun">
-
-{# Arama burada — ay süzgecinden bağımsız: dosya no ya da ad aranıyorsa
-   hangi ayda olduğu zaten bilinmiyordur (v6.29). Ay hâlâ soldaki sütunda,
-   seçili kalıyor (gizli alanlarla taşınıyor). #}
-<form class="arama" method="get" action="/hastalar">
-  <input type="hidden" name="yil" value="{{ yil }}">
-  <input type="hidden" name="ay" value="{{ ay }}">
-  <input type="search" name="ara" value="{{ ara }}" placeholder="{{ metin('ara_ipucu') }}"
-         inputmode="search" autocomplete="off">
-</form>
-{% if ara %}
-<a class="dugme ikincil" href="/hastalar?yil={{ yil }}&ay={{ ay }}">{{ metin("aramayi_temizle") }}</a>
-{% endif %}
-
-{% if ornekler %}
-{# Örnek kodu araması (v6.35). Kod tüpün üstünde yazıyor; aranan kod ise
-   soru "bu kim" değil "bu hangi tedavi" -- satır o örneğin cycle'ına
-   gidiyor. Hasta satırlarının üstünde duruyor: kod arandıysa aranan şey
-   odur. #}
 <div class="kart">
-  <h2>{{ metin("ornek_kodu_sonucu") }}</h2>
-  {% for o in ornekler %}
-  <a class="satir hasta" href="/cycle/{{ o.cycle_id }}">
-    <div class="ad">{{ o.ad_soyad }}
-      {%- if o.cycle_durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>
-      {%- elif o.cycle_durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>
-      {%- endif %}
-      {%- if o.hasta_durum == "arsiv" %} <span class="rozet arsiv">{{ metin("arsiv") }}</span>
-      {%- endif %}</div>
-    <div class="no">{{ o.dosya_no }}-{{ o.id }}</div>
-    <div class="meta">{{ tip_kisa(o.cycle_tipi) }} · {{ metin("ornek_ad") }} {{ o.cycle_sira_no }}</div>
-  </a>
-  {% endfor %}
-</div>
-{% endif %}
-
-{# Taşıyıcı etiketi sonucu (v6.138). Örnek koduyla aynı yerde ve aynı
-   gerekçeyle: elde bir kod varsa aranan şey odur, hasta satırlarının
-   üstünde dursun. Satır taşıyıcının kendi sayfasına gidiyor. #}
-{% if tasiyicilar %}{{ es.sonuc(tasiyicilar) }}{% endif %}
-
-{# Hasta satırları: arama doluyken sonuç, boşken Tüm Hastalar (alfabetik,
-   aktif hastaların tamamı). İsme tıklamak hasta kartını açıyor. #}
-{% set gosterilecek = hastalar if ara else tum_hastalar %}
-{% if gosterilecek or not (ornekler or tasiyicilar) %}
-<div class="kart" style="margin-top:12px">
-  <h2>
-    {% if ara %}{{ metin("arama_sonucu") }}
-    {% else %}{{ metin("tum_hastalar") }}{% if tum_hastalar_sayisi %} ({{ tum_hastalar_sayisi }}){% endif %}
-    {% endif %}
-  </h2>
-  {% for h in gosterilecek %}
+  <h2>{{ metin("tum_hastalar") }}{% if tum_hastalar_sayisi %} ({{ tum_hastalar_sayisi }}){% endif %}</h2>
+  {% for h in tum_hastalar %}
   <a class="satir hasta" href="/hasta/{{ h.id }}">
     <div class="no">{{ h.dosya_no }}</div>
     <div class="ad">{{ h.ad_soyad }}{% if h.sperm_hastasi %} <span class="rozet">{{ metin("sperm_dondurma_hastasi") }}</span>{% endif %}</div>
@@ -202,16 +226,13 @@
     </div>
   </a>
   {% else %}
-  <div class="bos">
-    {% if ara %}{{ metin("aramaya_uyan_yok") }}{% else %}{{ metin("henuz_hasta_yok") }}{% endif %}
-  </div>
+  <div class="bos">{{ metin("henuz_hasta_yok") }}</div>
   {% endfor %}
 </div>
 
-{# Tüm Hastalar sayfalanır (v6.87) — arama sonucu sayfalanmıyor, zaten
-   süzülmüş küçük bir liste. Ay/yıl gizli alanlarda taşınıyor ki sayfa
-   değiştirince sol sütundaki ay seçimi kaybolmasın. #}
-{% if not ara and tum_hastalar_sayfa_toplam > 1 %}
+{# Tüm Hastalar sayfalanır (v6.87). Ay/yıl gizli alanlarda taşınıyor ki
+   sayfa değiştirince sol sütundaki ay seçimi kaybolmasın. #}
+{% if tum_hastalar_sayfa_toplam > 1 %}
 <nav class="aygezgin" style="margin-top:8px" aria-label="{{ metin('sayfalar') }}">
   {% if sayfa > 1 %}
   <a class="ok" href="/hastalar?yil={{ yil }}&ay={{ ay }}&sayfa={{ sayfa - 1 }}{% if aysayfa and aysayfa > 1 %}&aysayfa={{ aysayfa }}{% endif %}"
@@ -224,13 +245,12 @@
   {% else %}<span class="ok" aria-hidden="true"></span>{% endif %}
 </nav>
 {% endif %}
-{% endif %}
 
 {% if arsiv_sayisi %}
 <a class="dugme ikincil" style="margin-top:12px" href="/hastalar?arsiv=1">{{ metin("arsiv") }} ({{ arsiv_sayisi }})</a>
 {% endif %}
-
 </div>{# sutun #}
+{% endif %}
 </div>{# sutunlar #}
 {% endif %}
 {% endblock %}

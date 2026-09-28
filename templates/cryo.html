@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block ustbaslik %}{{ metin("cryo_haritasi") }}{% endblock %}
-{% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
+{# Aramadayken geri ok aramasız haritaya (v6.208, kullanıcı: "aramadan geriye
+   dönüş olsun"). #}
+{% block geri %}<a class="geri" href="{{ '/cryo' if ara else '/' }}">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis{% endblock %}
 {% block icerik %}
 
@@ -16,11 +18,16 @@
   <input type="search" name="ara" value="{{ ara }}" autocomplete="off"
          placeholder="{{ metin('cryo_ara_ipucu') }}">
 </form>
+{# Aramadayken sonuçlar kutunun hemen altında (v6.208, kullanıcı: "arama
+   sonucu aramanın hemen altında görünsün aramadan geriye dönüş olsun"):
+   Taşınma satırı ve Excel kartları aramada basılmıyor, sonuçların arasına
+   girmesinler; aramayı temizleyince geri geliyorlar. #}
+{% if ara %}<a class="dugme ikincil" href="/cryo">{{ metin("aramayi_temizle") }}</a>{% endif %}
 
 {# Taşınma bölümü (v6.205, kullanıcının isteği: "cryo harita bölümünde
    taşınma diye bir bölüm olsun"). Embriyo, yumurta ve sperm için tek bölüm,
    o yüzden iki sütunun üstünde -- tek satır, haritayı aşağı itmesin. #}
-{% if tasima %}
+{% if tasima and not ara %}
 <div class="kart">
   <a class="satir" href="/cryo/tasima">
     <div class="no">{{ metin("tasima") }}</div>
@@ -129,7 +136,9 @@
 
 {# Tankların Excel'i. Arama süzgecini uygulamaz -- çıktı her zaman tankların
    tamamı. Laboratuvarın kendi Cryo Haritası Excel'i yüklüyse (v6.199) o
-   dosya bugünkü haliyle; değilse sayım ve envanter listesi (v6.36). #}
+   dosya bugünkü haliyle; değilse sayım ve envanter listesi (v6.36).
+   Aramada basılmıyor (v6.208): sonuçlar arka arkaya dursun. #}
+{% if not ara %}
 <a class="dugme ikincil" href="/disari/cryo">{{ metin("excel_cryo") }}</a>
 
 {# Cryo Haritası'nın Excel'i (v6.191): program harita her değiştiğinde veri
@@ -186,6 +195,7 @@
 {# Laboratuvarın dosyası yüklüyken "Tankları Excel'e aktar" aynı dosyayı
    veriyor; ikinci bir düğme aynı şeyi iki adla öğretirdi. #}
 {% if not cryo_sablon %}<a class="dugme ikincil" href="/disari/cryo/harita">{{ metin("excel_harita_indir") }}</a>{% endif %}
+{% endif %}{# not ara #}
 
 </div><div class="sutun">
 

@@ -635,8 +635,14 @@ form { margin: 0; }
   background: #0d1419; border-radius: var(--r); overflow: hidden;
   border: 1px solid var(--line);
 }
-.foto img { display: block; width: 100%; height: auto; max-height: 58vh;
-            object-fit: contain; }
+/* Resmin yeri yüklenmeden AYRILIYOR (v6.208, kullanıcı: "Denüdasyon ekranı
+   işlem yaparken sayfa kayıyor"): `height: auto` iken kutu resim gelene kadar
+   sıfır yükseklikteydi, resim yüklenince altındaki "Kaydet / Atla" düğmeleri
+   telefonda 267px aşağı kayıyordu (ölçüldü) -- hızlı dokunan yanlış düğmeye
+   basardı. Kutu 4:3 (kamera karesi), resim içine sığdırılıyor (`contain`,
+   koyu zemin); başka oranlı resim bantlı görünür ama sayfa kaymaz. */
+.foto img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3;
+            max-height: 58vh; object-fit: contain; }
 .foto .dosyaadi { font-size: 11px; color: #7e8f9b; padding: 6px 10px;
                   text-align: center; }
 
@@ -1105,6 +1111,12 @@ body.kilitli { overflow: hidden; }
   text-decoration: none; font-size: 15px; font-weight: 600;
 }
 .minidugme:active { filter: brightness(.9); }
+
+/* İşlemi yapan (v6.208): her aşama ekranının en üstünde; seçince kendisi
+   kaydediyor, düğme yalnızca betik çalışmazsa görünüyor. */
+.iykart .alan { padding: 10px 14px; }
+.iysatir { display: flex; gap: 8px; }
+.iysatir select { flex: 1; min-width: 0; }
 
 /* --- snapshot alma kartı --- */
 .snapkart { border-color: var(--vurgu); }

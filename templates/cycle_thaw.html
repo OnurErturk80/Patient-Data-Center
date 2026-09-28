@@ -13,6 +13,8 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "thaw") }}
 
 {% if goc_gerekli %}
 <div class="uyari">
@@ -22,6 +24,22 @@
 
 {% set dolu = tasiyicilar|selectattr('durum','equalto','dolu')|list %}
 {% set bos = tasiyicilar|rejectattr('durum','equalto','dolu')|list %}
+
+{# Çözme kaydı buraya dönüyor (v6.208, kullanıcı: "çözme işlemi yapınca
+   transfer sayfasına gidiş yok ... biri çözüldükten sonra diğerine geri
+   dönüş yok"): hangi tüp çözüldü, içinden ne çıktı; sıradaki aşamanın
+   düğmesi hemen altında, tankta kalan tüpler aşağıdaki listede. #}
+{% if kaydedilen %}
+{% set sk = [] %}
+{% for r in kaydedilen.sagkalim %}{% set _ = sk.append(r.n ~ " " ~ (etiketler.get(r.kod, r.kod) if r.kod else metin("girilmedi"))) %}{% endfor %}
+<div class="uyari tamam">{{ metin("cozme_kaydedildi").format(
+    etiket=kaydedilen.etiket, icerik=icerik_sayisi(kaydedilen.adet, icerik=kaydedilen.icerik),
+    sagkalim=sk|join(", ")) }}
+  {%- if dolu %} {{ metin("cozme_kalan_tup").format(n=dolu|length) }}{% endif %}</div>
+{% if gezinme and gezinme.sonraki %}
+<a class="dugme" href="{{ gezinme.sonraki.yol }}">{{ metin("asamaya_gec").format(ad=gezinme.sonraki.ad) }} &#8250;</a>
+{% endif %}
+{% endif %}
 
 <div class="kart">
   <h2>{{ metin("tankta_duran_tasiyicilar") }} ({{ dolu|length }})</h2>
@@ -119,6 +137,5 @@
 {% if vit_var %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("vitrifikasyon_ekrani") }}</a>{% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 {{ ok.baglama() }}
-{{ iy.kutu(c.id, "thaw") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

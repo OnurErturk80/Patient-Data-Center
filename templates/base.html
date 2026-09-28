@@ -124,6 +124,10 @@
 <script>
 (function () {
   var damga = {{ veri_damgasi()|tojson }};
+  // Sayfa yenilenmeden yazan bir parça (İşlemi yapan seçicisi, v6.208) kendi
+  // kaydının yeni damgasını buraya verir; yoksa yoklama o kaydı "başkasının
+  // değişikliği" sanıp sayfayı yeniler.
+  window.pdcDamgaGuncelle = function (d) { if (d) damga = d; };
   // Bu ekranin duzenledigi kaydin adi. Sablon soyluyor; bos ise bu ekranda
   // "kim duzenliyor" takibi yok (liste ve yonetim ekranlari boyle).
   var anahtar = "{% block kayitanahtari %}{% endblock %}".trim();

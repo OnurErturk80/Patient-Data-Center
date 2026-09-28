@@ -18,6 +18,8 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "transfer") }}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
@@ -100,7 +102,6 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
   });
 });
 </script>
-{{ iy.kutu(c.id, "transfer") }}
 {{ bt.dugme(c) }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

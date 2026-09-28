@@ -447,6 +447,50 @@ def yerlesim(kaynak, sayfa_adi: str, deger=None, ek=None, alan=None,
     }
 
 
+# Kalıbın BOŞ bir ara satırına (kâğıtta hücresi olmayan satır) tam genişlikte,
+# ortalı, kenarlıksız not (v6.208: ART Lab'ın ÖZET tablosunun altına dondurulan
+# tüplerin Cryo Haritası'ndaki yeri). Kalıp değişmiyor: hücre, doldurma
+# tarafında çıktının kopyasına ekleniyor -- iptal notunun (v6.104) kalıbın
+# DIŞINA eklenmesinin kalıp içindeki eşi. Satırda kâğıdın bir hücresi varsa
+# hiçbir şey yazılmıyor (kâğıdın yazısının üstüne binmesin). Uzun satır
+# ekranda ve Excel'de sarılıyor (`sar`), satır içerikle uzuyor.
+NOT_STILI = {"pt": 10, "kalin": 0, "yatay": 2, "dikey": 1, "sar": 1,
+             "kenar": [0, 0, 0, 0]}
+
+
+def bos_satir_mi(kaynak, satir: int) -> bool:
+    k = _kalip_al(kaynak)
+    return 0 <= satir < len(k["satirlar"]) and not k["satirlar"][satir]
+
+
+def not_satiri(sayfa: dict, kaynak, satir: int, metinler_: list) -> None:
+    """`satirlar()`'ın bir sayfasına not satırı ekler (ekran). Satırın
+    yüksekliği değişmiyor: tablo satırı içerikle kendiliğinden uzuyor,
+    yazdırırken form yine tek A4'e sığıyor (`form.html` baskiyaSigdir)."""
+    if not metinler_ or not bos_satir_mi(kaynak, satir):
+        return
+    k = _kalip_al(kaynak)
+    sayfa["satirlar"][satir]["hucreler"] = [{
+        "metin": "\n".join(metinler_), "sinif": _sinif(NOT_STILI),
+        "satir_yayilim": 1, "sutun_yayilim": len(k["sutun"])}]
+
+
+def not_satiri_excel(yer: dict, kaynak, satir: int, metinler_: list) -> None:
+    """`yerlesim()`'in bir sayfasına aynı not satırı (Excel). Stil sayfanın
+    stil listesinin KOPYASINA ekleniyor (kalıbınkine dokunulmuyor, v6.150'nin
+    kuralı); Excel birleşik hücrenin yüksekliğini kendisi ayarlamıyor,
+    satır sayısından veriliyor."""
+    if not metinler_ or not bos_satir_mi(kaynak, satir):
+        return
+    k = _kalip_al(kaynak)
+    yer["stiller"].append(dict(NOT_STILI))
+    ilk, son = _adres(satir, 0), _adres(satir, len(k["sutun"]) - 1)
+    yer["hucreler"][ilk] = ("\n".join(metinler_), len(yer["stiller"]) - 1)
+    yer["birlesik"].append(f"{ilk}:{son}")
+    yer["yukseklikler"][satir + 1] = max(k["satir_yuksekligi"][satir] or 15.0,
+                                         13.0 * len(metinler_) + 3)
+
+
 def _adres(r: int, c: int) -> str:
     """(0, 0) -> "A1"."""
     harf, n = "", c + 1

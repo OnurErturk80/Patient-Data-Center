@@ -17,6 +17,8 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "vitrifikasyon") }}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 {# Kayıt bu ekrana dönüyor (v6.198): hangi taşıyıcıya ne kondu. Sıradaki
@@ -357,7 +359,6 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
 {% include "_buyutec.html" %}
 {{ kf.baglama() }}
 {{ ok.baglama() }}
-{{ iy.kutu(c.id, "vitrifikasyon") }}
 {{ bt.dugme(c) }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

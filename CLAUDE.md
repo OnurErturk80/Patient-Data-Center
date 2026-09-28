@@ -424,6 +424,18 @@ görünmüyor.
   sayfasına yönlendirme**: geri ok o sayfanın sabit adresine düşer.
   Önerilen etiket varsa dakika ilerler (`_etiket_onerisi()`, aktarımın
   kuralı); yoksa aynı dakikadaki ikinci tüp "zaten var" diye reddedilirdi.
+- **Çözme kaydı da çözmenin tedavisinin ekranına döner** (v6.208, kullanıcı:
+  "Fet tedavilerinde çözme işlemi yapınca transfer sayfasına gidiş yok ...
+  biri çözüldükten sonra diğerine geri dönüş yok"). `thaw_kaydet` →
+  `/cycle/{seçilen tedavi}/thaw?kaydedildi=<tüp>`: mesaj, sıradaki aşamanın
+  düğmesi (`gezinme.sonraki`: FET'te Transfer), tankta kalan tüpler. v6.207'ye
+  kadar yalnızca form tedaviden açıldıysa (`geri_cycle`) dönüyordu; tüp
+  sayfasının "Bu taşıyıcıyı çöz"ü `?cycle=` taşımıyordu (artık taşıyor).
+- **Yumurta Dondurma'da GV çıkan yumurta dondurma adayı değil** (v6.208,
+  `_gv_yumurta()`, kullanıcının isteği): bu tedavideki SON maturasyonu GV,
+  bu tedavide dondurulmamış yumurta; ekran ve kayıt aynı koşul
+  (`_vit_adaylari()`, `db.yumurta_mi(tip)` olan tip). Dondurulmuş GV kalır.
+  Yalnızca GV: MI/dejenere/atretik için kullanıcıya soruldu, sormadan ekleme.
 - **Vitrifikasyon ekranı `oosit_cryo` ile de paylaşılıyor — orada bu süzgeç
   UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
   (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**
@@ -596,6 +608,20 @@ ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
 **Bir ekranda birden çok düzenlenebilir şey varsa adreste adıyla söyle.**
 Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati) ve `?duzenle=oosit`
 (oositlerin çalışma kipi) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
+
+**Aşama ekranının ana fotoğrafının yeri yüklenmeden ayrılır** (v6.208,
+kullanıcı: "Denüdasyon ekranı işlem yaparken sayfa kayıyor"). `.foto img`
+4:3 kutu (`aspect-ratio`, `object-fit: contain`): `height: auto` iken resim
+gelince altındaki "Kaydet / Atla" 267px kayıyordu (telefonda ölçüldü) --
+yanlış düğmeye basılır. Resmi olan yeni bir kutu yazarsan yerini ayır.
+Denüdasyon ayrıca kayıttan sonra **kaydırma konumunu koruyor** (gönderirken
+sessionStorage, aynı ekrana bir dakika içinde dönülünce; hata mesajı varsa
+kaydırmıyor): yoksa her karede "Kaydet" ekranın dışında kalıyordu. Başka bir
+aşama ekranına eklemeden önce kullanıcıya sor -- "aşamalar arasında ekran
+baştan başlasın" (v6.35) seçimle ilgili, ama beklentisi bu olabilir.
+
+**Cleavage 3. günle açılır** (v6.208, kullanıcının isteği): `ASAMA_SIRASI`'nın
+bağlantısı `?gun=3`, rota adressiz de 3.
 
 **Denüdasyonun bilgi ekranı fert/blastokistin aynısıdır** (v6.25): numara
 şeridi → seçilenin fotoğrafı → altında örnek kodu → kare şeridi → bilgi
@@ -1238,6 +1264,17 @@ kalıptan**: `form_kalip.json`.
   - ART Lab: THAW ve TRANSFER da FREEZE gibi dört kutu (`_ARTLAB_DORT_KUTU`).
     THAW tüp tüp parantez (`tup_metni()`), TRANSFER'in "Uterus grade (x
     sayı)"sı "3AA x2 · %90-%85" (`_transfer_satirlari()`).
+  - **"Deselect grade (x sayı)" da dört kutu** (v6.208, kullanıcının isteği):
+    bu tedavi için çözülüp bu tedavide transfer edilmeyen ve yeniden
+    dondurulmayan EMBRİYO (`_deselect_satirlari()`; çözülen yumurta
+    sayılmıyor), "7HG2 x1", canlı çıkmayan "· Dejenere".
+  - **ÖZET tablosunun altındaki boş satırda dondurulan tüplerin Cryo
+    Haritası'ndaki yeri** (v6.208, kullanıcı: "art lab özet formunun orta
+    alt kısmına ... Embriyo, yumurta bilgisi ile birlikte"):
+    `formlar.cryo_yeri_satirlari()`, `ARTLAB_CRYO_SATIR = 32`. Kalıp
+    değişmiyor, hücreyi app ekliyor (`form_kalip.not_satiri()` /
+    `not_satiri_excel()`: yalnızca kâğıtta hücresi olmayan satıra, tam
+    genişlik, ortalı, sarmalı). Yalnızca ilk sayfa.
   - Izgaranın "Transfer" satırındaki **F = Freeze** (o embriyo transfer
     edilmedi, donduruldu), ✓ = transfer. Kullanıcı sordu, anlamı ekranda
     yazmıyor.
@@ -1252,8 +1289,9 @@ kalıptan**: `form_kalip.json`.
 - **Taşma/küçülme kararı sayfanın verisine bağlı** (v6.152):
   `formlar.tasan_hucreleri(ad, deger)` / `sigdir_hucreleri(ad, deger)`,
   app ikisini de sayfa sayfa çağırıyor. FREEZE yanındaki THAW boşsa taşar,
-  doluysa küçülür; THAW hep küçülür (sağı TRANSFER); TRANSFER taşar
-  (sağındaki Deselect grade programda yok). Yeni bir dolu komşu eklersen
+  doluysa küçülür; THAW hep küçülür (sağı TRANSFER); TRANSFER yanındaki
+  Deselect boşsa taşar, doluysa küçülür (v6.208); Deselect hep küçülür (sağı
+  İŞLEM'in basılı yazıları). Yeni bir dolu komşu eklersen
   bu iki işlevi güncelle, sabit kümeye güvenme.
 - **Yazdırırken form tek A4'e sığdırılıyor** (v6.152, `form.html`
   `baskiyaSigdir()`). Kâğıdın NOTLAR kutusu iki satır boyunda; 3 satırı
@@ -1616,8 +1654,16 @@ soruyu soracaksan bu ikisini çağır, yeni sorgu/satır yazma.
 
 **Hasta kayıtları ay ay + Tüm Hastalar, birlikte** (v6.29, v6.63'te
 genişledi). `/hastalar` **iki sütun**: solda o ayın cycle'ları (satır cycle
-başına), sağda **Tüm Hastalar** — arama boşken aktif hastaların tamamı
-alfabetik, doluyken arama sonucu. **v6.63'e kadar arama ay görünümünün
+başına), sağda **Tüm Hastalar** (aktif hastaların tamamı, alfabetik). **Arama
+kutusu v6.208'den beri sütunların ÜSTÜNDE, sonuç hemen altında** (kullanıcı:
+"arama sonucu aramanın hemen altında görünsün aramadan geriye dönüş olsun"):
+kutu sağ sütundayken telefonda sonuç ay listesinin altında kalıyordu.
+Aramadayken sağ sütun basılmıyor, ay listesi sonuçların altında; geri ok ve
+"Aramayı temizle" aramasız hale (ay korunur). **Programdaki her arama
+kutusunda aynı kural**: sonuç kutunun hemen altında (arada başka kart yok --
+`/cryo` aramada Taşınma ve Excel kartlarını basmıyor), "Aramayı temizle" ve
+aramadayken geri ok aramasız hale. Yeni bir arama kutusu yazarsan bu üçünü
+koy. **v6.63'e kadar arama ay görünümünün
 YERİNE geçiyordu** (iki ayrı mod, hiç birlikte görünmezlerdi); kullanıcının
 isteğiyle (2026-09-16, "hasta kayıtları ve takvim aynı şey gibi"
 gözleminin yanıtı) artık **ikisi aynı anda** ekranda. Yeni bir davranış
@@ -3110,7 +3156,19 @@ kartı ve silme ekranı simetri satırını basmıyor.
   `liste_etiket('cleavage_skor', kod)` bulunamayan bir kodu (A/B/C gibi)
   olduğu gibi döndürdüğü için ikisi çakışmıyor.
 
-**"İşlemi yapan" her aşama ekranının altında.** Aşama başına tek değer
+**"İşlemi yapan" her aşama ekranının EN ÜSTÜNDE** (v6.208; v6.207'ye kadar
+en altındaydı, kullanıcı: "işlem yapan kaydı yapılan ekranlarda karışıklık
+oluyor ... İşlemi yapan kaydı üst tarafta olsun"). Çağrı `{% block icerik %}`'in
+ilk satırı. **Ayrı "Kaydet" yok**: seçici seçilince sayfa yenilenmeden
+kaydediyor (`POST /cycle/{id}/islem-yapan`, `json=1` → JSON, tazelemenin
+damgasıyla: `window.pdcDamgaGuncelle`, yoksa sayfa kendi kaydı yüzünden
+yenilenir); betik yoksa düğme görünür. **Aşamanın kaydı ad boşsa giriş yapan
+kişiyi yazıyor** (`app.islem_yapani_doldur(cycle_id, asama)`, `INSERT OR
+IGNORE`, kayıtlı adı ezmez): ekranda görünen ile formlara basılan ayrı
+düşmesin. v6.99'un "otomatik yazmıyor" kararı v6.208'de değişti. **Yeni bir
+aşama kayıt rotası yazarsan başarılı kayıttan sonra `islem_yapani_doldur()`'ı
+çağır** (bugün 15 rota). Sayfa yenilenmeden yazan yeni bir parça eklersen
+damgayı `pdcDamgaGuncelle` ile güncelle. Aşama başına tek değer
 (`islem_yapan` tablosu, `UNIQUE(cycle_id, asama)`), sütun adı hâlâ
 `yapan_ad` ama **v6.99'dan beri serbest metin değil** — şifresi olan
 (aktif) personelden seçiliyor, `personel_listesi()` Jinja global'ı
@@ -3125,8 +3183,9 @@ giriş yapmış kim" ihtiyacı doğarsa aynı deseni kullan, her rotaya
 personel listesinde yoksa** (hesap pasif yapıldı ya da v6.99 öncesi
 serbest metinle yazılmış eski bir ad) tuzak #6: `_islem_yapan.html` o
 değeri listeye kendi seçeneği olarak ekliyor, yoksa seçici sessizce ilk
-isme kayar. Yeni bir aşama eklersen `ASAMA_SIRASI`'na koy + şablonuna
-`{{ iy.kutu(c.id, "<asama>") }}` ekle — gerisi otomatik (README v6.3).
+isme kayar. Yeni bir aşama eklersen `ASAMA_SIRASI`'na koy + şablonunun
+`{% block icerik %}`'inin ilk satırına `{{ iy.kutu(c.id, "<asama>") }}` ekle
++ kayıt rotasına `islem_yapani_doldur()` (README v6.3, v6.208).
 Makro isteğe bağlı `etiket`/`ipucu` alır; varsayılanı değiştirme, sadece
 belirsizlik olan ekranda ver (v6.9).
 

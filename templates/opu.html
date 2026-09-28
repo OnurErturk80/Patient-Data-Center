@@ -15,6 +15,9 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{# OPU'da iki kişi var, bu yüzden etiket "İşlemi yapan" değil.
+   Hekim ayrı bir alan (cycle.opu_hekim) — laboratuvar personeli değil. #}
+{{ iy.kutu(c.id, "opu", metin("opu_embriyologu")) }}
 
 {% if goc_gerekli %}
 <div class="uyari">
@@ -84,8 +87,5 @@
 {% endif %}
 {% endif %}
 
-{# OPU'da iki kişi var, bu yüzden etiket "İşlemi yapan" değil.
-   Hekim ayrı bir alan (cycle.opu_hekim) — laboratuvar personeli değil. #}
-{{ iy.kutu(c.id, "opu", metin("opu_embriyologu")) }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}

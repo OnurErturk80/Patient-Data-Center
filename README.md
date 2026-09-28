@@ -16352,3 +16352,157 @@ belirsiz"de tüp. Artık:
   tedavi, silinmiş ve iptalle bitmiş tedavi, `AKTAR`) her biri beklenen
   kararı verdi. Excel kaydı sayfasının "tüpe bağla / bağı çöz"u ortak işlevle
   denendi: konum, renk, günlük ve geri alma aynı.
+
+# v6.208 — ART Lab'da Cryo yeri ve Deselect, İşlemi yapan üstte, arama sonucu kutunun altında, FET çözme akışı, GV yumurta, denüdasyonda kayma
+
+Kullanıcının tek mesajdaki sekiz isteği. Her birinin sebebi aşağıda.
+
+**ART Lab: dondurulan tüplerin Cryo Haritası'ndaki yeri** (kullanıcı:
+"dondurma yapılan hastanın dondurulan örneğin cryo haritada nereye
+yerleştirildiği art lab özet formunun orta alt kısmına yazılsın. Embriyo,
+yumurta bilgisi ile birlikte").
+- Yer: kâğıtta ÖZET tablosunun hemen altındaki boş ara satır (0'dan sayarak
+  32; kalıpta hücresi yok). Tam genişlikte, ortalı, 10 punto, FREEZE
+  kutularının hemen altında. "Orta alt kısım" ÖZET'in altı diye okundu.
+  İptal notu (v6.104) kalıbın DIŞINA, en alta yazılıyor; bu yazı ise kalıbın
+  içinde. Başka bir yer istenirse `formlar.ARTLAB_CRYO_SATIR`.
+- İçerik tüp başına: "TANK 1 / 3 / 12 · Mavi Cryotop: 1 embriyo (4AA)".
+  Tüpler ";" ile ayrılıyor, uzun olunca satır satır bölünüyor (115 harf, bir
+  tüp ortasından bölünmüyor). Yer, tüpün kayıtlı konumu (Cryo Haritası'nın
+  gösterdiği); girilmemişse "konum girilmemiş". İçerik FREEZE kutusunun
+  parantezi (`tup_metni()`), tür tüpün içeriğinden. Sonradan çözülen ya da
+  taşınan tüp işaretlenmiyor: form bu tedavinin dondurmasını anlatıyor,
+  FREEZE kutuları gibi.
+- Kalıp değişmiyor: hücre, `form_kalip.not_satiri()` / `not_satiri_excel()`
+  ile çıktının kopyasına ekleniyor. Satırda kâğıdın bir hücresi varsa hiçbir
+  şey yazılmıyor. Ekranda satır içerikle uzuyor; yazdırırken form yine tek A4'e
+  sığıyor (`baskiyaSigdir`). Excel'de birleşik hücre sarmalı, yüksekliği satır
+  sayısından. Yalnızca ilk sayfada.
+
+**ART Lab: Deselect grade** (kullanıcı: "Çözülen ama transfer edilmeyen ve
+tekrar dondurulmayan embriyo art lab deselect bölümüne yazılsın").
+- `formlar._deselect_satirlari()`: bu tedavi için çözülen, bu tedavide
+  transfer edilmeyen ve yeniden dondurulmayan embriyolar. Yumurta sayılmıyor
+  (Yumurta Çözme'nin çözdüğü yumurta): kullanıcı "embriyo" dedi.
+- Yazım "Uterus grade"inkiyle aynı: "7HG2 x1". Çözmede canlı çıkmayanın
+  sağkalımı da yazılıyor ("4BB x1 · Dejenere").
+- Dört kutu; dördü aşan kutular ikinci kâğıda geçiyor (FREEZE/THAW/TRANSFER'in
+  kuralı, `_ARTLAB_DORT_KUTU`).
+- Taşma: TRANSFER artık yalnızca yanındaki Deselect boşsa taşıyor; önce
+  Deselect hep boştu, TRANSFER hep taşıyordu. Deselect'in sağında İŞLEM
+  sütununun basılı yazıları var: taşmıyor, küçülüyor.
+
+**İşlemi yapan üstte, ayrı "Kaydet" yok** (kullanıcı: "işlem yapan kaydı
+yapılan ekranlarda karışıklık oluyor. Mesela OPU kaydı yapılıyor isim kaydı
+ayrı yapılıyor. Bazı ekranlarda isim değişince kayıt yenileniyor. İşlemi
+yapan kaydı üst tarafta olsun aşağıda değil").
+- Sebep: kutu her ekranın en altında, kendi "Kaydet"i olan ayrı bir formdu.
+  - Aşamanın kendi kaydı adı yazmıyordu.
+  - Ekranda görünen varsayılan (giriş yapan kişi) kaydedilmeden kalıyor,
+    formlara boş basılıyordu.
+  - Değiştirilen ad, aşama kaydedilince eski haline dönüyordu.
+  - Kutunun "Kaydet"i sayfayı yeniliyordu; aynı ekranda yazılıp henüz
+    kaydedilmemiş form gidiyordu.
+- Bugün kutu 11 aşama ekranında `{% block icerik %}`'in ilk satırı.
+  - Seçmek yetiyor: ad sayfa yenilenmeden kaydediliyor ve kutu
+    "Kaydedildi: X." yazıyor. Bunu `POST /cycle/{id}/islem-yapan` ile `json=1`
+    yapıyor; cevap JSON, içinde tazelemenin yeni damgası var
+    (`window.pdcDamgaGuncelle`, `base.html`). Damga güncellenmeseydi sayfa beş
+    saniye sonra kendi kaydı yüzünden yenilenirdi. Betik çalışmazsa düğme
+    görünüyor, eski yol işliyor.
+  - Ad boşsa aşamanın kaydı giriş yapan kişiyi yazıyor
+    (`app.islem_yapani_doldur()`, `INSERT OR IGNORE`). Kayıtlı ad ezilmiyor:
+    başka bir telefondan seçilen adı bozmasın. Bunu 15 kayıt rotası çağırıyor:
+    OPU, androloji, denüdasyon (üç yol), ICSI (+ genel bulgu), fertilizasyon,
+    cleavage, blastokist, vitrifikasyon, çözme (tüp sayfasında; çözmenin
+    tedavisine), transfer, gebelik (+ bebek).
+- v6.99'un "Kaydet elle onay ister, otomatik yazmıyor" kararı bu sürümde
+  değişti; sebep kullanıcının bildirdiği karışıklık.
+
+**Arama sonucu kutunun hemen altında, aramadan dönüş** (kullanıcı:
+"Programda arama yapılan her alanda arama sonucu aramanın hemen altında
+görünsün aramadan geriye dönüş olsun").
+- `/hastalar`:
+  - Kutu sağ sütundaydı. Telefonda sütunlar alt alta dizilince sonuç ay
+    listesinin (50 satıra kadar) altında kalıyordu; ana ekrandan aranan hasta
+    sayfanın dibindeydi.
+  - Artık kutu sütunların üstünde, sonuçlar (örnek kodu, etiket, hasta) hemen
+    altında, ay listesi onların altında (v6.63'ün "ikisi birlikte" kararı
+    duruyor).
+  - Aramadayken Tüm Hastalar sütunu basılmıyor.
+  - Geri ok aramadayken aramasız hale dönüyor, seçili ay korunuyor.
+- `/cryo`:
+  - Aramadayken Taşınma satırı ve Excel kartları basılmıyor; sonuçların
+    arasına giriyorlardı, aramayı temizleyince geri geliyorlar.
+  - "Aramayı temizle" eklendi, geri ok `/cryo`'ya dönüyor.
+- `/cryo/tasima` ve dondurulmuş sperm bağlama: "Aramayı temizle" eklendi,
+  geri ok aramasız hale dönüyor.
+- Vitrifikasyonun etiket araması zaten böyleydi.
+
+**Cleavage 3. günle açılıyor** (kullanıcı: "Clavage ekranını açınca ilk 3.
+günü göstersin"). Rota adressiz açılınca zaten 3. günü seçiyordu; aşama
+menüsünün bağlantısı `?gun=2` veriyordu (`ASAMA_SIRASI`).
+
+**FET: çözmeden sonra çözme ekranına dönüş, transfere geçiş** (kullanıcı:
+"Fet tedavilerinde çözme işlemi yapınca transfer sayfasına gidiş yok. Ayrıca
+birden fazla embriyo çözülecekse biri çözüldükten sonra diğerine geri dönüş
+yok").
+- Sebep: çözme kaydı, yalnızca çözme formuna tedavinin ekranından gelindiyse
+  (`geri_cycle`) oraya dönüyordu.
+  - Tüpün "İçeriği gör" sayfasından "Bu taşıyıcıyı çöz"e basınca tedavi
+    kayboluyordu; bağlantı `?cycle=` taşımıyordu.
+  - Cryo Haritası'ndan gelinince de aynısı oluyordu.
+  - İkisinde de kayıt tüp sayfasına düşüyordu. Orada aşama menüsü yok, geri ok
+    `/cryo`'ya çıkıyor (v6.198'in vitrifikasyondaki dersi).
+- Bugün kayıt, çözmenin yapıldığı tedavinin çözme ekranına dönüyor
+  (`?kaydedildi=<tüp>`).
+  - Üstte mesaj: "Kaydedildi: taşıyıcı X çözüldü, 1 embriyo (1 Canlı). Tankta
+    N taşıyıcı daha var".
+  - Mesajın altında sıradaki aşamanın düğmesi: "Transfer ekranına geç";
+    FET (3→5)'te Blastokist.
+  - Tankta kalan tüpler aşağıdaki listede.
+  - Tüp sayfasının çözme bağlantısı `?cycle=`'yi taşıyor.
+
+**Yumurta Dondurma'da GV yumurta dondurma adayı değil** (kullanıcı: "Yumurya
+dondurmada gv çıkan yumurtaları dondurulacak yumurta olarak gösterme").
+- `app._gv_yumurta()`: bu tedavideki son maturasyonu GV olan yumurta
+  vitrifikasyon listesinde görünmüyor, sunucu da dondurmasını reddediyor
+  (`_vit_adaylari()`: ekran ve kayıt aynı koşulu soruyor).
+- GV yazılıp sonra MII'ye düzeltilen yumurta listede.
+- Bu tedavide zaten dondurulmuş GV yumurta (Access'ten "(4*GV)") listede
+  kalıyor.
+- Yalnızca GV. MI, dejenere ve atretik yumurta değişmedi; kullanıcıya soruldu.
+
+**Denüdasyonda sayfa kayması** (kullanıcı: "Denüdasyon ekranı işlem yaparken
+sayfa kayıyor"). İki sebep vardı, ikisi de telefonda ölçüldü (resim 1,5 sn
+gecikmeli).
+- Birinci sebep: `.foto img` `height: auto` idi. Resim gelene kadar kutu
+  sıfır yükseklikteydi; gelince "Kaydet / Atla" düğmeleri 267 px aşağı
+  kayıyordu. Hızlı dokunan yanlış düğmeye basardı.
+- İkinci sebep: her düğme sayfayı yeniliyor, yeni sayfa en üstten açılıyordu.
+  Telefonda "Kaydet" ekranın dışında kalıyordu; her karede aşağı kaydırmak
+  gerekiyordu.
+- Düzeltme:
+  - `.foto img` artık 4:3 bir kutu (`aspect-ratio`, `contain`), bütün aşama
+    ekranlarında. Başka oranlı resim (dikey telefon fotoğrafı) bantlı
+    görünüyor.
+  - Denüdasyonda form gönderilirken kaydırma konumu sekmede saklanıyor
+    (sessionStorage). Aynı ekrana bir dakika içinde dönülünce oraya
+    kaydırılıyor; hata mesajı varsa kaydırılmıyor (mesaj en üstte).
+- Sonuç: kayma 0 px; kayıttan sonra düğme ekranda.
+
+**Deneme** (sahte veritabanında, gerçek hasta verisi yok):
+- İki tüp donduruldu; İşlemi yapan ilk kayıtla yazıldı.
+- Seçici sayfa yenilenmeden kaydetti; 6,5 sn sonra sayfa yenilenmedi, şerit
+  çıkmadı.
+- FET tüp sayfasından (tedavisiz) açıldı. İki tüp çözüldü: ikisi de FET'in
+  çözme ekranına döndü, "İçeriği gör" üzerinden gelinince tedavi korundu.
+  "Transfer ekranına geç" transfere götürdü.
+- ART Lab'da çözülüp transfer edilmeyen embriyo Deselect'e "7HG2 x1" yazıldı.
+  Dondurma tedavisinin formunda iki tüpün yeri ÖZET'in altında çıktı; Excel'de
+  `A33:AC33` birleşik hücre, openpyxl açtı.
+- GV yumurta listede yok, elle gönderimi reddedildi; dondurulmuş GV listede
+  kaldı.
+- Arama ekranları telefon ve masaüstünde sonucu kutunun altında gösterdi.
+- 56 ekran (üç tedavi tipinin bütün aşamaları, formlar, listeler) hatasız ve
+  yatay taşmasız açıldı.

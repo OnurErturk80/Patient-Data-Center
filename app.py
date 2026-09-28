@@ -261,7 +261,7 @@ def _islem_yapan_ad(cycle_id, asama):
     """Bir cycle aşamasını fiilen yapan kişinin adı (yoksa boş).
 
     Şablondan `islem_yapan_ad(c.id, "denudasyon")` diye çağrılır; `_islem_yapan`
-    kutusu her aşama ekranının altında bunu gösterir.
+    kutusu her aşama ekranının üstünde bunu gösterir (v6.208).
     """
     r = db.tek("SELECT yapan_ad FROM islem_yapan WHERE cycle_id = ? AND asama = ?",
                (cycle_id, asama))
@@ -276,8 +276,9 @@ def _guncel_kullanici_ad():
 
     `_islem_yapan` kutusunun seçicisinde varsayılan seçim için: aşama henüz
     kaydedilmemişse kutu boş durmasın, giriş yapan kişi zaten önceden
-    seçili gelsin (v6.99, kullanıcının isteği) — ama değiştirilebilir,
-    "Kaydet" hâlâ elle onay ister, otomatik yazmıyor.
+    seçili gelsin (v6.99, kullanıcının isteği) — ama değiştirilebilir.
+    v6.208'den beri aşamanın kaydı ad boşsa bu kişiyi yazıyor
+    (`islem_yapani_doldur()`): ekranda görünen ile kayıtlı olan ayrı düşmesin.
     """
     k = _GIRIS_KULLANICI.get()
     return k["ad_soyad"] if k else ""
@@ -4226,6 +4227,9 @@ async def denudasyon_islem(request: Request, cycle_id: int):
         for _ in range(max(0, toplam - mevcut)):
             goruntuler.specimen_olustur(cycle_id, c["cycle_no"])
 
+    if not hata:
+        islem_yapani_doldur(cycle_id, "denudasyon")   # v6.208
+
     # Kare eklemek çalışma kipinde yapılıyor; kayıttan sonra orada kal
     # (v6.24). Yoksa her kayıtta özet ekranına düşüp tekrar Düzenle demek
     # gerekirdi -- 20 oositlik bir cycle'da 20 fazladan dokunuş. "Hepsi"
@@ -4492,6 +4496,7 @@ async def androloji_kaydet(request: Request, cycle_id: int):
         elif mevcut:
             db.yaz("DELETE FROM sperm_analiz WHERE id = ?", (mevcut["id"],))
 
+    islem_yapani_doldur(cycle_id, "androloji")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/androloji?ornek={oid}",
                             status_code=303)
 
@@ -4500,15 +4505,21 @@ async def androloji_kaydet(request: Request, cycle_id: int):
 
 @uygulama.post("/cycle/{cycle_id}/islem-yapan")
 async def islem_yapan_kaydet(request: Request, cycle_id: int):
+    """"İşlemi yapan"ı yazar. Ekranın üstündeki seçici (v6.208) bunu sayfa
+    yenilenmeden çağırıyor (`json=1`): cevap JSON, tazelemenin yeni damgasıyla.
+    Betik çalışmazsa kutunun düğmesi düz form gönderir, eski yol (sayfaya
+    dönüş)."""
     f = dict(await request.form())
     asama = (f.get("asama") or "").strip()
     yapan = bos_ise_none(f.get("yapan_ad"))
     kid = request.state.kullanici["id"]
     c = db.tek("SELECT id FROM cycle WHERE id = ?", (cycle_id,))
     gecerli_asamalar = {a[0] for a in ASAMA_SIRASI}
+    yazildi = False
     # Ekrana giremeyen kişi oraya ad da yazamamalı. `yol_modulu` form içeriğini
     # göremediği için bu kontrol burada (v6.14).
     if c and asama in gecerli_asamalar and yetkim(asama):
+        yazildi = True
         simdi = _dt.now().isoformat(" ", "seconds")
         mevcut = db.tek(
             "SELECT * FROM islem_yapan WHERE cycle_id = ? AND asama = ?",
@@ -4523,8 +4534,34 @@ async def islem_yapan_kaydet(request: Request, cycle_id: int):
             db.yaz("INSERT INTO islem_yapan (lab_id, cycle_id, asama, yapan_ad, "
                    "zaman, kullanici_id) VALUES (?,?,?,?,?,?)",
                    (db.LAB_ID, cycle_id, asama, yapan, simdi, kid))
+    if f.get("json"):
+        return JSONResponse({"ok": yazildi, "ad": yapan, "damga": veri_damgasi()})
     geri = request.headers.get("referer") or f"/cycle/{cycle_id}"
     return RedirectResponse(geri, status_code=303)
+
+
+def islem_yapani_doldur(cycle_id, asama):
+    """Aşamanın kaydı kaydedilince "İşlemi yapan" boşsa giriş yapan kişiyi
+    yazar (v6.208, kullanıcı: "OPU kaydı yapılıyor isim kaydı ayrı
+    yapılıyor").
+
+    Ekranın üstündeki seçici kayıt yokken şifresiyle giren kişiyi gösteriyor
+    (v6.99). v6.207'ye kadar o ad ayrı bir "Kaydet"e basılmadan yazılmıyordu;
+    ekranda görünen ile formlara basılan ayrı düşüyordu. Kayıt varsa
+    (seçiciden seçilmiş ya da daha önce yazılmış) dokunulmaz: başka bir
+    telefondan seçilen adı ezmesin. `INSERT OR IGNORE`: aşama başına tek
+    satır (`UNIQUE(cycle_id, asama)`), aynı anda gelen iki kayıt ikinci
+    satırı açamaz. Aşamaya izni olmayan yazmaz (`islem_yapan_kaydet()`'in
+    kuralı). Her aşama kaydı rotası başarılı kayıttan sonra bunu çağırıyor;
+    yeni bir aşama rotası yazarsan sen de çağır.
+    """
+    k = _GIRIS_KULLANICI.get()
+    if not cycle_id or not k or not k["ad_soyad"] or not yetkim(asama):
+        return
+    db.yaz("INSERT OR IGNORE INTO islem_yapan (lab_id, cycle_id, asama, yapan_ad, "
+           "zaman, kullanici_id) VALUES (?,?,?,?,?,?)",
+           (db.LAB_ID, int(cycle_id), asama, k["ad_soyad"],
+            _dt.now().isoformat(" ", "seconds"), k["id"]))
 
 
 @uygulama.get("/dosya/{goruntu_id}")
@@ -5193,6 +5230,11 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
                     tasan=formlar.tasan_hucreleri(ad, deger),
                     sigdir=formlar.sigdir_hucreleri(ad, deger))
                 for deger, ek in dolgu(v)]
+    # ART Lab'ın ÖZET tablosunun altındaki boş satır: dondurulan tüplerin Cryo
+    # Haritası'ndaki yeri (v6.208), yalnızca ilk sayfada (özet bloğu gibi).
+    if ad == "artlab":
+        form_kalip.not_satiri(sayfalar[0], kalip, formlar.ARTLAB_CRYO_SATIR,
+                              v.get("cryo_yeri"))
     return sablon.TemplateResponse(
         request, "form.html",
         {"sayfalar": sayfalar, "baslik": metinler.t("form_" + ad),
@@ -5221,6 +5263,10 @@ def form_excel(request: Request, ad: str, cycle_id: int):
             deger, ek, sigdir=formlar.sigdir_hucreleri(ad, deger))
         for i, (deger, ek) in enumerate(parcalar, start=1)
     ]
+    if ad == "artlab":
+        # Ekrandakinin eşi (v6.208): ÖZET'in altındaki boş satıra Cryo yeri.
+        form_kalip.not_satiri_excel(sayfalar[0], kalip, formlar.ARTLAB_CRYO_SATIR,
+                                    v.get("cryo_yeri"))
     if ad == "artlab" and v.get("iptal_notu"):
         # Kalıbın hemen altına, tek satır, tam genişlikte, "formadi" (büyük/
         # kalın/ortalı) adlı hazır stille -- kalıbın kendi stil listesine
@@ -6051,6 +6097,7 @@ async def icsi_kaydet(request: Request, cycle_id: int):
     hedef = f"/cycle/{cycle_id}/icsi"
     if sonraki:
         hedef += f"?oosit={sonraki['id']}"
+    islem_yapani_doldur(cycle_id, "icsi")   # v6.208
     return RedirectResponse(hedef, status_code=303)
 
 
@@ -6159,6 +6206,7 @@ async def icsi_genel_bulgu_kaydet(request: Request, cycle_id: int):
             b.execute("INSERT INTO tedavi_bulgu (cycle_id, asama, metin, zaman, "
                       "kullanici_id) VALUES (?,'icsi',?,?,?)",
                       (cycle_id, elle, simdi, kid))
+    islem_yapani_doldur(cycle_id, "icsi")   # v6.208
     return RedirectResponse(hedef, status_code=303)
 
 
@@ -6416,6 +6464,7 @@ async def fert_kaydet(request: Request, cycle_id: int):
     hedef = f"/cycle/{cycle_id}/fert"
     if sonraki:
         hedef += f"?oosit={sonraki['id']}"
+    islem_yapani_doldur(cycle_id, "fert")   # v6.208
     return RedirectResponse(hedef, status_code=303)
 
 
@@ -6713,6 +6762,7 @@ async def cleavage_kaydet(request: Request, cycle_id: int):
     hedef = f"/cycle/{cycle_id}/cleavage?gun={gun}"
     if sonraki:
         hedef += f"&oosit={sonraki['id']}"
+    islem_yapani_doldur(cycle_id, "cleavage")   # v6.208
     return RedirectResponse(hedef, status_code=303)
 
 
@@ -6958,6 +7008,7 @@ async def blast_kaydet(request: Request, cycle_id: int):
     hedef = f"/cycle/{cycle_id}/blast?gun={gun}"
     if sonraki:
         hedef += f"&oosit={sonraki['id']}"
+    islem_yapani_doldur(cycle_id, "blast")   # v6.208
     return RedirectResponse(hedef, status_code=303)
 
 
@@ -7294,6 +7345,35 @@ def _blastokistte_arrest(cycle_id) -> str:
             f"AND {db.vit_tedavisi('v')} = {cid})")
 
 
+def _gv_yumurta(cycle_id) -> str:
+    """GV çıkan, bu tedavide dondurulmamış yumurta -- SQL koşulu (v6.208,
+    kullanıcının isteği: "Yumurta dondurmada gv çıkan yumurtaları dondurulacak
+    yumurta olarak gösterme"). `_vit_adaylari()` bunun tersini istiyor;
+    yalnızca dondurulan şeyin yumurta olduğu tipte (Yumurta Dondurma).
+
+    - Ölçü yumurtanın bu tedavideki SON maturasyon kaydı (Yumurta
+      Dondurma'da denüdasyon ekranında soruluyor, v6.96): GV yazılıp sonra
+      MII'ye düzeltilen yumurta listede kalır. `specimen.durum`'a bakılmıyor
+      -- o alanın üzerine yazılıyor (`_DEJENERE`'nin gerekçesi).
+    - Bu tedavide zaten dondurulmuş yumurta her koşulda kalır: ekranın
+      "Dondurulmuş" kartı aynı listeden besleniyor, var olan kayıt görünmez
+      olmasın (v6.137, v6.197). Access'ten aktarılmış "(4*GV)" tüpleri böyle
+      (v6.172).
+    - Gizleniyor, kilitlenmiyor: kullanıcı "gösterme" dedi (v6.197'nin
+      arrest kuralı gibi). Yalnızca GV; MI, dejenere, atretik değişmedi.
+    - IVF/ICSI'de gerek yok: GV yumurta enjekte edilmiyor, `_ICSI_YAPILMADI`
+      onu zaten gösterMİyor.
+    """
+    cid = int(cycle_id)
+    return ("COALESCE((SELECT m.mat_deger FROM olay m "
+            "WHERE m.specimen_id = s.id AND m.tip = 'maturasyon_kontrolu' "
+            f"AND m.iptal_mi = 0 AND {db.bu_tedavide(cid, 'm')} "
+            "ORDER BY m.zaman DESC, m.id DESC LIMIT 1), '') = 'gv' "
+            "AND NOT EXISTS (SELECT 1 FROM olay v WHERE v.specimen_id = s.id "
+            "AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
+            f"AND {db.vit_tedavisi('v')} = {cid})")
+
+
 def _vit_adaylari(c) -> tuple:
     """Vitrifikasyon ekranında listelenen örnekler -- `(SQL koşulu, parametreler)`.
 
@@ -7313,6 +7393,8 @@ def _vit_adaylari(c) -> tuple:
       dondurma kaydı bu tedavininki olmalı (`_degerlendirilmis_burada()`).
     - Blastokist aşaması olan her tipte blastokistte arrest kaydedilen
       embriyo hiç görünmüyor (v6.197, `_blastokistte_arrest()`).
+    - Yumurta Dondurma'da GV çıkan yumurta görünmüyor (v6.208,
+      `_gv_yumurta()`); tip sorusu `db.yumurta_mi()`: dondurulan yumurta.
     Aşama soruları tip adıyla değil `TIP_ASAMALARI` ile soruluyor.
     """
     tip, cid = c["cycle_tipi"], c["id"]
@@ -7330,6 +7412,8 @@ def _vit_adaylari(c) -> tuple:
         kosul += " AND NOT (" + _ICSI_YAPILMADI + ")"
     if "blast" in asamalar:
         kosul += " AND (" + _DEGERLENDIRILMIS + ")"
+    if db.yumurta_mi(tip):
+        kosul += " AND NOT (" + _gv_yumurta(cid) + ")"
     return kosul + arrest, (cid,)
 
 
@@ -7697,6 +7781,7 @@ async def vit_kaydet(request: Request, cycle_id: int):
     # orada geri oku Cryo Haritası'na çıkıyor (yönlendirmeyle gelinen sayfada
     # geri betiği bilerek karışmıyor, v6.126). Ekranda tüp "Dondurulmuş"
     # listesinde, bağlantısıyla; sıradaki embriyolar ve "İşlemi bitir" de orada.
+    islem_yapani_doldur(cycle_id, "vitrifikasyon")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/vitrifikasyon?kaydedildi={tid}",
                             status_code=303)
 
@@ -9541,9 +9626,19 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     for hid in {e["hasta_id"] for e in icerik}:
         tedavi_sirasini_duzelt(hid, kid)
 
-    # Bir cycle ekranından gelindiyse oraya dön — sonuç orada listelenir
-    if f.get("geri_cycle") and secili_cycle:
-        return RedirectResponse(f"/cycle/{secili_cycle}/thaw", status_code=303)
+    # Kayıt, çözmenin yapıldığı tedavinin çözme ekranına döner (v6.208,
+    # kullanıcı: "Fet tedavilerinde çözme işlemi yapınca transfer sayfasına
+    # gidiş yok. Ayrıca birden fazla embriyo çözülecekse biri çözüldükten
+    # sonra diğerine geri dönüş yok"). v6.207'ye kadar yalnızca ekrana
+    # tedaviden gelindiyse (`geri_cycle`) dönüyordu; tüp sayfasından ya da
+    # Cryo Haritası'ndan gelinince tüp sayfasına düşülüyordu. Orada aşama
+    # menüsü yok, geri ok /cryo'ya çıkıyor (v6.198'in vitrifikasyondaki
+    # dersi). Çözme ekranında kaydedilen tüpün mesajı, sıradaki aşama ve
+    # tankta kalan tüpler var.
+    if secili_cycle:
+        islem_yapani_doldur(secili_cycle, "thaw")   # v6.208
+        return RedirectResponse(f"/cycle/{secili_cycle}/thaw?kaydedildi={tasiyici_id}",
+                                status_code=303)
     return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
 
@@ -9683,8 +9778,11 @@ def thaw_sil(request: Request, specimen_id: str):
 
 
 @uygulama.get("/cycle/{cycle_id}/thaw")
-def cycle_thaw_listesi(request: Request, cycle_id: int):
-    """Bu cycle'ın embriyolarını içeren taşıyıcılar — çözme girişi."""
+def cycle_thaw_listesi(request: Request, cycle_id: int, kaydedildi: int = 0):
+    """Bu cycle'ın embriyolarını içeren taşıyıcılar — çözme girişi.
+
+    `?kaydedildi=<tüp>`: çözme kaydı buraya dönüyor (v6.208); üstte o tüpün
+    mesajı ve sıradaki aşamanın düğmesi."""
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
                "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
     if not c:
@@ -9776,11 +9874,39 @@ def cycle_thaw_listesi(request: Request, cycle_id: int):
                 "oran": round(100 * canli / len(cozulenler)),
                 "transfer": sum(1 for r in cozulenler if r["transfer_id"])}
 
+    # Az önce kaydedilen çözme (v6.208, `thaw_kaydet()` buraya dönüyor):
+    # hangi tüp, içinden ne çıktı. Adresten yalnızca sayı geliyor, metin
+    # veritabanından; tüpün bu tedavi için bir çözmesi yoksa (geri alınmış
+    # kayıt, başka tedavinin tüpü) mesaj basılmıyor -- vitrifikasyonun
+    # v6.198 deseni.
+    kaydedilen = None
+    if kaydedildi and thaw_cycle_var():
+        tup = db.tek("SELECT t.id, t.etiket, " + icerik_sql() +
+                     " FROM tasiyici t WHERE t.id = ? AND t.lab_id = ?",
+                     (kaydedildi, db.LAB_ID))
+        # Göç yoksa (thaw_tasiyici_id yok) çözme tüpe örnekleri üzerinden
+        # bağlanıyor -- yukarıdaki listelerin eski ölçüsü.
+        tup_kosulu = ("o.thaw_tasiyici_id = ?" if tup_yeni else
+                      "o.specimen_id IN (SELECT v.specimen_id FROM olay v "
+                      " WHERE v.vit_tasiyici_id = ? AND v.tip = 'vitrifikasyon' "
+                      " AND v.iptal_mi = 0)")
+        sagkalim = db.sorgu(
+            "SELECT o.thaw_sagkalim AS kod, COUNT(*) AS n FROM olay o "
+            "WHERE o.tip = 'thaw' AND o.iptal_mi = 0 AND o.thaw_cycle_id = ? "
+            f"AND {tup_kosulu} GROUP BY o.thaw_sagkalim ORDER BY n DESC",
+            (cycle_id, kaydedildi)) if tup else []
+        if sagkalim:
+            kaydedilen = {"id": tup["id"], "etiket": tup["etiket"],
+                          "icerik": tup["icerik"],
+                          "adet": sum(r["n"] for r in sagkalim),
+                          "sagkalim": [dict(r) for r in sagkalim]}
+
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
         request, "cycle_thaw.html",
         {"c": c, "tasiyicilar": tasiyicilar, "etiketler": etiketler,
+         "kaydedilen": kaydedilen,
          "cozulenler": cozulenler, "ozet": ozet, "goc_gerekli": not thaw_cycle_var(),
          # Vitrifikasyon ekranına bağlantı, tipin o aşaması varsa (v6.143:
          # FET'e de geldi). Tip adını elle yazma, `TIP_ASAMALARI`'na bak.
@@ -9914,6 +10040,7 @@ async def transfer_kaydet(request: Request, cycle_id: int):
 
     # FET'in günü transfer günü de olabilir (v6.144, `db.tedavi_tarihi()`).
     tedavi_sirasini_duzelt(c["hasta_id"], kid)
+    islem_yapani_doldur(cycle_id, "transfer")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/transfer", status_code=303)
 
 
@@ -10204,6 +10331,7 @@ async def denudasyon_zaman(request: Request, cycle_id: int):
                                     {"denudasyon_zamani": yeni},
                                     request.state.kullanici["id"])
         db.yaz("UPDATE cycle SET denudasyon_zamani=? WHERE id=?", (yeni, cycle_id))
+    islem_yapani_doldur(cycle_id, "denudasyon")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/denudasyon", status_code=303)
 
 
@@ -10267,6 +10395,7 @@ async def opu_kaydet(request: Request, cycle_id: int):
     # OPU günü tedavinin günü: eski bir tedavinin OPU'su girildiyse numara
     # tarih sırasına göre kayar (v6.144).
     tedavi_sirasini_duzelt(c["hasta_id"], request.state.kullanici["id"])
+    islem_yapani_doldur(cycle_id, "opu")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/opu", status_code=303)
 
 
@@ -10278,7 +10407,9 @@ ASAMA_SIRASI = [
     ("denudasyon", "Denüdasyon", "/cycle/{id}/denudasyon"),
     ("icsi", "ICSI", "/cycle/{id}/icsi"),
     ("fert", "Fertilizasyon", "/cycle/{id}/fert"),
-    ("cleavage", "Cleavage", "/cycle/{id}/cleavage?gun=2"),
+    # Cleavage 3. günle açılıyor (v6.208, kullanıcı: "Clavage ekranını açınca
+    # ilk 3. günü göstersin"); rota adressiz de 3. günü seçiyor.
+    ("cleavage", "Cleavage", "/cycle/{id}/cleavage?gun=3"),
     ("blast", "Blastokist", "/cycle/{id}/blast?gun=5"),
     ("vitrifikasyon", "Vitrifikasyon", "/cycle/{id}/vitrifikasyon"),
     ("thaw", "Çözme", "/cycle/{id}/thaw"),
@@ -10554,6 +10685,7 @@ async def oosit_degerlendirme_kaydet(request: Request, specimen_id: str):
                    "zaman, kullanici_id) VALUES (?,'denudasyon',?,?,?)",
                    (specimen_id, b, simdi, kid))
 
+    islem_yapani_doldur(sp["cycle_id"], "denudasyon")   # v6.208
     return RedirectResponse(f.get("geri") or f"/cycle/{sp['cycle_id']}/denudasyon",
                             status_code=303)
 
@@ -10677,6 +10809,7 @@ async def gebelik_kaydet(request: Request, cycle_id: int):
                ", ".join(yeni) + ") VALUES (?,?," +
                ", ".join("?" * len(yeni)) + ")",
                (db.LAB_ID, cycle_id, *yeni.values()))
+    islem_yapani_doldur(cycle_id, "gebelik")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)
 
 
@@ -10713,4 +10846,5 @@ async def gebelik_bebek_kaydet(request: Request, cycle_id: int):
     else:
         db.yaz("INSERT INTO dogan_bebek (lab_id, cycle_id, sira, cinsiyet, kilo_kg) "
                "VALUES (?,?,?,?,?)", (db.LAB_ID, cycle_id, sira, cinsiyet, kilo))
+    islem_yapani_doldur(cycle_id, "gebelik")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/gebelik", status_code=303)

@@ -48,6 +48,8 @@
 {% endmacro %}
 
 {% block icerik %}
+{# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
+{{ iy.kutu(c.id, "androloji") }}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
@@ -276,6 +278,5 @@
 
 <a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("cycle_kartina_don") }}</a>
 
-{{ iy.kutu(c.id, "androloji") }}
 {{ gez.cubuk(c, gezinme) }}
 {% endblock %}
