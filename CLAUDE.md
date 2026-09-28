@@ -616,11 +616,23 @@ kullanıcı: "Denüdasyon ekranı işlem yaparken sayfa kayıyor"). `.foto img`
 4:3 kutu (`aspect-ratio`, `object-fit: contain`): `height: auto` iken resim
 gelince altındaki "Kaydet / Atla" 267px kayıyordu (telefonda ölçüldü) --
 yanlış düğmeye basılır. Resmi olan yeni bir kutu yazarsan yerini ayır.
-Denüdasyon ayrıca kayıttan sonra **kaydırma konumunu koruyor** (gönderirken
-sessionStorage, aynı ekrana bir dakika içinde dönülünce; hata mesajı varsa
-kaydırmıyor): yoksa her karede "Kaydet" ekranın dışında kalıyordu. Başka bir
-aşama ekranına eklemeden önce kullanıcıya sor -- "aşamalar arasında ekran
-baştan başlasın" (v6.35) seçimle ilgili, ama beklentisi bu olabilir.
+
+**Kayıttan sonra aşama ekranı kaldığı yerde açılır** (v6.208 denüdasyonda,
+v6.210'dan beri bütün aşama ekranlarında; kullanıcı: "kaydırma konumunun
+başka aşama ekranlarında da korunsun"). Tek yerde: `_kaydirma.html`, her aşama
+ekranının `{% block icerik %}`'inin SON satırı. Yoksa her kayıtta sayfa en
+üstten açılıyordu, telefonda form fotoğrafın altında kalıyor.
+- Yalnızca POST formu gönderilince saklanıyor (sekmede, sessionStorage) ve
+  yalnızca AYNI ekrana (yol aynı; `?oosit=`, `?gun=` farkı önemsiz) bir dakika
+  içinde dönülünce kullanılıyor, tek kullanımlık. Arama gibi GET formları ve
+  bağlantılar saklamıyor; başka ekrana geçiş yine en üstten (v6.35).
+- Hata varsa en üstten (mesaj görünsün): ölçü şablonun `hata` değişkeni.
+  Vitrifikasyonun "Kaydedildi" mesajı hata değil, orada da korunuyor.
+- Konum sayfa bitince (`DOMContentLoaded`) bir kez daha uygulanıyor:
+  `base.html` üst çubuğun menü düğmesini içerikten SONRA açıyor, çubuk 4 px
+  uzuyor -- ilk uygulama kayardı (ölçüldü).
+- **Yeni bir aşama ekranı yazarsan include'u ekle**; ekranda yeri ayrılmamış
+  resim olmasın, yoksa kaydırılan yer resim yüklenince kayar.
 
 **Cleavage 3. günle açılır** (v6.208, kullanıcının isteği): `ASAMA_SIRASI`'nın
 bağlantısı `?gun=3`, rota adressiz de 3.
@@ -3187,7 +3199,8 @@ serbest metinle yazılmış eski bir ad) tuzak #6: `_islem_yapan.html` o
 değeri listeye kendi seçeneği olarak ekliyor, yoksa seçici sessizce ilk
 isme kayar. Yeni bir aşama eklersen `ASAMA_SIRASI`'na koy + şablonunun
 `{% block icerik %}`'inin ilk satırına `{{ iy.kutu(c.id, "<asama>") }}` ekle
-+ kayıt rotasına `islem_yapani_doldur()` (README v6.3, v6.208).
++ kayıt rotasına `islem_yapani_doldur()` + şablonun son satırına
+`{% include "_kaydirma.html" %}` (README v6.3, v6.208, v6.210).
 Makro isteğe bağlı `etiket`/`ipucu` alır; varsayılanı değiştirme, sadece
 belirsizlik olan ekranda ver (v6.9).
 

@@ -16529,3 +16529,41 @@ gizlensin"*.
 **Deneme** (sahte veritabanında): MII, GV, MI, dejenere ve atretik birer
 yumurta. Listede yalnızca MII ve MI kaldı. GV, dejenere ve atretik yumurtanın
 elle gönderilen dondurması reddedildi, kayıt ve tüp yazılmadı.
+
+# v6.210 — Kayıttan sonra bütün aşama ekranları kaldığı yerde açılıyor
+
+Kullanıcı (v6.208'deki soruya cevap): *"kaydırma konumunun başka aşama
+ekranlarında da korunsun"*.
+
+- v6.208'de yalnızca denüdasyon kayıttan sonra kaldığı yerde açılıyordu.
+  Artık OPU, androloji, ICSI, fertilizasyon, cleavage, blastokist,
+  vitrifikasyon, çözme, transfer ve gebelik de.
+- Betik tek yerde: `templates/_kaydirma.html`. Her aşama ekranının son satırı
+  `{% include "_kaydirma.html" %}`; denüdasyonun kendi kopyası kaldırıldı.
+- Kurallar denüdasyondakiyle aynı:
+  - "Kaydet"e basınca kaydırma konumu sekmede saklanıyor. Aynı ekrana bir
+    dakika içinde dönülünce oraya kaydırılıyor.
+  - Hata varsa sayfa en üstten açılıyor, mesaj görünsün.
+  - Başka ekrana geçiş (menü, numara şeridi) yine en üstten (v6.35).
+- İki fark:
+  - Yalnızca POST formları konum saklıyor. Vitrifikasyondaki etiket araması
+    gibi GET formları saklamıyor.
+  - Konum sayfa bitince bir kez daha uygulanıyor. Üst çubuğun menü düğmesi
+    içerikten sonra açılıyor ve çubuk 4 px uzuyor; tek uygulamada sayfa 4 px
+    kayıyordu (denüdasyonda da böyleydi, ölçüldü).
+- Kayıttan sonra sayfa kısalıyorsa (form bilgi kartına dönüyor: OPU,
+  androloji, kaydı olan sıradaki yumurta) sayfanın sonuna iniyor.
+- Vitrifikasyonda üstteki "Kaydedildi" mesajı artık ekranın yukarısında
+  kalıyor. Dondurulan tüp "Dondurulmuş" listesinde de görünüyor.
+
+**Deneme** (sahte veritabanında, telefon boyutu 390×844):
+- ICSI'de kaydı olmayan iki yumurta arka arkaya kaydedildi. Düğme ekranın
+  aynı yerinde kaldı (kaydırma 1015 → 1015).
+- Gebelik, vitrifikasyon, transfer ve denüdasyon: kaydırma birebir aynı,
+  düğme ekranda.
+- Fertilizasyon, cleavage, blastokist, OPU, androloji: yeni sayfa daha kısa,
+  sonuna indi; düğme varsa ekranda.
+- OPU'da hatalı tarih ve vitrifikasyonda embriyo seçmeden kaydet: sayfa en
+  üstten açıldı, hata görünüyor.
+- ICSI'den fertilizasyona geçiş ve vitrifikasyondaki arama: en üstten.
+- 56 ekran hatasız açıldı, betik hatası yok.

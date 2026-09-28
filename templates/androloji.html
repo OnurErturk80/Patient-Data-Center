@@ -279,4 +279,6 @@
 <a class="dugme ikincil" href="/cycle/{{ c.id }}">{{ metin("cycle_kartina_don") }}</a>
 
 {{ gez.cubuk(c, gezinme) }}
+{# Kayıttan sonra kaldığı yerde açılır (v6.210, `_kaydirma.html`). #}
+{% include "_kaydirma.html" %}
 {% endblock %}

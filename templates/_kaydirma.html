@@ -1,0 +1,58 @@
+{# Kayıttan sonra aşama ekranı kaldığı yerde açılır (v6.208'de denüdasyonda;
+   v6.210'dan beri bütün aşama ekranlarında, kullanıcı: "kaydırma konumunun
+   başka aşama ekranlarında da korunsun").
+   Kullanım: aşama ekranının `{% block icerik %}`'inin SON satırı
+     {% include "_kaydirma.html" %}
+
+   Neden: her "Kaydet" sayfayı yeniden yüklüyor (POST -> 303 -> aynı ekran),
+   tarayıcı yeni sayfayı en üstten açıyordu. Telefonda form fotoğrafın
+   altında kalıyor; "kaydet -> sıradaki yumurta" akışında her yumurtada
+   aşağı kaydırmak gerekiyordu.
+
+   Kurallar:
+   - Yalnızca POST formu gönderilince saklanıyor (sekmede, sessionStorage):
+     arama gibi GET formları ve bağlantılar saklamıyor. Numara şeridinden ya
+     da menüden başka bir yere geçmek ekranı yine en üstten açar (v6.35:
+     aşamalar arasında ekran baştan başlasın).
+   - Yalnızca AYNI ekrana (aynı yol, sorgu farkı önemsiz: `?oosit=`,
+     `?gun=`) bir dakika içinde dönülürse kaydırılıyor; saklanan değer tek
+     kullanımlık, ilk açılan sayfa siliyor.
+   - Hata varsa kaydırılmıyor: mesaj en üstte, görünsün. Ölçü şablonun
+     `hata` değişkeni (bütün aşama ekranları hatayı onunla basıyor);
+     başka adla hata basan bir ekran yazarsan bunu da düşün.
+   - Resimlerin yeri CSS'te ayrılmış (`.foto img`, `.kfoto`, `.hucre img`):
+     sayfa resimler yüklenirken kaymıyor. Yeri ayrılmamış resim eklersen
+     kaydırılan yer yüklenince kayar.
+#}
+<script>
+(function () {
+  var ANAHTAR = 'pdc-asama-konum';
+  var SURE = 60000;
+  var HATA = {{ 'true' if hata else 'false' }};
+  var yol = location.pathname;
+  var hedef = null;
+  try {
+    var k = JSON.parse(sessionStorage.getItem(ANAHTAR) || 'null');
+    sessionStorage.removeItem(ANAHTAR);
+    if (k && k.yol === yol && Date.now() - k.an < SURE && !HATA) hedef = k.y;
+  } catch (e) {}
+  if (hedef !== null) {
+    // Hemen (ilk boyamada sayfa üstte görünmesin) ve belge bitince bir kez
+    // daha: bu satırdan sonra `base.html` üst çubuğun menü düğmesini açıyor
+    // (çubuk 4 px uzuyor, her şey aşağı iniyor) ve sayfanın sonu henüz
+    // okunmamış olabilir (belge kısaysa tarayıcı kaydırmayı kırpar).
+    window.scrollTo(0, hedef);
+    document.addEventListener('DOMContentLoaded', function () {
+      window.scrollTo(0, hedef);
+    });
+  }
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (e.defaultPrevented || !f || !f.getAttribute) return;
+    if ((f.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+    try {
+      sessionStorage.setItem(ANAHTAR, JSON.stringify({yol: yol, y: window.scrollY, an: Date.now()}));
+    } catch (e2) {}
+  });
+})();
+</script>
