@@ -17480,3 +17480,132 @@ genişliğinde:
 - Tüm Hastalar'da nokta yok. Ana ekranın kartları ve Tümü sayfaları eskisi
   gibi.
 - 84 ekran iki genişlikte hatasız.
+
+# v6.225 — PGT: tedavinin işareti, biyopsi ekranı, PGT numarası
+
+Kullanıcı: *"Bazı hastalarda PGT yapılıyor. Tedavinin başında PGT
+yapılacağına dair laboratuvarda formunun üstüne yazıyorum. Tedavi bitene
+kadar üstünde PGT yapılacağı yazıyor. Bu hastanın oluşursa embriyolarından
+biyopsi yapıyorum ve parçaları genetiğe gönderiyorum. Embriyoları
+numaralandırıp dondurup saklıyorum. Daha sonra genetik sonuç gelince sonucu
+dosyasına koyup hangi embriyolar genetik incelemede sorunsuz çıkarsa onu
+belirleyip FET tedavisinde ona bakıp sorunsuz embriyoları transfer
+ediyorum."*
+
+Kullanıcının cevapları: biyopsi blastokistte (trofektoderm); genetiğe giden
+tüpte ve raporda numara biyopsi sırasıyla 1'den, ekranda "PGT 1"; PGT-A,
+PGT-M, PGT-SR ve HLA'nın hepsi olabiliyor; "sorunsuz" kararını kendisi
+işaretliyor; sorunlu embriyo hastaya göre tankta kalıyor ya da imha
+ediliyor; imha kaydı bütün tüplerde olsun.
+
+Bu sürüm akışın ilk yarısı: işaret, biyopsi, numara, dondurma. Genetik
+sonucun girilmesi, raporun dosyaya eklenmesi, "sorunsuz" kararı ve FET'te
+uyarı v6.226'da; tüp imhası v6.227'de.
+
+**Tedavinin başında.** Tedavi formunda "PGT" kartı: PGT-A, PGT-M, PGT-SR,
+HLA (birden çoğu seçilebiliyor) ve kısa bir not (hastalık, translokasyon,
+genetik laboratuvarı). Seçilince:
+
+- tedavinin bütün ekranlarında kimlik bandının altında mavi PGT kutusu:
+  testler, not, biyopsi yapıldıysa kaç embriyoya ve numaraları
+  ("3 embriyoya biyopsi yapıldı · PGT 1–3"). Bulaş uyarısının kırmızısından
+  ayrı renk: tehlike değil, "bu tedavide biyopsi var" bilgisi;
+- ana ekranın kartlarında, Tümü sayfalarında, ay listesinde ve hasta
+  kartının tedavi satırında adın yanında "PGT" rozeti -- kâğıtta formun
+  üstüne yazılan şey;
+- aşamalara blastokistin arkasında **Biyopsi** ekleniyor.
+
+Yeni tedavi PGT'yi önceki tedaviden almıyor (bulaş hastalığının tersi): PGT
+o tedavinin kararı. Not yazılıp test seçilmezse form soruyor; not
+kaybolmuyor.
+
+**Biyopsi ekranı** öteki aşama ekranlarının düzeninde: üstte embriyolar
+(biyopsi yapılanda "PGT 2", yapılmayanda blastokist skoru), seçilenin
+fotoğrafı ve örnek kodu, altında bilgi kartı ya da form. Listede bu
+tedavide blastokist değerlendirmesi olan embriyolar var; blastokistte
+arrest yazılan yok (vitrifikasyonun kuralı). Formda:
+
+- **PGT numarası**: program sıradakini öneriyor (en büyüğün bir fazlası);
+  değiştirilebilir. İki telefon aynı öneriyi aynı anda kaydederse ikincisi
+  sıradaki boş numarayı alıyor; elle yazılan bir numara başka embriyoda
+  varsa kayıt reddediliyor, form açık kalıyor.
+- **Biyopsi günü** (öntanımı embriyonun bu tedavideki son blastokist günü),
+  işlem saati (elle değiştirilebilir), not. Biyopsinin tipi (trofektoderm)
+  kayıtta, seçici yok.
+- "Kaydet ve sonraki embriyo": biyopsisi olmayan sıradaki embriyo.
+- Biyopsi kaydı silinebiliyor (iptal işareti, geçmişte kalır); genetik
+  sonucu girilmiş biyopsi silinmiyor (v6.226).
+
+Kayıt şemanın ilk sürümünden beri hazır duran biyopsi olayı: numara
+`biy_tup_etiketi`'nde. Olay, öteki değerlendirmeler gibi embriyonun kendi
+tedavisine yazılıyor; hangi tedavide yapıldığı saatten çıkıyor (FET (3→5)'te
+çözülüp biyopsiye alınan embriyo o tedavinin). Yazılan saatte embriyo başka
+bir tedavi için çözülmüşse kayıt o tedavinin sayılır, bu ekrandan
+kaybolurdu: program bunu kaydederken soruyor, öyleyse kaydı geri alıp
+"İşlem saati bu tedaviye düşmüyor" diyor. Bir embriyonun her tedavide tek
+biyopsisi var; sonucu çıkmayan embriyo başka bir tedavide yeniden biyopsiye
+alınabiliyor, geçerli olan en sonuncusu.
+
+**Dondurma.** Vitrifikasyon ekranında biyopsili embriyonun satırında
+"PGT 2 · sonuç bekleniyor". İki biyopsili embriyo aynı tüpe seçilince uyarı
+çıkıyor: sonuçları farklı çıkarsa tüpten yalnızca biri çözülemez. Engel
+değil: "Yine de aynı tüpe koy" işaretlenirse kaydediliyor; sunucu da aynı
+şeyi soruyor.
+
+**Tüplerde PGT.** Taşıyıcı sayfası, tüpün çözme formu, Cryo Haritası'nın
+goblet sayfası, yeri belirsizler ve hasta kartının "Dondurulmuş örnekler"i
+tüpteki embriyonun PGT numarasını ve durumunu yazıyor. Hepsi tek bir
+parçadan (`_pgt.html`) ve tek bir sorgudan (`db.biyopsi_bilgisi()`).
+
+**Formlar ve çizelge.** Embriyoloji Özet'in NOTLAR kutusuna, genel
+bulguların arkasına bir PGT satırı: "PGT: PGT-A, PGT-M (Talasemi) · 3
+embriyoya biyopsi, 5/6. gün: PGT 1–3" (biyopsi yoksa "biyopsi yapılmadı").
+Satır sarılırken numara bölünmüyor. Tedavi ekranının özet kutusunda
+"Biyopsi sayısı", zaman çizelgesinde Biyopsi satırı. ART Lab formunda PGT
+kutusu yok, bir şey eklenmedi.
+
+**İzin.** Biyopsi ekranı blastokistin izniyle açılıyor (aynı personel);
+ayrı bir modül açılmadı. İstenirse ayrılır.
+
+**Göç 058**: tedavinin iki kolonu, sonucun hangi biyopsinin olduğu
+(`pgt_sonuc.biyopsi_id`, v6.226 için), test ve sonuç listeleri (PGT-A için
+şemanın kendi listesi: Öploid, Anöploid, Mozaik, Sonuç yok, No-call; PGT-M:
+Sağlam, Taşıyıcı, Etkilenmiş; PGT-SR: Dengeli, Dengesiz; HLA: Uyumlu,
+Uyumsuz), fotoğraf aşamalarına "Biyopsi", biyopsi satırlarının dizini. Göç
+çalışmamışsa PGT kartı, bant ve aşama görünmüyor; öteki her şey eskisi gibi.
+
+**Yeniden başlatılmamış program** (tuzak #5): yeni şablonlar eski Python'la
+açılınca yeni işlevleri tanımıyor. PGT bandı her ekranda çağrıldığı için
+korumasız bir çağrı bandı olan her ekranı bozardı; şablonlar işlevin var
+olup olmadığına bakıyor.
+
+## Deneme
+
+Sahte veritabanında tarayıcıyla, masaüstünde ve telefonda:
+
+- Tedavi formunda PGT-A + PGT-M ve not; kayıt, bant (tedavi ve aşama
+  ekranında), Biyopsi aşamasının yeri, PGT'siz tedavide bant ve aşama yok.
+- Biyopsi listesi: bu tedavide blastokist değerlendirmesi olan üç embriyo;
+  arrest yazılan yok.
+- Başka bir tedavi için çözülmüş embriyoya "şimdi" saatiyle biyopsi:
+  reddedildi, kayıt yazılmadı, form açık. Doğru saatle kaydedildi.
+- Numaralar biyopsi sırasıyla 1, 2, 3; "kaydet → sıradaki"; gün öntanımı
+  embriyonun blastokist günü; şerit ve bilgi kartı PGT numarasını yazıyor.
+- Dolu numara elle yazılınca reddedildi; 0 numara sunucuda reddedildi.
+- Silme; aynı öneri iki kez gönderilince ikincisi sıradaki boş numarayı
+  aldı.
+- Bant "3 embriyoya biyopsi yapıldı · PGT 1–3"; özet kutusunda Biyopsi
+  sayısı 3; zaman çizelgesinde Biyopsi.
+- Dondurma: adaylarda PGT numarası; iki biyopsili embriyoda uyarı ve onay
+  kutusu, onaysız kayıt sunucuda reddedildi (tüp açılmadı); tek tek
+  donduruldu.
+- Taşıyıcı sayfası, çözme formu, goblet sayfası, hasta kartı, dondurulmuş
+  kartı "PGT 2 · sonuç bekleniyor".
+- Özet formunun NOTLAR'ı; numara iki satıra bölünmedi.
+- PGT kartı olmayan form (eski sekme) PGT'ye dokunmadı; değişiklik
+  geçmişinde PGT alanları.
+- Göç çalışmamış veritabanı (göçü atlayan başlatıcıyla): 17 ekran hatasız,
+  PGT arayüzü yok, tedavi Düzenle ve yeni tedavi kaydı çalışıyor.
+- v6.224'ün programı bu sürümün şablonlarıyla: aynı 17 ekran hatasız.
+- Telefonda (390 px) dokuz ekran yatay kaymıyor; 84 ekran iki genişlikte
+  hatasız; bulaş noktası ve tedavi formu denemeleri eskisi gibi.

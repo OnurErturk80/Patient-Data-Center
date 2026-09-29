@@ -332,6 +332,7 @@ ASAMA_ORNEK_ADI = {
     "fert": "zigot_ad",
     "cleavage": "cleavage_ad",
     "blast": "blastokist_ad",
+    "biyopsi": "blastokist_ad",          # v6.225: trofektoderm biyopsisi
     "vitrifikasyon": None,
     "thaw": None,
     "transfer": None,
@@ -449,6 +450,11 @@ sablon.env.globals["bulas_uyarilari"] = db.bulas_uyarilari
 # Göç (goc_057) çalışmamışsa tedavi formu bölümü basmıyor: seçilen kayda
 # girmezdi. `kolon_var()` geri yüklemede unutuluyor (tuzak #15).
 sablon.env.globals["bulas_acik"] = lambda: db.kolon_var("cycle", "bulas_kadin")
+# PGT (v6.225): tedavi formunun kartı, `base.html`'in PGT bandı, tüp satırları.
+sablon.env.globals["pgt_acik"] = db.pgt_acik
+sablon.env.globals["pgt_oku"] = db.pgt_oku
+sablon.env.globals["pgt_secenekleri"] = db.pgt_secenekleri
+sablon.env.globals["pgt_bandi"] = db.pgt_bandi
 
 
 def bos_ise_none(deger):
@@ -685,6 +691,8 @@ def yol_modulu(yol: str):
             return "hasta"
         if a == "denudasyon-zaman":
             return "denudasyon"
+        if a in ASAMA_MODULU:           # biyopsi, PGT sonuçları (v6.225)
+            return ASAMA_MODULU[a]
         if a in _ASAMA_MODULLERI:
             return a
         return None                      # islem-yapan: aşama zaten korumalı
@@ -729,6 +737,27 @@ def yetkim(modul: str) -> bool:
     """Şablonlardan çağrılır: bu kullanıcı bu modüle girebiliyor mu?"""
     y = _YETKILER.get()
     return True if y is None else modul in y
+
+
+# Kendi modülü olmayan aşama (v6.225): biyopsi ve PGT sonuçları blastokistin
+# izniyle -- aynı personel, yeni modül üç dosyada `MODULLER` ve kullanıcı
+# başına izin satırı isterdi (sperm dondurmanın "cryo" gerekçesi). Kullanıcı
+# ayrı izin isterse modül açılır; `yol_modulu()` da aynı eşlemeyi kullanıyor.
+ASAMA_MODULU = {"biyopsi": "blast", "pgt": "blast"}
+
+
+def asama_yetkim(asama: str) -> bool:
+    """Bu kullanıcı bu AŞAMAYA girebiliyor mu -- aşamanın modülüyle."""
+    return yetkim(ASAMA_MODULU.get(asama, asama))
+
+
+def pgt_mi(c) -> bool:
+    """Tedavi satırı PGT'li mi (v6.225, `cycle.pgt_testleri` dolu). Satırda
+    kolon yoksa (göç çalışmamış) hayır."""
+    try:
+        return bool(c and db.pgt_oku(c["pgt_testleri"]))
+    except (IndexError, KeyError):
+        return False
 
 
 sablon.env.globals["yetkim"] = yetkim
@@ -2985,6 +3014,8 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     # kaydından, sorgusuz (`db.bulas_isaretle()`). Göç yoksa kolon yok.
     bulas = ("c.bulas_kadin, c.bulas_erkek" if _bulas_kolonu_var()
              else "NULL AS bulas_kadin, NULL AS bulas_erkek")
+    # PGT (v6.225): adın yanında "PGT" rozeti, tedavinin kendi işaretinden.
+    pgt = "c.pgt_testleri" if _pgt_kolonu_var() else "NULL AS pgt_testleri"
     if planli:
         sira = "c.planlanan_tarih, h.ad_soyad"   # takvim ileri doğru okunur
     elif ay:
@@ -2999,7 +3030,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         parametre = parametre + [limit, offset]
     satirlar = db.sorgu(
         f"""SELECT c.id, c.cycle_no, c.cycle_tipi, c.durum, c.opu_zamani,
-                   c.olusturma_zamani, {bitis}, {plan}, {bulas},
+                   c.olusturma_zamani, {bitis}, {plan}, {bulas}, {pgt},
                    h.id AS hasta_id, h.ad_soyad, h.dosya_no,
                    h.durum AS hasta_durum,
                    (SELECT o.tip FROM olay o
@@ -3015,7 +3046,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         d = dict(r)
         d["gun"] = _opu_gunu(d["opu_zamani"])
         liste.append(d)
-    return db.bulas_isaretle(liste)
+    return db.pgt_isaretle(db.bulas_isaretle(liste))
 
 
 @uygulama.get("/")
@@ -3781,6 +3812,41 @@ def bulas_formdan(form, eski=None):
     return sonuc
 
 
+def _pgt_kolonu_var() -> bool:
+    """goc_058 çalıştırıldı mı -- `cycle.pgt_testleri` / `pgt_notu` (v6.225).
+    Tedavi açmanın INSERT'ine giriyor; `_bulas_kolonu_var()` gibi her
+    seferinde soruluyor (tuzak #15)."""
+    kolonlar = {r["name"] for r in db.sorgu("PRAGMA table_info(cycle)")}
+    return {"pgt_testleri", "pgt_notu"} <= kolonlar
+
+
+def pgt_formdan(form, eski=None):
+    """Tedavi formunun PGT seçimi -> `{"pgt_testleri", "pgt_notu"}` (v6.225)
+    ya da None: form bu bölümü taşımıyor (sürümden önce açılmış sekme) --
+    kolonlara dokunulmaz (`bulas_formdan()`'ın kuralı). Kodlar `pgt_testi`
+    listesinden (pasif dahil) ya da bu tedavide kayıtlı olanlardan."""
+    if not form.get("pgt_formu"):
+        return None
+    izinli = {r["kod"] for r in db.sorgu(
+        "SELECT kod FROM liste_degeri WHERE lab_id = ? AND liste_adi = ?",
+        (db.LAB_ID, db.PGT_TEST_LISTESI))}
+    kayitli = set()
+    if eski is not None and "pgt_testleri" in eski.keys():
+        kayitli = set(db.pgt_oku(eski["pgt_testleri"]))
+    kodlar = [k for k in form.getlist("pgt_test") if k in izinli | kayitli]
+    notu = " ".join((form.get("pgt_notu") or "").split())[:db.PGT_NOTU_EN_COK]
+    return {"pgt_testleri": db.pgt_yaz(kodlar), "pgt_notu": notu or None}
+
+
+def _pgt_hatasi(pgt):
+    """Not var, test seçilmemiş: PGT'siz tedavinin notu hiçbir yerde
+    görünmezdi -- yazılan sessizce kaybolmasın, sorulsun."""
+    if pgt and pgt["pgt_notu"] and not pgt["pgt_testleri"]:
+        return ("PGT notu yazıldı ama test seçilmedi. PGT yapılacaksa testini "
+                "seçin, yapılmayacaksa notu silin.")
+    return None
+
+
 # Tedavi formunun YAZMADIĞI, kendi aşama ekranında girilen alanlar (v6.221
 # saatler, kullanıcı: "tedavi ana sayfasındaki zamanlar bölümünde denüdasyon
 # ve opu tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor
@@ -3943,6 +4009,9 @@ async def cycle_kaydet(request: Request, hasta_id: int):
     bulas = bulas_formdan(form)
     if bulas:
         f.update(bulas)
+    pgt = pgt_formdan(form)                    # v6.225, bulaşın deseni
+    if pgt:
+        f.update(pgt)
     hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
 
     def formu_goster(mesaj):
@@ -3959,6 +4028,8 @@ async def cycle_kaydet(request: Request, hasta_id: int):
 
     if not d["cycle_no"]:
         return formu_goster("Lab kayıt no boş bırakılamaz.")
+    if _pgt_hatasi(pgt):
+        return formu_goster(_pgt_hatasi(pgt))
 
     ayni = db.tek(
         "SELECT c.id, h.dosya_no, h.ad_soyad FROM cycle c "
@@ -3989,6 +4060,9 @@ async def cycle_kaydet(request: Request, hasta_id: int):
     if bulas is not None and _bulas_kolonu_var():
         alanlar = alanlar + list(bulas)
         degerler.extend(bulas.values())
+    if pgt is not None and _pgt_kolonu_var():
+        alanlar = alanlar + list(pgt)
+        degerler.extend(pgt.values())
     try:
         # Açmak ve numaralamak tek işlem: elle yazılan numara tarih sırasıyla
         # bağdaşmıyorsa tedavi hiç açılmamış olur.
@@ -4057,7 +4131,8 @@ def cycle_detay(request: Request, cycle_id: int, hata: str = ""):
          "gomulu_formlar": gomulu_formlar(),
          "lab_formlari": lab_formlari(),
          "bugun": _dt.now().strftime("%Y-%m-%d"),
-         "asamalar": (asamalar := cycle_asamalari(cycle["cycle_tipi"])),
+         "asamalar": (asamalar := cycle_asamalari(cycle["cycle_tipi"],
+                                                   pgt_mi(cycle))),
          # yan menü aşama ekranlarındakiyle aynı listeden beslensin
          "gezinme": asama_gezinme(cycle_id, ""),
          # Tek özet kutusu (v6.110, v6.112'de tek kutuya birleşti), aynı
@@ -4087,6 +4162,9 @@ async def cycle_guncelle(request: Request, cycle_id: int):
     bulas = bulas_formdan(form, eski)          # v6.219, cycle_kaydet'teki gibi
     if bulas:
         f.update(bulas)
+    pgt = pgt_formdan(form, eski)              # v6.225
+    if pgt:
+        f.update(pgt)
     hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (eski["hasta_id"],))
 
     def formu_goster(mesaj):
@@ -4104,6 +4182,8 @@ async def cycle_guncelle(request: Request, cycle_id: int):
 
     if not d["cycle_no"]:
         return formu_goster("Lab kayıt no boş bırakılamaz.")
+    if _pgt_hatasi(pgt):
+        return formu_goster(_pgt_hatasi(pgt))
 
     ayni = db.tek(
         "SELECT id FROM cycle WHERE lab_id = ? AND cycle_no = ? AND id <> ?",
@@ -4134,6 +4214,10 @@ async def cycle_guncelle(request: Request, cycle_id: int):
         alanlar = alanlar + list(bulas)
         degerler.extend(bulas.values())
         d.update(bulas)                        # değişiklik geçmişine de
+    if pgt is not None and _pgt_kolonu_var():
+        alanlar = alanlar + list(pgt)
+        degerler.extend(pgt.values())
+        d.update(pgt)
     try:
         with db.yazma_islemi() as b:
             b.execute(
@@ -4628,7 +4712,7 @@ async def islem_yapan_kaydet(request: Request, cycle_id: int):
     yazildi = False
     # Ekrana giremeyen kişi oraya ad da yazamamalı. `yol_modulu` form içeriğini
     # göremediği için bu kontrol burada (v6.14).
-    if c and asama in gecerli_asamalar and yetkim(asama):
+    if c and asama in gecerli_asamalar and asama_yetkim(asama):
         yazildi = True
         simdi = _dt.now().isoformat(" ", "seconds")
         mevcut = db.tek(
@@ -4666,7 +4750,7 @@ def islem_yapani_doldur(cycle_id, asama):
     yeni bir aşama rotası yazarsan sen de çağır.
     """
     k = _GIRIS_KULLANICI.get()
-    if not cycle_id or not k or not k["ad_soyad"] or not yetkim(asama):
+    if not cycle_id or not k or not k["ad_soyad"] or not asama_yetkim(asama):
         return
     db.yaz("INSERT OR IGNORE INTO islem_yapan (lab_id, cycle_id, asama, yapan_ad, "
            "zaman, kullanici_id) VALUES (?,?,?,?,?,?)",
@@ -7169,6 +7253,253 @@ async def blast_sil(request: Request, specimen_id: str):
         status_code=303)
 
 
+# ----------------------------------------------------------------- biyopsi (v6.225)
+#
+# PGT'li tedavide blastokistten sonra (`cycle_asamalari(pgt=True)`).
+# Kullanıcı: "Bu hastanın oluşursa embriyolarından biyopsi yapıyorum ve
+# parçaları genetiğe gönderiyorum. Embriyoları numaralandırıp dondurup
+# saklıyorum." Biyopsi trofektoderm (`db.BIYOPSI_TIPI`), numara biyopsi
+# sırasıyla 1'den ("PGT 1", kullanıcının cevapları). Kayıt bir olay
+# (`tip='biyopsi'`, şemanın ilk sürümünden beri hazırdı): `olay.cycle_id`
+# örneğin KENDİ tedavisi (CLAUDE.md), biyopsinin yapıldığı tedavi saatten
+# (`db.olay_tedavisi()`, değerlendirmelerin kuralı) -- FET (3→5)'te çözülüp
+# kültürde biyopsiye alınan embriyo o tedavinin. Bir embriyonun her
+# tedavide tek biyopsisi var; başka bir tedavide yeniden biyopsi olabilir.
+
+BIYOPSI_HATALARI = {"pgt_no_dolu": "hata_pgt_no_dolu",
+                    "pgt_no_gecersiz": "hata_pgt_no_gecersiz",
+                    "baska_tedavide": "hata_baska_tedavide"}
+
+
+class _BaskaTedavide(Exception):
+    """Yazılan biyopsi saatiyle bu tedavinin sayılmıyor -- işlem geri alınır."""
+
+
+def biyopsi_durum(cycle_id: int, cycle_tipi=None):
+    """Biyopsi ekranının embriyoları: bu tedavide blastokist değerlendirmesi
+    olan (son değerlendirmesi arrest olmayan -- vitrifikasyonun kuralı,
+    `_blastokistte_arrest()`) ya da bu tedavide zaten biyopsisi olan örnekler.
+    Aşama ekranlarının örnekleri `db.tedavi_ornekleri()`'nden (FET
+    tiplerinde bu tedavi için çözülenler)."""
+    cid = int(cycle_id)
+    kosul = db.tedavi_ornekleri(cycle_tipi)
+    bu_b, bu_y = db.bu_tedavide(cid, "b"), db.bu_tedavide(cid, "y")
+    son_b = ("FROM olay b WHERE b.specimen_id = s.id "
+             "AND b.tip = 'blastokist_degerlendirme' AND b.iptal_mi = 0 "
+             f"AND {bu_b} ORDER BY b.gun DESC, b.zaman DESC, b.id DESC LIMIT 1")
+    bu_biy = ("FROM olay y WHERE y.specimen_id = s.id AND y.tip = 'biyopsi' "
+              f"AND y.iptal_mi = 0 AND {bu_y} ORDER BY y.id DESC LIMIT 1")
+    return db.sorgu(
+        "SELECT s.id, s.cycle_id, s.cycle_sira_no, s.durum, s.taraf, "
+        "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
+        "   AND g.asama = 'biyopsi' ORDER BY g.id LIMIT 1) AS goruntu, "
+        f"  (SELECT b.bl_skor {son_b}) AS skor, "
+        f"  (SELECT b.gun {son_b}) AS bl_gun, "
+        f"  (SELECT y.id {bu_biy}) AS kayit_id, "
+        f"  (SELECT y.biy_tup_etiketi {bu_biy}) AS pgt_no "
+        f"FROM specimen s WHERE {kosul} AND (("
+        "  EXISTS (SELECT 1 FROM olay b WHERE b.specimen_id = s.id "
+        "   AND b.tip = 'blastokist_degerlendirme' AND b.iptal_mi = 0 "
+        f"   AND {bu_b}) AND NOT ({_blastokistte_arrest(cid)})) "
+        "  OR EXISTS (SELECT 1 FROM olay y WHERE y.specimen_id = s.id "
+        f"   AND y.tip = 'biyopsi' AND y.iptal_mi = 0 AND {bu_y})) "
+        "ORDER BY s.cycle_id, s.cycle_sira_no",
+        (cycle_id,),
+    )
+
+
+def _bu_tedavideki_biyopsi(specimen_id, cycle_id, b=None):
+    """Örneğin BU tedavide yapılan biyopsisi, yoksa None. `b`: açık
+    bağlantı (`yazma_islemi()` içinde)."""
+    sql = ("SELECT * FROM olay o WHERE o.specimen_id = ? AND o.tip = 'biyopsi' "
+           f"AND o.iptal_mi = 0 AND {db.bu_tedavide(int(cycle_id), 'o')} "
+           "ORDER BY o.id DESC LIMIT 1")
+    if b is not None:
+        return b.execute(sql, (specimen_id,)).fetchone()
+    return db.tek(sql, (specimen_id,))
+
+
+def sonraki_pgt_no(cycle_id, cycle_tipi=None) -> int:
+    """Bu tedavide sıradaki PGT numarası: en büyüğün bir fazlası (ilk 1)."""
+    nolar = [b["no"] for b in db.tedavinin_biyopsileri(cycle_id, cycle_tipi)
+             if b["no"] is not None]
+    return (max(nolar) + 1) if nolar else 1
+
+
+def _onceki_biyopsiler(specimen_id, cycle_id) -> list:
+    """Örneğin BAŞKA tedavilerde yapılmış biyopsileri (yeniden biyopsi):
+    ekran "daha önce X tedavisinde biyopsi yapıldı (PGT 2)" diyor."""
+    return [dict(r) for r in db.sorgu(
+        f"SELECT o.biy_tup_etiketi, c.cycle_no FROM olay o "
+        f"JOIN cycle c ON c.id = {db.olay_tedavisi('o')} "
+        "WHERE o.specimen_id = ? AND o.tip = 'biyopsi' AND o.iptal_mi = 0 "
+        f"AND NOT ({db.bu_tedavide(int(cycle_id), 'o')}) ORDER BY o.zaman",
+        (specimen_id,))]
+
+
+@uygulama.get("/cycle/{cycle_id}/biyopsi")
+def biyopsi_ekran(request: Request, cycle_id: int, oosit: str = "",
+                  duzenle: int = 0, hata: str = ""):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    from datetime import datetime as _d
+    oositler = biyopsi_durum(cycle_id, c["cycle_tipi"])
+    ortak = {
+        "c": c, "oositler": oositler, "duzenle": duzenle,
+        "gezinme": asama_gezinme(cycle_id, "biyopsi"),
+        "bekleyen": bekleyen_ozet(), "gunler": BLAST_GUNLERI,
+        "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"),
+        "pgt": db.pgt_durumu(cycle_id),
+    }
+    if not oositler:
+        return sablon.TemplateResponse(
+            request, "biyopsi.html", {**ortak, "sp": None, "kayit": None, "kareler": []})
+    sp = _secili_ornek(oositler, oosit)     # v6.35 -- bkz. ICSI ekranı
+    kayit = _bu_tedavideki_biyopsi(sp["id"], cycle_id)
+    hata_metni = (metinler.t(BIYOPSI_HATALARI[hata]) if hata in BIYOPSI_HATALARI
+                  else _asama_hatasi(hata, sp, cycle_id))
+    return sablon.TemplateResponse(
+        request, "biyopsi.html",
+        {**ortak, "sp": sp, "kayit": kayit,
+         "oneri_no": sonraki_pgt_no(cycle_id, c["cycle_tipi"]),
+         "onceki": _onceki_biyopsiler(sp["id"], cycle_id),
+         "kareler": asama_goruntuleri(sp["id"], "biyopsi"),
+         "hata": hata_metni})
+
+
+@uygulama.post("/cycle/{cycle_id}/biyopsi")
+async def biyopsi_kaydet(request: Request, cycle_id: int):
+    f = await request.form()
+    c = db.tek("SELECT cycle_tipi FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    specimen_id = f.get("specimen_id") or ""
+    # Ekranın listesinden olmayan örneğe biyopsi yazılmaz (eski sekme,
+    # elle kurulmuş istek): gizlemek yetmez, sunucu da soruyor.
+    liste = biyopsi_durum(cycle_id, c["cycle_tipi"])
+    sp = next((o for o in liste if o["id"] == specimen_id), None)
+    geri = f"/cycle/{cycle_id}/biyopsi"
+    if not sp:
+        return RedirectResponse(geri, status_code=303)
+    duzenle_yolu = f"{geri}?oosit={sp['id']}&duzenle=1"
+
+    gun = f.get("gun") or ""
+    gun = int(gun) if gun.isdigit() and int(gun) in BLAST_GUNLERI else (sp["bl_gun"] or 5)
+    zaman = islem_zamani(f.get("islem_zamani"))
+    if _cozmeden_once(sp["id"], cycle_id, c["cycle_tipi"], zaman):
+        return RedirectResponse(duzenle_yolu + "&hata=cozmeden_once", status_code=303)
+    no_metin = (f.get("pgt_no") or "").strip()
+    if not no_metin.isdigit() or not 1 <= int(no_metin) <= db.PGT_NO_EN_COK:
+        return RedirectResponse(duzenle_yolu + "&hata=pgt_no_gecersiz", status_code=303)
+    no = int(no_metin)
+    oneri = (f.get("pgt_no_oneri") or "").strip()
+    notlar = (" ".join((f.get("notlar") or "").split())[:200]) or None
+    kid = request.state.kullanici["id"]
+
+    # Numara tek işlemde (CLAUDE.md: "Numara üretirken db.yazma_islemi()
+    # kullan"): iki telefon aynı anda "PGT 3" önerisini kaydederse ikincisi
+    # sıradaki boş numarayı alır; elle yazılmış bir numara çakışırsa sorulur.
+    eski = None
+    try:
+        with db.yazma_islemi() as b:
+            mevcut = _bu_tedavideki_biyopsi(sp["id"], cycle_id, b)
+            dolu = {bx["no"] for bx in db.tedavinin_biyopsileri(cycle_id, c["cycle_tipi"], b)
+                    if bx["specimen_id"] != sp["id"] and bx["no"] is not None}
+            if no in dolu:
+                if mevcut or str(no) != oneri:
+                    return RedirectResponse(duzenle_yolu + "&hata=pgt_no_dolu",
+                                            status_code=303)
+                no = max(dolu) + 1
+            alanlar = {"gun": gun, "biy_tip": db.BIYOPSI_TIPI,
+                       "biy_tup_etiketi": str(no), "notlar": notlar}
+            if mevcut:
+                eski = mevcut
+                oid = mevcut["id"]
+                b.execute(f"UPDATE olay SET {', '.join(a + '=?' for a in alanlar)}, "
+                          "zaman=?, kullanici_id=? WHERE id=?",
+                          (*alanlar.values(), zaman, kid, oid))
+            else:
+                # `olay.cycle_id` örneğin kendi tedavisi (CLAUDE.md).
+                oid = b.execute(
+                    "INSERT INTO olay (lab_id, specimen_id, cycle_id, tip, zaman, "
+                    f"kullanici_id, {', '.join(alanlar)}) "
+                    f"VALUES (?,?,?,'biyopsi',?,?,{', '.join('?' * len(alanlar))})",
+                    (db.LAB_ID, sp["id"], sp["cycle_id"], zaman, kid,
+                     *alanlar.values())).lastrowid
+            # Biyopsinin tedavisi saatten (`db.olay_tedavisi()`): yazılan saatte
+            # embriyo başka bir tedavi için çözülmüşse kayıt o tedavinin sayılır,
+            # bu ekrandan kaybolurdu. Kural SQL'in kendisiyle soruluyor (ikinci
+            # bir kopya yazılmadı); tutmuyorsa işlem geri alınıyor.
+            if not b.execute(f"SELECT 1 FROM olay o WHERE o.id = ? AND "
+                             f"{db.bu_tedavide(int(cycle_id), 'o')}", (oid,)).fetchone():
+                raise _BaskaTedavide()
+    except _BaskaTedavide:
+        return RedirectResponse(duzenle_yolu + "&hata=baska_tedavide",
+                                status_code=303)
+    if eski is not None:
+        # Günlük kendi bağlantısını açıyor: işlemin dışında (kilit bekler).
+        guvenlik.degisiklikleri_yaz("olay", eski["id"], eski,
+                                    {**alanlar, "zaman": zaman}, kid)
+
+    sonraki = _sonraki_ornek(biyopsi_durum(cycle_id, c["cycle_tipi"]), sp["id"],
+                             lambda o: not o["kayit_id"])
+    islem_yapani_doldur(cycle_id, "biyopsi")   # v6.208
+    hedef = geri + (f"?oosit={sonraki['id']}" if sonraki else f"?oosit={sp['id']}")
+    return RedirectResponse(hedef, status_code=303)
+
+
+def _biyopsi_sonucu_var(biyopsi_id) -> bool:
+    """Biyopsinin genetik sonucu girilmiş mi (v6.226'nın `pgt_sonuc`
+    satırları ya da karar). Sonucu olan biyopsi silinmez: önce sonuç."""
+    r = db.tek("SELECT biy_sonuc FROM olay WHERE id = ?", (biyopsi_id,))
+    if r and r["biy_sonuc"]:
+        return True
+    if db.kolon_var("pgt_sonuc", "biyopsi_id"):
+        return bool(db.tek("SELECT 1 x FROM pgt_sonuc WHERE biyopsi_id = ?",
+                           (biyopsi_id,)))
+    return False
+
+
+@uygulama.get("/specimen/{specimen_id}/biyopsi-sil")
+def biyopsi_sil_ekran(request: Request, specimen_id: str, cycle: int = 0):
+    sp = db.tek("SELECT s.*, c.cycle_no, h.dosya_no, h.ad_soyad FROM specimen s "
+                "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
+                "WHERE s.id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    # Adres hangi tedavinin biyopsisinin silineceğini de söylüyor: örnek o
+    # tedavi için çözülmüş olmalı (`_hedef_tedavi()`, v6.147'nin kuralı).
+    hedef_cycle = _hedef_tedavi(sp, cycle)
+    kayit = _bu_tedavideki_biyopsi(specimen_id, hedef_cycle)
+    return sablon.TemplateResponse(
+        request, "biyopsi_sil.html",
+        {"sp": sp, "hedef_cycle": hedef_cycle, "kayit": kayit,
+         "sonuc_var": bool(kayit) and _biyopsi_sonucu_var(kayit["id"])})
+
+
+@uygulama.post("/specimen/{specimen_id}/biyopsi-sil")
+async def biyopsi_sil(request: Request, specimen_id: str):
+    f = dict(await request.form())
+    sp = db.tek("SELECT * FROM specimen WHERE id = ?", (specimen_id,))
+    if not sp:
+        return RedirectResponse("/hastalar", status_code=303)
+    try:
+        istenen = int(f.get("cycle") or 0)
+    except ValueError:
+        istenen = 0
+    hedef_cycle = _hedef_tedavi(sp, istenen)
+    kayit = _bu_tedavideki_biyopsi(specimen_id, hedef_cycle)
+    if kayit and not _biyopsi_sonucu_var(kayit["id"]):
+        db.yaz("UPDATE olay SET iptal_mi=1, iptal_kullanici_id=?, iptal_zamani=?, "
+               "iptal_sebep=? WHERE id=?",
+               (request.state.kullanici["id"], _dt.now().isoformat(" ", "seconds"),
+                "Biyopsi kaydi temizlendi", kayit["id"]))
+    return RedirectResponse(f"/cycle/{hedef_cycle}/biyopsi?oosit={sp['id']}",
+                            status_code=303)
+
+
 # ----------------------------------------------------------------- kriyo
 
 DONMUS_DURUMLAR = ("dondurulmus",)
@@ -7257,7 +7588,7 @@ def icerik_sql() -> str:
 
 
 def tasiyici_icerigi(tasiyici_id):
-    return db.sorgu(
+    satirlar = db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.durum, o.zaman, o.id AS olay_id, "
         "  c.id AS cycle_id, c.cycle_no, c.cycle_tipi, "
         # İçindeki yumurta mı embriyo mu (v6.167, `icerik_sql()`'in
@@ -7296,6 +7627,13 @@ def tasiyici_icerigi(tasiyici_id):
         "JOIN cycle c ON c.id = s.cycle_id JOIN hasta h ON h.id = c.hasta_id "
         "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND o.vit_tasiyici_id=? "
         "ORDER BY s.cycle_sira_no", (tasiyici_id,))
+    # PGT (v6.225): örneğin en son biyopsisi -- "PGT 2 · sonuç bekleniyor".
+    # Satırlar sözlük: `sqlite3.Row`'a alan eklenemiyor.
+    satirlar = [dict(r) for r in satirlar]
+    biy = db.biyopsi_bilgisi([r["id"] for r in satirlar])
+    for r in satirlar:
+        r["pgt"] = biy.get(r["id"])
+    return satirlar
 
 
 # Etiket aramasında hasta iki ayrı yoldan bulunuyor: embriyo taşıyıcısında
@@ -7627,6 +7965,12 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
     # formlarda da bu kullanılıyor). sqlite3.Row'a alan eklenemiyor, sözlüğe
     # çevriliyor (`cycle_listesi()`'nin deseni).
     embriyolar = [_vit_satiri(dict(e)) for e in embriyolar]
+    # PGT (v6.225): biyopsi yapılmış embriyonun numarası satırda -- tüpe
+    # hangisinin konduğu PGT numarasıyla bilinsin; iki biyopsili embriyo aynı
+    # tüpe seçilirse ekran uyarıyor (`vit_kaydet()` de soruyor).
+    biy = db.biyopsi_bilgisi([e["id"] for e in embriyolar])
+    for e in embriyolar:
+        e["pgt"] = biy.get(e["id"])
 
     # Boş yer önerisi (v6.190): tank düzeni kuruluysa (v6.189). Hastanın
     # straw'ları bir arada, gobletteki renklerle çakışmadan (`yerlesim`).
@@ -7829,6 +8173,15 @@ async def vit_kaydet(request: Request, cycle_id: int):
             uygunlar.append(sp)
     if not uygunlar:
         return hata("Seçilenlerin hiçbiri bu tedavide dondurulamıyor.")
+    # İki biyopsili embriyo aynı tüpe (v6.225): sonuçları farklı çıkarsa
+    # tüpten yalnızca biri çözülemez. Engel değil, onaylı uyarı (v6.190'ın
+    # yer uyarısı gibi); ekran seçilince aynı uyarıyı gösteriyor.
+    biy = db.biyopsi_bilgisi([sp["id"] for sp in uygunlar])
+    if len(biy) >= 2 and not f.get("pgt_onay"):
+        nolar = sorted(b["no"] for b in biy.values() if b["no"] is not None)
+        return hata(metinler.t("pgt_ayni_tup").format(
+            n=len(biy), nolar=", ".join(metinler.t("pgt_no").format(n=n) for n in nolar))
+            + " " + metinler.t("pgt_onay_gerekli"))
 
     etiket = (f.get("etiket") or "").strip()
     if not etiket:
@@ -11010,6 +11363,10 @@ ASAMA_SIRASI = [
     # ilk 3. günü göstersin"); rota adressiz de 3. günü seçiyor.
     ("cleavage", "Cleavage", "/cycle/{id}/cleavage?gun=3"),
     ("blast", "Blastokist", "/cycle/{id}/blast?gun=5"),
+    # Biyopsi (v6.225) yalnızca PGT'li tedavide, blastokistin arkasında
+    # (`cycle_asamalari(pgt=True)`); `TIP_ASAMALARI`'nda yok, çünkü tipin
+    # değil tedavinin sorusu.
+    ("biyopsi", "Biyopsi", "/cycle/{id}/biyopsi"),
     ("vitrifikasyon", "Vitrifikasyon", "/cycle/{id}/vitrifikasyon"),
     ("thaw", "Çözme", "/cycle/{id}/thaw"),
     ("transfer", "Transfer", "/cycle/{id}/transfer"),
@@ -11023,7 +11380,7 @@ ASAMA_SIRASI = [
 TIP_ASAMALARI = db.TIP_ASAMALARI
 
 
-def cycle_asamalari(cycle_tipi: str):
+def cycle_asamalari(cycle_tipi: str, pgt: bool = False):
     """Bu tedavi tipinde **ve bu kullanıcının izninde** olan aşamalar.
 
     Gezinme çubuğu ve cycle detaydaki düğmeler buradan besleniyor; süzme tek
@@ -11035,10 +11392,17 @@ def cycle_asamalari(cycle_tipi: str):
     aynıydı; fet_kultur'da farklı: thaw blast'tan ÖNCE gelmeli (embriyo
     ÖNCE çözülüyor, SONRA gün 5'e kültürleniyor), ama ASAMA_SIRASI'nda blast
     dondurmadan önce durur (ivf_icsi akışında blast önce, sonra dondurma).
+
+    PGT'li tedavide (v6.225, `pgt`: tedavinin `pgt_testleri`'i dolu) biyopsi
+    blastokistin hemen arkasına giriyor; blastokisti olmayan tipte yok
+    (biyopsi blastokistte, kullanıcının cevabı). İzin aşamanın modülünden
+    (`asama_yetkim()`: biyopsi blastokistin izniyle).
     """
-    kodlar = TIP_ASAMALARI.get(cycle_tipi, TIP_ASAMALARI["ivf_icsi"])
+    kodlar = list(TIP_ASAMALARI.get(cycle_tipi, TIP_ASAMALARI["ivf_icsi"]))
+    if pgt and "blast" in kodlar:
+        kodlar.insert(kodlar.index("blast") + 1, "biyopsi")
     sozluk = {a[0]: a for a in ASAMA_SIRASI}
-    return [sozluk[k] for k in kodlar if k in sozluk and yetkim(k)]
+    return [sozluk[k] for k in kodlar if k in sozluk and asama_yetkim(k)]
 
 
 def cycle_ozet(cycle: dict, kodlar: set) -> list:
@@ -11127,6 +11491,9 @@ def cycle_ozet(cycle: dict, kodlar: set) -> list:
         satirlar.append({"anahtar": "ozet_cleavage", "sayi": _olay("cleavage_degerlendirme")})
     if "blast" in kodlar:
         satirlar.append({"anahtar": "ozet_blastokist", "sayi": _olay("blastokist_degerlendirme")})
+    # PGT'li tedavide (v6.225) bu tedavide biyopsi yapılan embriyo sayısı.
+    if "biyopsi" in kodlar:
+        satirlar.append({"anahtar": "ozet_biyopsi", "sayi": _olay("biyopsi")})
     return satirlar
 
 
@@ -11137,8 +11504,8 @@ def asama_gezinme(cycle_id: int, anahtar: str):
     Aynı yerden geldiği için menü de, alttaki çubuk da tedavi tipine ve
     kullanıcının modül izinlerine göre süzülmüş oluyor.
     """
-    c = db.tek("SELECT cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
-    liste = cycle_asamalari(c["cycle_tipi"] if c else "ivf_icsi")
+    c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+    liste = cycle_asamalari(c["cycle_tipi"] if c else "ivf_icsi", pgt_mi(c))
     kodlar = [a[0] for a in liste]
     tumu = [{"kod": k, "ad": asama_adi(k), "yol": yol.format(id=cycle_id),
              "aktif": k == anahtar}

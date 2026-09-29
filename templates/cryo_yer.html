@@ -9,6 +9,7 @@
 </div>
 {% endblock %}
 {% block icerik %}
+{% import "_pgt.html" as pgtm %}
 
 {# Kanisterin gobletleri, Excel'deki sırasıyla (v6.189). Her goblet 4 yuva
    (kullanıcı: "Her goblete 4 straw/Cryotop konuyor"); dolu yuva tüp ya da
@@ -24,6 +25,7 @@
       <span class="meta">{{ x.dosya_no or "" }} · {{ x.ad_soyad or "—" }}</span>
       <span class="meta">{{ gg_aa_yyyy(x.vitrifikasyon_zamani) if x.vitrifikasyon_zamani else "—" }}
         {%- if x.parantez %} · {% if x.yumurta %}{{ metin("oosit_ad") }}{% else %}{{ x.gun }}{% endif %} {{ x.parantez }}{% endif %}</span>
+      {%- if x.pgt %}<span class="meta">{% for b in x.pgt %}{{ pgtm.rozet(b) }}{% endfor %}</span>{% endif %}
     </span>
   </a>
 {% endmacro %}

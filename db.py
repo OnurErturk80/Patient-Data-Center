@@ -601,6 +601,222 @@ def bulas_isaretle(satirlar):
     return satirlar
 
 
+# ------------------------------------------------------- PGT (v6.225)
+#
+# Kullanıcı: "Tedavinin başında PGT yapılacağına dair laboratuvarda formunun
+# üstüne yazıyorum. Tedavi bitene kadar üstünde PGT yapılacağı yazıyor. Bu
+# hastanın oluşursa embriyolarından biyopsi yapıyorum ve parçaları genetiğe
+# gönderiyorum. Embriyoları numaralandırıp dondurup saklıyorum." Şema
+# goc_058'de; ayrıntı README v6.225.
+#
+# Tedavinin işareti `cycle.pgt_testleri`: `pgt_testi` listesinin kodları
+# virgülle, boş = PGT yok. Biyopsi bir olay (`olay.tip='biyopsi'`, şemanın
+# ilk sürümünden beri hazırdı): `biy_tup_etiketi` genetiğe giden tüpün
+# numarası, yani ekrandaki "PGT 1" (kullanıcının cevabı: biyopsi sırasıyla
+# 1'den), `biy_tip` biyopsinin tipi, `biy_sonuc` kullanıcının kararı
+# (v6.226). Biyopsinin yapıldığı tedavi `olay_tedavisi()`'nin kuralı:
+# değerlendirmeler gibi, işlemden önceki son çözme (FET (3→5)'te çözülüp
+# biyopsiye alınan embriyo o tedavinin).
+
+PGT_TEST_LISTESI = "pgt_testi"
+# Her testin sonuç listesi (`liste_degeri`, goc_058). PGT-A'nınki şemanın
+# kendi `pgt_sonuc` listesi.
+PGT_SONUC_LISTELERI = {"pgt_a": "pgt_sonuc", "pgt_m": "pgt_m_sonuc",
+                       "pgt_sr": "pgt_sr_sonuc", "hla": "hla_sonuc"}
+PGT_NOTU_EN_COK = 120
+# Laboratuvar trofektoderm biyopsisi yapıyor (kullanıcının cevabı,
+# 2026-09-29: "Blastokist (TE)"); ekranda seçici yok, kayıt tipini taşıyor.
+BIYOPSI_TIPI = "te"
+# Bir tedavide PGT numarası en çok (ekranın kutusu, sunucu da tutuyor).
+PGT_NO_EN_COK = 99
+
+
+def pgt_acik() -> bool:
+    """goc_058 çalıştırıldı mı (tedavi formunun PGT kartı, bant)."""
+    return kolon_var("cycle", "pgt_testleri")
+
+
+def pgt_oku(deger) -> list:
+    """`cycle.pgt_testleri` -> test kodları. Kolonu okuyan her yer bundan
+    geçer (`bulas_oku()`'nun kuralı)."""
+    metin = deger.strip() if isinstance(deger, str) else ""
+    return [k for k in (x.strip() for x in metin.split(",")) if k]
+
+
+def pgt_yaz(kodlar):
+    """Formun seçimi -> kolonun değeri, `pgt_oku()`'nun tersi; hiçbiri
+    seçilmediyse None (PGT yok). Kodların listede olup olmadığına çağıran
+    bakar (`app.pgt_formdan()`)."""
+    temiz = []
+    for k in kodlar:
+        k = (k or "").strip()
+        if k and "," not in k and k not in temiz:
+            temiz.append(k)
+    return ",".join(temiz) or None
+
+
+def _pgt_test_listesi():
+    """`pgt_testi` listesinin bütün değerleri (pasif dahil), sırasıyla."""
+    return sorgu("SELECT kod, etiket, aktif_mi FROM liste_degeri "
+                 "WHERE lab_id = ? AND liste_adi = ? ORDER BY sira, id",
+                 (LAB_ID, PGT_TEST_LISTESI))
+
+
+def pgt_etiketleri(kodlar, liste=None) -> list:
+    """Testlerin ekrandaki adları, listenin sırasıyla. Listeden kaldırılmış
+    değer etiketiyle, listede olmayan kod koduyla (tuzak #6)."""
+    if liste is None:
+        liste = _pgt_test_listesi() if kodlar else []
+    sira = {r["kod"]: i for i, r in enumerate(liste)}
+    etiket = {r["kod"]: r["etiket"] for r in liste}
+    return [etiket.get(k, k)
+            for k in sorted(kodlar, key=lambda k: sira.get(k, len(sira)))]
+
+
+def pgt_secenekleri(kayitli=()) -> list:
+    """Tedavi formunun seçenekleri: etkin testler + kayıtlı olup listeden
+    kaldırılmış ya da listede olmayanlar (`bulas_secenekleri()`'nin kuralı)."""
+    liste = _pgt_test_listesi()
+    secenek = [{"kod": r["kod"], "etiket": r["etiket"]} for r in liste
+               if r["aktif_mi"] or r["kod"] in kayitli]
+    bilinen = {r["kod"] for r in liste}
+    return secenek + [{"kod": k, "etiket": k} for k in kayitli if k not in bilinen]
+
+
+def pgt_durumu(cycle_id):
+    """Tedavinin PGT işareti: `{"kodlar", "testler", "not"}` ya da None (PGT
+    yok ya da göç çalışmamış)."""
+    if not pgt_acik():
+        return None
+    c = tek("SELECT pgt_testleri, pgt_notu FROM cycle WHERE id = ?", (cycle_id,))
+    kodlar = pgt_oku(c["pgt_testleri"]) if c else []
+    if not kodlar:
+        return None
+    return {"kodlar": kodlar, "testler": pgt_etiketleri(kodlar),
+            "not": c["pgt_notu"]}
+
+
+def tedavinin_biyopsileri(cycle_id, cycle_tipi=None, b=None) -> list:
+    """Bu tedavide YAPILAN biyopsiler, PGT numarası sırasıyla:
+    `[{"id", "specimen_id", "no", "zaman", "gun", "karar", ...}]`.
+
+    Adaylar tedavinin aşama ekranlarının örnekleri (`tedavi_ornekleri()`:
+    FET tiplerinde bu tedavi için çözülenler), karar `bu_tedavide()`: aynı
+    embriyonun başka bir tedavideki biyopsisi (yeniden biyopsi) sayılmaz.
+    `b`: açık bağlantı -- numarayı `yazma_islemi()` içinde okuyan biyopsi
+    kaydı."""
+    if cycle_tipi is None:
+        c = tek("SELECT cycle_tipi FROM cycle WHERE id = ?", (cycle_id,))
+        cycle_tipi = c["cycle_tipi"] if c else None
+    sql = ("SELECT o.id, o.specimen_id, o.biy_tup_etiketi, o.biy_tip, o.biy_sonuc, "
+           "  o.zaman, o.gun, o.notlar, o.cycle_id, s.cycle_sira_no "
+           "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
+           f"WHERE o.tip = 'biyopsi' AND o.iptal_mi = 0 AND {tedavi_ornekleri(cycle_tipi)} "
+           f"AND {bu_tedavide(int(cycle_id), 'o')}")
+    satirlar = (b.execute(sql, (cycle_id,)).fetchall() if b is not None
+                else sorgu(sql, (cycle_id,)))
+    sonuc = [_biyopsi_satiri(r) for r in satirlar]
+    sonuc.sort(key=lambda b: (b["no"] is None, b["no"] or 0, b["zaman"] or ""))
+    return sonuc
+
+
+def _pgt_no(deger):
+    """`biy_tup_etiketi` -> PGT numarası (tamsayı) ya da None."""
+    metin = str(deger or "").strip()
+    return int(metin) if metin.isdigit() else None
+
+
+def _biyopsi_satiri(r) -> dict:
+    d = dict(r)
+    d["no"] = _pgt_no(d.get("biy_tup_etiketi"))
+    d["karar"] = d.get("biy_sonuc")
+    return d
+
+
+def biyopsi_bilgisi(specimen_idleri) -> dict:
+    """Örneklerin EN SON biyopsisi (v6.225): `{specimen_id: {"id", "no",
+    "karar", "tedavi", "zaman"}}` -- biyopsisi olmayan örnek sözlükte yok.
+
+    Tüpün satırları (Cryo Haritası, taşıyıcı sayfası, çözme ve dondurma
+    ekranları, hasta kartı) "bu embriyo PGT'nin kaçıncısı, sonucu ne"
+    sorusunu buradan soruyor. Embriyo yeniden biyopsiye alındıysa (sonuç
+    çıkmadı, başka bir tedavide çözüldü) sonuncusu geçerli; ölçü saat, sonra
+    kimlik. `tedavi`: biyopsinin yapıldığı tedavi (`olay_tedavisi()`).
+    Hata ekranı bozmasın: boş döner."""
+    idler = [s for s in dict.fromkeys(specimen_idleri or ()) if s]
+    if not idler:
+        return {}
+    sonuc = {}
+    try:
+        for i in range(0, len(idler), 500):
+            parca = idler[i:i + 500]
+            for r in sorgu(
+                    "SELECT o.id, o.specimen_id, o.biy_tup_etiketi, o.biy_sonuc, "
+                    f"  o.zaman, {olay_tedavisi('o')} AS tedavi "
+                    "FROM olay o WHERE o.tip = 'biyopsi' AND o.iptal_mi = 0 "
+                    f"AND o.specimen_id IN ({','.join('?' * len(parca))}) "
+                    "ORDER BY o.zaman, o.id", parca):
+                sonuc[r["specimen_id"]] = _biyopsi_satiri(r)
+    except sqlite3.Error:
+        logging.getLogger(__name__).exception("Biyopsi bilgisi okunamadı")
+        return {}
+    return sonuc
+
+
+def pgt_nolar_yazisi(nolar) -> str:
+    """PGT numaraları: "PGT 1–3, 5" (ardışık olanlar aralık). "PGT" iki
+    dilde aynı; resmî formun NOTLAR'ı da bant da bunu basıyor."""
+    nolar = sorted({int(n) for n in nolar if n is not None})
+    if not nolar:
+        return ""
+    parcalar, bas = [], nolar[0]
+    for onceki, n in zip(nolar, nolar[1:] + [None]):
+        if n is not None and n == onceki + 1:
+            continue
+        parcalar.append(f"{bas}–{onceki}" if onceki != bas else str(bas))
+        bas = n
+    return "PGT " + ", ".join(parcalar)
+
+
+def pgt_bandi(cycle_id):
+    """Kimlik bandının altındaki PGT kutusu (v6.225, `_pgt_bandi.html`):
+    tedavinin testleri, notu, bu tedavide yapılan biyopsiler. PGT'siz
+    tedavide None. `base.html` her tedavi ekranında çağırıyor: hata ekranı
+    bozmasın, None döner."""
+    try:
+        d = pgt_durumu(int(cycle_id))
+        if not d:
+            return None
+        biyopsiler = tedavinin_biyopsileri(int(cycle_id))
+        d["biyopsi"] = len(biyopsiler)
+        d["nolar"] = pgt_nolar_yazisi(b["no"] for b in biyopsiler)
+        return d
+    except (sqlite3.Error, ValueError, TypeError):
+        logging.getLogger(__name__).exception("PGT bandı okunamadı")
+        return None
+
+
+def pgt_isaretle(satirlar):
+    """Tedavi listesinin satırlarına (`pgt_testleri` kolonuyla) `pgt` ekler:
+    testlerin adları, PGT'siz tedavide boş liste (v6.225, adın yanındaki
+    "PGT" rozeti). `bulas_isaretle()` gibi sorgusuz: test listesi yalnızca
+    PGT'li bir satır varsa, bir kez okunuyor."""
+    liste = None
+    for s in satirlar:
+        kodlar = pgt_oku(s.get("pgt_testleri"))
+        if not kodlar:
+            s["pgt"] = []
+            continue
+        try:
+            if liste is None:
+                liste = _pgt_test_listesi()
+            s["pgt"] = pgt_etiketleri(kodlar, liste)
+        except sqlite3.Error:
+            logging.getLogger(__name__).exception("PGT işareti okunamadı")
+            s["pgt"] = []
+    return satirlar
+
+
 def klinik_gebelik_sql(g: str = "g") -> str:
     """Gebelik sonucunda klinik gebelik var mı -- SQL koşulu (v6.201).
 

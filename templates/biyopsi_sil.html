@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{# Biyopsi kaydını silme (v6.225): iptal işareti, fiziksel silme değil
+   (CLAUDE.md "Silme = iptal işaretleme"). Genetik sonucu girilmiş biyopsi
+   silinmez -- önce sonuç (v6.226'nın ekranı), "önce en son adım". #}
+{% block ustbaslik %}{{ metin("biyopsi_sil_baslik") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ hedef_cycle }}/biyopsi?oosit={{ sp.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ sp.dosya_no }}<span class="rozet">{{ sp.cycle_no }}</span></div>
+  <div class="isim">{{ sp.ad_soyad }}</div>
+  <div class="alt">{{ metin("blastokist_ad") }} {{ sp.cycle_sira_no }} · {{ ornek_kodu(sp.id) }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+{% if not kayit %}
+<div class="kart"><div class="bos">{{ metin("biyopsi_kaydi_yok") }}</div></div>
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/biyopsi?oosit={{ sp.id }}">{{ metin("geri_don") }}</a>
+{% else %}
+
+{% if sonuc_var %}
+<div class="uyari">{{ metin("biyopsi_sonuclu_silinmez") }}</div>
+{% else %}
+<div class="tehlike">{{ metin("biyopsi_sil_aciklama") }}</div>
+{% endif %}
+
+<div class="kart">
+  <h2>{{ metin("silinecek_kayit") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("pgt_no_etiket") }}</dt><dd>{{ metin("pgt_no").format(n=kayit.biy_tup_etiketi) }}</dd></div>
+    <div class="veri"><dt>{{ metin("biyopsi_gunu") }}</dt>
+      <dd {% if not kayit.gun %}class="yok"{% endif %}>{{ metin("gun_n_buyuk").format(n=kayit.gun) if kayit.gun else '—' }}</dd></div>
+    <div class="veri"><dt>{{ metin("kaydedilme") }}</dt><dd style="font-size:13px">{{ gg_aa_yyyy_saat(kayit.zaman) }}</dd></div>
+    {% if kayit.notlar %}<div class="veri"><dt>{{ metin("biyopsi_notu") }}</dt><dd>{{ kayit.notlar }}</dd></div>{% endif %}
+  </dl>
+</div>
+
+{% if not sonuc_var %}
+<form method="post" action="/specimen/{{ sp.id }}/biyopsi-sil">
+  <input type="hidden" name="cycle" value="{{ hedef_cycle }}">
+  <button class="dugme tehlikeli" type="submit">{{ metin("biyopsi_sil_baslik") }}</button>
+</form>
+{% endif %}
+<a class="dugme ikincil" href="/cycle/{{ hedef_cycle }}/biyopsi?oosit={{ sp.id }}">{{ metin("vazgec") }}</a>
+{% endif %}
+{% endblock %}

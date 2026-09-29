@@ -33,6 +33,11 @@
         {{ metin("bulas_hastaligi") }}: {% for k in s.bulas %}{{ metin("bulas_" ~ k.kisi) }}: {{ k.hastaliklar|join(", ") }}{% if not loop.last %} · {% endif %}{% endfor %}
       {%- endset %}<span class="bulasnokta" role="img" aria-label="{{ _ipucu }}" title="{{ _ipucu }}"></span>
     {%- endif %}
+    {#- PGT'li tedavi (v6.225): kâğıtta formun üstüne "PGT" yazılıyor, listede
+        adın yanında. Bütün tedavi listeleri veriyor (`cycle_listesi()`,
+        `db.pgt_isaretle()`); ayrıntı tedavinin ekranındaki PGT kutusunda. #}
+    {%- if s.pgt %} <span class="pgtrozet" title="{{ metin('pgt') }}: {{ s.pgt|join(', ') }}">{{ metin("pgt") }}</span>
+    {%- endif %}
     {%- if s.durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>
     {%- elif s.durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>
     {%- endif %}

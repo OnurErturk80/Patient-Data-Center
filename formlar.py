@@ -212,6 +212,7 @@ _CIZELGE = [
     ("gun2", None),
     ("gun3", None),
     ("blast", "asama_blast"),
+    ("biyopsi", "asama_biyopsi"),          # v6.225, PGT'li tedavi
     ("vitrifikasyon", "asama_vitrifikasyon"),
     ("thaw", "asama_thaw"),
     ("transfer", "asama_transfer"),
@@ -268,6 +269,7 @@ def zaman_cizelgesi(cycle_id: int) -> list:
         "gun2": _olay_ilk(cycle_id, "cleavage_degerlendirme", 2),
         "gun3": _olay_ilk(cycle_id, "cleavage_degerlendirme", 3),
         "blast": _olay_ilk(cycle_id, "blastokist_degerlendirme"),
+        "biyopsi": _olay_ilk(cycle_id, "biyopsi"),
         "vitrifikasyon": _olay_ilk(cycle_id, "vitrifikasyon"),
         "thaw": _olay_ilk(cycle_id, "thaw"),
         "transfer": _olay_ilk(cycle_id, "transfer"),
@@ -494,11 +496,14 @@ def _sar(metin, genislik=68):
     """NOTLAR satırını sarar (`textwrap.fill`, 68 -- kutu `white-space: pre`,
     uzun satır sessizce kesilir, v6.130). Bir kalite ve bir tüp parantezi
     ortasından bölünmez (v6.157): "(Birleşme G3)" iki satıra düşüp
-    "(Birleşme" / "G3)" okunuyordu. Bölünmeyecek boşluklar geçici olarak
-    bölünmez boşluk oluyor -- textwrap onu kelimenin parçası sayıyor."""
+    "(Birleşme" / "G3)" okunuyordu. PGT numarası da ("PGT 1–3", v6.225).
+    Bölünmeyecek boşluklar geçici olarak bölünmez boşluk oluyor -- textwrap
+    onu kelimenin parçası sayıyor."""
     nb = "\u00a0"
     metin = metin.replace(f"{db.BIRLESME} G", f"{db.BIRLESME}{nb}G")
     metin = re.sub(r"\([^()]*\)", lambda m: m.group(0).replace(" ", nb), metin)
+    # PGT numarası da (v6.225): "PGT" / "1–3" iki satıra düşmesin.
+    metin = re.sub(r"PGT (\d)", "PGT" + nb + r"\1", metin)
     return textwrap.fill(metin, genislik).replace(nb, " ")
 
 
@@ -805,6 +810,28 @@ def genel_bulgu_notu(cycle_id: int, cycle_tipi) -> str | None:
         return None
     metin = db.tedavi_bulgu_metni(cycle_id)
     return _sar(f"Genel bulgular: {metin}") if metin else None
+
+
+def pgt_notu(cycle_id: int) -> str | None:
+    """NOTLAR kutusuna PGT satırı (v6.225): tedavi PGT'liyse testler, notu ve
+    bu tedavide yapılan biyopsiler -- "PGT: PGT-A, PGT-M (Talasemi) · 3
+    embriyoya biyopsi, 5. gün: PGT 1–3". Biyopsi yoksa "biyopsi yapılmadı".
+    Türkçe sabit (kurum belgesi); satır 68'de sarılı (`_sar()`)."""
+    d = db.pgt_durumu(cycle_id)
+    if not d:
+        return None
+    metin = "PGT: " + ", ".join(d["testler"])
+    if d["not"]:
+        metin += f" ({d['not']})"
+    biy = db.tedavinin_biyopsileri(cycle_id)
+    if not biy:
+        return _sar(metin + " · biyopsi yapılmadı")
+    metin += f" · {len(biy)} embriyoya biyopsi"
+    gunler = sorted({b["gun"] for b in biy if b["gun"]})
+    if gunler:
+        metin += ", " + "/".join(str(g) for g in gunler) + ". gün"
+    nolar = db.pgt_nolar_yazisi(b["no"] for b in biy)
+    return _sar(metin + (f": {nolar}" if nolar else ""))
 
 
 def dondurma_notu(cycle_id: int, cycle_tipi, tupler) -> str | None:
@@ -1249,8 +1276,8 @@ def ozet_verisi(cycle_id: int):
     # isteği) -- cycle iptal edilmediyse None, kutuya bir şey eklemiyor.
     iptal_notu = _iptal_notu(c)
     # Dondurulan embriyolar da NOTLAR'a (v6.135, kullanıcının isteği).
-    # Sıra klinik akış: protokol -> genel bulgular (ICSI, v6.217) ->
-    # dondurma -> çözme -> iptal sebebi.
+    # Sıra klinik akış: protokol -> genel bulgular (ICSI, v6.217) -> PGT
+    # (v6.225) -> dondurma -> çözme -> iptal sebebi.
     # Çözülen örneklerin satırı (v6.152) çözme notunun hemen önünde.
     # Embriyo bilgisi tek sefer (v6.159, kullanıcının isteği: "bazı
     # tedavilerde embriyo bilgisi iki kere yazılıyor"). Access'ten aktarılan
@@ -1264,6 +1291,8 @@ def ozet_verisi(cycle_id: int):
     tasinan_satiri = tasinan_notu(tasinan_tupler(
         f"{db.vit_tedavisi('v')} = ?", (cycle_id,)))
     genel_bulgu = genel_bulgu_notu(cycle_id, c["cycle_tipi"])
+    # PGT (v6.225): genel bulguların arkasında, dondurmadan önce.
+    pgt_satiri = pgt_notu(cycle_id)
     access_notu = "[Access kaydı" in (c["protokol_notu"] or "")
     don_notu = dondurma_notu(
         cycle_id, c["cycle_tipi"],
@@ -1369,7 +1398,7 @@ def ozet_verisi(cycle_id: int):
         # oranları (önceden yalnızca farklı etiketler: "Canlı").
         "cozdurme_viabilite": cozme_viabilitesi(cozulenler),
         "notlar": "\n".join(
-            p for p in (c["protokol_notu"], genel_bulgu, don_notu, tasinan_satiri,
+            p for p in (c["protokol_notu"], genel_bulgu, pgt_satiri, don_notu, tasinan_satiri,
                         cozulen_satiri, cozme_notu, iptal_notu)
             if p) or None,
         # --- başlık / künye ---

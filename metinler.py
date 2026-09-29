@@ -794,6 +794,88 @@ METINLER = {
         "en": "Carried over from the patient's previous cycle ({no}); correct it "
               "if the test result changed."},
     "bulas_tedavisinde": {"tr": "{no} tedavisinde", "en": "in cycle {no}"},
+    # PGT (v6.225): tedavi formunun kartı, kimlik bandının altındaki PGT
+    # kutusu, biyopsi ekranı, tüplerin PGT numarası.
+    "pgt": {"tr": "PGT", "en": "PGT"},
+    "pgt_not_yer": {"tr": "Not: hastalık, translokasyon, genetik laboratuvarı",
+                    "en": "Note: disease, translocation, genetics laboratory"},
+    "pgt_ipucu": {
+        "tr": "PGT yapılacaksa testini seçin. Seçilen test bu tedavinin bütün "
+              "ekranlarında en üstte, hastanın adının altında görünür; "
+              "aşamalara Biyopsi eklenir. Hiçbiri seçilmezse PGT yok.",
+        "en": "Select the test if PGT is planned. It shows at the top of every "
+              "screen of this cycle, under the patient's name, and Biopsy is "
+              "added to the stages. Nothing selected means no PGT."},
+    "pgt_no": {"tr": "PGT {n}", "en": "PGT {n}"},
+    "pgt_biyopsi_n": {"tr": "{n} embriyoya biyopsi yapıldı",
+                      "en": "{n} embryos biopsied"},
+    "pgt_biyopsi_n_tekil": {"tr": "{n} embriyoya biyopsi yapıldı",
+                            "en": "{n} embryo biopsied"},
+    "pgt_biyopsi_yok": {"tr": "Henüz biyopsi yapılmadı", "en": "No biopsy yet"},
+    "pgt_sonuc_bekleniyor": {"tr": "sonuç bekleniyor", "en": "result pending"},
+    "pgt_karar_sorunsuz": {"tr": "Sorunsuz", "en": "Suitable"},
+    "pgt_karar_sorunlu": {"tr": "Sorunlu", "en": "Not suitable"},
+    "pgt_onay_gerekli": {
+        "tr": "Bilerek aynı tüpe koyuyorsanız \"Yine de aynı tüpe koy\" kutusunu "
+              "işaretleyip yeniden kaydedin.",
+        "en": "If this is intended, tick \"Put them in one straw anyway\" and save again."},
+    "hata_baska_tedavide": {
+        "tr": "İşlem saati bu tedaviye düşmüyor: embriyo o saatten önce başka bir "
+              "tedavi için çözülmüş. Biyopsinin gerçek saatini yazın.",
+        "en": "The time does not fall into this cycle: the embryo had been thawed "
+              "for another cycle before it. Enter the actual biopsy time."},
+    "biyopsi_aday_yok": {
+        "tr": "Bu tedavide biyopsiye alınabilecek blastokist yok. Önce "
+              "blastokist değerlendirmesini girin.",
+        "en": "No blastocyst available for biopsy in this cycle. Enter the "
+              "blastocyst assessment first."},
+    "pgt_no_etiket": {"tr": "PGT numarası", "en": "PGT number"},
+    "pgt_no_ipucu": {
+        "tr": "Biyopsi sırasıyla 1'den; program sıradakini öneriyor. Genetiğe "
+              "giden tüpe ve raporla eşleştirmede bu numara kullanılır.",
+        "en": "Numbered from 1 in biopsy order; the program suggests the next "
+              "one. It goes on the genetics tube and matches the report."},
+    "biyopsi_gunu": {"tr": "Biyopsi günü", "en": "Biopsy day"},
+    "biyopsi_tipi": {"tr": "Biyopsi", "en": "Biopsy"},
+    "biyopsi_te": {"tr": "Trofektoderm", "en": "Trophectoderm"},
+    "biyopsi_notu": {"tr": "Not", "en": "Note"},
+    "kaydet_sonraki_embriyo": {"tr": "Kaydet ve sonraki embriyo",
+                               "en": "Save and next embryo"},
+    "biyopsi_kaydini_sil": {"tr": "Bu biyopsi kaydını sil",
+                            "en": "Delete this biopsy record"},
+    "biyopsi_sil_baslik": {"tr": "Biyopsi kaydını sil", "en": "Delete biopsy record"},
+    "biyopsi_sil_aciklama": {
+        "tr": "Biyopsi kaydı iptal edilir (değişiklik geçmişinde kalır); "
+              "embriyonun PGT numarası boşa çıkar. Embriyonun kendisine ve "
+              "dondurma kaydına dokunulmaz.",
+        "en": "The biopsy record is cancelled (it stays in the change history) "
+              "and the embryo's PGT number becomes free. The embryo itself and "
+              "its freezing record are not touched."},
+    "hata_pgt_no_dolu": {
+        "tr": "Bu PGT numarası bu tedavide başka bir embriyoda kayıtlı. Başka "
+              "bir numara yazın.",
+        "en": "This PGT number is already used by another embryo in this cycle. "
+              "Enter a different number."},
+    "hata_pgt_no_gecersiz": {"tr": "PGT numarası 1 ile 99 arasında bir sayı olmalı.",
+                             "en": "The PGT number must be between 1 and 99."},
+    "biyopsi_onceki": {
+        "tr": "Bu embriyoya daha önce {tedavi} tedavisinde biyopsi yapıldı ({pgt}).",
+        "en": "This embryo was biopsied before in cycle {tedavi} ({pgt})."},
+    "pgt_ayni_tup": {
+        "tr": "Biyopsi yapılmış {n} embriyo ({nolar}) aynı tüpe konuyor. Genetik "
+              "sonuçları farklı çıkarsa bu tüpten yalnızca birini çözemezsiniz.",
+        "en": "{n} biopsied embryos ({nolar}) are going into the same straw. If "
+              "their genetic results differ, you cannot thaw just one of them."},
+    "pgt_ayni_tup_onay": {"tr": "Yine de aynı tüpe koy", "en": "Put them in one straw anyway"},
+    "asama_biyopsi": {"tr": "Biyopsi", "en": "Biopsy"},
+    "biyopsi_kaydi_yok": {"tr": "Bu embriyonun bu tedavide biyopsi kaydı yok.",
+                          "en": "This embryo has no biopsy record in this cycle."},
+    "biyopsi_sonuclu_silinmez": {
+        "tr": "Bu biyopsinin genetik sonucu girilmiş; kayıt silinemez. Önce "
+              "PGT sonuçları ekranından sonucu kaldırın.",
+        "en": "The genetic result of this biopsy is entered; it cannot be "
+              "deleted. Remove the result on the PGT results screen first."},
+    "ozet_biyopsi": {"tr": "Biyopsi sayısı", "en": "Biopsies"},
     # Hasta kartının "Dondurulmuş örnekler" bölümü (v6.217).
     "dondurulmus_ornekler": {"tr": "Dondurulmuş örnekler", "en": "Frozen samples"},
     "tankta_embriyo_yok": {"tr": "Tankta embriyo ya da yumurta tüpü yok.",

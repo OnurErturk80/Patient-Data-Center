@@ -3,6 +3,7 @@
 {% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis{% endblock %}
 {% block icerik %}
+{% import "_pgt.html" as pgtm %}
 
 {# Haritada yeri olmayan dolu tüpler ve Excel kayıtları (v6.189). Gizlenecek
    şey değil: tankta duruyorlar, yalnızca yeri programda bilinmiyor. Excel
@@ -13,6 +14,7 @@
     <div class="meta">{{ x.dosya_no or "" }} · {{ x.ad_soyad or "—" }}
       · {{ gg_aa_yyyy(x.vitrifikasyon_zamani) if x.vitrifikasyon_zamani else "—" }}
       {%- if x.parantez %} · {% if x.yumurta %}{{ metin("oosit_ad") }}{% else %}{{ x.gun }}{% endif %} {{ x.parantez }}{% endif %}</div>
+    {%- if x.pgt %}<div class="meta">{% for b in x.pgt %}{{ pgtm.rozet(b) }}{% endfor %}</div>{% endif %}
     {% if yol %}<div class="meta">{{ metin("girilen_konum") }}: {{ yol }}</div>{% endif %}
   </a>
 {% endmacro %}

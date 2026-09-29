@@ -101,9 +101,10 @@
 {% endblock %}
 {% block kimlik %}{% endblock %}
 {# Bulaş hastalığı uyarısı (v6.219): kimlik bandı olan her ekranda, bandın
-   hemen altında -- ayrıntı `_bulas_bandi.html`'de. Bandı olmayan ekran
+   hemen altında -- ayrıntı `_bulas_bandi.html`'de. PGT'li tedavinin kutusu
+   (v6.225) onun arkasında, `_pgt_bandi.html`. Bandı olmayan ekran
    (yazdırılan resmî form) hiç sormuyor. #}
-{% if self.kimlik()|trim %}{% include "_bulas_bandi.html" %}{% endif %}
+{% if self.kimlik()|trim %}{% include "_bulas_bandi.html" %}{% include "_pgt_bandi.html" %}{% endif %}
 <div class="kap{% block kapsinif %}{% endblock %}">
 {# Ayni kaydi baska biri duzenliyorsa haber (v6.55). Sabit serit degil satir
    ici: bu gecici bir olay degil, sayfanin o anki DURUMU -- ustte, formun

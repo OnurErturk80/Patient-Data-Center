@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_kucukfoto.html" as kf %}
 {% import "_yer_kanit.html" as yk %}
+{% import "_pgt.html" as pgtm %}
 {% block ustbaslik %}{{ metin("tasiyici") }}{% endblock %}
 {% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -113,6 +114,7 @@
            `oosit_n` v6.134'ten beri "Yumurta N" basıyordu, embriyo tüpünde de. #}
         {{ e.cycle_no }} · {{ (metin('oosit_ad' if e.icerik == 'yumurta' else 'embriyo_ad') ~ ' ' ~ e.cycle_sira_no)|lower }}{% if e.skor %} · {{ e.skor }}{% endif %}
       </div>
+      {% if e.pgt %}<div class="meta">{{ pgtm.rozet(e.pgt) }}</div>{% endif %}
       {# Bu tüpten çözülüp başka bir tüpe yeniden dondurulduysa (v6.143) --
          geçmiş iki yönden izlenebilsin. #}
       {% if e.son_tasiyici_id and e.son_tasiyici_id != t.id %}

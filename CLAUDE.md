@@ -245,7 +245,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..057.py   veritabanı göçleri (sırayla)
+  goc_002..058.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   kurulum.py        ilk açılış: yeni laboratuvar / eski bilgisayardan taşı, şema (v6.204)
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss + gorev.ps1 Windows kurulumu,
@@ -608,6 +608,60 @@ olduğu yerde fark edilebilecek şekilde görünsün").
   `--tehlike-isaret` (düz `--tehlike` kart zemininde 2,9:1, işaret için az);
   `title` / `aria-label` kişi kişi hastalıkları söylüyor. Başka bir listeye
   nokta koyacaksan ikinci bir sorgu ya da ayrıştırıcı yazma.
+
+**PGT: tedavinin işareti, biyopsi, PGT numarası** (v6.225, `goc_058`,
+README v6.225; kullanıcı: "Tedavinin başında PGT yapılacağına dair
+laboratuvarda formunun üstüne yazıyorum. Tedavi bitene kadar üstünde PGT
+yapılacağı yazıyor ... embriyolarından biyopsi yapıyorum ve parçaları
+genetiğe gönderiyorum. Embriyoları numaralandırıp dondurup saklıyorum").
+Cevapları (2026-09-29): biyopsi blastokistte, trofektoderm; numara biyopsi
+sırasıyla 1'den, ekranda "PGT 1"; PGT-A, PGT-M, PGT-SR ve HLA'nın hepsi
+olabiliyor; "sorunsuz" kararını KENDİSİ işaretliyor (program karar vermez,
+v6.226); sorunlu embriyo hastaya göre tankta kalıyor ya da imha ediliyor;
+imha kaydı bütün tüplerde (v6.227). Şemanın ilk sürümündeki `olay.tip=
+'biyopsi'` (`biy_*` kolonları) ve `pgt_sonuc` tablosu kullanılıyor.
+- **İşaret tedavinin**: `cycle.pgt_testleri` (`pgt_testi` listesinin
+  kodları virgülle; boş = PGT yok) + `pgt_notu`. Okuyan/yazan
+  `db.pgt_oku()` / `pgt_yaz()`. Formda "PGT" kartı; `pgt_formu` işareti
+  olmayan POST dokunmuyor, not yazılıp test seçilmezse sorulur. Yeni tedavi
+  önceki tedaviden KOPYALAMIYOR (bulaşın tersi: PGT o tedavinin kararı).
+- **Bant** `_pgt_bandi.html`, bulaş bandının arkasında, mavi (`--pgt`,
+  tehlike kırmızısından ayrı): testler, not, bu tedavide biyopsi sayısı ve
+  numaralar (`db.pgt_bandi()`, `pgt_nolar_yazisi()`: "PGT 1–3, 5"). Hasta
+  kartında bant yok (hastanın değil tedavinin işareti). Tedavi listelerinde
+  (`cycle_listesi()`'nin bütün kipleri, `db.pgt_isaretle()`) ve hasta
+  kartının tedavi satırında "PGT" rozeti.
+- **Biyopsi aşaması yalnızca PGT'li tedavide**, blastokistin arkasında:
+  `cycle_asamalari(tip, pgt)`; `TIP_ASAMALARI`'nda YOK (tipin değil
+  tedavinin sorusu). İzin blastokistinki: `ASAMA_MODULU` + `asama_yetkim()`
+  (`yol_modulu()` da aynı eşleme); yeni modül açılmadı (sperm dondurmanın
+  "cryo" gerekçesi). Kendi modülü olmayan aşama eklersen `yetkim(asama)`
+  değil `asama_yetkim(asama)` yaz.
+- **Kayıt** `olay.tip='biyopsi'`: `biy_tup_etiketi` = PGT numarası (metin),
+  `biy_tip='te'` (`db.BIYOPSI_TIPI`, ekranda seçici yok), `gun`, `notlar`;
+  `olay.cycle_id` örneğin KENDİ tedavisi, yapıldığı tedavi saatten
+  (`db.olay_tedavisi()`, değerlendirmelerin kuralı). Yazılan satır işlemin
+  içinde aynı SQL'le (`bu_tedavide()`) doğrulanıyor: o saatte embriyo başka
+  bir tedavi için çözülmüşse kayıt geri alınıyor (`hata=baska_tedavide`),
+  yoksa bu ekrandan kaybolurdu. Kuralın ikinci bir kopyasını yazma.
+- **Numara** `yazma_islemi()` içinde (tuzak #7): önerilen numara bu arada
+  alındıysa sıradaki boş, elle yazılan dolu numara reddedilir. Tedavide
+  tekil; embriyonun her tedavide tek biyopsisi, yeniden biyopsi başka
+  tedavide (geçerli olan en sonuncusu, `db.biyopsi_bilgisi()`). Sonucu
+  girilmiş biyopsi silinmez (`_biyopsi_sonucu_var()`).
+- **Tüp satırları** (taşıyıcı sayfası, çözme ve dondurma ekranları, goblet
+  sayfası, yeri belirsizler, hasta kartı / taşıma) `_pgt.html`
+  (`yazi()` / `rozet()`: "PGT 2 · sonuç bekleniyor"), veri
+  `db.biyopsi_bilgisi()` (`tasiyici_icerigi()` ve
+  `yerlesim.tup_ayrintilari()` ekliyor). İkinci bir sorgu ya da yazım kurma.
+- İki biyopsili embriyo aynı tüpe: onaylı uyarı (`pgt_onay`), ekran ve
+  `vit_kaydet()` aynı koşul -- engel değil.
+- Embriyoloji Özet NOTLAR'ı: `formlar.pgt_notu()`, genel bulgulardan sonra;
+  `_sar()` "PGT 1–3"'ü iki satıra bölmüyor. Zaman çizelgesinde Biyopsi.
+- **Yeni Jinja global'ı çağıran şablon `is defined` ile korunur** (tuzak #5):
+  `git pull`'dan sonra yeniden başlatılmamış program `pgt_bandi`'nı
+  tanımıyor; korumasız çağrı bandı olan HER ekranı bozardı (v6.224 koduyla
+  yeni şablonlar denendi).
 
 **Örnek kodu ana fotoğrafın altında yazar.** `527078-2026-0001-03` kodu
 oosit → zigot → embriyo boyunca değişmediği için aynı kod her aşama ekranında
@@ -4175,9 +4229,10 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 
 ## Bekleyen işler
 
-1. **Biyopsi / PGT modülü** — tek kalan ana modül. Biyopsi kaydı, tüp etiketi,
-   haftalar sonra gelen genetik sonucun eşleştirilmesi. `pgt_sonuc` tablosu
-   şemada hazır, kullanılmıyor.
+1. **Biyopsi / PGT modülü** — v6.225'te başladı: tedavinin PGT işareti,
+   biyopsi ekranı, PGT numarası, tüp satırları (yukarıdaki "PGT" bölümü).
+   Sırada: genetik sonucun girilmesi + raporu + kullanıcının "sorunsuz"
+   kararı + FET'te uyarı (v6.226), tüp imhası (v6.227).
 2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi, elle
    tetikleme v6.119'da, geri yükleme v6.120'de eklendi.**
    - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin

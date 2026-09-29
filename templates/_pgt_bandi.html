@@ -1,0 +1,38 @@
+{#- PGT kutusu (v6.225, kullanıcı: "Tedavinin başında PGT yapılacağına dair
+   laboratuvarda formunun üstüne yazıyorum. Tedavi bitene kadar üstünde PGT
+   yapılacağı yazıyor"). `base.html` bulaş uyarısının arkasından basıyor,
+   yalnızca bandı olan ekranda (tuzak #1). Ölçü ekranın tedavisi -- `c`,
+   `cycle_id` ya da `secili_cycle` (`_bulas_bandi.html`'in değişkenleri);
+   hasta kartında yok: PGT hastanın değil tedavinin işareti. Testler, not ve
+   bu tedavide yapılan biyopsiler `db.pgt_bandi()`'nden; o hata verirse None
+   döner, ekran bozulmaz. `pgt_bandi is defined`: program `git pull`'dan
+   sonra yeniden başlatılmadıysa (tuzak #5) eski Python bu işlevi
+   tanımıyor -- tanımsız işlevi çağırmak bandı olan her ekranı bozardı. -#}
+{%- if pgt_bandi is not defined -%}
+  {%- set _pgt = none -%}
+{%- elif c is defined and c and c.id -%}
+  {%- set _pgt = pgt_bandi(c.id) -%}
+{%- elif cycle_id is defined and cycle_id -%}
+  {%- set _pgt = pgt_bandi(cycle_id) -%}
+{%- elif secili_cycle is defined and secili_cycle -%}
+  {%- set _pgt = pgt_bandi(secili_cycle) -%}
+{%- else -%}
+  {%- set _pgt = none -%}
+{%- endif -%}
+{% if _pgt %}
+<div class="kimlik pgtbant">
+  <div class="pgtkutu">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2c0 5 10 5 10 10S7 17 7 22M17 2c0 5-10 5-10 10s10 5 10 10M9 5.5h6M8.5 12h7M9 18.5h6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+    <div>
+      <span class="baslik">{{ metin("pgt") }}</span>
+      <span class="testler">{{ _pgt.testler|join(" · ") }}</span>
+      {% if _pgt.not %}<span class="not">{{ _pgt.not }}</span>{% endif %}
+      <span class="durum">
+        {%- if _pgt.biyopsi %}{{ say("pgt_biyopsi_n", _pgt.biyopsi) }}
+          {%- if _pgt.nolar %} · {{ _pgt.nolar }}{% endif %}
+        {%- else %}{{ metin("pgt_biyopsi_yok") }}{% endif -%}
+      </span>
+    </div>
+  </div>
+</div>
+{% endif %}

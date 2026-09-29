@@ -118,6 +118,40 @@
   </div>
   {% endif %}
 
+  {# PGT (v6.225, kullanıcı: "Tedavinin başında PGT yapılacağına dair
+     laboratuvarda formunun üstüne yazıyorum. Tedavi bitene kadar üstünde PGT
+     yapılacağı yazıyor"). Testler (`pgt_testi` listesi; hepsi olabiliyor) +
+     kısa not; hiçbiri seçilmezse PGT yok. Seçilince bu tedavinin bütün
+     ekranlarında kimlik bandının altında PGT bandı, aşamalarda Biyopsi.
+     Kolonun biçimi `db.pgt_oku()` / `pgt_yaz()`; `pgt_formu` işareti
+     olmayan form kayıtlı seçime dokunmuyor, göç çalışmamışsa kart yok;
+     yeniden başlatılmamış eski program `pgt_acik`'i tanımıyor (tuzak #5),
+     o zaman da kart yok -- eski program seçimi zaten yazmazdı.
+     Kutular `.alan`'ın içinde değil (tuzak #14). #}
+  {% if pgt_acik is defined and pgt_acik() %}
+  {% set pgt_kodlar = pgt_oku(v.get("pgt_testleri")) %}
+  <div class="kart" id="pgtkart">
+    <h2>{{ metin("pgt") }}</h2>
+    <input type="hidden" name="pgt_formu" value="1">
+    <div class="bulaskisi pgtsecim">
+      <div class="cipler">
+        {% for s in pgt_secenekleri(pgt_kodlar) %}
+        <label class="cip pgtvar">
+          <input type="checkbox" name="pgt_test" value="{{ s.kod }}"{% if s.kod in pgt_kodlar %} checked{% endif %}>
+          <span>{{ s.etiket }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="alan bulasdiger">
+        <input type="text" name="pgt_notu" maxlength="120" autocomplete="off"
+               placeholder="{{ metin('pgt_not_yer') }}" aria-label="{{ metin('pgt_not_yer') }}"
+               value="{{ v.get('pgt_notu') or '' }}">
+      </div>
+    </div>
+    <div class="alan"><div class="ipucu" style="margin-top:0">{{ metin("pgt_ipucu") }}</div></div>
+  </div>
+  {% endif %}
+
   <div class="kart">
     <h2>{{ metin("klinik_protokol") }}</h2>
     <div class="alan">

@@ -8,6 +8,7 @@
 {% import "_ornekkart.html" as ok %}
 {% import "_etiketsonuc.html" as es %}
 {% import "_yer_oneri.html" as yo %}
+{% import "_pgt.html" as pgtm %}
 {% block ustbaslik %}{{ metin("asama_vitrifikasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -69,6 +70,7 @@
       <dd {% if not e.kalite %}class="yok"{% endif %}>
         {{ e.kalite if e.kalite else metin("girilmedi") }}
         {%- if e.kalite and e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</dd></div>
+    {% if e.pgt %}<div class="veri"><dt>{{ metin("pgt") }}</dt><dd>{{ pgtm.yazi(e.pgt) }}</dd></div>{% endif %}
     <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
       <dd><a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ e.tasiyici_etiket }}</a></dd></div>
     <div class="veri"><dt>{{ metin("konum") }}</dt>
@@ -102,7 +104,7 @@
       if yumurta_mi(c.cycle_tipi) else "dondurulacak_embriyolar") }}</h2>
     {% for e in adaylar %}
     <label class="secsatir">
-      <input type="checkbox" name="embriyo" value="{{ e.id }}">
+      <input type="checkbox" name="embriyo" value="{{ e.id }}"{% if e.pgt and e.pgt.no is not none %} data-pgt="{{ e.pgt.no }}"{% endif %}>
       <span class="kutu"></span>
       {{ kf.kucuk(e) }}
       <span class="bilgi">
@@ -111,6 +113,9 @@
         {# Blastokist skoru, yoksa gün 2/3 kaydı ("4HG2") -- app._vit_satiri() #}
         {% if e.kalite %}<em>{{ e.kalite }}{% if e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</em>
         {% else %}<em>{{ metin("degerlendirilmemis") }}</em>{% endif %}
+        {#- PGT (v6.225): biyopsili embriyonun numarası -- tüpe hangisinin
+            konduğu bununla bilinsin. -#}
+        {% if e.pgt %}<em>{{ pgtm.rozet(e.pgt) }}</em>{% endif %}
       </span>
     </label>
     {% endfor %}
@@ -225,6 +230,15 @@
   {# Seçilen yerin sorunu (v6.190): dolu goblet, gobletde aynı renk, tank
      düzeninde olmayan yer. Engel değil, "yine de kaydet" onayı (v6.55'in
      "uyarı engellemez" kuralı); sunucu aynı denetimi kaydederken yapıyor. #}
+  {# İki biyopsili embriyo aynı tüpe (v6.225): sonuçları farklı çıkarsa tüpten
+     yalnızca biri çözülemez. Onaylı uyarı, engel değil; sunucu da soruyor. #}
+  <div class="uyari" id="pgtuyari" hidden
+       data-sablon="{{ metin('pgt_ayni_tup') }}" data-no="{{ metin('pgt_no') }}"></div>
+  <label class="secsatir" id="pgtonay" hidden>
+    <input type="checkbox" name="pgt_onay" value="1">
+    <span class="kutu"></span>
+    <span class="bilgi">{{ metin("pgt_ayni_tup_onay") }}</span>
+  </label>
   <div class="uyari" id="yeruyari" hidden></div>
   <label class="secsatir" id="yeronay" hidden>
     <input type="checkbox" name="yer_onay" value="1">
@@ -363,4 +377,32 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
 {{ gez.cubuk(c, gezinme) }}
 {# Kayıttan sonra kaldığı yerde açılır (v6.210, `_kaydirma.html`). #}
 {% include "_kaydirma.html" %}
+<script>
+(function () {
+  // PGT (v6.225): seçilen embriyolardan ikisi biyopsiliyse uyarı + onay.
+  var form = document.getElementById('vitform');
+  var uyari = document.getElementById('pgtuyari');
+  var onay = document.getElementById('pgtonay');
+  if (!form || !uyari || !onay) return;
+  function bak() {
+    var nolar = [];
+    form.querySelectorAll('input[name=embriyo]:checked').forEach(function (i) {
+      if (i.dataset.pgt) nolar.push(i.dataset.pgt);
+    });
+    var goster = nolar.length >= 2;
+    uyari.hidden = onay.hidden = !goster;
+    if (goster) {
+      uyari.textContent = uyari.dataset.sablon.replace('{n}', nolar.length)
+        .replace('{nolar}', nolar.map(function (n) {
+          return uyari.dataset.no.replace('{n}', n); }).join(', '));
+    } else {
+      onay.querySelector('input').checked = false;
+    }
+  }
+  form.addEventListener('change', function (e) {
+    if (e.target && e.target.name === 'embriyo') bak();
+  });
+  bak();
+})();
+</script>
 {% endblock %}

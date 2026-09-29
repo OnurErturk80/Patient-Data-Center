@@ -46,6 +46,10 @@ KULLANIM = {
     "viskozite": [("sperm_ornek", "viskozite")],
     "sonlanma": [("gebelik_sonucu", "sonlanma")],
     "pgt_sonuc": [("pgt_sonuc", "sonuc")],
+    # PGT'nin öteki testlerinin sonuçları (v6.225, goc_058) aynı kolonda.
+    "pgt_m_sonuc": [("pgt_sonuc", "sonuc")],
+    "pgt_sr_sonuc": [("pgt_sonuc", "sonuc")],
+    "hla_sonuc": [("pgt_sonuc", "sonuc")],
     "bulgu_icsi": [("specimen_bulgu", "bulgu_kodu"), ("tedavi_bulgu", "bulgu_kodu")],
     "bulgu_sperm": [("tedavi_bulgu", "bulgu_kodu")],
 }

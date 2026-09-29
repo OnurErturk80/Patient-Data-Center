@@ -4,6 +4,7 @@
    (v6.205) ve hasta kartının "Dondurulmuş örnekler"i (v6.217) aynı yazımla.
    `etiketler`: liste değerlerinin etiketleri (kod -> etiket); içe aktarılan
    makro şablonun değişkenlerini görmüyor, o yüzden parametre. #}
+{% import "_pgt.html" as pgtm %}
 {% macro tup_bilgisi(x, etiketler) %}
   <strong>{{ x.etiket }}</strong>{% if x.renk %} · {{ etiketler.get(x.renk, x.renk) }}{% endif %}
   {%- if x.tip %} · {{ etiketler.get(x.tip, x.tip) }}{% endif %}
@@ -11,5 +12,7 @@
     {%- else %}{{ icerik_sayisi(x.adet, icerik="yumurta" if x.yumurta else "embriyo") }}
       {%- if x.parantez %} · {% if not x.yumurta and x.gun %}{{ x.gun }} {% endif %}{{ x.parantez }}{% endif %}{% endif %}
     · {{ gg_aa_yyyy(x.dondurma) if x.dondurma else "—" }}</em>
+  {#- PGT (v6.225): biyopsili embriyonun numarası ve sonucu. -#}
+  {%- if x.pgt %}<em>{% for b in x.pgt %}{{ pgtm.rozet(b) }}{% endfor %}</em>{% endif %}
   <em>{% if x.tam_yol %}{{ x.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
 {% endmacro %}

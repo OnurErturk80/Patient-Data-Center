@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{# Biyopsi (v6.225): PGT'li tedavide blastokistten sonra. Bu bir cycle ekrani:
+   kendi asama menusunu gosteriyor, global ana menu burada bos kalmali (v6.65). #}
+{% block yanmenu %}{% endblock %}
+{% block kayitanahtari %}{% if sp %}cycle:{{ c.id }}:biyopsi:{{ sp.id }}{% endif %}{% endblock %}
+{% import "_kareler.html" as kr %}
+{% import "_gezinme.html" as gez %}
+{% import "_islem_yapan.html" as iy %}
+{% import "_snapshot.html" as snap %}
+{% import "_bilgikart.html" as bk %}
+{% block ustbaslik %}{{ asama_adi("biyopsi") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+{# İşlemi yapan en üstte (v6.208). #}
+{{ iy.kutu(c.id, "biyopsi") }}
+
+{# Adresten gelen hata anahtarı sunucuda beyaz listeden geçti (tuzak #9). #}
+{% if hata %}<div class="uyari">{{ hata }}</div>{% endif %}
+
+{% if not oositler %}
+<div class="kart"><div class="bos">{{ metin("biyopsi_aday_yok") }}</div></div>
+{% else %}
+
+{#- Numara şeridi: biyopsisi olan embriyoda PGT numarası, olmayanda bu
+    tedavideki blastokist skoru (hangisinin biyopsiye alınacağı ona bakılarak
+    seçiliyor). -#}
+<div class="serit">
+  {% for o in oositler %}
+  <a href="/cycle/{{ c.id }}/biyopsi?oosit={{ o.id }}"
+     class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kayit_id %}dolu{% endif %}">
+    <b>{{ o.cycle_sira_no }}</b>{% if o.kayit_id and o.pgt_no %}<i>-PGT{{ o.pgt_no }}</i>{% elif o.skor %}<i>-{{ o.skor }}</i>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="say">
+  <span class="bek">{{ metin("n_m_kaydedildi").format(n=oositler|selectattr('kayit_id')|list|length, m=oositler|length) }}</span>
+  <span class="hed">{{ ornek_adi('biyopsi', c.cycle_tipi) }} {{ sp.cycle_sira_no }}{% if sp.taraf %} <em class="tarafet">{{ metin("sag") if sp.taraf == "sag" else metin("sol") }}</em>{% endif %}</span>
+</div>
+
+{% for b in onceki %}
+<div class="uyari">{{ metin("biyopsi_onceki").format(tedavi=b.cycle_no, pgt=metin("pgt_no").format(n=b.biy_tup_etiketi)) }}</div>
+{% endfor %}
+
+{% set geri_yol = '/cycle/' ~ c.id ~ '/biyopsi?oosit=' ~ sp.id %}
+{% set geri_kodlu = '/cycle/' ~ c.id ~ '/biyopsi%3Foosit%3D' ~ sp.id %}
+{{ snap.blok(sp, 'biyopsi', geri_yol, bekleyen) }}
+
+{% if sp.goruntu %}
+<div class="foto">
+  <img src="/dosya/{{ sp.goruntu }}" alt="{{ ornek_adi('biyopsi', c.cycle_tipi) }} {{ sp.cycle_sira_no }}">
+  <div class="dosyaadi">{{ ornek_kodu(sp.id) }}</div>
+</div>
+{{ kr.serit(kareler, sp, c, 'biyopsi', geri_yol) }}
+<div class="fotoalt">
+  <a href="/goruntu/{{ sp.goruntu }}/sil?geri={{ geri_kodlu }}">{{ metin("bu_fotografi_sil_uzun") }}</a>
+  <a href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=biyopsi&geri={{ geri_kodlu }}">{{ metin("fotograf_ekle") }}</a>
+</div>
+{% else %}
+{{ kr.yer(ornek_adi('biyopsi', c.cycle_tipi), sp,
+          '/cycle/' ~ sp.cycle_id ~ '/foto-ekle?specimen_id=' ~ sp.id
+          ~ '&asama=biyopsi&geri=' ~ geri_kodlu) }}
+{% endif %}
+
+{% if kayit and not duzenle %}
+{{ bk.kart(
+     ornek_adi('biyopsi', c.cycle_tipi) ~ ' ' ~ sp.cycle_sira_no
+       ~ ' · ' ~ metin("pgt_no").format(n=kayit.biy_tup_etiketi),
+     [
+       (metin("pgt_no_etiket"), metin("pgt_no").format(n=kayit.biy_tup_etiketi)),
+       (metin("biyopsi_tipi"), metin("biyopsi_te") if kayit.biy_tip == "te" else kayit.biy_tip),
+       (metin("biyopsi_gunu"), metin("gun_n_buyuk").format(n=kayit.gun) if kayit.gun else None),
+       (metin("skor"), sp.skor),
+       (metin("islem_saati"), gg_aa_yyyy_saat(kayit.zaman)),
+       (metin("biyopsi_notu"), kayit.notlar),
+     ],
+     geri_yol ~ '&duzenle=1',
+     metin("kaydedildi_rozet")) }}
+
+<a class="dugme ikincil" style="margin-top:12px"
+   href="/cycle/{{ sp.cycle_id }}/foto-ekle?specimen_id={{ sp.id }}&asama=biyopsi&geri={{ geri_kodlu }}">
+  {{ metin("fotograf_ekle") }}</a>
+<a class="dugme ikincil tehlike-bag"
+   href="/specimen/{{ sp.id }}/biyopsi-sil?cycle={{ c.id }}">{{ metin("biyopsi_kaydini_sil") }}</a>
+
+{% else %}
+<form method="post" action="/cycle/{{ c.id }}/biyopsi" id="biyform">
+  <input type="hidden" name="specimen_id" value="{{ sp.id }}">
+  <input type="hidden" name="pgt_no_oneri" value="{{ oneri_no }}">
+
+  <div class="kart">
+    <div class="alan">
+      <label for="pgt_no">{{ metin("pgt_no_etiket") }}</label>
+      <input id="pgt_no" name="pgt_no" type="number" inputmode="numeric" min="1" max="99" required
+             value="{{ kayit.biy_tup_etiketi if kayit else oneri_no }}">
+      <div class="ipucu">{{ metin("pgt_no_ipucu") }}</div>
+    </div>
+  </div>
+
+  {# Biyopsi günü: öntanımı embriyonun bu tedavideki son blastokist günü. #}
+  {% set secili_gun = (kayit.gun if kayit and kayit.gun else (sp.bl_gun or 5)) %}
+  <div class="kart">
+    <h2>{{ metin("biyopsi_gunu") }}</h2>
+    <div class="secenek">
+      {% for g in gunler %}
+      <label class="sec {% if secili_gun == g %}secili{% endif %}">
+        <input type="radio" name="gun" value="{{ g }}" {% if secili_gun == g %}checked{% endif %}>
+        <span>{{ metin("gun_n_buyuk").format(n=g) }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="alan" style="border:0;padding-top:0">
+      <div class="ipucu">{{ metin("biyopsi_tipi") }}: {{ metin("biyopsi_te") }}{% if sp.skor %} · {{ metin("skor") }} {{ sp.skor }}{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="kart">
+    <div class="alan">
+      <label for="islem_zamani">{{ metin("islem_saati") }}</label>
+      {% set kz = kayit.zaman if kayit else None %}
+      <input id="islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local"
+             value="{{ kz[:16]|replace(' ','T') if kz else simdi }}">
+      <div class="ipucu">{{ metin("islem_saati_ipucu") }}</div>
+    </div>
+    <div class="alan">
+      <label for="notlar">{{ metin("biyopsi_notu") }}</label>
+      <input id="notlar" name="notlar" type="text" maxlength="200" autocomplete="off"
+             value="{{ kayit.notlar if kayit and kayit.notlar else '' }}">
+    </div>
+  </div>
+
+  <button class="dugme" type="submit">{{ metin("kaydet_sonraki_embriyo") }}</button>
+</form>
+
+<a class="dugme ikincil" style="margin-top:12px"
+   href="{{ geri_yol }}">{{ metin("vazgec_duzenleme") if duzenle else metin("secimleri_geri_al") }}</a>
+{% if kayit %}
+<a class="dugme ikincil tehlike-bag"
+   href="/specimen/{{ sp.id }}/biyopsi-sil?cycle={{ c.id }}">{{ metin("biyopsi_kaydini_sil") }}</a>
+{% endif %}
+{% endif %}
+
+{% endif %}
+
+<script>
+(function () {
+  // Bilgi kartı kipinde form yok (tuzak #10).
+  var form = document.getElementById('biyform');
+  if (!form) return;
+  form.querySelectorAll('.secenek').forEach(function (grup) {
+    grup.addEventListener('change', function () {
+      grup.querySelectorAll('.sec').forEach(function (l) {
+        l.classList.toggle('secili', l.querySelector('input').checked);
+      });
+    });
+  });
+  var degisti = false;
+  form.addEventListener('change', function () { degisti = true; });
+  form.addEventListener('submit', function () { degisti = false; });
+  window.addEventListener('beforeunload', function (e) {
+    if (!degisti) return;
+    e.preventDefault(); e.returnValue = '';
+  });
+})();
+</script>
+{{ gez.cubuk(c, gezinme) }}
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.stripkare').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
+  });
+});
+</script>
+{# Kayıttan sonra kaldığı yerde açılır (v6.210, `_kaydirma.html`). #}
+{% include "_kaydirma.html" %}
+{% endblock %}
