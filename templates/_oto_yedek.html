@@ -1,0 +1,12 @@
+{# Cryo Haritası değişince alınan yedeğin durumu (v6.216, `oto_yedek.durum()`):
+   Yedekleme ekranı, Yönetici paneli ve Cryo Haritası'nın Excel kartı aynı
+   cümleyi bassın. Sorun varsa uyarı renginde. #}
+{% macro durum(y) -%}
+  {%- if y.engel == "ayarlanmamis" %}<span style="color:var(--uyari)">{{ metin("oto_yedek_ayarsiz") }}</span>
+  {%- elif y.engel == "yanlis_makine" %}<span style="color:var(--uyari)">{{ metin("oto_yedek_yanlis_makine").format(yol=y.yol) }}</span>
+  {%- elif y.engel == "bulunamadi" %}<span style="color:var(--uyari)">{{ metin("oto_yedek_klasor_yok").format(yol=y.yol) }}</span>
+  {%- elif y.hata %}<span style="color:var(--uyari)">{{ metin("oto_yedek_hata").format(zaman=gg_aa_yyyy_saat(y.hata_zamani), hata=y.hata, dk=y.tekrar_dk) }}</span>
+  {%- elif y.bekliyor %}{{ metin("oto_yedek_bekliyor") }}
+  {%- elif y.yedekli %}{{ metin("oto_yedek_guncel").format(zaman=gg_aa_yyyy_saat(y.son), dosya=y.dosya) }}
+  {%- else %}{{ metin("oto_yedek_henuz") }}{% endif -%}
+{%- endmacro %}

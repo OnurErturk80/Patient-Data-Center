@@ -2374,23 +2374,32 @@ METINLER = {
         "tr": "Yedeğin yazılacağı yer — <b>başka bir diskte</b> olmalı, yoksa "
               "disk bozulduğunda yedek de gider. Takılı olmayan bir disk "
               "(örneğin E:) yazılabilir; oluşturulmaz, yedek alınırken "
-              "aranır.",
+              "aranır. Cryo Haritası değişince program buraya yedeği "
+              "kendisi de alır (Yedekleme ekranı).",
         "en": "Where backups are written — it must be on <b>a different "
               "disk</b>, otherwise a disk failure takes the backup with it. A "
               "disk that is not plugged in (E: for example) may be entered; "
-              "it is not created, it is looked for when a backup runs."},
+              "it is not created, it is looked for when a backup runs. When "
+              "the Cryo map changes the program also backs up here by itself "
+              "(Backup screen)."},
     "cryo_harita_klasor": {"tr": "Cryo haritası (Excel)", "en": "Cryo map (Excel)"},
     "cryo_harita_klasor_ipucu": {
         "tr": "Programın her değişiklikte yazdığı Cryo Haritası Excel'i "
               "(Cryo_Haritasi.xlsx ve son 30 günün kopyaları) buraya yazılır. "
-              "Varsayılanı programın veri klasörü. Yoksa oluşturulur. Değişince "
-              "dosya en geç bir dakika içinde yeni klasöre yazılır; eski "
-              "klasördekiler silinmez.",
+              "Her gün 14:00'te \"Tüm veriler\" Excel'i de buraya yazılır "
+              "(Tum_Veriler_<gün>.xlsx, son 30 gün) -- <b>bütün hasta "
+              "kayıtlarını taşır</b>, klasörü buna göre seçin. Varsayılanı "
+              "programın veri klasörü. Yoksa oluşturulur. Değişince dosya en "
+              "geç bir dakika içinde yeni klasöre yazılır; eski klasördekiler "
+              "silinmez.",
         "en": "The Cryo map Excel the program writes after every change "
               "(Cryo_Haritasi.xlsx and copies of the last 30 days) goes here. "
-              "The default is the program's data folder. Created if it does not "
-              "exist. After a change the file is written to the new folder "
-              "within a minute; files in the old folder are not deleted."},
+              "Every day at 14:00 the \"All data\" Excel is written here too "
+              "(Tum_Veriler_<day>.xlsx, last 30 days) -- <b>it carries every "
+              "patient record</b>, choose the folder accordingly. The default "
+              "is the program's data folder. Created if it does not exist. "
+              "After a change the file is written to the new folder within a "
+              "minute; files in the old folder are not deleted."},
     # Elle yedekleme (v6.119, kullanıcının isteği: "Elle yedekleme olsun").
     # `/klasorler`'de, yedek klasörü ayarının hemen altında -- panel yine
     # `/yonetim` DEĞİL, o salt okunur kalıyor (v6.12).
@@ -2416,17 +2425,87 @@ METINLER = {
     "yedekleme_basarisiz": {"tr": "Yedekleme başarısız",
                             "en": "Backup failed"},
     "yedekleme_ipucu": {
-        "tr": "Veritabanının anlık bir kopyasını alır, doğrular ve arşivdeki "
-              "yeni fotoğrafları yukarıdaki yedek klasörüne kopyalar -- "
-              "terminalden <code>python3 yedek.py</code> çalıştırmakla aynı "
-              "işi yapar. Otomatik zamanlama (Windows Görev Zamanlayıcı) "
-              "ayrıca kurulmalı, bu düğme onun yerine geçmez.",
+        "tr": "Veritabanının anlık bir kopyasını alır, doğrular; arşivdeki "
+              "yeni fotoğrafları ve Cryo Haritası Excel'ini yedek klasörüne "
+              "(Klasörler ekranı) kopyalar -- terminalden "
+              "<code>python3 yedek.py</code> çalıştırmakla aynı iş. "
+              "Saklanan: son 24 saatin bütün yedekleri, 14 güne kadar her "
+              "günün sonuncusu, daha eskide her ayın ilki.",
         "en": "Takes a consistent snapshot of the database, verifies it, "
-              "and copies new archive photos into the backup folder above "
-              "-- the same work as running <code>python3 yedek.py</code> "
-              "from a terminal. Automatic scheduling (Windows Task "
-              "Scheduler) still needs to be set up separately; this button "
-              "does not replace it."},
+              "and copies new archive photos and the Cryo map Excel into the "
+              "backup folder (Folders screen) -- the same work as running "
+              "<code>python3 yedek.py</code> from a terminal. Kept: every "
+              "backup of the last 24 hours, the last one of each day up to "
+              "14 days, and the first one of each month after that."},
+    # Cryo Haritası değişince alınan yedek (v6.216, `oto_yedek.py`).
+    "oto_yedek": {"tr": "Otomatik yedek", "en": "Automatic backup"},
+    "oto_yedek_ipucu": {
+        "tr": "Cryo Haritası'nda bir değişiklik olunca (dondurma, çözme, "
+              "taşıma, yer) program yedeği kendisi alır: değişiklikler "
+              "bittikten bir iki dakika sonra, sürüp gidiyorsa en geç on "
+              "dakikada. \"Şimdi yedekle\"nin aynısı. Program kapalıyken "
+              "alınamaz; kapalıyken değişen harita açılınca yedeklenir. Cryo "
+              "Haritası'nın değişmediği günlerde otomatik yedek alınmaz.",
+        "en": "When the Cryo map changes (freezing, thawing, transfer, "
+              "location) the program backs up by itself: a minute or two "
+              "after the changes stop, at most ten minutes if they go on. "
+              "Same as \"Back up now\". Nothing is backed up while the "
+              "program is closed; a map that changed meanwhile is backed up "
+              "when it opens. No automatic backup on days the Cryo map does "
+              "not change."},
+    "oto_yedek_guncel": {
+        "tr": "Cryo Haritası'nın şu anki hali yedekli: {zaman} ({dosya}).",
+        "en": "The Cryo map as it is now is backed up: {zaman} ({dosya})."},
+    "oto_yedek_bekliyor": {
+        "tr": "Yedeklenmemiş bir Cryo Haritası değişikliği var; değişiklikler "
+              "bitince birkaç dakika içinde yedek alınacak.",
+        "en": "There is a Cryo map change not backed up yet; it will be "
+              "backed up within minutes once the changes stop."},
+    "oto_yedek_henuz": {
+        "tr": "Program açıldıktan sonraki ilk dakikada bakılıyor.",
+        "en": "Checked within the first minute after the program starts."},
+    "oto_yedek_ayarsiz": {
+        "tr": "Otomatik yedek alınamıyor: yedek klasörü ayarlanmamış "
+              "(Klasörler ekranı).",
+        "en": "No automatic backup: the backup folder is not set (Folders "
+              "screen)."},
+    "oto_yedek_yanlis_makine": {
+        "tr": "Otomatik yedek alınamıyor: yedek klasörü ({yol}) bu "
+              "bilgisayarın yolu değil (Klasörler ekranı).",
+        "en": "No automatic backup: the backup folder ({yol}) is not a path "
+              "of this computer (Folders screen)."},
+    "oto_yedek_klasor_yok": {
+        "tr": "Otomatik yedek alınamıyor: yedek klasörü yok ({yol}). Disk "
+              "takılı değilse takın, takılınca yedek alınır. Hiç yedek "
+              "alınmadıysa bir kez \"Şimdi yedekle\"ye basın: klasörü o açar.",
+        "en": "No automatic backup: the backup folder does not exist ({yol}). "
+              "If the disk is not plugged in, plug it in and the backup runs. "
+              "If no backup was ever taken, press \"Back up now\" once: it "
+              "creates the folder."},
+    "oto_yedek_hata": {
+        "tr": "Son otomatik yedek alınamadı ({zaman}): {hata}. {dk} dakika "
+              "sonra yeniden denenecek; ayrıntısı yedek.log'da.",
+        "en": "The last automatic backup failed ({zaman}): {hata}. It is "
+              "retried in {dk} minutes; details in yedek.log."},
+    "oto_yedek_kisa": {
+        "tr": "Her Cryo Haritası değişikliğinden sonra",
+        "en": "After every Cryo map change"},
+    # Her gün 14:00'te "Tüm veriler" (v6.216): Cryo haritası klasörüne.
+    "tum_veri_cryo": {
+        "tr": "Her gün {saat}'te \"Tüm veriler\" Excel'i de bu klasöre "
+              "yazılır (Tum_Veriler_<gün>.xlsx, son {gun} gün): yönetici "
+              "panelindeki \"Tüm veriyi Excel'e aktar\"ın aynısı, bütün "
+              "hasta kayıtları.",
+        "en": "Every day at {saat} the \"All data\" Excel is also written to "
+              "this folder (Tum_Veriler_<day>.xlsx, last {gun} days): the same "
+              "as \"Export all data to Excel\" in the admin panel, every "
+              "patient record."},
+    "tum_veri_son": {"tr": "Son: {ad} ({zaman})", "en": "Last: {ad} ({zaman})"},
+    "tum_veri_yazilamadi": {
+        "tr": "\"Tüm veriler\" yazılamadı ({zaman}): {hata}. On dakika sonra "
+              "yeniden denenecek.",
+        "en": "\"All data\" could not be written ({zaman}): {hata}. Retried "
+              "in ten minutes."},
 
     # Yedekten geri yükleme (v6.120, kullanıcının isteği: "Yönetici isterse
     # yedekten geri çağırsın... Yönetici panelinden hepsini yapabilsin").
@@ -3015,10 +3094,14 @@ METINLER = {
     "excel_tumu_ipucu": {
         "tr": "Bütün hastalar, tedaviler, örnekler ve olaylar; her tablo ayrı "
               "sayfada. Dosya bütün hasta adlarını içerir — kime verildiğine "
-              "dikkat et. Şifreler ve oturum anahtarları dosyaya girmez.",
+              "dikkat et. Şifreler ve oturum anahtarları dosyaya girmez. "
+              "Program aynı dosyayı her gün 14:00'te Cryo haritası klasörüne "
+              "de yazar (Klasörler ekranı; son 30 gün).",
         "en": "All patients, cycles, samples and events; one sheet per table. "
               "The file contains every patient name — mind who receives it. "
-              "Passwords and session tokens are not included."},
+              "Passwords and session tokens are not included. The program "
+              "also writes the same file to the Cryo map folder every day at "
+              "14:00 (Folders screen; last 30 days)."},
     "aktif_hastalara_don": {"tr": "Aktif hastalara dön",
                             "en": "Back to active patients"},
     "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},

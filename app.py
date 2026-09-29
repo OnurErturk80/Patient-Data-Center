@@ -32,6 +32,7 @@ import harita_excel
 import karekod
 import kurulum
 import metinler
+import oto_yedek
 import xlsx_oku
 import yerlesim
 
@@ -69,7 +70,11 @@ async def _yasam(app):
     # plan işi, harita değişince veri klasöründeki dosyayı yeniden yazar.
     # Göçlerden SONRA: tank düzeni kolonları göçle geliyor.
     harita_excel.baslat(veri_damgasi)
+    # Cryo Haritası değişince yedek ve her gün 14:00'te "Tüm veriler"
+    # (v6.216): haritanın imzasına bakıyor, o yüzden haritadan sonra.
+    oto_yedek.baslat(veri_damgasi)
     yield
+    oto_yedek.durdur()
     harita_excel.durdur()
 
 
@@ -1783,6 +1788,8 @@ def yedekleme_ekran(request: Request, yhata: str = "", yedeklendi: int = 0,
         "gymesaj": gymesaj,
         "son_yedek": _ayar("son_yedek", ""),
         "yedek_uyari": yedek_durumu(),
+        # Cryo Haritası değişince alınan yedek (v6.216).
+        "oto": oto_yedek.durum(),
         "kullanici": request.state.kullanici,
     })
 
@@ -1799,9 +1806,11 @@ def yedekleme_yedekle_simdi(request: Request):
 
     `yedek.main()` çağrılmadı -- o `sys.exit()` kullanıyor, terminalden
     çalıştırıldığında doğru ama bir istek işleyicisinin içinde `SystemExit`
-    fırlatmak istenmeyen bir şey. Onun yerine `main()`'in çağırdığı aynı
-    fonksiyonlar (`veritabani_yedekle`, `eskileri_temizle`,
-    `arsiv_yedekle`) burada elle, normal `try/except` ile çağrılıyor.
+    fırlatmak istenmeyen bir şey. v6.216'dan beri adımlar tek yerde
+    (`yedek.yedekle()`); buradan `oto_yedek.yedekle()` üzerinden, o da
+    klasöre haritanın yedeklenen halini yazıyor -- elle alınan yedekten sonra
+    aynı harita için bir daha otomatik yedek alınmasın. Otomatik yedek o
+    sırada sürüyorsa bu istek onun bitmesini bekliyor (`yedek.KILIT`).
     """
     red = yonetici_kontrol(request)
     if red:
@@ -1821,19 +1830,8 @@ def yedekleme_yedekle_simdi(request: Request):
     hedef_klasor = Path(hedef)
     kullanici_adi = request.state.kullanici["kullanici_adi"]
     try:
-        hedef_klasor.mkdir(parents=True, exist_ok=True)
-        _yedek.yaz("=" * 55)
-        _yedek.yaz(f"Yedekleme basladi -> {hedef_klasor}   "
-                   f"(kaynak: /yedekleme, {kullanici_adi})")
-        _yedek.veritabani_yedekle(hedef_klasor)
-        _yedek.eskileri_temizle(hedef_klasor)
-        arsiv_klasor = Path(db.ayar("goruntu_arsiv_klasor", str(db.VERI_KOK / "arsiv")))
-        _yedek.arsiv_yedekle(arsiv_klasor, hedef_klasor)
-        _yedek.harita_yedekle(hedef_klasor)
-        _yedek.ayar_yaz("son_yedek", _dt.now().isoformat(" ", "seconds"))
-        _yedek.yaz("Yedekleme tamam.")
-    except Exception as e:
-        _yedek.yaz(f"HATA: {e}")
+        oto_yedek.yedekle(hedef_klasor, f"/yedekleme, {kullanici_adi}")
+    except Exception as e:                # sebebi yedek.log'da da
         mesaj = f"{metinler.t('yedekleme_basarisiz')}: {e}"
         return RedirectResponse("/yedekleme?yhata=" + quote(mesaj), status_code=303)
     return RedirectResponse("/yedekleme?yedeklendi=1", status_code=303)
@@ -2394,6 +2392,7 @@ def yonetim_ekran(request: Request):
          "yedek": yedek_durumu(),
          "son_yedek": _ayar("son_yedek", ""),
          "yedek_uyari_gun": _ayar("yedek_uyari_gun", "3"),
+         "oto": oto_yedek.durum(),
          "db_boyut": boyut, "db_yolu": str(db.DB_YOLU),
          # Açılışta çalışan göçlerin sonucu (v6.49). Panel salt okunur:
          # yalnızca gösteriyor, buradan bir şey çalıştırılmıyor.
@@ -7944,6 +7943,8 @@ def cryo_harita(request: Request, ara: str = ""):
          # Taşınma bölümünün satırı (v6.205); göç yoksa None, satır yok.
          "tasima": tasima_ozeti(),
          "harita_excel": harita_excel.durum(),
+         # Otomatik yedek ve her gün 14:00'te "Tüm veriler" (v6.216).
+         "oto": oto_yedek.durum(),
          # Laboratuvarın kendi Excel'i (v6.199) ve az önceki yüklemenin sonucu.
          "cryo_sablon": cryo_sablon.bilgi(),
          "sablon_sonucu": (dict(cryo_sablon.SON_YUKLEME)

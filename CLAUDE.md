@@ -265,6 +265,7 @@ Patient Data Center/
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
   yerlesim.py       tank düzeni: goblet doluluğu, yer anahtarı, haritanın ağacı (v6.189)
   harita_excel.py   Cryo Haritası'nın Excel'ini her değişiklikte yazar (v6.191)
+  oto_yedek.py      Cryo Haritası değişince yedek + her gün 14:00 "Tüm veriler" (v6.216)
   cryo_sablon.py    laboratuvarın kendi Cryo Excel'ini bugünkü haliyle doldurur (v6.199)
   sertifika.py      kliniğin HTTPS sertifikası -- kütüphanesiz, açılışta kendini yeniler (v6.196)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
@@ -1089,7 +1090,10 @@ Yılı 1900'den küçük tarih **metin** yazılır: bozuk `0026-09-04` kaydı
 `/disari/cryo` (`yol_modulu` onu `cryo`'ya bağlıyor) ve `/disari/tumu`.
 - **`/disari/tumu` yalnızca yönetici** — rota `yonetici_kontrol(request)` ile
   başlıyor. Ötekiler ekrandaki veriyi verir, bu laboratuvarın tamamını tek
-  dosyada klinik dışına çıkarabilir. Bu kuralı gevşetme.
+  dosyada klinik dışına çıkarabilir. Bu kuralı gevşetme. Aynı dosya v6.216'dan
+  beri her gün 14:00'te Cryo haritası klasörüne de yazılıyor (`oto_yedek.py`,
+  aşağıdaki "Cryo Haritası değişince yedek" bölümü): ağdan verilmiyor,
+  yöneticinin seçtiği klasöre. O dosyayı bir rotadan sunma.
 - **Dökümde şifre ve oturum anahtarı yok.** `oturum`/`yetki` hiç çıkmıyor,
   `kullanici`'dan yalnızca `KULLANICI_KOLONLARI`. Yeni bir tabloya gizli bir
   alan eklersen `disari.TUM_TABLOLAR`'ı gözden geçir.
@@ -2143,6 +2147,43 @@ alındığı andaki hâline döndürüyor, aradan girilmiş her şey kayboluyor.
   önceki hâlin kopyası duruyor, hata panelde. Terminaldeki
   `geri_yukle.py` de aynı işlevden geçiyor. Ayrıntı tuzak #15.
 
+**Cryo Haritası değişince yedek, her gün 14:00'te "Tüm veriler"** (v6.216,
+`oto_yedek.py`, README v6.216; kullanıcı: "Cryo haritada yapılan her
+değişiklikten sonra yedekleme yapsın. Yönetici kısmındaki tüm verileri excele
+aktarda her gün 14:00 da cryo haritanın yedeklendiği dosyaya aktarsın").
+Açılışta haritanınkinden sonra başlayan ikinci arka plan iş parçacığı,
+dakikada bir.
+- **Ölçü haritanın içerik imzası** (`harita_excel.guncel_imza()`), veritabanının
+  damgası değil: ICSI yedek aldırmıyor, dondurma / çözme / taşıma aldırıyor.
+  Haritada görünecek yeni bir şey eklersen `_kur()`'a (imzaya) girdiğinden emin
+  ol, yoksa yedek de tetiklenmez. Harita kurulamıyorsa damga.
+- **Değişiklikler bitince** (bir tur sessizlik), sürerse en geç 10 dk. Son
+  yedeklenen imza yedek klasöründe (`cryo_yedek_durumu.json`): yeniden açılış
+  yedek aldırmıyor, kapalıyken değişen harita aldırıyor. Bellekte ya da
+  veritabanında tutma (README v6.216).
+- **Yedek klasörü kendiliğinden OLUŞTURULMAZ** (takılı olmayan disk, Mac'te
+  `/Volumes`); yoksa beklenir. İlk yedeği "Şimdi yedekle" açar.
+- **Yedeğin adımları tek yerde: `yedek.yedekle()`**; "Şimdi yedekle" ve otomatik
+  yedek `oto_yedek.yedekle()`'den (klasörün durum dosyası). Aynı süreçte iki
+  yedek aynı anda çalışmaz (`yedek.KILIT`, RLock). Yeni bir yedek yolu yazarsan
+  bunları çağır, adımları kopyalama.
+- **Saklama** `yedek.silinecek_yedekler()`: 24 saatin hepsi, 14 güne kadar her
+  günün sonuncusu, daha eskide her ayın ilki; `lab_ONCEKI_*`'ye ve kalıp dışı
+  ada dokunma. Yedek geçici dosyaya yazılıp doğrulanınca adını alıyor.
+- **"Tüm veriler"**: `disari.tumu_sayfalari()` -> `harita_excel.klasor()` /
+  `Tum_Veriler_YYYY-AA-GG.xlsx`, 30 gün; bugünkü varsa yazılmaz, 14:00'te
+  kapalıysa o gün açılınca. Bütün hasta kayıtları: klasörü yönetici seçiyor,
+  ekranlar söylüyor. "Cryo haritanın yedeklendiği dosya" Cryo haritası klasörü
+  diye okundu (Klasörler ekranının anlattığı yer); kullanıcı başka yer derse
+  sabit orada (`tum_veri_dosyasi()`).
+- **Ekran durumu bellekten** (`oto_yedek.durum()`, cümle `_oto_yedek.html`):
+  sayfa açılırken yedek diskine sorma -- takılı olmayan disk ya da yavaş ağ
+  klasörü sayfayı bekletirdi.
+- `print` yok: `yedek.yaz()` programda günlüğe, terminalde (`yedek.EKRANA`,
+  `yedek.py` / `geri_yukle.py`'nin `main()`'i) ekrana da.
+- Cryo değişmeyen günlerde otomatik yedek yok; günlük yedek için Görev
+  Zamanlayıcı yine kurulabilir (bekleyen iş 2).
+
 **İki yerden gelinen ekranın geri oku sabit olamaz.** Taşıyıcı ekranına hem
 cryo haritasından hem çözme ekranından giriliyor; `?cycle=N` ile hangisinden
 gelindiği söyleniyor ve geri adresi **sunucuda** kuruluyor (v6.32). Aynı
@@ -2544,7 +2585,9 @@ besleniyor.
     parçacığı dakikada bir `veri_damgasi()`'ne bakar; değiştiyse içeriği
     kurar, **içeriğin imzası** değiştiyse yazar. Yeni bir cryo tablosu
     eklersen damga onu zaten kapsar (`DEGISIM_ATLA` dışlama listesi); ama
-    haritada görünecekse `_kur()`'a ekle, yoksa imza değişmez.
+    haritada görünecekse `_kur()`'a ekle, yoksa imza değişmez. Aynı imza
+    v6.216'dan beri otomatik yedeği de tetikliyor (`guncel_imza()`,
+    `oto_yedek.py`); dosyanın yazılıp yazılamamasından bağımsız.
   - **Türetilmiş**: dosyada elle değişiklik programa girmez, sonraki yazımda
     kaybolur (Bilgi sayfası söylüyor). Dosyayı okuyup programa geri alan bir
     yol YAZMA -- kaynak programın kayıtları.
@@ -4000,7 +4043,13 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      dosyadan okunuyor, DB'deki `goc_008` değeri hedefi belirlemiyor. Yapılmazsa
      o makinede varsayılan `D:\lab_yedek` olur.
    - **Mac'te otomatik zamanlama YOK.** `yedek.bat` sadece Windows Görev
-     Zamanlayıcı için. İstenirse `launchd` görevi kurulacak.
+     Zamanlayıcı için. İstenirse `launchd` görevi kurulacak. v6.216'dan beri
+     program açıkken **Cryo Haritası değişince** yedek kendiliğinden alınıyor
+     (`oto_yedek.py`, iki makinede de); Cryo değişmeyen günlerde yedek yok,
+     günlük zamanlama o boşluğu kapatır. Kullanıcının makinesinde yedek
+     klasörünün var olup olmadığını bilmiyoruz: yoksa otomatik yedek
+     alınmıyor, Yedekleme ekranı söylüyor -- "yedek alınmıyor" derse önce
+     orayı sor.
    - **Asıl iş klinikteki Windows mini PC'de:** gerçek hasta verisi orada.
      Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
      `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.

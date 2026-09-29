@@ -207,6 +207,7 @@ def _gocleri_uygula() -> dict:
 
 
 def main():
+    yedek.EKRANA = True           # terminalde yedek.log satırları ekrana da
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     komut = sys.argv[1]

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_oto_yedek.html" as oy %}
 {% block ustbaslik %}Yönetim{% endblock %}
 {% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis{% endblock %}
@@ -70,6 +71,9 @@
       <dd {% if not son_yedek %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(son_yedek) if son_yedek else metin("hic_yedek_yok") }}</dd></div>
     <div class="veri"><dt>Uyarı eşiği</dt>
       <dd>{{ yedek_uyari_gun }} gün</dd></div>
+    {# Cryo Haritası değişince alınan yedek (v6.216). #}
+    <div class="veri"><dt>{{ metin("oto_yedek") }}</dt>
+      <dd>{{ metin("oto_yedek_kisa") }}<br><span class="ipucu">{{ oy.durum(oto.yedek) }}</span></dd></div>
   </dl>
   {# v6.121'de "terminalden python3 yedek.py" tavsiyesi kalktı -- artık
      ekrandan da elle yedeklenip geri yüklenebiliyor (v6.119/v6.120), panel

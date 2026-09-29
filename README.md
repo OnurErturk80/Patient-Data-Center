@@ -16887,3 +16887,127 @@ kartın adresi `/hastalar`'a. Ayrıca: olmayan / aynı numara, doğru kart yoksa
 kopyasında (yalnızca sayılar) iki kart birleştirildi (0,35 sn): hasta 1.823 ->
 1.822, öteki tablolar aynı, yabancı anahtar ve bütünlük denetimi temiz, ekranlar
 200; kopya silindi.
+
+# v6.216 — Cryo Haritası değişince yedek, her gün 14:00'te "Tüm veriler"
+
+Kullanıcı: *"Cryo haritada yapılan her değişiklikten sonra yedekleme yapsın.
+Yönetici kısmındaki tüm verileri excele aktarda her gün 14:00 da cryo haritanın
+yedeklendiği dosyaya aktarsın aktarma yapsın."*
+
+Programın kendiliğinden aldığı bir yedek yoktu: Mac'te zamanlama hiç
+kurulmadı, klinikteki Windows'ta Görev Zamanlayıcı görevi de kurulmadı (bekleyen
+iş 2); yedek yalnızca "Şimdi yedekle"ye basılınca ya da terminalden
+`yedek.py` ile alınıyordu. Cryo Haritası'nın Excel'i her değişiklikte
+yazılıyordu (v6.191) ama bilgisayarın kendi diskine; yedek diskine yalnızca
+yedekle birlikte gidiyordu.
+
+## Cryo Haritası değişince yedek (`oto_yedek.py`)
+
+Haritanın iş parçacığının yanında ikinci bir iş parçacığı dakikada bir
+haritanın **içerik imzasına** bakıyor (`harita_excel.guncel_imza()`: dolu
+tüpler, Excel kayıtları, yerler, straw'ların yazıları; dosyanın yazılıp
+yazılamamasından bağımsız). İmza yedek klasörüne son yedeklenen halinkinden
+farklıysa yedek alınıyor: "Şimdi yedekle"nin aynısı (veritabanı, arşivdeki
+yeni fotoğraflar, haritanın Excel'i). Bir ICSI kaydı yedek aldırmıyor (harita
+değişmiyor); dondurma, çözme, taşıma, yer tamamlama, Excel kaydı aldırıyor.
+
+- **Değişiklikler bitince.** Harita bir tur (bir dakika) değişmeden kalınca;
+  değişiklik sürüp gidiyorsa ilk değişiklikten en geç 10 dakika sonra. Bir
+  hastanın dört straw'ı arka arkaya dondurulunca dört değil bir yedek.
+- **Son yedeğin imzası yedek klasöründe** (`cryo_yedek_durumu.json`: imza,
+  zaman, dosya adı; hasta bilgisi yok). Program yeniden açılınca harita
+  değişmemişse yedek alınmıyor; kapalıyken değişmişse (terminal aracı, USB ile
+  gelen veritabanı) açılışın ilk dakikalarında alınıyor. Başka bir disk ya da
+  klasör kendi dosyasıyla sayılıyor. Bellekte tutulsaydı her açılış bir yedek
+  aldırırdı; veritabanında tutulsaydı USB ile öteki bilgisayara gider, orada
+  "yedeklendi" derdi.
+- **Yedek klasörü yoksa beklenir, oluşturulmaz.** Takılı olmayan disk
+  takılınca yedek alınıyor. Mac'te takılı olmayan bir diskin yerine
+  (`/Volumes/...`) iç diskte klasör açılırsa disk takılınca başka adla bağlanır
+  ve yedek yanlış yerde birikirdi. Hiç yedek alınmamış klasörü "Şimdi yedekle"
+  açıyor (o, v6.119'dan beri oluşturuyor); ekran bunu söylüyor.
+- **Harita kurulamıyorsa** (bir hata) veritabanının damgasına bakılıyor:
+  yedek haritanın hatası yüzünden durmuyor.
+- **Hata** (disk dolu, izin): günlüğe bir kez, Yedekleme ekranına; 10 dakika
+  sonra yeniden.
+- **"Şimdi yedekle" aynı yoldan** (`oto_yedek.yedekle()`): elle alınan yedekten
+  sonra aynı harita için otomatik yedek alınmıyor. İkisi aynı anda çalışmıyor
+  (`yedek.KILIT`): otomatik yedek sürerken basılan düğme onun bitmesini
+  bekliyor. Yedeğin adımları tek yerde, `yedek.yedekle()`: terminal, düğme ve
+  otomatik yedek onu çağırıyor (düğme v6.215'e kadar adımları ayrıca
+  yazıyordu).
+- Cryo Haritası'nın değişmediği günlerde otomatik yedek alınmıyor; Görev
+  Zamanlayıcı ile günlük yedek yine kurulabilir (ekran söylüyor).
+
+**Saklama değişti** (`yedek.silinecek_yedekler()`): son 24 saatin bütün
+yedekleri; 14 güne kadar her günün son yedeği; daha eskide her ayın ilk yedeği
+kalıcı. v6.215'e kadar "14 günün hepsi + ayın 1'inde alınanlar"dı -- günde bir
+yedekle aynı sonuç; günde birkaç otomatik yedekle yedek diski dolardı. Ayın
+1'inde birden çok yedek varsa artık yalnızca ilki kalıcı; ayın 1'inde yedek
+alınmamışsa o ayın ilk yedeği. Güvenlik kopyalarına (`lab_ONCEKI_*`) ve adı
+kalıba uymayan dosyaya dokunulmuyor.
+
+**Yedek önce geçici dosyaya yazılıyor** (`<ad>.<süreç>.yaziliyor`),
+doğrulanınca adını alıyor: yazım yarıda kalırsa (disk çekildi, program
+kapandı) geri yükleme listesinde yarım bir `lab_*.db` durmuyor; aynı dakikada
+başka bir süreçteki yedek (terminalden `yedek.py`) öncekinin yazılmakta olan
+dosyasına yazmıyor. Bir günden eski yarım dosyayı temizlik siliyor.
+
+`yedek.yaz()` programın içinde `print` yerine günlüğe (`program.log`) yazıyor;
+terminalde (`yedek.py`, `geri_yukle.py`) ekrana da. Satırlar yine `yedek.log`'a.
+
+**Ekranlar**: Yedekleme'de "Otomatik yedek" kartı (durum ve nasıl çalıştığı),
+Yönetici panelinin Yedekleme kartında bir satır, Cryo Haritası'nın Excel
+kartında (yönetici) bir satır -- cümle tek yerden (`_oto_yedek.html`): "Cryo
+Haritası'nın şu anki hali yedekli: <zaman> (<dosya>)", bekleyen değişiklik,
+klasör yok / ayarlanmamış / bu bilgisayarın yolu değil, son hata. Durum
+bellekten (`oto_yedek.durum()`): sayfa açılırken takılı olmayan bir diske ya da
+yavaş bir ağ klasörüne sorulmuyor.
+
+## Her gün 14:00'te "Tüm veriler"
+
+Yönetici panelindeki "Tüm veriyi Excel'e aktar"ın dosyası (aynı içerik,
+`disari.tumu_sayfalari()`) her gün 14:00'te **Cryo haritası klasörüne**
+(Klasörler ekranı; varsayılanı veri klasöründe `cryo_harita/`, Cryo_Haritasi.xlsx
+ve günlük kopyalarının yanı): `Tum_Veriler_YYYY-AA-GG.xlsx`, son 30 gün.
+
+- "Cryo haritanın yedeklendiği dosya" bu klasör diye okundu: Klasörler ekranı
+  onu "Programın her değişiklikte yazdığı Cryo Haritası Excel'i ... ve son 30
+  günün kopyaları" diye anlatıyor; yedek diskindeki kopya
+  (`<yedek>/cryo_harita/`) hiçbir ekranda yazmıyordu. Başka bir yer
+  isteniyorsa klasör Klasörler'den değişiyor.
+- Bugünün dosyası varsa yazılmıyor; 14:00'te program kapalıysa o gün
+  açıldığında yazılıyor. Kaçan günün dosyası sonradan yazılmıyor (o günün
+  hali yok).
+- Klasöre yazılamıyorsa döküm hiç kurulmuyor (her denemede bütün veritabanını
+  okumak boşa olurdu), 10 dakika sonra yeniden; hata Cryo Haritası kartında.
+- **Dosya bütün hasta kayıtlarını taşıyor.** `/disari/tumu`'nun "yalnızca
+  yönetici" kuralı değişmedi: dosya ağdan verilmiyor, yöneticinin seçtiği
+  klasöre yazılıyor. Klasörler ekranı, Cryo Haritası kartı ve yönetici
+  panelindeki düğmenin açıklaması bunu söylüyor. Varsayılan klasör
+  `.gitignore`'da.
+- Temizlik yalnızca `Tum_Veriler_YYYY-AA-GG.xlsx` adlarını siliyor; klasördeki
+  haritanın dosyalarına ve başka dosyalara dokunmuyor.
+
+## Deneme
+
+- Birim: saklama kuralı 16 dosya adında (24 saat, günün sonu, ayın ilki,
+  saniyeli ad, `lab_ONCEKI_*`, kalıp dışı ad); tetik: harita kurulmamış,
+  açılışın ilk değişikliği (bir tur sonra), tek değişiklik, 14 dakika süren
+  değişiklik (10. dakikada), aynı imzayla yeniden açılış (yedek yok), kapalıyken
+  değişmiş (yedek), disk yok / geldi, elle yedekten sonra (tekrar yok), hata
+  (10 dakika bekleme), harita kurulamıyor (damga). "Tüm veriler": 13:59 yok,
+  14:00 var, ikinci tur yazmıyor, ertesi gün 10:00 yok / 16:00 var, 30 günden
+  eski siliniyor, başka dosyalar kalıyor, yazılamayan klasörde döküm
+  kurulmuyor, klasör düzelince yazılıyor; sayfaları indirmeyle aynı.
+- Uçtan uca (sahte veritabanı, kısa aralıklarla): açılışta yedek + döküm; bir
+  tüpü "taşındı" yapmak -> yedek, geri almak -> yedek (imza ilk hale döndü);
+  "Şimdi yedekle" -> sonra otomatik tekrar yok; yeniden başlatma -> yedek ve
+  döküm tekrarlanmıyor. 75 ekran telefon ve masaüstü genişliğinde hatasız,
+  yatay kayma yok.
+- Paket: Linux'ta derlendi, `paket/dene.py program` TAMAM; derlenmiş program
+  sahte veritabanında kendi yedeğini aldı, satırlar `program.log`'da.
+- Gerçek verinin deneme kopyasında (1.823 hasta): döküm 3,3 MB, arka planda
+  ~4 sn; yedek 14,6 MB. O sırada sayfalar en çok 136 ms'de açıldı (ortanca
+  4 ms). Kullanıcının veritabanı bunun yaklaşık üç katı. Kopya ve ürettikleri
+  silindi.

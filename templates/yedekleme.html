@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_oto_yedek.html" as oy %}
 {% block ustbaslik %}{{ metin("yedekleme") }}{% endblock %}
 {% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
 {% block icerik %}
@@ -23,6 +24,15 @@
     {% if yedek_uyari %}
     <div class="ipucu" style="color:#a11f1f">{{ yedek_uyari }}</div>
     {% endif %}
+  </div>
+</div>
+
+{# Cryo Haritası değişince alınan yedek (v6.216, `oto_yedek.py`). #}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("oto_yedek") }}</h2>
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ oy.durum(oto.yedek) }}</div>
+    <div class="ipucu" style="margin-top:6px">{{ metin("oto_yedek_ipucu") }}</div>
   </div>
 </div>
 

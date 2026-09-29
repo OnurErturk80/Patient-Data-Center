@@ -223,6 +223,24 @@ python  yedek.py E:\yedek        # Windows, klinik
 
 Hedef **farklı bir diskte** olmalı — aynı disk bozulursa yedek de gider.
 
+**Program açıkken yedek kendiliğinden de alınır** (v6.216): Cryo Haritası'nda
+bir değişiklik olunca (dondurma, çözme, taşıma, yer), değişiklikler bittikten
+bir iki dakika sonra (sürerse en geç on dakikada) yedek klasörüne — "Şimdi
+yedekle"nin aynısı. Durumu: Yönetici → Yedekleme → "Otomatik yedek".
+
+- Yedek klasörü yoksa (disk takılı değil) alınmaz, disk takılınca alınır.
+  Klasöre hiç yedek alınmadıysa bir kez "Şimdi yedekle"ye bas: klasörü o açar.
+- Cryo Haritası'nın değişmediği günlerde otomatik yedek alınmaz.
+- Saklanan: son 24 saatin bütün yedekleri, 14 güne kadar her günün sonuncusu,
+  daha eskide her ayın ilki.
+
+**Her gün 14:00'te "Tüm veriler" Excel'i** Cryo haritası klasörüne yazılır
+(Yönetici → Klasörler → "Cryo haritası (Excel)"; Cryo_Haritasi.xlsx'in yanı):
+`Tum_Veriler_2026-09-29.xlsx` gibi, son 30 gün. Yönetici panelindeki "Tüm
+veriyi Excel'e aktar"ın aynısı — **bütün hasta kayıtları içinde**, klasörü
+herkesin açabildiği bir yere koyma. 14:00'te program kapalıysa o gün
+açıldığında yazılır.
+
 **Yedekten geri yükledikten sonra programı yeniden açmana gerek yok**
 (v6.145). Geri yükleme (`/yedekleme` → "Yedekten geri yükle") yedek eski bir
 sürümdense eksik veritabanı güncellemelerini hemen kendisi uygular ve
@@ -270,7 +288,8 @@ Kullanıcı adını `<...>` içine alma, düz yaz.
 ## Veri nerede duruyor
 
 `lab.db`, `yerel_ayar.json`, `arsiv/`, `snapshot/`, `sertifika/` ve
-`cryo_harita/` (Excel haritası, v6.191) **veri klasöründe**. Arşiv, kamera,
+`cryo_harita/` (Excel haritası, v6.191; her günün "Tüm veriler"i, v6.216)
+**veri klasöründe**. Arşiv, kamera,
 yedek ve Cryo haritası klasörü Yönetici → Klasörler'den başka bir yere
 alınabilir (Cryo haritası v6.203'ten beri).
 Bugünkü kurulumlarda bu proje klasörünün kendisi (kodun yanında `lab.db`

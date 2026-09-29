@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_oto_yedek.html" as oy %}
 {% block ustbaslik %}{{ metin("cryo_haritasi") }}{% endblock %}
 {# Aramadayken geri ok aramasız haritaya (v6.208, kullanıcı: "aramadan geriye
    dönüş olsun"). #}
@@ -181,6 +182,20 @@
     {% if yonetici %}<br>{{ metin("excel_harita_klasor") }}: {{ harita_excel.klasor }}
       · <a href="/klasorler">{{ metin("klasorler") }}</a>{% endif %}
   </div>
+  {% if yonetici %}
+  {# Her değişiklikten sonra yedek ve her gün 14:00'te "Tüm veriler" bu
+     klasöre (v6.216, `oto_yedek.py`). #}
+  {% set tv = oto.tum_veri %}
+  <div class="ipucu" style="margin:0 14px 10px">
+    {{ metin("tum_veri_cryo").format(saat=tv.saat, gun=tv.gun) }}
+    {% if tv.hata %}<br><span style="color:var(--uyari)">{{ metin("tum_veri_yazilamadi").format(zaman=gg_aa_yyyy_saat(tv.hata_zamani), hata=tv.hata) }}</span>
+    {%- elif tv.son %}<br>{{ metin("tum_veri_son").format(ad=tv.son.ad, zaman=gg_aa_yyyy_saat(tv.son.zaman)) }}{% endif %}
+  </div>
+  <div class="ipucu" style="margin:0 14px 10px">
+    <b>{{ metin("oto_yedek") }}:</b> {{ metin("oto_yedek_kisa") }}. {{ oy.durum(oto.yedek) }}
+    · <a href="/yedekleme">{{ metin("yedekleme") }}</a>
+  </div>
+  {% endif %}
   {% if yonetici %}
   <form method="post" action="/cryo/sablon" enctype="multipart/form-data" style="margin:0 14px 12px">
     <div class="alan" style="border:0;padding-left:0;padding-right:0">

@@ -453,8 +453,10 @@ def _sayfalar(v, simdi) -> list:
 
 # ------------------------------------------------------------ yazma
 
-def _yaz(yol, veri: bytes) -> None:
-    """Atomik: yanındaki geçici dosyaya, sonra yerine. Yarım dosya kalmaz."""
+def atomik_yaz(yol, veri: bytes) -> None:
+    """Atomik: yanındaki geçici dosyaya, sonra yerine. Yarım dosya kalmaz.
+    Aynı klasöre yazılan günlük "Tüm veriler" dosyası da (v6.216,
+    `oto_yedek.py`) bununla yazılıyor."""
     gecici = yol.with_name(yol.name + ".yaziliyor")
     try:
         gecici.write_bytes(veri)
@@ -520,6 +522,9 @@ def guncelle(bayt_iste: bool = False) -> dict:
         else:
             v = _kur()
             uret = lambda: excel.kitap(_sayfalar(v, simdi))
+        # Haritanın bugünkü içeriği, dosya yazılabilsin ya da yazılamasın:
+        # Cryo değişince alınan yedek buna bakıyor (v6.216, `guncel_imza()`).
+        _DURUM["guncel_imza"] = v["imza"]
         degisti = v["imza"] != _DURUM.get("imza") or not ana_dosya().exists()
         veri = uret() if (degisti or bayt_iste) else None
         if not degisti:
@@ -527,14 +532,14 @@ def guncelle(bayt_iste: bool = False) -> dict:
             return {"yazildi": False, "veri": veri}
         try:
             klasor().mkdir(parents=True, exist_ok=True)
-            _yaz(ana_dosya(), veri)
+            atomik_yaz(ana_dosya(), veri)
         except OSError as e:
             if _DURUM.get("hata") != str(e):
                 _gunluk.warning("CRYO EXCEL: %s yazilamadi: %s", ana_dosya(), e)
             _DURUM.update(hata=str(e), kurulamadi=None)
             return {"yazildi": False, "veri": veri}
         try:
-            _yaz(klasor() / f"{DOSYA_KOKU}_{simdi.date().isoformat()}.xlsx", veri)
+            atomik_yaz(klasor() / f"{DOSYA_KOKU}_{simdi.date().isoformat()}.xlsx", veri)
             _temizle(simdi.date())
         except OSError as e:           # ana dosya yazıldı; kopya bir sonrakinde
             _gunluk.warning("CRYO EXCEL: gunluk kopya yazilamadi: %s", e)
@@ -549,6 +554,21 @@ def guncelle(bayt_iste: bool = False) -> dict:
             _gunluk.info("CRYO EXCEL: harita yazildi (%d tup, %d Excel kaydi).",
                          o["tup"], o["excel"])
         return {"yazildi": True, "veri": veri}
+
+
+def guncel_imza():
+    """Haritanın son kurulan içeriğinin imzası (v6.216): Cryo Haritası
+    değişti mi sorusunun cevabı -- dondurma, çözme, taşıma, yer, Excel kaydı.
+    Harita henüz kurulmadıysa ya da son kurulamadıysa None (eski imza
+    "değişmedi" demesin)."""
+    if _DURUM.get("kurulamadi"):
+        return None
+    return _DURUM.get("guncel_imza")
+
+
+def kurulamadi() -> bool:
+    """Harita son denemede kurulamadı mı (bir hata; kartta yazıyor)."""
+    return bool(_DURUM.get("kurulamadi"))
 
 
 def durum() -> dict:
