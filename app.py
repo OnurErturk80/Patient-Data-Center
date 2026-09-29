@@ -3777,7 +3777,31 @@ def bulas_formdan(form, eski=None):
     return sonuc
 
 
+# Tedavi formunun YAZMADIĞI, kendi aşama ekranında girilen saatler (v6.221,
+# kullanıcı: "tedavi ana sayfasındaki zamanlar bölümünde denüdasyon ve opu
+# tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor zaten",
+# ardından "Düzenle değimde hala görünüyorlar"). OPU saati OPU ekranında,
+# denüdasyon saati denüdasyon ekranında (`?duzenle=saat`). Form bu alanları
+# taşımıyor: taşımayan POST kolona DOKUNMUYOR -- düz okuma boş değer sanıp
+# kayıtlı saati silerdi (v6.220'ye kadar denüdasyon saati bunun için gizli
+# alanla dolaşıyordu; o da açık kalmış formun eski değerini aşama ekranında
+# sonradan yazılanın üzerine geri koyardı). Bu sürümden önce açılmış sekme
+# alanları taşıyor, eskisi gibi yazılıyor.
+ASAMA_EKRANI_ALANLARI = ("opu_zamani", "denudasyon_zamani")
+
+
 def cycle_formu_oku(f: dict) -> dict:
+    """Tedavi formunun değerleri. Formda olmayan aşama ekranı alanı
+    (`ASAMA_EKRANI_ALANLARI`) sözlükte yok: çağıran yalnızca sözlükteki
+    alanları yazıyor ve değişiklik geçmişine veriyor."""
+    d = cycle_formu_degerleri(f)
+    for alan in ASAMA_EKRANI_ALANLARI:
+        if alan not in f:
+            del d[alan]
+    return d
+
+
+def cycle_formu_degerleri(f: dict) -> dict:
     return {
         "cycle_no": (f.get("cycle_no") or "").strip(),
         "hasta_cycle_no": tam(f.get("hasta_cycle_no"), "Kaçıncı cycle"),
@@ -3946,7 +3970,7 @@ async def cycle_kaydet(request: Request, hasta_id: int):
     elle = (None if d["hasta_cycle_no"] is None
             or str(d["hasta_cycle_no"]) == str(oneri).strip()
             else d["hasta_cycle_no"])
-    alanlar = cycle_alanlari()
+    alanlar = [a for a in cycle_alanlari() if a in d]   # v6.221
     degerler = [d[a] for a in alanlar]
     if _elle_no_kolonu_var():
         alanlar = alanlar + ["hasta_cycle_no_elle"]
@@ -4083,7 +4107,7 @@ async def cycle_guncelle(request: Request, cycle_id: int):
     # olup olmadığı da değişmez; değiştirildiyse o sayı elle yazılmıştır,
     # boşaltıldıysa numarayı tarih sırası verir. OPU tarihi değişince
     # numara kayabilir -- o yüzden kaydetmekle numaralamak tek işlem.
-    alanlar = cycle_alanlari()
+    alanlar = [a for a in cycle_alanlari() if a in d]   # v6.221
     degerler = [d[a] for a in alanlar]
     yeni_elle = None
     if _elle_no_kolonu_var():

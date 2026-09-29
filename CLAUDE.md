@@ -884,6 +884,19 @@ tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor zaten"):
 ikisi kendi aşama ekranında giriliyor ve görünüyor, sırası zaman
 çizelgesinde. Kartta hCG (başka bir ekranda gösterilmiyor) ve planlanan
 tarih kaldı. Geri koyma.
+- **Tedavi formunda da yok** (v6.221, kullanıcı: "Düzenle değimde hala
+  görünüyorlar"): yeni tedavi ve Düzenle formunun "Zamanlar ve OPU" kartında
+  hCG ve OPU'nun yumurta sayıları kaldı (sayılar da OPU ekranında giriliyor
+  ama kullanıcı yalnızca saatleri söyledi -- sormadan kaldırma).
+- **Formda olmayan alan yazılmıyor**: `app.ASAMA_EKRANI_ALANLARI`
+  (`opu_zamani`, `denudasyon_zamani`) POST'ta yoksa `cycle_formu_oku()`
+  sözlüğe koymuyor, iki rota yalnızca sözlükteki alanları yazıyor
+  (`[a for a in cycle_alanlari() if a in d]`) ve değişiklik geçmişine veriyor.
+  Düz okuma boş değer sanıp kayıtlı saati silerdi. Gizli alanla taşıma
+  (v6.220'ye kadar denüdasyon saati öyleydi) YAZMA: açık kalmış formun eski
+  saati aşama ekranında sonradan yazılanın üzerine geri gelir. Eski sekme
+  alanları taşıyor, eskisi gibi yazıyor. Tedavi formundan bir alanı daha
+  kaldırırsan listeye ekle.
 
 **Cycle ekranında "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi
 yerini türetilmiş bir embriyoloji özetine bıraktı** (v6.110, kullanıcının

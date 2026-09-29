@@ -192,11 +192,12 @@
       <input id="hcg_zamani" name="hcg_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('hcg_zamani') }}">
       <div class="ipucu">{{ metin("hcg_zamani_ipucu") }}</div>
     </div>
-    <div class="alan">
-      <label for="opu_zamani">{{ metin("opu_zamani") }}</label>
-      <input id="opu_zamani" name="opu_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('opu_zamani') }}">
-    </div>
-    <input type="hidden" name="denudasyon_zamani" value="{{ dz('denudasyon_zamani') }}">
+    {# OPU ve denüdasyon saati bu formda YOK (v6.221, v6.220'nin tedavi ekranı
+       kararının formdaki hali): kendi aşama ekranlarında giriliyor. Alanı
+       geri koyma, gizli alan da koyma -- sunucu formda olmayan bu iki alana
+       dokunmuyor (`app.ASAMA_EKRANI_ALANLARI`), gizli alan açık kalmış
+       formun eski saatini aşama ekranında sonradan yazılanın üzerine geri
+       koyardı. #}
     <div class="alan" style="border:0;padding-bottom:0">
       <div class="ipucu">{{ metin("opu_oosit_sayilari") }}</div>
     </div>

@@ -17247,3 +17247,49 @@ ve tedavi formuna dokunulmadı; değişen yalnızca ekrandaki iki satır.
 
 Deneme: dört tedavinin ekranında kart yalnızca hCG'yi gösteriyor, zaman
 çizelgesi yerinde. 84 ekran telefon ve masaüstü genişliğinde hatasız.
+
+# v6.221 — Tedavi formunda da OPU ve denüdasyon saati yok
+
+Kullanıcı (v6.220'den sonra): *"Düzenle değimde hala görünüyorlar"*
+
+v6.220 saatleri yalnızca tedavi ekranının "Zamanlar" kartından kaldırmıştı.
+Tedavinin "Düzenle" formunda (yeni tedavi formu da aynı şablon) OPU saati hâlâ
+bir kutu olarak duruyordu. Artık iki formda da OPU saati yok. Denüdasyon saati
+zaten görünmüyordu, gizli bir alanla dolaşıyordu; o alan da kalktı. "Zamanlar
+ve OPU" kartında hCG saati ve OPU'da toplanan yumurta sayıları kaldı. Sayılar
+da OPU ekranında giriliyor, ama kullanıcı yalnızca tarih ve saatleri söyledi;
+istenirse onlar da kalkabilir.
+
+## Kutuyu kaldırmak yetmezdi
+
+Form kaydedilirken bütün alanları okuyup yazıyordu (`cycle_formu_oku()` +
+`UPDATE cycle SET <bütün alanlar>`). Formda olmayan alan boş değer sayılırdı:
+kutuyu kaldırmak, Düzenle'den her kayıtta OPU saatini silmek demekti. OPU günü
+tedavinin günü de olduğu için tedavi numaraları da kayardı (v6.144). v6.220'ye
+kadar denüdasyon saati bu yüzden gizli alanla dolaşıyordu. Ama gizli alanın
+da bir kusuru vardı: Düzenle formu açıkken biri denüdasyon ekranında saati
+değiştirirse, formu kaydetmek eski saati geri yazıyordu.
+
+Bugün: `app.ASAMA_EKRANI_ALANLARI` (OPU ve denüdasyon saati) POST'ta yoksa
+`cycle_formu_oku()` onları sözlüğe hiç koymuyor. Yeni tedavi ve Düzenle
+rotaları yalnızca sözlükteki alanları yazıyor ve değişiklik geçmişine veriyor.
+Formu kaydetmek bu iki kolona dokunmuyor. Bu sürümden önce açılmış bir sekme
+alanları hâlâ taşıyor ve eskisi gibi yazıyor.
+
+## Deneme
+
+Sahte veritabanında tarayıcıyla:
+
+- Düzenle formunda ve yeni tedavi formunda OPU ve denüdasyon alanı yok. hCG
+  ve yumurta sayıları duruyor.
+- Protokol notunu değiştirip kaydetmek:
+  - OPU ve denüdasyon saatini değiştirmedi.
+  - Değişiklik geçmişine yalnızca notu yazdı.
+- Form açıkken OPU saati değiştirildi, sonra form kaydedildi: yeni saat yerinde
+  kaldı.
+- Alanları taşıyan eski sekme POST'u saati yazdı.
+- Bozuk hCG yılıyla hata dönüşü formda kaldı, saatlere dokunmadı.
+- Yeni tedavi saatsiz açıldı. OPU ekranında girilen saat, Düzenle'den kayıttan
+  sonra da yerinde.
+- 84 ekran, telefon ve masaüstü genişliğinde hatasız. Tedavi formları iki
+  genişlikte yatay kaymıyor.
