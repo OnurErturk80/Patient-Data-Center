@@ -44,6 +44,10 @@
   </div>
 </div>
 
+{# OPU ve denüdasyon saati bu kartta YOK (v6.220, kullanıcı: "tedavi ana
+   sayfasındaki zamanlar bölümünde denüdasyon ve opu tarih ve saatleri
+   gereksiz bu bilgiler ilgili yerlerde giriliyor zaten"): ikisi kendi aşama
+   ekranında giriliyor ve görünüyor, sırası zaman çizelgesinde. #}
 <div class="kart">
   <h2>{{ metin("zamanlar") }}</h2>
   <dl style="margin:0">
@@ -52,8 +56,6 @@
       <dd>{{ takvim_basligi(c.planlanan_tarih) }}</dd></div>
     {% endif %}
     <div class="veri"><dt>hCG</dt><dd {% if not c.hcg_zamani %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(c.hcg_zamani) if c.hcg_zamani else 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>OPU</dt><dd {% if not c.opu_zamani %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(c.opu_zamani) if c.opu_zamani else 'girilmedi' }}</dd></div>
-    <div class="veri"><dt>{{ metin("asama_denudasyon") }}</dt><dd {% if not c.denudasyon_zamani %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(c.denudasyon_zamani) if c.denudasyon_zamani else 'girilmedi' }}</dd></div>
   </dl>
 </div>
 

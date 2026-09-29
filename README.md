@@ -17229,3 +17229,21 @@ Sahte veritabanında tarayıcıyla, telefon ve masaüstü genişliğinde:
   - Değişiklik geçmişine düştü.
 - Resmî form ekranlarında bant yok. Göçsüz veritabanında yardımcılar boş döndü.
 - 84 ekran iki genişlikte hatasız, yatay kayma yok.
+
+# v6.220 — Tedavi ekranının "Zamanlar" kartında OPU ve denüdasyon saati yok
+
+Kullanıcı: *"Hastanın tedavisinde Opu bölümünde opu ile ilgili zamanlar var.
+Bir önceki sayfa tedavi ana sayfasındaki zamanlar bölümünde denüdasyon ve opu
+tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor zaten.
+Zamanlardan bunları kaldır."*
+
+Tedavi ekranının (`/cycle/{id}`) "Zamanlar" kartından OPU ve denüdasyon
+satırları kalktı. İkisi kendi aşama ekranında giriliyor ve görünüyor: OPU
+saati OPU ekranında, denüdasyon saati denüdasyon ekranında. Aşamaların sırası
+ve aralarındaki süre aynı sayfanın zaman çizelgesinde duruyor. Kartta hCG
+kaldı, çünkü hCG başka hiçbir ekranda gösterilmiyor (yalnızca tedavi formunda
+giriliyor). Planlanan tarih de varsa kartta görünmeye devam ediyor. Kayıtlara
+ve tedavi formuna dokunulmadı; değişen yalnızca ekrandaki iki satır.
+
+Deneme: dört tedavinin ekranında kart yalnızca hCG'yi gösteriyor, zaman
+çizelgesi yerinde. 84 ekran telefon ve masaüstü genişliğinde hatasız.

@@ -878,6 +878,13 @@ yap: embriyoloji fotoğrafı → asama ekranı, klinik belge → cycle ekranı.
 - Silme ayrı bir rota istemedi: `/goruntu/{id}/sil` zaten genel
   (`yol_modulu()`'nda `son == "sil"` → `silme` modülü, asama'dan bağımsız).
 
+**Tedavi ekranının "Zamanlar" kartında OPU ve denüdasyon saati yok** (v6.220,
+kullanıcı: "tedavi ana sayfasındaki zamanlar bölümünde denüdasyon ve opu
+tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor zaten"):
+ikisi kendi aşama ekranında giriliyor ve görünüyor, sırası zaman
+çizelgesinde. Kartta hCG (başka bir ekranda gösterilmiyor) ve planlanan
+tarih kaldı. Geri koyma.
+
 **Cycle ekranında "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi
 yerini türetilmiş bir embriyoloji özetine bıraktı** (v6.110, kullanıcının
 isteği: "Oositler ve Fotoğraf ekleyi kaldır, kısa bir özet olsun: kaç
