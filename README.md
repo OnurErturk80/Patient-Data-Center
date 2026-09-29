@@ -17011,3 +17011,96 @@ ve günlük kopyalarının yanı): `Tum_Veriler_YYYY-AA-GG.xlsx`, son 30 gün.
   ~4 sn; yedek 14,6 MB. O sırada sayfalar en çok 136 ms'de açıldı (ortanca
   4 ms). Kullanıcının veritabanı bunun yaklaşık üç katı. Kopya ve ürettikleri
   silindi.
+
+# v6.217 — Hasta kartında "Dondurulmuş örnekler", çöz → FET; genel bulgular Özet'e
+
+Kullanıcı: *"Hasta kartının içinde hastanın dondurulmuş örnekleri bölümü olsun.
+Orada örnekler görünsün çöz diyerek FET tedavisi başlatabilelim. Ayrıca başka
+merkeze taşıma bu alanın altında olsun. Genel bulgular ART lab formunda
+yorumlara yazıldığı gibi Embriyoloji özet formunda notlara da yazılsın."*
+
+## Dondurulmuş örnekler
+
+Hasta kartının en üstünde (düğmelerin altında) tek bir kart:
+
+- **Tanktaki embriyo ve yumurta tüpleri**, dondurulduğu tedavi tedavi (son
+  tedavi üstte). Satır Taşınma ekranınınkiyle ve Cryo Haritası'nın goblet
+  satırıyla aynı: etiket, renk, tip, "2 embriyo · D5 (3AA-4AB) · 12.03.2026",
+  tanktaki yeri ya da "konum girilmemiş". Satıra basınca tüpün sayfası.
+- **"Çöz"** her tüpün altında. Kural çözme ekranınınki
+  (`thaw_tedavi_tipleri()`, v6.155/v6.156): embriyo tüpü FET, cleavage
+  tüpü ayrıca FET (3→5) (blastokist tüpü FET (3→5)'e kapalı), yumurta tüpü
+  Yumurta Çözme.
+  - **"Çöz · yeni FET"**: onay soruluyor ("Bu tüp için yeni bir FET tedavisi
+    açılacak ve çözme ekranına geçilecek"), sonra çözme ekranının v6.155'ten
+    beri var olan "Yeni tedavi başlat" yolu: tedavi açılıyor, çözme formu bu
+    tedavi seçili açılıyor. Kaydedince FET'in çözme ekranı (v6.208): sıradaki
+    aşama Transfer, tankta kalan tüpler.
+  - **"Çöz · <no> (FET) için"**: hastanın bu tüpe uygun, bitmemiş ve henüz
+    transferi yapılmamış bir tedavisi varsa önce o. İki tüp aynı FET için
+    çözülecekse ikincisi yeni bir FET açmasın. Transferi yapılmış ama
+    bitirilmemiş FET önerilmiyor ("İşlemi bitir" unutulmuş olabilir); gerekirse
+    çözme ekranında seçilir.
+  - Yumurta Dondurma'nın kendi çözmesi (kullanıcının kararı, 2026-09-23)
+    çözme ekranında kaldı; kartta yalnızca amacı çözme olan tedaviler.
+- **Dondurulmuş sperm**: v6.125'in ayrı kartı bu kartın içine taşındı, satır ve
+  "Tedaviye bağla" aynı. Başka merkeze taşınan sperm burada tekrar edilmiyor.
+- **Cryo Haritası'nda adı benzeyen Excel kayıtları**: programda tüpü olmayan,
+  adı bu hastanınkiyle aynı kelimelerden oluşan straw'lar (Taşınma ekranının
+  ölçüsü, v6.205). Hastaya bağlı değiller (ad tek başına kanıt değil), buradan
+  çözülemez; satır kaydın sayfasını bu hasta seçili açıyor (v6.213 "Hastaya
+  bağla"), bağlanınca tüp yukarıdaki listeye geliyor.
+- **Başka merkeze taşıma** kartın en altında: taşınanlar taşıma taşıma (gün ve
+  yer, embriyo, yumurta ve sperm) ve Taşınma ekranının düğmesi ("Başka
+  merkeze taşı"; taşımak da geri almak da orada). Sayfanın dibindeki eski
+  düğme kalktı. Tedavi satırı taşımayı söylemeye devam ediyor (v6.205).
+- Hiçbiri olmayan hastada kart basılmıyor.
+
+Veri tek yerden: `hastanin_dondurulmus_ornekleri()` Taşınma ekranının
+tüplerini (`hastanin_tasima_tupleri()`) ve gruplamasını (`tankta_gruplari()`,
+`tasinan_gruplari()`, ekranla ortak) kullanıyor; satır `_tup_bilgisi.html`
+(iki ekranın ortak makrosu). Gerçek verinin deneme kopyasında en çok tüpü olan
+hasta (9 tüp) 53 ms; 372 yumurta tüpünün hepsi Yumurta Çözme, embriyo
+tüplerinin bir kısmı FET (3→5) de öneriyor.
+
+## Onay pencereleri hiç açılmıyordu
+
+Deneme sırasında bulundu: `onsubmit="return confirm({{ metin('...')|tojson }})"`
+yazılan 13 onayın hiçbiri sorulmuyordu. `tojson` metni çift tırnakla basıyor,
+nitelik ilk tırnakta bitiyor; tarayıcı yalnızca `return confirm(` görüp
+sözdizimi hatası veriyor ve **form onaysız gönderiliyordu** (denendi: taşıma
+formu tek dokunuşla kaydediliyordu). Etkilenenler v6.180'den beri: taşıma ve
+geri alması, tüpün "taşındı" kaydı ve geri alması (tüp ve sperm sayfası),
+Excel kaydının tüpe bağlanması / tanka geri konması / bağının çözülmesi /
+hastaya tüp açılması / tanktan çıkarılması, haritadan yer tamamlamanın tek
+tüp bağlaması, eş bağının kaldırılması. Nitelik tek tırnakla yazıldı
+(`onsubmit='...'`, `tojson` tek tırnağı kaçırıyor); tarayıcıda denendi: onay
+çıkıyor, "vazgeç" formu göndermiyor. `<script>` içindeki iki onay (geri
+yükleme, ağ erişimi) zaten doğruydu. CLAUDE.md tuzak #16.
+
+## Genel bulgular Embriyoloji Özet'in NOTLAR'ında
+
+ICSI ekranının genel bulguları (v6.200) ART Lab'ın alttaki "Yorum:" satırına
+yazılıyordu; artık Özet'in NOTLAR kutusuna da: "Genel bulgular: Kalın zona,
+Vakuol, Sperm hareketsiz" (`formlar.genel_bulgu_notu()`, aynı metin
+`db.tedavi_bulgu_metni()`). Yer protokol notunun hemen altı -- klinik akışta
+ICSI dondurmadan önce; sıra protokol → genel bulgular → dondurma → taşınan →
+çözülen → çözme notu → iptal sebebi. ART Lab'ın koşuluyla aynı: yalnızca
+ICSI'si olan tipte. Yumurta Dondurma'da genel bulgu bölümü yok (orada ART
+Lab'ın Yorum'u yumurta yumurta bulguları yazıyor; NOTLAR'a girmedi, istenen
+genel bulgulardı). Önek Türkçe sabit (form iki dilde de Türkçe), satır 68'de
+sarılı. Yüklenen formların `{{notlar}}` etiketi aynı metni alıyor
+(açıklaması güncellendi).
+
+## Deneme
+
+Sahte veritabanında tarayıcıyla: iki tüplü hastada "Çöz · yeni FET" -> onay ->
+yeni FET, çözme formu o tedavi seçili; kayıt -> FET'in çözme ekranı; kartta
+çözülen tüp listeden çıktı, kalan tüp "Çöz · <yeni FET> için" + "Çöz · yeni
+FET" gösterdi, ilki çözme formunu o FET seçili açtı. Transferi yapılmış açık
+FET önerilmedi. Taşıma: onay soruluyor, vazgeçince tüp tankta kalıyor, kabulle
+taşınıyor; kartta tanktaki tüp yok satırı, taşınanlar (embriyo + sperm),
+sperm listesinde tekrar yok, geri alınca ikisi yeniden listede. Özet formunun
+NOTLAR'ı ve ART Lab'ın Yorum'u aynı genel bulgu metnini basıyor. 84 ekran
+telefon ve masaüstü genişliğinde hatasız, yatay kayma yok. Gerçek verinin
+deneme kopyasında yalnızca süre ve sayılar ölçüldü; kopya silindi.

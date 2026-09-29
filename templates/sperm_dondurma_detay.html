@@ -41,7 +41,7 @@
   </dl>
   {% if yetkim("cryo") %}
   <form method="post" action="/cryo/tasima/hasta/{{ sd.hasta_id }}/geri" style="margin:0 14px 14px"
-        onsubmit="return confirm({{ metin('gonderimi_geri_al_onay')|tojson }})">
+        onsubmit='return confirm({{ metin('gonderimi_geri_al_onay')|tojson }})'>
     <input type="hidden" name="tup" value="{{ sd.tasiyici_id }}">
     <input type="hidden" name="donus" value="sperm">
     <button class="dugme ikincil" type="submit">{{ metin("gonderimi_geri_al") }}</button>

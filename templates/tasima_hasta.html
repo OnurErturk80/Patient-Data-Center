@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_tup_bilgisi.html" as tb %}
 {% block ustbaslik %}{{ metin("tasima") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cryo/tasima">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -20,24 +21,15 @@
 {% if geri_alindi %}<div class="uyari tamam">{{ metin("tasima_geri_alindi").format(n=geri_alindi) }}</div>{% endif %}
 
 {# Tüpün iki satırı: taşıma formunda (onay kutusuyla) ve taşınanlarda aynı
-   yazım. İçerik Cryo Haritası'nın goblet satırından
-   (`yerlesim.tup_ayrintilari()`: "D5 (3AB-1BB)", yumurtada "(5*MII)"). #}
-{% macro tup_bilgisi(x) %}
-  <strong>{{ x.etiket }}</strong>{% if x.renk %} · {{ etiketler.get(x.renk, x.renk) }}{% endif %}
-  {%- if x.tip %} · {{ etiketler.get(x.tip, x.tip) }}{% endif %}
-  <em>{% if x.kategori == "sperm" %}{{ metin("sperm_dondurma") }}{% if x.sperm_sebep %} · {{ x.sperm_sebep }}{% endif %}
-    {%- else %}{{ icerik_sayisi(x.adet, icerik="yumurta" if x.yumurta else "embriyo") }}
-      {%- if x.parantez %} · {% if not x.yumurta and x.gun %}{{ x.gun }} {% endif %}{{ x.parantez }}{% endif %}{% endif %}
-    · {{ gg_aa_yyyy(x.dondurma) if x.dondurma else "—" }}</em>
-  <em>{% if x.tam_yol %}{{ x.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
-{% endmacro %}
+   yazım -- hasta kartının "Dondurulmuş örnekler"iyle de (v6.217,
+   `_tup_bilgisi.html`). #}
 
 {% set excel_tankta = excel|selectattr("durum", "equalto", "tankta")|list %}
 {% set excel_cikan = excel|selectattr("durum", "equalto", "kaldirildi")|list %}
 
 {% if tankta or excel_tankta %}
 <form method="post" action="/cryo/tasima/hasta/{{ hasta.id }}" id="tasimaform"
-      onsubmit="return confirm({{ metin('tasima_onay')|tojson }})">
+      onsubmit='return confirm({{ metin('tasima_onay')|tojson }})'>
   <div class="kart">
     <h2>{{ metin("tanktaki_ornekler") }}</h2>
     {% if tankta %}
@@ -53,7 +45,7 @@
       <input type="checkbox" name="tup" value="{{ x.id }}"{% if isaretli %} checked{% endif %}>
       <span class="kutu"></span>
       <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
-      <span class="bilgi">{{ tup_bilgisi(x) }}</span>
+      <span class="bilgi">{{ tb.tup_bilgisi(x, etiketler) }}</span>
     </label>
     {% endfor %}
     {% endfor %}
@@ -118,12 +110,12 @@
   {% for x in g.tupler %}
   <a class="satir tasimasatir" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
     <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
-    <span class="bilgi">{{ tup_bilgisi(x) }}</span>
+    <span class="bilgi">{{ tb.tup_bilgisi(x, etiketler) }}</span>
   </a>
   {% endfor %}
   {% for n in g.notlar %}<div class="ipucu" style="margin:6px 14px 0">{{ metin("gonderim_notu") }}: {{ n }}</div>{% endfor %}
   <form method="post" action="/cryo/tasima/hasta/{{ hasta.id }}/geri" style="margin:8px 14px 14px"
-        onsubmit="return confirm({{ metin('tasima_geri_al_onay')|tojson }})">
+        onsubmit='return confirm({{ metin('tasima_geri_al_onay')|tojson }})'>
     {% for x in g.tupler %}<input type="hidden" name="tup" value="{{ x.id }}">{% endfor %}
     <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("tasima_geri_al") }}</button>
   </form>

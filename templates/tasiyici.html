@@ -35,7 +35,7 @@
 </div>
 {% if yetkim("cryo") %}
 <form method="post" action="/cryo/tasiyici/{{ t.id }}/gonderimi-geri-al"
-      onsubmit="return confirm({{ metin('gonderimi_geri_al_onay')|tojson }})">
+      onsubmit='return confirm({{ metin('gonderimi_geri_al_onay')|tojson }})'>
   <button class="dugme ikincil" type="submit">{{ metin("gonderimi_geri_al") }}</button>
 </form>
 {% endif %}
@@ -66,7 +66,7 @@
     {%- if h.es_adi %} · {{ metin("es") }}: {{ h.es_adi }}{% endif %}</div>
   {% for a in yer_onerisi.adaylar %}
   <form method="post" action="/cryo/yer-tamamla" class="satir aday"
-        onsubmit="return confirm({{ metin('bu_yere_bagla_onay').format(yer=a.tam_yol)|tojson }})">
+        onsubmit='return confirm({{ metin('bu_yere_bagla_onay').format(yer=a.tam_yol)|tojson }})'>
     <input type="hidden" name="sec" value="{{ t.id }}:{{ a.eid }}">
     <input type="hidden" name="don" value="tup">
     <div class="no">{{ a.tam_yol }}</div>
@@ -135,7 +135,7 @@
   <summary>{{ metin("gonderim_ac") }}</summary>
   <div class="ipucu" style="margin:0 0 6px">{{ metin("gonderim_ipucu") }}</div>
   <form method="post" action="/cryo/tasiyici/{{ t.id }}/gonder"
-        onsubmit="return confirm({{ metin('gonderim_onay')|tojson }})">
+        onsubmit='return confirm({{ metin('gonderim_onay')|tojson }})'>
     <div class="alan"><label for="gonderim_zamani">{{ metin("gonderim_tarihi") }}</label>
       <input type="date" id="gonderim_zamani" name="gonderim_zamani" min="1900-01-01"
              value="{{ bugun }}" required></div>

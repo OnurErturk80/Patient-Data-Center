@@ -25,7 +25,7 @@
   {% set baska = a.bagli_kayit and a.bagli_kayit != e.id %}
   {% if baska %}<div class="satir aday">{% else %}
   <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/bagla" class="satir aday"
-        onsubmit="return confirm({{ metin('tupe_bagla_onay').format(etiket=a.etiket)|tojson }})">
+        onsubmit='return confirm({{ metin('tupe_bagla_onay').format(etiket=a.etiket)|tojson }})'>
     <input type="hidden" name="etiket" value="{{ a.etiket }}">{% endif %}
     <div class="no">{{ a.etiket }}</div>
     <div class="meta">{{ a.dosya_no or "" }} · {{ a.ad_soyad or "—" }}
@@ -72,7 +72,7 @@
 </div>
 {% if yetkim("cryo") %}
 <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/tanka-don"
-      onsubmit="return confirm({{ metin('tanka_don_onay')|tojson }})">
+      onsubmit='return confirm({{ metin('tanka_don_onay')|tojson }})'>
   <button class="dugme ikincil" type="submit">{{ metin("tanka_don") }}</button>
 </form>
 {% endif %}
@@ -99,7 +99,7 @@
 </div>
 {% if yetkim("cryo") %}
 <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/bagi-coz"
-      onsubmit="return confirm({{ metin('acilani_geri_al_onay' if acilan else 'excel_bagi_coz_onay')|tojson }})">
+      onsubmit='return confirm({{ metin('acilani_geri_al_onay' if acilan else 'excel_bagi_coz_onay')|tojson }})'>
   {% if acilan %}<div class="ipucu" style="margin:0 0 6px">{{ metin("acilani_geri_al_ipucu") }}</div>{% endif %}
   <button class="dugme ikincil" type="submit">{{ metin("acilani_geri_al" if acilan else "excel_bagi_coz") }}</button>
 </form>
@@ -116,7 +116,7 @@
   <div class="bos">{{ metin("ayni_gun_tup_yok") }}</div>
   {% endfor %}
   <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/bagla"
-        onsubmit="return confirm({{ metin('tupe_bagla_onay_elle')|tojson }})">
+        onsubmit='return confirm({{ metin('tupe_bagla_onay_elle')|tojson }})'>
     <div class="alan"><label for="etiket">{{ metin("tup_etiketi") }}</label>
       <input id="etiket" name="etiket" type="text" autocomplete="off" required value="{{ etiket }}"></div>
     <button class="dugme ikincil" type="submit">{{ metin("tupe_bagla") }}</button>
@@ -216,7 +216,7 @@
     {%- else %}{{ metin("acilis_ayni_gun").format(liste=p.ayni_gun|map(attribute="cycle_no")|join(", ")) }}{% endif %}</div>
   {% endif %}
   <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/hastaya-bagla" style="padding:6px 14px 14px"
-        onsubmit="return confirm({{ metin('hastaya_ac_onay').format(ad=h.ad_soyad, dosya=h.dosya_no)|tojson }})">
+        onsubmit='return confirm({{ metin('hastaya_ac_onay').format(ad=h.ad_soyad, dosya=h.dosya_no)|tojson }})'>
     <input type="hidden" name="hasta" value="{{ h.id }}">
     <input type="hidden" name="tarih" value="{{ secim.tarih }}">
     <button class="dugme" type="submit">{{ metin("hastaya_ac") }}</button>
@@ -242,7 +242,7 @@
   <summary>{{ metin("tanktan_cikarildi") }}</summary>
   <div class="ipucu" style="margin:0 0 6px">{{ metin("tanktan_cikarildi_ipucu") }}</div>
   <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/kaldir"
-        onsubmit="return confirm({{ metin('tanktan_cikarildi_onay')|tojson }})">
+        onsubmit='return confirm({{ metin('tanktan_cikarildi_onay')|tojson }})'>
     <div class="alan"><label for="kaldir_tarih">{{ metin("tarih") }}</label>
       <input type="date" id="kaldir_tarih" name="tarih" min="1900-01-01" value="{{ bugun }}" required></div>
     <div class="alan"><label for="not">{{ metin("not") }}</label>

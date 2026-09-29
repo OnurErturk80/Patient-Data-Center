@@ -1762,6 +1762,18 @@ form.satir.aday .dugme.kucuk {
   font-size: 13px; font-weight: 700; color: var(--baslik);
 }
 .satir.tasimasatir { display: flex; gap: 10px; align-items: flex-start; }
+/* Hasta kartının Dondurulmuş örnekler kartı (v6.217): bölüm başlığı (sperm,
+   Excel kayıtları, başka merkeze taşıma) ve tüpün "Çöz" düğmeleri tüp
+   satırının altında, yazısının hizasında. */
+.kartbolum {
+  padding: 14px 14px 6px; border-top: 2px solid var(--line); margin-top: 6px;
+  font-size: 15px; font-weight: 700; color: var(--ink);
+}
+.tupeylem { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 0 14px 12px 36px; }
+.tupeylem form { margin: 0; }
+.tupeylem .dugme {
+  width: auto; min-height: 0; margin: 0; padding: 8px 12px; font-size: 13px;
+}
 .tasimasatir .renknokta { margin-top: 5px; }
 .tasimasatir .bilgi em {
   display: block; font-style: normal; font-size: 13px; color: var(--ink-2);

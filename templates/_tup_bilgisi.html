@@ -1,0 +1,15 @@
+{# Tüpün satırı: etiket, renk, tip; içerik ("2 embriyo · D5 (3AB-1BB)",
+   yumurtada "(5*MII)" -- Cryo Haritası'nın goblet satırı,
+   `yerlesim.tup_ayrintilari()`), dondurma günü; tanktaki yeri. Taşıma ekranı
+   (v6.205) ve hasta kartının "Dondurulmuş örnekler"i (v6.217) aynı yazımla.
+   `etiketler`: liste değerlerinin etiketleri (kod -> etiket); içe aktarılan
+   makro şablonun değişkenlerini görmüyor, o yüzden parametre. #}
+{% macro tup_bilgisi(x, etiketler) %}
+  <strong>{{ x.etiket }}</strong>{% if x.renk %} · {{ etiketler.get(x.renk, x.renk) }}{% endif %}
+  {%- if x.tip %} · {{ etiketler.get(x.tip, x.tip) }}{% endif %}
+  <em>{% if x.kategori == "sperm" %}{{ metin("sperm_dondurma") }}{% if x.sperm_sebep %} · {{ x.sperm_sebep }}{% endif %}
+    {%- else %}{{ icerik_sayisi(x.adet, icerik="yumurta" if x.yumurta else "embriyo") }}
+      {%- if x.parantez %} · {% if not x.yumurta and x.gun %}{{ x.gun }} {% endif %}{{ x.parantez }}{% endif %}{% endif %}
+    · {{ gg_aa_yyyy(x.dondurma) if x.dondurma else "—" }}</em>
+  <em>{% if x.tam_yol %}{{ x.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
+{% endmacro %}

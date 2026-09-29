@@ -3394,10 +3394,13 @@ def hasta_detay(request: Request, hasta_id: int):
          "es_bag_acik": es_dosya_no_var() and bool(sperm_kayitlari),
          "es_hata": ES_BAG_HATALARI.get(request.query_params.get("es_hata", "")),
          "yeniden": hastanin_yeniden_dondurmalari(cycles),
-         # Başka merkeze taşınanlar tedavi satırında (v6.205); Taşınma
-         # düğmesi tankta ya da taşınmış bir tüpü olan hastada.
+         # Başka merkeze taşınanlar tedavi satırında da (v6.205).
          "tasinan": hastanin_tasinan_tedavileri(hasta_id),
-         "tasima": tasima_sayilari(hasta_id)}
+         # Dondurulmuş örnekler: tanktakiler (Çöz), taşınanlar, Taşınma
+         # düğmesi, adı benzeyen Excel kayıtları (v6.217).
+         "dondurulmus": hastanin_dondurulmus_ornekleri(hasta, cycles),
+         "etiketler": {r["kod"]: r["etiket"] for r in db.sorgu(
+             "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}}
     )
 
 
@@ -9346,11 +9349,17 @@ def hastanin_tasima_tupleri(hasta_id: int) -> list:
     embriyo tüpünde `tedavi_id` (dondurmanın YAPILDIĞI tedavi,
     `db.vit_tedavisi()`), sperm tüpünde `sperm_id`; geri kalanı Cryo
     Haritası'nın goblet satırıyla aynı (`yerlesim.tup_ayrintilari()`: etiket,
-    renk, tip, içerik parantezi, gün)."""
-    if not gonderim_var():
-        return []
-    ortak = ("t.id, t.kategori, t.durum, t.konum_id, t.gonderim_zamani, "
-             "t.gonderim_yeri, t.gonderim_notu, k.tam_yol")
+    renk, tip, içerik parantezi, gün).
+
+    Hasta kartının "Dondurulmuş örnekler"i de bundan (v6.217): gönderim göçü
+    (goc_051) yoksa taşınmış tüp olamaz, yalnızca tanktakiler dönüyor --
+    taşıma ekranı o durumda zaten açılmıyor."""
+    gonderim = gonderim_var()
+    ortak = ("t.id, t.kategori, t.durum, t.konum_id, "
+             + ("t.gonderim_zamani, t.gonderim_yeri, t.gonderim_notu, " if gonderim else
+                "NULL AS gonderim_zamani, NULL AS gonderim_yeri, NULL AS gonderim_notu, ")
+             + "k.tam_yol")
+    durumlar = "('dolu', 'gonderildi')" if gonderim else "('dolu')"
     satirlar = [dict(r) for r in db.sorgu(
         f"SELECT {ortak}, MIN(o.zaman) AS dondurma, "
         f"  MIN({db.vit_tedavisi('o')}) AS tedavi_id, NULL AS sperm_id "
@@ -9359,7 +9368,7 @@ def hastanin_tasima_tupleri(hasta_id: int) -> list:
         "JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
         "LEFT JOIN konum k ON k.id = t.konum_id "
         "WHERE c.hasta_id = ? AND t.lab_id = ? AND t.kategori = 'embriyo' "
-        "  AND t.durum IN ('dolu', 'gonderildi') GROUP BY t.id",
+        f"  AND t.durum IN {durumlar} GROUP BY t.id",
         (hasta_id, db.LAB_ID))]
     satirlar += [dict(r) for r in db.sorgu(
         f"SELECT {ortak}, sd.dondurma_zamani AS dondurma, NULL AS tedavi_id, "
@@ -9367,12 +9376,111 @@ def hastanin_tasima_tupleri(hasta_id: int) -> list:
         "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
         "LEFT JOIN konum k ON k.id = t.konum_id "
         "WHERE sd.hasta_id = ? AND sd.lab_id = ? AND sd.iptal_mi = 0 "
-        "  AND t.durum IN ('dolu', 'gonderildi')", (hasta_id, db.LAB_ID))]
+        f"  AND t.durum IN {durumlar}", (hasta_id, db.LAB_ID))]
     ayrinti = yerlesim.tup_ayrintilari([r["id"] for r in satirlar])
     for r in satirlar:
         for k, v in ayrinti.get(r["id"], {}).items():
             r.setdefault(k, v)
     return satirlar
+
+
+def tankta_gruplari(tupler, sperm: bool = True) -> list:
+    """Tanktaki tüpler tedavi tedavi (dondurmanın yapıldığı tedavi), hasta
+    kartının sırasıyla (son tedavi üstte), sonra sperm (`sperm=False`: yok).
+    Taşıma ekranı ve hasta kartının "Dondurulmuş örnekler"i (v6.217) aynı
+    gruplamayı kullanıyor. -> [{"tedavi", "sperm", "tupler"}]"""
+    emb = [t for t in tupler if t["durum"] == "dolu" and t["kategori"] == "embriyo"]
+    idler = sorted({t["tedavi_id"] for t in emb if t["tedavi_id"]})
+    tedaviler = {}
+    if idler:
+        tedaviler = {r["id"]: dict(r) for r in db.sorgu(
+            "SELECT id, cycle_no, cycle_tipi, hasta_cycle_no FROM cycle WHERE id IN "
+            f"({','.join('?' * len(idler))})", tuple(idler))}
+    sonuc = []
+    for tid in sorted({t["tedavi_id"] for t in emb},
+                      key=lambda i: (-(tedaviler.get(i, {}).get("hasta_cycle_no") or 0),
+                                     -(i or 0))):
+        sonuc.append({"tedavi": tedaviler.get(tid), "sperm": False,
+                      "tupler": sorted((t for t in emb if t["tedavi_id"] == tid),
+                                       key=lambda t: t.get("etiket") or "")})
+    sp = [t for t in tupler if t["durum"] == "dolu" and t["kategori"] == "sperm"]
+    if sperm and sp:
+        sonuc.append({"tedavi": None, "sperm": True,
+                      "tupler": sorted(sp, key=lambda t: (t["dondurma"] or "",
+                                                          t.get("etiket") or ""))})
+    return sonuc
+
+
+def tasinan_gruplari(tupler) -> list:
+    """Başka merkeze taşınan tüpler, taşıma (gün + yer) başına, en yeni üstte
+    -- taşıma ekranı ve hasta kartı (v6.217)."""
+    gruplar = {}
+    for t in tupler:
+        if t["durum"] == "gonderildi":
+            gruplar.setdefault((t["gonderim_zamani"] or "", t["gonderim_yeri"] or ""),
+                               []).append(t)
+    return [{"gun": gun or None, "yer": yer or None,
+             "tupler": sorted(l, key=lambda t: (t["kategori"], t.get("etiket") or "")),
+             "notlar": sorted({t["gonderim_notu"] for t in l if t["gonderim_notu"]})}
+            for (gun, yer), l in sorted(gruplar.items(), key=lambda x: x[0][0],
+                                        reverse=True)]
+
+
+def tupun_cozme_secenekleri(tup_id: int, cycles) -> dict:
+    """Hasta kartında bir tüpün "Çöz" düğmeleri (v6.217): açık tedaviler ve
+    açılabilecek yeni tedavi tipleri.
+
+    Kural çözme ekranınınki (`thaw_tedavi_tipleri()`: embriyo tüpü FET /
+    FET (3→5) -- blastokist tüpü FET (3→5)'e kapalı, v6.156 -- yumurta tüpü
+    Yumurta Çözme). Yalnızca `db.FET_TIPLERI`: amacı çözme olan tedaviler;
+    Yumurta Dondurma'nın kendi çözmesi çözme ekranında kalıyor.
+    - `acik`: hastanın bu tüpe uygun, bitmemiş (aktif) ve henüz transferi
+      olmayan tedavileri -- aynı FET için ikinci tüp çözülürken yeni bir FET
+      açılmasın. Transferi yapılmış açık FET (bitir unutulmuş) önerilmiyor.
+    - `yeni`: `POST /cryo/tasiyici/{id}/yeni-tedavi`'nin kabul ettiği tipler.
+    - `ekran`: bunların hiçbiri yoksa (karışık tüp, çok eski şema) çözme
+      ekranına bağlantı; karar orada.
+    `cycles`: hastanın tedavileri, `_islem_gunleri_sql()`'in `transfer_gunu`
+    kolonuyla (hasta kartının sorgusu)."""
+    if not thaw_cycle_var():
+        return {"acik": [], "yeni": [], "ekran": True}
+    icerik = tasiyici_icerigi(tup_id)
+    if not icerik or len({r["hasta_id"] for r in icerik}) != 1:
+        return {"acik": [], "yeni": [], "ekran": True}
+    tipler = [t for t in thaw_tedavi_tipleri(icerik) if t in db.FET_TIPLERI]
+    acik = [c for c in cycles if c["durum"] == "aktif" and c["cycle_tipi"] in tipler
+            and not c["transfer_gunu"]]
+    return {"acik": acik, "yeni": tipler, "ekran": not tipler}
+
+
+def hastanin_dondurulmus_ornekleri(hasta, cycles) -> dict:
+    """Hasta kartının "Dondurulmuş örnekler" bölümü (v6.217).
+
+    Kullanıcının isteği: "Hasta kartının içinde hastanın dondurulmuş örnekleri
+    bölümü olsun. Orada örnekler görünsün çöz diyerek FET tedavisi
+    başlatabilelim. Ayrıca başka merkeze taşıma bu alanın altında olsun."
+
+    - `tankta`: tanktaki embriyo / yumurta tüpleri, dondurulduğu tedavi
+      tedavi (`tankta_gruplari()`: taşıma ekranının gruplaması, satır Cryo
+      Haritası'nın goblet satırı); her tüpte `cozme`
+      (`tupun_cozme_secenekleri()`). Sperm ayrı listede
+      (`hastanin_sperm_kayitlari()`: tedaviye bağlama onun satırında).
+    - `tasinan`: başka merkeze taşınanlar, embriyo ve sperm
+      (`tasinan_gruplari()`).
+    - `excel`: Cryo Haritası'nda adı bu hastanınkiyle aynı, programda tüpü
+      olmayan straw'lar (tankta). Hastaya BAĞLI DEĞİL (ad tek başına kanıt
+      değil, v6.205): çözülemez, kaydın sayfasında hastaya bağlanınca tüp
+      olur (v6.213).
+    - `tasima`: Taşınma ekranının düğmesi (tankta ya da taşınmış bir tüp var).
+    """
+    tupler = hastanin_tasima_tupleri(hasta["id"])
+    tankta = tankta_gruplari(tupler, sperm=False)
+    for g in tankta:
+        for t in g["tupler"]:
+            t["cozme"] = tupun_cozme_secenekleri(t["id"], cycles)
+    excel = [e for e in hastanin_excel_adaylari(hasta) if e["durum"] == "tankta"]
+    return {"tankta": tankta, "tasinan": tasinan_gruplari(tupler), "excel": excel,
+            "tasima": gonderim_var() and bool(tupler)}
 
 
 def hastanin_excel_adaylari(hasta) -> list:
@@ -9498,38 +9606,8 @@ def tasima_hasta(request: Request, hasta_id: int, hata: str = "",
     if not hasta:
         return RedirectResponse("/cryo/tasima", status_code=303)
     tupler = hastanin_tasima_tupleri(hasta_id)
-    idler = sorted({t["tedavi_id"] for t in tupler if t["tedavi_id"]})
-    tedaviler = {}
-    if idler:
-        tedaviler = {r["id"]: dict(r) for r in db.sorgu(
-            "SELECT id, cycle_no, cycle_tipi, hasta_cycle_no FROM cycle WHERE id IN "
-            f"({','.join('?' * len(idler))})", tuple(idler))}
-    # Tanktakiler tedavi tedavi, hasta kartının sırasıyla (son tedavi üstte),
-    # sonra sperm.
-    tankta = []
-    emb = [t for t in tupler if t["durum"] == "dolu" and t["kategori"] == "embriyo"]
-    for tid in sorted({t["tedavi_id"] for t in emb},
-                      key=lambda i: (-(tedaviler.get(i, {}).get("hasta_cycle_no") or 0),
-                                     -(i or 0))):
-        tankta.append({"tedavi": tedaviler.get(tid), "sperm": False,
-                       "tupler": sorted((t for t in emb if t["tedavi_id"] == tid),
-                                        key=lambda t: t.get("etiket") or "")})
-    sp = [t for t in tupler if t["durum"] == "dolu" and t["kategori"] == "sperm"]
-    if sp:
-        tankta.append({"tedavi": None, "sperm": True,
-                       "tupler": sorted(sp, key=lambda t: (t["dondurma"] or "",
-                                                           t.get("etiket") or ""))})
-    # Taşınanlar: taşıma (gün + yer) başına, en yeni üstte.
-    gruplar = {}
-    for t in tupler:
-        if t["durum"] == "gonderildi":
-            gruplar.setdefault((t["gonderim_zamani"] or "", t["gonderim_yeri"] or ""),
-                               []).append(t)
-    tasinan = [{"gun": gun or None, "yer": yer or None,
-                "tupler": sorted(l, key=lambda t: (t["kategori"], t.get("etiket") or "")),
-                "notlar": sorted({t["gonderim_notu"] for t in l if t["gonderim_notu"]})}
-               for (gun, yer), l in sorted(gruplar.items(), key=lambda x: x[0][0],
-                                           reverse=True)]
+    tankta = tankta_gruplari(tupler)
+    tasinan = tasinan_gruplari(tupler)
     # Eşin ayrı dosyası (v6.139 / v6.180): çiftin taşıması çoğu zaman birlikte;
     # sperm erkeğin kendi dosya numarasındaysa o dosyanın ekranına bağlantı.
     esler = []

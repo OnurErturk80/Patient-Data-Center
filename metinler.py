@@ -775,6 +775,30 @@ METINLER = {
                            "en": "{n} frozen sperm record(s)"},
     "mukerrer_es": {"tr": "eşi: {ad}", "en": "spouse: {ad}"},
     "dondurulmus_sperm": {"tr": "Dondurulmuş sperm", "en": "Frozen sperm"},
+    # Hasta kartının "Dondurulmuş örnekler" bölümü (v6.217).
+    "dondurulmus_ornekler": {"tr": "Dondurulmuş örnekler", "en": "Frozen samples"},
+    "tankta_embriyo_yok": {"tr": "Tankta embriyo ya da yumurta tüpü yok.",
+                           "en": "No embryo or oocyte straw in the tank."},
+    "coz_acik": {"tr": "Çöz · {no} ({tip}) için", "en": "Thaw · for {no} ({tip})"},
+    "coz_yeni": {"tr": "Çöz · yeni {tip}", "en": "Thaw · new {tip}"},
+    "coz_yeni_onay": {
+        "tr": "Bu tüp için yeni bir {tip} tedavisi açılacak ve çözme ekranına "
+              "geçilecek. Devam edilsin mi?",
+        "en": "A new {tip} cycle will be opened for this straw and the thaw "
+              "screen will open. Continue?"},
+    "coz_ekrani": {"tr": "Çözme ekranı", "en": "Thaw screen"},
+    "tasima_git": {"tr": "Başka merkeze taşı", "en": "Move to another centre"},
+    "dondurulmus_excel_baslik": {
+        "tr": "Cryo Haritası'nda adı benzeyen Excel kayıtları",
+        "en": "Cryo map Excel records with a similar name"},
+    "dondurulmus_excel_ipucu": {
+        "tr": "Programda tüpü olmayan straw'lar. Hastaya bağlı değiller (ad tek "
+              "başına kanıt değil), buradan çözülemez: kaydı açıp hastaya "
+              "bağlayınca tüp yukarıdaki listeye gelir.",
+        "en": "Straws with no straw record in the program. They are not linked "
+              "to the patient (a name alone is not proof) and cannot be thawed "
+              "from here: open the record and link it to the patient, the straw "
+              "then appears in the list above."},
     "sperm_dosya_esleme_ipucu": {
         "tr": "Bu kayıtlar dosya numarasıyla eşleşiyor — aynı dosya no, aynı "
               "hasta kaydı.",

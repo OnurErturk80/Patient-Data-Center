@@ -789,6 +789,24 @@ def _bulgu_notu(c, h) -> str:
                       for no, b in sorted(bulgular.items()) if b)
 
 
+def genel_bulgu_notu(cycle_id: int, cycle_tipi) -> str | None:
+    """Embriyoloji Özet'in NOTLAR kutusuna giren genel bulgular (v6.217,
+    kullanıcının isteği: "Genel bulgular ART lab formunda yorumlara yazıldığı
+    gibi Embriyoloji özet formunda notlara da yazılsın").
+
+    "Genel bulgular: Kalın zona, Sperm motilitesi kötü" -- ART Lab'ın
+    alttaki "Yorum:" satırının aynı metni (`db.tedavi_bulgu_metni()`), aynı
+    koşulla: yalnızca ICSI'si olan tipte (ICSI ekranının genel bulgu bölümü,
+    v6.200). Yumurta Dondurma'da genel bulgu yok; orada ART Lab'ın Yorum'u
+    yumurta yumurta bulguları yazıyor (`_bulgu_notu()`), NOTLAR'a girmiyor.
+    Önek Türkçe sabit: form iki dilde de Türkçe basılıyor (kurum belgesi).
+    Satır 68'de sarılı (`_sar()`, NOTLAR kutusu uzun satırı keser)."""
+    if "icsi" not in db.TIP_ASAMALARI.get(cycle_tipi, ()):
+        return None
+    metin = db.tedavi_bulgu_metni(cycle_id)
+    return _sar(f"Genel bulgular: {metin}") if metin else None
+
+
 def dondurma_notu(cycle_id: int, cycle_tipi, tupler) -> str | None:
     """NOTLAR kutusuna giren dondurma satırı (v6.135, kullanıcının isteği).
 
@@ -1231,7 +1249,8 @@ def ozet_verisi(cycle_id: int):
     # isteği) -- cycle iptal edilmediyse None, kutuya bir şey eklemiyor.
     iptal_notu = _iptal_notu(c)
     # Dondurulan embriyolar da NOTLAR'a (v6.135, kullanıcının isteği).
-    # Sıra klinik akış: protokol -> dondurma -> çözme -> iptal sebebi.
+    # Sıra klinik akış: protokol -> genel bulgular (ICSI, v6.217) ->
+    # dondurma -> çözme -> iptal sebebi.
     # Çözülen örneklerin satırı (v6.152) çözme notunun hemen önünde.
     # Embriyo bilgisi tek sefer (v6.159, kullanıcının isteği: "bazı
     # tedavilerde embriyo bilgisi iki kere yazılıyor"). Access'ten aktarılan
@@ -1244,6 +1263,7 @@ def ozet_verisi(cycle_id: int):
     # satırının hemen altında.
     tasinan_satiri = tasinan_notu(tasinan_tupler(
         f"{db.vit_tedavisi('v')} = ?", (cycle_id,)))
+    genel_bulgu = genel_bulgu_notu(cycle_id, c["cycle_tipi"])
     access_notu = "[Access kaydı" in (c["protokol_notu"] or "")
     don_notu = dondurma_notu(
         cycle_id, c["cycle_tipi"],
@@ -1349,7 +1369,7 @@ def ozet_verisi(cycle_id: int):
         # oranları (önceden yalnızca farklı etiketler: "Canlı").
         "cozdurme_viabilite": cozme_viabilitesi(cozulenler),
         "notlar": "\n".join(
-            p for p in (c["protokol_notu"], don_notu, tasinan_satiri,
+            p for p in (c["protokol_notu"], genel_bulgu, don_notu, tasinan_satiri,
                         cozulen_satiri, cozme_notu, iptal_notu)
             if p) or None,
         # --- başlık / künye ---
@@ -1846,7 +1866,7 @@ ALAN_ACIKLAMA = [
     ("tedavi_protokolu", "Tedavi protokolü"),
     ("fertilizasyon_yontemi", "Tedavi tipi (IVF/ICSI, FET, yumurta dondurma)"),
     ("onceki_tedavi", "Önceki tedavi sayısı"),
-    ("notlar", "Cycle'ın protokol notu"),
+    ("notlar", "Notlar: protokol notu, genel bulgular, dondurma, çözme, iptal sebebi"),
     ("bugun", "Formun basıldığı tarih"),
     ("laboratuvar", "Laboratuvarın adı"),
     ("— OPU ve yumurta —", None),

@@ -739,6 +739,34 @@ tarih alanına değil, bu artan sıra numarasına güven (aynı desen
 v6.144'ten beri numaranın kendisi tarih sırasından geliyor (aşağıdaki
 madde), yani bu sıralama zaten tarih sırası — NULL sorunu olmadan.
 
+**Hasta kartında "Dondurulmuş örnekler"** (v6.217, README v6.217; kullanıcı:
+"Hasta kartının içinde hastanın dondurulmuş örnekleri bölümü olsun. Orada
+örnekler görünsün çöz diyerek FET tedavisi başlatabilelim. Ayrıca başka
+merkeze taşıma bu alanın altında olsun"). Tek kart, kartın en üstünde:
+tanktaki embriyo / yumurta tüpleri (dondurulduğu tedavi tedavi), dondurulmuş
+sperm (v6.125'in ayrı kartı buraya taşındı), adı benzeyen Excel kayıtları,
+en altta başka merkeze taşıma (taşınanlar + Taşınma ekranının düğmesi;
+sayfanın dibindeki eski düğme kalktı). Hiçbiri yoksa kart basılmıyor.
+- **Veri tek yerden**: `hastanin_dondurulmus_ornekleri()` ->
+  `hastanin_tasima_tupleri()` (taşıma ekranının tüpleri; gönderim göçü
+  yoksa yalnızca tanktakiler), gruplama `tankta_gruplari()` /
+  `tasinan_gruplari()` (taşıma ekranıyla ortak), satır `_tup_bilgisi.html`
+  (taşıma ekranıyla ortak, Cryo Haritası'nın goblet satırı). İkinci bir tüp
+  sorgusu ya da satır şablonu yazma.
+- **"Çöz" kuralı çözme ekranınınki** (`tupun_cozme_secenekleri()` ->
+  `thaw_tedavi_tipleri()`): embriyo FET, cleavage tüpü ayrıca FET (3→5),
+  yumurta Yumurta Çözme; yalnızca `db.FET_TIPLERI` (Yumurta Dondurma'nın
+  kendi çözmesi çözme ekranında kaldı). Açık (aktif), tüpe uygun, transferi
+  yapılmamış tedavi varsa önce "Çöz · <no> için" (aynı FET'e ikinci tüp;
+  transferi yapılmış açık FET bitir unutulmuş olabilir, önerilmiyor), her
+  zaman "Çöz · yeni <tip>": `POST /cryo/tasiyici/{id}/yeni-tedavi` (v6.155)
+  tedaviyi açıp çözme formuna o tedavi seçili geçiyor; onay soruluyor. İzin
+  çözme ekranınınki ("thaw") ve tedavi açanınki ("cryo").
+- Taşınan sperm sperm listesinde tekrar edilmiyor (taşınanlarda). Excel
+  kayıtları hastaya BAĞLI DEĞİL (v6.205): çözülemez, satır kaydın sayfasına
+  bu hasta seçili açılıyor (`?hasta=`, v6.213 "Hastaya bağla").
+- Tedavi satırı taşımayı söylemeye devam ediyor (v6.205'in isteği).
+
 **Hasta kartının tedavi satırı işlemin gününü yazar** (v6.202, kullanıcı:
 "FET, FET 3-5, Yumurta çözme tedavilerinin altında tarih hasta kartında
 görünmüyor"). OPU'lu tipte OPU; `db.FET_TIPLERI`'nde çözme, transfer başka
@@ -1245,7 +1273,8 @@ kalıptan**: `form_kalip.json`.
     `Dondurulan: 2 embriyo, 5. gün, 2 tüp: (3AA) (3AA)` satırı ekleniyor.
     Satır `textwrap.fill(..., 68)` ile sarılı — kutu `white-space: pre`,
     uzun satır sarmaz, **sessizce kesilir** (v6.130'un kuralı). NOTLAR
-    sırası: protokol → dondurma → çözme → iptal sebebi.
+    sırası: protokol → genel bulgular (ICSI, v6.217) → dondurma → çözme →
+    iptal sebebi.
   - ART Lab'da FREEZE sütununun **dört kutusu** (satır 28-31) tüp tüp
     doluyor; dördü aşan tüpler **ikinci kâğıdın** aynı kutularında devam
     ediyor (v6.161, kullanıcının isteği; v6.160'a kadar son kutu "+3 tüp"
@@ -1396,6 +1425,14 @@ kalıptan**: `form_kalip.json`.
     yalnızca forma yazılmıyor.
   - Listeden kaldırılan (pasif) değer kayıtlıysa pencerede kendi çipiyle
     kalıyor (tuzak #6); sunucu yalnızca iki listenin değerlerini kabul ediyor.
+  - **Embriyoloji Özet'in NOTLAR'ına da** (v6.217, kullanıcının isteği:
+    "Genel bulgular ART lab formunda yorumlara yazıldığı gibi Embriyoloji
+    özet formunda notlara da yazılsın"): `formlar.genel_bulgu_notu()`,
+    "Genel bulgular: ..." (Türkçe sabit önek, 68'de sarılı), protokol
+    notunun hemen altında; ART Lab'ın Yorum'uyla aynı metin ve aynı koşul
+    (yalnızca ICSI'li tip). Yumurta Dondurma'nın yumurta yumurta bulguları
+    NOTLAR'a girmiyor (istenen genel bulgular). Yüklenen formların
+    `{{notlar}}`'ı da aynı metni alıyor.
 - **`formlar.py`'deki bir hücre koordinatı kalıptaki gerçek satırla eşleşmeyebilir
   — kalıba değil, o sabite bak.** `_OZET_NOTLAR = (70, 2)` NOTLAR kutusunu hiç
   bulamıyordu (v6.102'de bulundu): kalıpta satır 70 (0'dan sayarak) boş,
@@ -4024,6 +4061,17 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
     - Çekirdek bir akışın (tedavi açma gibi) INSERT/UPDATE'ine giren yeni
       kolonu her seferinde sormak daha da sağlam
       (`_planlanan_kolonu_var()`, `_elle_no_kolonu_var()`) — PRAGMA ucuz.
+
+16. **`|tojson` çift tırnaklı bir HTML niteliğinin içinde bozulur** (v6.217'de
+    bulundu). `onsubmit="return confirm({{ metin('x')|tojson }})"` metni
+    çift tırnakla basıyor (`"..."`), nitelik ilk tırnakta bitiyor: tarayıcı
+    yalnızca `return confirm(` görüyor, sözdizimi hatası -- **onay hiç
+    sorulmadan form gönderiliyordu** (taşıma, geri alma, tüpe / hastaya
+    bağlama dahil 13 onay; v6.180'den beri). Denetimde hata yoktu: sayfa
+    düzgün, yalnızca tarayıcının konsolunda "Unexpected end of input".
+    Nitelik **tek tırnakla** yazılır: `onsubmit='return confirm({{ ...|tojson }})'`
+    (`tojson` `'`'yu kaçırıyor). `<script>` içinde sorun yok. Onay yazarsan
+    tarayıcıda "vazgeç"e basıp formun gitmediğini gör.
 
 ---
 
