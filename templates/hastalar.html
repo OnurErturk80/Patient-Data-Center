@@ -179,7 +179,7 @@
 
 <div class="kart" style="margin-top:14px">
   <h2>{{ say("n_cycle_ayda", ay_sayisi) }}</h2>
-  {% for s in liste %}{{ cs.satir(s, "ay") }}
+  {% for s in liste %}{{ cs.satir(s, "ay", bulas=True) }}
   {% else %}
   <div class="bos">{{ metin("ayda_islem_yok") }}</div>
   {% endfor %}

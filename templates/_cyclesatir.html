@@ -16,8 +16,10 @@
    sayfasında görünüyorsa burada da adının yanında ufak kırmızı nokta ile
    bunu uyarsın"): tedavinin kendi kaydında bulaş hastalığı varsa adın
    yanında kırmızı nokta (`s.bulas`, `db.bulas_isaretle()`; tedavi ekranının
-   bandıyla aynı ölçü). Yalnızca ana ekranın üç kartı ve onların Tümü
-   sayfaları veriyor; hasta kayıtlarının ay listesi vermiyor (istenmedi). #}
+   bandıyla aynı ölçü). Ana ekranın üç kartı, onların Tümü sayfaları ve
+   v6.224'ten beri hasta kayıtlarının ay listesi veriyor (kullanıcı: "Ay
+   listesinde de olsun"). Aynı ekranın Tüm Hastalar'ı ve arama sonuçları bu
+   makroyu kullanmıyor, onlarda nokta yok. #}
 {% macro satir(s, kip="yapilacak", bulas=False) %}
 {#- Ay listesinde satırın yanında hastanın tüm kaydına giden ayrı bir düğme
     var (v6.31): satırın kendisi o ayki tedaviye götürüyor, düğme hastanın

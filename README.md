@@ -17443,10 +17443,40 @@ genişliğinde:
   6'sında). Bugün biten ve yaklaşan birer tedavi ayrıca hazırlandı; kartında
   noktalı çıktı.
 - "Tümü" sayfaları: 6, 9 ve 1 satırın hepsi doğru.
-- Hasta kayıtlarının ay listesi: 13 satır, nokta yok.
+- Hasta kayıtları ekranı: 13 satır (ay listesinin 7'si ve Tüm Hastalar), nokta yok.
 - İpucu kişi kişi, listenin etiketleriyle. Elle yazılan HTML metin olarak
   kaldı.
 - Nokta 10 px, renk doğru, sayfa yatay kaymıyor.
 - Noktalı satırın tedavisinde bant var, noktasızınkinde yok.
 - Kolonsuz (göçsüz) veritabanında beş liste kipi hatasız.
+- 84 ekran iki genişlikte hatasız.
+
+# v6.224 — Ay listesinde de bulaş noktası
+
+Kullanıcı: *"Ay listesinde de olsun."*
+
+Hasta kayıtları ekranının ay listesinde de bulaş hastalığı kayıtlı tedavinin
+satırında adın yanında aynı kırmızı nokta var (v6.223). Ölçü, renk ve ipucu
+ana ekranınkiyle aynı: tedavinin kendi kaydı, tedavi ekranının bandının
+ölçüsü. Aynı hastanın bir tedavisinde nokta olup ötekinde olmayabilir; her
+satır kendi tedavisini söylüyor.
+
+- Değişen tek satır `hastalar.html`: ay listesi `satir(s, "ay", bulas=True)`
+  çağırıyor. Liste zaten `cycle_listesi()`'nden geliyor, satırların bulaş
+  bilgisi v6.223'ten beri hazırdı; yeni sorgu yok.
+- **Aynı ekranın Tüm Hastalar'ı ve arama sonuçları noktasız.** Onlar hasta
+  satırı, tedavi satırı değil; noktanın ölçüsü bir tedavinin kaydı. İstenen
+  ay listesiydi.
+
+## Deneme
+
+Sahte veritabanında tarayıcıyla, masaüstü (1280 px) ve telefon (390 px)
+genişliğinde:
+
+- Ay listesi: 7 satırın noktaları tedavilerin kayıtlarıyla birebir (5
+  noktalı, 2 noktasız). İpucu ana ekranınkiyle aynı.
+- Nokta satırın içinde, yanındaki "Hasta kartı" düğmesine binmiyor. Çok uzun
+  bir adla 320 px'te nokta adın altına iniyor, sayfa yatay kaymıyor.
+- Tüm Hastalar'da nokta yok. Ana ekranın kartları ve Tümü sayfaları eskisi
+  gibi.
 - 84 ekran iki genişlikte hatasız.
