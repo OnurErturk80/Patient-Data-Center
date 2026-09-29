@@ -3777,20 +3777,23 @@ def bulas_formdan(form, eski=None):
     return sonuc
 
 
-# Tedavi formunun YAZMADIĞI, kendi aşama ekranında girilen saatler (v6.221,
-# kullanıcı: "tedavi ana sayfasındaki zamanlar bölümünde denüdasyon ve opu
-# tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor zaten",
-# ardından "Düzenle değimde hala görünüyorlar"). OPU saati OPU ekranında,
-# denüdasyon saati denüdasyon ekranında (`?duzenle=saat`). Form bu alanları
-# taşımıyor: taşımayan POST kolona DOKUNMUYOR -- düz okuma boş değer sanıp
-# kayıtlı saati silerdi (v6.220'ye kadar denüdasyon saati bunun için gizli
-# alanla dolaşıyordu; o da açık kalmış formun eski değerini aşama ekranında
-# sonradan yazılanın üzerine geri koyardı). Bu sürümden önce açılmış sekme
-# alanları taşıyor, eskisi gibi yazılıyor.
-ASAMA_EKRANI_ALANLARI = ("opu_zamani", "denudasyon_zamani")
-# Şablon bunu görmezse program `git pull`'dan sonra yeniden başlatılmamış
-# demektir (tuzak #5): eski kod formda olmayan saati SİLER, şablon o
-# durumda iki alanı gizli taşıyor (`cycle_form.html`).
+# Tedavi formunun YAZMADIĞI, kendi aşama ekranında girilen alanlar (v6.221
+# saatler, kullanıcı: "tedavi ana sayfasındaki zamanlar bölümünde denüdasyon
+# ve opu tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor
+# zaten", ardından "Düzenle değimde hala görünüyorlar"; v6.222 OPU'nun
+# yumurta sayıları: "Onlar da kalksın"). OPU saati ve sayıları OPU
+# ekranında, denüdasyon saati denüdasyon ekranında (`?duzenle=saat`). Form
+# bu alanları taşımıyor: taşımayan POST kolona DOKUNMUYOR -- düz okuma boş
+# değer sanıp kayıtlı değeri silerdi (v6.220'ye kadar denüdasyon saati bunun
+# için gizli alanla dolaşıyordu; o da açık kalmış formun eski değerini aşama
+# ekranında sonradan yazılanın üzerine geri koyardı). Bu sürümden önce
+# açılmış sekme alanları taşıyor, eskisi gibi yazılıyor.
+ASAMA_EKRANI_ALANLARI = ("opu_zamani", "denudasyon_zamani",
+                         "opu_sag_oosit", "opu_sol_oosit")
+# Şablon bir alanı burada görmezse program `git pull`'dan sonra yeniden
+# başlatılmamış demektir (tuzak #5): eski kod formda olmayan alanı SİLER,
+# şablon o durumda o alanı gizli taşıyor (`cycle_form.html`). Listeye alan
+# eklerken şablonun listesine de ekle.
 sablon.env.globals["asama_ekrani_alanlari"] = ASAMA_EKRANI_ALANLARI
 
 

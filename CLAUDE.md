@@ -651,6 +651,24 @@ kullanıcı: "Denüdasyon ekranı işlem yaparken sayfa kayıyor"). `.foto img`
 gelince altındaki "Kaydet / Atla" 267px kayıyordu (telefonda ölçüldü) --
 yanlış düğmeye basılır. Resmi olan yeni bir kutu yazarsan yerini ayır.
 
+**Fotoğraf görüntüleyicisi yakınlaştırır** (v6.222, `_buyutec.html`;
+kullanıcı: "masaüstünde mouse orta düğmesi ile scroll ile büyüyüp
+küçülsün. Alt kısımda artı eksi işareti ile de büyüyüp küçültsün. Mouse ile
+büyütülmüş fotoğraf tutulup kaydırılabilsin"). Tekerlek imlecin altındaki
+noktayı yerinde tutarak, alttaki − / + ekranın ortasından 1,5 kat; "Sığdır"
+çerçeveye sığan boya döndürüyor. En az sığan boy, en çok 8 kat. Büyütülmüş
+görüntü fareyle ya da parmakla sürükleniyor, telefonda iki parmakla da
+yakınlaşıyor. Başka fotoğrafa geçince, kapatıp açınca sığan boy. v6.221'e
+kadarki "Yakınlaştır / Sığdır" düğmesi (%220 + kaydırma çubuğu) kalktı.
+- Büyütme CSS `transform` (`transform-origin` açıkça, v6.109), çerçeve
+  `overflow: hidden`, `touch-action: none` (dokunmayı betik yönetiyor);
+  görüntünün kenarı çerçevenin içine girmiyor (`sinirla()`).
+- **`setPointerCapture` kullanma**: tıklamanın hedefi çerçeve olur, görüntüye
+  basmak katmanı kapatırdı. Hareket pencereden dinleniyor; sürüklemenin
+  sonundaki tıklama yutuluyor (`suruklendi`). Büyük değilken görüntünün
+  dışına tıklamak yine kapatıyor.
+- Çağrı değişmedi: `buyutecAc(idler, no, baslangic, onEki)` (v6.118).
+
 **Kayıttan sonra aşama ekranı kaldığı yerde açılır** (v6.208 denüdasyonda,
 v6.210'dan beri bütün aşama ekranlarında; kullanıcı: "kaydırma konumunun
 başka aşama ekranlarında da korunsun"). Tek yerde: `_kaydirma.html`, her aşama
@@ -884,25 +902,30 @@ tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor zaten"):
 ikisi kendi aşama ekranında giriliyor ve görünüyor, sırası zaman
 çizelgesinde. Kartta hCG (başka bir ekranda gösterilmiyor) ve planlanan
 tarih kaldı. Geri koyma.
-- **Tedavi formunda da yok** (v6.221, kullanıcı: "Düzenle değimde hala
-  görünüyorlar"): yeni tedavi ve Düzenle formunun "Zamanlar ve OPU" kartında
-  hCG ve OPU'nun yumurta sayıları kaldı (sayılar da OPU ekranında giriliyor
-  ama kullanıcı yalnızca saatleri söyledi -- sormadan kaldırma).
+- **Tedavi formunda da yok** (v6.221 saatler, kullanıcı: "Düzenle değimde
+  hala görünüyorlar"; v6.222 OPU'nun yumurta sayıları, "Onlar da kalksın"):
+  yeni tedavi ve Düzenle formunun kartı artık "Zamanlar" ve yalnızca hCG.
+  OPU saati ve sağ / sol sayılar OPU ekranında, denüdasyon saati denüdasyon
+  ekranında. Folikül sayısı formda (Stimülasyon kartı) kaldı: OPU ekranı
+  yalnızca gösteriyor, girmiyor.
 - **Formda olmayan alan yazılmıyor**: `app.ASAMA_EKRANI_ALANLARI`
-  (`opu_zamani`, `denudasyon_zamani`) POST'ta yoksa `cycle_formu_oku()`
-  sözlüğe koymuyor, iki rota yalnızca sözlükteki alanları yazıyor
-  (`[a for a in cycle_alanlari() if a in d]`) ve değişiklik geçmişine veriyor.
-  Düz okuma boş değer sanıp kayıtlı saati silerdi. Gizli alanla taşıma
-  (v6.220'ye kadar denüdasyon saati öyleydi) YAZMA: açık kalmış formun eski
-  saati aşama ekranında sonradan yazılanın üzerine geri gelir. Eski sekme
-  alanları taşıyor, eskisi gibi yazıyor. Tedavi formundan bir alanı daha
-  kaldırırsan listeye ekle.
+  (`opu_zamani`, `denudasyon_zamani`, `opu_sag_oosit`, `opu_sol_oosit`)
+  POST'ta yoksa `cycle_formu_oku()` sözlüğe koymuyor, iki rota yalnızca
+  sözlükteki alanları yazıyor (`[a for a in cycle_alanlari() if a in d]`) ve
+  değişiklik geçmişine veriyor. Düz okuma boş değer sanıp kayıtlı değeri
+  silerdi. Gizli alanla taşıma (v6.220'ye kadar denüdasyon saati öyleydi)
+  YAZMA: açık kalmış formun eski değeri aşama ekranında sonradan yazılanın
+  üzerine geri gelir. Eski sekme alanları taşıyor, eskisi gibi yazıyor.
+  Tedavi formundan bir alanı daha kaldırırsan listeye ekle.
 - **Tek gizli alan istisnası: yeniden başlatılmamış program** (tuzak #5).
   `git pull`'dan sonra şablon yeni, Python eski olursa eski kod formda
-  olmayan saati SİLER (denendi: iki saat de NULL oldu). Şablon Jinja global
-  `asama_ekrani_alanlari`'nı görmezse iki alanı gizli taşıyor. **Bir formdan
-  alan kaldırırken hep sor: eski Python bu şablonla ne yazar?** Kaldırılan
-  alanı düz okuyan eski bir kayıt rotası varsa aynı güvenceyi koy.
+  olmayan alanı SİLER (denendi: iki saat de NULL oldu). Şablon her alanı Jinja
+  global `asama_ekrani_alanlari`'nda arıyor; çalışan program o alanı
+  saymıyorsa (ya da ad hiç yoksa) yalnızca o alanı gizli taşıyor -- v6.221'in
+  programı sayıları saymıyor, v6.220'ninki hiçbirini (ikisi de denendi).
+  Listeye alan eklersen şablonun listesine de ekle. **Bir formdan alan
+  kaldırırken hep sor: eski Python bu şablonla ne yazar?** Kaldırılan alanı
+  düz okuyan eski bir kayıt rotası varsa aynı güvenceyi koy.
 
 **Cycle ekranında "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi
 yerini türetilmiş bir embriyoloji özetine bıraktı** (v6.110, kullanıcının

@@ -951,6 +951,7 @@ METINLER = {
     "onceki_kare": {"tr": "Önceki kare", "en": "Previous frame"},
     "sonraki_kare": {"tr": "Sonraki kare", "en": "Next frame"},
     "yakinlastir": {"tr": "Yakınlaştır", "en": "Zoom in"},
+    "uzaklastir": {"tr": "Uzaklaştır", "en": "Zoom out"},
     "sigdir": {"tr": "Sığdır", "en": "Fit"},
     "kare_n": {"tr": "Kare {n}", "en": "Frame {n}"},
     "bu_kareyi_sil": {"tr": "Bu kareyi sil", "en": "Delete this frame"},

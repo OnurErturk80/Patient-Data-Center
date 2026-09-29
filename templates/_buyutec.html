@@ -4,11 +4,13 @@
     <button type="button" class="bkapat" aria-label="{{ metin('kapat') }}">&times;</button>
   </div>
   <div class="bgovde" id="bgovde">
-    <img id="bimg" alt="">
+    <img id="bimg" alt="" draggable="false">
   </div>
   <div class="bbar">
     <button type="button" id="bonce" aria-label="{{ metin('onceki_kare') }}">&#8249;</button>
-    <button type="button" id="byakin" class="byakin">{{ metin("yakinlastir") }}</button>
+    <button type="button" id="bkucult" aria-label="{{ metin('uzaklastir') }}" title="{{ metin('uzaklastir') }}">&minus;</button>
+    <button type="button" id="bsigdir" class="bsigdir">{{ metin("sigdir") }}</button>
+    <button type="button" id="bbuyut" aria-label="{{ metin('yakinlastir') }}" title="{{ metin('yakinlastir') }}">+</button>
     <button type="button" id="bsonra" aria-label="{{ metin('sonraki_kare') }}">&#8250;</button>
   </div>
 </div>
@@ -21,21 +23,61 @@
   var bilgi = document.getElementById('bbilgi');
   var once = document.getElementById('bonce');
   var sonra = document.getElementById('bsonra');
-  var yakinDugme = document.getElementById('byakin');
-  var idler = [], sira = 0, no = '', yakin = false, onEki = '/dosya/';
+  var buyutDugme = document.getElementById('bbuyut');
+  var kucultDugme = document.getElementById('bkucult');
+  var sigdirDugme = document.getElementById('bsigdir');
+  var idler = [], sira = 0, no = '', onEki = '/dosya/';
   // Cagiran ya tam etiket veriyor ("Blastokist 3") ya da sadece numara ("3").
   // Numaraysa sayfanin ornek adiyla tamamlanir -- eskiden burada "Oosit" sabit
   // yaziyordu, blastokist ekraninda da Ingilizcede de yanlisti.
   var AD = {{ (buyutec_ad if buyutec_ad is defined else metin("ornek_ad"))|tojson }};
   function etiket() { return /^\d+$/.test(no) ? AD + ' ' + no : no; }
 
-  function yakinAyarla(durum) {
-    yakin = durum;
-    img.classList.toggle('yakin', yakin);
-    yakinDugme.textContent = yakin ? {{ metin("sigdir")|tojson }}
-      : {{ metin("yakinlastir")|tojson }};
-    if (!yakin) { govde.scrollTop = 0; govde.scrollLeft = 0; }
+  // ---- Yakınlaştırma (v6.222, kullanıcı: "masaüstünde mouse orta düğmesi
+  // ile scroll ile büyüyüp küçülsün. Alt kısımda artı eksi işareti ile de
+  // büyüyüp küçültsün. Mouse ile büyütülmüş fotoğraf tutulup kaydırılabilsin").
+  // Tekerlek imlecin altındaki noktayı yerinde tutarak, − / + ekranın
+  // ortasından büyütüp küçültüyor; büyütülmüş görüntü fareyle ya da
+  // parmakla sürükleniyor, telefonda iki parmakla da yakınlaşıyor.
+  // Ölçek 1 = çerçeveye sığan boy. Görüntü CSS `transform` ile büyüyor
+  // (merkezden, `transform-origin` CSS'te açıkça yazılı -- v6.109'un dersi);
+  // büyütülünce kenarı çerçevenin içine girmiyor (`sinirla()`).
+  var EN_COK = 8, ADIM = 1.5;
+  var olcek = 1, tx = 0, ty = 0;
+
+  function merkez() {
+    var r = govde.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
+  function sinirla() {
+    var yx = Math.max(0, (img.offsetWidth * olcek - govde.clientWidth) / 2);
+    var yy = Math.max(0, (img.offsetHeight * olcek - govde.clientHeight) / 2);
+    tx = Math.min(yx, Math.max(-yx, tx));
+    ty = Math.min(yy, Math.max(-yy, ty));
+  }
+  function uygula(akici) {
+    if (olcek < 1.01) { olcek = 1; }
+    sinirla();
+    img.style.transition = akici ? 'transform .15s ease-out' : 'none';
+    img.style.transform = olcek === 1 ? ''
+      : 'translate(' + tx + 'px,' + ty + 'px) scale(' + olcek + ')';
+    govde.classList.toggle('buyuk', olcek > 1);
+    kucultDugme.disabled = sigdirDugme.disabled = olcek === 1;
+    buyutDugme.disabled = olcek >= EN_COK;
+  }
+  // Ölçek değişirken (x, y) ekran noktasının altındaki görüntü noktası
+  // yerinde kalıyor.
+  function olcekle(yeni, x, y, akici) {
+    yeni = Math.min(EN_COK, Math.max(1, yeni));
+    var m = merkez(), ux = x - m.x, uy = y - m.y, k = yeni / olcek;
+    tx = ux - k * (ux - tx);
+    ty = uy - k * (uy - ty);
+    olcek = yeni;
+    uygula(akici);
+  }
+  function ortadan(yeni) { var m = merkez(); olcekle(yeni, m.x, m.y, true); }
+  function sifirla() { olcek = 1; tx = 0; ty = 0; uygula(false); }
+
   function ciz() {
     img.src = onEki + idler[sira];
     img.alt = etiket();
@@ -44,10 +86,12 @@
       : etiket();
     once.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
     sonra.style.visibility = idler.length > 1 ? 'visible' : 'hidden';
-    yakinAyarla(false);
+    sifirla();
   }
   function kapat() {
     kat.hidden = true; img.src = '';
+    noktalar = {}; surukleme = null; cimdik = null;
+    govde.classList.remove('suruk');
     document.body.classList.remove('kilitli');
   }
 
@@ -59,9 +103,9 @@
     idler = yeniIdler; no = yeniNo; sira = baslangic || 0;
     onEki = yeniOnEki || '/dosya/';
     if (!idler.length) return;
-    ciz();
     kat.hidden = false;
     document.body.classList.add('kilitli');
+    ciz();
   };
 
   once.addEventListener('click', function () {
@@ -70,9 +114,89 @@
   sonra.addEventListener('click', function () {
     sira = (sira + 1) % idler.length; ciz();
   });
-  yakinDugme.addEventListener('click', function () { yakinAyarla(!yakin); });
+  buyutDugme.addEventListener('click', function () { ortadan(olcek * ADIM); });
+  kucultDugme.addEventListener('click', function () { ortadan(olcek / ADIM); });
+  sigdirDugme.addEventListener('click', function () {
+    olcek = 1; tx = 0; ty = 0; uygula(true);
+  });
+  img.addEventListener('load', function () { uygula(false); });
+  window.addEventListener('resize', function () { if (!kat.hidden) uygula(false); });
+
+  // Fare tekerleği (dokunmatik yüzeyde iki parmak / Ctrl+kaydırma da bu olay).
+  govde.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? govde.clientHeight : 1);
+    dy = Math.max(-300, Math.min(300, dy));
+    olcekle(olcek * Math.exp(-dy * 0.002), e.clientX, e.clientY, false);
+  }, { passive: false });
+
+  // Sürükleme ve iki parmakla yakınlaştırma. İşaretçi yakalanmıyor
+  // (`setPointerCapture` tıklamanın hedefini çerçeveye çevirir, görüntüye
+  // basmak katmanı kapatırdı); hareket pencereden dinleniyor.
+  var noktalar = {}, surukleme = null, cimdik = null, suruklendi = false;
+  function dokunanlar() { return Object.keys(noktalar).map(function (k) { return noktalar[k]; }); }
+  function suruklemeBasla(n) {
+    surukleme = { x: n.x, y: n.y, tx: tx, ty: ty };
+    govde.classList.add('suruk');
+  }
+  function cimdikBasla() {
+    var p = dokunanlar();
+    cimdik = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1, olcek: olcek,
+               x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2, tx: tx, ty: ty };
+    surukleme = null;
+  }
+  function birak(e) {
+    if (!noktalar[e.pointerId]) return;
+    delete noktalar[e.pointerId];
+    var kalan = dokunanlar();
+    cimdik = null;
+    if (kalan.length === 1 && olcek > 1) suruklemeBasla(kalan[0]);   // bir parmak kaldıysa kaydırmaya devam
+    else if (!kalan.length || olcek === 1) { surukleme = null; govde.classList.remove('suruk'); }
+  }
+  govde.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    noktalar[e.pointerId] = { x: e.clientX, y: e.clientY };
+    suruklendi = false;
+    var p = dokunanlar();
+    if (p.length === 2) cimdikBasla();
+    else if (p.length === 1 && olcek > 1) suruklemeBasla(p[0]);
+    // Fareyle basınca tarayıcının kendi resim sürüklemesi / metin seçimi başlamasın.
+    if (e.pointerType === 'mouse') e.preventDefault();
+  });
+  window.addEventListener('pointermove', function (e) {
+    var n = noktalar[e.pointerId];
+    if (!n) return;
+    if (e.pointerType === 'mouse' && e.buttons === 0) { birak(e); return; }   // tuş pencere dışında bırakıldı
+    n.x = e.clientX; n.y = e.clientY;
+    if (cimdik) {
+      var p = dokunanlar();
+      if (p.length < 2) return;
+      var d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1;
+      var x = (p[0].x + p[1].x) / 2, y = (p[0].y + p[1].y) / 2;
+      var yeni = Math.min(EN_COK, Math.max(1, cimdik.olcek * d / cimdik.d));
+      var m = merkez(), k = yeni / cimdik.olcek;
+      // Başta parmakların ortasındaki görüntü noktası, parmakların bugünkü ortasında.
+      tx = (x - m.x) - k * (cimdik.x - m.x - cimdik.tx);
+      ty = (y - m.y) - k * (cimdik.y - m.y - cimdik.ty);
+      olcek = yeni;
+      suruklendi = true;
+      uygula(false);
+    } else if (surukleme) {
+      var dx = n.x - surukleme.x, dy = n.y - surukleme.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) suruklendi = true;
+      tx = surukleme.tx + dx; ty = surukleme.ty + dy;
+      uygula(false);
+    }
+  });
+  window.addEventListener('pointerup', birak);
+  window.addEventListener('pointercancel', birak);
+
   document.querySelector('.bkapat').addEventListener('click', kapat);
-  govde.addEventListener('click', function (e) { if (e.target === govde) kapat(); });
+  govde.addEventListener('click', function (e) {
+    // Sürüklemenin sonundaki tıklama katmanı kapatmasın.
+    if (suruklendi) { suruklendi = false; return; }
+    if (e.target === govde) kapat();
+  });
   document.addEventListener('keydown', function (e) {
     if (kat.hidden) return;
     if (e.key === 'Escape') kapat();

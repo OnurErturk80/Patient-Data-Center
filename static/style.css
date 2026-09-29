@@ -722,37 +722,43 @@ body.kilitli { overflow: hidden; }
   background: none; border: 0; color: #cfd8de; cursor: pointer;
 }
 
+/* Yakinlastirma betikte (v6.222, `_buyutec.html`): goruntu transform ile
+   buyuyor, cerceve kaydirma cubugu acmiyor. `touch-action: none` dokunmayla
+   kaydirmayi ve iki parmakla yakinlastirmayi betige birakiyor. */
 .buyut .bgovde {
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   padding: 8px;
   min-height: 0;               /* grid icinde tasmayi onler */
+  touch-action: none;
 }
+.buyut .bgovde.buyuk { cursor: grab; }
+.buyut .bgovde.suruk { cursor: grabbing; }
 .buyut img {
   max-width: 100%; max-height: 100%;
   object-fit: contain;
   border-radius: 4px;
   margin: auto;
-}
-.buyut img.yakin {
-  max-width: none; max-height: none;
-  width: 220%; height: auto;
-  cursor: grab;
+  transform-origin: 50% 50%;   /* merkezden -- v6.109: acikca yaz */
+  -webkit-user-select: none; user-select: none;
+  -webkit-user-drag: none;
 }
 
 .buyut .bbar {
-  display: flex; align-items: center; justify-content: center; gap: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  flex-wrap: wrap;             /* cok dar ekranda tasmasin, alt satira insin */
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
 }
 .buyut .bbar button {
-  min-width: 52px; height: 52px; font-size: 28px; line-height: 1;
-  background: rgba(255,255,255,.10); border: 0; border-radius: 26px;
+  min-width: 48px; height: 48px; font-size: 28px; line-height: 1;
+  background: rgba(255,255,255,.10); border: 0; border-radius: 24px;
   color: #fff; cursor: pointer; font-family: inherit;
+  -webkit-appearance: none; appearance: none;   /* tuzak #12 */
 }
 .buyut .bbar button:active { background: rgba(255,255,255,.20); }
-.buyut .bbar .byakin {
-  font-size: 15px; font-weight: 600; padding: 0 20px; border-radius: 26px;
+.buyut .bbar button:disabled { opacity: .35; cursor: default; }
+.buyut .bbar .bsigdir {
+  font-size: 15px; font-weight: 600; padding: 0 16px; border-radius: 24px;
 }
 
 /* --- bilgi karti ------------------------------------------------------

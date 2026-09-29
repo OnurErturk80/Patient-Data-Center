@@ -186,38 +186,29 @@
   </div>
 
   <div class="kart">
-    <h2>{{ metin("zamanlar_ve_opu") }}</h2>
+    <h2>{{ metin("zamanlar") }}</h2>
     <div class="alan">
       <label for="hcg_zamani">{{ metin("hcg_zamani") }}</label>
       <input id="hcg_zamani" name="hcg_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('hcg_zamani') }}">
       <div class="ipucu">{{ metin("hcg_zamani_ipucu") }}</div>
     </div>
-    {# OPU ve denüdasyon saati bu formda YOK (v6.221, v6.220'nin tedavi ekranı
-       kararının formdaki hali): kendi aşama ekranlarında giriliyor. Alanı
-       geri koyma, gizli alan da koyma -- sunucu formda olmayan bu iki alana
-       dokunmuyor (`app.ASAMA_EKRANI_ALANLARI`), gizli alan açık kalmış
-       formun eski saatini aşama ekranında sonradan yazılanın üzerine geri
-       koyardı. TEK İSTİSNA: `asama_ekrani_alanlari` tanımlı değilse şablon
-       diskten yeni, program eski (`git pull`'dan sonra yeniden başlatılmadı,
-       tuzak #5) -- eski kod formda olmayan saati silerdi, o yüzden yalnızca
-       o durumda gizli taşınıyor. #}
-    {% if asama_ekrani_alanlari is not defined %}
-    <input type="hidden" name="opu_zamani" value="{{ dz('opu_zamani') }}">
-    <input type="hidden" name="denudasyon_zamani" value="{{ dz('denudasyon_zamani') }}">
+    {# OPU'nun saati ve yumurta sayıları (sağ / sol over), denüdasyon saati bu
+       formda YOK (v6.221 saatler, v6.222 sayılar; kullanıcı: "Düzenle değimde
+       hala görünüyorlar", "Onlar da kalksın"): kendi aşama ekranlarında
+       giriliyor. Alanı geri koyma, gizli alan da koyma -- sunucu formda
+       olmayan bu alanlara dokunmuyor (`app.ASAMA_EKRANI_ALANLARI`), gizli
+       alan açık kalmış formun eski değerini aşama ekranında sonradan
+       yazılanın üzerine geri koyardı.
+       TEK İSTİSNA: çalışan program bir alanı `asama_ekrani_alanlari`'nda
+       saymıyorsa (ya da ad hiç tanımlı değilse) şablon diskten yeni, program
+       eski (`git pull`'dan sonra yeniden başlatılmadı, tuzak #5): eski kod
+       formda olmayan alanı boş sayıp SİLER. Yalnızca o alan, yalnızca o
+       durumda gizli taşınıyor. #}
+    {% for alan in ("opu_zamani", "denudasyon_zamani", "opu_sag_oosit", "opu_sol_oosit") %}
+    {% if asama_ekrani_alanlari is not defined or alan not in asama_ekrani_alanlari %}
+    <input type="hidden" name="{{ alan }}" value="{{ dz(alan) if alan.endswith('_zamani') else d(alan) }}">
     {% endif %}
-    <div class="alan" style="border:0;padding-bottom:0">
-      <div class="ipucu">{{ metin("opu_oosit_sayilari") }}</div>
-    </div>
-    <div class="alan ikili">
-      <div>
-        <label for="opu_sag_oosit">{{ metin("sag_overden") }}</label>
-        <input id="opu_sag_oosit" name="opu_sag_oosit" type="number" inputmode="numeric" min="0" value="{{ d('opu_sag_oosit') }}">
-      </div>
-      <div>
-        <label for="opu_sol_oosit">{{ metin("sol_overden") }}</label>
-        <input id="opu_sol_oosit" name="opu_sol_oosit" type="number" inputmode="numeric" min="0" value="{{ d('opu_sol_oosit') }}">
-      </div>
-    </div>
+    {% endfor %}
   </div>
 
   <button class="dugme" type="submit">{{ metin("degisiklikleri_kaydet") if duzenleme else metin("cycle_i_kaydet") }}</button>

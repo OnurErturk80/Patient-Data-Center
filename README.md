@@ -17309,3 +17309,95 @@ Sahte veritabanında tarayıcıyla:
   bugünkü şablonla korundu (yukarıda).
 - 84 ekran, telefon ve masaüstü genişliğinde hatasız. Tedavi formları iki
   genişlikte yatay kaymıyor.
+
+# v6.222 — Tedavi formunda yumurta sayıları da yok; fotoğraf yakınlaştırma
+
+Kullanıcı, v6.221'den sonra: *"Onlar da kalksın. Bir de yüklenen fotoğraflar
+masaüstünde mouse orta düğmesi ile scroll ile büyüyüp küçülsün. Alt kısımda
+artı eksi işareti ile de büyüyüp küçültsün. Mouse ile büyütülmüş fotoğraf
+tutulup kaydırılabilsin."*
+
+## Tedavi formu
+
+OPU'da sağ ve sol overden toplanan yumurta sayıları da yeni tedavi ve Düzenle
+formundan kalktı. Sayılar OPU ekranında giriliyor. Kartın adı "Zamanlar ve
+OPU" yerine "Zamanlar" oldu; kartta yalnızca hCG saati var. Folikül sayısı
+formda kaldı (Stimülasyon kartı): OPU ekranı onu yalnızca gösteriyor,
+girmiyor.
+
+Veri tarafı v6.221'in kuralı. İki sayı `ASAMA_EKRANI_ALANLARI`'na eklendi:
+form onları taşımıyorsa kaydetmek bu kolonlara dokunmuyor. Form açıkken OPU
+ekranında değişen sayı da formun kaydıyla geri gitmiyor.
+
+Yeniden başlatılmamış programa karşı güvence artık alan alan çalışıyor. Şablon
+her alanı çalışan programın listesinde arıyor. Listede olmayan alanı gizli
+alanla taşıyor, çünkü o programın kodu formda olmayan alanı boş sayıp siler.
+Böylece v6.221'in programı (listesinde yalnızca saatler var) sayıları, v6.220
+ve öncesinin programı dört alanı da gizli taşıyor.
+
+## Fotoğraf görüntüleyicisi
+
+Fotoğrafa basınca açılan tam ekran görüntüleyici (`_buyutec.html`) bütün
+ekranlarda ortak: aşama ekranları, tedavi ekranının Doktor Notu, taşıyıcı
+sayfası, sperm dondurma onamları.
+
+- **Fare tekerleği** büyütüp küçültüyor. İmlecin altındaki nokta yerinde
+  kalıyor; baktığınız yer kaçmıyor. Dokunmatik yüzeyde iki parmakla kaydırma
+  da aynı olay.
+- **Alttaki − ve +** ekranın ortasından 1,5 kat küçültüp büyütüyor. Aralarındaki
+  **Sığdır** görüntüyü ekrana sığan boyuna döndürüyor.
+- En az ekrana sığan boy, en çok 8 kat. Sığan boydayken − ve Sığdır, 8 katta +
+  soluk görünüyor.
+- **Büyütülmüş görüntü fareyle tutulup sürükleniyor** (imleç el oluyor). Telefonda
+  parmakla sürükleniyor, iki parmakla da büyüyüp küçülüyor. Görüntünün
+  kenarı ekranın içine kaçmıyor.
+- Önceki / sonraki fotoğrafa geçince ve görüntüleyici yeniden açılınca sığan
+  boy. Büyük değilken görüntünün dışına basmak eskisi gibi kapatıyor.
+  Sürüklemenin sonunda fareyi bırakmak kapatmıyor.
+
+Eski "Yakınlaştır / Sığdır" düğmesi kalktı. O düğme görüntüyü tek bir boyda
+(%220) açıp kaydırma çubuğuyla gezdiriyordu; − / + ile tekerlek onun yerini
+aldı.
+
+Nasıl yapıldı: görüntü CSS `transform` ile büyüyor. `transform-origin`
+açıkça yazıldı (v6.109'un dersi). Görüntünün çerçevesi kaydırma çubuğu
+açmıyor. Dokunmayı betik yönetiyor (`touch-action: none`). Tıklama ya da
+sürükleme işaretçiyi yakalamıyor (`setPointerCapture`): yakalanan tıklamanın
+hedefi çerçeve olurdu, görüntüye basmak görüntüleyiciyi kapatırdı.
+
+## Deneme
+
+Sahte veritabanında tarayıcıyla:
+
+- Tedavi formu:
+  - Yeni tedavi ve Düzenle formunda dört alanın (OPU saati, denüdasyon
+    saati, iki sayı) hiçbiri yok.
+  - Kaydetmek dördünü de değiştirmedi. Değişiklik geçmişine yalnızca
+    değiştirilen not yazıldı.
+  - Açık formun kaydı OPU ekranında değişen sayıyı ezmedi. Eski sekme
+    sayıları yazdı.
+  - Yeni tedavi dört alan boş açıldı. OPU ekranında girilen saat ve sayılar
+    Düzenle kaydından sonra yerinde; tedavi ekranının özeti toplananı
+    gösteriyor.
+  - Yeni şablonlar yeniden başlatılmamış v6.221 ve v6.220 programıyla
+    çalıştırıldı. v6.221'in programında iki sayı, v6.220'ninkinde dört alan
+    gizli taşındı. Kaydetmek ikisinde de dördünü korudu.
+- Görüntüleyici, masaüstünde (1280 px) 22 kontrol:
+  - Tekerlek büyüttü; imlecin altındaki nokta yerinde kaldı (görüntüdeki
+    yeri 0,5451 → 0,5451).
+  - Sürükleme görüntüyü fare kadar kaydırdı. Uzağa sürüklenince kenar
+    çerçevede durdu.
+  - Bırakmak da görüntüye tıklamak da kapatmadı.
+  - + 1,5 / 2,25 kat verdi, − ve Sığdır geri döndürdü. 8 katta + soluk oldu.
+    Tekerlekle küçültmek sığan boyda durdu.
+  - Dışarıya tıklamak ve Escape kapattı.
+  - Önceki / sonraki fotoğrafa geçince yakınlaştırma sıfırlandı (aşama ekranı
+    ve Doktor Notu).
+- Görüntüleyici, telefonda (390 px, dokunma):
+  - + düğmesi çalıştı.
+  - Parmakla sürükleme kaydırdı. Görüntünün boyu ekrana sığarken dikeyde
+    kaymadı.
+  - İki parmakla açmak parmak aralığı kadar (3 kat) büyüttü; parmakların
+    ortası yerinde kaldı.
+  - Alt çubuk tek satır, taşmadı.
+- 84 ekran, telefon ve masaüstü genişliğinde hatasız.
