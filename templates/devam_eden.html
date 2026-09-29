@@ -10,7 +10,7 @@
    içeriği. #}
 <div class="kart" style="margin-top:16px">
   <h2>{{ say("n_devam_eden", liste|length) }}</h2>
-  {% for s in liste %}{{ cs.satir(s) }}
+  {% for s in liste %}{{ cs.satir(s, bulas=True) }}
   {% else %}
   <div class="bos">{{ metin("yapilacak_yok") }}</div>
   {% endfor %}

@@ -476,11 +476,13 @@ def _bulas_listesi():
                  (LAB_ID, BULAS_LISTESI))
 
 
-def bulas_etiketleri(kodlar, diger=None):
+def bulas_etiketleri(kodlar, diger=None, liste=None):
     """Seçilen hastalıkların ekrandaki adları, listenin sırasıyla; "Diğer"
     en sonda. Listeden kaldırılmış (pasif) değer etiketiyle, listede hiç
-    olmayan kod koduyla geliyor (tuzak #6: kayıtlı değer kaybolmasın)."""
-    liste = _bulas_listesi() if kodlar else []
+    olmayan kod koduyla geliyor (tuzak #6: kayıtlı değer kaybolmasın).
+    `liste`: `_bulas_listesi()` bir kez okunduysa (`bulas_isaretle()`)."""
+    if liste is None:
+        liste = _bulas_listesi() if kodlar else []
     sira = {r["kod"]: i for i, r in enumerate(liste)}
     etiket = {r["kod"]: r["etiket"] for r in liste}
     adlar = [etiket.get(k, k)
@@ -569,6 +571,34 @@ def bulas_uyarilari(cycle_id=None, hasta_id=None):
     except (sqlite3.Error, ValueError, TypeError):
         logging.getLogger(__name__).exception("Bulaş uyarısı okunamadı")
     return []
+
+
+def bulas_isaretle(satirlar):
+    """Tedavi listesinin satırlarına (sözlük; `bulas_kadin` / `bulas_erkek`
+    kolonlarıyla) `bulas` ekler: hastalığı OLAN kişiler, `bulas_uyarilari(
+    cycle_id=)` biçiminde (v6.223, ana ekranın listelerinde adın yanındaki
+    kırmızı nokta). O işlevin sorgusuz hali -- liste satır başına sorgu
+    atmasın; ölçü yine tedavinin kendi kaydı, tedavi ekranının bandı neyi
+    gösteriyorsa nokta onu söylüyor. Hastalık listesi yalnızca hastalıklı
+    bir satır varsa, bir kez okunuyor. Kolonu olmayan satır (göç yok) boş
+    liste alır; hata ana ekranı bozmasın, boş kalır."""
+    liste = None
+    for s in satirlar:
+        s["bulas"] = []
+        try:
+            for kisi in BULAS_KISILER:
+                durum, kodlar, diger = bulas_oku(s.get(f"bulas_{kisi}"))
+                if durum != "var":
+                    continue
+                if liste is None:
+                    liste = _bulas_listesi()
+                s["bulas"].append({"kisi": kisi, "tedavi": None,
+                                   "hastaliklar": bulas_etiketleri(
+                                       kodlar, diger, liste)})
+        except sqlite3.Error:
+            logging.getLogger(__name__).exception("Bulaş işareti okunamadı")
+            s["bulas"] = []
+    return satirlar
 
 
 def klinik_gebelik_sql(g: str = "g") -> str:

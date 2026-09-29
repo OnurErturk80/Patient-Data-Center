@@ -10,8 +10,15 @@
    altında (v6.23). Sıralama CSS'te, burada değil.
 
    Bağlantı **cycle'a** gider, hastaya değil: listeye bakan kişi o tedavinin
-   nerede kaldığını görmek istiyor, hastanın geçmişini değil. #}
-{% macro satir(s, kip="yapilacak") %}
+   nerede kaldığını görmek istiyor, hastanın geçmişini değil.
+
+   `bulas=True` (v6.223, kullanıcı: "Bulaş kayıtlı hasta programın ana
+   sayfasında görünüyorsa burada da adının yanında ufak kırmızı nokta ile
+   bunu uyarsın"): tedavinin kendi kaydında bulaş hastalığı varsa adın
+   yanında kırmızı nokta (`s.bulas`, `db.bulas_isaretle()`; tedavi ekranının
+   bandıyla aynı ölçü). Yalnızca ana ekranın üç kartı ve onların Tümü
+   sayfaları veriyor; hasta kayıtlarının ay listesi vermiyor (istenmedi). #}
+{% macro satir(s, kip="yapilacak", bulas=False) %}
 {#- Ay listesinde satırın yanında hastanın tüm kaydına giden ayrı bir düğme
     var (v6.31): satırın kendisi o ayki tedaviye götürüyor, düğme hastanın
     bütün geçmişine. İç içe bağlantı olamayacağı için ikisi kardeş, sarmalayan
@@ -19,6 +26,11 @@
 {% if kip == "ay" %}<div class="satirikili">{% endif %}
 <a class="satir hasta" href="/cycle/{{ s.id }}">
   <div class="ad">{{ s.ad_soyad }}
+    {%- if bulas and s.bulas %}
+      {%- set _ipucu -%}
+        {{ metin("bulas_hastaligi") }}: {% for k in s.bulas %}{{ metin("bulas_" ~ k.kisi) }}: {{ k.hastaliklar|join(", ") }}{% if not loop.last %} · {% endif %}{% endfor %}
+      {%- endset %}<span class="bulasnokta" role="img" aria-label="{{ _ipucu }}" title="{{ _ipucu }}"></span>
+    {%- endif %}
     {%- if s.durum == "tamamlandi" %} <span class="rozet arsiv">{{ metin("tamamlandi_rozet") }}</span>
     {%- elif s.durum == "iptal" %} <span class="rozet arsiv">{{ metin("iptal_rozet") }}</span>
     {%- endif %}

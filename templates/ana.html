@@ -63,7 +63,7 @@
     <span>{{ metin("yapilacaklar") }}{% if liste %} <span class="rozet">{{ liste|length }}</span>{% endif %}</span>
     {% if liste|length > 5 %}<a href="/devam-eden" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>{% endif %}
   </h2>
-  {% for s in liste[:5] %}{{ cs.satir(s) }}
+  {% for s in liste[:5] %}{{ cs.satir(s, bulas=True) }}
   {% else %}
   <div class="bos">{{ metin("yapilacak_yok") }}</div>
   {% endfor %}
@@ -79,7 +79,7 @@
     <span>{{ metin("bugun_bitenler") }}{% if bugun_bitenler %} <span class="rozet">{{ bugun_bitenler|length }}</span>{% endif %}</span>
     {% if bugun_bitenler|length > 5 %}<a href="/bitenler" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>{% endif %}
   </h2>
-  {% for s in bugun_bitenler[:5] %}{{ cs.satir(s, "bitmis") }}
+  {% for s in bugun_bitenler[:5] %}{{ cs.satir(s, "bitmis", bulas=True) }}
   {% else %}
   <div class="bos" style="padding:20px 16px">{{ metin("bugun_biten_yok") }}</div>
   {% endfor %}
@@ -95,7 +95,7 @@
     <span>{{ metin("yaklasanlar") }}{% if yaklasanlar %} <span class="rozet">{{ yaklasanlar|length }}</span>{% endif %}</span>
     {% if yaklasanlar|length > 5 %}<a href="/yaklasanlar" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>{% endif %}
   </h2>
-  {% for s in yaklasanlar[:5] %}{{ cs.satir(s, "plan") }}
+  {% for s in yaklasanlar[:5] %}{{ cs.satir(s, "plan", bulas=True) }}
   {% else %}
   <div class="bos" style="padding:20px 16px">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
   {% endfor %}

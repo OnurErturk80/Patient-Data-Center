@@ -594,8 +594,19 @@ olduğu yerde fark edilebilecek şekilde görünsün").
   Yeni bir tedavi ekranı tedaviyi `c` adıyla verirse uyarı kendiliğinden gelir.
   `db.bulas_uyarilari()` hata vermez, boş döner (her hasta ekranında çalışıyor).
 - Tedavi ekranının "Bulaş hastalığı" kartı tam durumu (Yok / girilmedi)
-  gösterir. Renk `--tehlike`, üzerinde sabit beyaz. Resmî formlara, Cryo
-  Haritası'na ve listelere girmiyor (istenmedi).
+  gösterir. Renk `--tehlike`, üzerinde sabit beyaz. Resmî formlara ve Cryo
+  Haritası'na girmiyor (istenmedi).
+- **Ana ekranın listelerinde adın yanında kırmızı nokta** (v6.223,
+  kullanıcı: "Bulaş kayıtlı hasta programın ana sayfasında görünüyorsa
+  burada da adının yanında ufak kırmızı nokta ile bunu uyarsın"): üç kart ve
+  onların Tümü sayfaları (`/devam-eden`, `/bitenler`, `/yaklasanlar`)
+  `_cyclesatir.html`'in `satir(s, kip, bulas=True)`'sini çağırıyor. `s.bulas`
+  `cycle_listesi()`'nden (`db.bulas_isaretle()`): tedavinin kendi kaydı,
+  bandın ölçüsü, satır başına sorgusuz. Hasta kayıtlarının ay listesi
+  `bulas` vermiyor (istenmedi; istenirse yalnızca `bulas=True`). Renk
+  `--tehlike-isaret` (düz `--tehlike` kart zemininde 2,9:1, işaret için az);
+  `title` / `aria-label` kişi kişi hastalıkları söylüyor. Başka bir listeye
+  nokta koyacaksan ikinci bir sorgu ya da ayrıştırıcı yazma.
 
 **Örnek kodu ana fotoğrafın altında yazar.** `527078-2026-0001-03` kodu
 oosit → zigot → embriyo boyunca değişmediği için aynı kod her aşama ekranında

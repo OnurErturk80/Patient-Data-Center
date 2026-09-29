@@ -2981,6 +2981,10 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     bitis = ("c.bitis_sebebi, c.bitis_zamani" if kolon_var
              else "NULL AS bitis_sebebi, NULL AS bitis_zamani")
     plan = "c.planlanan_tarih" if plan_var else "NULL AS planlanan_tarih"
+    # Bulaş hastalığı (v6.223): satırın kırmızı noktası tedavinin kendi
+    # kaydından, sorgusuz (`db.bulas_isaretle()`). Göç yoksa kolon yok.
+    bulas = ("c.bulas_kadin, c.bulas_erkek" if _bulas_kolonu_var()
+             else "NULL AS bulas_kadin, NULL AS bulas_erkek")
     if planli:
         sira = "c.planlanan_tarih, h.ad_soyad"   # takvim ileri doğru okunur
     elif ay:
@@ -2995,7 +2999,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         parametre = parametre + [limit, offset]
     satirlar = db.sorgu(
         f"""SELECT c.id, c.cycle_no, c.cycle_tipi, c.durum, c.opu_zamani,
-                   c.olusturma_zamani, {bitis}, {plan},
+                   c.olusturma_zamani, {bitis}, {plan}, {bulas},
                    h.id AS hasta_id, h.ad_soyad, h.dosya_no,
                    h.durum AS hasta_durum,
                    (SELECT o.tip FROM olay o
@@ -3011,7 +3015,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         d = dict(r)
         d["gun"] = _opu_gunu(d["opu_zamani"])
         liste.append(d)
-    return liste
+    return db.bulas_isaretle(liste)
 
 
 @uygulama.get("/")

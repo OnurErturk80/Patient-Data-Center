@@ -10,7 +10,7 @@
    önümüzdeki `yaklasan_gun` gün. #}
 <div class="kart" style="margin-top:16px">
   <h2>{{ say("n_planli_is", liste|length) }}</h2>
-  {% for s in liste %}{{ cs.satir(s, "plan") }}
+  {% for s in liste %}{{ cs.satir(s, "plan", bulas=True) }}
   {% else %}
   <div class="bos">{{ say("yaklasan_yok", yaklasan_gun) }}</div>
   {% endfor %}

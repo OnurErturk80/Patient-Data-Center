@@ -29,6 +29,12 @@
      formda secili hastalik. Sabit koyu kirmizi (silme dugmesinin tonu),
      uzerindeki yazi sabit beyaz (~8:1). Zemin olarak da guvenli. */
   --tehlike:  #c62f2f;
+  /* Ayni kirmizinin koyu zemindeki isaret tonu (v6.223, ana ekran
+     listelerinde adin yanindaki nokta): hue ve doygunluk `--tehlike`nin,
+     acikligi 48% -> 58%. Duz `--tehlike` kart zemininde 2.9:1 -- metin
+     disi isaret icin istenen 3:1'in altinda; bu ton `--yuzey`de ~4:1,
+     `--zemin`de ~4.5:1. Yalnizca isaret icin, zemin/yazi rengi degil. */
+  --tehlike-isaret: #d65252;
   --r: 6px;
   /* Genis ekranda icerik sutunu. Yan menu solda 200px yer kapliyor,
      500px pay onunla carpismayi onluyor. Formul TEK yerde: kimlik bandinin
@@ -233,6 +239,14 @@ html { -webkit-tap-highlight-color: transparent; }
 /* Yapilacaklar listesinde OPU gunu vurgulu: embriyologun "bugun ne
    yapilacak" sorusuna once o bakiyor (v6.28). */
 .satir .meta b { color: var(--ink); font-weight: 600; }
+/* Bulas hastaligi olan tedavinin satirinda adin yaninda kucuk kirmizi
+   nokta (v6.223, ana ekranin uc karti ve Tumu sayfalari; `_cyclesatir.html`).
+   Ayrintisi tedavinin ekranindaki bantta; burada yalnizca "dikkat". */
+.bulasnokta {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--tehlike-isaret);
+  margin-left: 7px; vertical-align: middle; position: relative; top: -1px;
+}
 
 /* Baslikta sagda bir baglanti olan kart (Yapilacaklar -> Biten isler).
    Sinif acikca veriliyor; `:has()` eski Safari'de yok, telefonda baslik

@@ -17401,3 +17401,52 @@ Sahte veritabanında tarayıcıyla:
     ortası yerinde kaldı.
   - Alt çubuk tek satır, taşmadı.
 - 84 ekran, telefon ve masaüstü genişliğinde hatasız.
+
+# v6.223 — Ana ekranda bulaş hastalığı olan hastanın adının yanında kırmızı nokta
+
+Kullanıcı: *"Bulaş kayıtlı hasta programın ana sayfasında görünüyorsa burada
+da adının yanında ufak kırmızı nokta ile bunu uyarsın."*
+
+Ana ekranın üç kartında (Devam Eden, Bugün Biten, Yaklaşan Tedaviler) bulaş
+hastalığı kayıtlı tedavinin satırında hastanın adının hemen yanında küçük
+kırmızı bir nokta var. Kartların "Tümü" sayfalarında da var (`/devam-eden`,
+`/bitenler`, `/yaklasanlar`): onlar aynı listenin kartta görünmeyen devamı,
+altıncı satırdaki hasta da uyarılmalı. Fare noktanın üstünde durunca hangi
+kişide ne olduğu yazıyor: "Bulaş hastalığı: Kadın: Hepatit B · Erkek: HIV".
+Ekran okuyucu da aynı metni okuyor. Ayrıntı yine tedavinin ekranında,
+kimlik bandının altındaki kırmızı kutuda (v6.219).
+
+- **Ölçü tedavinin kendi kaydı**, tedavinin bandınınki (v6.219). Noktalı
+  satıra basınca açılan ekranda bant var; noktasız satırın ekranında yok.
+  Yalnızca hastalığı olan kişi sayılıyor: "Yok" ve girilmemiş nokta vermiyor.
+- **Satır başına sorgu yok.** Listenin sorgusu (`cycle_listesi()`) tedavinin
+  iki bulaş kolonunu da okuyor. `db.bulas_isaretle()` satırlara uyarıyı
+  sorgusuz ekliyor; hastalıkların adları için liste yalnızca hastalıklı bir
+  satır varsa bir kez okunuyor. `/bitenler` binlerce satır olabiliyor.
+- **Hasta kayıtları ekranının ay listesinde nokta yok.** O liste de aynı
+  satır parçasını kullanıyor, ama istenen ana ekrandı (v6.219'da listeler
+  bilerek dışarıda bırakılmıştı). Satır parçası `bulas=True` verilince nokta
+  basıyor; istenirse ay listesine de yalnızca bu eklenir.
+- **Renk**: `--tehlike`nin (#c62f2f) aynı tonu, biraz açık (#d65252,
+  `--tehlike-isaret`). Düz `--tehlike` kart zemininde 2,9:1 kontrast
+  veriyor, metin dışı bir işaret için istenen 3:1'in altında. Bu ton kart
+  zemininde ~4:1.
+- Göç çalışmamış veritabanında (kolonlar yok) liste eskisi gibi, nokta yok.
+  Elle yazılan "Diğer" hastalık ipucunda metin olarak kalıyor (kaçışlı).
+
+## Deneme
+
+Sahte veritabanında tarayıcıyla, masaüstü (1280 px) ve telefon (390 px)
+genişliğinde:
+
+- Üç kartın satırları: nokta yalnızca hastalıklı tedavilerde (7 satırın
+  6'sında). Bugün biten ve yaklaşan birer tedavi ayrıca hazırlandı; kartında
+  noktalı çıktı.
+- "Tümü" sayfaları: 6, 9 ve 1 satırın hepsi doğru.
+- Hasta kayıtlarının ay listesi: 13 satır, nokta yok.
+- İpucu kişi kişi, listenin etiketleriyle. Elle yazılan HTML metin olarak
+  kaldı.
+- Nokta 10 px, renk doğru, sayfa yatay kaymıyor.
+- Noktalı satırın tedavisinde bant var, noktasızınkinde yok.
+- Kolonsuz (göçsüz) veritabanında beş liste kipi hatasız.
+- 84 ekran iki genişlikte hatasız.
