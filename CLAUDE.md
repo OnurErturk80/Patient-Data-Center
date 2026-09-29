@@ -638,6 +638,9 @@ ekranının `{% block icerik %}`'inin SON satırı. Yoksa her kayıtta sayfa en
   uzuyor -- ilk uygulama kayardı (ölçüldü).
 - **Yeni bir aşama ekranı yazarsan include'u ekle**; ekranda yeri ayrılmamış
   resim olmasın, yoksa kaydırılan yer resim yüklenince kayar.
+- Aşama ekranı olmayan tek kullanan hasta kartı (v6.218, "Dondurulmuş
+  örnekler" Tedaviler'in altına indi): hatası `es_hata` adıyla,
+  `{% with hata = es_hata %}` ile veriliyor.
 
 **Cleavage 3. günle açılır** (v6.208, kullanıcının isteği): `ASAMA_SIRASI`'nın
 bağlantısı `?gun=3`, rota adressiz de 3.
@@ -742,7 +745,9 @@ madde), yani bu sıralama zaten tarih sırası — NULL sorunu olmadan.
 **Hasta kartında "Dondurulmuş örnekler"** (v6.217, README v6.217; kullanıcı:
 "Hasta kartının içinde hastanın dondurulmuş örnekleri bölümü olsun. Orada
 örnekler görünsün çöz diyerek FET tedavisi başlatabilelim. Ayrıca başka
-merkeze taşıma bu alanın altında olsun"). Tek kart, kartın en üstünde:
+merkeze taşıma bu alanın altında olsun"). Tek kart, **Tedaviler kartının
+altında** (v6.218, kullanıcı: "Hasta kartında dondurulmuş örnekler
+tedavilerinin altında olsun"; v6.217'de en üstteydi, eş kartları yerinde):
 tanktaki embriyo / yumurta tüpleri (dondurulduğu tedavi tedavi), dondurulmuş
 sperm (v6.125'in ayrı kartı buraya taşındı), adı benzeyen Excel kayıtları,
 en altta başka merkeze taşıma (taşınanlar + Taşınma ekranının düğmesi;
@@ -766,6 +771,9 @@ sayfanın dibindeki eski düğme kalktı). Hiçbiri yoksa kart basılmıyor.
   kayıtları hastaya BAĞLI DEĞİL (v6.205): çözülemez, satır kaydın sayfasına
   bu hasta seçili açılıyor (`?hasta=`, v6.213 "Hastaya bağla").
 - Tedavi satırı taşımayı söylemeye devam ediyor (v6.205'in isteği).
+- Kart aşağıda olduğu için hasta kartı da `_kaydirma.html`'i kullanıyor
+  (v6.218): "Tedaviye bağla" / bağı kaldır sayfayı yeniden yüklüyor, kaldığı
+  yerde açılıyor. Hata `es_hata` (`{% with hata = es_hata %}`), varsa en üstten.
 
 **Hasta kartının tedavi satırı işlemin gününü yazar** (v6.202, kullanıcı:
 "FET, FET 3-5, Yumurta çözme tedavilerinin altında tarih hasta kartında

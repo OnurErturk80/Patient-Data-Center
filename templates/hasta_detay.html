@@ -117,87 +117,6 @@
 </div>
 {% endmacro %}
 
-{# Dondurulmuş örnekler (v6.217, kullanıcının isteği: "Hasta kartının içinde
-   hastanın dondurulmuş örnekleri bölümü olsun. Orada örnekler görünsün çöz
-   diyerek FET tedavisi başlatabilelim. Ayrıca başka merkeze taşıma bu alanın
-   altında olsun"). Tek kart: tanktaki embriyo / yumurta tüpleri dondurulduğu
-   tedavi tedavi (satır taşıma ekranınınkiyle aynı, `_tup_bilgisi.html`),
-   dondurulmuş sperm (v6.125'in kartı buraya taşındı; tedaviye bağlama
-   satırında), Cryo Haritası'nda adı benzeyen Excel kayıtları, en altta başka
-   merkeze taşıma. Hiçbiri olmayan hastada kart basılmıyor (v6.125'in
-   gerekçesi: boş bir kutu her kartı uzatırdı). Taşınan sperm burada değil
-   "taşınanlar"da -- iki kez görünmesin. #}
-{% set d = dondurulmus %}
-{% set sperm_lab = sperm_kayitlari|rejectattr("tasiyici_durum", "equalto", "gonderildi")|list %}
-{% if yetkim("cryo") and (d.tankta or sperm_lab or d.tasinan or d.excel) %}
-<div class="kart" id="dondurulmus">
-  <h2>{{ metin("dondurulmus_ornekler") }}</h2>
-  {% for g in d.tankta %}
-  <div class="tasimagrup">
-    {%- if g.tedavi %}{% if g.tedavi.hasta_cycle_no %}{{ say("n_cycle_sirali", g.tedavi.hasta_cycle_no) }} · {% endif %}{{ g.tedavi.cycle_no }} · {{ tip_kisa(g.tedavi.cycle_tipi) }}{% endif -%}
-  </div>
-  {% for x in g.tupler %}
-  <a class="satir tasimasatir" href="/cryo/tasiyici/{{ x.id }}">
-    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
-    <span class="bilgi">{{ tb.tup_bilgisi(x, etiketler) }}</span>
-  </a>
-  {% if yetkim("thaw") %}{{ coz_dugmeleri(x) }}{% endif %}
-  {% endfor %}
-  {% else %}
-  {% if cycles %}<div class="bos">{{ metin("tankta_embriyo_yok") }}</div>{% endif %}
-  {% endfor %}
-
-  {% if sperm_lab %}
-  <div class="kartbolum">{{ metin("dondurulmus_sperm") }}</div>
-  {% for sd in sperm_lab %}{{ sperm_satiri(sd) }}{% endfor %}
-  <div class="ipucu" style="padding:8px 2px">{{ metin("sperm_dosya_esleme_ipucu") }}</div>
-  {% endif %}
-
-  {# Programda tüpü olmayan, adı bu hastanınkiyle aynı straw'lar (v6.205'in
-     ölçüsü). Hastaya BAĞLI DEĞİL: çözülemez; kaydın sayfasında bu hasta
-     seçili açılıyor (v6.213 "Hastaya bağla"), bağlanınca tüp yukarı gelir. #}
-  {% if d.excel %}
-  <div class="kartbolum">{{ metin("dondurulmus_excel_baslik") }}</div>
-  <div class="ipucu" style="margin:4px 14px 6px">{{ metin("dondurulmus_excel_ipucu") }}</div>
-  {% for e in d.excel %}
-  <a class="satir tasimasatir" href="/cryo/excel-kaydi/{{ e.id }}?hasta={{ hasta.id }}">
-    <span class="renknokta{% if e.renk %} renk-{{ e.renk }}{% endif %}"></span>
-    <span class="bilgi">
-      <strong>{{ metin("excel_kaydi") }}</strong> · {{ e.soyad or "" }} {{ e.ad or "" }}{% if e.es_adi %} · {{ metin("es") }}: {{ e.es_adi }}{% endif %}
-      <em>{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or "—") }}
-        {%- if e.icerik %} · {{ e.icerik }}{% endif %}{% if e.vial %} · {{ e.vial }}{% endif %}</em>
-      <em>{% if e.tam_yol %}{{ e.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
-    </span>
-  </a>
-  {% endfor %}
-  {% endif %}
-
-  {# Başka merkeze taşıma (v6.205), bölümün en altında: taşınanlar taşıma
-     taşıma (embriyo, yumurta ve sperm), Taşınma ekranının düğmesi (taşımak
-     da geri almak da orada). Tedavi satırı da taşımayı söylemeye devam
-     ediyor (v6.205'in isteği). #}
-  {% if d.tasinan or d.tasima %}
-  <div class="kartbolum">{{ metin("tasima_dugmesi") }}</div>
-  {% for g in d.tasinan %}
-  <div class="tasimagrup">{{ metin("gonderim_cumlesi").format(
-       tarih=gg_aa_yyyy(g.gun) if g.gun else "—",
-       yer=g.yer or metin("gonderim_baska_merkeze")) }}</div>
-  {% for x in g.tupler %}
-  <a class="satir tasimasatir" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
-    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
-    <span class="bilgi">{{ tb.tup_bilgisi(x, etiketler) }}</span>
-  </a>
-  {% endfor %}
-  {% endfor %}
-  {% if d.tasima %}
-  <div style="padding:0 14px 14px">
-    <a class="dugme ikincil" href="/cryo/tasima/hasta/{{ hasta.id }}">{{ metin("tasima_git") }}</a>
-  </div>
-  {% endif %}
-  {% endif %}
-</div>
-{% endif %}
-
 {# Ters yön (v6.180, kullanıcının isteği: "Eski sperm dondurmaları elle ben
    eşleştirebileyim"). Spermi olan erkeğin kartından eşinin (çiftin) dosya
    numarası yazılıyor; yazılan yer çiftin `es_dosya_no`'su -- v6.139'un bağı,
@@ -315,6 +234,91 @@
   {% endfor %}
 </div>
 
+{# Dondurulmuş örnekler (v6.217, kullanıcının isteği: "Hasta kartının içinde
+   hastanın dondurulmuş örnekleri bölümü olsun. Orada örnekler görünsün çöz
+   diyerek FET tedavisi başlatabilelim. Ayrıca başka merkeze taşıma bu alanın
+   altında olsun"). Tek kart: tanktaki embriyo / yumurta tüpleri dondurulduğu
+   tedavi tedavi (satır taşıma ekranınınkiyle aynı, `_tup_bilgisi.html`),
+   dondurulmuş sperm (v6.125'in kartı buraya taşındı; tedaviye bağlama
+   satırında), Cryo Haritası'nda adı benzeyen Excel kayıtları, en altta başka
+   merkeze taşıma. Hiçbiri olmayan hastada kart basılmıyor (v6.125'in
+   gerekçesi: boş bir kutu her kartı uzatırdı). Taşınan sperm burada değil
+   "taşınanlar"da -- iki kez görünmesin.
+   Yeri Tedaviler kartının altı (v6.218, kullanıcı: "Hasta kartında
+   dondurulmuş örnekler tedavilerinin altında olsun"; v6.217'de en üstteydi).
+   Kartın "Tedaviye bağla" / bağı kaldır formları sayfayı yeniden yüklüyor:
+   kaldığı yer `_kaydirma.html` ile korunuyor (bloğun sonu). #}
+{% set d = dondurulmus %}
+{% set sperm_lab = sperm_kayitlari|rejectattr("tasiyici_durum", "equalto", "gonderildi")|list %}
+{% if yetkim("cryo") and (d.tankta or sperm_lab or d.tasinan or d.excel) %}
+<div class="kart" id="dondurulmus">
+  <h2>{{ metin("dondurulmus_ornekler") }}</h2>
+  {% for g in d.tankta %}
+  <div class="tasimagrup">
+    {%- if g.tedavi %}{% if g.tedavi.hasta_cycle_no %}{{ say("n_cycle_sirali", g.tedavi.hasta_cycle_no) }} · {% endif %}{{ g.tedavi.cycle_no }} · {{ tip_kisa(g.tedavi.cycle_tipi) }}{% endif -%}
+  </div>
+  {% for x in g.tupler %}
+  <a class="satir tasimasatir" href="/cryo/tasiyici/{{ x.id }}">
+    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
+    <span class="bilgi">{{ tb.tup_bilgisi(x, etiketler) }}</span>
+  </a>
+  {% if yetkim("thaw") %}{{ coz_dugmeleri(x) }}{% endif %}
+  {% endfor %}
+  {% else %}
+  {% if cycles %}<div class="bos">{{ metin("tankta_embriyo_yok") }}</div>{% endif %}
+  {% endfor %}
+
+  {% if sperm_lab %}
+  <div class="kartbolum">{{ metin("dondurulmus_sperm") }}</div>
+  {% for sd in sperm_lab %}{{ sperm_satiri(sd) }}{% endfor %}
+  <div class="ipucu" style="padding:8px 2px">{{ metin("sperm_dosya_esleme_ipucu") }}</div>
+  {% endif %}
+
+  {# Programda tüpü olmayan, adı bu hastanınkiyle aynı straw'lar (v6.205'in
+     ölçüsü). Hastaya BAĞLI DEĞİL: çözülemez; kaydın sayfasında bu hasta
+     seçili açılıyor (v6.213 "Hastaya bağla"), bağlanınca tüp yukarı gelir. #}
+  {% if d.excel %}
+  <div class="kartbolum">{{ metin("dondurulmus_excel_baslik") }}</div>
+  <div class="ipucu" style="margin:4px 14px 6px">{{ metin("dondurulmus_excel_ipucu") }}</div>
+  {% for e in d.excel %}
+  <a class="satir tasimasatir" href="/cryo/excel-kaydi/{{ e.id }}?hasta={{ hasta.id }}">
+    <span class="renknokta{% if e.renk %} renk-{{ e.renk }}{% endif %}"></span>
+    <span class="bilgi">
+      <strong>{{ metin("excel_kaydi") }}</strong> · {{ e.soyad or "" }} {{ e.ad or "" }}{% if e.es_adi %} · {{ metin("es") }}: {{ e.es_adi }}{% endif %}
+      <em>{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or "—") }}
+        {%- if e.icerik %} · {{ e.icerik }}{% endif %}{% if e.vial %} · {{ e.vial }}{% endif %}</em>
+      <em>{% if e.tam_yol %}{{ e.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
+    </span>
+  </a>
+  {% endfor %}
+  {% endif %}
+
+  {# Başka merkeze taşıma (v6.205), bölümün en altında: taşınanlar taşıma
+     taşıma (embriyo, yumurta ve sperm), Taşınma ekranının düğmesi (taşımak
+     da geri almak da orada). Tedavi satırı da taşımayı söylemeye devam
+     ediyor (v6.205'in isteği). #}
+  {% if d.tasinan or d.tasima %}
+  <div class="kartbolum">{{ metin("tasima_dugmesi") }}</div>
+  {% for g in d.tasinan %}
+  <div class="tasimagrup">{{ metin("gonderim_cumlesi").format(
+       tarih=gg_aa_yyyy(g.gun) if g.gun else "—",
+       yer=g.yer or metin("gonderim_baska_merkeze")) }}</div>
+  {% for x in g.tupler %}
+  <a class="satir tasimasatir" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
+    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
+    <span class="bilgi">{{ tb.tup_bilgisi(x, etiketler) }}</span>
+  </a>
+  {% endfor %}
+  {% endfor %}
+  {% if d.tasima %}
+  <div style="padding:0 14px 14px">
+    <a class="dugme ikincil" href="/cryo/tasima/hasta/{{ hasta.id }}">{{ metin("tasima_git") }}</a>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
 {% if hasta.notlar %}
 <div class="kart">
   <h2>{{ metin("not") }}</h2>
@@ -333,4 +337,9 @@
 <a class="dugme ikincil tehlike-bag" href="/hasta/{{ hasta.id }}/sil">
   {{ metin("kalici_olarak_sil") if hasta.durum == "arsiv" else metin("arsivle_veya_sil") }}</a>
 {% endif %}
+{# Kayıttan sonra kaldığı yerde (v6.218): "Dondurulmuş örnekler" Tedaviler'in
+   altına indi, içindeki formlar (spermi tedaviye bağla / bağı kaldır; eş
+   kartınınkiler de) sayfayı en üstten açardı. Aşama ekranlarının parçası
+   (v6.210); hata bu ekranda `es_hata` adıyla basılıyor -- varsa en üstten. #}
+{% with hata = es_hata %}{% include "_kaydirma.html" %}{% endwith %}
 {% endblock %}

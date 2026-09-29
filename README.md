@@ -17104,3 +17104,28 @@ sperm listesinde tekrar yok, geri alınca ikisi yeniden listede. Özet formunun
 NOTLAR'ı ve ART Lab'ın Yorum'u aynı genel bulgu metnini basıyor. 84 ekran
 telefon ve masaüstü genişliğinde hatasız, yatay kayma yok. Gerçek verinin
 deneme kopyasında yalnızca süre ve sayılar ölçüldü; kopya silindi.
+
+# v6.218 — Hasta kartında "Dondurulmuş örnekler" Tedaviler'in altında
+
+Kullanıcı: *"Hasta kartında dondurulmuş örnekler tedavilerinin altında olsun."*
+
+v6.217'de kart sayfanın en üstündeydi (düğmelerin hemen altı, v6.125'in
+"Dondurulmuş sperm" kartının yeri). Artık Tedaviler kartının hemen altında;
+içeriği ve sırası değişmedi (tanktaki tüpler ve "Çöz", dondurulmuş sperm,
+adı benzeyen Excel kayıtları, en altta başka merkeze taşıma). Eş kartları
+("Eşinin tüp bebek kaydı", "Eşin dondurulmuş spermi") istenmediği için
+yerinde, Tedaviler'in üstünde.
+
+Kartın içindeki "Tedaviye bağla" ve bağı kaldırma formları sayfayı yeniden
+yüklüyor. Kart en üstteyken sonuç hemen görünüyordu; aşağıda sayfa en üstten
+açılır, sonucu görmek için yeniden aşağı inmek gerekirdi. Hasta kartı bu
+yüzden aşama ekranlarının kaydırma parçasını kullanıyor (`_kaydirma.html`,
+v6.210): kayıttan sonra kaldığı yerde açılıyor, bağlantıyla gelince yine en
+üstten. Eş bağlamanın hatası (`es_hata`) varsa en üstten, mesaj görünsün.
+
+Deneme (sahte veritabanı, telefon ve masaüstü genişliği): dört hastada kart
+Tedaviler'in hemen ardından; telefonda spermi tedaviye bağlayıp bağı kaldırınca
+sayfa aynı yerde (828 px) açıldı, satır "Kullanıldığı tedavi" / "Henüz bir
+tedaviye bağlanmadı" dedi; bağlantıyla açılış en üstte; olmayan bir eş dosya
+numarası sayfanın dibinden gönderilince sayfa en üstten, hata mesajıyla açıldı.
+84 ekran iki genişlikte hatasız, yatay kayma yok.
