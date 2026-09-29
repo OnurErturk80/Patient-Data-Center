@@ -27,7 +27,7 @@ Bu araç numarayı her yerde birlikte değiştiriyor, tek işlemde:
      etiketine dokunulmuyor -- o tankta tüpün üstünde yazıyor olabilir.
 
 Yeni numara başka bir hastada kayıtlıysa araç durur: iki kartı birleştirmek
-bu aracın işi değil. Lab kayıt no (`cycle_no`), embriyo tüpünün etiketi ve
+bu aracın işi değil -- aynı hastaysa `hasta_birlestir.py` (v6.215). Lab kayıt no (`cycle_no`), embriyo tüpünün etiketi ve
 örnek kodu (`specimen.id`) dosya numarasını içermiyor, değişmiyor. Önce yedek alın
 (Yönetici → Yedekleme → Şimdi yedekle). Çıktıda hasta adı yok.
 """
@@ -77,7 +77,8 @@ def ozet(eski, yeni):
         sys.exit(f"Dosya no {eski} kayıtlı değil.")
     if _hasta(yeni):
         sys.exit(f"Dosya no {yeni} zaten başka bir hastada kayıtlı -- iki kart "
-                 "birleştirilmez, araç durdu.")
+                 "birleştirilmez, araç durdu. İkisi aynı hastaysa (v6.215): "
+                 f"python3 hasta_birlestir.py {eski} {yeni}")
     hid = h["id"]
     tedavi = _db.tek("SELECT COUNT(*) AS n FROM cycle WHERE hasta_id=?", (hid,))["n"]
     foto = _db.tek("SELECT COUNT(*) AS n FROM goruntu g JOIN cycle c ON c.id=g.cycle_id "

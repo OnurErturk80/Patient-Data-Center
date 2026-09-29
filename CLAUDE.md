@@ -75,7 +75,10 @@ aracın `liste`'si onları "PROGRAMDA VAR" diye atlıyor; eylül straw'ları Cry
 Haritası'nda Excel kaydı olarak duruyor, aktarım sonunda tüplerine bağlanıyor.
 Kullanıcının veritabanı burada yok -- hangilerinin programda olduğu ancak onun
 makinesinde görünüyor; çalıştırıp çalıştırmadığını ve #19/#22 ikizinden
-hangisini seçtiğini sor. Göç, kalıcı silme, geri yükleme gibi
+hangisini seçtiğini sor. **2026-09-29**: kullanıcı aynı hastanın iki
+kartını bildirdi (numaralar sohbette, buraya yazılmadı); `hasta_birlestir.py`
+(v6.215) onun için yazıldı, kullanıcı kendi makinesinde çalıştırıyor --
+çalıştırıp çalıştırmadığını sor. Göç, kalıcı silme, geri yükleme gibi
 veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -256,6 +259,7 @@ Patient Data Center/
   teshis_form.py    FET formunda çözme neden görünmüyor — yalnızca okur
   cozme_ayir.py     IVF/ICSI'ye yazılmış çözmeleri FET'e taşır (v6.155)
   dosya_no_degistir.py  hastanın dosya numarasını her yerde değiştirir (v6.172)
+  hasta_birlestir.py    aynı hastanın iki kartını birleştirir (v6.215)
   aktar_toplu.py    klasördeki bütün Access CSV'lerini sırayla aktarır (v6.172)
   cryo_excel.py     laboratuvarın cryo haritası Excel'ini çözer (v6.173)
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
@@ -2801,7 +2805,17 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   (v6.172): ekran dosya numarasını kilitliyor (arşiv yolu), araç numarayı
   veritabanında ve arşiv klasöründe birlikte değiştiriyor; yeni numara
   kayıtlıysa durur (kart birleştirmez) -- gerçek numaranın geleceği
-  aktarımdan ÖNCE çalıştırılır.
+  aktarımdan ÖNCE çalıştırılır. **Aynı hasta iki kartta** (doğru numara da
+  kayıtlı): `hasta_birlestir.py <yanlış> <doğru>` (v6.215, README v6.215) --
+  doğru kart kalır, yanlışın tedavileri / sperm dondurmaları / fotoğrafları /
+  arşiv klasörü / başka kartlardaki "eşin dosya no"su ona geçer, boş alanlar
+  dolar, kart silinir (alanları günlükte "BIRLESTIRME"); önce
+  `lab_ONCEKI_*.db`. Hastayı KULLANICI söyler: araç ad / eş / doğum tarihinin
+  tutup tutmadığını gösterir, karar vermez; aynı gün aynı tipte iki tedaviyi
+  birleştirmez, uyarır. **Yeni bir tabloya `hasta_id` eklersen bu araca da
+  ekle** (bugün yalnızca `cycle` ve `sperm_dondurma`): eklenmezse kart
+  silinirken FOREIGN KEY hatası, işlem geri alınır, araç çalışmaz. Kartın
+  numarası yazılı yeni bir yer (yol, etiket) eklersen de.
 - **Dondurma notunun yazım hataları** (v6.168, `_skor_metni()`): "KACG1"
   kavitasyon (C, V'nin yanında; yalnızca arkasından derece geliyorsa),
   "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk

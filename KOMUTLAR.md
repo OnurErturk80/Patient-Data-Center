@@ -920,6 +920,41 @@ raporda yazar.
 
 ---
 
+## Aynı hastanın iki kartı — birleştirme (v6.215)
+
+Aynı hasta iki dosya numarasıyla iki kez kaydedilmişse (Access'te numara
+yanlış yazılmış, aktarım ikinci bir kart açmış): **yanlış numaralı kart
+silinir, her şeyi doğru numaralı karta geçer** -- tedaviler, sperm
+dondurmaları, fotoğraflar ve onam ekleri (arşiv klasörü dahil), başka
+kartlardaki "eşin dosya no". Doğru kartta boş olan alanlar (doğum tarihi,
+telefon, ...) yanlış karttan dolar; tedaviler tarih sırasıyla numaralanır.
+
+**Programın veritabanının durduğu bilgisayarda** (tank düzeni Mac'te),
+proje klasöründe. Sıra: önce yanlış numara, sonra doğru numara.
+
+```
+python3 hasta_birlestir.py <yanlış no> <doğru no>          # ne olacak, yalnızca listeler
+python3 hasta_birlestir.py <yanlış no> <doğru no> uygula   # "BIRLESTIR" yazınca birleştirir
+```
+
+Önizlemede adların, eş adlarının, doğum tarihlerinin tutup tutmadığı yazar
+(adlar yazılmaz). **"FARKLI" ya da "DİKKAT" görürseniz kartları ekranda
+karşılaştırın** -- iki farklı hastayı birleştirmek bu işin en pahalı hatası.
+`uygula` önce veritabanının tamamını `lab_ONCEKI_<zaman>.db` diye kopyalar
+(yedek klasörü bu bilgisayarda varsa oraya: Yönetici → Yedekleme → "Yedekten
+geri yükle" listesinde görünür). Program açıkken çalışabilir; sonra sayfayı
+yenileyin. Silinen kartın bütün alanları değişiklik geçmişinde kalır.
+
+Araç sonunda gerekirse üç şey söyler: Access düzeltme dosyasına eklenecek
+satırlar (`KAYNAK#KAYIT  DOSYA  <yanlış>  <doğru>` -- yalnızca o CSV'yi
+yeniden aktaracaksanız), `python3 aktar_access.py bagla` (FET'in tüpü öteki
+karttaydıysa) ve Haritadan yer tamamla (konumu girilmemiş tüp varsa).
+
+Yalnızca numara yanlışsa ve doğru numara hiç kayıtlı değilse birleştirme
+değil numara değişikliği: `python3 dosya_no_degistir.py <eski> <yeni>`.
+
+---
+
 ## Sorun teşhisi
 
 ```

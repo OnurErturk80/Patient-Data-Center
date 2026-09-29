@@ -16812,3 +16812,78 @@ kopyasında (yalnızca sayılar): 514 konumsuz tüpün 168'ine öneri (işaretli
 puanı 1: 84, 2: 60, 3: 9, 4: 15). Hepsi bir seferde bağlandı (0,16 sn):
 gobletlerin straw sayısı değişmedi, her bağlı tüp kaydının gobletinde. 168'inin
 bağı çözülünce tüpler ve Excel kayıtları birebir önceki hali.
+
+# v6.215 — Aynı hastanın iki kartı birleştiriliyor (`hasta_birlestir.py`)
+
+Kullanıcı: *"... ile ... dosya numaralı hasta aynı. Doğru numara .... Bu iki
+hasta kayıtlarını birleştirir misin?"* (numaralar sohbette; buraya hasta
+bilgisi yazılmıyor).
+
+Kullanıcının veritabanı bu oturumda yok, iki kart deneme kopyasında da yok
+(kopya daha eski). Birleştirmeyi kullanıcı kendi bilgisayarında çalıştırıyor;
+bu sürüm onun aracını yazdı. `dosya_no_degistir.py` (v6.172) yetmiyordu: doğru
+numara kayıtlıysa bilerek duruyor ("iki kart birleştirilmez") -- artık o mesaj
+bu araca yönlendiriyor.
+
+**Ne yapıyor.** Doğru numaralı kart kalıyor, yanlış numaralı kart siliniyor,
+tek yazma işleminde:
+
+- Tedaviler ve sperm dondurmaları doğru karta (`cycle.hasta_id`,
+  `sperm_dondurma.hasta_id` -- şemada hastaya bağlı yalnızca bu iki tablo var;
+  örnekler, olaylar, tüpler, fotoğraflar, bulgular tedaviyle birlikte gidiyor).
+- Fotoğraf ve onam eki yolları `<yanlış>/...` -> `<doğru>/...`; v6.4 öncesinin
+  mutlak yolları da yanlışın arşiv klasörüne düşüyorsa göreli yola çevriliyor.
+  Veritabanı yazıldıktan sonra arşivdeki dosyalar doğrunun klasörüne taşınıyor
+  (iki klasörde de olan alt klasörün içine iniliyor). **Aynı adlı dosya iki
+  klasörde de varsa araç baştan duruyor** -- fotoğraflar karışırdı.
+- Başka kartların "eşin dosya no"su yanlış numarayı gösteriyorsa doğrusu;
+  doğru kartın kendi "eşin dosya no"su bu iki numaradan biriyse boşalıyor
+  (kendisini gösterirdi).
+- Kart alanları: doğru kartta boş olan yanlış karttan doluyor; ikisinde de dolu
+  ve farklıysa doğrununki kalıyor, önizleme hangi alanlar olduğunu söylüyor;
+  notlar alt alta ("(... kartından) ..."). Açılış günü ikisinin erkeni
+  (Bakanlık verisinin "yeni hasta"sı, v6.201); biri aktifse kart aktif.
+- Geçici numaralı kartta (9000000001…, `cryo_esle.py`) sperm tüpünün
+  `<numara>-SP-SSDD` etiketi yeni numaraya -- `dosya_no_degistir.py`'nin
+  kuralı ve işlevi; gerçek numaralı tüpün etiketine dokunulmuyor.
+- Tedaviler tarih sırasıyla yeniden numaralanıyor (`db.tedavileri_sirala()`).
+- Her değişiklik `degisiklik_log`'a, aynı işlemin içinde; silinen kartın bütün
+  alanları JSON olarak "BIRLESTIRME" satırında (kalmayan telefon, doğum tarihi
+  orada okunabilir).
+
+**Karar kullanıcının.** Önizleme hiçbir şey yazmıyor: iki kartın tedavi / sperm
+/ fotoğraf sayıları, adın, eş adının, doğum tarihinin tutup tutmadığı (adlar
+basılmıyor), doldurulacak ve farklı alanlar, taşınacaklar. "DİKKAT" satırları:
+adlar hiç tutmuyor, doğum tarihleri farklı, yanlış kartın adı doğru kartın eş
+adı (eşin kendi kartı olabilir -- o zaman birleştirilmez, "Eşine bağla"
+kullanılır, v6.180), aynı gün aynı tipte iki tedavi (aynı tedavi iki kez
+girilmiş olabilir; birleştirme ikisini de koruyor). `uygula` "BIRLESTIR"
+istiyor ve önce veritabanının tamamını `lab_ONCEKI_<zaman>.db` diye
+kopyalıyor: yedek klasörü o bilgisayarda varsa oraya (Yedekleme ekranının
+"geri yükle" listesi onu gösteriyor, günlük temizlik bu adı silmiyor), yoksa
+veri klasörüne. Plan kilidin içinde yeniden kuruluyor.
+
+**Birleştirmeden sonra** araç gerekirse söylüyor: yanlış kartın tedavileri
+Access'ten geldiyse düzeltme dosyasına eklenecek satırlar
+(`KAYNAK#KAYIT  DOSYA  <yanlış>  <doğru>`): aynı CSV yeniden aktarılırsa
+yanlış numara "başka hastanın tedavisi" diye çakışırdı (`_carpismalar()`).
+Kaynak tüpüne bağlanmamış aktarılmış FET varsa `aktar_access.py bagla` (tüp
+öteki karttaydı, artık aynı hasta); konumu girilmemiş tüp varsa Haritadan yer
+tamamla (v6.214).
+
+**Hasta kartının adresi kart yoksa `/hastalar`'a dönüyor** (`hasta_detay`).
+Silinen (kalıcı silme ya da birleştirme) kartın açık kalmış sekmesi tazelenince
+boş bir kart ve olmayan hastaya "Yeni tedavi aç" düğmesi basılıyordu.
+
+**Deneme.** Sahte veritabanında iki kart (iki klasörde fotoğraf, biri mutlak
+yolla; sperm dondurma + onam eki; Access işaretli iki tedavi; eş numarası
+yanlış kartı gösteren üçüncü kart; aynı gün aynı tipte iki tedavi): önizleme,
+birleştirme, arşiv taşıma, alanların doldurulması, eş numarası, günlük,
+tedavi sırası; programda kart, tedaviler, formlar, fotoğraf ve onam 200, eski
+kartın adresi `/hastalar`'a. Ayrıca: olmayan / aynı numara, doğru kart yoksa
+`dosya_no_degistir.py`'ye yönlendirme, arşiv çakışmasında hiçbir şey yazılmıyor
+(kopya da alınmıyor), vazgeçme, geçici numaralı sperm etiketi, ikinci
+çalıştırma, farklı ad / doğum tarihi / eş adı uyarıları. Gerçek verinin deneme
+kopyasında (yalnızca sayılar) iki kart birleştirildi (0,35 sn): hasta 1.823 ->
+1.822, öteki tablolar aynı, yabancı anahtar ve bütünlük denetimi temiz, ekranlar
+200; kopya silindi.

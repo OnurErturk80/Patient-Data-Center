@@ -3342,6 +3342,11 @@ def hasta_detay(request: Request, hasta_id: int):
     hasta = db.tek(
         f"SELECT h.*, ({_sadece_sperm_kosulu()}) AS sperm_hastasi "
         "FROM hasta h WHERE h.id = ?", (hasta_id,))
+    if not hasta:
+        # Kalıcı silinmiş ya da başka karta birleştirilmiş kart (v6.215,
+        # `hasta_birlestir.py`): açık kalmış sekme tazelenince boş bir kart
+        # ve olmayan hastaya "Yeni tedavi aç" basılıyordu.
+        return RedirectResponse("/hastalar", status_code=303)
     cycles = db.sorgu(
         f"SELECT c.*{_islem_gunleri_sql()} FROM cycle c WHERE c.hasta_id = ? "
         "ORDER BY c.hasta_cycle_no DESC, c.id DESC", (hasta_id,)
