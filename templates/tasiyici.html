@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_kucukfoto.html" as kf %}
+{% import "_yer_kanit.html" as yk %}
 {% block ustbaslik %}{{ metin("tasiyici") }}{% endblock %}
 {% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -15,6 +16,8 @@
 {% block icerik %}
 
 {% if gonderim_hata %}<div class="tehlike">{{ metin(gonderim_hata) }}</div>{% endif %}
+{% if yer_sonuc == "baglandi" %}<div class="uyari tamam">{{ metin("yer_haritadan_yazildi") }}</div>{% endif %}
+{% if yer_sonuc == "atlandi" %}<div class="uyari">{{ metin("yer_yazilmadi") }}</div>{% endif %}
 
 {# Başka merkeze taşınan tüp (v6.182): tüp gitti, kayıt duruyor. #}
 {% if t.durum == "gonderildi" %}
@@ -41,11 +44,40 @@
 <div class="kart">
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("konum") }}</dt>
-      <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or metin("girilmemis") }}</dd></div>
+      <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or metin("girilmemis") }}
+        {#- Neden girilmemiş (v6.214): kullanıcının sorusu. #}
+        {%- if konum_neden %}<div class="ipucu">{{ metin("konum_neden_" ~ konum_neden) }}</div>{% endif %}
+        {%- if harita_kaydi %}<div class="ipucu"><a href="/cryo/excel-kaydi/{{ harita_kaydi.id }}">{{ metin("harita_kaydina_bagli") }}</a></div>{% endif %}</dd></div>
     <div class="veri"><dt>{{ metin("asama_vitrifikasyon") }}</dt><dd>{{ gg_aa_yyyy_saat(t.vitrifikasyon_zamani) if t.vitrifikasyon_zamani else '—' }}</dd></div>
     <div class="veri"><dt>{{ metin("icerik") }}</dt><dd>{{ icerik_sayisi(icerik|length, icerik=icerik[0].icerik if icerik else None) }}</dd></div>
   </dl>
 </div>
+
+{# Cryo Haritası'ndaki olası yeri (v6.214): straw haritada Excel kaydı olarak
+   duruyor, ad / gün / içerikten biri birebir tutmadığı için bağlanmamış.
+   Kanıtıyla öneriliyor, bağlayan kullanıcı; "bağı çöz" kaydın sayfasında. #}
+{% if yer_onerisi and yetkim("cryo") %}
+<div class="kart">
+  <h2>{{ metin("haritada_olasi_yer") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 4px">{{ metin("haritada_olasi_yer_ipucu") }}</div>
+  {# Programdaki hasta, Excel'deki yazımla yan yana okunsun diye. #}
+  {% set h = yer_onerisi.tup %}
+  <div class="ipucu" style="margin:0 14px 6px">{{ metin("programdaki_hasta") }}: <b>{{ h.dosya_no }} · {{ h.ad_soyad }}</b>
+    {%- if h.es_adi %} · {{ metin("es") }}: {{ h.es_adi }}{% endif %}</div>
+  {% for a in yer_onerisi.adaylar %}
+  <form method="post" action="/cryo/yer-tamamla" class="satir aday"
+        onsubmit="return confirm({{ metin('bu_yere_bagla_onay').format(yer=a.tam_yol)|tojson }})">
+    <input type="hidden" name="sec" value="{{ t.id }}:{{ a.eid }}">
+    <input type="hidden" name="don" value="tup">
+    <div class="no">{{ a.tam_yol }}</div>
+    <div class="meta">{{ yk.excel_satiri(a) }}</div>
+    <div class="meta">{{ yk.kanit(a, tup_notu=true) }}</div>
+    <div class="meta"><a href="/cryo/excel-kaydi/{{ a.eid }}">{{ metin("harita_kaydina_bagli") }}</a></div>
+    <button class="dugme ikincil kucuk" type="submit">{{ metin("bu_yere_bagla") }}</button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if ozet %}
 <div class="kart">

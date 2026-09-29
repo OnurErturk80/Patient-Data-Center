@@ -569,6 +569,115 @@ METINLER = {
               "grading: a procedure, photo, consent, link to a treatment): cannot be "
               "undone."},
 
+    # ---- haritadan yer tamamla (v6.214) ----
+    "yer_tamamla": {"tr": "Haritadan yer tamamla", "en": "Complete locations from the map"},
+    "yer_tamamla_ipucu": {
+        "tr": "Access kayıtlarında konum yoktu. Konumlar Cryo Haritası Excel'inden, "
+              "ad, dondurma günü ve içerik birebir tutunca yazıldı. Bu tüplerde "
+              "biri tutmadı (ad farklı yazılmış, Excel'deki tarih bir iki gün kayık, "
+              "skor farklı yazılmış) -- straw haritada gobletinde duruyor, tüp "
+              "\"konum girilmemiş\". Program kendisi bağlamıyor: doğru olanları "
+              "işaretleyin, tüp straw'ın gobletine geçer. Yanlış bağlanan, haritadaki "
+              "kaydın sayfasında \"Bağı çöz\" ile geri alınır.",
+        "en": "The Access records had no location. Locations were written from the "
+              "Cryo Map Excel when name, freezing day and content matched exactly. "
+              "One of them did not match for these tubes (name spelt differently, "
+              "Excel date off by a day or two, grade written differently) -- the straw "
+              "is in its goblet on the map, the tube says \"location not entered\". "
+              "The program does not link them itself: tick the right ones and the "
+              "tube moves to the straw's goblet. A wrong link is undone with "
+              "\"Unlink\" on the map record's page."},
+    "yer_tamamla_ozet": {"tr": "Konumu girilmemiş tüp: {n} · haritada olası yeri olan: {m}",
+                         "en": "Tubes without a location: {n} · with a possible place "
+                               "on the map: {m}"},
+    "yer_tamamla_sirali": {
+        "tr": "Bu hastanın aynı içerikli tüpleri programda birbirinden ayırt "
+              "edilmiyor: her tüpe ayrı bir straw, sırayla önerildi.",
+        "en": "This patient's tubes with the same content cannot be told apart in "
+              "the program: each tube gets its own straw, in order."},
+    "yer_tamamla_hasta_sec": {"tr": "Bu hastanınkileri seç", "en": "Select this patient's"},
+    "yer_tamamla_kesin": {"tr": "Programın kuralıyla da tutuyor (ad, gün, içerik)",
+                          "en": "Also matches the program's rule (name, day, content)"},
+    "yer_tamamla_onerisiz": {
+        "tr": "Olası yeri bu hastanın aynı içerikli başka tüpüne önerildi; haritada "
+              "ikinci bir straw yok.",
+        "en": "Its possible place was suggested for another tube of this patient "
+              "with the same content; no second straw on the map."},
+    "yer_tamamla_baska_aday": {"tr": "Başka olası yer: {n} (tüpün sayfası)",
+                               "en": "Other possible places: {n} (tube page)"},
+    "yer_tamamla_bagla": {"tr": "Seçilenleri bağla", "en": "Link selected"},
+    "yer_tamamla_onay": {
+        "tr": "Seçilen {n} tüp, haritadaki straw'ın gobletine yazılacak. Emin misiniz?",
+        "en": "The {n} selected tubes will be written to their straws' goblets. "
+              "Are you sure?"},
+    "yer_tamamla_baglandi": {"tr": "{n} tüpün yeri haritadan yazıldı.",
+                             "en": "Location written from the map for {n} tubes."},
+    "yer_tamamla_atlanan": {
+        "tr": "{n} seçim yazılmadı: tüp ya da haritadaki kayıt bu arada değişmiş "
+              "(çözülmüş, başka bir tüpe bağlanmış) ya da aynı straw iki tüpe seçilmiş.",
+        "en": "{n} selections were not written: the tube or the map record changed "
+              "meanwhile (thawed, linked to another tube) or the same straw was "
+              "chosen for two tubes."},
+    "yer_tamamla_yok": {"tr": "Konumu girilmemiş tüplerin haritada olası yeri yok.",
+                        "en": "No possible place on the map for tubes without a location."},
+    "yer_tamamla_n_oneri": {"tr": "{n} tüp için haritada olası yer var",
+                            "en": "A possible place on the map for {n} tubes"},
+    "haritada_olasi_yer": {"tr": "Haritada olası yeri", "en": "Possible place on the map"},
+    "haritada_olasi_yer_ipucu": {
+        "tr": "Cryo Haritası'nda bu tüpe uyan bir straw duruyor, ama ad, gün ya da "
+              "içerikten biri birebir tutmadığı için program kendisi bağlamadı. "
+              "Doğruysa bağlayın: tüp straw'ın gobletine geçer.",
+        "en": "A straw on the Cryo Map fits this tube, but name, day or content did "
+              "not match exactly, so the program did not link it. If it is right, "
+              "link it: the tube moves to the straw's goblet."},
+    "bu_yere_bagla": {"tr": "Bu yere bağla", "en": "Link here"},
+    "programdaki_hasta": {"tr": "Programdaki hasta", "en": "Patient in the program"},
+    "bu_yere_bagla_onay": {"tr": "Tüp {yer} gobletine yazılacak. Emin misiniz?",
+                           "en": "The tube will be written to goblet {yer}. Are you sure?"},
+    "konum_neden_aktarim": {
+        "tr": "Access kayıtlarında konum yoktu; konum Cryo Haritası Excel'inden, ad, "
+              "dondurma günü ve içerik birebir tutunca yazıldı. Bu tüpte biri tutmadı.",
+        "en": "The Access records had no location; it was written from the Cryo Map "
+              "Excel when name, freezing day and content matched exactly. One of them "
+              "did not match for this tube."},
+    "konum_neden_ekran": {"tr": "Dondurulurken konum yazılmamış.",
+                          "en": "No location was written at freezing."},
+    "yer_haritadan_yazildi": {
+        "tr": "Yer haritadan yazıldı. Yanlışsa haritadaki kaydın sayfasında "
+              "\"Bağı çöz\" geri alır.",
+        "en": "Location written from the map. If wrong, \"Unlink\" on the map "
+              "record's page undoes it."},
+    "yer_yazilmadi": {"tr": "Yazılmadı: tüp ya da haritadaki kayıt bu arada değişmiş.",
+                      "en": "Not written: the tube or the map record changed meanwhile."},
+    "harita_kaydina_bagli": {"tr": "Cryo Haritası'ndaki Excel kaydı",
+                             "en": "Excel record on the Cryo Map"},
+    "kanit_tutan": {"tr": "Tutan", "en": "Matches"},
+    "kanit_farkli": {"tr": "Farklı", "en": "Differs"},
+    "kanit_ad": {"tr": "ad", "en": "name"},
+    "kanit_ad_yazim": {"tr": "ad farklı yazılmış", "en": "name spelt differently"},
+    "kanit_ad_eksik_kelime": {"tr": "adın bir kısmı eksik (ikinci ad, soyadı)",
+                              "en": "part of the name missing (middle name, surname)"},
+    "kanit_ad_kelime_farkli": {"tr": "adın bir kelimesi farklı",
+                               "en": "one word of the name differs"},
+    "kanit_ad_yok": {"tr": "ad tutmuyor", "en": "name does not match"},
+    "kanit_gun": {"tr": "dondurma günü", "en": "freezing day"},
+    "kanit_gun_opu": {"tr": "OPU günü (Excel'deki gün OPU'dan)",
+                      "en": "OPU day (Excel day counted from OPU)"},
+    "kanit_gun_sonra": {"tr": "Excel'deki tarih {n} gün sonra",
+                        "en": "Excel date {n} days later"},
+    "kanit_gun_once": {"tr": "Excel'deki tarih {n} gün önce",
+                       "en": "Excel date {n} days earlier"},
+    "kanit_gun_yok": {"tr": "Excel'de tarih yok", "en": "no date in Excel"},
+    "kanit_icerik": {"tr": "içerik", "en": "content"},
+    "kanit_icerik_sayi": {"tr": "skor farklı yazılmış (sayı aynı)",
+                          "en": "grade written differently (same count)"},
+    "kanit_es": {"tr": "eş adı", "en": "partner's name"},
+    "kanit_es_farkli": {"tr": "eş adı farklı", "en": "partner's name differs"},
+    "kanit_ad_baska_hasta": {"tr": "bu ad programda başka bir hastada da var",
+                             "en": "another patient in the program has this name"},
+    "kanit_baska_tup": {"tr": "hastanın aynı içerikli başka tüpüne de uyuyor",
+                        "en": "also fits another tube of this patient with the same content"},
+
     # ---- boş yer önerisi (v6.190) ----
     "oneri_baslik": {"tr": "Boş yer önerisi", "en": "Free slot suggestion"},
     "oneri_kac": {"tr": "Bugün kaç straw:", "en": "Straws today:"},

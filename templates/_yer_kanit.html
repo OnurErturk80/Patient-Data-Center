@@ -1,0 +1,36 @@
+{# Haritadan yer tamamla (v6.214): bir tüp için Cryo Haritası'ndaki olası
+   straw'ın (Excel kaydı) iki satırı -- toplu ekran ve tüpün sayfası aynı
+   yazımla. Aday `cryo_esle.yer_onerileri()`'nin sözlüğü. #}
+
+{# Excel'deki yazısıyla, olduğu gibi (v6.189): ad, eş, tarih, HÜCRE, VİAL. #}
+{% macro excel_satiri(a) -%}
+  {{ metin("excel_kaydi") }}: {{ a.soyad or "" }} {{ a.ad_ or "" }}
+  {%- if a.es_adi %} · {{ metin("es") }}: {{ a.es_adi }}{% endif %}
+  · {{ gg_aa_yyyy(a.tarih) if a.tarih else (a.tarih_ham or metin("kanit_gun_yok")) }}
+  {%- if a.icerik_metni %} · {{ a.icerik_metni }}{% endif %}
+  {%- if a.vial %} · {{ a.vial }}{% endif %}
+{%- endmacro %}
+
+{# Neyin tuttuğu, neyin tutmadığı. Karar kullanıcının: ad benzerliği tek
+   başına kanıt değil (v6.205), o yüzden farklı olan hep yazılıyor. #}
+{% macro kanit(a, tup_notu=false) -%}
+  {%- set tutan = [] -%}{%- set farkli = [] -%}
+  {%- if a.ad == "ayni" %}{% set _ = tutan.append(metin("kanit_ad")) %}
+  {%- elif a.ad %}{% set _ = farkli.append(metin("kanit_ad_" ~ a.ad)) %}
+  {%- else %}{% set _ = farkli.append(metin("kanit_ad_yok")) %}{% endif -%}
+  {%- if a.gun == "opu" %}{% set _ = tutan.append(metin("kanit_gun_opu")) %}
+  {%- elif a.gun is none %}{% set _ = farkli.append(metin("kanit_gun_yok")) %}
+  {%- elif a.gun == 0 %}{% set _ = tutan.append(metin("kanit_gun")) %}
+  {%- elif a.gun > 0 %}{% set _ = farkli.append(metin("kanit_gun_sonra").format(n=a.gun)) %}
+  {%- else %}{% set _ = farkli.append(metin("kanit_gun_once").format(n=-a.gun)) %}{% endif -%}
+  {%- if a.icerik == "esit" %}{% set _ = tutan.append(metin("kanit_icerik")) %}
+  {%- else %}{% set _ = farkli.append(metin("kanit_icerik_sayi")) %}{% endif -%}
+  {%- if a.es_tutuyor %}{% set _ = tutan.append(metin("kanit_es")) %}
+  {%- elif a.es_farkli %}{% set _ = farkli.append(metin("kanit_es_farkli")) %}{% endif -%}
+  {%- if a.ad_baska_hasta %}{% set _ = farkli.append(metin("kanit_ad_baska_hasta")) %}{% endif -%}
+  {%- if tup_notu and a.baska_tup %}{% set _ = farkli.append(metin("kanit_baska_tup")) %}{% endif -%}
+  <span class="kanit">
+  {%- if tutan %}<b>{{ metin("kanit_tutan") }}:</b> {{ tutan|join(", ") }}{% endif %}
+  {%- if farkli %}{% if tutan %} · {% endif %}<span class="farkli"><b>{{ metin("kanit_farkli") }}:</b> {{ farkli|join(", ") }}</span>{% endif -%}
+  </span>
+{%- endmacro %}

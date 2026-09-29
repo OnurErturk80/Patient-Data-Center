@@ -16728,3 +16728,87 @@ Excel kaydından tüp açılabiliyor; 14'ünün HÜCRE'si okunamıyor, 1'inde ik
 yazıyor, 39'unda ve 15 sperm kaydının hepsinde gün elle yazılmalı. 12 kayıtta
 açılıp geri alındı: gobletlerin straw sayısı değişmedi, geri almadan sonra
 düzen birebir aynı.
+
+# v6.214 — Konumu girilmemiş tüpün yeri haritadan tamamlanıyor
+
+Kullanıcı: *"Konumu girilmemiş yazılan dondurulmuş örnekler var. Ama haritada
+yeri görünüyor. Neden konumu girilmemiş yazıyor? Haritaya bakıp yeri
+tamamlansa."*
+
+**Neden "konum girilmemiş".** Access kayıtlarında tüpün yeri yoktu. Konumlar
+Cryo Haritası Excel'inden yazıldı (`cryo_esle.py uygula`, v6.173; aktarımın
+sonunda kendiliğinden, v6.207) -- ad, dondurma günü ve içerik üçü birden
+birebir tutunca. Biri tutmayan tüp konumsuz kaldı; straw'ı ise haritada Excel
+kaydı olarak gobletinde duruyor (v6.189). Aynı straw iki yerde, birbirine
+bağlı değil. Deneme kopyasında konumu boş 514 dolu tüpün 168'inin haritada
+olası eşi var. Tutmayan: ad bir harf farklı ya da Türkçe harfsiz yazılmış,
+Excel'deki tarih 1-7 gün kayık, skor farklı yazılmış (sayı aynı), eş adı
+farklı, ad hiç tutmuyor ama gün ve içerik aynı. Kuralla tutup bağlanmamış
+çift kopyada yok.
+
+**Program kendisi bağlamıyor, kanıtıyla öneriyor** -- ad benzerliği tek
+başına kanıt değil (v6.125, v6.205). `cryo_esle.yer_onerileri()`:
+
+- Aday: haritada yeri olan, tankta duran Excel kaydı; tüpün dondurma
+  gününden en çok 7 gün kayık (`YER_ONERI_GUN`) ya da tarihsiz.
+- Kanıt: ad (aynı / farklı yazılmış / bir kısmı eksik / bir kelimesi farklı /
+  tutmuyor), gün (aynı / OPU'dan tutuyor / N gün kayık / Excel'de yok),
+  içerik (aynı / sayı aynı, yazım farklı), eş adı (tutuyor / farklı), "bu ad
+  programda başka bir hastada da var". Ekranda "Tutan" ve "Farklı" iki ayrı
+  liste; farklı olan hep yazılıyor.
+- Önerilmeyen: içeriğin sayısı bile tutmuyorsa; gün 7'den çok kayıksa; ad hiç
+  tutmuyorsa (yalnızca aynı gün aynı içerikte öneriliyor); Excel'deki ad
+  programda BAŞKA bir hastanın adıysa hiç -- straw o hastanın. Kanıt puanı
+  (küçük = güçlü) 4'ü aşan önerilmiyor.
+- **Her tüpe ayrı bir straw** (`_bire_bir()`). Aynı hastanın aynı içerikli
+  tüpleri aynı straw'ları aday gösteriyor (kopyada birden çok tüpe aday 82
+  Excel kaydının hepsi böyle); tüp başına en iyi aday iki tüpe aynı straw'ı
+  önerirdi. Birbirine aday üzerinden bağlı tüpler bir küme; kümede önce en
+  çok eşleşme, sonra en küçük toplam puan, eşitlikte sıra (aynı tüpler
+  programda ayırt edilmiyor, v6.148). Straw'ı kardeşine önerilen tüp
+  listede "önerilmedi" diye duruyor.
+- Programın kuralıyla kesin tutan (`excel_kaydi_plani()`'nin "bagla"sı)
+  işaretli geliyor -- aktarım da onu kendisi bağlıyor. Ötekiler işaretsiz.
+
+**Ekranlar:**
+
+- "Haritada yeri belirsiz" (`/cryo/yersiz`) -> **"Haritadan yer tamamla"**
+  (`/cryo/yer-tamamla`): hasta hasta, her tüpün önerilen straw'ı (goblet,
+  Excel'deki yazısı, tutan ve farklı olan), onay kutusu, "Bu hastanınkileri
+  seç", "Seçilenleri bağla (N)". Kayıt aynı kilidin içinde öneriyi yeniden
+  kuruyor: bu arada değişen çift (tüp çözüldü, straw başka tüpe bağlandı) ve
+  aynı straw'ı ikinci kez isteyen seçim yazılmıyor, sayısı ekranda.
+- **Tüpün sayfası**: konum girilmemişse nedeni ("Access kayıtlarında konum
+  yoktu ..." ya da "Dondurulurken konum yazılmamış."), haritadaki olası
+  yerleri ve her birinde "Bu yere bağla"; programdaki hastanın adı üstte,
+  Excel'deki yazımla yan yana okunsun diye. Bir Excel kaydına bağlı tüpte o
+  kayda bağlantı ("Bağı çöz" orada).
+
+**Yazım** Excel kaydının bağlamasının aynısı
+(`cryo_esle.excel_kaydini_tupe_bagla()`): tüp straw'ın gobletine geçiyor,
+rengi boşsa Excel'inki, aktarımın açtığı tüpün varsayılan tipi ("cryotop",
+Access'te tip yoktu) Excel'inkiyle değişiyor (v6.207'nin kuralı), Excel kaydı
+'baglandi'. Excel kaydının sayfasındaki "Tüpe bağla" da artık bu işlevden
+geçiyor: üç bağlama yolu tipte de aynı davranıyor. Geri alma kaydın
+sayfasındaki "Bağı çöz".
+
+**Bulunan hata: "Bağı çöz" tipi değişen tüpte hata veriyordu** (v6.207'den
+beri). Bağlama üzerine yazdığı tipi notuna yalnızca adıyla yazıyordu
+("doldurulan: renk,tip"), geri alma o alanı boşaltmaya çalışıyordu; tüpün
+tipi boş olamaz (NOT NULL): "Beklenmeyen hata". Aktarımın kendiliğinden
+bağladığı (v6.207) her tüpte geri alma bu yüzden çalışmıyordu. Artık not eski
+değeri de yazıyor ("tip=cryotop"), geri alma onu geri koyuyor. Eski biçimli
+notta eski değer değişiklik geçmişinden bulunuyor, bulunamazsa tip olduğu gibi
+kalıyor. Bağlamadan sonra elle değiştirilmiş renge/tipe dokunulmuyor.
+
+**Deneme.** Sahte veritabanında her durum: bir harf farkı, 2 gün kayık tarih,
+farklı yazılmış skor, tutmayan ad, başka hastanın adı (önerilmedi), farklı eş,
+aynı iki tüp + iki straw (ayrı straw'lar önerildi), aynı iki tüp + bir straw,
+kuralla kesin tutan (işaretli), olası yeri olmayan tüp. Tüpün sayfasından
+bağlama ve bağı çözme; toplu bağlamada aynı straw'ı iki tüpe seçmek, geçersiz
+seçim ve öneri olmayan çift reddedildi; eski biçimli notla geri alma. 72
+ekranlık taramada sorun yok, telefonda yatay taşma yok. Gerçek verinin deneme
+kopyasında (yalnızca sayılar): 514 konumsuz tüpün 168'ine öneri (işaretli 0;
+puanı 1: 84, 2: 60, 3: 9, 4: 15). Hepsi bir seferde bağlandı (0,16 sn):
+gobletlerin straw sayısı değişmedi, her bağlı tüp kaydının gobletinde. 168'inin
+bağı çözülünce tüpler ve Excel kayıtları birebir önceki hali.

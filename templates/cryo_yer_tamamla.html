@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% import "_yer_kanit.html" as yk %}
+{% block ustbaslik %}{{ metin("yer_tamamla") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cryo/yersiz">&#8249;</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+
+{# Haritadan yer tamamla (v6.214): konumu girilmemiş tüpler ve Cryo
+   Haritası'ndaki olası straw'ları, hasta hasta. Her tüpe bir straw önerilir;
+   işaretlenenler bağlanır (`POST /cryo/yer-tamamla`, Excel kaydının
+   bağlamasının yazımı, "Bağı çöz" geri alıyor). Programın kuralıyla kesin
+   tutan işaretli gelir, ötekiler işaretsiz: karar kullanıcının. #}
+
+{% if baglandi %}<div class="uyari tamam">{{ metin("yer_tamamla_baglandi").format(n=baglandi) }}</div>{% endif %}
+{% if atlanan %}<div class="uyari">{{ metin("yer_tamamla_atlanan").format(n=atlanan) }}</div>{% endif %}
+
+<div class="kart">
+  <h2>{{ metin("yer_tamamla") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 6px">{{ metin("yer_tamamla_ipucu") }}</div>
+  <div class="ipucu" style="margin:0 14px 10px"><b>{{ metin("yer_tamamla_ozet").format(n=konumsuz, m=oneri_sayisi) }}</b></div>
+</div>
+
+{# Tüpün içeriği goblet satırının yazımıyla: "2 embriyo · D5 (3AA-3BB)". #}
+{% macro tup_icerigi(x) -%}
+  {{ icerik_sayisi(x.adet, icerik="yumurta" if x.yumurta else "embriyo") }}
+  {%- if x.parantez %} · {% if not x.yumurta and x.dgun %}{{ x.dgun }} {% endif %}{{ x.parantez }}{% endif %}
+  · {{ gg_aa_yyyy(x.dondurma) if x.dondurma else "—" }}
+{%- endmacro %}
+
+{% if gruplar %}
+<form method="post" action="/cryo/yer-tamamla" id="yerform"
+      data-onay="{{ metin('yer_tamamla_onay') }}">
+{% for g in gruplar %}
+{% set secilebilir = g.satirlar|selectattr("oneri")|list %}
+<div class="kart">
+  <div class="tasimagrup yergrup">
+    <span><a href="/hasta/{{ g.hid }}">{{ g.dosya_no }}</a> · {{ g.ad_soyad }}
+      {%- if g.es_adi %} · {{ metin("es") }}: {{ g.es_adi }}{% endif %}</span>
+    {% if secilebilir|length > 1 %}<button type="button" class="dugme ikincil kucuk hepsisec">{{ metin("yer_tamamla_hasta_sec") }}</button>{% endif %}
+  </div>
+  {% if g.sirali %}<div class="ipucu" style="margin:6px 14px 2px">{{ metin("yer_tamamla_sirali") }}</div>{% endif %}
+  {% for x in g.satirlar %}
+  {% if x.oneri %}
+  {% set isaretli = x.kesin and x.kesin == x.oneri.eid %}
+  <label class="secsatir yersatir{% if isaretli %} secili{% endif %}">
+    <input type="checkbox" name="sec" value="{{ x.tid }}:{{ x.oneri.eid }}"{% if isaretli %} checked{% endif %}>
+    <span class="kutu"></span>
+    <span class="bilgi">
+      <strong>{{ x.etiket }}</strong> · {{ tup_icerigi(x) }}
+      <em class="yeryol">&rarr; {{ x.oneri.tam_yol }}</em>
+      <em>{{ yk.excel_satiri(x.oneri) }}</em>
+      <em>{{ yk.kanit(x.oneri) }}</em>
+      {% if isaretli %}<em>{{ metin("yer_tamamla_kesin") }}</em>{% endif %}
+    </span>
+  </label>
+  {% if x.baska %}<div class="ipucu yerbaska"><a href="/cryo/tasiyici/{{ x.tid }}">{{ metin("yer_tamamla_baska_aday").format(n=x.baska|length) }}</a></div>{% endif %}
+  {% else %}
+  <a class="satir" href="/cryo/tasiyici/{{ x.tid }}">
+    <div class="no">{{ x.etiket }}</div>
+    <div class="meta">{{ tup_icerigi(x) }}</div>
+    <div class="meta">{{ metin("yer_tamamla_onerisiz") }}</div>
+  </a>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endfor %}
+<button class="dugme" type="submit">{{ metin("yer_tamamla_bagla") }} (<span id="yersayi">{{ secili_sayisi }}</span>)</button>
+</form>
+{% else %}
+<div class="kart"><div class="bos">{{ metin("yer_tamamla_yok") }}</div></div>
+{% endif %}
+
+<a class="dugme ikincil" href="/cryo/yersiz">{{ metin("yeri_belirsizler") }}</a>
+
+<script>
+(function () {
+  // Tuzak #10: öneri yoksa form basılmıyor.
+  var form = document.getElementById('yerform');
+  if (!form) return;
+  var sayi = document.getElementById('yersayi');
+  function secililer() { return form.querySelectorAll('input[name="sec"]:checked').length; }
+  function isaretle(k) { k.closest('.secsatir').classList.toggle('secili', k.checked); }
+  form.querySelectorAll('input[name="sec"]').forEach(function (k) {
+    k.addEventListener('change', function () { isaretle(k); sayi.textContent = secililer(); });
+  });
+  // Hastanın bütün önerileri tek dokunuşla (hepsi seçiliyse kaldırır).
+  form.querySelectorAll('.hepsisec').forEach(function (d) {
+    d.addEventListener('click', function () {
+      var kutular = d.closest('.kart').querySelectorAll('input[name="sec"]');
+      var hepsi = Array.prototype.every.call(kutular, function (k) { return k.checked; });
+      kutular.forEach(function (k) { k.checked = !hepsi; isaretle(k); });
+      sayi.textContent = secililer();
+    });
+  });
+  form.addEventListener('submit', function (ev) {
+    var n = secililer();
+    if (!n || !confirm(form.dataset.onay.replace('{n}', n))) ev.preventDefault();
+  });
+})();
+</script>
+{% endblock %}

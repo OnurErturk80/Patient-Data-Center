@@ -8039,13 +8039,150 @@ def cryo_yersiz(request: Request, kategori: str = "embriyo"):
     excel_ = _excel_ayrintilari([e["id"] for e in agac["yersiz_excel"]])
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    # Haritada olası yeri olan konumsuz tüpler (v6.214): yalnızca sayı --
+    # kesin tutanları aramıyor, öneriler aynı. Ölçü toplu ekranınki: straw
+    # önerilen tüp (aynı içerikli kardeşine önerilen straw sayılmıyor).
+    yer_oneri = 0
+    if kategori == "embriyo" and konumsuz and yerlesim.excel_kaydi_var():
+        b = db.baglan()
+        try:
+            yer_oneri = sum(1 for o in cryo_esle.yer_onerileri(b, kesin_ara=False)
+                            if o["oneri"])
+        finally:
+            b.close()
     return sablon.TemplateResponse(
         request, "cryo_yersiz.html",
         {"kategori": kategori, "konumsuz": [tupler[i] for i in konumsuz],
+         "yer_oneri": yer_oneri,
          "duzen_disi": [{**tupler[t["id"]], "tam_yol": yollar.get(t["id"])}
                         for t in agac["yersiz_tup"]],
          "excel_disi": [excel_[e["id"]] for e in agac["yersiz_excel"]],
          "etiketler": etiketler})
+
+
+# ------------------------------------------- haritadan yer tamamla (v6.214)
+#
+# Kullanıcı (2026-09-28): "Konumu girilmemiş yazılan dondurulmuş örnekler var.
+# Ama haritada yeri görünüyor. Neden konumu girilmemiş yazıyor? Haritaya bakıp
+# yeri tamamlansa." Access'te konum yoktu; konumlar Cryo Haritası Excel'inden
+# ad, dondurma günü ve içerik BİREBİR tutunca yazıldı (v6.173, v6.207).
+# Birinin tutmadığı tüp "konum girilmemiş" kaldı, straw'ı haritada Excel
+# kaydı olarak duruyor. Program olası eşi kanıtıyla öneriyor
+# (`cryo_esle.yer_onerileri()`), bağlayan kullanıcı; yazım Excel kaydının
+# bağlamasının aynısı, "bağı çöz" geri alıyor.
+
+def _yer_tamamla_gruplari(oneriler) -> list:
+    """`cryo_esle.yer_onerileri()` -> hasta hasta gruplar. Tüp satırı goblet
+    ekranının yazımıyla (`_tup_ayrintilari`: "D5 (3AA-3BB)", yumurtada
+    "(5*MII)"). Gruplar en güçlü önerileriyle, içinde tüpler dondurma günü ve
+    etiketle sıralı."""
+    ayr = _tup_ayrintilari([o["tup"]["tid"] for o in oneriler])
+    # Başka bir tüpe önerilen straw "başka olası yer" sayılmıyor: aynı
+    # hastanın aynı içerikli tüplerinde o, kardeş tüpün straw'ı.
+    onerilen = {o["oneri"]["eid"] for o in oneriler if o["oneri"]}
+    gruplar = {}
+    for o in oneriler:
+        t = o["tup"]
+        a = ayr.get(t["tid"], {})
+        g = gruplar.setdefault(t["hid"], {
+            "hid": t["hid"], "dosya_no": t["dosya_no"], "ad_soyad": t["ad_soyad"],
+            "es_adi": t["es_adi"], "satirlar": [], "sirali": False})
+        g["satirlar"].append({
+            "tid": t["tid"], "etiket": t["etiket"], "dondurma": t["gun"],
+            "parantez": a.get("parantez") or "", "dgun": a.get("gun") or "",
+            "yumurta": a.get("yumurta"), "adet": a.get("adet") or 0,
+            "oneri": o["oneri"], "kesin": o["kesin"],
+            "baska": [x for x in o["adaylar"] if x["eid"] not in onerilen]})
+        if o["oneri"] and o["oneri"]["baska_tup"]:
+            g["sirali"] = True
+    for g in gruplar.values():
+        g["satirlar"].sort(key=lambda x: (x["dondurma"] or "", x["etiket"]))
+        g["en_iyi"] = min((x["oneri"]["puan"] if x["oneri"] else 99)
+                          for x in g["satirlar"])
+        g["kesin"] = any(x["kesin"] for x in g["satirlar"])
+    return sorted(gruplar.values(),
+                  key=lambda g: (not g["kesin"], g["en_iyi"], g["dosya_no"] or 0))
+
+
+def _sayi_parametresi(v) -> int:
+    return int(v) if (v or "").isdigit() and len(v) < 7 else 0
+
+
+@uygulama.get("/cryo/yer-tamamla")
+def cryo_yer_tamamla(request: Request, baglandi: str = "", atlanan: str = ""):
+    """Konumu girilmemiş tüpler ve Cryo Haritası'ndaki olası yerleri (v6.214).
+    Her tüpe bir straw önerilir (aynı hastanın aynı içerikli tüplerine
+    ayrı straw'lar, `cryo_esle._bire_bir()`); işaretlenenler bağlanır.
+    Programın kuralıyla kesin tutan (`excel_kaydi_plani()`) işaretli gelir --
+    aktarımın kendisi de onu bağlıyor; ötekiler işaretsiz, karar
+    kullanıcının (ad benzerliği tek başına kanıt değil, v6.205)."""
+    if not yerlesim.excel_kaydi_var():
+        return RedirectResponse("/cryo", status_code=303)
+    b = db.baglan()
+    try:
+        oneriler = cryo_esle.yer_onerileri(b)
+    finally:
+        b.close()
+    konumsuz = db.tek(
+        "SELECT COUNT(*) n FROM tasiyici WHERE lab_id=? AND durum='dolu' "
+        "AND kategori='embriyo' AND konum_id IS NULL", (db.LAB_ID,))["n"]
+    etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
+        "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    return sablon.TemplateResponse(
+        request, "cryo_yer_tamamla.html",
+        {"gruplar": _yer_tamamla_gruplari(oneriler), "konumsuz": konumsuz,
+         "oneri_sayisi": sum(1 for o in oneriler if o["oneri"]),
+         "secili_sayisi": sum(1 for o in oneriler if o["kesin"] and o["oneri"]
+                              and o["oneri"]["eid"] == o["kesin"]),
+         "etiketler": etiketler, "baglandi": _sayi_parametresi(baglandi),
+         "atlanan": _sayi_parametresi(atlanan)})
+
+
+@uygulama.post("/cryo/yer-tamamla")
+async def cryo_yer_tamamla_kaydet(request: Request):
+    """İşaretlenen tüp -> Excel kaydı çiftlerini bağlar (v6.214): tüp
+    straw'ın gobletine geçer, Excel kaydı 'baglandi' olur. Aynı kilidin
+    içinde öneri yeniden hesaplanıyor: ekranda gösterilen bir çift bu arada
+    değiştiyse (tüp çözüldü, straw başka tüpe bağlandı) ya da aynı straw iki
+    tüpe seçildiyse o çift yazılmıyor, sayısı ekrana yazılıyor. Tüpün
+    sayfasından gelen tek çift (`don=tup`) o sayfaya döner."""
+    f = await request.form()
+    ciftler = []
+    for v in f.getlist("sec"):
+        tid, _, eid = str(v).partition(":")
+        if tid.isdigit() and eid.isdigit():
+            ciftler.append((int(tid), int(eid)))
+    tupe_don = f.get("don") == "tup" and len(ciftler) == 1
+    kid = request.state.kullanici["id"]
+    simdi = _dt.now().isoformat(" ", "seconds")
+    yazilan, atlanan = [], 0
+    if ciftler:
+        with db.yazma_islemi() as b:
+            adaylar = {o["tup"]["tid"]: {a["eid"] for a in o["adaylar"]}
+                       for o in cryo_esle.yer_onerileri(b, [t for t, _e in ciftler])}
+            alinan_t, alinan_e = set(), set()
+            for tid, eid in ciftler:
+                if tid in alinan_t or eid in alinan_e or eid not in adaylar.get(tid, ()):
+                    atlanan += 1
+                    continue
+                e = b.execute("SELECT * FROM excel_kaydi WHERE id=? AND lab_id=? "
+                              "AND durum='tankta'", (eid, db.LAB_ID)).fetchone()
+                t = b.execute("SELECT t.*, k.tam_yol FROM tasiyici t LEFT JOIN konum k "
+                              "ON k.id=t.konum_id WHERE t.id=? AND t.lab_id=?",
+                              (tid, db.LAB_ID)).fetchone()
+                if not e or not t:
+                    atlanan += 1
+                    continue
+                cryo_esle.excel_kaydini_tupe_bagla(b, e, t, kid, simdi)
+                alinan_t.add(tid)
+                alinan_e.add(eid)
+                yazilan.append(tid)
+    if tupe_don:
+        sonuc = "baglandi" if yazilan else "atlandi"
+        return RedirectResponse(f"/cryo/tasiyici/{ciftler[0][0]}?yer={sonuc}",
+                                status_code=303)
+    return RedirectResponse(
+        f"/cryo/yer-tamamla?baglandi={len(yazilan)}&atlanan={atlanan}", status_code=303)
 
 
 EXCEL_KAYDI_HATALARI = {
@@ -8326,8 +8463,10 @@ async def excel_kaydi_bagla(request: Request, eid: int):
                      "AND durum='baglandi'", (t["id"], eid)).fetchone():
             return RedirectResponse(
                 f"{geri}?hata=tup_bagli&{urlencode({'etiket': etiket})}", status_code=303)
-        # Yazım tek yerde (v6.207): aktarımın kendiliğinden bağlaması da bu.
-        yerlesim.excel_kaydini_bagla(b, e, t, kid, simdi)
+        # Yazım tek yerde (v6.207): aktarımın kendiliğinden bağlaması ve
+        # haritadan yer tamamlama (v6.214) da bu -- aktarımın açtığı tüpün
+        # varsayılan tipi üçünde de Excel'inkiyle değişiyor.
+        cryo_esle.excel_kaydini_tupe_bagla(b, e, t, kid, simdi)
     return RedirectResponse(geri, status_code=303)
 
 
@@ -8399,8 +8538,9 @@ async def excel_kaydi_bagi_coz(request: Request, eid: int):
 
 def _excel_bagini_coz(b, e, kid, simdi):
     """Var olan bir tüpe bağlanmış Excel kaydının bağını çözer (v6.189):
-    tüp bağlamadan önceki konumuna, bağlarken doldurulan rengi/tipi boşa
-    döner (`yerlesim.excel_kaydini_bagla()`'nın yazdığı `islem_notu`)."""
+    tüp bağlamadan önceki konumuna, bağlarken doldurulan rengi/tipi önceki
+    haline döner (`yerlesim.excel_kaydini_bagla()`'nın yazdığı `islem_notu`:
+    boştu -> boş, üzerine yazıldı -> eski değer, v6.214)."""
     eid = e["id"]
     t = b.execute("SELECT t.id, t.konum_id, k.tam_yol FROM tasiyici t LEFT JOIN konum k "
                   "ON k.id=t.konum_id WHERE t.id=?", (e["tasiyici_id"],)).fetchone()
@@ -8415,15 +8555,30 @@ def _excel_bagini_coz(b, e, kid, simdi):
                   (db.LAB_ID, "tasiyici", str(t["id"]), "konum", t["tam_yol"],
                    eski[0] if eski else None, kid, simdi))
     if t and (e["islem_notu"] or "").startswith("doldurulan: "):
-        for alan in e["islem_notu"][len("doldurulan: "):].split(","):
-            if alan in ("renk", "tip"):
-                b.execute(f"UPDATE tasiyici SET {alan}=NULL WHERE id=? AND {alan}=?",
-                          (t["id"], e[alan]))
-                b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, "
-                          "alan, eski_deger, yeni_deger, kullanici_id, zaman) "
-                          "VALUES (?,?,?,?,?,?,?,?)",
-                          (db.LAB_ID, "tasiyici", str(t["id"]), alan, e[alan], None,
-                           kid, simdi))
+        for parca in e["islem_notu"][len("doldurulan: "):].split(","):
+            # "renk" (boştu, doldurulan) ya da "tip=cryotop" (üzerine yazılan,
+            # eski değeriyle, v6.214).
+            alan, _, onceki = parca.partition("=")
+            if alan not in ("renk", "tip"):
+                continue
+            if alan == "tip" and not onceki:
+                # `tip` boş olamaz (NOT NULL): v6.207-v6.213'ün notu eski değeri
+                # yazmıyordu, bağlarken değişiklik geçmişine yazılan değer.
+                r = b.execute("SELECT eski_deger FROM degisiklik_log WHERE "
+                              "tablo_adi='tasiyici' AND kayit_id=? AND alan='tip' "
+                              "AND yeni_deger=? ORDER BY id DESC LIMIT 1",
+                              (str(t["id"]), e["tip"])).fetchone()
+                onceki = r[0] if r and r[0] else ""
+                if not onceki:
+                    continue                  # bilinmiyor: tip olduğu gibi kalır
+            if not b.execute(f"UPDATE tasiyici SET {alan}=? WHERE id=? AND {alan}=?",
+                             (onceki or None, t["id"], e[alan])).rowcount:
+                continue                      # bu arada elle değiştirilmiş: dokunma
+            b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, "
+                      "alan, eski_deger, yeni_deger, kullanici_id, zaman) "
+                      "VALUES (?,?,?,?,?,?,?,?)",
+                      (db.LAB_ID, "tasiyici", str(t["id"]), alan, e[alan], onceki or None,
+                       kid, simdi))
     b.execute("UPDATE excel_kaydi SET durum='tankta', tasiyici_id=NULL, "
               "onceki_konum_id=NULL, islem_zamani=NULL, islem_notu=NULL, "
               "islem_kullanici_id=NULL WHERE id=?", (eid,))
@@ -8902,13 +9057,18 @@ def sperm_dondurma_sil(request: Request, sperm_dondurma_id: int):
 
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}")
-def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str = ""):
+def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str = "",
+                   yer: str = ""):
     """Taşıyıcının içeriği.
 
     `?cycle=N` çözme ekranından gelindiğini söyler; geri oku cryo haritasına
     değil o cycle'ın çözme ekranına döner (v6.32). Adresten gelen değer
     **sayı** ve var olan bir cycle'a bakılarak doğrulanıyor — `geri=<yol>`
     biçiminde serbest bir adres almıyoruz, `href`'e yazılacak.
+
+    Konumu girilmemiş tüpte neden girilmediği ve Cryo Haritası'ndaki olası
+    yeri (v6.214, `cryo_esle.yer_onerileri()`); `?yer=baglandi|atlandi`
+    oradan bağlamanın sonucu.
     """
     t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t "
                "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
@@ -8942,13 +9102,35 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str
         ozet = {"toplam": len(thawlar), "canli": canli,
                 "oran": round(100 * canli / len(thawlar)),
                 "ortalama_canlilik": round(sum(oranlar) / len(oranlar), 1) if oranlar else None}
+    # Cryo Haritası (v6.214): tüpün bağlı olduğu Excel kaydı ("bağı çöz"
+    # oradan), konumu yoksa haritadaki olası yeri ve konumun neden yok olduğu
+    # (aktarımın tüpü mü: dondurmanın notu `db.KAYNAK_DONDURMA_NOTU`).
+    harita_kaydi, yer_onerisi, konum_neden = None, None, None
+    if t["kategori"] == "embriyo" and yerlesim.excel_kaydi_var():
+        harita_kaydi = db.tek("SELECT id FROM excel_kaydi WHERE tasiyici_id=? "
+                              "AND durum='baglandi' LIMIT 1", (tasiyici_id,))
+        if t["durum"] == "dolu" and not t["konum_id"] and not harita_kaydi:
+            b = db.baglan()
+            try:
+                bulunan = cryo_esle.yer_onerileri(b, [tasiyici_id])
+            finally:
+                b.close()
+            yer_onerisi = bulunan[0] if bulunan else None
+    if t["kategori"] == "embriyo" and t["durum"] == "dolu" and not t["konum_id"]:
+        konum_neden = "aktarim" if db.tek(
+            "SELECT 1 FROM olay WHERE vit_tasiyici_id=? AND tip='vitrifikasyon' "
+            "AND notlar LIKE ? LIMIT 1",
+            (tasiyici_id, db.KAYNAK_DONDURMA_NOTU + "%")) else "ekran"
     return sablon.TemplateResponse(
         request, "tasiyici.html",
         {"t": t, "icerik": icerik, "etiketler": etiketler, "ozet": ozet,
          "geri": geri, "geri_cycle": cycle if gecerli else 0,
          "gonderim_acik": gonderim_var() and _gonderilebilir(t, icerik),
          "gonderim_hata": GONDERIM_HATALARI.get(hata),
-         "bugun": _dt.now().date().isoformat()})
+         "bugun": _dt.now().date().isoformat(),
+         "harita_kaydi": harita_kaydi, "yer_onerisi": yer_onerisi,
+         "konum_neden": konum_neden,
+         "yer_sonuc": yer if yer in ("baglandi", "atlandi") else ""})
 
 
 # ------------------------------------------------ başka merkeze taşınan tüp

@@ -22,6 +22,13 @@
 <div class="kart">
   <h2>{{ metin("konumu_girilmemis_tupler") }} ({{ konumsuz|length }})</h2>
   <div class="ipucu" style="margin:8px 14px 4px">{{ metin("konumu_girilmemis_ipucu") }}</div>
+  {# Haritada olası yeri olanlar (v6.214): hepsi tek ekranda, kanıtıyla. #}
+  {% if yer_oneri %}
+  <a class="satir" href="/cryo/yer-tamamla">
+    <div class="no" style="color:var(--baslik)">{{ metin("yer_tamamla") }}</div>
+    <div class="meta">{{ metin("yer_tamamla_n_oneri").format(n=yer_oneri) }}</div>
+  </a>
+  {% endif %}
   {% for x in konumsuz %}{{ tup(x) }}{% else %}<div class="bos">—</div>{% endfor %}
 </div>
 </div><div class="sutun">

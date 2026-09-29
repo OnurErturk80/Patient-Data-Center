@@ -2422,11 +2422,16 @@ besleniyor.
     tanktan çıkarıldı (tarih + not; "tanka geri koy"). `tasiyici`'ye FK:
     tüpü kalıcı silen yol önce `excel_kaydi_bagini_birak()` (tuzak #4).
   - **Bağlamanın yazımı tek yerde: `yerlesim.excel_kaydini_bagla()`**
-    (v6.207): sayfanın "tüpe bağla"sı ve kendiliğinden bağlama
+    (v6.207), üç yol onu `cryo_esle.excel_kaydini_tupe_bagla()` üzerinden
+    çağırıyor (v6.214; aktarımın tüpünün varsayılan tipi Excel'inkiyle
+    değişiyor): sayfanın "tüpe bağla"sı, kendiliğinden bağlama
     (`cryo_esle.excel_kayitlarini_bagla()`: aktarımın sonu ve dosyasız
-    `python3 cryo_esle.py excel_bagla`). "Bağı çöz" `islem_notu`'na
-    ("doldurulan: ...") ve `onceki_konum_id`'ye güveniyor; ikinci bir bağlama
-    yazımı açma. **Kendiliğinden bağlama yalnızca konumu boş, bağsız tüpe**:
+    `python3 cryo_esle.py excel_bagla`) ve haritadan yer tamamlama. "Bağı
+    çöz" `islem_notu`'na ("doldurulan: renk,tip=cryotop" -- üzerine yazılan
+    alanın eski değeriyle, v6.214) ve `onceki_konum_id`'ye güveniyor; ikinci
+    bir bağlama yazımı açma. **`tasiyici.tip` boş olamaz (NOT NULL)**: v6.213'e
+    kadar not eski tipi yazmıyordu, geri alma tipi boşaltmaya çalışıp
+    patlıyordu; eski biçimli notta eski değer değişiklik geçmişinden. **Kendiliğinden bağlama yalnızca konumu boş, bağsız tüpe**:
     aynı gobletde aynı içerikli, yeri girilmiş bir tüp ayrı bir straw olabilir
     (deneme kopyasında beş goblet: Excel iki satır, program bir tüp) -- ona
     bağlamak straw'ı haritadan düşürürdü; listelenir, karar kullanıcının.
@@ -2455,6 +2460,23 @@ besleniyor.
     - Excel'den tüp açan yeni bir yol yazarsan: Excel kaydı olan satıra
       tüp açma (`_excel_kaydi_olan_satirlar()`; `yeni_hasta` ve `sperm`
       kipleri o satırları atlıyor) -- straw iki kez görünürdü.
+  - **Haritadan yer tamamla** (v6.214, README v6.214; kullanıcı: "Konumu
+    girilmemiş yazılan dondurulmuş örnekler var. Ama haritada yeri
+    görünüyor"): konumu boş tüpün straw'ı haritada Excel kaydı olarak
+    duruyor, çünkü ad / gün / içerikten biri birebir tutmadı (Access'te konum
+    yoktu). `cryo_esle.yer_onerileri()` olası eşi kanıtıyla öneriyor (tutan ve
+    farklı olan ayrı yazılıyor), bağlayan KULLANICI: `/cryo/yer-tamamla`
+    (toplu, `/cryo/yersiz`'den) ve tüpün sayfasındaki "Haritada olası yeri".
+    - Yalnızca programın kuralıyla kesin tutan (`excel_kaydi_plani()`'nin
+      "bagla"sı) işaretli gelir; ötekiler işaretsiz. Ad benzerliğiyle
+      kendiliğinden işaretleyen ya da bağlayan kod YAZMA.
+    - Excel'deki ad programda başka bir hastanın adıysa önerilmez; ad hiç
+      tutmuyorsa yalnızca aynı gün aynı içerik; gün en çok 7 gün kayık.
+    - **Her tüpe ayrı straw** (`_bire_bir()`): aynı hastanın aynı içerikli
+      tüpleri aynı straw'ları aday gösteriyor. Öneri sayısını soran yeni bir
+      yer yazarsan `oneri`'si olanı say (iki ekranın sayısı aynı kalsın).
+    - Ekran ve kayıt aynı öneriyi soruyor: POST kilidin içinde yeniden
+      hesaplıyor, aday olmayan çifti ve aynı straw'ın ikinci seçimini yazmıyor.
   - **`yerlesim` önce öteki kipleri ister** (bekleyen `uygula`/`onar`/
     `yeni_hasta`/`sperm` -- yoksa aynı straw hem Excel kaydı hem tüp olurdu)
     ve Excel'den silinmiş satırın Excel kaydını kendiliğinden kaldırmaz

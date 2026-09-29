@@ -277,7 +277,8 @@ def excel_kaydini_bagla(b, e, t, kid, simdi, ezilebilir=()) -> list:
     İki yol aynı yazımı kullanıyor (v6.207): Excel kaydının sayfasındaki
     "tüpe bağla" (`app.excel_kaydi_bagla`, v6.189) ve aktarımın sonunda
     kendiliğinden bağlama (`cryo_esle.excel_kayitlarini_bagla()`). Bağı çözen
-    yol (`/bagi-coz`) `islem_notu`'na ("doldurulan: renk,tip") ve
+    yol (`/bagi-coz`) `islem_notu`'na ("doldurulan: renk,tip=cryotop" --
+    üzerine yazılan alanın eski değeriyle, v6.214) ve
     `onceki_konum_id`'ye güveniyor -- yazımı bir yerde değiştirirsen ikisi
     birlikte değişir.
 
@@ -298,19 +299,23 @@ def excel_kaydini_bagla(b, e, t, kid, simdi, ezilebilir=()) -> list:
                              (e["konum_id"],)).fetchone()[0]
         b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (e["konum_id"], t["id"]))
         logla("tasiyici", t["id"], "konum", t["tam_yol"], yeni_yol)
-    doldurulan = []
+    doldurulan, notu = [], []
     for alan in ("renk", "tip"):
         if e[alan] and (not t[alan] or (alan in ezilebilir and t[alan] != e[alan])):
             b.execute(f"UPDATE tasiyici SET {alan}=? WHERE id=?", (e[alan], t["id"]))
             logla("tasiyici", t["id"], alan, t[alan], e[alan])
             doldurulan.append(alan)
+            # Üzerine yazılan değer notta ("tip=cryotop", v6.214): bağ
+            # çözülünce o geri konuyor. `tip` boş olamaz (NOT NULL) --
+            # boşaltmaya çalışan geri alma patlıyordu.
+            notu.append(f"{alan}={t[alan]}" if t[alan] else alan)
     # Hangi alanın bağlarken doldurulduğu `islem_notu`nda (bağlı kayıtta
     # başka bir not yok): bağ çözülünce yalnızca onlar geri alınıyor.
     b.execute("UPDATE excel_kaydi SET durum='baglandi', tasiyici_id=?, "
               "onceki_konum_id=?, islem_zamani=?, islem_notu=?, islem_kullanici_id=? "
               "WHERE id=?",
               (t["id"], t["konum_id"], simdi[:10],
-               ("doldurulan: " + ",".join(doldurulan)) if doldurulan else None,
+               ("doldurulan: " + ",".join(notu)) if notu else None,
                kid, e["id"]))
     logla("excel_kaydi", e["id"], "durum", "tankta", f"baglandi: {t['etiket']}")
     return doldurulan

@@ -1739,6 +1739,21 @@ form.satir.aday .dugme.kucuk {
 }
 #onerilisteler.bekliyor { opacity: .5; }
 
+/* Haritadan yer tamamla (v6.214): hasta başlığı + "bu hastanınkileri seç",
+   önerinin kanıtı (farklı olan uyarı rengiyle), başka olası yer bağlantısı
+   onay kutusunun hizasında. */
+.yergrup { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
+           justify-content: space-between; }
+.yergrup .dugme.kucuk {
+  width: auto; min-height: 0; margin: 0; padding: 6px 10px; font-size: 12px;
+}
+.secsatir.yersatir { align-items: flex-start; }
+.secsatir.yersatir .kutu, .secsatir.yersatir .renknokta { margin-top: 2px; }
+.secsatir .bilgi em.yeryol { color: var(--ink); font-weight: 600; }
+.kanit { font-size: 13px; color: var(--ink-2); }
+.kanit .farkli { color: var(--uyari); }
+.ipucu.yerbaska { margin: -6px 14px 10px 50px; }
+
 /* Taşınma bölümü (v6.205): hastanın tüpleri tedavi tedavi (ya da taşıma
    taşıma) gruplanıyor; grup başlığı kartın içinde küçük bir satır. Taşınan
    tüp satırı seçim satırının yazımıyla, onay kutusu yok. */

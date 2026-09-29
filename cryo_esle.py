@@ -77,6 +77,7 @@ sayılır. Değişiklikler `degisiklik_log`'a düşer (tablo `tasiyici`, alan
 
 import collections
 import datetime as _dt
+import functools
 import hashlib
 import re
 import sys
@@ -316,9 +317,11 @@ def hastalar(b) -> dict:
     return idx
 
 
-def tupler(b) -> dict:
+def tupler(b, tidler=None) -> dict:
     """{hasta id: [tüp sözlüğü, ...]} -- embriyo/yumurta tüpleri, dondurma
-    günü ve içerikleriyle. Sperm tüplerinin `olay` satırı yok, gelmiyorlar."""
+    günü ve içerikleriyle. Sperm tüplerinin `olay` satırı yok, gelmiyorlar.
+    `tidler` verilirse yalnızca o tüpler (v6.214: bir tüpün sayfası bütün
+    tankın içeriğini okumasın)."""
     sonuc = collections.defaultdict(list)
     q = ("SELECT h.id hid, t.id tid, t.etiket, t.durum, t.tip, t.renk, t.konum_id, "
          "k.tam_yol, substr(MIN(o.zaman),1,10) gun, GROUP_CONCAT(s.id) ornekler, "
@@ -328,9 +331,22 @@ def tupler(b) -> dict:
          f"LEFT JOIN cycle vc ON vc.id={_db.vit_tedavisi('o')} "
          "JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
          "LEFT JOIN konum k ON k.id=t.konum_id "
-         "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND h.lab_id=? "
+         "WHERE o.tip='vitrifikasyon' AND o.iptal_mi=0 AND h.lab_id=? {suz}"
          "GROUP BY t.id")
-    for r in b.execute(q, (_db.LAB_ID,)):
+    if tidler is None:
+        parcalar = [(q.format(suz=""), (_db.LAB_ID,))]
+    else:
+        tidler = list(tidler)
+        parcalar = [(q.format(suz=f"AND t.id IN ({','.join('?' * len(p))}) "),
+                     (_db.LAB_ID, *p)) for p in (tidler[i:i + 500]
+                                                 for i in range(0, len(tidler), 500))]
+    for sorgu, par in parcalar:
+        _tupler_ekle(b, sorgu, par, sonuc)
+    return sonuc
+
+
+def _tupler_ekle(b, q, par, sonuc):
+    for r in b.execute(q, par).fetchall():
         skorlar = sorted(_norm(_tup_skoru(b, sid)) for sid in r["ornekler"].split(","))
         sonuc[r["hid"]].append({
             "tid": r["tid"], "etiket": r["etiket"], "durum": r["durum"],
@@ -338,7 +354,6 @@ def tupler(b) -> dict:
             "tam_yol": r["tam_yol"], "gun": r["gun"], "opu": r["opu"],
             "fet": r["vit_tipi"] in _db.FET_TIPLERI,
             "skorlar": skorlar})
-    return sonuc
 
 
 # ------------------------------------------------------------- eşleştirme
@@ -1991,6 +2006,7 @@ def excel_kaydi_satirlari(b) -> list:
             "sutun": 0, "tank": e["seviye1"] or "", "kanister": e["seviye2"] or "",
             "goblet": e["seviye3"] or "", "soyad": e["soyad"] or "", "ad": e["ad"] or "",
             "es_adi": e["es_adi"] or "", "tarih": tarih, "tarih_notu": notu,
+            "tarih_ham": e["tarih_ham"],
             "icerik": e["icerik"] or "", "vial_metni": e["vial"] or "",
             "kategori": "embriyo", "excel_kaydi": e["id"], "konum_id": e["konum_id"]})
     return satirlar
@@ -2093,13 +2109,23 @@ def excel_kayitlarini_bagla(hidler=None, ek_adlar=None, kayitlar=None) -> list:
                           (s["excel_kaydi"],)).fetchone()
             tt = b.execute("SELECT t.*, k.tam_yol FROM tasiyici t LEFT JOIN konum k "
                            "ON k.id = t.konum_id WHERE t.id = ?", (t["tid"],)).fetchone()
-            aktarim = b.execute(
-                "SELECT 1 FROM olay WHERE vit_tasiyici_id = ? AND tip = 'vitrifikasyon' "
-                "AND notlar LIKE ? LIMIT 1",
-                (t["tid"], _db.KAYNAK_DONDURMA_NOTU + "%")).fetchone()
-            _yerlesim.excel_kaydini_bagla(b, e, tt, kid, simdi,
-                                          ezilebilir=("tip",) if aktarim else ())
+            excel_kaydini_tupe_bagla(b, e, tt, kid, simdi)
     return plan
+
+
+def excel_kaydini_tupe_bagla(b, e, t, kid, simdi) -> list:
+    """Excel kaydını tüpe bağlar -- kendiliğinden bağlamanın (v6.207), Excel
+    kaydının sayfasındaki "tüpe bağla"nın ve haritadan yer tamamlamanın
+    (v6.214) ortak yazımı (`yerlesim.excel_kaydini_bagla()`; "bağı çöz" geri
+    alıyor). Aktarımın açtığı tüpün tipi ("cryotop" varsayılan, kaynakta yok)
+    Excel'inkiyle değişiyor -- `uygula`'nın yaptığı gibi; ekrandan girilen
+    tüpün tipi personelin seçimi, değişmiyor. `t`: tüp satırı (`tam_yol`
+    ile). Denetim (tüp dolu mu, türü tutuyor mu) çağıranın işi."""
+    aktarim = b.execute(
+        "SELECT 1 FROM olay WHERE vit_tasiyici_id = ? AND tip = 'vitrifikasyon' "
+        "AND notlar LIKE ? LIMIT 1", (t["id"], _db.KAYNAK_DONDURMA_NOTU + "%")).fetchone()
+    return _yerlesim.excel_kaydini_bagla(b, e, t, kid, simdi,
+                                         ezilebilir=("tip",) if aktarim else ())
 
 
 def excel_bagla_raporu(plan, b):
@@ -2513,6 +2539,315 @@ def _excel_kaydi_olan_satirlar(satirlar, b) -> set:
             kayitlar[a] -= 1
             sonuc.add(_satir_kimligi(s))
     return sonuc
+
+
+# --------------------------------------------- haritadan yer tamamla (v6.214)
+#
+# Kullanıcı (2026-09-28): "Konumu girilmemiş yazılan dondurulmuş örnekler var.
+# Ama haritada yeri görünüyor. Neden konumu girilmemiş yazıyor? Haritaya bakıp
+# yeri tamamlansa." Access'te konum yoktu; tüplerin yeri Cryo Haritası
+# Excel'inin satırlarından yazıldı (`uygula` v6.173, aktarımın sonunda
+# `excel_kayitlarini_bagla()` v6.207) -- ad, dondurma günü ve içerik
+# BİREBİR tutarsa. Tutmayan satır haritada "Excel kaydı" olarak kaldı
+# (v6.189), tüp "konumu girilmemiş": aynı straw iki yerde, birbirine bağlı
+# değil. Deneme kopyasında ölçüldü (konumu boş 514 tüpün 180'inin haritada
+# olası eşi var): ad bir harf farklı yazılmış, Excel'in tarihi bir iki gün
+# kayık, skor farklı yazılmış (sayı aynı), ad hiç tutmuyor ama gün ve içerik
+# aynı; birebir tutan azı da hiç bağlanmamış (aktarımın sonundaki bağlama
+# yalnızca o dosyanın hastalarına bakıyor).
+#
+# Program bunları kendisi BAĞLAMIYOR: ad benzerliği tek başına kanıt değil
+# (v6.125, v6.205). Her tüp için haritadaki olası Excel kayıtlarını, neyin
+# tuttuğu neyin tutmadığıyla öneriyor; seçen kullanıcı. Bağlama
+# `excel_kaydini_tupe_bagla()` (v6.189'un yazımı, "bağı çöz" geri alıyor).
+# Programın kendi kuralıyla tutanlar (`excel_kaydi_plani()`'nin "bagla"sı)
+# seçili geliyor.
+
+YER_ONERI_GUN = 7          # Excel'in günü ile tüpün dondurma günü en çok bu kadar kayık
+YER_ONERI_ESIK = 4         # kanıt puanı (küçük = güçlü) bundan büyükse önerilmez
+_KATLA = str.maketrans("ŞÜÖÇĞİ", "SUOCGI")
+
+
+def _katla(kelimeler) -> frozenset:
+    """Adın kelimeleri Türkçe harfsiz ("AYŞE" = "AYSE"): Excel'de ve Access'te
+    aynı ad bazen Türkçe harfsiz yazılmış."""
+    return frozenset(k.translate(_KATLA) for k in kelimeler)
+
+
+def _tek_harf(x, y) -> bool:
+    """İki kelime arasında tek harf farkı (değişen, eksik ya da fazla harf)."""
+    if abs(len(x) - len(y)) > 1:
+        return False
+    if len(x) == len(y):
+        return sum(p != q for p, q in zip(x, y)) == 1
+    if len(x) > len(y):
+        x, y = y, x
+    return any(y[:i] + y[i + 1:] == x for i in range(len(y)))
+
+
+def ad_yakinligi(ek, hk):
+    """Excel'deki adın kelimeleri ile programdaki adınki (`cryo_excel.kelimeler()`):
+    'ayni', 'yazim' (Türkçe harf ya da bir kelimede tek harf farkı),
+    'eksik_kelime' (biri ötekinin içinde: ikinci ad, kızlık soyadı -- en az iki
+    kelime ortak), 'kelime_farkli' (iki kelime ortak, birer kelime farklı) ya da
+    None."""
+    if not ek or not hk:
+        return None
+    if ek == hk:
+        return "ayni"
+    ek, hk = _katla(ek), _katla(hk)
+    if ek == hk:
+        return "yazim"
+    ortak = ek & hk
+    kalan_e, kalan_h = ek - ortak, hk - ortak
+    if (len(kalan_e) == 1 and len(kalan_h) == 1
+            and _tek_harf(next(iter(kalan_e)), next(iter(kalan_h)))):
+        return "yazim"
+    if len(ortak) >= 2 and (ek <= hk or hk <= ek):
+        return "eksik_kelime"
+    if len(ortak) >= 2 and len(kalan_e) <= 1 and len(kalan_h) <= 1:
+        return "kelime_farkli"
+    return None
+
+
+_AD_PUANI = {"ayni": 0, "yazim": 1, "eksik_kelime": 2, "kelime_farkli": 2, None: 4}
+
+
+def _gun_iliskisi(s, t):
+    """Excel satırının günü ile tüpün dondurma günü: 0 (aynı), 'opu' (Excel'in
+    "D5"i OPU'dan sayılınca tüpün tedavisi, v6.177), gün farkı (Excel − tüp)
+    ya da None (Excel'de tarih yok)."""
+    if not s["tarih"] or not t["gun"]:
+        return None
+    if s["tarih"] == t["gun"]:
+        return 0
+    if t["opu"] and _excel_opu(s) == t["opu"]:
+        return "opu"
+    return _gun_farki(s["tarih"], t["gun"])
+
+
+def _gun_puani(gun):
+    if gun in (0, "opu"):
+        return 0
+    if gun is None:
+        return 2
+    fark = abs(gun)
+    return None if fark > YER_ONERI_GUN else (1 if fark == 1 else 2 if fark <= 3 else 3)
+
+
+def _icerik_iliskisi(ic, t):
+    """'esit' (`_uyar()`: aynı içerik), 'sayi' (örnek sayısı aynı, yazım farklı)
+    ya da None."""
+    if not ic:
+        return None
+    if any(_uyar(x, t["skorlar"]) for x in ic):
+        return "esit"
+    if any(len(x) == len(t["skorlar"]) for x in ic):
+        return "sayi"
+    return None
+
+
+def yer_onerileri(b, tidler=None, kesin_ara=True) -> list:
+    """Konumu girilmemiş, bir Excel kaydına bağlı olmayan dolu embriyo/yumurta
+    tüpleri için Cryo Haritası'ndaki olası yer (Excel kaydı). Hiçbir şey
+    yazmaz; ekran da kayıt da bunu soruyor. `tidler` verilirse yalnızca o
+    tüpler (tüpün sayfası, kaydın denetimi), yoksa bütünü -- ve `kesin_ara`
+    iken programın kuralıyla kesin tutanlar da (`excel_kaydi_plani()`'nin
+    "bagla"sı; yalnızca sayı soran ekran aramıyor, adaylar değişmiyor).
+
+    -> [{"tup": tüp (`tupler()`'in sözlüğü + hid, dosya_no, ad_soyad, es_adi),
+         "adaylar": [aday, ...], "kesin": Excel kaydı id | None,
+         "oneri": aday | None}], olası yeri olanlar. Aday: Excel kaydının
+    alanları + `ad` (`ad_yakinligi()`), `ad_baska_hasta` (Excel'deki ad --
+    Türkçe harfsiz de -- programda başka bir hastanın da adı), `gun`
+    (`_gun_iliskisi()`), `icerik` (`_icerik_iliskisi()`), `es_farkli` /
+    `es_tutuyor` (iki tarafta da eş adı var: ortak kelimesi yok / var),
+    `puan` (küçük = güçlü), `baska_tup` (aynı Excel kaydı başka bir tüpe de
+    aday). `oneri`: bire bir dağıtımda bu tüpe düşen aday (`_bire_bir()`).
+
+    Önerilmeyenler: içeriği tutmayan (sayısı bile), günü `YER_ONERI_GUN`'den
+    çok kayık, puanı `YER_ONERI_ESIK`'ten büyük; adı hiç tutmuyorsa yalnızca
+    aynı gün aynı içerik -- ve Excel'deki ad programda BAŞKA bir hastanın adı
+    değilse (o zaman straw o hastanındır)."""
+    if not _db.tablo_var("excel_kaydi"):
+        return []
+    bagli = {r[0] for r in b.execute(
+        "SELECT tasiyici_id FROM excel_kaydi WHERE lab_id = ? AND durum = 'baglandi' "
+        "AND tasiyici_id IS NOT NULL", (_db.LAB_ID,))}
+    konumsuz = [r[0] for r in b.execute(
+        "SELECT id FROM tasiyici WHERE lab_id = ? AND durum = 'dolu' "
+        "AND kategori = 'embriyo' AND konum_id IS NULL", (_db.LAB_ID,))
+        if r[0] not in bagli]
+    if tidler is not None:
+        istenen = set(tidler)
+        konumsuz = [x for x in konumsuz if x in istenen]
+    if not konumsuz:
+        return []
+    tuplar = [dict(t, hid=hid) for hid, liste in tupler(b, konumsuz).items() for t in liste]
+    if not tuplar:
+        return []
+    hastalar_ = {r["id"]: r for r in b.execute(
+        "SELECT id, dosya_no, ad_soyad, es_adi FROM hasta WHERE lab_id = ?", (_db.LAB_ID,))}
+    ad_sahibi = collections.defaultdict(set)          # ad kelimeleri -> hasta id'leri
+    katli_sahibi = collections.defaultdict(set)       # Türkçe harfsiz hali
+    for hid, r in hastalar_.items():
+        k = cryo_excel.kelimeler(r["ad_soyad"])
+        ad_sahibi[k].add(hid)
+        katli_sahibi[_katla(k)].add(hid)
+    konum_yolu = {r[0]: r[1] for r in b.execute(
+        "SELECT id, tam_yol FROM konum WHERE lab_id = ?", (_db.LAB_ID,))}
+    gunluk = collections.defaultdict(list)
+    tarihsiz = []
+    for s in excel_kaydi_satirlari(b):
+        if not s["konum_id"]:
+            continue                                   # haritada yeri yok
+        (gunluk[s["tarih"]] if s["tarih"] else tarihsiz).append(s)
+    icerik_onbellek = {}
+
+    def icerik(s):
+        if s["excel_kaydi"] not in icerik_onbellek:
+            icerik_onbellek[s["excel_kaydi"]] = excel_icerik(s["icerik"])
+        return icerik_onbellek[s["excel_kaydi"]]
+
+    kesin = {}
+    if tidler is None and kesin_ara:
+        kesin = {t["tid"]: s["excel_kaydi"] for s, karar, t, _e in excel_kaydi_plani(b)
+                 if excel_kaydi_baglanir(karar) and t}
+    sonuc = []
+    for t in tuplar:
+        h = hastalar_.get(t["hid"])
+        if not h:
+            continue
+        hk = cryo_excel.kelimeler(h["ad_soyad"])
+        hes = cryo_excel.kelimeler(h["es_adi"])
+        yakin = list(tarihsiz)
+        if t["gun"]:
+            try:
+                gun0 = _dt.date.fromisoformat(t["gun"])
+            except ValueError:
+                continue                               # okunamayan gün: öneri yok
+            for d in range(-YER_ONERI_GUN, YER_ONERI_GUN + 1):
+                yakin += gunluk.get((gun0 + _dt.timedelta(days=d)).isoformat(), [])
+        adaylar = []
+        for s in yakin:
+            ek = cryo_excel.kelimeler(f'{s["soyad"]} {s["ad"]}')
+            ad = ad_yakinligi(ek, hk)
+            if ad != "ayni" and ad_sahibi.get(ek, set()) - {t["hid"]}:
+                continue                               # Excel'deki ad başka hastanın
+            ic = _icerik_iliskisi(icerik(s), t)
+            try:
+                gun = _gun_iliskisi(s, t)
+            except ValueError:
+                continue
+            gp = _gun_puani(gun)
+            if ic is None or gp is None:
+                continue
+            if ad is None and not (gun == 0 and ic == "esit"):
+                continue
+            if gun is None and ic != "esit":
+                continue
+            es = cryo_excel.kelimeler(s["es_adi"])
+            es_ortak = bool(es and hes and (_katla(es) & _katla(hes)))
+            es_farkli = bool(es and hes) and not es_ortak
+            puan = _AD_PUANI[ad] + gp + (0 if ic == "esit" else 2) + (1 if es_farkli else 0)
+            if puan > YER_ONERI_ESIK:
+                continue
+            adaylar.append({
+                "eid": s["excel_kaydi"], "tam_yol": konum_yolu.get(s["konum_id"]),
+                "soyad": s["soyad"], "ad_": s["ad"], "es_adi": s["es_adi"],
+                "tarih": s["tarih"], "tarih_ham": s["tarih_ham"],
+                "icerik_metni": s["icerik"], "vial": s["vial_metni"],
+                "ad": ad, "ad_baska_hasta": bool(katli_sahibi.get(_katla(ek), set())
+                                                 - {t["hid"]}),
+                "gun": gun, "icerik": ic, "es_farkli": es_farkli, "es_tutuyor": es_ortak,
+                "puan": puan})
+        if t["tid"] in kesin and not any(a["eid"] == kesin[t["tid"]] for a in adaylar):
+            kesin.pop(t["tid"])          # kuralın adayı pencerenin dışında: seçili gelmesin
+        if adaylar:
+            adaylar.sort(key=lambda a: (a["eid"] != kesin.get(t["tid"]), a["puan"], a["eid"]))
+            sonuc.append({"tup": dict(t, dosya_no=h["dosya_no"], ad_soyad=h["ad_soyad"],
+                                      es_adi=h["es_adi"]),
+                          "adaylar": adaylar[:5], "kesin": kesin.get(t["tid"])})
+    kac = collections.Counter(a["eid"] for o in sonuc for a in o["adaylar"])
+    for o in sonuc:
+        for a in o["adaylar"]:
+            a["baska_tup"] = kac[a["eid"]] > 1
+    _bire_bir(sonuc)
+    sonuc.sort(key=lambda o: (o["kesin"] is None, o["oneri"] is None,
+                              (o["oneri"] or o["adaylar"][0])["puan"],
+                              o["tup"]["dosya_no"] or 0, o["tup"]["gun"] or "",
+                              o["tup"]["etiket"]))
+    return sonuc
+
+
+_BIRE_BIR_EN_COK = 12      # bir kümede bundan çok Excel kaydı varsa tam arama yerine sırayla
+
+
+def _bire_bir(sonuc):
+    """Her tüpe ayrı bir straw (v6.214): aynı hastanın aynı içerikli tüpleri
+    aynı Excel kayıtlarını aday gösteriyor (deneme kopyasında birden çok tüpe
+    aday 82 kaydın hepsi böyle) -- tüp başına en iyi adayı almak iki tüpe
+    aynı straw'ı önerirdi. Birbirine aday üzerinden bağlı tüpler bir küme;
+    kümede önce en çok eşleşme, sonra en küçük toplam puan, eşitlikte tüp
+    (etiket) ve Excel kaydı (Excel'deki sıra) sırası -- aynı tüpler fark
+    etmez (v6.148). Programın kuralıyla kesin tutan çift önce gelir.
+    Her öğeye `oneri` yazar (aday ya da None)."""
+    ata = list(range(len(sonuc)))
+
+    def kok(i):
+        while ata[i] != i:
+            ata[i] = ata[ata[i]]
+            i = ata[i]
+        return i
+
+    ilk = {}
+    for i, o in enumerate(sonuc):
+        o["oneri"] = None
+        for a in o["adaylar"]:
+            if a["eid"] in ilk:
+                ata[kok(i)] = kok(ilk[a["eid"]])
+            else:
+                ilk[a["eid"]] = i
+    kumeler = collections.defaultdict(list)
+    for i in range(len(sonuc)):
+        kumeler[kok(i)].append(i)
+    for uyeler in kumeler.values():
+        uyeler.sort(key=lambda i: sonuc[i]["tup"]["etiket"])
+        eidler = sorted({a["eid"] for i in uyeler for a in sonuc[i]["adaylar"]})
+        yer = {e: k for k, e in enumerate(eidler)}
+        maliyet = [[(yer[a["eid"]], -1 if a["eid"] == sonuc[i]["kesin"] else a["puan"], a)
+                    for a in sorted(sonuc[i]["adaylar"], key=lambda a: a["eid"])]
+                   for i in uyeler]
+        if len(eidler) <= _BIRE_BIR_EN_COK:
+            @functools.lru_cache(maxsize=None)
+            def en_iyi(j, dolu):
+                # -> (-eşleşme, toplam puan, ((tüp sırası, aday), ...))
+                if j == len(uyeler):
+                    return (0, 0, ())
+                iyi = None
+                for k, p, _a in maliyet[j]:
+                    if dolu & (1 << k):
+                        continue
+                    n, c, secim = en_iyi(j + 1, dolu | (1 << k))
+                    aday = (n - 1, c + p, ((j, k),) + secim)
+                    if iyi is None or aday[:2] < iyi[:2]:
+                        iyi = aday
+                n, c, secim = en_iyi(j + 1, dolu)
+                if iyi is None or (n, c) < iyi[:2]:
+                    iyi = (n, c, secim)
+                return iyi
+
+            secim = en_iyi(0, 0)[2]
+        else:
+            alinan, secim_ = set(), []
+            for _p, j, k in sorted((p, j, k) for j, satir in enumerate(maliyet)
+                                   for k, p, _a in satir):
+                if k not in alinan and all(j != x for x, _ in secim_):
+                    alinan.add(k)
+                    secim_.append((j, k))
+            secim = tuple(secim_)
+        for j, k in secim:
+            sonuc[uyeler[j]]["oneri"] = next(a for kk, _p, a in maliyet[j] if kk == k)
 
 
 def _excel_bagla_kipi():
