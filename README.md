@@ -17129,3 +17129,103 @@ sayfa aynı yerde (828 px) açıldı, satır "Kullanıldığı tedavi" / "Henüz
 tedaviye bağlanmadı" dedi; bağlantıyla açılış en üstte; olmayan bir eş dosya
 numarası sayfanın dibinden gönderilince sayfa en üstten, hata mesajıyla açıldı.
 84 ekran iki genişlikte hatasız, yatay kayma yok.
+
+# v6.219 — Tedavide bulaş hastalığı, kimlik bandında kırmızı uyarı
+
+Kullanıcı: *"Hastaların tedavi kayıtları sırasında kadın ve erkeğin bulaş
+hastalığı olup olmadığı seçeneği olsun. Bu hastalıkları seçebilelim. Hepatit
+HİV gibi virütik hastalıklar seçilebilsin. Seçim tedavi boyunca en üstte
+adının olduğu yerde fark edilebilecek şekilde görünsün."*
+
+## Kayıt: tedavinin, kişi başına
+
+`goc_057`: `cycle.bulas_kadin` ve `cycle.bulas_erkek` (kadın hastanın kendisi,
+erkek eşi). Değer boşsa girilmedi, `yok` ise bulaş hastalığı yok; öteki
+değerler seçilen hastalıkların kodları ("hbv,hiv"), elle yazılan hastalık
+`|`'den sonra ("hbv|Sifiliz"). Biçimi okuyan ve yazan tek yer
+`db.bulas_oku()` / `db.bulas_yaz()`.
+
+- **Tedavinin kaydı, hastanın değil**: istek "tedavi kayıtları sırasında" ve
+  "tedavi boyunca" diyor. Tahlil her tedavide yenileniyor; her tedavi kendi
+  zamanındaki durumu tutuyor (tüplerin dondurulduğu andaki durum da o).
+- **Tablo değil kolon**: tedavinin bir alanı. Tedavi formu yazıyor, değişiklik
+  geçmişi formun öteki alanlarıyla birlikte tutuyor; kalıcı silme, kart
+  birleştirme ve "Tüm veriler" dökümü onu tedaviyle birlikte götürüyor, ayrı bir
+  adım gerekmedi.
+- **Liste `bulas_hastaligi`**: Hepatit B, Hepatit C, HIV (kullanıcının
+  örnekleri: "Hepatit HİV gibi virütik hastalıklar"). Programda listeyi
+  düzenleyen ekran olmadığı için her kişinin yanında bir **"Diğer"** kutusu var;
+  listede olmayan hastalık oraya yazılıyor (en çok 80 harf).
+
+## Tedavi formu
+
+"Tedavi" kartının altında yeni bir **"Bulaş hastalığı"** kartı var. Kadın ve
+erkek için ayrı satırlar: **Yok**, Hepatit B, Hepatit C, HIV ve "Diğer" kutusu.
+Hiçbiri seçilmezse "girilmedi" sayılıyor. "Yok" ile hastalık birbirini
+dışlıyor: "Yok"a basınca hastalıklar ve "Diğer" temizleniyor, hastalık seçince
+"Yok" kalkıyor. İkisi birden gelirse sunucu hastalığı alıyor, bulaş hastalığı
+sessizce kaybolmuyor. Seçili hastalık kırmızı, "Yok" pembe görünüyor. Görünüm
+betiğe değil kutunun işaretine (`:checked`) bağlı. Kutular `.alan`'ın dışında
+duruyor, yoksa gizli işaret kutusu sayfayı genişletirdi (tuzak #14; `.cip input`
+da bileşenin kendi kuralında sabitlendi).
+
+- **Yeni tedavi hastanın en son girilen seçimiyle açılıyor.** Değer kişi başına
+  geliyor (`db.son_bulas()`: tedavilerin tarih sırası, silme ekranından iptal
+  edilen tedavi sayılmıyor). Formda "Hastanın önceki tedavisinden (2026-0012)
+  geldi; tahlil değiştiyse düzeltin" yazıyor. Çözme ekranının "Yeni tedavi
+  başlat" düğmesi ve hasta kartının "Çöz · yeni FET"i tedaviyi formsuz açıyor;
+  onlar da aynı değeri alıyor. Gerekçe: bilinen bir HIV'li hastanın yeni
+  FET'i uyarısız açılmasın. Bu kullanıcıya sorulmadan konan bir varsayılan.
+- Hata dönüşünde seçim korunuyor (v6.21). Sürümden önce açılmış bir sekmenin
+  formu bu bölümü taşımıyorsa (`bulas_formu` işareti yok), kayıtlı seçime
+  dokunulmuyor. Listede olmayan bir kod formdan gelirse yazılmıyor. Göç
+  çalışmamışsa kart hiç basılmıyor; basılsaydı seçim kayda girmeden kaybolurdu.
+
+## Kimlik bandında uyarı
+
+Tedavinin bütün ekranlarında, hastanın adının hemen altında, bandın koyu
+zemininde kırmızı bir kutu çıkıyor: "⚠ BULAŞ HASTALIĞI / Kadın: Hepatit B /
+Erkek: HIV, Sifiliz". Kapsanan ekranlar: tedavi ekranı, OPU'dan gebeliğe bütün
+aşamalar, bitirme, fotoğraf ekleme, tedavi formunun düzenlemesi, tüpün çözme
+formu (çözmenin yapıldığı tedavi). Yalnızca hastalığı olan kişi yazılıyor;
+"Yok" ve girilmemiş olan susuyor.
+
+- **Hasta kartında** (ve yeni tedavi formunda, taşıma ekranında) kişi başına
+  en son girilen durum gösteriliyor, yanında hangi tedavide girildiği: "Kadın:
+  Hepatit B · 2026-0012 tedavisinde".
+- **Tek yerde**: `base.html` kimlik bandından hemen sonra `_bulas_bandi.html`'i
+  basıyor. 41 şablonun bandına tek tek dokunulmadı (tuzak #1). Ölçü ekranın
+  kendi değişkeni: `c` / `cycle_id` / `secili_cycle` o tedavinin kaydını,
+  `hasta` en son girileni veriyor. Bandı olmayan ekranda (yazdırılan resmî
+  form) hiç sorulmuyor.
+- `db.bulas_uyarilari()` hata verirse boş döner: parça her hasta ekranında
+  çalışıyor, onu bozmamalı.
+- Tedavi ekranında ayrıca bir "Bulaş hastalığı" kartı var. Kart tam durumu
+  gösteriyor: kişi başına Yok, girilmedi ya da hastalıklar.
+- Renk `--tehlike` (#c62f2f, silme düğmesinin tonu), üzerindeki yazı sabit
+  beyaz (~8:1).
+
+Resmî formlara, Cryo Haritası'na ve tedavi listelerine girmiyor: istek
+kimlik bandıydı.
+
+## Deneme
+
+Sahte veritabanında tarayıcıyla, telefon ve masaüstü genişliğinde:
+
+- Göç açılışta kendiliğinden uygulandı. İkinci çalıştırmada "zaten var" dedi,
+  liste üç değerde kaldı.
+- Bir tedaviye "Kadın: Hepatit B, Erkek: Yok", ötekine "Erkek: HIV + Diğer:
+  Sifiliz" yazıldı. Bant iki tedavinin denenen 9 ekranında doğru çıktı,
+  bulaşsız tedavinin ekranlarında hiç çıkmadı. Hasta kartı iki kişiyi kendi
+  tedavi numaralarıyla gösterdi.
+- Yeni tedavi formu iki seçimle ve notlarıyla açıldı. Var olan lab no ile hata
+  dönüşünde seçim korundu, kayıt iki kolonu da yazdı. "Çöz · yeni FET" ile
+  açılan FET de aynı değerleri aldı.
+- Kenar durumlar:
+  - Eski sekme kayıtlı seçimi silmedi.
+  - Uydurma kod ve virgüllü kod yazılmadı.
+  - Hepsi kaldırılınca girilmedi oldu.
+  - Yok ile hastalık birlikte gelince hastalık kaldı.
+  - Değişiklik geçmişine düştü.
+- Resmî form ekranlarında bant yok. Göçsüz veritabanında yardımcılar boş döndü.
+- 84 ekran iki genişlikte hatasız, yatay kayma yok.

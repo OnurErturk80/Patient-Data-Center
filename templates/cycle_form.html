@@ -71,6 +71,53 @@
     </div>
   </div>
 
+  {# Bulaş hastalığı (v6.219, kullanıcı: "kadın ve erkeğin bulaş hastalığı
+     olup olmadığı seçeneği olsun. Bu hastalıkları seçebilelim. Hepatit HİV
+     gibi virütik hastalıklar seçilebilsin"). Kişi başına: Yok, listenin
+     hastalıkları (`bulas_hastaligi`), elle yazılan "Diğer"; hiçbiri
+     seçilmezse girilmedi. Seçilen hastalık bu tedavinin bütün ekranlarında
+     kimlik bandında (`base.html`). Yeni tedavi hastanın en son girilen
+     seçimiyle açılıyor (`bulas_kaynak`, nereden geldiği yazıyor). Kolonun
+     biçimi `db.bulas_oku()` / `bulas_yaz()`; `bulas_formu` işareti olmayan
+     form (sürümden önce açılmış sekme) kayıtlı seçime dokunmuyor; göç
+     çalışmamışsa kart basılmıyor (seçim sessizce kaybolmasın). Kutular
+     `.alan`'ın içinde değil: `.alan label` / `.alan input` kuralları gizli
+     kutuya da uyardı (tuzak #14). #}
+  {% if bulas_acik() %}
+  <div class="kart" id="bulaskart">
+    <h2>{{ metin("bulas_hastaligi") }}</h2>
+    <input type="hidden" name="bulas_formu" value="1">
+    {% for kisi in ("kadin", "erkek") %}
+    {% set durum, kodlar, diger = bulas_oku(v.get("bulas_" ~ kisi)) %}
+    <div class="bulaskisi">
+      <div class="bulasad">{{ metin("bulas_" ~ kisi) }}</div>
+      <div class="cipler">
+        <label class="cip">
+          <input type="checkbox" name="bulas_{{ kisi }}_yok" value="1"{% if durum == "yok" %} checked{% endif %}>
+          <span>{{ metin("bulas_yok") }}</span>
+        </label>
+        {% for s in bulas_secenekleri(kodlar) %}
+        <label class="cip bulasvar">
+          <input type="checkbox" name="bulas_{{ kisi }}_kod" value="{{ s.kod }}"{% if s.kod in kodlar %} checked{% endif %}>
+          <span>{{ s.etiket }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="alan bulasdiger">
+        <input type="text" name="bulas_{{ kisi }}_diger" maxlength="80" autocomplete="off"
+               placeholder="{{ metin('bulas_diger') }}"
+               aria-label="{{ metin('bulas_' ~ kisi) }}: {{ metin('bulas_diger') }}"
+               value="{{ diger or '' }}">
+      </div>
+      {% if bulas_kaynak is defined and bulas_kaynak.get(kisi) %}
+      <div class="ipucu">{{ metin("bulas_onceki").format(no=bulas_kaynak[kisi]) }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <div class="alan"><div class="ipucu" style="margin-top:0">{{ metin("bulas_ipucu") }}</div></div>
+  </div>
+  {% endif %}
+
   <div class="kart">
     <h2>{{ metin("klinik_protokol") }}</h2>
     <div class="alan">
@@ -168,4 +215,30 @@
   <button class="dugme" type="submit">{{ metin("degisiklikleri_kaydet") if duzenleme else metin("cycle_i_kaydet") }}</button>
   {% if duzenleme %}<a class="dugme ikincil" href="/cycle/{{ cycle_id }}">{{ metin("vazgec") }}</a>{% endif %}
 </form>
+<script>
+(function () {
+  // Bulaş hastalığı (v6.219): "Yok" ile hastalıklar birbirini dışlıyor.
+  // Sunucu da aynı kuralı uyguluyor (`db.bulas_yaz()`: hastalık kazanır).
+  var kart = document.getElementById('bulaskart');
+  if (!kart) return;                                   // tuzak #10
+  var her = function (liste, f) { Array.prototype.forEach.call(liste, f); };
+  her(kart.querySelectorAll('.bulaskisi'), function (satir) {
+    var yok = satir.querySelector('input[name$="_yok"]');
+    var hastaliklar = satir.querySelectorAll('input[name$="_kod"]');
+    var diger = satir.querySelector('input[name$="_diger"]');
+    if (!yok) return;
+    yok.addEventListener('change', function () {
+      if (!yok.checked) return;
+      her(hastaliklar, function (h) { h.checked = false; });
+      if (diger) diger.value = '';
+    });
+    her(hastaliklar, function (h) {
+      h.addEventListener('change', function () { if (h.checked) yok.checked = false; });
+    });
+    if (diger) diger.addEventListener('input', function () {
+      if (diger.value.trim()) yok.checked = false;
+    });
+  });
+})();
+</script>
 {% endblock %}

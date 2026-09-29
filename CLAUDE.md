@@ -245,7 +245,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..056.py   veritabanı göçleri (sırayla)
+  goc_002..057.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   kurulum.py        ilk açılış: yeni laboratuvar / eski bilgisayardan taşı, şema (v6.204)
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss + gorev.ps1 Windows kurulumu,
@@ -567,6 +567,35 @@ Freeze-all ayrı bir tip **değil** — veriden çıkar (vitrifikasyon var, tran
 ve **CSS'te** çevriliyor (`.kimlik` flex + `order`) — sırayı değiştireceksen
 şablonlara dokunma, tuzak #1. Hasta adı olmayan ekranlar (taşıyıcı, çözme)
 `kimlik tekli` sınıfını alır.
+
+**Bulaş hastalığı tedavinin kaydı, bandın altında kırmızı uyarı** (v6.219,
+`goc_057`, README v6.219; kullanıcı: "Hastaların tedavi kayıtları sırasında
+kadın ve erkeğin bulaş hastalığı olup olmadığı seçeneği olsun ... Hepatit HİV
+gibi virütik hastalıklar seçilebilsin. Seçim tedavi boyunca en üstte adının
+olduğu yerde fark edilebilecek şekilde görünsün").
+- `cycle.bulas_kadin` / `bulas_erkek` (kadın = hasta, erkek = eşi): NULL
+  girilmedi, `yok`, ya da kodlar + `|` + elle "Diğer". Biçimi okuyan / yazan
+  tek yer `db.bulas_oku()` / `db.bulas_yaz()`; ikinci bir ayrıştırıcı yazma.
+  Liste `bulas_hastaligi` (Hepatit B, Hepatit C, HIV); listeyi düzenleyen ekran
+  yok, başka hastalık "Diğer"e.
+- Tedavi formunda kişi başına Yok / hastalıklar / Diğer (kutular `.alan`
+  dışında, tuzak #14). Yok ile hastalık gelirse hastalık kazanır.
+  `bulas_formu` işareti olmayan POST (eski sekme) kolonlara dokunmaz; göç
+  yoksa kart basılmaz. Kod listeden (ya da tedavinin kayıtlısından) geçer.
+- **Yeni tedavi hastanın en son girilen seçimiyle açılır** (`db.son_bulas()`,
+  kişi başına, tarih sırası, silme ekranından iptal edilen sayılmaz), formda
+  nereden geldiği yazar; formsuz açılan tedavi de (`thaw_yeni_tedavi`).
+  Kullanıcıya sorulmadan konan varsayılan -- istemezse kaldır. Tedaviyi
+  formsuz açan yeni bir yol yazarsan aynısını yap.
+- **Uyarı tek yerde**: `base.html` kimlik bandından sonra `_bulas_bandi.html`
+  (yalnızca bandı olan ekranda, yazdırılan form hariç). Ölçü ekranın
+  değişkeni: `c` / `cycle_id` / `secili_cycle` o tedavinin kaydı, `hasta` kişi
+  başına en son girilen + hangi tedavide. Yalnızca hastalığı olan kişi.
+  Yeni bir tedavi ekranı tedaviyi `c` adıyla verirse uyarı kendiliğinden gelir.
+  `db.bulas_uyarilari()` hata vermez, boş döner (her hasta ekranında çalışıyor).
+- Tedavi ekranının "Bulaş hastalığı" kartı tam durumu (Yok / girilmedi)
+  gösterir. Renk `--tehlike`, üzerinde sabit beyaz. Resmî formlara, Cryo
+  Haritası'na ve listelere girmiyor (istenmedi).
 
 **Örnek kodu ana fotoğrafın altında yazar.** `527078-2026-0001-03` kodu
 oosit → zigot → embriyo boyunca değişmediği için aynı kod her aşama ekranında

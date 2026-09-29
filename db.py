@@ -1,6 +1,7 @@
 """Veritabanı bağlantısı ve yardımcı fonksiyonlar."""
 
 import json
+import logging
 import os
 import platform
 import sqlite3
@@ -416,6 +417,158 @@ def tedavi_bulgulari(cycle_id, asama="icsi"):
                                r["id"]))
     return ([{"liste": r["liste_adi"], "kod": r["bulgu_kodu"],
               "etiket": r["etiket"] or r["bulgu_kodu"]} for r in secili], elle)
+
+
+# ------------------------------------------------ bulaş hastalığı (v6.219)
+
+# Tedavinin iki kolonu (goc_057), ekrandaki sırayla: kadın (hastanın kendisi,
+# `hasta.ad_soyad`) ve erkek (eşi, `hasta.es_adi`). Kolonun adı
+# `bulas_<kişi>`.
+BULAS_KISILER = ("kadin", "erkek")
+BULAS_LISTESI = "bulas_hastaligi"
+BULAS_YOK = "yok"
+BULAS_DIGER_EN_COK = 80
+
+
+def bulas_oku(deger):
+    """`cycle.bulas_kadin` / `bulas_erkek` -> `(durum, kodlar, diger)` (v6.219).
+
+    Kolonun biçimi goc_057'de: boş = girilmedi (`durum` None), "yok", ya da
+    virgülle `bulas_hastaligi` kodları ve varsa `|`'den sonra elle yazılan
+    "Diğer" (`durum` "var"). Kolonu okuyan her yer bundan geçer, ikinci bir
+    ayrıştırıcı yazma."""
+    metin = deger.strip() if isinstance(deger, str) else ""
+    if not metin:
+        return None, [], None
+    if metin == BULAS_YOK:
+        return "yok", [], None
+    kod_metni, _, diger = metin.partition("|")
+    kodlar = [k for k in (x.strip() for x in kod_metni.split(",")) if k]
+    diger = diger.strip() or None
+    if not kodlar and not diger:
+        return None, [], None
+    return "var", kodlar, diger
+
+
+def bulas_yaz(kodlar, diger, yok):
+    """Formun seçimi -> kolonun değeri, `bulas_oku()`'nun tersi (v6.219).
+
+    Hastalık seçildiyse ya da "Diğer" yazıldıysa "Yok" sayılmaz -- ikisi
+    birden gelirse hastalık kazanır: bulaş hastalığı sessizce kaybolmasın.
+    Hiçbiri yoksa None (girilmedi). Kodların listede olup olmadığına çağıran
+    bakar (`app.bulas_formdan()`)."""
+    temiz = []
+    for k in kodlar:
+        k = (k or "").strip()
+        if k and k != BULAS_YOK and "," not in k and "|" not in k \
+                and k not in temiz:
+            temiz.append(k)
+    diger = " ".join((diger or "").split())[:BULAS_DIGER_EN_COK] or None
+    if temiz or diger:
+        return ",".join(temiz) + (f"|{diger}" if diger else "")
+    return BULAS_YOK if yok else None
+
+
+def _bulas_listesi():
+    """`bulas_hastaligi` listesinin bütün değerleri (pasif dahil), sırasıyla."""
+    return sorgu("SELECT kod, etiket, aktif_mi FROM liste_degeri "
+                 "WHERE lab_id = ? AND liste_adi = ? ORDER BY sira, id",
+                 (LAB_ID, BULAS_LISTESI))
+
+
+def bulas_etiketleri(kodlar, diger=None):
+    """Seçilen hastalıkların ekrandaki adları, listenin sırasıyla; "Diğer"
+    en sonda. Listeden kaldırılmış (pasif) değer etiketiyle, listede hiç
+    olmayan kod koduyla geliyor (tuzak #6: kayıtlı değer kaybolmasın)."""
+    liste = _bulas_listesi() if kodlar else []
+    sira = {r["kod"]: i for i, r in enumerate(liste)}
+    etiket = {r["kod"]: r["etiket"] for r in liste}
+    adlar = [etiket.get(k, k)
+             for k in sorted(kodlar, key=lambda k: sira.get(k, len(sira)))]
+    return adlar + ([diger] if diger else [])
+
+
+def bulas_secenekleri(kayitli=()):
+    """Tedavi formunun seçenekleri: listenin etkin değerleri + kayıtlı olup
+    listeden kaldırılmış (pasif) ya da listede olmayan kodlar, kendi
+    etiketleriyle (tuzak #6: seçici kayıtlı değeri sessizce düşürmesin)."""
+    liste = _bulas_listesi()
+    secenek = [{"kod": r["kod"], "etiket": r["etiket"]} for r in liste
+               if r["aktif_mi"] or r["kod"] in kayitli]
+    bilinen = {r["kod"] for r in liste}
+    return secenek + [{"kod": k, "etiket": k} for k in kayitli if k not in bilinen]
+
+
+def bulas_durumu(cycle_id):
+    """Bir tedavinin bulaş kaydı, kişi başına (v6.219):
+    `[{"kisi", "durum", "hastaliklar"}]` -- `durum` None (girilmedi), "yok"
+    ya da "var". Göç çalışmamışsa boş liste (tuzak #3)."""
+    if not kolon_var("cycle", "bulas_kadin"):
+        return []
+    c = tek("SELECT bulas_kadin, bulas_erkek FROM cycle WHERE id = ?",
+            (cycle_id,))
+    if not c:
+        return []
+    sonuc = []
+    for kisi in BULAS_KISILER:
+        durum, kodlar, diger = bulas_oku(c[f"bulas_{kisi}"])
+        sonuc.append({"kisi": kisi, "durum": durum,
+                      "hastaliklar": bulas_etiketleri(kodlar, diger)})
+    return sonuc
+
+
+def son_bulas(hasta_id, haric=None):
+    """Hastanın kişi başına EN SON girilmiş bulaş kaydı (v6.219):
+    `{kişi: (kolonun değeri, tedavinin lab no'su)}`, girilmemiş kişi yok.
+
+    Tedavilerin sırası `hasta_cycle_no` (tarih sırası, v6.144); silme
+    ekranından iptal edilen tedavi (bitiş sebebi yok) sayılmıyor. Yeni tedavi
+    bununla açılıyor (form ve çözme ekranının "Yeni tedavi başlat"ı), hasta
+    kartının bandı bunu gösteriyor. `haric`: sayılmayacak tedavi."""
+    if not kolon_var("cycle", "bulas_kadin"):
+        return {}
+    sonuc = {}
+    for r in sorgu(
+            "SELECT id, cycle_no, bulas_kadin, bulas_erkek FROM cycle "
+            " WHERE hasta_id = ? AND id <> ? "
+            "   AND NOT (durum = 'iptal' AND bitis_sebebi IS NULL) "
+            " ORDER BY COALESCE(hasta_cycle_no, 0) DESC, id DESC",
+            (hasta_id, haric or 0)):
+        for kisi in BULAS_KISILER:
+            deger = r[f"bulas_{kisi}"]
+            if kisi not in sonuc and bulas_oku(deger)[0] is not None:
+                sonuc[kisi] = (deger, r["cycle_no"])
+        if len(sonuc) == len(BULAS_KISILER):
+            break
+    return sonuc
+
+
+def bulas_uyarilari(cycle_id=None, hasta_id=None):
+    """Kimlik bandının uyarısı (v6.219): yalnızca hastalığı OLAN kişiler,
+    `[{"kisi", "hastaliklar", "tedavi"}]`.
+
+    `cycle_id`: o tedavinin kendi kaydı (tedavinin bütün ekranları, `tedavi`
+    None). `hasta_id`: kişi başına en son girilen (`son_bulas()`; hasta
+    kartı, yeni tedavi formu), `tedavi` kaydın geldiği tedavinin lab no'su.
+    `base.html` her hasta ekranında çağırıyor: hata ekranı bozmasın, boş
+    liste döner."""
+    try:
+        if cycle_id:
+            return [{"kisi": b["kisi"], "hastaliklar": b["hastaliklar"],
+                     "tedavi": None}
+                    for b in bulas_durumu(int(cycle_id)) if b["durum"] == "var"]
+        if hasta_id:
+            sonuc = []
+            for kisi, (deger, cycle_no) in son_bulas(int(hasta_id)).items():
+                durum, kodlar, diger = bulas_oku(deger)
+                if durum == "var":
+                    sonuc.append({"kisi": kisi, "tedavi": cycle_no,
+                                  "hastaliklar": bulas_etiketleri(kodlar, diger)})
+            sira = {k: i for i, k in enumerate(BULAS_KISILER)}
+            return sorted(sonuc, key=lambda s: sira[s["kisi"]])
+    except (sqlite3.Error, ValueError, TypeError):
+        logging.getLogger(__name__).exception("Bulaş uyarısı okunamadı")
+    return []
 
 
 def klinik_gebelik_sql(g: str = "g") -> str:

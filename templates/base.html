@@ -100,6 +100,10 @@
 {% endif %}
 {% endblock %}
 {% block kimlik %}{% endblock %}
+{# Bulaş hastalığı uyarısı (v6.219): kimlik bandı olan her ekranda, bandın
+   hemen altında -- ayrıntı `_bulas_bandi.html`'de. Bandı olmayan ekran
+   (yazdırılan resmî form) hiç sormuyor. #}
+{% if self.kimlik()|trim %}{% include "_bulas_bandi.html" %}{% endif %}
 <div class="kap{% block kapsinif %}{% endblock %}">
 {# Ayni kaydi baska biri duzenliyorsa haber (v6.55). Sabit serit degil satir
    ici: bu gecici bir olay degil, sayfanin o anki DURUMU -- ustte, formun

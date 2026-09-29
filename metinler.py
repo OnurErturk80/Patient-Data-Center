@@ -775,6 +775,25 @@ METINLER = {
                            "en": "{n} frozen sperm record(s)"},
     "mukerrer_es": {"tr": "eşi: {ad}", "en": "spouse: {ad}"},
     "dondurulmus_sperm": {"tr": "Dondurulmuş sperm", "en": "Frozen sperm"},
+    # Tedavinin bulaş hastalığı kaydı (v6.219): tedavi formu, tedavi ekranı,
+    # kimlik bandının uyarısı. `bulas_<kişi>` anahtarı `db.BULAS_KISILER`'den.
+    "bulas_hastaligi": {"tr": "Bulaş hastalığı", "en": "Infectious disease"},
+    "bulas_kadin": {"tr": "Kadın", "en": "Female"},
+    "bulas_erkek": {"tr": "Erkek", "en": "Male"},
+    "bulas_yok": {"tr": "Yok", "en": "None"},
+    "bulas_diger": {"tr": "Diğer (elle yazın)", "en": "Other (type it)"},
+    "bulas_ipucu": {
+        "tr": "Hiçbiri seçilmezse girilmedi sayılır. Seçilen hastalık bu "
+              "tedavinin bütün ekranlarında, en üstte hastanın adının altında "
+              "kırmızı uyarıyla görünür.",
+        "en": "Nothing selected means not entered. A selected disease shows as "
+              "a red warning under the patient's name on every screen of this "
+              "cycle."},
+    "bulas_onceki": {
+        "tr": "Hastanın önceki tedavisinden ({no}) geldi; tahlil değiştiyse düzeltin.",
+        "en": "Carried over from the patient's previous cycle ({no}); correct it "
+              "if the test result changed."},
+    "bulas_tedavisinde": {"tr": "{no} tedavisinde", "en": "in cycle {no}"},
     # Hasta kartının "Dondurulmuş örnekler" bölümü (v6.217).
     "dondurulmus_ornekler": {"tr": "Dondurulmuş örnekler", "en": "Frozen samples"},
     "tankta_embriyo_yok": {"tr": "Tankta embriyo ya da yumurta tüpü yok.",

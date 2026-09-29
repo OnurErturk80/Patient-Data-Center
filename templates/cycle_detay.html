@@ -71,6 +71,24 @@
   </dl>
 </div>
 
+{# Bulaş hastalığı (v6.219): kişi başına tam durum -- "Yok" ve girilmedi de
+   (kimlik bandı yalnızca hastalığı olanı söylüyor). Tedavi formundan
+   düzenleniyor. Göç çalışmamışsa liste boş, kart basılmıyor. #}
+{% set _bulas_durum = bulas_durumu(c.id) %}
+{% if _bulas_durum %}
+<div class="kart">
+  <h2>{{ metin("bulas_hastaligi") }}</h2>
+  <dl style="margin:0">
+    {% for b in _bulas_durum %}
+    <div class="veri"><dt>{{ metin("bulas_" ~ b.kisi) }}</dt>
+      <dd{% if b.durum is none %} class="yok"{% elif b.durum == "var" %} class="bulasvar"{% endif %}>
+        {%- if b.durum is none %}{{ metin("girilmedi") }}{% elif b.durum == "yok" %}{{ metin("bulas_yok") }}{% else %}{{ b.hastaliklar|join(", ") }}{% endif -%}
+      </dd></div>
+    {% endfor %}
+  </dl>
+</div>
+{% endif %}
+
 {% if c.protokol_notu %}
 <div class="kart">
   <h2>{{ metin("protokol_notu") }}</h2>

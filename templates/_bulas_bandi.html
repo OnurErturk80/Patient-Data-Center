@@ -1,0 +1,38 @@
+{#- Bulaş hastalığı uyarısı (v6.219, kullanıcı: "Seçim tedavi boyunca en üstte
+   adının olduğu yerde fark edilebilecek şekilde görünsün"). `base.html`
+   kimlik bandının hemen arkasından basıyor, yalnızca bandı olan ekranda --
+   41 şablonun bandına tek tek dokunmamak için (tuzak #1). Ölçü ekranın kendi
+   değişkeni:
+     - `c` (tedavi ekranı ve bütün aşama ekranları), `cycle_id` (tedavi
+       formunun düzenlemesi) ya da `secili_cycle` (tüpün çözme formu, çözmenin
+       yapıldığı tedavi): o tedavinin kendi kaydı;
+     - `hasta` (hasta kartı, yeni tedavi formu, taşıma): kişi başına en son
+       girilen, hangi tedavide girildiği yazıyor (`db.son_bulas()`).
+   Yalnızca hastalığı OLAN kişi basılıyor; "Yok" ve girilmemiş sessiz.
+   `db.bulas_uyarilari()` hata verirse boş döner: bu parça her hasta ekranında
+   çalışıyor, onu bozmamalı. -#}
+{%- if c is defined and c and c.id -%}
+  {%- set _bulas = bulas_uyarilari(cycle_id=c.id) -%}
+{%- elif cycle_id is defined and cycle_id -%}
+  {%- set _bulas = bulas_uyarilari(cycle_id=cycle_id) -%}
+{%- elif secili_cycle is defined and secili_cycle -%}
+  {%- set _bulas = bulas_uyarilari(cycle_id=secili_cycle) -%}
+{%- elif hasta is defined and hasta and hasta.id -%}
+  {%- set _bulas = bulas_uyarilari(hasta_id=hasta.id) -%}
+{%- else -%}
+  {%- set _bulas = [] -%}
+{%- endif -%}
+{% if _bulas %}
+<div class="kimlik bulasbant">
+  <div class="bulaskutu">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1 21h22L12 2zm0 4.6L19.3 19H4.7L12 6.6zM11 10h2v5h-2zm0 6h2v2h-2z"/></svg>
+    <div>
+      <span class="baslik">{{ metin("bulas_hastaligi") }}</span>
+      {% for k in _bulas %}
+      <span class="kisi">{{ metin("bulas_" ~ k.kisi) }}: {{ k.hastaliklar|join(", ") }}
+        {%- if k.tedavi %} <span class="kaynak">· {{ metin("bulas_tedavisinde").format(no=k.tedavi) }}</span>{% endif %}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

@@ -25,6 +25,10 @@
      `--yuzey` ile neredeyse ayni, secili hal gorunmez (v6.186); secili
      hal `--vurgu`. */
   --ust-bg:   #111a25;
+  /* Bulas hastaligi uyarisi (v6.219): kimlik bandinin altindaki kutu ve
+     formda secili hastalik. Sabit koyu kirmizi (silme dugmesinin tonu),
+     uzerindeki yazi sabit beyaz (~8:1). Zemin olarak da guvenli. */
+  --tehlike:  #c62f2f;
   --r: 6px;
   /* Genis ekranda icerik sutunu. Yan menu solda 200px yer kapliyor,
      500px pay onunla carpismayi onluyor. Formul TEK yerde: kimlik bandinin
@@ -928,7 +932,8 @@ body.kilitli { overflow: hidden; }
 }
 
 .cipler { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; }
-.cip input { position: absolute; opacity: 0; pointer-events: none; }
+.cip input { position: absolute; opacity: 0; pointer-events: none;
+             width: auto; min-width: 0; }   /* tuzak #14 */
 .cip span {
   display: inline-block; padding: 10px 12px; min-height: 42px; line-height: 22px;
   border: 1px solid var(--line); border-radius: 21px;
@@ -938,6 +943,44 @@ body.kilitli { overflow: hidden; }
   background: var(--vurgu-ac); border-color: var(--vurgu); color: var(--vurgu);
   font-weight: 600;
 }
+
+/* --- bulaş hastalığı (v6.219) ---
+   Tedavi formunda kişi başına bir satır: Yok + hastalıklar + "Diğer". Seçili
+   görünüm sınıfla değil `:checked`'le -- betik çalışmasa da doğru görünsün.
+   Satır `.alan` değil: `.alan label` / `.alan input` kuralları kutulara da
+   uyardı (tuzak #14); yalnız "Diğer" kutusu `.alan` biçimini alıyor. */
+.bulaskisi { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.bulaskisi .bulasad { font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
+.bulaskisi .cipler { padding: 0; }
+.bulaskisi .cip input:checked + span {
+  background: var(--vurgu-ac); border-color: var(--vurgu); color: var(--vurgu);
+  font-weight: 600;
+}
+.bulaskisi .cip.bulasvar input:checked + span {
+  background: var(--tehlike); border-color: var(--tehlike); color: #fff;
+}
+.bulaskisi .cip input:focus-visible + span {
+  outline: 2px solid var(--vurgu); outline-offset: 1px;
+}
+.alan.bulasdiger { padding: 8px 0 0; border: 0; }
+
+/* Kimlik bandının uyarısı: bandın hemen altında, aynı koyu zeminde (`.kimlik`
+   sınıfı bandın genişlik ve hiza kurallarını da veriyor). Sabit kırmızı kutu,
+   sabit beyaz yazı -- kasa gibi temadan bağımsız. */
+.kimlik.bulasbant { padding-top: 0; padding-bottom: 16px; margin-top: -8px; }
+.bulaskutu {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--tehlike); color: #fff;
+  border-radius: var(--r); padding: 10px 12px;
+}
+.bulaskutu svg { width: 24px; height: 24px; flex: 0 0 auto; fill: #fff; }
+.bulaskutu .baslik {
+  display: block; font-size: 12px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; opacity: .9;
+}
+.bulaskutu .kisi { display: block; font-size: 17px; font-weight: 700; line-height: 1.3; }
+.bulaskutu .kaynak { font-size: 13px; font-weight: 400; opacity: .85; }
+.veri dd.bulasvar { color: #ff9b9b; font-weight: 700; }
 
 /* --- açılır seçim (bulgular) — select alanlarıyla aynı görünüm --- */
 .acici {

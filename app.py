@@ -440,6 +440,15 @@ sablon.env.globals["yumurta_mi"] = _yumurta_mi
 sablon.env.globals["icerik_sayisi"] = _icerik_sayisi
 sablon.env.globals["cozme_tedavisi_mi"] = db.cozme_tedavisi_mi
 sablon.env.globals["ornek_kodu"] = _ornek_kodu
+# Bulaş hastalığı (v6.219): tedavi formu okuyup seçenekleri basıyor, tedavi
+# ekranı kişi başına durumu, `base.html` kimlik bandının uyarısını.
+sablon.env.globals["bulas_oku"] = db.bulas_oku
+sablon.env.globals["bulas_secenekleri"] = db.bulas_secenekleri
+sablon.env.globals["bulas_durumu"] = db.bulas_durumu
+sablon.env.globals["bulas_uyarilari"] = db.bulas_uyarilari
+# Göç (goc_057) çalışmamışsa tedavi formu bölümü basmıyor: seçilen kayda
+# girmezdi. `kolon_var()` geri yüklemede unutuluyor (tuzak #15).
+sablon.env.globals["bulas_acik"] = lambda: db.kolon_var("cycle", "bulas_kadin")
 
 
 def bos_ise_none(deger):
@@ -3735,6 +3744,39 @@ def _elle_no_kolonu_var() -> bool:
                for r in db.sorgu("PRAGMA table_info(cycle)"))
 
 
+def _bulas_kolonu_var() -> bool:
+    """goc_057 çalıştırıldı mı -- `cycle.bulas_kadin` / `bulas_erkek` var mı
+    (v6.219). Tedavi açmanın INSERT'ine giriyor; `_planlanan_kolonu_var()`
+    gibi her seferinde soruluyor, saklanmıyor (tuzak #15)."""
+    kolonlar = {r["name"] for r in db.sorgu("PRAGMA table_info(cycle)")}
+    return {"bulas_kadin", "bulas_erkek"} <= kolonlar
+
+
+def bulas_formdan(form, eski=None):
+    """Tedavi formunun bulaş seçimi -> `{"bulas_kadin": ..., "bulas_erkek": ...}`
+    (v6.219) ya da None: form bu bölümü taşımıyor (sürümden önce açılmış
+    sekme) -- o zaman kolonlara hiç dokunulmaz, kayıtlı seçim silinmesin.
+
+    Kodlar `bulas_hastaligi` listesinin kodlarından (pasif dahil) ya da bu
+    tedavide zaten kayıtlı olanlardan geçiyor: formdan gelen başka bir metin
+    kod diye yazılmıyor. Elle yazılan hastalık "Diğer" kutusundan."""
+    if not form.get("bulas_formu"):
+        return None
+    izinli = {r["kod"] for r in db.sorgu(
+        "SELECT kod FROM liste_degeri WHERE lab_id = ? AND liste_adi = ?",
+        (db.LAB_ID, db.BULAS_LISTESI))}
+    sonuc = {}
+    for kisi in db.BULAS_KISILER:
+        alan = f"bulas_{kisi}"
+        kayitli = set()
+        if eski is not None and alan in eski.keys():
+            kayitli = set(db.bulas_oku(eski[alan])[1])
+        kodlar = [k for k in form.getlist(f"{alan}_kod") if k in izinli | kayitli]
+        sonuc[alan] = db.bulas_yaz(kodlar, form.get(f"{alan}_diger"),
+                                   form.get(f"{alan}_yok"))
+    return sonuc
+
+
 def cycle_formu_oku(f: dict) -> dict:
     return {
         "cycle_no": (f.get("cycle_no") or "").strip(),
@@ -3837,13 +3879,21 @@ def _elle_no_dogrula(b, cycle_id, elle):
 def cycle_yeni(request: Request, hasta_id: int):
     hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
     oneri = sonraki_hasta_cycle_no(hasta_id)
+    v = {"hasta_cycle_no": oneri, "hasta_cycle_no_oneri": oneri,
+         "cycle_no": sonraki_lab_no()}
+    # Bulaş hastalığı (v6.219): yeni tedavi, kişi başına hastanın en son
+    # girilmiş seçimiyle açılıyor -- bilinen bir hastalık yeni tedavide
+    # uyarısız kalmasın. Formda nereden geldiği yazıyor, değiştirilebilir.
+    son = db.son_bulas(hasta_id)
+    for kisi, (deger, _no) in son.items():
+        v[f"bulas_{kisi}"] = deger
     return sablon.TemplateResponse(
         request, "cycle_form.html",
         {"hasta": hasta,
          # Öneri gizli alanda da gidiyor (v6.144): kutu değiştirilmediyse
          # numarayı tarih sırası verir, değiştirildiyse elle yazılmıştır.
-         "v": {"hasta_cycle_no": oneri, "hasta_cycle_no_oneri": oneri,
-               "cycle_no": sonraki_lab_no()},
+         "v": v,
+         "bulas_kaynak": {kisi: no for kisi, (_d, no) in son.items()},
          "duzenleme": False, "hata": None,
          "hedef": f"/hasta/{hasta_id}/cycle/yeni", **cycle_listeleri()},
     )
@@ -3851,7 +3901,13 @@ def cycle_yeni(request: Request, hasta_id: int):
 
 @uygulama.post("/hasta/{hasta_id}/cycle/yeni")
 async def cycle_kaydet(request: Request, hasta_id: int):
-    f = dict(await request.form())
+    form = await request.form()
+    f = dict(form)
+    # Bulaş seçimi birden çok kutu (`getlist`); kolonun değerine çevrilip
+    # forma geri konuyor -- hata dönüşünde seçim kaybolmasın (v6.21).
+    bulas = bulas_formdan(form)
+    if bulas:
+        f.update(bulas)
     hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (hasta_id,))
 
     def formu_goster(mesaj):
@@ -3895,6 +3951,9 @@ async def cycle_kaydet(request: Request, hasta_id: int):
     if _elle_no_kolonu_var():
         alanlar = alanlar + ["hasta_cycle_no_elle"]
         degerler.append(elle)
+    if bulas is not None and _bulas_kolonu_var():
+        alanlar = alanlar + list(bulas)
+        degerler.extend(bulas.values())
     try:
         # Açmak ve numaralamak tek işlem: elle yazılan numara tarih sırasıyla
         # bağdaşmıyorsa tedavi hiç açılmamış olur.
@@ -3988,7 +4047,11 @@ def cycle_duzenle(request: Request, cycle_id: int):
 @uygulama.post("/cycle/{cycle_id}/duzenle")
 async def cycle_guncelle(request: Request, cycle_id: int):
     eski = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
-    f = dict(await request.form())
+    form = await request.form()
+    f = dict(form)
+    bulas = bulas_formdan(form, eski)          # v6.219, cycle_kaydet'teki gibi
+    if bulas:
+        f.update(bulas)
     hasta = db.tek("SELECT * FROM hasta WHERE id = ?", (eski["hasta_id"],))
 
     def formu_goster(mesaj):
@@ -4032,6 +4095,10 @@ async def cycle_guncelle(request: Request, cycle_id: int):
             elle = yeni_elle = d["hasta_cycle_no"]
         alanlar = alanlar + ["hasta_cycle_no_elle"]
         degerler.append(elle)
+    if bulas is not None and _bulas_kolonu_var():
+        alanlar = alanlar + list(bulas)
+        degerler.extend(bulas.values())
+        d.update(bulas)                        # değişiklik geçmişine de
     try:
         with db.yazma_islemi() as b:
             b.execute(
@@ -10197,15 +10264,24 @@ async def thaw_yeni_tedavi(request: Request, tasiyici_id: int):
                                 status_code=303)
     hasta_id = hastalar.pop()
     kid = request.state.kullanici["id"]
+    # Bulaş hastalığı (v6.219): tedavi formu atlanıyor, yeni tedavi formdaki
+    # gibi hastanın en son girilmiş seçimiyle açılıyor -- bilinen bir hastalık
+    # FET'in ekranlarında uyarısız kalmasın. Tedavi formundan değiştirilir.
+    ek_alan, ek_deger = [], []
+    if _bulas_kolonu_var():
+        for kisi, (deger, _no) in db.son_bulas(hasta_id).items():
+            ek_alan.append(f"bulas_{kisi}")
+            ek_deger.append(deger)
     for _ in range(3):
         # İki personel aynı anda tedavi açarsa aynı numarayı alabilir; UNIQUE
         # hatasında sıradaki numarayla tekrar dene (cycle_kaydet'in gerekçesi).
         try:
             with db.yazma_islemi() as b:
                 yeni_id = b.execute(
-                    "INSERT INTO cycle (lab_id, hasta_id, cycle_no, cycle_tipi) "
-                    "VALUES (?, ?, ?, ?)",
-                    (db.LAB_ID, hasta_id, sonraki_lab_no(), tip)).lastrowid
+                    "INSERT INTO cycle (lab_id, hasta_id, cycle_no, cycle_tipi"
+                    + "".join(f", {a}" for a in ek_alan) + ") VALUES (?, ?, ?, ?"
+                    + ", ?" * len(ek_alan) + ")",
+                    (db.LAB_ID, hasta_id, sonraki_lab_no(), tip, *ek_deger)).lastrowid
                 degisen = db.tedavileri_sirala(b, hasta_id)
             break
         except sqlite3.IntegrityError:
