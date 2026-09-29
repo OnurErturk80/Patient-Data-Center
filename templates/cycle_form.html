@@ -197,7 +197,14 @@
        geri koyma, gizli alan da koyma -- sunucu formda olmayan bu iki alana
        dokunmuyor (`app.ASAMA_EKRANI_ALANLARI`), gizli alan açık kalmış
        formun eski saatini aşama ekranında sonradan yazılanın üzerine geri
-       koyardı. #}
+       koyardı. TEK İSTİSNA: `asama_ekrani_alanlari` tanımlı değilse şablon
+       diskten yeni, program eski (`git pull`'dan sonra yeniden başlatılmadı,
+       tuzak #5) -- eski kod formda olmayan saati silerdi, o yüzden yalnızca
+       o durumda gizli taşınıyor. #}
+    {% if asama_ekrani_alanlari is not defined %}
+    <input type="hidden" name="opu_zamani" value="{{ dz('opu_zamani') }}">
+    <input type="hidden" name="denudasyon_zamani" value="{{ dz('denudasyon_zamani') }}">
+    {% endif %}
     <div class="alan" style="border:0;padding-bottom:0">
       <div class="ipucu">{{ metin("opu_oosit_sayilari") }}</div>
     </div>

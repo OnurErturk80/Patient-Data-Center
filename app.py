@@ -3788,6 +3788,10 @@ def bulas_formdan(form, eski=None):
 # sonradan yazılanın üzerine geri koyardı). Bu sürümden önce açılmış sekme
 # alanları taşıyor, eskisi gibi yazılıyor.
 ASAMA_EKRANI_ALANLARI = ("opu_zamani", "denudasyon_zamani")
+# Şablon bunu görmezse program `git pull`'dan sonra yeniden başlatılmamış
+# demektir (tuzak #5): eski kod formda olmayan saati SİLER, şablon o
+# durumda iki alanı gizli taşıyor (`cycle_form.html`).
+sablon.env.globals["asama_ekrani_alanlari"] = ASAMA_EKRANI_ALANLARI
 
 
 def cycle_formu_oku(f: dict) -> dict:

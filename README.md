@@ -17276,6 +17276,20 @@ rotaları yalnızca sözlükteki alanları yazıyor ve değişiklik geçmişine 
 Formu kaydetmek bu iki kolona dokunmuyor. Bu sürümden önce açılmış bir sekme
 alanları hâlâ taşıyor ve eskisi gibi yazıyor.
 
+## Yeniden başlatılmamış program (tuzak #5)
+
+Şablonlar diskten her istekte okunuyor, Python kodu yalnızca açılışta. `git
+pull`'dan sonra program yeniden başlatılmazsa yeni form eski kodla çalışır.
+Eski kod formda olmayan alanı boş sayıp yazar. Bu sürümün ilk gönderimi
+(3324941) tam bunu yapıyordu. Bunu 10956b8'in (v6.220) kodu ve yeni şablonla
+denedim: Düzenle'den bir kayıt OPU ve denüdasyon saatini NULL yaptı.
+
+Düzeltme: program açılışta şablona `asama_ekrani_alanlari` adını veriyor.
+Şablon bu adı görmezse, yani program eski ise, iki saati gizli alanla taşıyor
+(v6.220'ye kadar denüdasyon saatinin yaptığı gibi) ve eski kod saatleri
+yerinde bırakıyor. Program yeniden başlatılınca gizli alanlar da kalkıyor.
+Aynı denemede güvenceli şablonla iki saat korundu.
+
 ## Deneme
 
 Sahte veritabanında tarayıcıyla:
@@ -17291,5 +17305,7 @@ Sahte veritabanında tarayıcıyla:
 - Bozuk hCG yılıyla hata dönüşü formda kaldı, saatlere dokunmadı.
 - Yeni tedavi saatsiz açıldı. OPU ekranında girilen saat, Düzenle'den kayıttan
   sonra da yerinde.
+- Yeniden başlatılmamış eski program: güvencesiz şablonla saatler silindi,
+  bugünkü şablonla korundu (yukarıda).
 - 84 ekran, telefon ve masaüstü genişliğinde hatasız. Tedavi formları iki
   genişlikte yatay kaymıyor.

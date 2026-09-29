@@ -897,6 +897,12 @@ tarih kaldı. Geri koyma.
   saati aşama ekranında sonradan yazılanın üzerine geri gelir. Eski sekme
   alanları taşıyor, eskisi gibi yazıyor. Tedavi formundan bir alanı daha
   kaldırırsan listeye ekle.
+- **Tek gizli alan istisnası: yeniden başlatılmamış program** (tuzak #5).
+  `git pull`'dan sonra şablon yeni, Python eski olursa eski kod formda
+  olmayan saati SİLER (denendi: iki saat de NULL oldu). Şablon Jinja global
+  `asama_ekrani_alanlari`'nı görmezse iki alanı gizli taşıyor. **Bir formdan
+  alan kaldırırken hep sor: eski Python bu şablonla ne yazar?** Kaldırılan
+  alanı düz okuyan eski bir kayıt rotası varsa aynı güvenceyi koy.
 
 **Cycle ekranında "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi
 yerini türetilmiş bir embriyoloji özetine bıraktı** (v6.110, kullanıcının
