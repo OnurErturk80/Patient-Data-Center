@@ -5,9 +5,12 @@
 {% block icerik %}
 {% import "_pgt.html" as pgtm %}
 
-{# Haritada yeri olmayan dolu tüpler ve Excel kayıtları (v6.189). Gizlenecek
-   şey değil: tankta duruyorlar, yalnızca yeri programda bilinmiyor. Excel
-   kaydının sayfasından bir tüpe bağlamak ikisinin de yerini bulur. #}
+{# Haritada yeri belirsiz dolu tüpler ve Excel kayıtları (v6.189): tankta
+   duruyorlar, yalnızca yeri programda bilinmiyor. Excel kaydının sayfasından
+   bir tüpe bağlamak ikisinin de yerini bulur. Konumu girilmemiş embriyo /
+   yumurta tüpü v6.233'ten beri burada yok (Cryo Haritası'nda değil,
+   `db.haritada_yok_sql()`); konumsuz kart yalnızca spermde (Excel'in tankı
+   yazılmamış sayfası). #}
 {% macro tup(x, yol=None) %}
   <a class="satir" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
     <div class="no">{{ x.etiket }}</div>
@@ -21,18 +24,15 @@
 
 <div class="sutunlar">
 <div class="sutun">
+{% if konumsuz %}
 <div class="kart">
   <h2>{{ metin("konumu_girilmemis_tupler") }} ({{ konumsuz|length }})</h2>
   <div class="ipucu" style="margin:8px 14px 4px">{{ metin("konumu_girilmemis_ipucu") }}</div>
-  {# Haritada olası yeri olanlar (v6.214): hepsi tek ekranda, kanıtıyla. #}
-  {% if yer_oneri %}
-  <a class="satir" href="/cryo/yer-tamamla">
-    <div class="no" style="color:var(--baslik)">{{ metin("yer_tamamla") }}</div>
-    <div class="meta">{{ metin("yer_tamamla_n_oneri").format(n=yer_oneri) }}</div>
-  </a>
-  {% endif %}
-  {% for x in konumsuz %}{{ tup(x) }}{% else %}<div class="bos">—</div>{% endfor %}
+  {% for x in konumsuz %}{{ tup(x) }}{% endfor %}
 </div>
+{% elif not duzen_disi and not excel_disi %}
+<div class="kart"><div class="bos">{{ metin("yeri_belirsiz_yok") }}</div></div>
+{% endif %}
 </div><div class="sutun">
 {% if duzen_disi %}
 <div class="kart">

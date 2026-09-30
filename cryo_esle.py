@@ -305,6 +305,94 @@ def excel_icerik(icerik: str):
     return [sorted(_oge_metni(o) for o in t) for t in tupler] if tupler else None
 
 
+# ------------------------------------------ örneğin kalitesi (v6.228, v6.233)
+#
+# Programdaki bir örneğin kalitesi, Excel'in HÜCRE yazımıyla karşılaştırılabilir
+# anahtar olarak (`_norm()`: "8HG2" = "8G2", MII = M2). v6.228'de
+# `tedavi_birlestir.py`'deydi (tedavinin örnekleri birleşenin tüpleriyle);
+# v6.233'ten beri Excel kaydının "tedaviye bağla"sı da soruyor -- tek yerde.
+# `aktif`: örneğin iptal edilmemiş olayları, kimlik sırasıyla (sqlite satırları).
+
+DEGERLENDIRME_TIPLERI = ("cleavage_degerlendirme", "blastokist_degerlendirme")
+
+
+def ornek_izi(aktif) -> bool:
+    """Örnek embriyo mu: cleavage/blastokist değerlendirmesi var, döllenme
+    kontrolünde PN yazılı (0 değil), ya da enjekte edilmiş ve döllenmesi hiç
+    yazılmamış (aktarımın "döllenme kaydı olmayan enjekte yumurta"sı, v6.142)."""
+    tipler = {o["tip"] for o in aktif}
+    if tipler & set(DEGERLENDIRME_TIPLERI):
+        return True
+    fert = [o for o in aktif if o["tip"] == "fertilizasyon_kontrolu"]
+    if fert:
+        pn = fert[-1]["fert_pn_sayisi"]
+        return pn not in (None, "", "0")
+    return "icsi" in tipler
+
+
+def son_olay(olaylar, tip):
+    """Bir tipin son olayı: gün, saat, kimlik sırasıyla."""
+    liste = sorted((o for o in olaylar if o["tip"] == tip),
+                   key=lambda o: (o["gun"] or 0, o["zaman"] or "", o["id"]))
+    return liste[-1] if liste else None
+
+
+def ornek_anahtari(aktif, embriyo: bool) -> str:
+    """Örneğin kalitesi, karşılaştırılabilir yazımla (`_norm()`: "8HG2" =
+    "8G2", MII = M2): embriyoda son blastokist skoru, yoksa son cleavage
+    yazımı; yumurtada son olgunluk. Bilinmiyorsa "?", blastokistte arrest ise
+    "arrest"."""
+    if embriyo:
+        bl = son_olay(aktif, "blastokist_degerlendirme")
+        if bl:
+            if bl["bl_genisleme"] == "arrest":
+                return "arrest"
+            skor = bl["bl_skor"] or "".join(
+                str(x) for x in (bl["bl_genisleme"], bl["bl_icm"], bl["bl_te"]) if x)
+            if skor:
+                return _norm(skor)
+        cl = son_olay(aktif, "cleavage_degerlendirme")
+        if cl:
+            birlesme = "cl_birlesme" in cl.keys() and cl["cl_birlesme"] == 1
+            y = _db.cleavage_yazimi(_db.BIRLESME if birlesme else cl["cl_hucre_sayisi"],
+                                    cl["cl_skor"])
+            if y:
+                return _norm(y.replace(" ", ""))
+        return "?"
+    mat = son_olay(aktif, "maturasyon_kontrolu")
+    return _norm(mat["mat_deger"]) if mat and mat["mat_deger"] else "?"
+
+
+def ornek_yazimi(aktif, embriyo: bool) -> str:
+    """Kalitenin laboratuvarın yazımıyla hali (önizlemede): "4AA", "8HG2",
+    "MII"; bilinmiyorsa "?"."""
+    if embriyo:
+        bl = son_olay(aktif, "blastokist_degerlendirme")
+        if bl and (bl["bl_skor"] or bl["bl_genisleme"]):
+            return bl["bl_skor"] or str(bl["bl_genisleme"])
+        cl = son_olay(aktif, "cleavage_degerlendirme")
+        if cl:
+            birlesme = "cl_birlesme" in cl.keys() and cl["cl_birlesme"] == 1
+            return _db.cleavage_yazimi(_db.BIRLESME if birlesme else cl["cl_hucre_sayisi"],
+                                       cl["cl_skor"]) or "?"
+        return "?"
+    mat = son_olay(aktif, "maturasyon_kontrolu")
+    return (mat["mat_deger"] or "?").upper() if mat else "?"
+
+
+def evre_sayi(anahtar):
+    """"4AA" -> ("blast", "4"), "8G2" -> ("cleavage", "8"); ötekiler None."""
+    m = re.match(r"^(\d+)([ABC]{2})$", anahtar or "")
+    if m:
+        return "blast", m.group(1)
+    m = re.match(r"^(\d+)(G\d)?$", anahtar or "")
+    if m:
+        return "cleavage", m.group(1)
+    if (anahtar or "").startswith(_norm(_db.BIRLESME)):
+        return "cleavage", "birlesme"
+    return None
+
+
 # -------------------------------------------------------------- veritabanı
 
 def hastalar(b) -> dict:
@@ -2272,6 +2360,11 @@ def acilis_plani(b, e, hasta, tarih) -> dict:
         return {"hata": "tarih_yok"}
     if tarih > _dt.date.today().isoformat():
         return {"hata": "tarih_ileri"}
+    # Gobleti olmayan embriyo / yumurta straw'ına tüp açılırsa tüp Cryo
+    # Haritası'nda görünmez (v6.233, `db.haritada_yok_sql()`); sperm tüpünün
+    # konumsuzu (Excel'in tankı yazılmamış sayfası) haritada duruyor.
+    if e["kategori"] != "sperm" and not e["konum_id"]:
+        return {"hata": "konum_yok"}
     p = {"kategori": e["kategori"], "tarih": tarih}
     s = {"icerik": e["icerik"] or "", "tarih": tarih}
     if e["kategori"] == "sperm":
@@ -2516,6 +2609,375 @@ def acilani_geri_al(b, e, kid, simdi) -> dict:
             sonuc["degisen"] = _db.tedavileri_sirala(b, sonuc["hasta_id"])
     _logla(b, "excel_kaydi", e["id"], "durum", "baglandi", "tankta", kid, simdi)
     return sonuc
+
+
+# ------------------------------------- Excel kaydını tedaviye bağla (v6.233)
+#
+# Kullanıcının isteği (2026-09-30): "Eğer cryo haritada var ama hasta
+# tedavisi ile eşleşmemiş boşta duran tüp kaydı varsa ben onu istediğim
+# hastaya ve tedaviye ekleyebileyim." Cevabı: straw seçilen tedavinin
+# DONDURULMAMIŞ embriyolarına (yumurtalarına) bağlanır -- skor / evre ve sayı
+# tutmalı; tutmazsa program söyler, hiçbir şey eklemez. Tedaviye yeni örnek
+# açılmıyor (yumurta / embriyo sayısı değişmiyor): tüp o örneklerin dondurması
+# olur, vitrifikasyon ekranının yazdığı veri. Tüp Excel kaydının gobletinde,
+# tipi ve rengi Excel'inki. Yalnızca yumurtası o tedavide toplanan tipler
+# (`tedaviye_tipleri()`: IVF/ICSI, Yumurta Dondurma) -- FET tiplerinde
+# dondurulan embriyo başka tedavinin örneği.
+#
+# Eşleşme `tedavi_birlestir.py`'nin katmanları (v6.228), daha sıkı: aynı skor;
+# aynı evre ve sayı (tedavinin kaydı kalır, uyarı); değerlendirmesi olmayan
+# örnek (Excel'in yazımı onun değerlendirmesi olarak yazılır, uyarı). Excel'in
+# okunamayan öğesi ("?") yalnızca değerlendirilmemiş örneğe. "Herhangi biri"
+# katmanı YOK. Ekranın önizlemesi ile kayıt aynı planı kuruyor.
+#
+# `islem_notu`: "tedaviye bağlanan: tüp N, tedavi M; durum: <örnek>=<eski
+# durum>, ...; değerlendirme: <olay>, ..." -- "bağı çöz" bunları geri alıyor
+# (`tedaviye_baglanani_geri_al()`), yalnızca el değmemişse.
+
+TEDAVIYE = "tedaviye bağlanan: "          # excel_kaydi.islem_notu öneki
+_TEDAVIYE_KALIP = re.compile(r"^" + re.escape(TEDAVIYE) + r"tüp (\d+), tedavi (\d+)")
+_TEDAVIYE_VIT_NOTU = "Cryo Haritası'ndaki Excel kaydından tedaviye bağlandı"
+_TEDAVIYE_YAZIM = "Cryo Haritası Excel'indeki yazım (tedaviye bağlanırken)"
+TEDAVIYE_EN_COK_GUN = 8        # dondurma tedavinin gününden en çok bu kadar sonra (uyarı)
+
+
+def tedaviye_tipleri() -> list:
+    """Excel kaydının bağlanabileceği tedavi tipleri: vitrifikasyonu olan, FET
+    tiplerinin dışındakiler (örnekleri tedavinin kendi yumurtaları)."""
+    return [t for t, a in _db.TIP_ASAMALARI.items()
+            if "vitrifikasyon" in a and t not in _db.FET_TIPLERI]
+
+
+def _tedavinin_ornekleri(b, cid) -> list:
+    """Tedavinin kendi örnekleri: kalitesi (`ornek_anahtari()`), yazımı, türü
+    ve tüpe neden giremediği (`sebep`; None = girebilir). Girebilen örnek
+    hiç dondurulmamış, çözülmemiş, transfer edilmemiş, dejenere / arrest
+    değil; yumurta enjekte edilmemiş, embriyonun döllenmesi 2PN (ya da
+    döllenme kaydı yok -- aktarımın enjekte yumurtası, v6.142)."""
+    ornekler = {}
+    for s in b.execute("SELECT id, cycle_sira_no, durum FROM specimen WHERE cycle_id=? "
+                       "ORDER BY cycle_sira_no", (cid,)):
+        ornekler[s["id"]] = {"id": s["id"], "sira": s["cycle_sira_no"],
+                             "durum": s["durum"], "aktif": []}
+    idler = list(ornekler)
+    for i in range(0, len(idler), 500):
+        parca = idler[i:i + 500]
+        for o in b.execute(f"SELECT * FROM olay WHERE specimen_id IN "
+                           f"({','.join('?' * len(parca))}) AND iptal_mi=0 ORDER BY id",
+                           parca):
+            ornekler[o["specimen_id"]]["aktif"].append(o)
+    sonuc = []
+    for x in ornekler.values():
+        ak = x["aktif"]
+        tipler = {o["tip"] for o in ak}
+        iz = ornek_izi(ak)
+        x.update(iz=iz, tur="embriyo" if iz else "yumurta",
+                 anahtar=ornek_anahtari(ak, iz), yazim=ornek_yazimi(ak, iz))
+        fert = son_olay(ak, "fertilizasyon_kontrolu")
+        dejenere = any((o["tip"] == "icsi" and o["icsi_sonuc"] == "degenere") or
+                       (o["tip"] == "fertilizasyon_kontrolu" and o["fert_sonuc"] == "degenere")
+                       for o in ak)
+        if "vitrifikasyon" in tipler:
+            x["sebep"] = "dondurulmus"
+        elif "thaw" in tipler:
+            x["sebep"] = "cozulmus"
+        elif "transfer" in tipler:
+            x["sebep"] = "transfer"
+        elif dejenere or x["anahtar"] in ("arrest", "DEGENERE", "ATRETIK"):
+            x["sebep"] = "dejenere"
+        elif iz and fert and fert["fert_pn_sayisi"] not in (None, "", "2"):
+            x["sebep"] = "pn"
+        elif not iz and "icsi" in tipler:
+            x["sebep"] = "enjekte"
+        else:
+            x["sebep"] = None
+        sonuc.append(x)
+    return sonuc
+
+
+def _tedaviye_eslestir(ogeler, adaylar) -> tuple:
+    """Straw'ın öğeleri -> tedavinin girebilen örnekleri. Katmanlar sırayla,
+    her biri bütün öğeler için (önce birebir tutanlar): aynı skor; aynı evre
+    ve sayı; değerlendirilmemiş örnek. -> ({öğe sırası: (örnek, katman)},
+    [eşleşmeyen öğe sırası])."""
+    istek = [(i, "yumurta" if o["tur"] == "oosit" else "embriyo", _oge_metni(o))
+             for i, o in enumerate(ogeler)]
+    katmanlar = [
+        ("ayni", lambda k: k != "?", lambda a, k: a["anahtar"] == k),
+        ("yakin", lambda k: evre_sayi(k) is not None,
+         lambda a, k: evre_sayi(a["anahtar"]) == evre_sayi(k)),
+        ("degerlendirilmemis", lambda k: True, lambda a, k: a["anahtar"] == "?"),
+    ]
+    atanan, kullanilan = {}, set()
+    for ad, ister, uygun in katmanlar:
+        for i, tur, k in istek:
+            if i in atanan or not ister(k):
+                continue
+            for a in adaylar:
+                if a["id"] not in kullanilan and a["tur"] == tur and uygun(a, k):
+                    kullanilan.add(a["id"])
+                    atanan[i] = (a, ad)
+                    break
+    return atanan, [i for i, _t, _k in istek if i not in atanan]
+
+
+def tedaviye_baglama_plani(b, e, c, tarih) -> dict:
+    """Excel kaydını `c` tedavisine bağlamanın planı -- ekranın önizlemesi ve
+    kaydın kendisi (`excel_kaydini_tedaviye_bagla()`) aynı planı kuruyor.
+    Hiçbir şey yazmaz.
+
+    `tarih`: dondurma günü (ISO, doğrulanmış) -- Excel'deki ya da kullanıcının
+    yazdığı. -> plan: tedavi, tarih, ogeler, parantez, yumurta, adet;
+    `eslesme` (öğe, yazım, örnek, katman), `uyari` [(kod, parametreler)],
+    `bos` (tedavinin tüpe girebilen örnekleri: sıra, yazım, tür), `hata`
+    (varsa hiçbir şey yazılmaz: durum, sperm, konum_yok, tip, tarih_yok,
+    tarih_ileri, tarih_once, icerik_okunamadi, cok_tup, gizli_tup -- `gizli`
+    tedavinin Cryo Haritası'nda olmayan, straw olabilecek tüpleri --,
+    tutmuyor; `eksik` eşleşmeyen öğelerin yazımı)."""
+    p = {"tedavi": dict(c), "tarih": tarih, "uyari": [], "eslesme": [], "bos": []}
+    if e["durum"] != "tankta":
+        return {**p, "hata": "durum"}
+    if e["kategori"] != "embriyo":
+        return {**p, "hata": "sperm"}
+    if not e["konum_id"]:
+        return {**p, "hata": "konum_yok"}
+    if c["cycle_tipi"] not in tedaviye_tipleri():
+        return {**p, "hata": "tip"}
+    if not tarih:
+        return {**p, "hata": "tarih_yok"}
+    if tarih > _dt.date.today().isoformat():
+        return {**p, "hata": "tarih_ileri"}
+    tupler_ = excel_ogeleri(e["icerik"])
+    if not tupler_:
+        return {**p, "hata": "icerik_okunamadi"}
+    if len(tupler_) > 1:
+        return {**p, "hata": "cok_tup"}
+    ogeler = tupler_[0]
+    yumurta = _tup_yumurta_mu(ogeler)
+    p.update(ogeler=ogeler, parantez=_parantez(ogeler), yumurta=yumurta, adet=len(ogeler))
+    gunu = b.execute(f"SELECT {_db.tedavi_tarihi(b, 'c')} FROM cycle c WHERE c.id=?",
+                     (c["id"],)).fetchone()[0]
+    p["tedavi_gunu"] = gunu
+    if gunu and tarih < gunu:
+        return {**p, "hata": "tarih_once"}
+    # Tedavinin Cryo Haritası'nda olmayan tüpü (v6.233, `db.haritada_yok_sql()`):
+    # straw o tüp olabilir -- aynı tür (embriyo / yumurta), dondurma günü
+    # Excel'inkinden en çok `YER_ONERI_GUN` gün uzak. Yeni tüp açmak aynı
+    # straw'ı ikinci kez yazardı, eski tüp haritasız kalırdı (v6.229'un dersi).
+    # Önce o tüpün kararı: bu kayda bağlanır ("Hastanın tüpleri") ya da
+    # sayfasında yeri / taşındı / imha. Durulur, engel.
+    gizli = []
+    for r in b.execute(
+            "SELECT t.id, t.etiket, substr(MIN(o.zaman), 1, 10) AS gun, "
+            f"MAX({_db.dondurulan_yumurta_sql('o')}) AS yumurta FROM tasiyici t "
+            "JOIN olay o ON o.vit_tasiyici_id = t.id AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
+            "JOIN specimen s ON s.id = o.specimen_id "
+            f"WHERE s.cycle_id = ? AND {_db.haritada_yok_sql('t')} GROUP BY t.id", (c["id"],)):
+        if bool(r["yumurta"]) == yumurta and r["gun"] and \
+                abs(_gun_farki(tarih, r["gun"])) <= YER_ONERI_GUN:
+            gizli.append({"id": r["id"], "etiket": r["etiket"], "gun": r["gun"]})
+    if gizli:
+        ayr = _yerlesim.tup_ayrintilari([g["id"] for g in gizli])
+        for g in gizli:
+            g["parantez"] = ayr.get(g["id"], {}).get("parantez") or ""
+        return {**p, "hata": "gizli_tup", "gizli": gizli}
+    adaylar = [x for x in _tedavinin_ornekleri(b, c["id"]) if x["sebep"] is None]
+    p["bos"] = [{"sira": a["sira"], "yazim": a["yazim"], "tur": a["tur"]} for a in adaylar]
+    # "3 (4AA), 5 (değerlendirilmemiş)": tutmayan straw'ın mesajında, straw'ın
+    # türünden (embriyo / yumurta) olanlar.
+    tur = "yumurta" if yumurta else "embriyo"
+    p["bos_metni"] = ", ".join(
+        f"{a['sira']} ({a['yazim'] if a['yazim'] != '?' else 'değerlendirilmemiş'})"
+        for a in adaylar if a["tur"] == tur)
+    atanan, eksik = _tedaviye_eslestir(ogeler, adaylar)
+    if eksik:
+        return {**p, "hata": "tutmuyor", "eksik": [_oge_yazimi(ogeler[i]) for i in eksik]}
+    for i, o in enumerate(ogeler):
+        a, katman = atanan[i]
+        p["eslesme"].append({"oge": o, "yazim": _oge_yazimi(o), "ornek": a, "katman": katman})
+        if katman == "yakin":
+            p["uyari"].append(("yakin", {"sira": a["sira"], "tedavi": a["yazim"],
+                                         "excel": _oge_yazimi(o)}))
+        elif katman == "degerlendirilmemis" and _oge_metni(o) != "?":
+            p["uyari"].append(("degerlendirilmemis", {"sira": a["sira"],
+                                                      "excel": _oge_yazimi(o)}))
+        elif katman == "degerlendirilmemis":
+            p["uyari"].append(("skorsuz", {"sira": a["sira"]}))
+    # Günler: dondurma tedavinin gününden (OPU) çok sonra, ya da Excel'in
+    # "D5"inden çıkan OPU tedavininkini tutmuyor -- engel değil, uyarı: karar
+    # kullanıcının (Excel'in tarihi bir iki gün kayık olabiliyor, v6.177).
+    if gunu and _gun_farki(tarih, gunu) > TEDAVIYE_EN_COK_GUN:
+        p["uyari"].append(("gun_uzak", {"n": _gun_farki(tarih, gunu)}))
+    excel_opu = _excel_opu({"icerik": e["icerik"], "tarih": tarih})
+    if excel_opu and gunu and excel_opu != gunu:
+        p["uyari"].append(("opu_farkli", {"excel": excel_opu, "tedavi": gunu}))
+    return p
+
+
+def _olay_ekle(b, kid, sid, cid, tip, zaman, **alanlar) -> int:
+    """Olay satırı; `olusturma_zamani` şemanın varsayılanı (şu an) -- aktarımın
+    `_olay()`'ı onu işlemin anına çekiyor, bu ise ekrandan yapılan bir kayıt."""
+    alanlar = {k: v for k, v in alanlar.items() if v is not None}
+    kolonlar = ["lab_id", "specimen_id", "cycle_id", "tip", "zaman", "kullanici_id",
+                *alanlar]
+    return b.execute(f"INSERT INTO olay ({','.join(kolonlar)}) VALUES "
+                     f"({','.join('?' * len(kolonlar))})",
+                     [_db.LAB_ID, sid, cid, tip, zaman, kid, *alanlar.values()]).lastrowid
+
+
+def excel_kaydini_tedaviye_bagla(b, e, c, tarih, kid, simdi) -> dict:
+    """Excel kaydını `c` tedavisinin dondurulmamış örneklerine bağlar: straw'ın
+    tüpü açılır (Excel kaydının gobletinde), eşleşen örnekler o tüpe
+    dondurulmuş olur, kayıt 'baglandi'. Değerlendirmesi olmayan örneğe Excel'in
+    yazımı değerlendirmesi olarak yazılıyor (o tipte hiç değerlendirmesi
+    yoksa). `b` yazma işleminin bağlantısı; `e` ve `c` onunla okunmuş olmalı.
+    -> {"hata": kod, ...} (planın hatası) ya da {"tid", "etiket"}."""
+    p = tedaviye_baglama_plani(b, e, c, tarih)
+    if p.get("hata"):
+        return p
+    tid, etiket, an = aktar_access._tasiyici_ac(b, kid, c["cycle_no"], f"{tarih} 12:00:00")
+    tipler = {r[0] for r in b.execute(
+        "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi='tasiyici_tipi'",
+        (_db.LAB_ID,))}
+    b.execute("UPDATE tasiyici SET konum_id=?, tip=?, renk=? WHERE id=?",
+              (e["konum_id"], e["tip"] if e["tip"] in tipler else "cryotop", e["renk"], tid))
+    b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (e["konum_id"],))
+    kaynak = f'{e["kaynak_sayfa"]} satır {e["kaynak_satir"]}'
+    elle = ("" if tarih == e["tarih"] else
+            f"; Excel'deki tarih: {e['tarih_ham'] or 'yok'}, dondurma günü elle yazıldı")
+    vit_notu = f"{_TEDAVIYE_VIT_NOTU} ({kaynak}: {e['icerik'] or '-'}{elle})"
+    egun = _excel_gunu({"icerik": e["icerik"]})
+    durumlar, degerlendirmeler = [], []
+    for m in p["eslesme"]:
+        a, o = m["ornek"], m["oge"]
+        sid = a["id"]
+        if m["katman"] == "degerlendirilmemis" and _oge_metni(o) != "?":
+            if o["tur"] == "oosit":
+                if o.get("mat") and not any(x["tip"] == "maturasyon_kontrolu" for x in a["aktif"]):
+                    degerlendirmeler.append(_olay_ekle(
+                        b, kid, sid, c["id"], "maturasyon_kontrolu", f"{tarih} 11:30:00",
+                        mat_deger=o["mat"], notlar=f"{_TEDAVIYE_YAZIM}: {e['icerik']}"))
+            else:
+                g = egun or (5 if o["tur"] == "blast" else 3)
+                alan = aktar_access._oge_alanlari(o, g)
+                if alan and o["tur"] == "cleavage":
+                    if not o.get("skor"):
+                        alan[1]["cl_skor_kaynagi"] = None
+                    if o.get("frag") is not None:
+                        alan[1]["cl_fragmentasyon"] = o["frag"]
+                    if o.get("simetri"):
+                        alan[1]["cl_simetri"] = o["simetri"]
+                if alan and not any(x["tip"] == alan[0] for x in a["aktif"]):
+                    degerlendirmeler.append(_olay_ekle(
+                        b, kid, sid, c["id"], alan[0], f"{tarih} 09:00:00",
+                        gun=max(g, 4) if o["tur"] == "blast" else min(g, 3),
+                        notlar=f"{_TEDAVIYE_YAZIM}: {o.get('ham') or e['icerik']}",
+                        **alan[1]))
+        _olay_ekle(b, kid, sid, c["id"], "vitrifikasyon", an, vit_tasiyici_id=tid,
+                   notlar=vit_notu)
+        durumlar.append((sid, a["durum"]))
+        b.execute("UPDATE specimen SET durum='dondurulmus' WHERE id=?", (sid,))
+        _logla(b, "specimen", sid, "durum", a["durum"], "dondurulmus", kid, simdi)
+    islem = (f"{TEDAVIYE}tüp {tid}, tedavi {c['id']}; durum: "
+             + ", ".join(f"{sid}={d or ''}" for sid, d in durumlar)
+             + (("; değerlendirme: " + ", ".join(str(x) for x in degerlendirmeler))
+                if degerlendirmeler else ""))
+    b.execute("UPDATE excel_kaydi SET durum='baglandi', tasiyici_id=?, onceki_konum_id=NULL, "
+              "islem_zamani=?, islem_notu=?, islem_kullanici_id=? WHERE id=?",
+              (tid, simdi[:10], islem, kid, e["id"]))
+    _logla(b, "excel_kaydi", e["id"], "durum", "tankta",
+           f"tedaviye bağlandı: {c['cycle_no']}, tüp {etiket}", kid, simdi)
+    _logla(b, "tasiyici", tid, "excel_kaydindan", None,
+           f"Excel kaydı #{e['id']} için açıldı ({c['cycle_no']} tedavisinin örnekleri)",
+           kid, simdi)
+    return {"tid": tid, "etiket": etiket}
+
+
+def tedaviye_bagli_bilgisi(e):
+    """Excel kaydı bu yoldan tedaviye bağlandıysa: {"tid", "tedavi",
+    "durum": {örnek: eski durum}, "degerlendirme": [olay]}; değilse None."""
+    notu = e["islem_notu"] or ""
+    m = _TEDAVIYE_KALIP.match(notu) if e["durum"] == "baglandi" else None
+    if not m or int(m.group(1)) != e["tasiyici_id"]:
+        return None
+    bilgi = {"tid": int(m.group(1)), "tedavi": int(m.group(2)), "durum": {},
+             "degerlendirme": []}
+    for parca in notu.split("; ")[1:]:
+        ad, _, deger = parca.partition(": ")
+        if ad == "durum":
+            for x in deger.split(", "):
+                sid, _, d = x.rpartition("=")
+                if sid:
+                    bilgi["durum"][sid] = d or None
+        elif ad == "değerlendirme":
+            bilgi["degerlendirme"] = [int(x) for x in deger.split(", ") if x.isdigit()]
+    return bilgi
+
+
+def tedaviye_baglanani_geri_al(b, e, kid, simdi) -> dict:
+    """Tedaviye bağlamayı geri alır: açılan tüp ve dondurma kayıtları silinir,
+    bağlarken yazılan değerlendirmeler silinir, örnekler önceki durumuna
+    döner, Excel kaydı yeniden 'tankta'. `b` yazma işleminin bağlantısı.
+
+    Yalnızca el değmemişse (`acilani_geri_al()`'ın kuralı): tüp tankta ve
+    kaydın gobletinde, başka bir Excel kaydı ona bağlı değil, tüpte bağlarken
+    konan örneklerden başkası yok, örneklerde bağlamadan sonra yazılmış başka
+    kayıt yok, bağlarken yazılan değerlendirme sonradan düzeltilmemiş.
+    -> {"hata": kod} ya da {"tedavi": id}."""
+    a = tedaviye_bagli_bilgisi(e)
+    if not a:
+        return {"hata": "acilan_degil"}
+    tid = a["tid"]
+    t = b.execute("SELECT * FROM tasiyici WHERE id = ?", (tid,)).fetchone()
+    if not t:
+        return {"hata": "acilan_degil"}
+    if t["durum"] != "dolu":
+        return {"hata": "acilan_kullanildi"}
+    if t["konum_id"] != e["konum_id"]:
+        return {"hata": "acilan_tasindi"}
+    if b.execute("SELECT 1 FROM excel_kaydi WHERE tasiyici_id = ? AND id <> ?",
+                 (tid, e["id"])).fetchone():
+        return {"hata": "acilan_baska_kayit"}
+    if _db.cozme_tupu_var() and b.execute(
+            "SELECT 1 FROM olay WHERE thaw_tasiyici_id = ?", (tid,)).fetchone():
+        return {"hata": "acilan_kullanildi"}
+    vitler = b.execute("SELECT id, specimen_id FROM olay WHERE vit_tasiyici_id = ? "
+                       "AND tip = 'vitrifikasyon' AND iptal_mi = 0", (tid,)).fetchall()
+    if {v["specimen_id"] for v in vitler} != set(a["durum"]) or not vitler:
+        return {"hata": "acilan_islem_var"}
+    bizim = {v["id"] for v in vitler} | set(a["degerlendirme"])
+    for sid in a["durum"]:
+        ilk = min(v["id"] for v in vitler if v["specimen_id"] == sid)
+        ilk = min([ilk] + [x for x in a["degerlendirme"] if b.execute(
+            "SELECT 1 FROM olay WHERE id = ? AND specimen_id = ?", (x, sid)).fetchone()])
+        if any(r[0] not in bizim for r in b.execute(
+                "SELECT id FROM olay WHERE specimen_id = ? AND id >= ? AND iptal_mi = 0",
+                (sid, ilk))):
+            return {"hata": "acilan_islem_var"}
+    if a["degerlendirme"] and b.execute(
+            "SELECT 1 FROM degisiklik_log WHERE tablo_adi = 'olay' AND kayit_id IN "
+            f"({','.join('?' * len(a['degerlendirme']))}) LIMIT 1",
+            [str(x) for x in a["degerlendirme"]]).fetchone():
+        return {"hata": "acilan_islem_var"}
+    b.execute("UPDATE excel_kaydi SET durum='tankta', tasiyici_id=NULL, "
+              "onceki_konum_id=NULL, islem_zamani=NULL, islem_notu=NULL, "
+              "islem_kullanici_id=NULL WHERE id=?", (e["id"],))
+    b.execute("DELETE FROM olay WHERE vit_tasiyici_id = ? AND tip = 'vitrifikasyon'", (tid,))
+    for x in a["degerlendirme"]:
+        b.execute("DELETE FROM olay WHERE id = ?", (x,))
+    for sid, d in a["durum"].items():
+        b.execute("UPDATE specimen SET durum=? WHERE id=?", (d, sid))
+        _logla(b, "specimen", sid, "durum", "dondurulmus", d, kid, simdi)
+    b.execute("DELETE FROM tasiyici WHERE id = ?", (tid,))
+    _logla(b, "tasiyici", tid, "KALICI_SILME",
+           f"{t['etiket']}: Excel kaydı #{e['id']} için tedaviye bağlanırken açılmıştı "
+           f"({len(a['durum'])} örnek)", "silindi", kid, simdi)
+    if t["konum_id"] and not b.execute(
+            "SELECT 1 FROM tasiyici WHERE konum_id = ? AND durum = 'dolu' LIMIT 1",
+            (t["konum_id"],)).fetchone():
+        b.execute("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+    _logla(b, "excel_kaydi", e["id"], "durum", "baglandi", "tankta", kid, simdi)
+    return {"tedavi": a["tedavi"]}
 
 
 def _excel_kaydi_olan_satirlar(satirlar, b) -> set:

@@ -93,7 +93,12 @@ al" + "Tüpe bağla". Kullanıcı 2026-09-30'da "önceki birleştirme tamam" ded
 bağlayıp bağlamadığını sor.
 **Transfer hekimi** (v6.232): aktarılmış tedavilerin boş transfer hekimini
 Access'ten `aktar_toplu.py kip=transfer_hekim` yazıyor (kopyada 700 tedavi);
-kullanıcı kendi makinesinde çalıştıracak -- çalıştırıp çalıştırmadığını sor.
+kullanıcı çalıştırmayacak (2026-09-30: CSV'ler elinde yok; hekimi bundan sonra
+ekrandan giriyor, eski kayıtlara gerekirse elle) -- sorma.
+**v6.233**: Cryo Haritası'nda olmayan tüp (konumsuz embriyo / yumurta tüpü)
+programda görünmüyor, kararı tüpün sayfasında; Excel kaydı tedaviye bağlanıyor
+(aşağıdaki "Cryo Haritası'nda olmayan tüp" ve "Tedaviye bağla"). Deneme
+kopyasında 514 tüp gizlendi; kullanıcının makinesinde kaç tane olduğu bilinmiyor.
 Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -2480,6 +2485,31 @@ yalnızca programın kendi yolu; bugün `/goruntu/{id}/sil`).
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
 
+**Cryo Haritası'nda olmayan tüp görünmez** (v6.233, README v6.233; kullanıcı:
+"Eğer cryo haritada dondurulmuş tüp yoksa konum girilmemiş diyerek göstermenin
+anlamı yok ... tedavide var ama cryo haritada tüpü yoksa ben yine karar
+vereyim. Belki taşındı belki imha edildi. Ama cryo haritada kaydı olmayanları
+hiç bir şekilde programda görünmesin"). Tek koşul `db.haritada_yok_sql(t)`
+(Python `db.haritada_yok()`): tank düzeni varken (`db.tank_duzeni_var()`)
+tankta (dolu), embriyo / yumurta, konumu girilmemiş tüp.
+- Yok: Cryo Haritası (ağaç, yeri belirsizler, arama), hasta kartı, taşıma, FET
+  çözme listesi, ana ekranın sayısı, iki Excel çıktısı, formların "Kalan
+  dondurulmuş"u ve ART Lab'ın "Cryo Haritası:" satırı. Çözülemez (üç çözme
+  yolu tüpün sayfasına döndürüyor).
+- Var: dondurulduğu tedavinin vitrifikasyon kartı ("Cryo Haritası'nda yok",
+  "Çöz" yok), tüpün sayfası (karar kartı: haritadaki olası yeri, "Tanktaysa
+  yerini girin" -- `POST /cryo/tasiyici/{id}/yer`, dondurmanın yer denetimi --,
+  taşındı, imha), etiket araması (rozetle), Excel kaydının bağlama adayı,
+  "Haritadan yer tamamla". Kullanıcının seçimi "yalnızca tedavide"; başka bir
+  ekrana geri koyma.
+- Yeri düzende olmayan tüp ve sperm tüpü bu koşulda DEĞİL (haritada:
+  "Haritada yeri belirsiz", Excel'in tankı yazılmamış sayfası). Tank düzeni
+  yoksa koşul hiçbir tüpü tutmuyor.
+- **Tüp listeleyen, sayan ya da çözen yeni bir yer yazarsan
+  `AND NOT {db.haritada_yok_sql('t')}` ekle**; koşul her istekte kuruluyor
+  (düzen geri yüklemeyle değişebilir), modül düzeyinde SQL sabitine gömme
+  (v6.233'te `_TASIMA_SAYIMLARI` bu yüzden işleve döndü).
+
 **Taşıyıcının içeriği "yumurta" mı "embriyo" mu — v6.167'den beri
 İÇERİKTEN: `db.dondurulan_yumurta_sql(o)`** (v6.133'te kullanıcının isteği:
 "Yumurta donduruluyorsa Yumurta, Embriyo donduruluyorsa Embriyo yazsın").
@@ -2681,7 +2711,8 @@ besleniyor.
   taşınanı saymıyor, çözme satırlarının altında "Taşınan:" yazıyor.
   **Yeni bir "tankta mı" sorusu yazarsan `durum='dolu'`'ya bak** --
   `specimen.durum` taşınan (ve imha edilen, v6.227) embriyoda hâlâ
-  `dondurulmus`. `cryo_esle.py
+  `dondurulmus` -- ve v6.233'ten beri Cryo Haritası'nda olmayanı dışla
+  (`db.haritada_yok_sql()`). `cryo_esle.py
   eksik`: programda dolu, Excel'de karşılığı olmayan tüpler, yalnızca
   rapor; "adı farklı yazılmış" sınıfı (aynı gün aynı içerik, ad tutmuyor)
   taşınmış sayılmamalı. Programın kendisi hiçbir tüpü "taşındı" yapmaz.
@@ -2815,25 +2846,53 @@ besleniyor.
     "açılan: tüp N, tedavi|sperm M" (`cryo_esle.ACILAN`, `acilan_bilgisi()`);
     "bağı çöz" o kayıtta açılanı siliyor (`acilani_geri_al()`), yalnızca el
     değmemişse (tüp tankta, kaydın gobletinde, örneklerinde başka kayıt yok).
-    - Straw programdaki bir tedavinin eksik tüpü olsa bile tüp O TEDAVİYE
-      eklenmiyor (yumurtaları orada sayılı, yeni örnek sayıları bozardı);
-      önizleme o günün tedavisini uyarıyla gösteriyor. Bunu değiştirmeden
-      önce kullanıcıya sor. Sonradan tek tedaviye toplamak
-      `tedavi_birlestir.py` ile (v6.228): tüp o tedavinin embriyolarına
-      geçer, sayılar değişmez.
+    - "Hastaya bağla" straw programdaki bir tedavinin eksik tüpü olsa bile
+      tüpü O TEDAVİYE eklemiyor (yumurtaları orada sayılı, yeni örnek sayıları
+      bozardı); önizleme o günün tedavisini uyarıyla gösteriyor. Tedaviye
+      bağlamak v6.233'ten beri ayrı yol ("Tedaviye bağla", aşağıda): yeni
+      örnek açmıyor, tedavinin dondurulmamış embriyolarını kullanıyor.
+      Sonradan tek tedaviye toplamak `tedavi_birlestir.py` ile (v6.228).
     - Okunamayan HÜCRE ve bir satırda birden çok tüp açılmıyor (içeriği
       bilinmeyen tüp uydurmak olurdu); Excel'in günü yoksa ya da ileriyse
       gün elle yazılıyor, not Excel'deki tarihi söylüyor.
     - Excel'den tüp açan yeni bir yol yazarsan: Excel kaydı olan satıra
       tüp açma (`_excel_kaydi_olan_satirlar()`; `yeni_hasta` ve `sperm`
       kipleri o satırları atlıyor) -- straw iki kez görünürdü.
+  - **Tedaviye bağla** (v6.233, README v6.233; kullanıcı: "cryo haritada var
+    ama hasta tedavisi ile eşleşmemiş boşta duran tüp kaydı varsa ben onu
+    istediğim hastaya ve tedaviye ekleyebileyim"; cevabı: dondurulmamış
+    embriyolara, skor / evre ve sayı tutmalı, tutmazsa hiçbir şey eklenmez).
+    Excel kaydının sayfasında hasta seçilince hastanın IVF/ICSI ve Yumurta
+    Dondurma tedavileri (`cryo_esle.tedaviye_tipleri()`; FET tipi yok),
+    planlarıyla; tüp Excel kaydının gobletinde açılıyor, eşleşen örnekler ona
+    dondurulmuş oluyor. **Tedaviye yeni örnek açılmıyor.**
+    - Plan tek yerde, `cryo_esle.tedaviye_baglama_plani()`: önizleme ve kayıt
+      (`excel_kaydini_tedaviye_bagla()`, kilidin içinde yeniden) aynı.
+      Katmanlar: aynı skor; aynı evre ve sayı (tedavinin kaydı kalır, uyarı);
+      değerlendirilmemiş örnek (Excel'in yazımı değerlendirmesi olarak
+      yazılıyor, uyarı). "Herhangi biri" katmanı EKLEME -- kullanıcının sözü
+      "skor / evre ve sayı tutmalı".
+    - **Tedavinin haritada olmayan tüpü straw olabilirse durulur** (aynı tür,
+      ±7 gün): yeni tüp aynı straw'ı ikinci kez yazardı. Önce o tüpün kararı
+      (bu kayda "Tüpe bağla" ya da tüpün sayfası).
+    - `islem_notu` "tedaviye bağlanan: tüp N, tedavi M; durum: ...;
+      değerlendirme: ..." (`TEDAVIYE`, `tedaviye_bagli_bilgisi()`); "bağı çöz"
+      `tedaviye_baglanani_geri_al()`: tüp, dondurmalar ve yazılan
+      değerlendirmeler silinir, örnekler eski durumuna -- yalnızca el
+      değmemişse. Bu notun biçimini değiştirirsen ikisini birlikte değiştir.
+    - Örneğin kalite anahtarı (`ornek_izi()`, `ornek_anahtari()`,
+      `ornek_yazimi()`, `evre_sayi()`) `cryo_esle`'de; `tedavi_birlestir.py`
+      aynı işlevleri kullanıyor. İkinci bir kopya yazma.
+    - Gobleti olmayan embriyo / yumurta Excel kaydına tüp açılmıyor (burada
+      ve "Hastaya bağla"da): tüp haritada görünmezdi.
   - **Haritadan yer tamamla** (v6.214, README v6.214; kullanıcı: "Konumu
     girilmemiş yazılan dondurulmuş örnekler var. Ama haritada yeri
     görünüyor"): konumu boş tüpün straw'ı haritada Excel kaydı olarak
     duruyor, çünkü ad / gün / içerikten biri birebir tutmadı (Access'te konum
     yoktu). `cryo_esle.yer_onerileri()` olası eşi kanıtıyla öneriyor (tutan ve
     farklı olan ayrı yazılıyor), bağlayan KULLANICI: `/cryo/yer-tamamla`
-    (toplu, `/cryo/yersiz`'den) ve tüpün sayfasındaki "Haritada olası yeri".
+    (toplu; v6.233'ten beri Cryo Haritası'nın embriyo kartından, yalnızca olası
+    straw'ı olan tüpler) ve tüpün sayfasındaki "Haritada olası yeri".
     - Yalnızca programın kuralıyla kesin tutan (`excel_kaydi_plani()`'nin
       "bagla"sı) işaretli gelir; ötekiler işaretsiz. Ad benzerliğiyle
       kendiliğinden işaretleyen ya da bağlayan kod YAZMA.
@@ -2855,7 +2914,8 @@ besleniyor.
   - `/cryo` düzen varken tank → kanister ağacı (embriyo ve sperm aynı makro,
     `duzen_agaci`), kanister sayfası `/cryo/yer?tank=&kanister=` (adres
     yalnızca aranıyor, düzende yoksa `/cryo`'ya dönüyor), yeri belirsizler
-    `/cryo/yersiz?kategori=` (beyaz liste). Düzen yoksa eski ekran.
+    `/cryo/yersiz?kategori=` (beyaz liste; konumsuz embriyo / yumurta tüpü
+    v6.233'ten beri orada da yok). Düzen yoksa eski ekran.
   - **Yedek goblet** (v6.192, `goc_053` `konum.yedek`; kullanıcı: "Tank 5'in
     2-6 üst katları yer biterse diye hazırlandı, ihtiyaç olursa oralara da
     hasta konulacak"). Excel'de numarasız, bütünüyle boş üst kat tablosu
@@ -2882,6 +2942,10 @@ besleniyor.
     aynı `yer_uyarilari()`'ni soruyor. Yazılan yer düzendeki bir gobletse
     tüp onun konum satırına yazılıyor (`goblet_bul()`), varyant açılmıyor.
   - Rengi yazılmamış straw'ı olan gobletde uyarı yazıyor, eşitlikte sona.
+  - **Yer zorunlu** (v6.233, kullanıcının cevabı): tank, kanister ve goblet
+    (şemanın ilk üç seviyesi, `zorunlu_seviyeler()`) yazılmadan tüp açılmıyor
+    -- kutular `required`, `vit_kaydet` de reddediyor; pozisyon isteğe bağlı.
+    Yeri olmayan tüp haritada görünmezdi. Sperm dondurma değişmedi.
   - **Otomatik öneri + tank / kanister sorgusu** (v6.202, README v6.202;
     kullanıcı: "boş yer önerisi sabit, değiştirilebilsin ... tank belirterek
     de öneri versin. Hem otomatik öneri versin hem de ben
@@ -3045,8 +3109,9 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   açmıyordu, kullanıcı düzeltti: "Vitrifikasyon bölümünde etiket kodu
   üretiyor, onu kullansan"). Etiket `vit_ekran()`'in kendi önerisiyle aynı
   kalıpta: `<tedavi no>-<SSDD>`, aynı tedavide birden çok tüp varsa dakika
-  ilerliyor. **Konum boş kalıyor** (kaynakta yok, ekran da boşa izin
-  veriyor) — Cryo Haritası o tüpleri "konum girilmemiş" diye işaretliyor.
+  ilerliyor. **Konum boş kalıyor** (kaynakta yok) — v6.233'ten beri böyle
+  tüp Cryo Haritası'nda görünmüyor (`db.haritada_yok_sql()`); aktarımın
+  sonunda haritadaki straw'ına bağlanırsa (v6.207) yerini alıyor.
   Tüp dağılımı nottaki **parantez gruplarından**: bir grup = bir tüp,
   yazılı "N TÜPTE" olan üç satırın üçünde de tutuyor.
   - **Ders**: bir alanın "elle girilen gerçek ad" mı yoksa "programın
@@ -3200,7 +3265,8 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   (v6.228, README v6.228) -- esas kalır. Düz birleştirme DEĞİL: iki kayıt
   aynı yumurtaları taşıyorsa örnekleri toplamak sayıları ikiye katlardı.
   Birleşen Excel kaydıysa tüpleri esasın eşleşen, dondurulmamış embriyolarına
-  geçer (aynı skor; değerlendirilmemiş embriyo; aynı evre ve sayı), Excel'in
+  geçer (aynı skor; değerlendirilmemiş embriyo; aynı evre ve sayı -- kalite
+  anahtarı v6.233'ten beri `cryo_esle.ornek_anahtari()`), Excel'in
   açtığı örnekler silinir; aynı OPU'nun ikinci kaydıysa aynısı + öteki
   yumurtaları silinir; kendi örneği yoksa (FET) kayıtları esasın olur. Aynı
   straw esasta tüp olarak varsa Excel kaydı ona bağlanır. Tip, gün, karşılıksız

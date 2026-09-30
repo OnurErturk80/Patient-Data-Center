@@ -54,11 +54,10 @@ def yer_anahtari(tank, kanister, goblet) -> tuple:
 
 
 def duzen_var() -> bool:
-    """Tank düzeni kurulmuş mu (goc_052 + `cryo_esle.py yerlesim`)."""
-    if not db.kolon_var("konum", "sira"):
-        return False
-    return db.tek("SELECT 1 FROM konum WHERE lab_id=? AND sira IS NOT NULL LIMIT 1",
-                  (db.LAB_ID,)) is not None
+    """Tank düzeni kurulmuş mu (goc_052 + `cryo_esle.py yerlesim`). Soru
+    v6.233'ten beri `db.py`'de: formlar da soruyor (haritada olmayan tüp,
+    `db.haritada_yok_sql()`), `yerlesim`'i import edemiyor."""
+    return db.tank_duzeni_var()
 
 
 def excel_kaydi_var() -> bool:

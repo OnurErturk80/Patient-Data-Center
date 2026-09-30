@@ -113,7 +113,7 @@ ALANLAR = {
     "planlanan_tarih": "planlanan tarih", "bulas_kadin": "bulaş (kadın)",
     "bulas_erkek": "bulaş (erkek)", "pgt_testleri": "PGT", "pgt_notu": "PGT notu"}
 
-_DEGERLENDIRME = ("cleavage_degerlendirme", "blastokist_degerlendirme")
+_DEGERLENDIRME = cryo_esle.DEGERLENDIRME_TIPLERI
 _ACCESS = "[Access kayd"
 # Programın ürettiği etiket: "<lab kayıt no>-<SSDD>" (vitrifikasyon ekranının
 # önerisi, aktarım ve Excel kaydı da öyle açıyor).
@@ -167,67 +167,14 @@ def _say(b, sql, *a) -> int:
     return b.execute(sql, a).fetchone()[0]
 
 
-def _embriyo_izi(aktif) -> bool:
-    """Örnek embriyo mu: cleavage/blastokist değerlendirmesi var, döllenme
-    kontrolünde PN yazılı (0 değil), ya da enjekte edilmiş ve döllenmesi hiç
-    yazılmamış (aktarımın "döllenme kaydı olmayan enjekte yumurta"sı, v6.142)."""
-    tipler = {o["tip"] for o in aktif}
-    if tipler & set(_DEGERLENDIRME):
-        return True
-    fert = [o for o in aktif if o["tip"] == "fertilizasyon_kontrolu"]
-    if fert:
-        pn = fert[-1]["fert_pn_sayisi"]
-        return pn not in (None, "", "0")
-    return "icsi" in tipler
-
-
-def _son(olaylar, tip):
-    liste = sorted((o for o in olaylar if o["tip"] == tip),
-                   key=lambda o: (o["gun"] or 0, o["zaman"] or "", o["id"]))
-    return liste[-1] if liste else None
-
-
-def _anahtar(aktif, embriyo: bool) -> str:
-    """Örneğin kalitesi, karşılaştırılabilir yazımla (`cryo_esle._norm()`:
-    "8HG2" = "8G2", MII = M2): embriyoda son blastokist skoru, yoksa son
-    cleavage yazımı; yumurtada son olgunluk. Bilinmiyorsa "?", blastokistte
-    arrest ise "arrest"."""
-    if embriyo:
-        bl = _son(aktif, "blastokist_degerlendirme")
-        if bl:
-            if bl["bl_genisleme"] == "arrest":
-                return "arrest"
-            skor = bl["bl_skor"] or "".join(
-                str(x) for x in (bl["bl_genisleme"], bl["bl_icm"], bl["bl_te"]) if x)
-            if skor:
-                return cryo_esle._norm(skor)
-        cl = _son(aktif, "cleavage_degerlendirme")
-        if cl:
-            birlesme = "cl_birlesme" in cl.keys() and cl["cl_birlesme"] == 1
-            y = _db.cleavage_yazimi(_db.BIRLESME if birlesme else cl["cl_hucre_sayisi"],
-                                    cl["cl_skor"])
-            if y:
-                return cryo_esle._norm(y.replace(" ", ""))
-        return "?"
-    mat = _son(aktif, "maturasyon_kontrolu")
-    return cryo_esle._norm(mat["mat_deger"]) if mat and mat["mat_deger"] else "?"
-
-
-def _yazim(aktif, embriyo: bool) -> str:
-    """Kalitenin laboratuvarın yazımıyla hali (önizlemede): "4AA", "8HG2",
-    "MII"; bilinmiyorsa "?"."""
-    if embriyo:
-        bl = _son(aktif, "blastokist_degerlendirme")
-        if bl and (bl["bl_skor"] or bl["bl_genisleme"]):
-            return bl["bl_skor"] or str(bl["bl_genisleme"])
-        cl = _son(aktif, "cleavage_degerlendirme")
-        if cl:
-            birlesme = "cl_birlesme" in cl.keys() and cl["cl_birlesme"] == 1
-            return _db.cleavage_yazimi(_db.BIRLESME if birlesme else cl["cl_hucre_sayisi"],
-                                       cl["cl_skor"]) or "?"
-        return "?"
-    mat = _son(aktif, "maturasyon_kontrolu")
-    return (mat["mat_deger"] or "?").upper() if mat else "?"
+# Örneğin kalitesi: v6.233'ten beri `cryo_esle`'de -- Excel kaydının
+# "tedaviye bağla"sı (programın ekranı) aynı anahtarla karşılaştırıyor, iki
+# kopya ayrı düşmesin. Adlar burada eskisi gibi.
+_embriyo_izi = cryo_esle.ornek_izi
+_son = cryo_esle.son_olay
+_anahtar = cryo_esle.ornek_anahtari
+_yazim = cryo_esle.ornek_yazimi
+_evre_sayi = cryo_esle.evre_sayi
 
 
 def _tup_yazimi(yazimlar, yumurta: bool) -> str:
@@ -238,19 +185,6 @@ def _tup_yazimi(yazimlar, yumurta: bool) -> str:
     say = collections.Counter(yazimlar)
     sira = ["MII", "MI", "GV"] + sorted(k for k in say if k not in ("MII", "MI", "GV"))
     return "-".join(f"{say[k]}*{k}" for k in sira if say.get(k))
-
-
-def _evre_sayi(anahtar):
-    """"4AA" -> ("blast", "4"), "8G2" -> ("cleavage", "8"); ötekiler None."""
-    m = re.match(r"^(\d+)([ABC]{2})$", anahtar or "")
-    if m:
-        return "blast", m.group(1)
-    m = re.match(r"^(\d+)(G\d)?$", anahtar or "")
-    if m:
-        return "cleavage", m.group(1)
-    if (anahtar or "").startswith(cryo_esle._norm(_db.BIRLESME)):
-        return "cleavage", "birlesme"
-    return None
 
 
 def _ornekler(b, cid) -> dict:

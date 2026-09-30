@@ -88,6 +88,15 @@
       {%- if agac.yersiz_excel %} · {{ say("n_excel_kaydi", agac.yersiz_excel|length) }}{% endif %}</div>
   </a>
   {% endif %}
+  {# Haritadan yer tamamla (v6.214) v6.233'ten beri buradan: konumu girilmemiş
+     tüp haritada görünmüyor, "Haritada yeri belirsiz"de de yok. Öneri ekranı
+     haritadaki straw'ı tedavideki olası tüpüyle gösteriyor. #}
+  {% if kat == "embriyo" and yer_tamamla_var %}
+  <a class="satir" href="/cryo/yer-tamamla">
+    <div class="no" style="color:var(--baslik)">{{ metin("yer_tamamla") }}</div>
+    <div class="meta">{{ metin("yer_tamamla_satir") }}</div>
+  </a>
+  {% endif %}
 </div>
 {% endmacro %}
 {% if embriyo_agaci %}

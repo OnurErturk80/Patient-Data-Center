@@ -3100,11 +3100,12 @@ def anasayfa(request: Request, yetkisiz: str = ""):
     aktif_cycle = db.tek(
         "SELECT COUNT(*) k FROM cycle WHERE lab_id=? AND durum='aktif'",
         (db.LAB_ID,))["k"]
-    # Dondurulmuş embriyo sayısı türetilir — /cryo ile aynı ölçü (bkz. CLAUDE.md)
+    # Dondurulmuş embriyo sayısı türetilir — /cryo ile aynı ölçü (bkz. CLAUDE.md);
+    # Cryo Haritası'nda olmayan tüp (v6.233) sayılmıyor.
     dondurulmus = db.tek(
         "SELECT COUNT(*) k FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
         "WHERE t.lab_id=? AND t.durum='dolu' AND o.tip='vitrifikasyon' "
-        "AND o.iptal_mi=0", (db.LAB_ID,))["k"]
+        f"AND o.iptal_mi=0 AND NOT {db.haritada_yok_sql('t')}", (db.LAB_ID,))["k"]
     return sablon.TemplateResponse(
         request, "ana.html",
         {"kullanici": request.state.kullanici,
@@ -8027,6 +8028,9 @@ def etiket_ara(ara: str) -> list:
         + icerik_sql() + ", "
         "  (SELECT sd.id FROM sperm_dondurma sd WHERE sd.tasiyici_id = t.id "
         "   AND sd.iptal_mi = 0 ORDER BY sd.id LIMIT 1) AS sperm_id, "
+        # Cryo Haritası'nda olmayan tüp (v6.233) bulunur, yazısı bunu söyler:
+        # arama "bu etiket kimin" sorusu, envanter değil.
+        f"  {db.haritada_yok_sql('t')} AS haritada_yok, "
         + _ETIKET_HASTA.format(alan="h8.dosya_no", ad="dosya_no") + ", "
         + _ETIKET_HASTA.format(alan="h8.ad_soyad", ad="ad_soyad") +
         "FROM tasiyici t LEFT JOIN konum k ON k.id = t.konum_id "
@@ -8304,6 +8308,12 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         "   JOIN konum k ON k.id=t.konum_id WHERE o.specimen_id=s.id "
         "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 " + bu_vit +
         "   ORDER BY o.id DESC LIMIT 1) AS konum, "
+        # Tüp Cryo Haritası'nda yok (v6.233, `db.haritada_yok_sql()`): kartta
+        # "Cryo Haritası'nda yok", karar tüpün sayfasında, "Çöz" yok.
+        f"  (SELECT {db.haritada_yok_sql('t')} FROM olay o JOIN tasiyici t "
+        "   ON t.id=o.vit_tasiyici_id WHERE o.specimen_id=s.id "
+        "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 " + bu_vit +
+        "   ORDER BY o.id DESC LIMIT 1) AS haritada_yok, "
         # FET'te liste birden çok kaynak tedaviden gelebilir ve `cycle_sira_no`
         # yalnızca kendi tedavisinde tekil (v6.62) -- satırda kaynağı da yaz.
         "  (SELECT kc.cycle_no FROM cycle kc WHERE kc.id=s.cycle_id) "
@@ -8551,6 +8561,11 @@ async def vit_kaydet(request: Request, cycle_id: int):
         return hata(f"'{etiket}' etiketli bir taşıyıcı zaten var.")
 
     seviyeler = [(f.get(f"seviye{i}") or "").strip() for i in (1, 2, 3, 4)]
+    # Yer zorunlu (v6.233, kullanıcının cevabı): tank / kanister / goblet
+    # yazılmadan tüp açılmıyor -- yeri olmayan tüp Cryo Haritası'nda
+    # görünmüyor (`db.haritada_yok_sql()`). Ekranın kutuları da `required`.
+    if any(not seviyeler[i - 1] for i in zorunlu_seviyeler()):
+        return hata(metinler.t("konum_zorunlu"))
     konum_id = None
     if yerlesim.duzen_var():
         # Tank düzeni (v6.189-v6.190): yazılan yer düzendeki bir gobletse
@@ -8629,14 +8644,26 @@ def cryo_harita(request: Request, ara: str = ""):
     # eskisi gibi düz liste, Excel kayıtlarını da buluyor.
     embriyo_agaci = sperm_duzeni = None
     konumsuz_sayisi = {}
+    yer_tamamla_var = False
     duzen = yerlesim.duzen_var()
     if duzen and not ara.strip():
         harita = yerlesim.doluluk()
         embriyo_agaci = yerlesim.agac(harita, "embriyo")
         sperm_duzeni = yerlesim.agac(harita, "sperm")
+        # Konumu girilmemiş embriyo / yumurta tüpü Cryo Haritası'nda değil
+        # (v6.233, `db.haritada_yok_sql()`): sayılmıyor. Sperm tüpünün
+        # konumsuzu laboratuvarın Excel'inde (tankı yazılmamış), sayılıyor.
         konumsuz_sayisi = {r["kategori"]: r["n"] for r in db.sorgu(
-            "SELECT kategori, COUNT(*) AS n FROM tasiyici WHERE lab_id=? AND durum='dolu' "
-            "AND konum_id IS NULL GROUP BY kategori", (db.LAB_ID,))}
+            "SELECT t.kategori, COUNT(*) AS n FROM tasiyici t WHERE t.lab_id=? "
+            "AND t.durum='dolu' AND t.konum_id IS NULL "
+            f"AND NOT {db.haritada_yok_sql('t')} GROUP BY t.kategori", (db.LAB_ID,))}
+        # Haritadan yer tamamla (v6.214) buradan: straw'ı haritada duran,
+        # tedavideki tüpüne bağlanmamış kayıtlar -- tüpler kendileri haritada
+        # görünmüyor (v6.233), öneri ekranı onları haritadaki straw'la
+        # birlikte gösteriyor.
+        yer_tamamla_var = yerlesim.excel_kaydi_var() and db.tek(
+            f"SELECT 1 FROM tasiyici t WHERE t.lab_id=? AND {db.haritada_yok_sql('t')} "
+            "LIMIT 1", (db.LAB_ID,)) is not None
         tasiyicilar = []
     elif ara.strip():
         tasiyicilar = db.sorgu(
@@ -8650,7 +8677,11 @@ def cryo_harita(request: Request, ara: str = ""):
             "LEFT JOIN specimen s ON s.id=o.specimen_id "
             "LEFT JOIN cycle c ON c.id=s.cycle_id "
             "LEFT JOIN hasta h ON h.id=c.hasta_id "
-            "WHERE t.lab_id=? AND t.durum='dolu' AND t.kategori='embriyo' AND ("
+            "WHERE t.lab_id=? AND t.durum='dolu' AND t.kategori='embriyo' "
+            # Cryo Haritası'nda olmayan tüp aramada da yok (v6.233); tüpün
+            # sayfasına tedavinin vitrifikasyon ekranından ya da etiket
+            # aramasından (`etiket_ara()`, "Cryo Haritası'nda yok" yazıyor).
+            f"AND NOT {db.haritada_yok_sql('t')} AND ("
             "  t.etiket LIKE ? OR k.tam_yol LIKE ? "
             "  OR CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ? "
             # Tüpün üstünde yazan örnek kodu (v6.35). Cryo haritasında aranan
@@ -8758,7 +8789,7 @@ def cryo_harita(request: Request, ara: str = ""):
         {"tasiyicilar": tasiyicilar, "tanklar": tanklar, "ara": ara,
          "sperm_kayitlari": sperm_kayitlari, "sperm_agaci": sperm_agaci,
          "embriyo_agaci": embriyo_agaci, "sperm_duzeni": sperm_duzeni,
-         "konumsuz_sayisi": konumsuz_sayisi,
+         "konumsuz_sayisi": konumsuz_sayisi, "yer_tamamla_var": yer_tamamla_var,
          "excel_sonuc": excel_kaydi_ara(ara),
          # Taşınma bölümünün satırı (v6.205); göç yoksa None, satır yok.
          "tasima": tasima_ozeti(),
@@ -8849,15 +8880,21 @@ def cryo_kanister(request: Request, tank: str = "", kanister: str = ""):
 
 @uygulama.get("/cryo/yersiz")
 def cryo_yersiz(request: Request, kategori: str = "embriyo"):
-    """Haritada yeri olmayan dolu tüpler ve Excel kayıtları (v6.189): konumu
-    hiç girilmemiş, ya da girilen yer tank düzeninde yok. Gizlenecek şey
-    değil -- tankta duruyorlar, yeri bilinmiyor."""
+    """Haritada yeri belirsiz dolu tüpler ve Excel kayıtları (v6.189): girilen
+    yer tank düzeninde yok, sperm tüpünde konumu hiç girilmemiş (Excel'in
+    tankı yazılmamış sayfası). Tankta duruyorlar, yeri bilinmiyor.
+
+    Konumu girilmemiş embriyo / yumurta tüpü v6.233'ten beri burada DEĞİL:
+    straw Cryo Haritası'nda yok (`db.haritada_yok_sql()`, kullanıcının
+    isteği). Haritadaki straw'ıyla eşleştirmek `/cryo/yer-tamamla`'da,
+    karar tüpün sayfasında."""
     kategori = "sperm" if kategori == "sperm" else "embriyo"      # beyaz liste
     harita = yerlesim.doluluk()
     agac = yerlesim.agac(harita, kategori)
     konumsuz = [r["id"] for r in db.sorgu(
-        "SELECT id FROM tasiyici WHERE lab_id=? AND durum='dolu' AND kategori=? "
-        "AND konum_id IS NULL ORDER BY vitrifikasyon_zamani, etiket", (db.LAB_ID, kategori))]
+        "SELECT t.id FROM tasiyici t WHERE t.lab_id=? AND t.durum='dolu' AND t.kategori=? "
+        f"AND t.konum_id IS NULL AND NOT {db.haritada_yok_sql('t')} "
+        "ORDER BY t.vitrifikasyon_zamani, t.etiket", (db.LAB_ID, kategori))]
     tupler = _tup_ayrintilari(konumsuz + [t["id"] for t in agac["yersiz_tup"]])
     yollar = {r["id"]: r["tam_yol"] for r in db.sorgu(
         "SELECT t.id, k.tam_yol FROM tasiyici t JOIN konum k ON k.id=t.konum_id "
@@ -8865,21 +8902,9 @@ def cryo_yersiz(request: Request, kategori: str = "embriyo"):
     excel_ = _excel_ayrintilari([e["id"] for e in agac["yersiz_excel"]])
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
-    # Haritada olası yeri olan konumsuz tüpler (v6.214): yalnızca sayı --
-    # kesin tutanları aramıyor, öneriler aynı. Ölçü toplu ekranınki: straw
-    # önerilen tüp (aynı içerikli kardeşine önerilen straw sayılmıyor).
-    yer_oneri = 0
-    if kategori == "embriyo" and konumsuz and yerlesim.excel_kaydi_var():
-        b = db.baglan()
-        try:
-            yer_oneri = sum(1 for o in cryo_esle.yer_onerileri(b, kesin_ara=False)
-                            if o["oneri"])
-        finally:
-            b.close()
     return sablon.TemplateResponse(
         request, "cryo_yersiz.html",
         {"kategori": kategori, "konumsuz": [tupler[i] for i in konumsuz],
-         "yer_oneri": yer_oneri,
          "duzen_disi": [{**tupler[t["id"]], "tam_yol": yollar.get(t["id"])}
                         for t in agac["yersiz_tup"]],
          "excel_disi": [excel_[e["id"]] for e in agac["yersiz_excel"]],
@@ -8949,14 +8974,19 @@ def cryo_yer_tamamla(request: Request, baglandi: str = "", atlanan: str = ""):
         oneriler = cryo_esle.yer_onerileri(b)
     finally:
         b.close()
-    konumsuz = db.tek(
-        "SELECT COUNT(*) n FROM tasiyici WHERE lab_id=? AND durum='dolu' "
-        "AND kategori='embriyo' AND konum_id IS NULL", (db.LAB_ID,))["n"]
+    # v6.233: haritada olası straw'ı olmayan tüp listelenmiyor -- Cryo
+    # Haritası'nda değil (`db.haritada_yok_sql()`), kararı tüpün sayfasında.
+    # Başka tüpe önerilen straw'ın "başka olası yer" sayısı bütün önerilerden
+    # (`_yer_tamamla_gruplari()`), süzmeden önce.
+    gruplar = _yer_tamamla_gruplari(oneriler)
+    for g in gruplar:
+        g["satirlar"] = [x for x in g["satirlar"] if x["oneri"]]
+    gruplar = [g for g in gruplar if g["satirlar"]]
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
         request, "cryo_yer_tamamla.html",
-        {"gruplar": _yer_tamamla_gruplari(oneriler), "konumsuz": konumsuz,
+        {"gruplar": gruplar,
          "oneri_sayisi": sum(1 for o in oneriler if o["oneri"]),
          "secili_sayisi": sum(1 for o in oneriler if o["kesin"] and o["oneri"]
                               and o["oneri"]["eid"] == o["kesin"]),
@@ -9029,6 +9059,15 @@ EXCEL_KAYDI_HATALARI = {
     "acilan_tasindi": "excel_acilan_tasindi",
     "acilan_baska_kayit": "excel_acilan_baska_kayit",
     "acilan_islem_var": "excel_acilan_islem_var",
+    "acilis_konum_yok": "excel_acilis_konum_yok",
+    # Tedaviye bağla (v6.233): `cryo_esle.tedaviye_baglama_plani()` kodları.
+    # Üstteki mesaj yer tutucusuz; ayrıntı tedavinin satırında.
+    **{f"tedaviye_{k}": f"tedaviye_{k}" for k in (
+        "durum", "sperm", "konum_yok", "tip", "tarih_yok", "tarih_ileri",
+        "icerik_okunamadi", "cok_tup", "tedavi_yok")},
+    "tedaviye_tarih_once": "tedaviye_tarih_once_kisa",
+    "tedaviye_tutmuyor": "tedaviye_tutmuyor_kisa",
+    "tedaviye_gizli_tup": "tedaviye_gizli_tup_kisa",
 }
 
 
@@ -9047,13 +9086,18 @@ def _excel_acilis_gunu(v):
         return None
 
 
-_EXCEL_ARAMA_SAYILARI = (
-    "(SELECT COUNT(DISTINCT t.id) FROM tasiyici t JOIN olay o ON o.vit_tasiyici_id = t.id "
-    " JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
-    " WHERE c.hasta_id = h.id AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
-    " AND t.durum = 'dolu' AND t.kategori = 'embriyo') AS embriyo_tup, "
-    "(SELECT COUNT(*) FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
-    " WHERE sd.hasta_id = h.id AND sd.iptal_mi = 0 AND t.durum = 'dolu') AS sperm_tup")
+def _excel_arama_sayilari() -> str:
+    """Hasta aramasının "tankta: N tüp"ü. Cryo Haritası'nda olmayan tüp
+    (v6.233) tankta sayılmıyor; seçilen hastanın tüp listesinde bağlama adayı
+    olarak "Cryo Haritası'nda yok" yazısıyla duruyor."""
+    return (
+        "(SELECT COUNT(DISTINCT t.id) FROM tasiyici t JOIN olay o ON o.vit_tasiyici_id = t.id "
+        " JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
+        " WHERE c.hasta_id = h.id AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0 "
+        f" AND t.durum = 'dolu' AND t.kategori = 'embriyo' AND NOT {db.haritada_yok_sql('t')}) "
+        "AS embriyo_tup, "
+        "(SELECT COUNT(*) FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+        " WHERE sd.hasta_id = h.id AND sd.iptal_mi = 0 AND t.durum = 'dolu') AS sperm_tup")
 
 
 def excel_kaydi_hasta_ara(ara: str) -> list:
@@ -9069,7 +9113,7 @@ def excel_kaydi_hasta_ara(ara: str) -> list:
                          "OR COALESCE(h.es_adi, '') LIKE ?)" for _ in kelimeler)
     par = [x for k in kelimeler for x in (f"%{k}%", f"%{tr_buyuk(k)}%", f"%{tr_buyuk(k)}%")]
     return db.sorgu(
-        f"SELECT h.id, h.dosya_no, h.ad_soyad, h.es_adi, h.durum, {_EXCEL_ARAMA_SAYILARI} "
+        f"SELECT h.id, h.dosya_no, h.ad_soyad, h.es_adi, h.durum, {_excel_arama_sayilari()} "
         f"FROM hasta h WHERE h.lab_id = ? AND {kosul} ORDER BY h.ad_soyad LIMIT 30",
         (db.LAB_ID, *par))
 
@@ -9089,7 +9133,13 @@ def _excel_kaydi_tup_satirlari(idler) -> list:
     bagli = {r["tasiyici_id"]: r["id"] for r in db.sorgu(
         f"SELECT id, tasiyici_id FROM excel_kaydi WHERE durum = 'baglandi' "
         f"AND tasiyici_id IN ({yer})", tuple(idler))}
-    return [{**ayrinti[i], "tam_yol": yollar.get(i), "bagli_kayit": bagli.get(i)}
+    # Cryo Haritası'nda olmayan tüp (v6.233): bağlama adayı -- straw'ı
+    # haritada, tüpü tedavide; satır "konum girilmemiş" değil bunu yazıyor.
+    yok = {r["id"] for r in db.sorgu(
+        f"SELECT t.id FROM tasiyici t WHERE t.id IN ({yer}) "
+        f"AND {db.haritada_yok_sql('t')}", tuple(idler))}
+    return [{**ayrinti[i], "tam_yol": yollar.get(i), "bagli_kayit": bagli.get(i),
+             "haritada_yok": i in yok}
             for i in idler if i in ayrinti]
 
 
@@ -9136,11 +9186,42 @@ def excel_kaydi_hasta_secimi(e, hid, tarih_adres) -> dict:
     b = db.baglan()
     try:
         plan = cryo_esle.acilis_plani(b, e, h, tarih)
+        tedaviler = _tedaviye_baglama_secenekleri(b, e, h, tarih)
     finally:
         b.close()
     return {"h": h, "ad": ad, "es_farkli": es_farkli, "tarih": tarih or "",
             "tarih_hata": bool(tarih_adres) and not tarih,
-            "tupler": _hastanin_dolu_tupleri(h["id"], e["kategori"]), "plan": plan}
+            "tupler": _hastanin_dolu_tupleri(h["id"], e["kategori"]), "plan": plan,
+            "tedaviler": tedaviler}
+
+
+def _tedaviye_baglama_secenekleri(b, e, h, tarih) -> list:
+    """Excel kaydının bağlanabileceği, seçilen hastanın tedavileri (v6.233,
+    kullanıcının isteği: "ben onu istediğim hastaya ve tedaviye
+    ekleyebileyim"): her biri planıyla (`cryo_esle.tedaviye_baglama_plani()`
+    -- kayıt aynı planı yeniden kuruyor). Yalnızca embriyo / yumurta straw'ı
+    (sperm tedaviye androloji ekranından bağlanıyor), yalnızca yumurtası o
+    tedavide toplanan tipler; Cryo Excel tedavisi (yalnızca dondurma kaydı,
+    v6.213) ve silme ekranından iptal edilen tedavi listede yok. Sıra dondurma
+    gününe yakınlık, sonra en yeni tedavi."""
+    if e["kategori"] != "embriyo":
+        return []
+    tipler = cryo_esle.tedaviye_tipleri()
+    silinmis = (" AND NOT (c.durum = 'iptal' AND c.bitis_sebebi IS NULL)"
+                if _bitis_kolonu_var() else "")
+    tedaviler = b.execute(
+        f"SELECT c.*, {db.tedavi_tarihi(b, 'c')} AS gunu FROM cycle c "
+        f"WHERE c.hasta_id = ? AND c.lab_id = ? AND c.cycle_tipi IN ({','.join('?' * len(tipler))}) "
+        "AND COALESCE(c.protokol_notu, '') NOT LIKE ?" + silinmis,
+        (h["id"], db.LAB_ID, *tipler, f"%{db.CRYO_EXCEL_ISARETI}%")).fetchall()
+
+    def uzaklik(c):
+        try:
+            return abs((_dt.fromisoformat(tarih) - _dt.fromisoformat(c["gunu"])).days)
+        except (TypeError, ValueError):
+            return 10 ** 6
+    return [{"c": dict(c), "plan": cryo_esle.tedaviye_baglama_plani(b, e, c, tarih)}
+            for c in sorted(tedaviler, key=lambda c: (uzaklik(c), -(c["hasta_cycle_no"] or 0)))]
 
 
 def _excel_kaydi(eid):
@@ -9193,6 +9274,11 @@ def excel_kaydi_ekran(request: Request, eid: int, hata: str = "", etiket: str = 
     if e["durum"] == "tankta" and hasta.isdigit():
         secim = excel_kaydi_hasta_secimi(e, int(hasta), tarih.strip())
     acilan = cryo_esle.acilan_bilgisi(e)
+    # Tedaviye bağlanmışsa (v6.233): hangi tedavi, bağı çözmek neyi geri alır.
+    tedaviye = cryo_esle.tedaviye_bagli_bilgisi(e)
+    if tedaviye:
+        tedaviye["c"] = db.tek("SELECT id, cycle_no, cycle_tipi FROM cycle WHERE id=?",
+                               (tedaviye["tedavi"],))
     return sablon.TemplateResponse(
         request, "excel_kaydi.html",
         {"e": e, "adaylar": [satirlar[i] for i in adaylar if i in satirlar],
@@ -9203,8 +9289,8 @@ def excel_kaydi_ekran(request: Request, eid: int, hata: str = "", etiket: str = 
          "hasta_ara": arama,
          "hasta_sonuclari": (excel_kaydi_hasta_ara(arama)
                              if arama and e["durum"] == "tankta" else []),
-         "secim": secim, "acilan": acilan, "sonuc": sonuc if sonuc in (
-             "acildi", "geri_alindi") else "",
+         "secim": secim, "acilan": acilan, "tedaviye": tedaviye,
+         "sonuc": sonuc if sonuc in ("acildi", "geri_alindi", "tedaviye_baglandi") else "",
          "geri": (f"/cryo/excel-kaydi/{e['id']}" if arama or secim else geri_cryo),
          "geri_cryo": geri_cryo})
 
@@ -9332,6 +9418,43 @@ async def excel_kaydi_hastaya_bagla(request: Request, eid: int):
     return RedirectResponse(f"{geri}?sonuc=acildi", status_code=303)
 
 
+@uygulama.post("/cryo/excel-kaydi/{eid}/tedaviye-bagla")
+async def excel_kaydi_tedaviye_bagla(request: Request, eid: int):
+    """Excel kaydını seçilen tedavinin dondurulmamış embriyolarına
+    (yumurtalarına) bağlar (v6.233, kullanıcının isteği ve cevabı: skor / evre
+    ve sayı tutmalı, tutmazsa hiçbir şey eklenmez). Tüp Excel kaydının
+    gobletinde açılır, örnekler ona dondurulmuş olur; tedaviye yeni örnek
+    açılmaz. Hastayı ve tedaviyi kullanıcı seçiyor; önizleme ile burada
+    yazılan aynı plan (`cryo_esle.tedaviye_baglama_plani()`), kilidin
+    içinde yeniden kuruluyor."""
+    f = await request.form()
+    hid = (f.get("hasta") or "").strip()
+    cid = (f.get("tedavi") or "").strip()
+    geri = f"/cryo/excel-kaydi/{eid}"
+    if not hid.isdigit() or not cid.isdigit():
+        return RedirectResponse(geri, status_code=303)
+    secim = urlencode({"hasta": hid, "tarih": (f.get("tarih") or "").strip()})
+    gun = _excel_acilis_gunu(f.get("tarih"))
+    if not gun:
+        return RedirectResponse(f"{geri}?{secim}&hata=tedaviye_tarih_yok#tedaviye-bagla",
+                                status_code=303)
+    kid = request.state.kullanici["id"]
+    simdi = _dt.now().isoformat(" ", "seconds")
+    with db.yazma_islemi() as b:
+        e = b.execute("SELECT * FROM excel_kaydi WHERE id=? AND lab_id=?",
+                      (eid, db.LAB_ID)).fetchone()
+        c = b.execute("SELECT * FROM cycle WHERE id=? AND hasta_id=? AND lab_id=?",
+                      (int(cid), int(hid), db.LAB_ID)).fetchone()
+        if not e:
+            return RedirectResponse(geri, status_code=303)
+        sonuc = (cryo_esle.excel_kaydini_tedaviye_bagla(b, e, c, gun, kid, simdi) if c
+                 else {"hata": "tedavi_yok"})
+    if sonuc.get("hata"):
+        return RedirectResponse(f"{geri}?{secim}&hata=tedaviye_{sonuc['hata']}#tedaviye-bagla",
+                                status_code=303)
+    return RedirectResponse(f"{geri}?sonuc=tedaviye_baglandi", status_code=303)
+
+
 @uygulama.post("/cryo/excel-kaydi/{eid}/bagi-coz")
 async def excel_kaydi_bagi_coz(request: Request, eid: int):
     """Yanlış tüpe bağlamayı geri alır: tüp bağlamadan önceki konumuna döner
@@ -9351,6 +9474,10 @@ async def excel_kaydi_bagi_coz(request: Request, eid: int):
             return RedirectResponse(geri, status_code=303)
         if cryo_esle.acilan_bilgisi(e):
             geri_alinan = cryo_esle.acilani_geri_al(b, e, kid, simdi)
+        elif cryo_esle.tedaviye_bagli_bilgisi(e):
+            # Tedaviye bağlanmış (v6.233): açılan tüp ve dondurma kayıtları
+            # silinir, örnekler önceki durumuna döner.
+            geri_alinan = cryo_esle.tedaviye_baglanani_geri_al(b, e, kid, simdi)
         else:
             _excel_bagini_coz(b, e, kid, simdi)
     if geri_alinan is None:
@@ -9358,7 +9485,7 @@ async def excel_kaydi_bagi_coz(request: Request, eid: int):
     if geri_alinan.get("hata"):
         return RedirectResponse(f"{geri}?hata={geri_alinan['hata']}", status_code=303)
     # Kayan tedavi numaraları: günlüğe kendi bağlantısıyla, işlemden sonra.
-    tedavi_sirasini_logla(geri_alinan["degisen"], kid)
+    tedavi_sirasini_logla(geri_alinan.get("degisen") or [], kid)
     return RedirectResponse(f"{geri}?sonuc=geri_alindi", status_code=303)
 
 
@@ -9896,7 +10023,8 @@ def sperm_dondurma_sil(request: Request, sperm_dondurma_id: int):
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}")
 def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str = "",
-                   yer: str = "", imha_hata: str = ""):
+                   yer: str = "", imha_hata: str = "", yer_hata: str = "",
+                   y1: str = "", y2: str = "", y3: str = "", y4: str = ""):
     """Taşıyıcının içeriği.
 
     `?cycle=N` çözme ekranından gelindiğini söyler; geri oku cryo haritasına
@@ -9907,6 +10035,12 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str
     Konumu girilmemiş tüpte neden girilmediği ve Cryo Haritası'ndaki olası
     yeri (v6.214, `cryo_esle.yer_onerileri()`); `?yer=baglandi|atlandi`
     oradan bağlamanın sonucu.
+
+    Cryo Haritası'nda olmayan tüp (v6.233, `db.haritada_yok()`): başka hiçbir
+    ekranda görünmüyor, burada karar veriliyor -- haritadaki straw'ı (olası
+    yeri), tanktaki yeri (`POST .../yer`; `?yer_hata=` ve yazılan `y1`..`y4`
+    oradan, yalnızca kutulara ve uyarının yeniden hesabına), başka merkeze
+    taşındı ya da imha edildi. Çözülemez.
     """
     t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t "
                "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
@@ -9959,6 +10093,15 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str
             "SELECT 1 FROM olay WHERE vit_tasiyici_id=? AND tip='vitrifikasyon' "
             "AND notlar LIKE ? LIMIT 1",
             (tasiyici_id, db.KAYNAK_DONDURMA_NOTU + "%")) else "ekran"
+    # Cryo Haritası'nda yok (v6.233): "Yerini gir" formu. Onay isteyen bir
+    # uyarıyla dönüldüyse (`yer_hata=uyari`) uyarılar yazılan yer için yeniden
+    # hesaplanıyor -- adresteki metin yalnızca kutulara ve karşılaştırmaya.
+    haritada_yok = db.haritada_yok(t)
+    yer_girdi = [y1.strip(), y2.strip(), y3.strip(), y4.strip()]
+    yer_uyari = []
+    if haritada_yok and yer_hata == "uyari" and any(yer_girdi[:3]):
+        yer_uyari = [_yer_uyari_metni(k, a) for k, a in yerlesim.yer_uyarilari(
+            yerlesim.doluluk(), *yer_girdi[:3], t["renk"] or "")]
     return sablon.TemplateResponse(
         request, "tasiyici.html",
         {"t": t, "icerik": icerik, "etiketler": etiketler, "ozet": ozet,
@@ -9972,7 +10115,81 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str
          "bugun": _dt.now().date().isoformat(),
          "harita_kaydi": harita_kaydi, "yer_onerisi": yer_onerisi,
          "konum_neden": konum_neden,
-         "yer_sonuc": yer if yer in ("baglandi", "atlandi") else ""})
+         "yer_sonuc": yer if yer in ("baglandi", "atlandi", "yazildi") else "",
+         "haritada_yok": haritada_yok, "sema": konum_semasi(),
+         "yer_girdi": yer_girdi, "yer_uyari": yer_uyari,
+         "yer_hata": TUP_YER_HATALARI.get(yer_hata)})
+
+
+# Tüpün sayfasından yer girme (v6.233): adresten gelen anahtar beyaz listeden
+# (tuzak #9).
+TUP_YER_HATALARI = {"eksik": "konum_zorunlu", "uyari": "yer_onay_gerekli",
+                    "degisti": "tup_yer_degisti"}
+
+
+@uygulama.post("/cryo/tasiyici/{tasiyici_id}/yer")
+async def tasiyici_yer(request: Request, tasiyici_id: int):
+    """Cryo Haritası'nda olmayan tüpün tanktaki yeri (v6.233).
+
+    Kullanıcının isteği (2026-09-30): "Eğer tedavide var ama cryo haritada
+    tüpü yoksa ben yine karar vereyim." Tüp tanktaysa yerini yazıyor; yazılan
+    yer düzendeki bir gobletse onun konum satırı (`yerlesim.goblet_bul()`,
+    vitrifikasyonun kuralı), dolu goblet / aynı renk / düzende olmayan yer
+    onaysız yazılmıyor (`yerlesim.yer_uyarilari()`, dondurma ekranının
+    denetimi). Tank, kanister ve goblet zorunlu (dondurmanın kuralı,
+    v6.233). Yalnızca haritada olmayan tüpe: yeri olan tüpü başka gobletde
+    taşımak bu formun işi değil. Değişiklik geçmişine yazılıyor, harita onu
+    görüyor."""
+    from urllib.parse import urlencode as _ue
+    f = await request.form()
+    t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t LEFT JOIN konum k "
+               "ON k.id=t.konum_id WHERE t.id=? AND t.lab_id=?", (tasiyici_id, db.LAB_ID))
+    if not t:
+        return RedirectResponse("/cryo", status_code=303)
+    donus = f"/cryo/tasiyici/{tasiyici_id}"
+    if not db.haritada_yok(t):
+        return RedirectResponse(donus + "?yer_hata=degisti", status_code=303)
+    seviyeler = [(f.get(f"seviye{i}") or "").strip() for i in (1, 2, 3, 4)]
+    girdi = _ue({"y1": seviyeler[0], "y2": seviyeler[1], "y3": seviyeler[2],
+                 "y4": seviyeler[3]})
+    if not any(seviyeler) or any(not seviyeler[i - 1] for i in zorunlu_seviyeler()):
+        return RedirectResponse(f"{donus}?yer_hata=eksik&{girdi}", status_code=303)
+    harita = yerlesim.doluluk()
+    uyarilar = yerlesim.yer_uyarilari(harita, *seviyeler[:3], t["renk"] or "")
+    if uyarilar and not f.get("yer_onay"):
+        return RedirectResponse(f"{donus}?yer_hata=uyari&{girdi}", status_code=303)
+    kid = request.state.kullanici["id"]
+    simdi = _dt.now().isoformat(" ", "seconds")
+    yazildi = False
+    with db.yazma_islemi() as b:
+        # Kilidin içinde yeniden: bu arada başka bir telefon yerini yazmış,
+        # tüpü çözmüş ya da taşımış olabilir -- o zaman hiçbir şey yazılmıyor.
+        r = b.execute("SELECT durum, konum_id FROM tasiyici WHERE id=?",
+                      (tasiyici_id,)).fetchone()
+        if r and r["durum"] == "dolu" and r["konum_id"] is None:
+            g = yerlesim.goblet_bul(harita, *seviyeler[:3])
+            konum_id = g["konum_id"] if g and not seviyeler[3] else \
+                db.konum_bul_veya_olustur(seviyeler, b=b)
+            b.execute("UPDATE tasiyici SET konum_id=? WHERE id=?", (konum_id, tasiyici_id))
+            b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (konum_id,))
+            yol = b.execute("SELECT tam_yol FROM konum WHERE id=?", (konum_id,)).fetchone()[0]
+            b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                      "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                      (db.LAB_ID, "tasiyici", str(tasiyici_id), "konum", None, yol, kid,
+                       simdi))
+            yazildi = True
+    if not yazildi:
+        return RedirectResponse(donus + "?yer_hata=degisti", status_code=303)
+    return RedirectResponse(donus + "?yer=yazildi", status_code=303)
+
+
+def zorunlu_seviyeler() -> list:
+    """Dondurmada ve tüpün yerinde zorunlu konum seviyeleri (v6.233,
+    kullanıcının cevabı: tank / kanister / goblet zorunlu): şemanın ilk üç
+    seviyesinden laboratuvarda tanımlı olanların sırası. Dördüncüsü
+    (pozisyon) isteğe bağlı. Ekran (kutunun `required`'ı) ve sunucu aynı
+    listeye bakıyor."""
+    return [s["seviye_sirasi"] for s in konum_semasi() if s["seviye_sirasi"] <= 3]
 
 
 # ------------------------------------------------ başka merkeze taşınan tüp
@@ -10274,21 +10491,27 @@ def _tasima_sayim_sql(h: str, kategori: str, durum: str) -> str:
     olayı üzerinden (olay -> örnek -> tedavi), sperm tüpününki dondurma
     kaydından; `_ETIKET_HASTA`'nın iki yolu."""
     if kategori == "embriyo":
+        # Cryo Haritası'nda olmayan tüp (v6.233) taşıma ekranında da yok:
+        # tankta sayılmıyor, taşınamıyor -- kararı tüpün sayfasında.
         return ("(SELECT COUNT(DISTINCT t.id) FROM tasiyici t "
                 "JOIN olay o ON o.vit_tasiyici_id = t.id AND o.tip = 'vitrifikasyon' "
                 "AND o.iptal_mi = 0 JOIN specimen s ON s.id = o.specimen_id "
                 f"JOIN cycle c ON c.id = s.cycle_id WHERE c.hasta_id = {h} "
-                f"AND t.kategori = 'embriyo' AND t.durum = '{durum}')")
+                f"AND t.kategori = 'embriyo' AND t.durum = '{durum}' "
+                f"AND NOT {db.haritada_yok_sql('t')})")
     return ("(SELECT COUNT(*) FROM sperm_dondurma sd "
             "JOIN tasiyici t ON t.id = sd.tasiyici_id "
             f"WHERE sd.hasta_id = {h} AND sd.iptal_mi = 0 AND t.durum = '{durum}')")
 
 
-# embriyo_tankta, embriyo_tasinan, sperm_tankta, sperm_tasinan -- `h` hasta.
-_TASIMA_SAYIMLARI = ", ".join(
-    f"{_tasima_sayim_sql('h.id', k, d)} AS {k}_{ad}"
-    for k in ("embriyo", "sperm")
-    for d, ad in (("dolu", "tankta"), ("gonderildi", "tasinan")))
+def _tasima_sayimlari() -> str:
+    """embriyo_tankta, embriyo_tasinan, sperm_tankta, sperm_tasinan -- `h`
+    hasta. v6.233'e kadar modül düzeyinde bir sabitti; haritada olmayan tüpün
+    koşulu tank düzenine bağlı, her istekte kuruluyor."""
+    return ", ".join(
+        f"{_tasima_sayim_sql('h.id', k, d)} AS {k}_{ad}"
+        for k in ("embriyo", "sperm")
+        for d, ad in (("dolu", "tankta"), ("gonderildi", "tasinan")))
 
 
 def tasima_sayilari(hasta_id: int) -> dict:
@@ -10296,7 +10519,7 @@ def tasima_sayilari(hasta_id: int) -> dict:
     Taşınma düğmesini buna bakarak basıyor."""
     if not gonderim_var():
         return {}
-    r = db.tek(f"SELECT {_TASIMA_SAYIMLARI} FROM hasta h WHERE h.id = ?", (hasta_id,))
+    r = db.tek(f"SELECT {_tasima_sayimlari()} FROM hasta h WHERE h.id = ?", (hasta_id,))
     return dict(r) if r else {}
 
 
@@ -10310,7 +10533,7 @@ def tasima_hasta_ara(ara: str) -> list:
     ad = f"%{tr_buyuk(ara)}%"
     return db.sorgu(
         f"SELECT * FROM (SELECT h.id, h.dosya_no, h.ad_soyad, h.es_adi, "
-        f"{_TASIMA_SAYIMLARI} FROM hasta h WHERE h.lab_id = ? AND "
+        f"{_tasima_sayimlari()} FROM hasta h WHERE h.lab_id = ? AND "
         "(CAST(h.dosya_no AS TEXT) LIKE ? OR h.ad_soyad LIKE ? OR h.es_adi LIKE ?)) "
         "WHERE embriyo_tankta + embriyo_tasinan + sperm_tankta + sperm_tasinan > 0 "
         "ORDER BY ad_soyad LIMIT 50", (db.LAB_ID, f"%{ara}%", ad, ad))
@@ -10332,7 +10555,10 @@ def hastanin_tasima_tupleri(hasta_id: int) -> list:
 
     Hasta kartının "Dondurulmuş örnekler"i de bundan (v6.217): gönderim göçü
     (goc_051) yoksa taşınmış tüp olamaz, yalnızca tanktakiler dönüyor --
-    taşıma ekranı o durumda zaten açılmıyor."""
+    taşıma ekranı o durumda zaten açılmıyor.
+
+    Cryo Haritası'nda olmayan tüp (v6.233, `db.haritada_yok_sql()`) yok: hasta
+    kartında görünmüyor, taşınamıyor; kararı tüpün sayfasında."""
     gonderim = gonderim_var()
     imha = db.imha_var()
     ortak = ("t.id, t.kategori, t.durum, t.konum_id, "
@@ -10351,7 +10577,7 @@ def hastanin_tasima_tupleri(hasta_id: int) -> list:
         "JOIN specimen s ON s.id = o.specimen_id JOIN cycle c ON c.id = s.cycle_id "
         "LEFT JOIN konum k ON k.id = t.konum_id "
         "WHERE c.hasta_id = ? AND t.lab_id = ? AND t.kategori = 'embriyo' "
-        f"  AND t.durum IN {durumlar} GROUP BY t.id",
+        f"  AND t.durum IN {durumlar} AND NOT {db.haritada_yok_sql('t')} GROUP BY t.id",
         (hasta_id, db.LAB_ID))]
     satirlar += [dict(r) for r in db.sorgu(
         f"SELECT {ortak}, sd.dondurma_zamani AS dondurma, NULL AS tedavi_id, "
@@ -10980,8 +11206,10 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
     if not t:
         return RedirectResponse("/cryo", status_code=303)
     # Başka merkeze taşınan (v6.182) ya da imha edilen (v6.227) tüp burada
-    # çözülemez; önce işaret kaldırılır (tüpün sayfasında).
-    if t["durum"] in db.TANKTAN_CIKAN:
+    # çözülemez; önce işaret kaldırılır (tüpün sayfasında). Cryo Haritası'nda
+    # olmayan tüp de (v6.233): önce tüpün sayfasında karar (yeri, haritadaki
+    # straw'ı, taşındı, imha).
+    if t["durum"] in db.TANKTAN_CIKAN or db.haritada_yok(t):
         return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
     from datetime import datetime as _d
@@ -11053,7 +11281,8 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     t = db.tek("SELECT * FROM tasiyici WHERE id=?", (tasiyici_id,))
     if not t:
         return RedirectResponse("/cryo", status_code=303)
-    if t["durum"] in db.TANKTAN_CIKAN:   # v6.182, v6.227: sunucu da reddediyor
+    # v6.182, v6.227, v6.233 (Cryo Haritası'nda yok): sunucu da reddediyor
+    if t["durum"] in db.TANKTAN_CIKAN or db.haritada_yok(t):
         return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
     icerik = tasiyici_icerigi(tasiyici_id)
@@ -11231,8 +11460,8 @@ async def thaw_yeni_tedavi(request: Request, tasiyici_id: int):
     icerik = tasiyici_icerigi(tasiyici_id)
     hastalar = {r["hasta_id"] for r in icerik}
     tip = f.get("tip") or ""
-    t = db.tek("SELECT durum FROM tasiyici WHERE id=?", (tasiyici_id,))
-    if t and t["durum"] in db.TANKTAN_CIKAN:   # v6.182, v6.227
+    t = db.tek("SELECT durum, kategori, konum_id FROM tasiyici WHERE id=?", (tasiyici_id,))
+    if t and (t["durum"] in db.TANKTAN_CIKAN or db.haritada_yok(t)):   # v6.182, v6.227, v6.233
         return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
     if not icerik or len(hastalar) != 1 or not thaw_cycle_var() \
             or tip not in thaw_tedavi_tipleri(icerik):
@@ -11368,7 +11597,10 @@ def cycle_thaw_listesi(request: Request, cycle_id: int, kaydedildi: int = 0):
         "JOIN specimen s ON s.id=o.specimen_id "
         "JOIN cycle c2 ON c2.id = s.cycle_id "
         "LEFT JOIN konum k ON k.id=t.konum_id "
-        f"WHERE {kosul} ORDER BY t.durum DESC, t.etiket", par)
+        # Cryo Haritası'nda olmayan tüp çözme listesinde yok (v6.233,
+        # kullanıcının isteği): straw haritada değil, çözülemez.
+        f"WHERE {kosul} AND NOT {db.haritada_yok_sql('t')} "
+        "ORDER BY t.durum DESC, t.etiket", par)
 
     # FET (3→5)'te blastokist tüpü çözülemez (v6.156): "Çöz" yerine sebebi.
     # Liste kısa (hastanın tüpleri), tüp başına içerik sorgusu sorun değil.

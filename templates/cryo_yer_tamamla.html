@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% import "_yer_kanit.html" as yk %}
 {% block ustbaslik %}{{ metin("yer_tamamla") }}{% endblock %}
-{% block geri %}<a class="geri" href="/cryo/yersiz">&#8249;</a>{% endblock %}
+{% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
 {% block kapsinif %} genis{% endblock %}
 {% block icerik %}
 
@@ -17,7 +17,9 @@
 <div class="kart">
   <h2>{{ metin("yer_tamamla") }}</h2>
   <div class="ipucu" style="margin:8px 14px 6px">{{ metin("yer_tamamla_ipucu") }}</div>
-  <div class="ipucu" style="margin:0 14px 10px"><b>{{ metin("yer_tamamla_ozet").format(n=konumsuz, m=oneri_sayisi) }}</b></div>
+  {#- v6.233: yalnızca haritada olası straw'ı olan tüpler; `konumsuz`u eski
+      program veriyordu (tuzak #5), yeni program vermiyor. -#}
+  <div class="ipucu" style="margin:0 14px 10px"><b>{% if konumsuz is defined %}{{ metin("yer_tamamla_ozet").format(n=konumsuz, m=oneri_sayisi) }}{% else %}{{ metin("yer_tamamla_n_oneri").format(n=oneri_sayisi) }}{% endif %}</b></div>
 </div>
 
 {# Tüpün içeriği goblet satırının yazımıyla: "2 embriyo · D5 (3AA-3BB)". #}
@@ -70,7 +72,7 @@
 <div class="kart"><div class="bos">{{ metin("yer_tamamla_yok") }}</div></div>
 {% endif %}
 
-<a class="dugme ikincil" href="/cryo/yersiz">{{ metin("yeri_belirsizler") }}</a>
+<a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 
 <script>
 (function () {

@@ -279,10 +279,12 @@ METINLER = {
     "konumu_girilmemis_tupler": {"tr": "Konumu girilmemiş tüpler",
                                  "en": "Tubes without a location"},
     "konumu_girilmemis_ipucu": {
-        "tr": "Tankta duruyor, yeri programda yok. Excel'le eşleşmeyen tüpler "
-              "çoğunlukla bunlar: gobletinde duran Excel kaydından bağlanabilir.",
-        "en": "In the tank, location not recorded. Usually the tubes that did "
-              "not match the Excel: link them from the Excel record in their goblet."},
+        "tr": "Tankta duruyor, yeri programda yok: laboratuvarın Excel'inde tankı "
+              "yazılmamış sayfanın sperm tüpleri ya da yeri girilmeden kaydedilmiş sperm "
+              "dondurmaları.",
+        "en": "In the tank, location not recorded: sperm tubes from the sheet of the "
+              "laboratory's Excel with no tank, or sperm freezings saved without a "
+              "location."},
     "duzende_olmayan_konum": {"tr": "Tank düzeninde olmayan konum",
                               "en": "Location not in the tank layout"},
     "duzende_olmayan_konum_ipucu": {
@@ -478,9 +480,11 @@ METINLER = {
                                 "a score."},
     "acilis_ayni_gun": {
         "tr": "Bu hastanın o gün programda başka bir tedavisi var: {liste}. Straw o "
-              "tedavinin tüpü olabilir -- öyleyse yukarıdaki listeden o tüpe bağlayın.",
+              "tedavinin tüpü ya da embriyoları olabilir -- öyleyse yukarıdaki listeden "
+              "o tüpe ya da \"Tedaviye bağla\"dan o tedaviye bağlayın.",
         "en": "This patient has another treatment that day: {liste}. The straw may be "
-              "its tube -- if so, link to that tube in the list above."},
+              "its tube or embryos -- if so, link to that tube in the list above or to "
+              "that treatment under \"Link to a treatment\"."},
     "acilis_ayni_gun_sperm": {
         "tr": "Bu hastanın o gün bir sperm dondurması var: {liste}. Straw o tüp "
               "olabilir -- öyleyse yukarıdaki listeden bağlayın.",
@@ -521,6 +525,142 @@ METINLER = {
                                 "en": "The opened tube was undone; the Excel record is "
                                       "in the tank again."},
     "excel_kaydi_hastaya_acildi": {"tr": "Hastaya bağlandı", "en": "Linked to a patient"},
+    "excel_acilis_konum_yok": {
+        "tr": "Excel kaydının gobleti yok: açılacak tüp Cryo Haritası'nda görünmezdi, "
+              "açılmadı.",
+        "en": "The Excel record has no goblet: the tube would not appear on the Cryo "
+              "Map, nothing was opened."},
+
+    # ---- Excel kaydını tedaviye bağla (v6.233) ----
+    "tedaviye_bagla": {"tr": "Tedaviye bağla", "en": "Link to a treatment"},
+    "tedaviye_bagla_ipucu": {
+        "tr": "Straw seçilen tedavinin dondurulmamış embriyolarına (yumurtalarına) "
+              "bağlanır: skor ya da evre ve sayı tutmalı, tutmazsa hiçbir şey eklenmez. "
+              "Tedaviye yeni embriyo eklenmez; tüp bu gobletde açılır, embriyolar ona "
+              "dondurulmuş olur.",
+        "en": "The straw is linked to the chosen treatment's unfrozen embryos (eggs): "
+              "grade or stage and number must match, otherwise nothing is added. No "
+              "embryo is added to the treatment; the tube is opened in this goblet and "
+              "the embryos are frozen in it."},
+    "tedaviye_bagla_yok": {"tr": "Bu hastanın bağlanabilecek tedavisi yok (IVF/ICSI, "
+                                 "Yumurta Dondurma).",
+                           "en": "This patient has no treatment to link to (IVF/ICSI, "
+                                 "egg freezing)."},
+    "tedaviye_eslesme": {"tr": "{ad} {sira} ({tedavi}) ← Excel: {excel}",
+                         "en": "{ad} {sira} ({tedavi}) ← Excel: {excel}"},
+    "tedaviye_bagla_dugme": {"tr": "Bu tedaviye bağla", "en": "Link to this treatment"},
+    "tedaviye_bagla_onay": {
+        "tr": "Straw {no} tedavisine bağlanacak: bu gobletde tüp açılacak, eşleşen "
+              "embriyolar ona dondurulmuş olacak. Devam edilsin mi?",
+        "en": "The straw will be linked to treatment {no}: a tube will be opened in "
+              "this goblet and the matching embryos frozen in it. Continue?"},
+    "tedaviye_uyari_yakin": {
+        "tr": "{sira}. örneğin skoru farklı: tedavide {tedavi}, Excel'de {excel} (aynı "
+              "evre ve sayı). Tedavinin kaydı kalır; doğru embriyo mu, tedavinin "
+              "ekranında bakın.",
+        "en": "Sample {sira} has a different grade: {tedavi} in the treatment, {excel} "
+              "in the Excel (same stage and number). The treatment's record stays; check "
+              "it is the right embryo."},
+    "tedaviye_uyari_degerlendirilmemis": {
+        "tr": "{sira}. örneğin tedavide değerlendirmesi yok: Excel'deki {excel} onun "
+              "değerlendirmesi olarak yazılacak.",
+        "en": "Sample {sira} has no grading in the treatment: the Excel's {excel} will be "
+              "written as its grading."},
+    "tedaviye_uyari_skorsuz": {
+        "tr": "Excel'deki yazı okunamadı; {sira}. örnek (değerlendirilmemiş) seçildi.",
+        "en": "The Excel text could not be read; sample {sira} (not graded) was chosen."},
+    "tedaviye_uyari_gun_uzak": {
+        "tr": "Dondurma günü tedavinin gününden {n} gün sonra: straw bu tedavinin mi, "
+              "bakın.",
+        "en": "The freezing day is {n} days after the treatment's day: check the straw "
+              "belongs to this treatment."},
+    "tedaviye_uyari_opu_farkli": {
+        "tr": "Excel'in gün sayısına göre OPU {excel}, tedavininki {tedavi}.",
+        "en": "By the Excel's day count the OPU is {excel}, the treatment's is {tedavi}."},
+    "tedaviye_durum": {"tr": "Excel kaydı artık tankta değil (bu arada bağlanmış ya da "
+                             "çıkarılmış).",
+                       "en": "The Excel record is no longer in the tank (linked or "
+                             "removed meanwhile)."},
+    "tedaviye_sperm": {"tr": "Sperm straw'ı tedaviye androloji ekranından bağlanır.",
+                       "en": "A sperm straw is linked to a treatment from the andrology "
+                             "screen."},
+    "tedaviye_konum_yok": {"tr": "Excel kaydının gobleti yok: açılacak tüp Cryo "
+                                 "Haritası'nda görünmezdi.",
+                           "en": "The Excel record has no goblet: the tube would not "
+                                 "appear on the Cryo Map."},
+    "tedaviye_tip": {"tr": "Bu tipteki tedaviye bağlanamaz (yalnızca IVF/ICSI ve Yumurta "
+                           "Dondurma).",
+                     "en": "Cannot link to this type of treatment (IVF/ICSI and egg "
+                           "freezing only)."},
+    "tedaviye_tarih_yok": {"tr": "Dondurma günü girilmeli: Excel'deki tarih yok ya da "
+                                 "okunamadı.",
+                           "en": "A freezing day is required: the Excel's date is missing "
+                                 "or unreadable."},
+    "tedaviye_tarih_ileri": {"tr": "Dondurma günü bugünden ileri olamaz.",
+                             "en": "The freezing day cannot be in the future."},
+    "tedaviye_tarih_once": {"tr": "Dondurma günü tedavinin gününden ({gun}) önce.",
+                            "en": "The freezing day is before the treatment's day ({gun})."},
+    "tedaviye_tarih_once_kisa": {"tr": "Dondurma günü tedavinin gününden önce: hiçbir şey "
+                                       "eklenmedi.",
+                                 "en": "The freezing day is before the treatment's day: "
+                                       "nothing was added."},
+    "tedaviye_icerik_okunamadi": {"tr": "Excel'deki HÜCRE okunamadı: içerik bilinmiyor, "
+                                        "bağlanamaz.",
+                                  "en": "The Excel's cells column could not be read: "
+                                        "content unknown, cannot link."},
+    "tedaviye_cok_tup": {"tr": "Excel'deki yazıda birden çok tüp var (her parantez bir "
+                               "tüp): bu kayıttan tek tüp bağlanabiliyor.",
+                         "en": "The Excel text lists several tubes (one per bracket): "
+                               "only one tube can be linked from a record."},
+    "tedaviye_tutmuyor": {"tr": "Tutmuyor: Excel'deki {eksik} için tedavide dondurulmamış "
+                                "karşılık yok. Tedavinin dondurulmamışları: {bos}.",
+                          "en": "No match: nothing unfrozen in the treatment for the "
+                                "Excel's {eksik}. The treatment's unfrozen: {bos}."},
+    "tedaviye_tutmuyor_kisa": {"tr": "Tutmuyor: hiçbir şey eklenmedi (ayrıntı tedavinin "
+                                     "satırında).",
+                               "en": "No match: nothing was added (details on the "
+                                     "treatment's row)."},
+    "tedaviye_gizli_tup": {
+        "tr": "Bu tedavinin Cryo Haritası'nda olmayan tüpü var: straw o tüp olabilir. "
+              "Öyleyse yukarıdaki listeden o tüpe bağlayın; değilse önce tüpün sayfasında "
+              "karar verin (yeri, taşındı, imha). O zamana kadar tedaviye bağlanmaz: "
+              "aynı straw iki kez yazılırdı.",
+        "en": "This treatment has a tube that is not on the Cryo Map: the straw may be "
+              "that tube. If so, link to it in the list above; if not, decide on the "
+              "tube's page first (location, moved, discarded). Until then it is not "
+              "linked to the treatment: the same straw would be written twice."},
+    "tedaviye_gizli_tup_kisa": {"tr": "Bağlanmadı: tedavinin Cryo Haritası'nda olmayan tüpü "
+                                      "var (ayrıntı tedavinin satırında).",
+                                "en": "Not linked: the treatment has a tube not on the Cryo "
+                                      "Map (details on the treatment's row)."},
+    "tedaviye_tedavi_yok": {"tr": "Tedavi bulunamadı ya da bu hastanın değil.",
+                            "en": "Treatment not found or not this patient's."},
+    "excel_kaydi_tedaviye_baglandi": {"tr": "Tedaviye bağlandı", "en": "Linked to a treatment"},
+    "tedaviye_baglandi_mesaj": {"tr": "Straw tedaviye bağlandı: tüpü bu gobletde açıldı.",
+                                "en": "The straw was linked to the treatment: its tube "
+                                      "was opened in this goblet."},
+    "tedaviye_aciklama": {
+        "tr": "Bu straw'ın tüpü bu kayıttan tedavinin dondurulmamış embriyolarına "
+              "bağlanarak açıldı.",
+        "en": "This straw's tube was opened from this record by linking the "
+              "treatment's unfrozen embryos."},
+    "tedaviye_vitrifikasyon": {"tr": "Tedavinin vitrifikasyon ekranı",
+                               "en": "The treatment's vitrification screen"},
+    "tedaviye_geri_al": {"tr": "Tedaviye bağlamayı geri al", "en": "Undo the link to the treatment"},
+    "tedaviye_geri_al_ipucu": {
+        "tr": "Yanlış tedaviye bağlandıysa: açılan tüp ve dondurma kayıtları silinir, "
+              "bağlarken yazılan değerlendirmeler de; embriyolar önceki durumuna döner, "
+              "Excel kaydı yeniden tankta. Tüpe ya da embriyolara sonradan işlem "
+              "yapıldıysa geri alınamaz.",
+        "en": "If linked to the wrong treatment: the opened tube and its freezing "
+              "records are deleted, and the gradings written when linking; the embryos "
+              "return to their previous state and the Excel record is in the tank again. "
+              "Not possible after further work on the tube or the embryos."},
+    "tedaviye_geri_al_onay": {
+        "tr": "Tedaviye bağlama geri alınacak: açılan tüp silinecek, embriyolar önceki "
+              "durumuna dönecek. Devam edilsin mi?",
+        "en": "The link to the treatment will be undone: the opened tube will be "
+              "deleted and the embryos return to their previous state. Continue?"},
     "acilan_aciklama": {
         "tr": "Bu straw'ın tüpü bu kayıttan hastaya açıldı (yalnızca dondurma "
               "bilgisiyle).",
@@ -576,14 +716,14 @@ METINLER = {
               "ad, dondurma günü ve içerik birebir tutunca yazıldı. Bu tüplerde "
               "biri tutmadı (ad farklı yazılmış, Excel'deki tarih bir iki gün kayık, "
               "skor farklı yazılmış) -- straw haritada gobletinde duruyor, tüp "
-              "\"konum girilmemiş\". Program kendisi bağlamıyor: doğru olanları "
+              "Cryo Haritası'nda görünmüyor. Program kendisi bağlamıyor: doğru olanları "
               "işaretleyin, tüp straw'ın gobletine geçer. Yanlış bağlanan, haritadaki "
               "kaydın sayfasında \"Bağı çöz\" ile geri alınır.",
         "en": "The Access records had no location. Locations were written from the "
               "Cryo Map Excel when name, freezing day and content matched exactly. "
               "One of them did not match for these tubes (name spelt differently, "
               "Excel date off by a day or two, grade written differently) -- the straw "
-              "is in its goblet on the map, the tube says \"location not entered\". "
+              "is in its goblet on the map, the tube does not appear on the Cryo Map. "
               "The program does not link them itself: tick the right ones and the "
               "tube moves to the straw's goblet. A wrong link is undone with "
               "\"Unlink\" on the map record's page."},
@@ -642,6 +782,56 @@ METINLER = {
               "did not match for this tube."},
     "konum_neden_ekran": {"tr": "Dondurulurken konum yazılmamış.",
                           "en": "No location was written at freezing."},
+
+    # ---- Cryo Haritası'nda olmayan tüp (v6.233) ----
+    "cryo_haritasinda_yok": {"tr": "Cryo Haritası'nda yok", "en": "Not on the Cryo Map"},
+    "haritada_yok_karar": {"tr": "Tüpün sayfasında karar verin",
+                           "en": "Decide on the tube's page"},
+    "haritada_yok_aciklama": {
+        "tr": "Bu tüp tedavide dondurulmuş görünüyor ama Cryo Haritası'nda yeri yok: "
+              "konumu girilmemiş, haritada straw'ı bulunamadı. Cryo Haritası'nda, hasta "
+              "kartında, çözme listesinde, taşıma ekranında, Excel çıktılarında ve "
+              "formların \"Kalan dondurulmuş\"unda gösterilmiyor; çözülemez.",
+        "en": "This tube was frozen in the treatment but has no place on the Cryo Map: "
+              "no location was entered and no straw was found on the map. It is not "
+              "shown on the Cryo Map, the patient card, the thaw list, the transfer "
+              "screen, the Excel outputs or the forms' \"remaining frozen\"; it cannot "
+              "be thawed."},
+    "haritada_yok_secenekler": {
+        "tr": "Ne olduğuna siz karar verin: straw haritadaysa aşağıdaki olası yerinden "
+              "bağlayın, tanktaysa yerini girin; başka merkeze taşındıysa ya da imha "
+              "edildiyse sayfanın altından işaretleyin.",
+        "en": "You decide what happened: if the straw is on the map, link it from its "
+              "possible place below; if it is in the tank, enter its location; if it "
+              "was moved to another centre or discarded, mark it at the bottom of the "
+              "page."},
+    "tup_yerini_gir": {"tr": "Tanktaysa yerini girin", "en": "If it is in the tank, enter its location"},
+    "tup_yerini_gir_ipucu": {
+        "tr": "Tank, kanister ve goblet zorunlu. Yazılan goblet tank düzenindeyse tüp "
+              "oraya yazılır; dolu goblet, aynı renk ya da düzende olmayan yer için onay "
+              "istenir.",
+        "en": "Tank, canister and goblet are required. If the goblet is in the tank "
+              "layout the tube is written there; a full goblet, the same colour or a "
+              "place outside the layout needs confirmation."},
+    "tup_yerini_gir_onay": {"tr": "Tüp bu yere yazılacak ve Cryo Haritası'nda görünecek. "
+                                  "Emin misiniz?",
+                            "en": "The tube will be written to this place and appear on "
+                                  "the Cryo Map. Are you sure?"},
+    "tup_yerini_kaydet": {"tr": "Yeri kaydet", "en": "Save location"},
+    "tup_yeri_yazildi": {"tr": "Tüpün yeri yazıldı; Cryo Haritası'nda görünüyor.",
+                         "en": "The tube's location was written; it appears on the Cryo Map."},
+    "tup_yer_degisti": {"tr": "Yazılmadı: tüp bu arada değişmiş (yeri girilmiş, çözülmüş "
+                              "ya da taşınmış).",
+                        "en": "Not written: the tube changed meanwhile (location entered, "
+                              "thawed or moved)."},
+    "konum_zorunlu": {"tr": "Tank, kanister ve goblet yazılmalı.",
+                      "en": "Tank, canister and goblet must be entered."},
+    "yeri_belirsiz_yok": {"tr": "Haritada yeri belirsiz tüp yok.",
+                          "en": "No tubes with an unknown place on the map."},
+    "yer_tamamla_satir": {
+        "tr": "Haritada duran, tedavideki tüpüne bağlanmamış straw'lar -- olası eşleri kanıtıyla",
+        "en": "Straws on the map not linked to their tube in a treatment -- possible "
+              "matches with evidence"},
     "yer_haritadan_yazildi": {
         "tr": "Yer haritadan yazıldı. Yanlışsa haritadaki kaydın sayfasında "
               "\"Bağı çöz\" geri alır.",
@@ -1231,6 +1421,13 @@ METINLER = {
         "en": "Its place on the tank map. If left empty no location is "
               "recorded — the carrier appears in the system but where it sits "
               "is unknown."},
+    # Vitrifikasyon (v6.233, kullanıcının cevabı): yer zorunlu -- yeri olmayan
+    # tüp Cryo Haritası'nda görünmüyor. Sperm dondurma eskisi gibi (konum_ipucu).
+    "vit_konum_ipucu": {
+        "tr": "Tank haritasındaki yeri. Tank, kanister ve goblet zorunlu: yeri "
+              "olmayan tüp Cryo Haritası'nda görünmez.",
+        "en": "Its place on the tank map. Tank, canister and goblet are required: "
+              "a tube without a place does not appear on the Cryo Map."},
     "vitrifikasyon_saati": {"tr": "Vitrifikasyon saati", "en": "Vitrification time"},
     "vitrifikasyonu_kaydet": {"tr": "Vitrifikasyonu kaydet",
                               "en": "Save vitrification"},

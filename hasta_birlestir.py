@@ -425,8 +425,9 @@ def sonraki_adimlar(eski, yeni, p):
               "tüp öteki kartta olabilir. Bağlamayı yeniden denemek için:\n"
               "    python3 aktar_access.py bagla")
     if p["konumsuz"]:
-        print(f"\nBu hastanın {p['konumsuz']} tüpünün konumu girilmemiş: Cryo Haritası -> "
-              "Haritada yeri belirsiz -> Haritadan yer tamamla.")
+        print(f"\nBu hastanın {p['konumsuz']} tüpünün konumu girilmemiş (Cryo Haritası'nda "
+              "görünmüyor, v6.233): Cryo Haritası -> Haritadan yer tamamla, ya da tüpün "
+              "sayfasında karar (yeri, taşındı, imha).")
 
 
 def main():

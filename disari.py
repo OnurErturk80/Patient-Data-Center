@@ -402,6 +402,10 @@ def cryo_sayfalari():
     # dolu bir tüp için "Hayır" derdi. Göç yoksa eski ölçü.
     tup = ("AND x.thaw_tasiyici_id = o.vit_tasiyici_id"
            if db.cozme_tupu_var() else "")
+    # Cryo Haritası'nda olmayan tüp (v6.233, `db.haritada_yok_sql()`) dökümde
+    # yok: straw haritada değil, "Tankta: Evet" yanlış olurdu. Karar tüpün
+    # sayfasında; tanktan çıkmış tüpler geçmişleriyle duruyor.
+    yok = db.haritada_yok_sql("t")
     satirlar = db.sorgu(
         f"""
         SELECT k.tam_yol, t.etiket, t.tip AS tasiyici_tipi, t.renk,
@@ -420,6 +424,7 @@ def cryo_sayfalari():
           LEFT JOIN tasiyici t ON t.id = o.vit_tasiyici_id
           LEFT JOIN konum k ON k.id = t.konum_id
          WHERE o.lab_id = ? AND o.tip = 'vitrifikasyon' AND o.iptal_mi = 0
+           AND NOT COALESCE({yok}, 0)
          ORDER BY k.tam_yol, t.etiket, h.dosya_no, s.cycle_sira_no
         """,
         (db.LAB_ID,))

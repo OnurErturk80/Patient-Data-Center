@@ -727,10 +727,12 @@ def _yer_parcalari(tupler) -> list:
         return []
     h = _etiketler()
     yer = ",".join("?" * len(idler))
+    # Cryo Haritası'nda olmayan tüp (v6.233) bu satırda yok: yeri haritada
+    # değil ("konum girilmemiş" demek o straw'ı haritada gösterirdi).
     bilgi = {r["id"]: r for r in db.sorgu(
         "SELECT t.id, t.renk, t.tip, k.tam_yol FROM tasiyici t "
-        f"LEFT JOIN konum k ON k.id = t.konum_id WHERE t.id IN ({yer})",
-        tuple(idler))}
+        f"LEFT JOIN konum k ON k.id = t.konum_id WHERE t.id IN ({yer}) "
+        f"AND NOT {db.haritada_yok_sql('t')}", tuple(idler))}
     parcalar = []
     for t in tupler:
         b = bilgi.get(t.get("tup"))
@@ -1221,10 +1223,16 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
         cikanlar.append("(g.durum = 'gonderildi' AND g.gonderim_zamani <= ?)")
     if db.imha_var():
         cikanlar.append("(g.durum = 'imha' AND g.imha_zamani <= ?)")
+    gpar = (t,) * len(cikanlar)            # her koşulun bir günü
+    # Cryo Haritası'nda olmayan tüp (v6.233, `db.haritada_yok_sql()`): straw
+    # haritada değil, "kalan" sayılmıyor (kullanıcının isteği). Ölçü bugünkü
+    # hali -- tüpün yerinin geçmişi tutulmuyor. Parametresi yok.
+    yok = db.haritada_yok_sql("g")
+    if yok != "0":
+        cikanlar.append(yok)
     if cikanlar:
         gitmedi = ("AND NOT EXISTS (SELECT 1 FROM tasiyici g WHERE "
                    f"g.id = v.vit_tasiyici_id AND ({' OR '.join(cikanlar)}))")
-        gpar = (t,) * len(cikanlar)
     satirlar = db.sorgu(
         f"""
         SELECT v.id, v.vit_tasiyici_id AS tup, v.specimen_id, {vt} AS vit_cid,

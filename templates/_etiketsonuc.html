@@ -24,7 +24,10 @@
       {% if t.kategori == "sperm" %}{{ metin("sperm_dondurma") }}
       {%- else %}{{ icerik_sayisi(t.adet, icerik=t.icerik) }}{% endif %}
       ·
+      {#- Cryo Haritası'nda olmayan tüp (v6.233): tedavide dondurulmuş, straw'ı
+          haritada yok -- kararı tüpün sayfasında. -#}
       {% if t.tam_yol %}{{ t.tam_yol }}
+      {%- elif t.haritada_yok %}<span style="color:var(--uyari)">{{ metin("cryo_haritasinda_yok") }}</span>
       {%- else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
     </div>
   </a>

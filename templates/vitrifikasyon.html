@@ -87,13 +87,23 @@
     <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
       <dd><a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ e.tasiyici_etiket }}</a>
         {%- if e.tasiyici_durum in ("gonderildi", "imha") %} {{ td.rozet(e.tasiyici_durum) }}{% endif %}</dd></div>
+    {#- Cryo Haritası'nda olmayan tüp (v6.233): tedavide dondurulmuş, straw'ı
+        haritada yok. Başka hiçbir ekranda görünmüyor; kararı (yeri,
+        haritadaki straw'ı, taşındı, imha) tüpün sayfasında. -#}
+    {% if e.haritada_yok %}
+    <div class="veri"><dt>{{ metin("konum") }}</dt>
+      <dd><span style="color:var(--uyari)">{{ metin("cryo_haritasinda_yok") }}</span>
+        <div class="ipucu"><a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ metin("haritada_yok_karar") }}</a></div></dd></div>
+    {% else %}
     <div class="veri"><dt>{{ metin("konum") }}</dt>
       <dd {% if not e.konum %}class="yok"{% endif %}>
         {{ e.konum if e.konum else metin("konum_girilmemis") }}</dd></div>
+    {% endif %}
   </dl>
   <div class="sfalt">
-    {#- Taşınan / imha edilen tüp çözülemez (v6.182, v6.227); sunucu da reddediyor. -#}
-    {% if e.tasiyici_durum not in ("gonderildi", "imha") %}<a href="/cryo/tasiyici/{{ e.tasiyici_id }}/thaw" style="color:var(--ink)">{{ metin("coz") }}</a>{% endif %}
+    {#- Taşınan / imha edilen tüp çözülemez (v6.182, v6.227), haritada olmayan
+        da (v6.233); sunucu da reddediyor. -#}
+    {% if e.tasiyici_durum not in ("gonderildi", "imha") and not e.haritada_yok %}<a href="/cryo/tasiyici/{{ e.tasiyici_id }}/thaw" style="color:var(--ink)">{{ metin("coz") }}</a>{% endif %}
     {# Hangi tedavinin dondurması geri alınacak (v6.143): bir örneğin artık
        birden çok dondurması olabiliyor, bağlantı bu ekranın tedavisini taşır. #}
     <a href="/specimen/{{ e.id }}/vit-sil?cycle={{ c.id }}">{{ metin("kaydi_geri_al") }}</a>
@@ -219,11 +229,14 @@
       <div id="onerilisteler">{{ yo.liste(oneri, 1) }}</div>
     </div>
     {% endif %}
+    {#- Tank, kanister ve goblet zorunlu (v6.233, kullanıcının cevabı): yeri
+        olmayan tüp Cryo Haritası'nda görünmüyor. Şemanın ilk üç seviyesi;
+        pozisyon isteğe bağlı. Sunucu da reddediyor (`zorunlu_seviyeler()`). -#}
     {% for s in sema %}
     <div class="alan">
       <label for="seviye{{ s.seviye_sirasi }}">{{ s.seviye_adi }}</label>
       <input id="seviye{{ s.seviye_sirasi }}" name="seviye{{ s.seviye_sirasi }}"
-             type="text" autocomplete="off"
+             type="text" autocomplete="off"{% if s.seviye_sirasi <= 3 %} required{% endif %}
              value="{{ {1: ilk.tank, 2: ilk.kanister, 3: ilk.goblet}.get(s.seviye_sirasi) or '' if ilk else '' }}">
     </div>
     {% endfor %}
@@ -233,7 +246,7 @@
       <div class="ipucu"></div>
     </div>
     <div class="alan" style="border:0;padding-top:0">
-      <div class="ipucu">{{ metin("konum_ipucu") }}</div>
+      <div class="ipucu">{{ metin("vit_konum_ipucu") }}</div>
     </div>
   </div>
 

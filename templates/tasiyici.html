@@ -21,6 +21,46 @@
 {% if imha_hata %}<div class="tehlike">{{ metin(imha_hata) }}</div>{% endif %}
 {% if yer_sonuc == "baglandi" %}<div class="uyari tamam">{{ metin("yer_haritadan_yazildi") }}</div>{% endif %}
 {% if yer_sonuc == "atlandi" %}<div class="uyari">{{ metin("yer_yazilmadi") }}</div>{% endif %}
+{% if yer_sonuc == "yazildi" %}<div class="uyari tamam">{{ metin("tup_yeri_yazildi") }}</div>{% endif %}
+{% if yer_hata %}<div class="tehlike">{{ metin(yer_hata) }}</div>{% endif %}
+
+{# Cryo Haritası'nda yok (v6.233, kullanıcının isteği: "tedavide var ama cryo
+   haritada tüpü yoksa ben yine karar vereyim. Belki taşındı belki imha
+   edildi"): tüp başka hiçbir ekranda görünmüyor, kararı burada. `haritada_yok`
+   tanımsızsa (program yeniden başlatılmadı, tuzak #5) kart yok. #}
+{% if haritada_yok %}
+<div class="kart" id="haritada-yok">
+  <h2 style="color:var(--uyari)">{{ metin("cryo_haritasinda_yok") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 6px">{{ metin("haritada_yok_aciklama") }}</div>
+  <div class="ipucu" style="margin:0 14px 12px">{{ metin("haritada_yok_secenekler") }}</div>
+</div>
+{% if yetkim("cryo") %}
+<details class="kart yardim" style="padding:0 14px 14px" {% if yer_hata %}open{% endif %}>
+  <summary>{{ metin("tup_yerini_gir") }}</summary>
+  <div class="ipucu" style="margin:0 0 6px">{{ metin("tup_yerini_gir_ipucu") }}</div>
+  <form method="post" action="/cryo/tasiyici/{{ t.id }}/yer"
+        onsubmit='return confirm({{ metin('tup_yerini_gir_onay')|tojson }})'>
+    {% for sv in sema %}
+    <div class="alan">
+      <label for="seviye{{ sv.seviye_sirasi }}">{{ sv.seviye_adi }}</label>
+      <input id="seviye{{ sv.seviye_sirasi }}" name="seviye{{ sv.seviye_sirasi }}" type="text"
+             autocomplete="off" value="{{ yer_girdi[sv.seviye_sirasi - 1] if sv.seviye_sirasi <= 4 else '' }}"
+             {%- if sv.seviye_sirasi <= 3 %} required{% endif %}>
+    </div>
+    {% endfor %}
+    {% if yer_uyari %}
+    <div class="uyari">{{ yer_uyari|join(" ") }}</div>
+    <label class="secsatir">
+      <input type="checkbox" name="yer_onay" value="1" required>
+      <span class="kutu"></span>
+      <span class="bilgi">{{ metin("yer_onay") }}</span>
+    </label>
+    {% endif %}
+    <button class="dugme" type="submit">{{ metin("tup_yerini_kaydet") }}</button>
+  </form>
+</details>
+{% endif %}
+{% endif %}
 
 {# Başka merkeze taşınan tüp (v6.182): tüp gitti, kayıt duruyor. #}
 {% if t.durum == "gonderildi" %}
@@ -50,7 +90,7 @@
 <div class="kart">
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("konum") }}</dt>
-      <dd {% if not t.tam_yol %}class="yok"{% endif %}>{{ t.tam_yol or metin("girilmemis") }}
+      <dd {% if not t.tam_yol %}class="yok"{% endif %}>{% if haritada_yok %}<span style="color:var(--uyari)">{{ metin("cryo_haritasinda_yok") }}</span>{% else %}{{ t.tam_yol or metin("girilmemis") }}{% endif %}
         {#- Neden girilmemiş (v6.214): kullanıcının sorusu. #}
         {%- if konum_neden %}<div class="ipucu">{{ metin("konum_neden_" ~ konum_neden) }}</div>{% endif %}
         {%- if harita_kaydi %}<div class="ipucu"><a href="/cryo/excel-kaydi/{{ harita_kaydi.id }}">{{ metin("harita_kaydina_bagli") }}</a></div>{% endif %}</dd></div>
@@ -132,9 +172,10 @@
   <div class="bos">{{ metin("tasiyici_bosaltilmis") }}</div>
   {% endfor %}
 </div>
-{% if t.durum == 'dolu' and icerik %}
+{% if t.durum == 'dolu' and icerik and not haritada_yok %}
 {# Tedavinin çözme ekranından gelindiyse (`?cycle=`) çözme formu da o
-   tedaviyi bilsin (v6.208): kayıt oraya dönüyor. #}
+   tedaviyi bilsin (v6.208): kayıt oraya dönüyor. Cryo Haritası'nda olmayan
+   tüp çözülemez (v6.233); sunucu da reddediyor. #}
 {% if yetkim("thaw") %}<a class="dugme" href="/cryo/tasiyici/{{ t.id }}/thaw{% if geri_cycle %}?cycle={{ geri_cycle }}{% endif %}">{{ metin("bu_tasiyiciyi_coz") }}</a>{% endif %}
 {% endif %}
 {% if gonderim_acik and yetkim("cryo") %}

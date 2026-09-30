@@ -1260,6 +1260,60 @@ def imha_var() -> bool:
     return kolon_var("tasiyici", "imha_zamani")
 
 
+# ------------------------------------ Cryo Haritası'nda olmayan tüp (v6.233)
+
+def tank_duzeni_var() -> bool:
+    """Tank düzeni kurulmuş mu (goc_052 + `cryo_esle.py yerlesim`, v6.189): en
+    az bir konum satırı düzenin gobleti. `yerlesim.duzen_var()` bunu soruyor.
+    Cevap saklanmıyor, her çağrıda tek satırlık sorgu: geri yüklenen eski bir
+    yedekte düzen olmayabilir (tuzak #15)."""
+    if not kolon_var("konum", "sira"):
+        return False
+    return tek("SELECT 1 FROM konum WHERE lab_id=? AND sira IS NOT NULL LIMIT 1",
+               (LAB_ID,)) is not None
+
+
+def haritada_yok_sql(t: str = "t") -> str:
+    """Cryo Haritası'nda olmayan tüp -- SQL koşulu; `t` taşıyıcının takma adı
+    (koddan gelir).
+
+    Kullanıcının isteği (2026-09-30): "Cryo harita için Excelde dondurma tüpü
+    yoksa programda gösterme ... cryo haritada kaydı olmayanları hiç bir
+    şekilde programda görünmesin." Laboratuvarın haritası tank düzeni
+    (v6.189); tankta duran (dolu) embriyo / yumurta tüpünün yeri yoksa straw
+    haritada değil. Access kayıtlarından açılıp haritadaki bir straw'la
+    eşleşemeyen tüpler böyle (deneme kopyasında 514 tüp, hepsi aktarımın).
+    Bu tüpler Cryo Haritası'nda, hasta kartında, çözme listelerinde, taşıma
+    ekranında, Excel çıktılarında ve formların "Kalan dondurulmuş"unda yok;
+    yalnızca dondurulduğu tedavinin vitrifikasyon ekranında ve tüpün kendi
+    sayfasında "Cryo Haritası'nda yok" diye görünüyor -- kararı (tankta
+    şurada, haritadaki straw'ı bu, taşındı, imha edildi) kullanıcı orada
+    veriyor. Çözülemez.
+
+    Kurallar:
+    - Tank düzeni yoksa (düzeni kurulmamış bir laboratuvar) harita programın
+      kendi kayıtları, koşul hiçbir tüpü tutmaz ("0").
+    - Yalnızca embriyo / yumurta tüpü: sperm tüplerinin konumsuzları
+      laboratuvarın Excel'inin "Sayfa1"inden (tankı yazılmamış), haritada
+      duruyorlar.
+    - Yeri yazılı ama düzende olmayan tüp (elle yazılmış bilinmeyen bir yer)
+      haritada: "Haritada yeri belirsiz"de yazılan yeriyle görünüyor.
+    - Tanktan çıkmış (çözülmüş, taşınmış, imha edilmiş) tüp bu koşulda değil:
+      kaydı geçmiş, olduğu gibi görünüyor.
+    Python hali `haritada_yok()`."""
+    if not tank_duzeni_var():
+        return "0"
+    return (f"({t}.kategori = 'embriyo' AND {t}.durum = 'dolu' "
+            f"AND {t}.konum_id IS NULL)")
+
+
+def haritada_yok(t) -> bool:
+    """`haritada_yok_sql()`'in Python hali: taşıyıcı satırı (kategori, durum,
+    konum_id)."""
+    return bool(t) and (t["kategori"] == "embriyo" and t["durum"] == "dolu"
+                        and not t["konum_id"] and tank_duzeni_var())
+
+
 # ------------------------------------------------- hastanın tedavi sırası
 
 def _kolonlari(b, tablo: str) -> set:

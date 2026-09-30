@@ -8,7 +8,7 @@
   <div class="dosya">{{ e.tam_yol or metin("konum_girilmemis") }}</div>
   <div class="alt">{{ metin("excel_kaydi") }}
     {% if e.durum == "kaldirildi" %}<span class="rozet arsiv">{{ metin("excel_kaydi_kaldirildi") }}</span>
-    {%- elif e.durum == "baglandi" %}<span class="rozet arsiv">{{ metin("excel_kaydi_hastaya_acildi" if acilan else "excel_kaydi_baglandi") }}</span>{% endif %}
+    {%- elif e.durum == "baglandi" %}<span class="rozet arsiv">{{ metin("excel_kaydi_hastaya_acildi" if acilan else "excel_kaydi_tedaviye_baglandi" if tedaviye else "excel_kaydi_baglandi") }}</span>{% endif %}
   </div>
 </div>
 {% endblock %}
@@ -17,6 +17,7 @@
 {% if hata %}<div class="tehlike">{{ metin(hata) }}{% if etiket %}: {{ etiket }}{% endif %}</div>{% endif %}
 {% if sonuc == "acildi" %}<div class="uyari tamam">{{ metin("excel_kaydi_acildi") }}</div>{% endif %}
 {% if sonuc == "geri_alindi" %}<div class="uyari tamam">{{ metin("excel_kaydi_geri_alindi") }}</div>{% endif %}
+{% if sonuc == "tedaviye_baglandi" %}<div class="uyari tamam">{{ metin("tedaviye_baglandi_mesaj") }}</div>{% endif %}
 
 {# Tüp satırı: "Tüpe bağla"nın aynı gün listesi ile seçilen hastanın tüpleri
    aynı yazımla (v6.213). Başka bir Excel kaydının straw'ı olan tüpe bağlanmaz
@@ -32,7 +33,10 @@
       {%- if a.kategori == "sperm" %} · {{ metin("sperm_dondurma") }}
       {%- elif a.parantez %} · {% if a.yumurta %}{{ metin("oosit_ad") }}{% else %}{{ a.gun }}{% endif %} {{ a.parantez }}{% endif %}
       {%- if gunlu and a.vitrifikasyon_zamani %} · {{ gg_aa_yyyy(a.vitrifikasyon_zamani[:10]) }}{% endif %}</div>
-    <div class="meta">{{ a.tam_yol or metin("konum_girilmemis") }}
+    {#- Cryo Haritası'nda olmayan tüp (v6.233): tedavide dondurulmuş, straw'ı
+        haritada yok -- çoğu zaman bu kaydın straw'ı o. -#}
+    <div class="meta">{% if a.haritada_yok %}<span style="color:var(--uyari)">{{ metin("cryo_haritasinda_yok") }}</span>
+      {%- else %}{{ a.tam_yol or metin("konum_girilmemis") }}{% endif %}
       {%- if a.renk %} · {{ etiketler.get(a.renk, a.renk) }}{% endif %}
       {%- if baska %} · <a href="/cryo/excel-kaydi/{{ a.bagli_kayit }}">{{ metin("baska_kayda_bagli") }}</a>{% endif %}</div>
   {% if baska %}</div>{% else %}
@@ -80,8 +84,9 @@
 
 {% if e.durum == "baglandi" %}
 <div class="kart">
-  <h2>{{ metin("excel_kaydi_hastaya_acildi" if acilan else "excel_kaydi_baglandi") }}</h2>
+  <h2>{{ metin("excel_kaydi_hastaya_acildi" if acilan else "excel_kaydi_tedaviye_baglandi" if tedaviye else "excel_kaydi_baglandi") }}</h2>
   {% if acilan %}<div class="ipucu" style="margin:8px 14px 4px">{{ metin("acilan_aciklama") }}</div>{% endif %}
+  {% if tedaviye %}<div class="ipucu" style="margin:8px 14px 4px">{{ metin("tedaviye_aciklama") }}</div>{% endif %}
   {% if bagli %}
   <a class="satir" href="/cryo/tasiyici/{{ bagli.id }}">
     <div class="no">{{ bagli.etiket }}</div>
@@ -96,12 +101,21 @@
     <div class="meta">{{ metin("acilan_tedavi_ipucu" if acilan.tur != "sperm" else "acilan_sperm_ipucu") }}</div>
   </a>
   {% endif %}
+  {% if tedaviye and tedaviye.c %}
+  <a class="satir" href="/cycle/{{ tedaviye.c.id }}/vitrifikasyon">
+    <div class="no">{{ tedaviye.c.cycle_no }} · {{ tip_kisa(tedaviye.c.cycle_tipi) }}</div>
+    <div class="meta">{{ metin("tedaviye_vitrifikasyon") }}</div>
+  </a>
+  {% endif %}
 </div>
 {% if yetkim("cryo") %}
+{#- Üç bağın geri alınması ayrı (v6.213, v6.233): açılan tüp silinir,
+    tedaviye bağlanan tüp ve dondurmaları silinir, var olan tüpe bağ çözülür. -#}
 <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/bagi-coz"
-      onsubmit='return confirm({{ metin('acilani_geri_al_onay' if acilan else 'excel_bagi_coz_onay')|tojson }})'>
+      onsubmit='return confirm({{ metin('acilani_geri_al_onay' if acilan else 'tedaviye_geri_al_onay' if tedaviye else 'excel_bagi_coz_onay')|tojson }})'>
   {% if acilan %}<div class="ipucu" style="margin:0 0 6px">{{ metin("acilani_geri_al_ipucu") }}</div>{% endif %}
-  <button class="dugme ikincil" type="submit">{{ metin("acilani_geri_al" if acilan else "excel_bagi_coz") }}</button>
+  {% if tedaviye %}<div class="ipucu" style="margin:0 0 6px">{{ metin("tedaviye_geri_al_ipucu") }}</div>{% endif %}
+  <button class="dugme ikincil" type="submit">{{ metin("acilani_geri_al" if acilan else "tedaviye_geri_al" if tedaviye else "excel_bagi_coz") }}</button>
 </form>
 {% endif %}
 {% endif %}
@@ -178,6 +192,62 @@
   <div class="bos">{{ metin("hastanin_tupu_yok") }}</div>
   {% endif %}
 </div>
+
+{# Tedaviye bağla (v6.233, kullanıcının isteği: "ben onu istediğim hastaya ve
+   tedaviye ekleyebileyim"; cevabı: dondurulmamış embriyolara, skor / evre ve
+   sayı tutmalı). Her tedavinin planı sunucuda (`cryo_esle.
+   tedaviye_baglama_plani()`), kayıt aynı planı kuruyor. `secim.tedaviler`
+   tanımsızsa (program yeniden başlatılmadı, tuzak #5) kart yok. #}
+{% if secim.tedaviler is defined and e.kategori != "sperm" %}
+<div class="kart" id="tedaviye-bagla">
+  <h2>{{ metin("tedaviye_bagla") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 6px">{{ metin("tedaviye_bagla_ipucu") }}</div>
+  {% for x in secim.tedaviler %}
+  {% set c = x.c %}{% set tp = x.plan %}
+  {% set ad = ornek_adi("vitrifikasyon", c.cycle_tipi) %}
+  <div class="tasimagrup">{{ c.cycle_no }} · {{ tip_kisa(c.cycle_tipi) }}
+    {%- if c.gunu %} · {{ gg_aa_yyyy(c.gunu) }}{% endif %}</div>
+  {% if tp.hata == "tutmuyor" %}
+  <div class="ipucu" style="margin:4px 14px 8px">{{ metin("tedaviye_tutmuyor").format(
+      eksik=tp.eksik|join(", "), bos=tp.bos_metni or "—") }}</div>
+  {% elif tp.hata == "gizli_tup" %}
+  {#- Tedavinin Cryo Haritası'nda olmayan tüpü straw olabilir (v6.233): önce
+      onun kararı -- yeni tüp aynı straw'ı ikinci kez yazardı. -#}
+  <div class="uyari" style="margin:4px 14px 4px">{{ metin("tedaviye_gizli_tup") }}</div>
+  {% for g in tp.gizli %}
+  <a class="satir" href="/cryo/tasiyici/{{ g.id }}">
+    <div class="no">{{ g.etiket }}</div>
+    <div class="meta">{{ g.parantez }}{% if g.gun %} · {{ gg_aa_yyyy(g.gun) }}{% endif %} ·
+      <span style="color:var(--uyari)">{{ metin("cryo_haritasinda_yok") }}</span></div>
+  </a>
+  {% endfor %}
+  {% elif tp.hata == "tarih_once" %}
+  <div class="ipucu" style="margin:4px 14px 8px">{{ metin("tedaviye_tarih_once").format(gun=gg_aa_yyyy(tp.tedavi_gunu)) }}</div>
+  {% elif tp.hata %}
+  <div class="ipucu" style="margin:4px 14px 8px">{{ metin("tedaviye_" ~ tp.hata) }}</div>
+  {% else %}
+  {% for m in tp.eslesme %}
+  <div class="meta" style="margin:2px 14px">{{ metin("tedaviye_eslesme").format(
+      ad=ad, sira=m.ornek.sira, tedavi=m.ornek.yazim, excel=m.yazim) }}</div>
+  {% endfor %}
+  {% for kod, a in tp.uyari %}
+  <div class="uyari" style="margin:6px 14px">
+    {%- if kod == "opu_farkli" %}{{ metin("tedaviye_uyari_opu_farkli").format(excel=gg_aa_yyyy(a.excel), tedavi=gg_aa_yyyy(a.tedavi)) }}
+    {%- else %}{{ metin("tedaviye_uyari_" ~ kod).format(**a) }}{% endif %}</div>
+  {% endfor %}
+  <form method="post" action="/cryo/excel-kaydi/{{ e.id }}/tedaviye-bagla" style="padding:6px 14px 12px"
+        onsubmit='return confirm({{ metin('tedaviye_bagla_onay').format(no=c.cycle_no)|tojson }})'>
+    <input type="hidden" name="hasta" value="{{ h.id }}">
+    <input type="hidden" name="tedavi" value="{{ c.id }}">
+    <input type="hidden" name="tarih" value="{{ secim.tarih }}">
+    <button class="dugme ikincil" type="submit">{{ metin("tedaviye_bagla_dugme") }}</button>
+  </form>
+  {% endif %}
+  {% else %}
+  <div class="bos">{{ metin("tedaviye_bagla_yok") }}</div>
+  {% endfor %}
+</div>
+{% endif %}
 
 <div class="kart">
   <h2>{{ metin("acilacak_tup") }}</h2>

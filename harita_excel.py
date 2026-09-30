@@ -179,7 +179,8 @@ def _kur() -> dict:
     kurulmamışsa (`cryo_esle.py yerlesim` çalışmamış) tüplerin yazılı
     konumlarından -- o zaman yalnızca dolu gobletler görünür, boş yuva
     bilinmez. Liste her dolu tüpü ve tankta duran her Excel kaydını taşır,
-    yeri bilinmeyenler dahil.
+    yeri bilinmeyenler dahil -- Cryo Haritası'nda olmayan embriyo / yumurta
+    tüpü hariç (v6.233).
     """
     harita = yerlesim.doluluk()
     etiket = {}
@@ -191,8 +192,12 @@ def _kur() -> dict:
     konumlar = {r["id"]: r for r in db.sorgu(
         "SELECT id, seviye1, seviye2, seviye3, tam_yol FROM konum WHERE lab_id=?",
         (db.LAB_ID,))}
+    # Cryo Haritası'nda olmayan tüp (v6.233, `db.haritada_yok_sql()`) dosyada
+    # da yok: konumu girilmemiş embriyo / yumurta tüpünün straw'ı haritada
+    # değil. Sperm tüpünün konumsuzu listede ("Konum girilmemiş").
     tup_konum = {r["id"]: r["konum_id"] for r in db.sorgu(
-        "SELECT id, konum_id FROM tasiyici WHERE lab_id=? AND durum='dolu'", (db.LAB_ID,))}
+        "SELECT t.id, t.konum_id FROM tasiyici t WHERE t.lab_id=? AND t.durum='dolu' "
+        f"AND NOT {db.haritada_yok_sql('t')}", (db.LAB_ID,))}
     tupler = yerlesim.tup_ayrintilari(list(tup_konum))
     ekler = {}
     if yerlesim.excel_kaydi_var():

@@ -18337,3 +18337,145 @@ Access'in "TRANSFER KLİNİSYEN" sütunu yalnızca transferi olan satırda dolu
 - v6.231'in denemeleri (OPU menüsü, Yumurta Dondurma, telefonda ana ekran) yeni
   kodla yeniden geçti. Paketin duman testi derlenmiş paket istediği için
   çalıştırılmadı (paket tarifi değişmedi: göç adından, şablon `templates/`'ten).
+
+# v6.233 — Cryo Haritası'nda olmayan tüp görünmez; Excel kaydı tedaviye bağlanır; dondurmada yer zorunlu
+
+Kullanıcı (2026-09-30): *"Cryo harita için Excelde dondurma tüpü yoksa
+programda gösterme. Eğer cryo haritada dondurulmuş tüp yoksa konum girilmemiş
+diyerek göstermenin anlamı yok. Eğer cryo haritada var ama hasta tedavisi ile
+eşleşmemiş boşta duran tüp kaydı varsa ben onu istediğim hastaya ve tedaviye
+ekleyebileyim. Eğer tedavide var ama cryo haritada tüpü yoksa ben yine karar
+vereyim. Belki taşındı belki imha edildi. Ama cryo haritada kaydı olmayanları
+hiç bir şekilde programda görünmesin."*
+
+Üç soru soruldu, cevapları:
+1. Haritada olmayan tüp **yalnızca tedavide** görünsün: dondurulduğu tedavinin
+   vitrifikasyon kaydında ve tüpün kendi sayfasında "Cryo Haritası'nda yok",
+   karar (taşındı, imha) orada.
+2. Boşta duran straw seçilen tedavinin **dondurulmamış embriyolarına**
+   bağlansın: skor / evre ve sayı tutmalı, tutmazsa program söyler, hiçbir şey
+   eklemez.
+3. Vitrifikasyonda yer (tank / kanister / goblet) **zorunlu**.
+
+## Haritada olmayan tüp: `db.haritada_yok_sql()`
+
+Tank düzeni kuruluyken (v6.189) tankta duran (dolu), embriyo / yumurta, **konumu
+girilmemiş** tüp. Access kayıtlarından açılıp Cryo Haritası Excel'indeki bir
+straw'la eşleşemeyen tüpler böyle (deneme kopyasında 514 tüp, 998 embriyo;
+hepsi aktarımın). Tek koşul `db.haritada_yok_sql(t)` (Python hali
+`db.haritada_yok()`); `db.tank_duzeni_var()` da oraya taşındı (`yerlesim.
+duzen_var()` onu çağırıyor) -- formlar da soruyor, `yerlesim`'i import edemiyor.
+
+- **Görünmediği yerler**: Cryo Haritası (ağaç, "Haritada yeri belirsiz" sayısı ve
+  sayfası, arama), hasta kartının "Dondurulmuş örnekler"i, taşıma ekranı ve
+  araması, FET'in çözme listesi, ana ekranın dondurulmuş embriyo sayısı, Excel
+  haritası (`harita_excel.py`, Liste), "Tankları Excel'e aktar" dökümü, resmî
+  formların "Kalan dondurulmuş"u ve ART Lab'ın "Cryo Haritası:" satırı,
+  Excel kaydı aramasındaki hastanın "tankta" sayısı.
+- **Çözülemez**: çözme ekranı, çözme kaydı ve "yeni tedavi aç" tüpün sayfasına
+  döndürüyor (sunucu da reddediyor, `TANKTAN_CIKAN`'ın yanında).
+- **Göründüğü yerler**: dondurulduğu tedavinin vitrifikasyon ekranındaki kartı
+  ("Cryo Haritası'nda yok", "Tüpün sayfasında karar verin", "Çöz" yok), tüpün
+  sayfası, etiket araması ("bu etiket kimin" sorusu -- satırı "Cryo Haritası'nda
+  yok" yazıyor), Excel kaydının sayfasında bağlama adayı (straw çoğu zaman o)
+  ve "Haritadan yer tamamla".
+- **Tüpün sayfasında karar** (kart en üstte): haritadaki olası yeri (v6.214,
+  "Bu yere bağla"), **"Tanktaysa yerini girin"** (yeni: `POST
+  /cryo/tasiyici/{id}/yer`; tank / kanister / goblet zorunlu, düzendeki
+  goblet onun konum satırı, dolu goblet / aynı renk / düzende olmayan yer
+  onaysız yazılmıyor -- dondurmanın denetimi; yalnızca haritada olmayan tüpe,
+  kilidin içinde yeniden bakılıyor, değişiklik geçmişine yazılıyor), başka
+  merkeze taşındı (v6.182), imha (v6.227). Haritada yok diye tüp kendiliğinden
+  hiçbir şey olmuyor: kayıt ve örneklerin durumu olduğu gibi.
+- **Yeri yazılı ama düzende olmayan tüp** (elle yazılmış bilinmeyen yer)
+  haritada, "Haritada yeri belirsiz"de yazılan yeriyle -- tanım yalnızca
+  konumsuz tüp. **Sperm değişmedi**: konumsuz sperm tüpleri laboratuvarın
+  Excel'inin tankı yazılmamış sayfasından (deneme kopyasında 15), haritada.
+- **Tank düzeni yoksa** (düzeni kurulmamış laboratuvar) harita programın kendi
+  kayıtları: koşul hiçbir tüpü tutmuyor, eski davranış.
+- "Haritadan yer tamamla" (v6.214) artık Cryo Haritası'nın embriyo kartından
+  (konumsuz kart "Haritada yeri belirsiz"den kalktı); ekran yalnızca haritada
+  olası straw'ı olan tüpleri listeliyor.
+- Tanım bugünkü hali: tüpün yerinin geçmişi yok, formun "Kalan dondurulmuş"u da
+  bugün haritada olmayan tüpü saymıyor.
+
+## Excel kaydını tedaviye bağla
+
+Excel kaydının sayfasında hasta seçilince (v6.213'ün araması) yeni **"Tedaviye
+bağla"** kartı: hastanın yumurtası o tedavide toplanan tedavileri
+(`cryo_esle.tedaviye_tipleri()`: IVF/ICSI, Yumurta Dondurma; Cryo Excel
+tedavisi ve silinmiş tedavi yok), dondurma gününe yakın olan önce, her birinin
+planıyla. "Bu tedaviye bağla": straw'ın tüpü Excel kaydının gobletinde açılıyor
+(etiket vitrifikasyonun kalıbı `<tedavi no>-<SSDD>`, tipi / rengi Excel'in),
+eşleşen örnekler o tüpe dondurulmuş oluyor -- vitrifikasyon ekranının yazdığı
+veri. **Tedaviye yeni örnek açılmıyor**: yumurta / embriyo sayısı değişmiyor.
+
+- **Eşleşme** (`_tedaviye_eslestir()`), katman katman, önce birebir tutanlar:
+  aynı skor; aynı evre ve sayı ("4BB" ↔ "4BC", "8HG2" ↔ "8HG3"; tedavinin kaydı
+  kalır, uyarı); değerlendirmesi olmayan örnek (Excel'in yazımı onun
+  değerlendirmesi olarak yazılır -- o tipte hiç değerlendirmesi yoksa --,
+  uyarı). Excel'in okunamayan öğesi yalnızca değerlendirilmemiş örneğe. Girebilen
+  örnek dondurulmamış, çözülmemiş, transfer edilmemiş, dejenere / arrest değil;
+  embriyonun döllenmesi 2PN (ya da döllenme kaydı yok), yumurta enjekte
+  edilmemiş. Tutmazsa ne eksik olduğu ve tedavinin dondurulmamışları yazıyor,
+  hiçbir şey eklenmiyor. Katmanlar `tedavi_birlestir.py`'ninkiler (v6.228),
+  "herhangi biri" katmanı yok.
+- **Tedavinin haritada olmayan tüpü straw olabilirse durulur** (aynı tür,
+  dondurma günü Excel'inkinden en çok 7 gün uzak): yeni tüp aynı straw'ı ikinci
+  kez yazardı, eski tüp haritasız kalırdı (v6.229'un dersi). Ekran o tüpü
+  gösteriyor: straw oysa "Hastanın tanktaki tüpleri"nden ona bağlanır, değilse
+  önce tüpün sayfasında karar.
+- Dondurma günü tedavinin gününden (OPU) önce olamaz; çok sonraysa ya da
+  Excel'in "D5"inden çıkan OPU tedavininkini tutmuyorsa uyarı. Gün Excel'de
+  yoksa ya da yanlışsa "Dondurma gününü değiştir" (v6.213).
+- Önizleme ile kayıt aynı plan (`cryo_esle.tedaviye_baglama_plani()`), kayıt
+  kilidin içinde yeniden kuruyor. `islem_notu` "tedaviye bağlanan: tüp N,
+  tedavi M; durum: <örnek>=<eski durum>, ...; değerlendirme: <olay>, ...";
+  **"Tedaviye bağlamayı geri al"** (`tedaviye_baglanani_geri_al()`) tüpü,
+  dondurmaları ve bağlarken yazılan değerlendirmeleri siliyor, örnekleri önceki
+  durumuna döndürüyor -- yalnızca el değmemişse (tüp tankta ve kaydın gobletinde,
+  başka Excel kaydı bağlı değil, örneklerde sonradan kayıt yok, değerlendirme
+  sonradan düzeltilmemiş).
+- Gobleti olmayan embriyo / yumurta Excel kaydına tüp açılmıyor (hem burada hem
+  "Hastaya bağla"da): tüp haritada görünmezdi. Deneme kopyasında böyle kayıt yok.
+- Örneğin kalitesini anahtar olarak okuyan işlevler (`ornek_izi()`,
+  `ornek_anahtari()`, `ornek_yazimi()`, `evre_sayi()`) `tedavi_birlestir.py`'den
+  `cryo_esle`'ye taşındı; araç aynı adlarla onları kullanıyor (deneme
+  kopyasının 11.682 örneğinde eski ve yeni anahtar birebir aynı).
+
+## Dondurmada yer zorunlu
+
+Vitrifikasyon ekranında tank, kanister ve goblet (şemanın ilk üç seviyesi)
+zorunlu: kutular `required`, sunucu da reddediyor (`zorunlu_seviyeler()`;
+pozisyon isteğe bağlı). Yeri olmayan tüp haritada görünmezdi. Düzende olmayan
+yer eskisi gibi onaylı. Sperm dondurma değişmedi.
+
+## Deneme
+
+- Tohum: bir hasta, üç tedavi -- dondurulmamış embriyolar (4AA, değerlendirilmemiş
+  2PN, 4BC, 3PN), haritada bir tüp, haritada olmayan bir tüp (aktarımın), FET;
+  üç Excel kaydı. Haritada olmayan tüp Cryo Haritası'nda, aramada, yeri
+  belirsizlerde, hasta kartında, taşımada, FET listesinde, dökümde ve formun
+  "Kalan dondurulmuş"unda yok; tüp sayfasında karar kartı, vitrifikasyon
+  kartında not; çözme yolları reddetti; etiket araması buldu.
+- Yerini girme: eksik seviye ve düzende olmayan yer reddedildi / onay istedi,
+  düzendeki goblet yazıldı (değişiklik geçmişi), tüp haritaya ve forma döndü,
+  ikinci deneme "değişti".
+- Tedaviye bağlama: haritada olmayan tüp varken durdu; tüp yerini alınca 4AA→4AA,
+  4BB→4BC (uyarı) bağlandı, örnek sayısı aynı; geri alma her şeyi eski haline
+  döndürdü; "D3 (8HG2)" değerlendirilmemiş 2PN'ye cleavage değerlendirmesiyle
+  bağlandı, geri alma değerlendirmeyi de sildi; çözme yazılınca geri alma
+  reddedildi; tutmayan, başka hastanın ve günü önce olan tedavi reddedildi.
+- Vitrifikasyon: goblet yazılmadan reddedildi, yazılınca kaydedildi.
+- Tarayıcıda (telefon 390 px, masaüstü): ekranlar yatay taşmıyor, "Yeri kaydet"
+  boş kutuyla gönderilemiyor, "Bu tedaviye bağla" onayla kaydediyor; konsolda
+  favicon'un 404'ü dışında hata yok.
+- Eski program (v6.232) + yeni şablonlar: değişen 15 ekran açıldı, yeni kartlar
+  basılmadı, hata yok.
+- Deneme kopyası (eski / yeni kod): hasta kartlarının tüpleri 3.133 → 2.619,
+  ana ekranın dondurulmuş embriyosu 3.505 → 2.507, tank dökümü 3.949 → 2.951
+  satır, Excel haritasının listesi 5.929 → 5.415 (kalan 15 konumsuz sperm);
+  701 FET formunun 87'sinde "Kalan dondurulmuş" değişti (55'i "yok"). Tedaviye
+  bağlama: tankta 2.781 embriyo Excel kaydının 564'ünün adı bir hastayla
+  tutuyor; 69'u en az bir tedaviye bağlanabiliyor (hepsi değerlendirilmemiş
+  embriyolara), 102 plan haritada olmayan tüp yüzünden duruyor, 80 tutmuyor.
