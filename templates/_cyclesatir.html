@@ -26,7 +26,8 @@
     bütün geçmişine. İç içe bağlantı olamayacağı için ikisi kardeş, sarmalayan
     `.satirikili` yan yana diziyor. -#}
 {% if kip == "ay" %}<div class="satirikili">{% endif %}
-<a class="satir hasta" href="/cycle/{{ s.id }}">
+{#- PGT sonucu bekleyenlerde (v6.226) satır PGT sonuçları ekranına gidiyor. -#}
+<a class="satir hasta" href="/cycle/{{ s.id }}{% if kip == 'pgt' %}/pgt{% endif %}">
   <div class="ad">{{ s.ad_soyad }}
     {%- if bulas and s.bulas %}
       {%- set _ipucu -%}
@@ -60,6 +61,9 @@
           (`plangun`) başlık zaten tarihi söylüyor, tekrar basılmıyor. #}
       {%- if s.planlanan_tarih %} · {{ takvim_basligi(s.planlanan_tarih) }}{% endif %}
     {%- elif kip == "plangun" %}
+    {%- elif kip == "pgt" %}
+      {%- if s.pgt %} · {{ s.pgt|join(", ") }}{% endif %}
+      {%- if s.pgt_bekleyen %} · <b>{{ say("pgt_bekleyen_n", s.pgt_bekleyen) }}</b>{% endif %}
     {%- else %}
       {#- OPU günü embriyoloğun "bugün ne yapılacak" sorusuna verdiği cevap;
           bu yüzden satırda vurgulu duruyor. OPU'su olmayan cycle'da (FET)

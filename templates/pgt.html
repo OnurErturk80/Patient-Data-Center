@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{# PGT sonuçları (v6.226): genetik raporu, biyopsi başına test sonuçları ve
+   kullanıcının kararı (Sorunsuz / Sorunlu). Bir cycle ekranı: kendi aşama
+   menüsünü gösteriyor, global ana menü burada boş kalmalı (v6.65).
+   "İşlemi yapan" yok: sonuç laboratuvarda yapılan bir işlem değil; kaydeden
+   `pgt_sonuc.kaydeden_kullanici_id`, kararın değişikliği geçmişte. #}
+{% block yanmenu %}{% endblock %}
+{% block kayitanahtari %}cycle:{{ c.id }}:pgt{% endblock %}
+{% import "_gezinme.html" as gez %}
+{% import "_pgt.html" as pgtm %}
+{% block ustbaslik %}{{ asama_adi("pgt") }}{% endblock %}
+{% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
+{% block kimlik %}
+<div class="kimlik">
+  <div class="dosya">{{ c.dosya_no }}<span class="rozet">{{ c.cycle_no }}</span></div>
+  <div class="isim">{{ c.ad_soyad }}</div>
+</div>
+{% endblock %}
+{% block icerik %}
+{% if goc_gerekli %}<div class="uyari">{{ metin("pgt_sonuc_goc") }}</div>{% endif %}
+{% if kaydedildi %}<div class="uyari tamam">{{ metin("pgt_kaydedildi") }}</div>{% endif %}
+
+{#- Genetik raporu: tedavinin belge eki (Doktor Notu'nun deseni, v6.81). -#}
+<div class="kart" id="rapor">
+  <h2>{{ metin("pgt_rapor_baslik") }}{% if raporlar %} ({{ raporlar|length }}){% endif %}</h2>
+  {% if rapor_hata %}<div class="uyari" style="margin:0 14px 8px">{{ rapor_hata }}</div>{% endif %}
+  {% if raporlar %}
+  <div class="fkareler" style="padding:12px">
+    {% for d in raporlar %}
+    <div class="fkare">
+      {% if d.pdf_mi %}
+      <a class="kfoto pdf" href="/dosya/{{ d.id }}" target="_blank" rel="noopener"
+         title="{{ d.orijinal_dosya_adi }}">PDF</a>
+      {% else %}
+      <button type="button" class="kfoto raporfoto"
+              data-idler="{{ rapor_resim_ids|join(',') }}"
+              data-baslangic="{{ rapor_resim_ids.index(d.id) }}"
+              data-no="{{ metin('pgt_rapor_baslik') }}">
+        <img src="/dosya/{{ d.id }}" alt="{{ metin('pgt_rapor_baslik') }}">
+      </button>
+      {% endif %}
+      <a class="fsil" href="/goruntu/{{ d.id }}/sil?geri={{ ('/cycle/' ~ c.id ~ '/pgt')|urlencode }}"
+         aria-label="{{ metin('sil') }}" title="{{ metin('sil') }}">&times;</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ipucu" style="padding:0 14px 8px">{{ metin("pgt_rapor_yok") }}</div>
+  {% endif %}
+  <form method="post" action="/cycle/{{ c.id }}/pgt/rapor"
+        enctype="multipart/form-data" style="padding:12px 14px;border-top:1px solid var(--line)">
+    <input type="file" name="dosyalar" multiple accept="image/*,application/pdf">
+    <div class="ipucu" style="padding:6px 0 0">{{ metin("pgt_rapor_ipucu") }}</div>
+    <button class="dugme" type="submit" style="margin-top:8px">{{ metin("yukle") }}</button>
+  </form>
+</div>
+
+{% macro yer(b) -%}
+{%- if b.transfer is not none -%}{{ metin("pgt_yer_transfer").format(tedavi=b.transfer) }}
+{%- elif b.tup and b.tup.durum == "dolu" -%}{{ metin("pgt_yer_tankta").format(etiket=b.tup.etiket) }}{% if b.tup.tam_yol %} · {{ b.tup.tam_yol }}{% endif %}
+{%- elif b.tup and b.tup.durum == "gonderildi" -%}{{ metin("pgt_yer_tasindi").format(etiket=b.tup.etiket) }}
+{%- elif b.tup -%}{{ metin("pgt_yer_cozuldu").format(etiket=b.tup.etiket) }}
+{%- else -%}{{ metin("pgt_yer_dondurulmadi") }}{%- endif -%}
+{%- endmacro %}
+
+{% macro baslik(b) -%}
+{{ metin("pgt_no").format(n=b.no) if b.no is not none else metin("pgt") }} · {{ ornek_adi('blast', c.cycle_tipi) }} {{ b.cycle_sira_no }}
+{%- endmacro %}
+
+{% if not biyopsiler %}
+<div class="kart"><div class="bos">{{ metin("pgt_sonuc_biyopsisiz") }}</div></div>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/biyopsi">{{ metin("pgt_biyopsiye_git") }}</a>
+
+{% elif not form_acik %}
+{#- Salt okunur özet: her biyopsinin kararı, sonucu, bugünkü yeri. -#}
+{% for b in biyopsiler %}
+<div class="kart pgtsonuc">
+  <h2>{{ baslik(b) }}</h2>
+  <div class="pgtsatir">
+    {{ pgtm.rozet(b) }}
+    <div class="pgtsonucmetni">{{ b.sonuc_metni or metin("pgt_sonuc_yok_metin") }}</div>
+    <div class="ipucu">{{ ornek_kodu(b.specimen_id) }}{% if b.skor %} · {{ b.skor }}{% endif %}{% if b.gun %} · {{ metin("gun_n_buyuk").format(n=b.gun) }}{% endif %} · {{ yer(b) }}</div>
+    {% if b.sonuc_zamani %}<div class="ipucu">{{ metin("pgt_sonuc_girildi").format(tarih=gg_aa_yyyy_saat(b.sonuc_zamani)) }}</div>{% endif %}
+  </div>
+</div>
+{% endfor %}
+<a class="dugme" href="/cycle/{{ c.id }}/pgt?duzenle=1">{{ metin("pgt_sonuc_duzenle") }}</a>
+
+{% else %}
+{% if not testler %}<div class="uyari">{{ metin("pgt_testsiz") }}</div>{% endif %}
+<form method="post" action="/cycle/{{ c.id }}/pgt" id="pgtform">
+  <input type="hidden" name="pgt_sonuc_formu" value="1">
+  {% for b in biyopsiler %}
+  <input type="hidden" name="biyopsi" value="{{ b.id }}">
+  <div class="kart pgtsonuc">
+    <h2>{{ baslik(b) }}</h2>
+    <div class="alan" style="border-top:0;padding-top:0">
+      <div class="ipucu">{{ ornek_kodu(b.specimen_id) }}{% if b.skor %} · {{ b.skor }}{% endif %}{% if b.gun %} · {{ metin("gun_n_buyuk").format(n=b.gun) }}{% endif %} · {{ yer(b) }}</div>
+    </div>
+    {% for test in testler %}
+    {% set s = b.sonuclar.get(test, {}) %}
+    {% set ad = "sonuc_" ~ b.id ~ "_" ~ test %}
+    <div class="alan">
+      <label for="{{ ad }}">{{ test_adlari.get(test, test) }}</label>
+      <select id="{{ ad }}" name="{{ ad }}" class="pgtsonucsec"
+              {% if test == "pgt_a" %}data-mozaik="mozaik_{{ b.id }}_{{ test }}"{% endif %}>
+        <option value="">{{ metin("pgt_sonuc_girilmedi") }}</option>
+        {% for o in secenekler.get(test, []) %}
+        <option value="{{ o.kod }}" {% if s.get("sonuc") == o.kod %}selected{% endif %}>{{ o.etiket }}</option>
+        {% endfor %}
+      </select>
+      <div class="pgtek">
+        {% if test == "pgt_a" %}
+        {% set mz = s.get("mozaik_yuzde") %}
+        <div class="yuzde" id="mozaik_{{ b.id }}_{{ test }}_kutu">
+          <input name="mozaik_{{ b.id }}_{{ test }}" id="mozaik_{{ b.id }}_{{ test }}"
+                 type="text" inputmode="decimal" autocomplete="off" maxlength="6"
+                 placeholder="{{ metin('pgt_mozaik') }}" aria-label="{{ metin('pgt_mozaik') }}"
+                 value="{{ ((mz|int) if mz == (mz|int) else mz) if mz is not none else '' }}">
+        </div>
+        {% endif %}
+        <div class="ayrinti">
+          <input name="detay_{{ b.id }}_{{ test }}" type="text" maxlength="200" autocomplete="off"
+                 placeholder="{{ metin('pgt_ayrinti') }}" aria-label="{{ metin('pgt_ayrinti') }}"
+                 value="{{ s.get("detay") or '' }}">
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="alan">
+      <label>{{ metin("pgt_karar") }}</label>
+      <div class="secenek pgtkarar">
+        {% for k in ["", "sorunsuz", "sorunlu"] %}
+        {% set secili = (b.karar or "") == k %}
+        <label class="sec{% if k %} k-{{ k }}{% endif %}{% if secili %} secili{% endif %}">
+          <input type="radio" name="karar_{{ b.id }}" value="{{ k }}" {% if secili %}checked{% endif %}>
+          <span>{{ metin("pgt_karar_" ~ k) if k else metin("pgt_karar_yok") }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  <div class="ipucu" style="margin:0 2px 10px">{{ metin("pgt_karar_ipucu") }}</div>
+  <button class="dugme" type="submit" {% if goc_gerekli %}disabled{% endif %}>{{ metin("kaydet") }}</button>
+</form>
+{% if duzenle %}
+<a class="dugme ikincil" style="margin-top:12px" href="/cycle/{{ c.id }}/pgt">{{ metin("vazgec_duzenleme") }}</a>
+{% endif %}
+{% endif %}
+
+<script>
+(function () {
+  // Form yoksa (özet kipi) betik susuyor (tuzak #10).
+  var form = document.getElementById('pgtform');
+  if (!form) return;
+  form.querySelectorAll('.secenek').forEach(function (grup) {
+    grup.addEventListener('change', function () {
+      grup.querySelectorAll('.sec').forEach(function (l) {
+        l.classList.toggle('secili', l.querySelector('input').checked);
+      });
+    });
+  });
+  // Mozaik yüzdesi yalnızca PGT-A'da ve sonuç mozaikse (ya da yazılıysa).
+  form.querySelectorAll('select[data-mozaik]').forEach(function (sec) {
+    var kutu = document.getElementById(sec.dataset.mozaik + '_kutu');
+    var girdi = document.getElementById(sec.dataset.mozaik);
+    if (!kutu || !girdi) return;
+    function goster(degisti) {
+      var mozaik = sec.value.indexOf('mozaik') !== -1;
+      if (degisti && !mozaik) girdi.value = '';
+      kutu.hidden = !(mozaik || girdi.value);
+    }
+    sec.addEventListener('change', function () { goster(true); });
+    goster(false);
+  });
+  var degisti = false;
+  form.addEventListener('change', function () { degisti = true; });
+  form.addEventListener('submit', function () { degisti = false; });
+  window.addEventListener('beforeunload', function (e) {
+    if (!degisti) return;
+    e.preventDefault(); e.returnValue = '';
+  });
+})();
+</script>
+{{ gez.cubuk(c, gezinme) }}
+{% set buyutec_ad = metin("pgt_rapor_baslik") %}
+{% include "_buyutec.html" %}
+<script>
+document.querySelectorAll('.raporfoto').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var idler = (b.dataset.idler || '').split(',').filter(Boolean);
+    var bas = parseInt(b.dataset.baslangic || '0', 10) || 0;
+    if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.no, bas);
+  });
+});
+</script>
+{# Kayıttan sonra kaldığı yerde açılır (v6.210, `_kaydirma.html`); yüklemenin
+   hatası varsa en üstten (mesaj rapor kartında). #}
+{% with hata = rapor_hata %}{% include "_kaydirma.html" %}{% endwith %}
+{% endblock %}

@@ -102,6 +102,21 @@
 </div>
 </div>
 
+{# PGT sonucu beklenen tedaviler (v6.226): biyopsisi yapılmış, kararı
+   (Sorunsuz / Sorunlu) henüz verilmemiş. Tedavi "dondurma" ile bitmiş olsa da
+   burada: sonuç haftalar sonra geliyor. Üç kartın ALTINDA ve yalnızca varsa
+   (CLAUDE.md: üç sütunu şişirme). Satır PGT sonuçları ekranına gidiyor.
+   `is defined`: yeniden başlatılmamış program (tuzak #5). #}
+{% if pgt_bekleyenler is defined and pgt_bekleyenler %}
+<div class="kart" style="margin-top:16px">
+  <h2 class="ikili">
+    <span>{{ metin("pgt_bekleyenler") }} <span class="rozet">{{ pgt_bekleyenler|length }}</span></span>
+    {% if pgt_bekleyenler|length > 5 %}<a href="/pgt-bekleyenler" style="font-size:13px;font-weight:400">{{ metin("tumu") }}</a>{% endif %}
+  </h2>
+  {% for s in pgt_bekleyenler[:5] %}{{ cs.satir(s, "pgt", bulas=True) }}{% endfor %}
+</div>
+{% endif %}
+
 <div class="kart" style="margin-top:16px">
   <h2>{{ metin("durum_ozeti") }}</h2>
   <div class="ozet">

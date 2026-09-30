@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "_cyclesatir.html" as cs %}
+{% block ustbaslik %}{{ metin("pgt_bekleyenler") }}{% endblock %}
+{% block geri %}<a class="geri" href="/">&#8249;</a>{% endblock %}
+{% block ustsag %}<a href="/cikis">{{ kullanici.kisa_kod }} · {{ metin("cikis") }}</a>{% endblock %}
+{% block kapsinif %} genis{% endblock %}
+{% block icerik %}
+{# Ana ekranın "PGT Sonucu Bekleyen Tedaviler" kartı ilk 5'i gösteriyor
+   (v6.226, v6.78'in deseni); buradan hepsine ulaşılır. Satır PGT sonuçları
+   ekranına gider. #}
+<div class="kart" style="margin-top:16px">
+  <h2>{{ metin("pgt_bekleyenler") }}{% if liste %} <span class="rozet">{{ liste|length }}</span>{% endif %}</h2>
+  {% for s in liste %}{{ cs.satir(s, "pgt", bulas=True) }}
+  {% else %}
+  <div class="bos">{{ metin("pgt_bekleyen_yok") }}</div>
+  {% endfor %}
+</div>
+{% endblock %}

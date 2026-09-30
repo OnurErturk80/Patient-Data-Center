@@ -32,6 +32,10 @@
           {%- if _pgt.nolar %} · {{ _pgt.nolar }}{% endif %}
         {%- else %}{{ metin("pgt_biyopsi_yok") }}{% endif -%}
       </span>
+      {#- Kullanıcının kararları (v6.226): "Sorunsuz: PGT 1, 3". -#}
+      {% if _pgt.kararlar %}<span class="durum">
+        {%- for k, yazi in _pgt.kararlar %}{{ metin("pgt_karar_" ~ k) if k else metin("pgt_sonuc_bekleniyor")|capitalize }}: {{ yazi }}{% if not loop.last %} · {% endif %}{% endfor -%}
+      </span>{% endif %}
     </div>
   </div>
 </div>

@@ -3,10 +3,16 @@
     biyopsisi). Kararı (Sorunsuz / Sorunlu) kullanıcı işaretliyor (v6.226);
     yalnızca bilinen iki kod metne çevriliyor. Taşıyıcı sayfası, çözme ve
     dondurma ekranları, Cryo Haritası'nın goblet satırı bunu çağırıyor --
-    ikinci bir yazım kurma. -#}
+    ikinci bir yazım kurma. Genetik sonucun metni (`sonuc_metni`, "PGT-A:
+    Öploid") rozetin üzerine gelince, `ayrinti()` ile satırda. -#}
 {% macro yazi(b) -%}
 {{ metin("pgt_no").format(n=b.no) if b.no is not none else metin("pgt") }} · {% if b.karar in ("sorunsuz", "sorunlu") %}{{ metin("pgt_karar_" ~ b.karar) }}{% else %}{{ metin("pgt_sonuc_bekleniyor") }}{% endif %}
 {%- endmacro %}
 {% macro rozet(b) -%}
-<span class="pgtdurum{% if b.karar in ('sorunsuz', 'sorunlu') %} {{ b.karar }}{% endif %}">{{ yazi(b) }}</span>
+<span class="pgtdurum{% if b.karar in ('sorunsuz', 'sorunlu') %} {{ b.karar }}{% endif %}"{% if b.sonuc_metni %} title="{{ b.sonuc_metni }}"{% endif %}>{{ yazi(b) }}</span>
+{%- endmacro %}
+{#- Rozet + sonucun metni, alt satırda (çözme ve transfer ekranları: karar
+    orada verilecek, metin görünsün). -#}
+{% macro ayrinti(b) -%}
+{{ rozet(b) }}{% if b.sonuc_metni %}<span class="pgtsonucmetni">{{ b.sonuc_metni }}</span>{% endif %}
 {%- endmacro %}

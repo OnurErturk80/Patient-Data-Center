@@ -87,8 +87,9 @@
        v6.167 -- app.icerik_sql()), taşıyıcı sayfasının aynı kuralı. #}
     <h2>{{ e.dosya_no }} · {{ e.ad_soyad }} · {{ metin("oosit_ad" if e.icerik == 'yumurta' else "embriyo_ad") }} {{ e.cycle_sira_no }}
         {% if e.skor %}· {{ e.skor }}{% endif %}</h2>
-    {#- PGT (v6.225): biyopsili embriyonun numarası ve sonucu. -#}
-    {% if e.pgt %}<div class="alan" style="border:0;padding-bottom:0">{{ pgtm.rozet(e.pgt) }}</div>{% endif %}
+    {#- PGT (v6.225): biyopsili embriyonun numarası, kararı ve genetik
+        sonucu (v6.226). -#}
+    {% if e.pgt %}<div class="alan" style="border:0;padding-bottom:0">{{ pgtm.ayrinti(e.pgt) }}</div>{% endif %}
 
     <div class="fotoikili">
       {% for asama, baslik in [('thaw_sonrasi', metin('cozme_sonrasi')),
@@ -156,6 +157,18 @@
   {% endfor %}
 
   {% if icerik %}
+  {#- PGT (v6.226): kararı "sorunsuz" olmayan biyopsili embriyo -- engel değil,
+      onay (sunucu da soruyor). Kutu işaretlenmeden form gönderilmiyor. -#}
+  {% if pgt_uyari is defined and pgt_uyari %}
+  <div class="tehlike" id="pgtuyari">
+    {{ metin("pgt_uyari_cozme") }}
+    {% for e in pgt_uyari %}
+    <div style="margin-top:6px">{{ metin("oosit_ad" if e.icerik == 'yumurta' else "embriyo_ad") }} {{ e.cycle_sira_no }} · {{ pgtm.ayrinti(e.pgt) }}</div>
+    {% endfor %}
+    <label class="pgtonay"><input type="checkbox" name="pgt_onay" value="1" required>
+      <span>{{ metin("pgt_onay_cozme") }}</span></label>
+  </div>
+  {% endif %}
   <div class="uyari">
     {{ metin("cozme_bosaltma_uyari")|safe }}
   </div>

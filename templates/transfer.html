@@ -6,6 +6,7 @@
 {% import "_islem_yapan.html" as iy %}
 {% import "_kucukfoto.html" as kf %}
 {% import "_ornekkart.html" as ok %}
+{% import "_pgt.html" as pgtm %}
 {% block ustbaslik %}{{ metin("asama_transfer") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -39,6 +40,7 @@
     <div class="veri"><dt>{{ metin("tip") }}</dt>
       <dd>{{ metin("donmus") if e.tr_tipi == "donmus" else metin("taze") }}</dd></div>
     <div class="veri"><dt>{{ metin("transfer_saati") }}</dt><dd>{{ gg_aa_yyyy_saat(e.zaman) }}</dd></div>
+    {% if e.pgt %}<div class="veri"><dt>{{ metin("pgt") }}</dt><dd>{{ pgtm.ayrinti(e.pgt) }}</dd></div>{% endif %}
   </dl>
   <div class="sfalt">
     <a href="/specimen/{{ e.id }}/transfer-sil">{{ metin("kaydi_geri_al") }}</a>
@@ -58,7 +60,7 @@
     <h2>{{ metin("transfer_edilecek_embriyolar") }}</h2>
     {% for e in adaylar %}
     <label class="secsatir">
-      <input type="checkbox" name="embriyo" value="{{ e.id }}">
+      <input type="checkbox" name="embriyo" value="{{ e.id }}"{% if e.pgt_uyari %} data-pgtuyari="1"{% endif %}>
       <span class="kutu"></span>
       {{ kf.kucuk(e) }}
       <span class="bilgi">
@@ -68,6 +70,8 @@
           {% if e.skor %} · {{ e.skor }}{% endif %}
           {% if e.thaw == "canli" %} · {{ metin("cozulmus") }}{% elif e.thaw %} · {{ metin("cozulmus") }} ({{ e.thaw|replace('_',' ') }}){% endif %}
         </em>
+        {#- PGT (v6.226): numara, karar, genetik sonuç. -#}
+        {% if e.pgt %}<span class="pgtsatirici">{{ pgtm.ayrinti(e.pgt) }}</span>{% endif %}
       </span>
     </label>
     {% endfor %}
@@ -85,6 +89,20 @@
     </div>
   </div>
 
+  {#- PGT (v6.226): kararı "sorunsuz" olmayan biyopsili embriyo seçilirse
+      uyarı + onay kutusu (sunucu da soruyor). Betik yoksa kutu hep görünür. -#}
+  {% set pgtli = adaylar|selectattr("pgt_uyari")|list %}
+  {% if pgtli %}
+  <div class="tehlike" id="pgtuyari">
+    {{ metin("pgt_uyari_transfer") }}
+    {% for e in pgtli %}
+    <div class="pgtuyarisatir" data-embriyo="{{ e.id }}" style="margin-top:6px">{{ ornek_adi('transfer', c.cycle_tipi) }} {{ e.cycle_sira_no }} · {{ pgtm.ayrinti(e.pgt) }}</div>
+    {% endfor %}
+    <label class="pgtonay"><input type="checkbox" name="pgt_onay" value="1" id="pgtonay">
+      <span>{{ metin("pgt_onay_transfer") }}</span></label>
+  </div>
+  {% endif %}
+
   <button class="dugme" type="submit">{{ metin("transferi_kaydet") }}</button>
 </form>
 {% endif %}
@@ -101,6 +119,27 @@ document.querySelectorAll('.secsatir input').forEach(function (i) {
     i.closest('.secsatir').classList.toggle('secili', i.checked);
   });
 });
+(function () {
+  // PGT onayı (v6.226): yalnızca seçilenler arasında kararı "sorunsuz"
+  // olmayan varsa görünür ve zorunlu; seçim değişince güncellenir.
+  var kutu = document.getElementById('pgtuyari');
+  var onay = document.getElementById('pgtonay');
+  if (!kutu || !onay) return;
+  function guncelle() {
+    var var_mi = false;
+    document.querySelectorAll('.secsatir input[name=embriyo]').forEach(function (i) {
+      var satir = kutu.querySelector('[data-embriyo="' + i.value + '"]');
+      if (satir) satir.hidden = !i.checked;
+      if (i.checked && i.dataset.pgtuyari) var_mi = true;
+    });
+    kutu.hidden = !var_mi;
+    onay.required = var_mi;
+  }
+  document.querySelectorAll('.secsatir input[name=embriyo]').forEach(function (i) {
+    i.addEventListener('change', guncelle);
+  });
+  guncelle();
+})();
 </script>
 {{ bt.dugme(c) }}
 {{ gez.cubuk(c, gezinme) }}

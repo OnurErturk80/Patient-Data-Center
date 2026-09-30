@@ -609,8 +609,8 @@ olduğu yerde fark edilebilecek şekilde görünsün").
   `title` / `aria-label` kişi kişi hastalıkları söylüyor. Başka bir listeye
   nokta koyacaksan ikinci bir sorgu ya da ayrıştırıcı yazma.
 
-**PGT: tedavinin işareti, biyopsi, PGT numarası** (v6.225, `goc_058`,
-README v6.225; kullanıcı: "Tedavinin başında PGT yapılacağına dair
+**PGT: tedavinin işareti, biyopsi, PGT numarası, sonuç ve karar** (v6.225,
+`goc_058`, README v6.225 ve v6.226; kullanıcı: "Tedavinin başında PGT yapılacağına dair
 laboratuvarda formunun üstüne yazıyorum. Tedavi bitene kadar üstünde PGT
 yapılacağı yazıyor ... embriyolarından biyopsi yapıyorum ve parçaları
 genetiğe gönderiyorum. Embriyoları numaralandırıp dondurup saklıyorum").
@@ -662,6 +662,55 @@ imha kaydı bütün tüplerde (v6.227). Şemanın ilk sürümündeki `olay.tip=
   `git pull`'dan sonra yeniden başlatılmamış program `pgt_bandi`'nı
   tanımıyor; korumasız çağrı bandı olan HER ekranı bozardı (v6.224 koduyla
   yeni şablonlar denendi).
+- **Sonuçlar ve karar** (v6.226; kullanıcı: "genetik sonuç gelince sonucu
+  dosyasına koyup hangi embriyolar ... sorunsuz çıkarsa onu belirleyip FET
+  tedavisinde ona bakıp sorunsuz embriyoları transfer ediyorum"): aşama
+  `pgt` ("PGT sonuçları", `/cycle/{id}/pgt`), PGT'li tedavide
+  vitrifikasyonun arkasında (`cycle_asamalari()`; `ASAMA_SIRASI`'ndaki yeri
+  önemsiz), izin blastokistinki. **"İşlemi yapan" kutusu YOK** (bir
+  laboratuvar işlemi değil; aşama ekranı kuralının bilinçli istisnası),
+  `_kaydirma.html` var.
+  - Sonuç `pgt_sonuc`: biyopsi × test tek satır (`biyopsi_id`,
+    `test_tipi`, `sonuc` testin listesinden -- `db.PGT_SONUC_LISTELERI` --,
+    PGT-A'da `mozaik_yuzde`, `detay`); `sonuc_zamani` sonucun İLK girildiği
+    an. Satır silinmez, boşaltılan değer NULL. Okuma `db.pgt_sonuclari()`,
+    tek satır metin `db.pgt_sonuc_metni()` ("PGT-A: Mozaik %30 (+16)").
+    Laboratuvar adı ve rapor tarihi alanı yok (PGT notu, rapor).
+  - **Karar `olay.biy_sonuc`** ∈ `db.PGT_KARARLARI` (sorunsuz / sorunlu),
+    boş = sonuç bekleniyor; `pgt_sonuc.karar` kullanılmıyor (karar embriyonun,
+    test test değil). Program sonuçtan karar ÇIKARMAZ -- kendiliğinden
+    işaretleyen kod yazma.
+  - Kayıt `yazma_islemi()` içinde, günlük işlemden sonra (kendi bağlantısı
+    kilidi beklerdi). `pgt_sonuc_formu` işareti olmayan POST dokunmaz;
+    formda olmayan alan (eski sekme) ve listede olmayan kod kayıtlıyı
+    değiştirmez; yalnızca formun gizli `biyopsi` alanındaki, BU tedavinin
+    biyopsileri.
+  - Rapor `goruntu.asama='pgt_rapor'` (`db.PGT_RAPOR_ASAMASI`), Doktor
+    Notu'nun yolu (`elle_ekle()` + `DOKTOR_NOTU_UZANTILARI`). **Belge ekleri
+    (`db.BELGE_ASAMALARI`) tedavinin arşivi değil**: arşiv kartı ve "arşivi
+    temizle" onları saymıyor (v6.226'ya kadar Doktor Notu'nu da siliyordu).
+    Yeni bir belge eki eklersen listeye ekle.
+- **"Sorunsuz" değilse onay, engel değil** (`db.pgt_uyarisi()`,
+  `app.pgt_onay_gerekenler()`; kullanıcı: sorunlu embriyonun ne olacağı
+  hastaya göre): çözme formu ve transfer, kararı sorunsuz olmayan (sorunlu
+  ya da kararsız) biyopsili embriyo için uyarı + `pgt_onay` kutusu; ekran
+  ve sunucu aynı koşul, hata anahtarı beyaz listeden (`THAW_HATALARI`,
+  `TRANSFER_HATALARI`). Kayıtlı çözmenin düzeltmesi sorulmaz. Yeni bir çözme
+  ya da transfer yolu yazarsan aynı denetimi koy.
+- **Bekleyenler**: `cycle_listesi(pgt_bekleyen=True)` -- kararsız biyopsisi
+  olan tedavi (`olay_tedavisi()` ile; bitirilmiş tedavi dahil, silme
+  ekranından iptal edilen ve arşivlenmiş hasta hariç), ana ekranın üç
+  kartının altında (yalnızca varsa) ve `/pgt-bekleyenler`; satır kipi `pgt`
+  PGT ekranına gidiyor.
+- Tüplerin PGT'si tek sorgu `db.tup_pgt()` (goblet satırı, FET çözme
+  listesi); FET'in listesi `db.pgt_tup_sirasi()` ile: sorunsuz önde, sonra
+  PGT'siz, kararsız, sorunlu. Bant kararları `pgt_bandi()`'nın `kararlar`'ı.
+  `_pgt.html`'in `ayrinti()`: rozet + sonuç metni (`rozet()` metni `title`'da).
+- Formlar: `formlar.pgt_notu()` kararları yazıyor; FET'te
+  `pgt_cozulen_notu()` ("PGT, çözülen: PGT 2 sorunlu (2026-0xxx)",
+  biyopsinin tedavisinin numarasıyla).
+- Bilinen sınır: biyopsinin tedavisi saatten; biyopsiden ÖNCEKİ bir saate
+  yazılmış çözme biyopsiyi o FET'e taşır (README v6.226).
 
 **Örnek kodu ana fotoğrafın altında yazar.** `527078-2026-0001-03` kodu
 oosit → zigot → embriyo boyunca değişmediği için aynı kod her aşama ekranında
@@ -1938,10 +1987,11 @@ etkilemiyor.
   `0026-09-04` tarihi seçiciye iki bin satır koyardı.
 
 **Bütün cycle listeleri tek fonksiyon, tek satır makrosu** (v6.29–v6.33).
-Yapılacaklar, bugün bitenler, `/bitenler` arşivi, ay listesi, "Yaklaşanlar"
-ve takvim: sorgu `cycle_listesi()` (`bitmis` / `bugun` / `ay` / `yaklasan` /
-`plan_ay`), satır `_cyclesatir.html` `satir(s, kip)` (`yapilacak` / `bitmis` /
-`ay` / `plan` / `plangun`). Yeni bir liste ekranı yazarsan ayrı bir sorgu
+Yapılacaklar, bugün bitenler, `/bitenler` arşivi, ay listesi, "Yaklaşanlar",
+takvim ve PGT sonucu bekleyenler (v6.226): sorgu `cycle_listesi()` (`bitmis` /
+`bugun` / `ay` / `yaklasan` / `plan_ay` / `pgt_bekleyen`), satır
+`_cyclesatir.html` `satir(s, kip)` (`yapilacak` / `bitmis` / `ay` / `plan` /
+`plangun` / `pgt`). Yeni bir liste ekranı yazarsan ayrı bir sorgu
 yazma, buraya bir kip ekle — hepsi aynı görünsün diye böyle.
 
 **Geri oku gerçekten bir önceki ekrana gider** (v6.126, kullanıcının
@@ -2382,7 +2432,8 @@ arama/arşiv sonucundayken `/hastalar`'a, ay görünümündeyken `/`'a gider
 geliniyor" diye sor.
 `?geri=<yol>` kalıbını yeni yerlerde kullanma — adresten gelen metin doğrudan
 `href`'e yazılıyor, `javascript:` girilebilir. Sayı al, doğrula, yolu kendin
-kur.
+kur. Kalıbı zaten okuyan eski bir rotada `app._yerel_geri()` (v6.226:
+yalnızca programın kendi yolu; bugün `/goruntu/{id}/sil`).
 
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
@@ -4230,9 +4281,9 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 ## Bekleyen işler
 
 1. **Biyopsi / PGT modülü** — v6.225'te başladı: tedavinin PGT işareti,
-   biyopsi ekranı, PGT numarası, tüp satırları (yukarıdaki "PGT" bölümü).
-   Sırada: genetik sonucun girilmesi + raporu + kullanıcının "sorunsuz"
-   kararı + FET'te uyarı (v6.226), tüp imhası (v6.227).
+   biyopsi ekranı, PGT numarası, tüp satırları; v6.226'da genetik sonuç,
+   rapor, kullanıcının "sorunsuz" kararı, bekleyenler listesi ve FET'te onay
+   (yukarıdaki "PGT" bölümü). Sırada: tüp imhası, bütün tüplerde (v6.227).
 2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi, elle
    tetikleme v6.119'da, geri yükleme v6.120'de eklendi.**
    - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin

@@ -629,6 +629,15 @@ PGT_NOTU_EN_COK = 120
 BIYOPSI_TIPI = "te"
 # Bir tedavide PGT numarası en çok (ekranın kutusu, sunucu da tutuyor).
 PGT_NO_EN_COK = 99
+# Genetik sonuçtan sonra embriyonun durumu (v6.226, `olay.biy_sonuc`): kararı
+# KULLANICI işaretliyor (cevabı: "Ben işaretlerim") -- program sonuçtan karar
+# çıkarmıyor. Boş = karar verilmedi (sonuç bekleniyor).
+PGT_KARARLARI = ("sorunsuz", "sorunlu")
+# Genetik raporu tedavinin belge eki (`goruntu.asama`, Doktor Notu gibi):
+# örneğe bağlı değil, embriyoloji fotoğrafı değil. Tedavinin "arşivi"
+# (örneğe bağlanmamış kareler) bunları saymamalı, temizlememeli.
+PGT_RAPOR_ASAMASI = "pgt_rapor"
+BELGE_ASAMALARI = ("doktor_notu", PGT_RAPOR_ASAMASI)
 
 
 def pgt_acik() -> bool:
@@ -729,13 +738,73 @@ def _pgt_no(deger):
 def _biyopsi_satiri(r) -> dict:
     d = dict(r)
     d["no"] = _pgt_no(d.get("biy_tup_etiketi"))
-    d["karar"] = d.get("biy_sonuc")
+    # Yalnızca bilinen iki karar; kolondaki başka bir değer "karar yok".
+    d["karar"] = d.get("biy_sonuc") if d.get("biy_sonuc") in PGT_KARARLARI else None
+    d.setdefault("sonuc_metni", "")
     return d
+
+
+def pgt_uyarisi(b) -> bool:
+    """Biyopsili embriyo çözülür / transfer edilirken sorulmalı mı (v6.226):
+    kararı "sorunsuz" değil -- sorunlu ya da sonuç (karar) henüz girilmemiş.
+    Biyopsisi olmayan embriyo PGT'nin dışında, sorulmaz."""
+    return bool(b) and b.get("karar") != "sorunsuz"
+
+
+def _pgt_etiket_sozlugu() -> dict:
+    """Test ve sonuç listelerinin etiketleri: `{(liste, kod): etiket}`."""
+    listeler = (PGT_TEST_LISTESI, *PGT_SONUC_LISTELERI.values())
+    return {(r["liste_adi"], r["kod"]): r["etiket"] for r in sorgu(
+        "SELECT liste_adi, kod, etiket FROM liste_degeri WHERE lab_id = ? "
+        f"AND liste_adi IN ({','.join('?' * len(listeler))})",
+        (LAB_ID, *listeler))}
+
+
+def pgt_sonuclari(biyopsi_idleri) -> dict:
+    """Biyopsilerin genetik sonuçları (v6.226, `pgt_sonuc`, goc_058):
+    `{biyopsi_id: {test_kodu: satır}}`. Göç yoksa boş."""
+    idler = [i for i in dict.fromkeys(biyopsi_idleri or ()) if i]
+    if not idler or not kolon_var("pgt_sonuc", "biyopsi_id"):
+        return {}
+    sonuc = {}
+    for i in range(0, len(idler), 500):
+        parca = idler[i:i + 500]
+        for r in sorgu(f"SELECT * FROM pgt_sonuc WHERE biyopsi_id IN "
+                       f"({','.join('?' * len(parca))}) ORDER BY id", parca):
+            sonuc.setdefault(r["biyopsi_id"], {})[r["test_tipi"]] = dict(r)
+    return sonuc
+
+
+def pgt_sonuc_metni(satirlar, etiketler=None) -> str:
+    """Bir biyopsinin sonuçları tek satır: "PGT-A: Mozaik %30 (+16) ·
+    PGT-M: Taşıyıcı". Sonucu boş test yazılmaz. Etiket listeden (kodu değil
+    etiketi göster); listede olmayan kod koduyla."""
+    if not satirlar:
+        return ""
+    if etiketler is None:
+        etiketler = _pgt_etiket_sozlugu()
+    parcalar = []
+    for test in sorted(satirlar, key=lambda k: list(PGT_SONUC_LISTELERI).index(k)
+                       if k in PGT_SONUC_LISTELERI else 99):
+        r = satirlar[test]
+        if not r.get("sonuc") and not r.get("detay"):
+            continue
+        ad = etiketler.get((PGT_TEST_LISTESI, test), test)
+        liste = PGT_SONUC_LISTELERI.get(test, "")
+        metin = etiketler.get((liste, r.get("sonuc")), r.get("sonuc") or "")
+        if r.get("mozaik_yuzde") is not None:
+            y = r["mozaik_yuzde"]
+            metin += f" %{int(y) if float(y).is_integer() else y}"
+        if r.get("detay"):
+            metin = f"{metin} ({r['detay']})" if metin else r["detay"]
+        parcalar.append(f"{ad}: {metin}")
+    return " · ".join(parcalar)
 
 
 def biyopsi_bilgisi(specimen_idleri) -> dict:
     """Örneklerin EN SON biyopsisi (v6.225): `{specimen_id: {"id", "no",
-    "karar", "tedavi", "zaman"}}` -- biyopsisi olmayan örnek sözlükte yok.
+    "karar", "tedavi", "zaman", "sonuc_metni"}}` -- biyopsisi olmayan örnek
+    sözlükte yok. `sonuc_metni` genetik sonuçlar (v6.226, `pgt_sonuc_metni()`).
 
     Tüpün satırları (Cryo Haritası, taşıyıcı sayfası, çözme ve dondurma
     ekranları, hasta kartı) "bu embriyo PGT'nin kaçıncısı, sonucu ne"
@@ -757,10 +826,48 @@ def biyopsi_bilgisi(specimen_idleri) -> dict:
                     f"AND o.specimen_id IN ({','.join('?' * len(parca))}) "
                     "ORDER BY o.zaman, o.id", parca):
                 sonuc[r["specimen_id"]] = _biyopsi_satiri(r)
+        sonuclar = pgt_sonuclari([b["id"] for b in sonuc.values()])
+        etiketler = _pgt_etiket_sozlugu() if sonuclar else {}
+        for b in sonuc.values():
+            b["sonuc_metni"] = pgt_sonuc_metni(sonuclar.get(b["id"]), etiketler)
     except sqlite3.Error:
         logging.getLogger(__name__).exception("Biyopsi bilgisi okunamadı")
         return {}
     return sonuc
+
+
+def tup_pgt(tasiyici_idleri) -> dict:
+    """Tüplerdeki biyopsili embriyolar (v6.225'te `yerlesim.tup_ayrintilari()`
+    içindeydi, v6.226'da çözme listesi de soruyor): `{tüp id: [biyopsi_bilgisi
+    satırı, ...]}`, PGT numarası sırasıyla. Biyopsisi olmayan tüp sözlükte yok."""
+    idler = [i for i in dict.fromkeys(tasiyici_idleri or ()) if i]
+    ornekler = {}
+    for i in range(0, len(idler), 500):
+        parca = idler[i:i + 500]
+        for r in sorgu("SELECT vit_tasiyici_id, specimen_id FROM olay "
+                       "WHERE tip='vitrifikasyon' AND iptal_mi=0 AND vit_tasiyici_id "
+                       f"IN ({','.join('?' * len(parca))})", parca):
+            ornekler.setdefault(r["vit_tasiyici_id"], []).append(r["specimen_id"])
+    biy = biyopsi_bilgisi([s for liste in ornekler.values() for s in liste])
+    sonuc = {}
+    for tid, liste in ornekler.items():
+        satirlar = sorted((biy[s] for s in dict.fromkeys(liste) if s in biy),
+                          key=lambda b: (b["no"] is None, b["no"] or 0))
+        if satirlar:
+            sonuc[tid] = satirlar
+    return sonuc
+
+
+def pgt_tup_sirasi(pgt) -> int:
+    """Tüpün PGT durumunun sırası (v6.226, FET'in çözme listesi "sorunsuz"u
+    öne alıyor): 0 biyopsili embriyolarının hepsi sorunsuz, 1 PGT yok, 2
+    sonucu (kararı) beklenen var, 3 sorunlu var."""
+    if not pgt:
+        return 1
+    kararlar = {b.get("karar") for b in pgt}
+    if "sorunlu" in kararlar:
+        return 3
+    return 0 if kararlar == {"sorunsuz"} else 2
 
 
 def pgt_nolar_yazisi(nolar) -> str:
@@ -790,6 +897,12 @@ def pgt_bandi(cycle_id):
         biyopsiler = tedavinin_biyopsileri(int(cycle_id))
         d["biyopsi"] = len(biyopsiler)
         d["nolar"] = pgt_nolar_yazisi(b["no"] for b in biyopsiler)
+        # Kararlar (v6.226): "Sorunsuz: PGT 1, 3 · Sorunlu: PGT 2" -- bu
+        # tedavinin her ekranında. Hiç karar yoksa boş (bant "biyopsi" der).
+        d["kararlar"] = [] if all(b["karar"] is None for b in biyopsiler) else [
+            (karar, yazi) for karar, yazi in (
+                (k, pgt_nolar_yazisi(b["no"] for b in biyopsiler if b["karar"] == k))
+                for k in (*PGT_KARARLARI, None)) if yazi]
         return d
     except (sqlite3.Error, ValueError, TypeError):
         logging.getLogger(__name__).exception("PGT bandı okunamadı")

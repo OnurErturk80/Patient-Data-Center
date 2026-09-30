@@ -4,6 +4,7 @@
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_ornekkart.html" as ok %}
+{% import "_pgt.html" as pgtm %}
 {% block ustbaslik %}{{ metin("cozme_thaw") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -55,6 +56,11 @@
       <div class="meta">
         {% if t.tam_yol %}{{ t.tam_yol }}{% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
       </div>
+      {#- PGT (v6.226): tüpteki biyopsili embriyolar; kararı "sorunsuz" olan
+          tüp listenin başında. -#}
+      {% if t.pgt %}
+      <div class="meta pgttup">{% for b in t.pgt %}{{ pgtm.ayrinti(b) }}{% endfor %}</div>
+      {% endif %}
       {% if t.cleavage_kapali %}
       <div class="meta">{{ metin("fet_kultur_yalniz_cleavage") }}</div>
       {% endif %}

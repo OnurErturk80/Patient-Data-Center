@@ -17609,3 +17609,132 @@ Sahte veritabanında tarayıcıyla, masaüstünde ve telefonda:
 - v6.224'ün programı bu sürümün şablonlarıyla: aynı 17 ekran hatasız.
 - Telefonda (390 px) dokuz ekran yatay kaymıyor; 84 ekran iki genişlikte
   hatasız; bulaş noktası ve tedavi formu denemeleri eskisi gibi.
+
+# v6.226 — PGT sonuçları: rapor, sonuç, karar; FET'te onay
+
+Kullanıcının v6.225'teki anlatımının ikinci yarısı: *"Daha sonra genetik
+sonuç gelince sonucu dosyasına koyup hangi embriyolar genetik incelemede
+sorunsuz çıkarsa onu belirleyip FET tedavisinde ona bakıp sorunsuz
+embriyoları transfer ediyorum."* Cevapları: "sorunsuz" kararını kendisi
+işaretliyor ("Ben işaretlerim"); sorunlu embriyo hastaya göre tankta kalıyor
+ya da imha ediliyor (imha kaydı v6.227).
+
+**PGT sonuçları ekranı.** PGT'li tedavinin aşamalarında, vitrifikasyonun
+arkasında: embriyo biyopsiden sonra donduruluyor, sonuç haftalar sonra
+geliyor (Biyopsi blastokistin arkasında kaldı). Tedavi "dondurma" ile
+bitirilmiş olsa da açılıyor.
+
+- **Genetik raporu**: PDF ya da fotoğraf, tedavinin dosyasına -- Doktor
+  Notu'nun eki gibi (PDF yeni sekmede, fotoğraf büyüteçte, silmesi fotoğraf
+  silme ekranından).
+- **Biyopsi başına**, PGT numarası sırasıyla: örnek kodu, bu tedavideki
+  blastokist skoru, biyopsi günü ve embriyonun bugünkü yeri (tankta: tüp ve
+  yeri / çözüldü / başka merkeze taşındı / transfer edildi). Tedavinin her
+  testi için sonuç, testin kendi listesinden (PGT-A: Öploid, Anöploid,
+  Mozaik, Sonuç yok, No-call; PGT-M: Sağlam, Taşıyıcı, Etkilenmiş; PGT-SR:
+  Dengeli, Dengesiz; HLA: Uyumlu, Uyumsuz); PGT-A'da mozaik yüzdesi (kutu
+  "Mozaik" seçilince açılıyor); her testte serbest "Ayrıntı" (kromozom,
+  alel...).
+- **Karar**: Karar verilmedi / Sorunsuz / Sorunlu. Program sonuçtan karar
+  çıkarmıyor. Kararı eksik biyopsi varken form açık; hepsinin kararı varsa
+  salt okunur özet ve "Sonuçları düzenle".
+- Genetik laboratuvarının adı ve raporun tarihi için ayrı alan yok:
+  laboratuvar tedavinin PGT notunda (v6.225), tarih raporun kendisinde.
+  Program sonucun programa ilk girildiği anı saklıyor ("Sonuç girildi").
+- "İşlemi yapan" kutusu yok: laboratuvarda yapılan bir işlem değil. Kimin
+  kaydettiği ve her değişiklik değişiklik geçmişinde.
+- Kayıt tek işlem: iki telefon aynı anda kaydederse sonuç ikilenmiyor.
+  Sonuç satırı silinmiyor, boşaltılan sonuç boş kalıyor. Sonucu girilmiş
+  biyopsi silinemiyor (v6.225); boş bırakılmış satır "sonuç" sayılmıyor.
+- Kayıtta kod, ekranda etiket; listeden kaldırılmış değer kayıtlıysa seçici
+  onu kendi seçeneğiyle gösteriyor. Tedaviden sonradan kaldırılan bir testin
+  sonucu da görünmeye devam ediyor.
+
+**Ana ekranda "PGT Sonucu Bekleyen Tedaviler".** Kararı verilmemiş
+biyopsisi olan tedaviler, üç kartın altında ve yalnızca varsa. Satır PGT
+sonuçları ekranına gidiyor ("3 embriyonun sonucu bekleniyor"); beşten
+fazlaysa "Tümü". Bitirilmiş tedavi de listede (freeze-all); silme ekranından
+iptal edilen tedavi ve arşivlenmiş hasta yok.
+
+**Bant.** Tedavinin her ekranındaki PGT kutusu kararları da yazıyor:
+"Sorunsuz: PGT 1, 3 · Sorunlu: PGT 2 · Sonuç bekleniyor: PGT 4".
+
+**Tüp satırlarında** (taşıyıcı sayfası, goblet sayfası, hasta kartının
+dondurulmuş örnekleri, taşıma ve dondurma ekranları) PGT rozeti kararın
+renginde: sorunsuz yeşil, sorunlu kırmızı; üzerine gelince sonucun metni.
+
+**FET'te.**
+
+- Çözme listesinde her tüpün PGT'si (numara, karar, sonuç). Tankta
+  duranların sırası: kararı sorunsuz olan tüp başta, sonra PGT'siz, sonucu
+  beklenen, sorunlu.
+- Çözme formu ve transfer ekranı, kararı "sorunsuz" olmayan (sorunlu ya da
+  henüz karar verilmemiş) biyopsili embriyo için uyarı ve onay kutusu
+  gösteriyor: "PGT kararını gördüm, yine de çöz / transfer et". Engel değil
+  (sorunlu embriyonun ne olacağı hastaya göre değişiyor); kutu işaretlenmeden
+  form gönderilmiyor, sunucu da reddediyor. Transferde kutu yalnızca böyle bir
+  embriyo seçilince çıkıyor. Kaydedilmiş bir çözmenin düzeltilmesi sorulmuyor.
+
+**Formlar.** Embriyoloji Özet'in NOTLAR'ındaki PGT satırı kararları da
+yazıyor ("· Sorunsuz: PGT 1, 3 · Sorunlu: PGT 2"; hiç karar yoksa
+"· sonuç bekleniyor"). FET'in NOTLAR'ında çözme satırının altında
+"PGT, çözülen: PGT 2 sorunlu (2026-0xxx)" -- biyopsinin yapıldığı tedavinin
+numarasıyla, çünkü PGT numarası o tedavide tekil.
+
+**Bulunan eski hata.** Tedavi ekranının "Arşiv" kartı ve "Arşivi temizle"
+Doktor Notu eklerini de arşiv sayıyordu (v6.81'den beri): temizleme Doktor
+Notu dosyalarını da siliyordu. Belge ekleri (Doktor Notu, genetik raporu)
+artık arşivde değil.
+
+**Fotoğraf silme ekranının dönüş adresi** (`?geri=`) yalnızca programın
+kendi yolu olabiliyor; `javascript:` ya da başka bir site tedavi ekranına
+düşüyor. PGT ekranı raporun silinmesinden sonra oraya dönüyor.
+
+**Göç yok.** v6.225'in göç 058'i gereken her şeyi kurmuştu (`pgt_sonuc.
+biyopsi_id`, sonuç listeleri). Şemanın `pgt_sonuc.karar`, `laboratuvar`,
+`gonderim_zamani` ve `rapor_dosya_yolu` kolonları kullanılmıyor: karar
+embriyonun (biyopsinin), test test değil; rapor tedavinin eki.
+
+**Bilinen sınır.** Biyopsinin hangi tedavide yapıldığı saatinden çıkıyor
+(v6.225). Bir çözme biyopsiden önceki bir saate yazılırsa (tarih hatası)
+biyopsi o FET'in sayılır ve kaynağın PGT ekranından düşer; çözmenin saati
+düzeltilince geri gelir. Denemede yanlış saatli bir test adımında görüldü.
+
+## Deneme
+
+Sahte veritabanında (v6.225'in biyopsileri: PGT 1–3), telefon genişliğinde
+tarayıcıyla:
+
+- Ana ekran kartı "3 embriyonun sonucu bekleniyor", satır PGT ekranına
+  gidiyor. Üç biyopsi, iki test; aşamalar vitrifikasyon → PGT sonuçları →
+  transfer.
+- Sonuç ve karar: öploid / sağlam + sorunsuz; mozaik %30 (+16) / taşıyıcı +
+  sorunlu; anöploid (-22 +5), kararsız. Boş bırakılan test için satır
+  açılmadı; PGT numarası, örnek ve giriş anı satırda; kararlar değişiklik
+  geçmişinde; form açık kaldı; ana ekran 1 embriyo. Son karar verilince
+  salt okunur özet (metinler, tüp ve transfer doğru), kart ana ekrandan kalktı.
+- Düzenle: %30 → %35,5 aynı satırda, ilk giriş anı korundu, geçmişte.
+- Sunucu: işaretsiz POST, listede olmayan kod, formda olmayan alan (eski
+  sekme), var olmayan biyopsi, tanınmayan karar -- hiçbiri bir şey
+  değiştirmedi. Sonucu olan biyopsi silinemedi.
+- Rapor: PDF ve fotoğraf eklendi (PDF yeni sekmede, fotoğraf büyüteçte);
+  metin dosyası reddedildi, sebebi yazıyor. Tedavinin arşiv kartında ve
+  arşiv silme ekranında rapor yok. Silme ekranında `javascript:` dönüş
+  yolu reddedildi, programın yolu korundu.
+- FET: çözme listesinde sorunsuz tüp başta, sorunlu sonda. Sorunlu tüpün
+  çözme formunda uyarı; kutu işaretlenmeden form gitmedi; sunucu onaysız
+  çözmeyi reddetti (sebebi ekranda, tüp tankta kaldı); onaylı çözme
+  kaydedildi, düzeltmesinde soru yok. Transfer: adayda rozet, seçim yokken
+  uyarı gizli, sorunlu seçilince zorunlu kutu; sunucu onaysız transferi
+  reddetti; onaylı transfer kaydedildi. Sorunsuz tüpte soru yok.
+- Özet formunun NOTLAR'ı: kaynak tedavide kararlar, FET'te çözülen PGT
+  embriyosu.
+- Göç çalışmamış veritabanı (göçü atlayan başlatıcıyla): 11 ekran hatasız,
+  PGT ekranı uyarı veriyor, kayıt hiçbir şeye dokunmuyor.
+- v6.225'in programı bu sürümün şablonlarıyla (yeniden başlatılmamış
+  program): 22 ekran hatasız.
+- 98 ekran iki genişlikte (1280 ve 390 px) hatasız, yatay kaymıyor.
+  v6.223 (bulaş) ve v6.225 (biyopsi) denemeleri geçti; v6.225'inkindeki tek
+  fark beklenen (çözme formunda uyarının da rozeti var). v6.221'in
+  denemesindeki tek hata (formda sağ over sayısını arıyor) v6.222'den beri
+  beklenen, bu sürümden önce de vardı.

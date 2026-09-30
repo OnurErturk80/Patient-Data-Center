@@ -831,7 +831,44 @@ def pgt_notu(cycle_id: int) -> str | None:
     if gunler:
         metin += ", " + "/".join(str(g) for g in gunler) + ". gün"
     nolar = db.pgt_nolar_yazisi(b["no"] for b in biy)
-    return _sar(metin + (f": {nolar}" if nolar else ""))
+    metin += f": {nolar}" if nolar else ""
+    # Karar (v6.226): kullanıcının işaretlediği -- "Sorunsuz: PGT 1, 3 ·
+    # Sorunlu: PGT 2"; hiçbiri işaretlenmediyse "sonuç bekleniyor".
+    if all(b["karar"] is None for b in biy):
+        return _sar(metin + " · sonuç bekleniyor")
+    for karar, ad in (("sorunsuz", "Sorunsuz"), ("sorunlu", "Sorunlu"),
+                      (None, "Sonuç bekleniyor")):
+        grup = db.pgt_nolar_yazisi(b["no"] for b in biy if b["karar"] == karar)
+        if grup:
+            metin += f" · {ad}: {grup}"
+    return _sar(metin)
+
+
+def pgt_cozulen_notu(cycle_id: int, cozulenler) -> str | None:
+    """NOTLAR'a FET'te çözülen biyopsili embriyolar (v6.226): "PGT, çözülen:
+    PGT 2 sorunlu, PGT 3 sorunsuz (2026-0xxx)" -- biyopsinin yapıldığı
+    tedavinin numarasıyla (PGT numarası o tedavide tekil). Bu tedavide
+    yapılan biyopsi `pgt_notu()`'nun satırında, burada tekrar edilmez."""
+    if not cozulenler:
+        return None
+    biy = db.biyopsi_bilgisi([o["kod"] for o in cozulenler])
+    gruplar = {}
+    for o in cozulenler:
+        b = biy.get(o["kod"])
+        if b and b["tedavi"] != cycle_id and b not in gruplar.get(b["tedavi"], []):
+            gruplar.setdefault(b["tedavi"], []).append(b)
+    if not gruplar:
+        return None
+    kararlar = {"sorunsuz": "sorunsuz", "sorunlu": "sorunlu"}
+    parcalar = []
+    for tedavi, liste in gruplar.items():
+        liste.sort(key=lambda b: (b["no"] is None, b["no"] or 0))
+        yazi = ", ".join(
+            f"PGT {b['no'] if b['no'] is not None else '?'} "
+            f"{kararlar.get(b['karar'], 'sonuç bekleniyor')}" for b in liste)
+        c = db.tek("SELECT cycle_no FROM cycle WHERE id = ?", (tedavi,))
+        parcalar.append(f"{yazi} ({c['cycle_no']})" if c else yazi)
+    return _sar("PGT, çözülen: " + " · ".join(parcalar))
 
 
 def dondurma_notu(cycle_id: int, cycle_tipi, tupler) -> str | None:
@@ -1268,6 +1305,9 @@ def ozet_verisi(cycle_id: int):
     # ne kaldı. Sayı ve viabilite kutusu da buradan -- NOTLAR'la tutsun diye.
     cozulenler = cozulen_ornekler(cycle_id)
     cozulen_satiri = cozme_notu_satiri(cycle_id, c["cycle_tipi"], cozulenler)
+    # FET'te çözülen biyopsili embriyoların PGT kararı (v6.226), çözme
+    # satırının altında.
+    pgt_cozulen = pgt_cozulen_notu(cycle_id, cozulenler)
     # Çözme notu (v6.102): taşıyıcıdaki tüm örnekler için aynı değer
     # yazıldığından (thaw.html'in tek, paylaşılan not alanı) ilk dolu olanı
     # yeterli. Protokol notunun altına eklenir, üzerine yazmaz.
@@ -1399,7 +1439,7 @@ def ozet_verisi(cycle_id: int):
         "cozdurme_viabilite": cozme_viabilitesi(cozulenler),
         "notlar": "\n".join(
             p for p in (c["protokol_notu"], genel_bulgu, pgt_satiri, don_notu, tasinan_satiri,
-                        cozulen_satiri, cozme_notu, iptal_notu)
+                        cozulen_satiri, pgt_cozulen, cozme_notu, iptal_notu)
             if p) or None,
         # --- başlık / künye ---
         "cycle_no": c["cycle_no"],
@@ -1895,7 +1935,7 @@ ALAN_ACIKLAMA = [
     ("tedavi_protokolu", "Tedavi protokolü"),
     ("fertilizasyon_yontemi", "Tedavi tipi (IVF/ICSI, FET, yumurta dondurma)"),
     ("onceki_tedavi", "Önceki tedavi sayısı"),
-    ("notlar", "Notlar: protokol notu, genel bulgular, dondurma, çözme, iptal sebebi"),
+    ("notlar", "Notlar: protokol notu, genel bulgular, PGT, dondurma, çözme, iptal sebebi"),
     ("bugun", "Formun basıldığı tarih"),
     ("laboratuvar", "Laboratuvarın adı"),
     ("— OPU ve yumurta —", None),

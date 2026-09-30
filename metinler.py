@@ -876,6 +876,78 @@ METINLER = {
         "en": "The genetic result of this biopsy is entered; it cannot be "
               "deleted. Remove the result on the PGT results screen first."},
     "ozet_biyopsi": {"tr": "Biyopsi sayısı", "en": "Biopsies"},
+    # PGT sonuçları (v6.226): genetik raporu, sonuçlar, karar; FET'te uyarı.
+    "asama_pgt": {"tr": "PGT sonuçları", "en": "PGT results"},
+    "pgt_rapor_baslik": {"tr": "Genetik raporu", "en": "Genetic report"},
+    "pgt_rapor_yok": {"tr": "Henüz rapor eklenmedi.", "en": "No report attached yet."},
+    "pgt_rapor_ipucu": {
+        "tr": "Genetik laboratuvarının raporu: PDF ya da fotoğraf. Tedavinin "
+              "dosyasında kalır.",
+        "en": "The genetics laboratory's report: PDF or photo. It stays in the "
+              "cycle's file."},
+    "pgt_rapor_secilmedi": {"tr": "Dosya seçilmedi.", "en": "No file selected."},
+    "pgt_sonuc_biyopsisiz": {
+        "tr": "Bu tedavide biyopsi kaydı yok. Sonuçlar biyopsiye alınan "
+              "embriyolar için girilir.",
+        "en": "No biopsy in this cycle. Results are entered for biopsied embryos."},
+    "pgt_biyopsiye_git": {"tr": "Biyopsi ekranına git", "en": "Go to the biopsy screen"},
+    "pgt_testsiz": {
+        "tr": "Bu tedavide PGT testi seçili değil; yalnızca karar girilebilir. "
+              "Test tedavi formundan (Düzenle) seçilir.",
+        "en": "No PGT test is selected for this cycle; only the decision can be "
+              "entered. Tests are selected on the cycle form (Edit)."},
+    "pgt_sonuc_girilmedi": {"tr": "— girilmedi —", "en": "— not entered —"},
+    "pgt_mozaik": {"tr": "Mozaik %", "en": "Mosaic %"},
+    "pgt_ayrinti": {"tr": "Ayrıntı (kromozom, alel…)", "en": "Details (chromosome, allele…)"},
+    "pgt_karar": {"tr": "Karar", "en": "Decision"},
+    "pgt_karar_yok": {"tr": "Karar verilmedi", "en": "Not decided"},
+    "pgt_karar_ipucu": {
+        "tr": "Kararı siz verirsiniz: program sonuçtan karar çıkarmaz. FET'te "
+              "çözme ve transfer ekranları bu kararı gösterir; sorunsuz "
+              "işaretlenmemiş embriyo için onay sorar.",
+        "en": "You make the decision: the program does not derive it from the "
+              "result. In FET the thaw and transfer screens show it and ask for "
+              "confirmation for an embryo not marked suitable."},
+    "pgt_kaydedildi": {"tr": "PGT sonuçları kaydedildi.", "en": "PGT results saved."},
+    "pgt_sonuc_girildi": {"tr": "Sonuç girildi: {tarih}", "en": "Result entered: {tarih}"},
+    "pgt_sonuc_yok_metin": {"tr": "Sonuç girilmedi", "en": "No result entered"},
+    "pgt_yer_tankta": {"tr": "Tankta: {etiket}", "en": "In the tank: {etiket}"},
+    "pgt_yer_cozuldu": {"tr": "Çözüldü ({etiket})", "en": "Thawed ({etiket})"},
+    "pgt_yer_tasindi": {"tr": "Başka merkeze taşındı ({etiket})",
+                        "en": "Moved to another centre ({etiket})"},
+    "pgt_yer_transfer": {"tr": "Transfer edildi · {tedavi}", "en": "Transferred · {tedavi}"},
+    "pgt_yer_dondurulmadi": {"tr": "Dondurma kaydı yok", "en": "No freezing record"},
+    "pgt_sonuc_duzenle": {"tr": "Sonuçları düzenle", "en": "Edit results"},
+    "pgt_sonuc_goc": {
+        "tr": "Veritabanı güncel değil (goc_058): sonuçlar kaydedilemez. "
+              "Programı yeniden başlatın.",
+        "en": "Database not up to date (goc_058): results cannot be saved. "
+              "Restart the program."},
+    # Ana ekranın dördüncü kartı (v6.226): sonucu beklenen biyopsiler.
+    "pgt_bekleyenler": {"tr": "PGT Sonucu Bekleyen Tedaviler",
+                        "en": "Cycles Awaiting PGT Results"},
+    "pgt_bekleyen_n": {"tr": "{n} embriyonun sonucu bekleniyor",
+                       "en": "{n} embryos awaiting results"},
+    "pgt_bekleyen_n_tekil": {"tr": "{n} embriyonun sonucu bekleniyor",
+                             "en": "{n} embryo awaiting result"},
+    "pgt_bekleyen_yok": {"tr": "Sonucu beklenen PGT yok.",
+                         "en": "No PGT results pending."},
+    # FET'te çözme / transfer (v6.226): sorunsuz işaretlenmemiş embriyo.
+    "pgt_uyari_cozme": {
+        "tr": "Bu tüpte PGT kararı “sorunsuz” olmayan embriyo var:",
+        "en": "This straw holds an embryo whose PGT decision is not “suitable”:"},
+    "pgt_uyari_transfer": {
+        "tr": "Seçilen embriyolardan PGT kararı “sorunsuz” olmayan var:",
+        "en": "A selected embryo's PGT decision is not “suitable”:"},
+    "pgt_onay_cozme": {"tr": "PGT kararını gördüm, yine de çöz",
+                       "en": "I have seen the PGT decision, thaw anyway"},
+    "pgt_onay_transfer": {"tr": "PGT kararını gördüm, yine de transfer et",
+                          "en": "I have seen the PGT decision, transfer anyway"},
+    "pgt_onay_eksik": {
+        "tr": "Kaydedilmedi: PGT kararı “sorunsuz” olmayan embriyo için onay "
+              "kutusu işaretlenmedi.",
+        "en": "Not saved: the confirmation box for an embryo whose PGT decision "
+              "is not “suitable” was not ticked."},
     # Hasta kartının "Dondurulmuş örnekler" bölümü (v6.217).
     "dondurulmus_ornekler": {"tr": "Dondurulmuş örnekler", "en": "Frozen samples"},
     "tankta_embriyo_yok": {"tr": "Tankta embriyo ya da yumurta tüpü yok.",

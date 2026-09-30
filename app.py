@@ -2930,7 +2930,8 @@ def _opu_gunu(opu_zamani):
 
 def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
                   yaklasan: int = 0, plan_ay: str = "",
-                  limit: int = 0, offset: int = 0, sayisi: bool = False):
+                  limit: int = 0, offset: int = 0, sayisi: bool = False,
+                  pgt_bekleyen: bool = False):
     """Cycle listesi — bütün liste ekranları bunu kullanıyor.
 
     - `bitmis=False` laboratuvarda işi süren cycle'lar: ana ekranın
@@ -2953,6 +2954,12 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     - `sayisi=True` satırları değil, **toplam sayıyı** döndürür (sayfa
       sayısını hesaplamak için) — aynı `kosullar` üzerinden, ikinci bir
       sorgu yazmaya gerek kalmadı.
+    - `pgt_bekleyen=True` genetik sonucu beklenen tedaviler (v6.226, ana
+      ekranın dördüncü kartı): bu tedavide yapılmış, kararı (Sorunsuz /
+      Sorunlu) henüz verilmemiş biyopsisi olan. Tedavi bitmiş olabilir
+      (freeze-all PGT döngüsü "dondurma" ile biter, sonuç haftalar sonra
+      gelir); silme ekranından iptal edilen sayılmaz. Satırda
+      `pgt_bekleyen`: bekleyen embriyo sayısı.
 
     Arşivlenmiş hastanın cycle'ı ilk üçünde görünmez (hasta arşivi "bu dosya
     kapandı" demek), ama **ay listesinde görünür**: o iş o ay yapıldı, sonra
@@ -2971,6 +2978,8 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         return []                  # goc_027 yok: "bugün" süzgeci kurulamıyor
     if (yaklasan or plan_ay) and not plan_var:
         return []                  # goc_028 yok: takvim kurulamıyor
+    if pgt_bekleyen and not _pgt_kolonu_var():
+        return []                  # goc_058 yok: PGT'li tedavi yok
     planli = bool(yaklasan or plan_ay)
     durumlar = ("tamamlandi", "iptal") if (bitmis or bugun) else ("aktif",)
     kosullar = ["c.lab_id = ?"]
@@ -2982,6 +2991,16 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     elif plan_ay:
         kosullar.append("strftime('%Y-%m', c.planlanan_tarih) = ?")
         parametre.append(plan_ay)
+    elif pgt_bekleyen:
+        kosullar.append("h.durum = 'aktif'")
+        # Silme ekranından iptal edilen (bitiş sebebi yok) kayıt silinmiş
+        # sayılır; "iptal" sebebiyle bitirilen tedavi sayılır.
+        kosullar.append("(c.durum <> 'iptal' OR c.bitis_sebebi IS NOT NULL)"
+                        if kolon_var else "c.durum <> 'iptal'")
+        # Biyopsiden tedaviye: biyopsinin yapıldığı tedavi (`olay_tedavisi()`,
+        # saatten). Alt sorgu bağıntısız: biyopsi satırları az, bir kez.
+        kosullar.append(f"c.id IN (SELECT {db.olay_tedavisi('o')} FROM olay o "
+                        f"WHERE {_PGT_BEKLEYEN_BIYOPSI})")
     else:
         kosullar.append("h.durum = 'aktif'")
         kosullar.append("c.durum IN (%s)" % ",".join("?" * len(durumlar)))
@@ -2997,7 +3016,7 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
     # Planlanan tarihi gelecekte olan cycle Yapılacaklar'da görünmez: haftaya
     # olacak bir iş bu hafta boyunca her sabah listeyi şişirirdi (v6.33).
     # Tarih gelince kendiliğinden düşüyor.
-    if plan_var and not (ay or plan_ay or bitmis or bugun or yaklasan):
+    if plan_var and not (ay or plan_ay or bitmis or bugun or yaklasan or pgt_bekleyen):
         kosullar.append("(c.planlanan_tarih IS NULL OR "
                         "date(c.planlanan_tarih) <= date('now','localtime'))")
 
@@ -3046,7 +3065,20 @@ def cycle_listesi(bitmis: bool = False, bugun: bool = False, ay: str = "",
         d = dict(r)
         d["gun"] = _opu_gunu(d["opu_zamani"])
         liste.append(d)
+    if pgt_bekleyen and liste:
+        sayilar = {r["t"]: r["k"] for r in db.sorgu(
+            f"SELECT {db.olay_tedavisi('o')} AS t, COUNT(*) k FROM olay o "
+            f"WHERE {_PGT_BEKLEYEN_BIYOPSI} GROUP BY 1")}
+        for d in liste:
+            d["pgt_bekleyen"] = sayilar.get(d["id"], 0)
     return db.pgt_isaretle(db.bulas_isaretle(liste))
+
+
+# Kararı verilmemiş biyopsi (v6.226): sonucu bekleniyor. Karar kolonunda
+# bilinen iki koddan başka bir değer "karar yok" sayılır (`db._biyopsi_satiri`).
+_PGT_BEKLEYEN_BIYOPSI = (
+    "o.tip = 'biyopsi' AND o.iptal_mi = 0 AND (o.biy_sonuc IS NULL OR "
+    f"o.biy_sonuc NOT IN ({', '.join(repr(k) for k in db.PGT_KARARLARI)}))")
 
 
 @uygulama.get("/")
@@ -3079,6 +3111,7 @@ def anasayfa(request: Request, yetkisiz: str = ""):
          "bugun_bitenler": cycle_listesi(bugun=True),
          "yaklasanlar": cycle_listesi(yaklasan=YAKLASAN_GUN),
          "yaklasan_gun": YAKLASAN_GUN,
+         "pgt_bekleyenler": cycle_listesi(pgt_bekleyen=True),
          "goc_gerekli": not _bitis_kolonu_var() or not _planlanan_kolonu_var(),
          "yedek": yedek_durumu(), "yetkisiz": yetkisiz},
     )
@@ -4105,8 +4138,9 @@ def cycle_detay(request: Request, cycle_id: int, hata: str = ""):
     # karışmasın diye `asama` ile ayrılıyor.
     arsiv = db.sorgu(
         "SELECT id, asama, zaman, orijinal_dosya_adi FROM goruntu "
-        "WHERE cycle_id = ? AND specimen_id IS NULL AND asama != 'doktor_notu' "
-        "ORDER BY id", (cycle_id,))
+        "WHERE cycle_id = ? AND specimen_id IS NULL "
+        f"AND asama NOT IN ({','.join('?' * len(db.BELGE_ASAMALARI))}) "
+        "ORDER BY id", (cycle_id, *db.BELGE_ASAMALARI))
     doktor_notu_satirlari = db.sorgu(
         "SELECT id, zaman, orijinal_dosya_adi FROM goruntu "
         "WHERE cycle_id = ? AND specimen_id IS NULL AND asama = 'doktor_notu' "
@@ -5082,6 +5116,16 @@ def devam_eden(request: Request):
     )
 
 
+@uygulama.get("/pgt-bekleyenler")
+def pgt_bekleyenler_tumu(request: Request):
+    """PGT Sonucu Bekleyen Tedaviler'in tam listesi (v6.226) -- ana ekranın
+    kartı ilk 5'i gösterir, "Tümü" buraya (v6.78'in deseni)."""
+    return sablon.TemplateResponse(
+        request, "pgt_bekleyenler.html",
+        {"kullanici": request.state.kullanici,
+         "liste": cycle_listesi(pgt_bekleyen=True)})
+
+
 @uygulama.get("/yaklasanlar")
 def yaklasanlar_tumu(request: Request):
     """Yaklaşan Tedaviler'in tam listesi — ana ekran ilk 5'i gösterir
@@ -5662,6 +5706,17 @@ def lab_formu_excel(request: Request, form_id: int, cycle_id: int):
 
 # ----------------------------------------------------------------- görüntü
 
+def _yerel_geri(geri, varsayilan: str) -> str:
+    """Adresten gelen dönüş yolu yalnızca programın kendi yoluysa (v6.226):
+    `?geri=` metni `href`'e ve yönlendirmeye yazılıyor -- `javascript:` ya da
+    başka bir site (`//...`) varsayılana düşer (CLAUDE.md: `?geri=<yol>`)."""
+    geri = (geri or "").strip()
+    if (not geri.startswith("/") or geri.startswith("//") or "\\" in geri
+            or any(ord(ch) < 32 for ch in geri)):
+        return varsayilan
+    return geri
+
+
 @uygulama.get("/goruntu/{goruntu_id}/sil")
 def goruntu_sil_ekran(request: Request, goruntu_id: int, geri: str = ""):
     g = db.tek(
@@ -5678,7 +5733,7 @@ def goruntu_sil_ekran(request: Request, goruntu_id: int, geri: str = ""):
     return sablon.TemplateResponse(
         request, "goruntu_sil.html",
         {"g": g, "asama_etiketi": etiketler.get(g["asama"], g["asama"]),
-         "pdf_mi": pdf_mi, "geri": geri or f"/cycle/{g['cycle_id']}"},
+         "pdf_mi": pdf_mi, "geri": _yerel_geri(geri, f"/cycle/{g['cycle_id']}")},
     )
 
 
@@ -5689,7 +5744,7 @@ async def goruntu_sil(request: Request, goruntu_id: int):
     if not g:
         return RedirectResponse("/hastalar", status_code=303)
     cycle_id = g["cycle_id"]
-    geri = f.get("geri") or f"/cycle/{cycle_id}"
+    geri = _yerel_geri(f.get("geri"), f"/cycle/{cycle_id}")
     guvenlik.degisiklikleri_yaz(
         "goruntu", goruntu_id, g,
         {"durum": f"SILINDI ({g['asama']}, {g['orijinal_dosya_adi']})"},
@@ -7457,8 +7512,9 @@ def _biyopsi_sonucu_var(biyopsi_id) -> bool:
     if r and r["biy_sonuc"]:
         return True
     if db.kolon_var("pgt_sonuc", "biyopsi_id"):
-        return bool(db.tek("SELECT 1 x FROM pgt_sonuc WHERE biyopsi_id = ?",
-                           (biyopsi_id,)))
+        return bool(db.tek("SELECT 1 x FROM pgt_sonuc WHERE biyopsi_id = ? AND "
+                           "(sonuc IS NOT NULL OR detay IS NOT NULL "
+                           " OR mozaik_yuzde IS NOT NULL)", (biyopsi_id,)))
     return False
 
 
@@ -7498,6 +7554,251 @@ async def biyopsi_sil(request: Request, specimen_id: str):
                 "Biyopsi kaydi temizlendi", kayit["id"]))
     return RedirectResponse(f"/cycle/{hedef_cycle}/biyopsi?oosit={sp['id']}",
                             status_code=303)
+
+
+# ----------------------------------------------------------------- PGT sonuçları (v6.226)
+#
+# Kullanıcı: "Daha sonra genetik sonuç gelince sonucu dosyasına koyup hangi
+# embriyolar genetik incelemede sorunsuz çıkarsa onu belirleyip FET
+# tedavisinde ona bakıp sorunsuz embriyoları transfer ediyorum." Kararı
+# kendisi işaretliyor ("Ben işaretlerim"): ekran sonuçtan karar ÇIKARMIYOR.
+#
+# Sonuç biyopsi başına, test başına bir `pgt_sonuc` satırı (tablo şemanın ilk
+# sürümünden; `biyopsi_id` goc_058): sonuç (testin listesinden), mozaik
+# yüzdesi (PGT-A), ayrıntı. `sonuc_zamani` sonucun programa ilk girildiği an
+# (raporun kendi tarihi raporda). Satır silinmez; boşaltılan sonuç NULL kalır.
+# Karar biyopsinin olayında (`olay.biy_sonuc`, `db.PGT_KARARLARI`), rapor
+# tedavinin belge eki (`goruntu.asama='pgt_rapor'`, Doktor Notu gibi).
+# Genetik laboratuvarının adı tedavinin PGT notunda (v6.225), ayrı alan yok.
+# Tedavi bitmiş olsa da girilir: sonuç haftalar sonra geliyor.
+
+PGT_DETAY_EN_COK = 200
+
+
+def _pgt_testleri(c, biyopsiler=()) -> list:
+    """Ekrandaki testler: tedavinin testleri + kayıtlı sonucu olan başka bir
+    test (tedaviden sonradan kaldırılsa da sonuç görünsün, tuzak #6)."""
+    kodlar = list(db.pgt_oku(c["pgt_testleri"])) if pgt_mi(c) else []
+    for b in biyopsiler:
+        for k in b.get("sonuclar", {}):
+            if k not in kodlar:
+                kodlar.append(k)
+    return kodlar
+
+
+def _pgt_sonuc_secenekleri(test, kayitli=()) -> list:
+    """Bir testin sonuç seçenekleri: listenin etkin değerleri + kayıtlı olup
+    listeden kaldırılmış ya da listede olmayanlar (`pgt_secenekleri()`'nin
+    kuralı)."""
+    liste_adi = db.PGT_SONUC_LISTELERI.get(test)
+    satirlar = db.sorgu(
+        "SELECT kod, etiket, aktif_mi FROM liste_degeri WHERE lab_id = ? "
+        "AND liste_adi = ? ORDER BY sira, id", (db.LAB_ID, liste_adi)) if liste_adi else []
+    secenek = [{"kod": r["kod"], "etiket": r["etiket"]} for r in satirlar
+               if r["aktif_mi"] or r["kod"] in kayitli]
+    bilinen = {r["kod"] for r in satirlar}
+    return secenek + [{"kod": k, "etiket": k} for k in kayitli if k and k not in bilinen]
+
+
+def _pgt_embriyo_durumu(specimen_id) -> dict:
+    """Biyopsili embriyonun bugünkü yeri: son dondurmasının tüpü (etiket,
+    durum, konum) ve transferi (tedavi no)."""
+    tup = db.tek("SELECT t.id, t.etiket, t.durum, k.tam_yol FROM olay v "
+                 "JOIN tasiyici t ON t.id = v.vit_tasiyici_id "
+                 "LEFT JOIN konum k ON k.id = t.konum_id "
+                 "WHERE v.specimen_id = ? AND v.tip = 'vitrifikasyon' "
+                 "AND v.iptal_mi = 0 ORDER BY v.id DESC LIMIT 1", (specimen_id,))
+    tr = db.tek("SELECT c.cycle_no FROM olay o LEFT JOIN cycle c ON c.id = o.tr_cycle_id "
+                "WHERE o.specimen_id = ? AND o.tip = 'transfer' AND o.iptal_mi = 0 "
+                "ORDER BY o.id DESC LIMIT 1", (specimen_id,))
+    return {"tup": dict(tup) if tup else None,
+            "transfer": (tr["cycle_no"] or "") if tr else None}
+
+
+def pgt_ekran_verisi(c) -> list:
+    """PGT sonuçları ekranının biyopsileri, PGT numarası sırasıyla: bu
+    tedavideki blastokist skoru, bugünkü yeri, kayıtlı sonuçları."""
+    cid = int(c["id"])
+    biyopsiler = db.tedavinin_biyopsileri(cid, c["cycle_tipi"])
+    sonuclar = db.pgt_sonuclari([b["id"] for b in biyopsiler])
+    etiketler = db._pgt_etiket_sozlugu() if sonuclar else {}
+    for b in biyopsiler:
+        b["sonuclar"] = sonuclar.get(b["id"], {})
+        b["sonuc_metni"] = db.pgt_sonuc_metni(b["sonuclar"], etiketler)
+        r = db.tek("SELECT b.bl_skor FROM olay b WHERE b.specimen_id = ? "
+                   "AND b.tip = 'blastokist_degerlendirme' AND b.iptal_mi = 0 "
+                   f"AND {db.bu_tedavide(cid, 'b')} "
+                   "ORDER BY b.gun DESC, b.zaman DESC, b.id DESC LIMIT 1",
+                   (b["specimen_id"],))
+        b["skor"] = r["bl_skor"] if r else None
+        b.update(_pgt_embriyo_durumu(b["specimen_id"]))
+        girildi = [s["sonuc_zamani"] for s in b["sonuclar"].values() if s.get("sonuc_zamani")]
+        b["sonuc_zamani"] = max(girildi) if girildi else None
+    return biyopsiler
+
+
+def pgt_raporlari(cycle_id) -> list:
+    """Tedavinin genetik raporları (belge eki): PDF yeni sekmede, fotoğraf
+    büyüteçte (Doktor Notu'nun deseni)."""
+    return [{**dict(r), "pdf_mi": (r["orijinal_dosya_adi"] or "").lower().endswith(".pdf")}
+            for r in db.sorgu(
+                "SELECT id, zaman, orijinal_dosya_adi FROM goruntu WHERE cycle_id = ? "
+                "AND specimen_id IS NULL AND asama = ? ORDER BY id",
+                (cycle_id, db.PGT_RAPOR_ASAMASI))]
+
+
+@uygulama.get("/cycle/{cycle_id}/pgt")
+def pgt_ekran(request: Request, cycle_id: int, duzenle: int = 0,
+              kaydedildi: int = 0, rapor_hata: str = ""):
+    c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+               "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    biyopsiler = pgt_ekran_verisi(c)
+    testler = _pgt_testleri(c, biyopsiler)
+    secenekler = {test: _pgt_sonuc_secenekleri(
+        test, {b["sonuclar"].get(test, {}).get("sonuc") for b in biyopsiler} - {None})
+        for test in testler}
+    raporlar = pgt_raporlari(cycle_id)
+    goc_var = db.kolon_var("pgt_sonuc", "biyopsi_id")
+    test_listesi = db._pgt_test_listesi() if testler else []
+    return sablon.TemplateResponse(
+        request, "pgt.html",
+        {"c": c, "biyopsiler": biyopsiler, "testler": testler,
+         # Ad test test (`pgt_etiketleri()` listeyi kendi sırasına diziyor;
+         # toplu çağrı ekranın sırasıyla eşleşmeyebilir).
+         "test_adlari": {t: db.pgt_etiketleri([t], test_listesi)[0] for t in testler},
+         "secenekler": secenekler, "raporlar": raporlar,
+         "rapor_resim_ids": [r["id"] for r in raporlar if not r["pdf_mi"]],
+         # Kararı eksik biyopsi varsa form açık; hepsinin kararı varsa salt
+         # okunur özet + Düzenle (aşama ekranlarının düzeni, v6.20).
+         "form_acik": goc_var and (bool(duzenle) or any(b["karar"] is None for b in biyopsiler)),
+         "duzenle": duzenle, "kaydedildi": kaydedildi,
+         # Yüklemenin hatası `goruntuler.elle_ekle()`'nin kendi cümlesi
+         # (dosya adı + sebep); yalnızca metin olarak basılıyor (Jinja kaçırır).
+         "rapor_hata": rapor_hata[:300],
+         "gezinme": asama_gezinme(cycle_id, "pgt"),
+         "goc_gerekli": not goc_var})
+
+
+def _pgt_ayni(a, b) -> bool:
+    """İki değer aynı mı (boş = None; sayılar sayı olarak)."""
+    a = None if a in (None, "") else a
+    b = None if b in (None, "") else b
+    if isinstance(a, (int, float)) or isinstance(b, (int, float)):
+        try:
+            return a is not None and b is not None and float(a) == float(b)
+        except (TypeError, ValueError):
+            return False
+    return a == b
+
+
+@uygulama.post("/cycle/{cycle_id}/pgt")
+async def pgt_kaydet(request: Request, cycle_id: int):
+    f = await request.form()
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    geri = f"/cycle/{cycle_id}/pgt"
+    # İşareti olmayan POST (başka bir formun, elle kurulmuş istek) hiçbir şeye
+    # dokunmaz; göç yoksa tablo yarım.
+    if "pgt_sonuc_formu" not in f or not db.kolon_var("pgt_sonuc", "biyopsi_id"):
+        return RedirectResponse(geri, status_code=303)
+    kid = request.state.kullanici["id"]
+    simdi = _dt.now().isoformat(" ", "seconds")
+    # Formun kapsadığı biyopsiler (gizli alan) ve yalnızca BU tedavininkiler:
+    # bu arada açılan yeni bir biyopsiye eski sekmeden dokunulmaz.
+    istenen = {int(x) for x in f.getlist("biyopsi") if x.isdigit()}
+    gunluk = []                      # değişiklik geçmişi: işlemden sonra
+    with db.yazma_islemi() as b:
+        biyopsiler = [x for x in db.tedavinin_biyopsileri(cycle_id, c["cycle_tipi"], b)
+                      if x["id"] in istenen]
+        kayitli = db.pgt_sonuclari([x["id"] for x in biyopsiler])
+        testler = _pgt_testleri(c, [{"sonuclar": kayitli.get(x["id"], {})}
+                                    for x in biyopsiler])
+        for bx in biyopsiler:
+            bid = bx["id"]
+            mevcut = kayitli.get(bid, {})
+            for test in testler:
+                alan = f"sonuc_{bid}_{test}"
+                if alan not in f:
+                    continue         # form bu testi basmadı (eski sekme)
+                eski = mevcut.get(test)
+                izinli = {s["kod"] for s in _pgt_sonuc_secenekleri(
+                    test, {eski["sonuc"]} if eski and eski.get("sonuc") else set())}
+                sonuc = (f.get(alan) or "").strip() or None
+                if sonuc is not None and sonuc not in izinli:
+                    continue         # listede olmayan kod: kayıtlı değer kalır
+                detay = " ".join((f.get(f"detay_{bid}_{test}") or "").split())
+                detay = detay[:PGT_DETAY_EN_COK] or None
+                mozaik = None
+                if test == "pgt_a":
+                    try:
+                        mozaik = sayi(f.get(f"mozaik_{bid}_{test}"), "Mozaik")
+                    except FormHatasi:
+                        mozaik = eski.get("mozaik_yuzde") if eski else None
+                    if mozaik is not None:
+                        mozaik = max(0.0, min(100.0, mozaik))
+                yeni = {"sonuc": sonuc, "mozaik_yuzde": mozaik, "detay": detay}
+                if eski:
+                    if all(_pgt_ayni(eski.get(k), v) for k, v in yeni.items()):
+                        continue
+                    if not eski.get("sonuc_zamani") and any(v is not None for v in yeni.values()):
+                        yeni["sonuc_zamani"] = simdi
+                    yeni["kaydeden_kullanici_id"] = kid
+                    b.execute(f"UPDATE pgt_sonuc SET {', '.join(k + ' = ?' for k in yeni)} "
+                              "WHERE id = ?", (*yeni.values(), eski["id"]))
+                    gunluk.append(("pgt_sonuc", eski["id"], eski, yeni))
+                elif any(v is not None for v in yeni.values()):
+                    b.execute(
+                        "INSERT INTO pgt_sonuc (lab_id, specimen_id, tup_etiketi, "
+                        "biyopsi_id, test_tipi, sonuc, mozaik_yuzde, detay, "
+                        "sonuc_zamani, kaydeden_kullanici_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        (db.LAB_ID, bx["specimen_id"], str(bx["no"] or ""), bid, test,
+                         sonuc, mozaik, detay, simdi, kid))
+            alan = f"karar_{bid}"
+            if alan in f:
+                karar = f.get(alan) or None
+                if karar is None or karar in db.PGT_KARARLARI:
+                    if karar != bx["karar"]:
+                        b.execute("UPDATE olay SET biy_sonuc = ? WHERE id = ?", (karar, bid))
+                        gunluk.append(("olay", bid, {"biy_sonuc": bx["biy_sonuc"]},
+                                       {"biy_sonuc": karar}))
+    # Günlük kendi bağlantısını açıyor: işlemin dışında (kilit bekler). Tazeleme
+    # yerinde düzenlemeyi bu satırlardan görüyor (v6.54).
+    for tablo, kayit_id, eski, yeni in gunluk:
+        guvenlik.degisiklikleri_yaz(tablo, kayit_id, eski, yeni, kid)
+    return RedirectResponse(f"{geri}?kaydedildi=1", status_code=303)
+
+
+@uygulama.post("/cycle/{cycle_id}/pgt/rapor")
+async def pgt_rapor_ekle(request: Request, cycle_id: int):
+    """Genetik raporu (PDF ya da fotoğraf) tedavinin dosyasına: Doktor Notu'nun
+    yolu (`goruntuler.elle_ekle()`, PDF yalnızca belge eklerinde), aşaması
+    `pgt_rapor`."""
+    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    form = await request.form()
+    kid = request.state.kullanici["id"]
+    hatalar, eklenen = [], 0
+    for d in form.getlist("dosyalar"):
+        ad = getattr(d, "filename", "") or ""
+        if not ad:
+            continue
+        mesaj = goruntuler.elle_ekle(
+            await d.read(), ad, cycle_id, c["cycle_no"], None, db.PGT_RAPOR_ASAMASI,
+            kid, izin_uzantilari=goruntuler.DOKTOR_NOTU_UZANTILARI)
+        if mesaj:
+            hatalar.append(mesaj)
+        else:
+            eklenen += 1
+    geri = f"/cycle/{cycle_id}/pgt"
+    if hatalar or not eklenen:
+        from urllib.parse import quote
+        metin_ = " ".join(hatalar) or metinler.t("pgt_rapor_secilmedi")
+        return RedirectResponse(f"{geri}?rapor_hata={quote(metin_)}#rapor", status_code=303)
+    return RedirectResponse(f"{geri}#rapor", status_code=303)
 
 
 # ----------------------------------------------------------------- kriyo
@@ -10403,6 +10704,20 @@ def thaw_cycle_secenekleri(icerik):
         (hastalar.pop(), *tipler))
 
 
+def pgt_onay_gerekenler(ornekler, kayitli=()) -> list:
+    """Çözülürken / transfer edilirken onay istenecek örnekler (v6.226):
+    biyopsili ve kararı "sorunsuz" değil (`db.pgt_uyarisi()`; kullanıcı:
+    sorunlu embriyo hastaya göre tankta kalabiliyor -- engel değil, onay).
+    `kayitli`: bu işlemin kaydı zaten olan örnekler, düzeltme sorulmaz."""
+    return [e for e in ornekler
+            if e["id"] not in kayitli and db.pgt_uyarisi(e.get("pgt"))]
+
+
+# Çözme ekranının adresten gelen hata anahtarları (tuzak #9). Öteki hatalar
+# v6.155'ten beri metin olarak geliyor (eski davranış, dokunulmadı).
+THAW_HATALARI = {"pgt_onay": "pgt_onay_eksik"}
+
+
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}/thaw")
 def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 0):
     t = db.tek("SELECT t.*, k.tam_yol FROM tasiyici t "
@@ -10456,11 +10771,16 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
                 and tup_cleavage_tipine_kapali(icerik):
             hata = metinler.t("fet_kultur_yalniz_cleavage")
 
+    if hata in THAW_HATALARI:
+        hata = metinler.t(THAW_HATALARI[hata])
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
         request, "thaw.html",
         {"t": t, "icerik": icerik, "mevcut": mevcut, "fotolar": fotolar,
+         # PGT (v6.226): bu tüpten henüz çözülmemiş, kararı sorunsuz olmayan
+         # biyopsili embriyo -- formda uyarı + onay kutusu.
+         "pgt_uyari": pgt_onay_gerekenler(icerik, mevcut),
          "hata": hata, "cycle_secenekleri": secenekler, "secili_cycle": secili,
          "geri_cycle": cycle if cycle in gecerli else 0,
          # Yeni tedavi açma düğmeleri (v6.155): göç yoksa (thaw_cycle_id
@@ -10517,6 +10837,19 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
             + quote(metinler.t("cozme_tedavisi_sec"))
             + (f"&cycle={int(geri)}" if geri.isdigit() else ""),
             status_code=303)
+
+    # PGT (v6.226): kararı "sorunsuz" olmayan biyopsili embriyo onaysız
+    # çözülmez -- ekran kutuyu gösteriyor, sunucu da soruyor. Bu tüpten zaten
+    # çözülmüş örneğin düzeltmesi sorulmaz (ekranın ölçüsü).
+    tup_kosul = "AND thaw_tasiyici_id=? " if db.cozme_tupu_var() else ""
+    tup_deger = (tasiyici_id,) if db.cozme_tupu_var() else ()
+    cozulmus = {e["id"] for e in icerik if db.tek(
+        "SELECT 1 FROM olay WHERE specimen_id=? AND tip='thaw' AND iptal_mi=0 "
+        + tup_kosul, (e["id"], *tup_deger))}
+    if pgt_onay_gerekenler(icerik, cozulmus) and f.get("pgt_onay") != "1":
+        return RedirectResponse(
+            f"/cryo/tasiyici/{tasiyici_id}/thaw?hata=pgt_onay"
+            + (f"&cycle={secili_cycle}" if secili_cycle else ""), status_code=303)
 
     def yuzde(v, ad):
         try:
@@ -10789,6 +11122,14 @@ def cycle_thaw_listesi(request: Request, cycle_id: int, kaydedildi: int = 0):
             {**dict(t), "cleavage_kapali": t["durum"] == "dolu"
              and tup_cleavage_tipine_kapali(tasiyici_icerigi(t["id"]))}
             for t in tasiyicilar]
+    # PGT (v6.226): tüpteki biyopsili embriyolar; tankta duranlarda kararı
+    # "sorunsuz" olan tüp öne (kullanıcı: "FET tedavisinde ona bakıp sorunsuz
+    # embriyoları transfer ediyorum"), sonra PGT'siz, sonucu beklenen,
+    # sorunlu. Aynı sınıfta etiket sırası korunuyor (sıralama kararlı).
+    pgtler = db.tup_pgt([t["id"] for t in tasiyicilar])
+    tasiyicilar = [{**dict(t), "pgt": pgtler.get(t["id"], [])} for t in tasiyicilar]
+    tasiyicilar.sort(key=lambda t: (t["durum"] != "dolu",
+                                    db.pgt_tup_sirasi(t["pgt"]) if t["durum"] == "dolu" else 0))
 
     # Bu cycle için yapılmış çözmeler. Transfere ulaşmayan (canlı çıkmayan)
     # embriyo da burada görünür — FET'in kaydı budur (README v6.7).
@@ -10923,6 +11264,21 @@ def transfer_adaylari(hasta_id: int, cycle=None):
         "ORDER BY c.hasta_cycle_no, s.cycle_sira_no", (hasta_id, *tedavi_par))
 
 
+def _pgt_ekle(satirlar) -> list:
+    """Örnek satırlarına en son biyopsilerini ekler (`pgt`, v6.226) ve
+    onay gerekip gerekmediğini (`pgt_uyari`). Satırlar sözlüğe çevriliyor."""
+    satirlar = [dict(r) for r in satirlar]
+    biy = db.biyopsi_bilgisi([r["id"] for r in satirlar])
+    for r in satirlar:
+        r["pgt"] = biy.get(r["id"])
+        r["pgt_uyari"] = db.pgt_uyarisi(r["pgt"])
+    return satirlar
+
+
+# Transfer ekranının adresten gelen hata anahtarları (tuzak #9).
+TRANSFER_HATALARI = {"pgt_onay": "pgt_onay_eksik"}
+
+
 @uygulama.get("/cycle/{cycle_id}/transfer")
 def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad, h.id AS hasta_id FROM cycle c "
@@ -10931,7 +11287,7 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
         return RedirectResponse("/hastalar", status_code=303)
 
     from datetime import datetime as _d
-    adaylar = transfer_adaylari(c["hasta_id"], c)
+    adaylar = _pgt_ekle(transfer_adaylari(c["hasta_id"], c))
     edilen = db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no, c2.hasta_cycle_no, "
         "  o.zaman, o.tr_tipi, o.id AS olay_id, "
@@ -10946,9 +11302,11 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
         "WHERE o.tip='transfer' AND o.iptal_mi=0 AND o.tr_cycle_id=? "
         "ORDER BY s.cycle_sira_no", (cycle_id,))
 
+    if hata in TRANSFER_HATALARI:
+        hata = metinler.t(TRANSFER_HATALARI[hata])
     return sablon.TemplateResponse(
         request, "transfer.html",
-        {"c": c, "adaylar": adaylar, "edilen": edilen, "hata": hata,
+        {"c": c, "adaylar": adaylar, "edilen": _pgt_ekle(edilen), "hata": hata,
          "gezinme": asama_gezinme(cycle_id, "transfer"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -10972,6 +11330,12 @@ async def transfer_kaydet(request: Request, cycle_id: int):
     # Ekranın gösterdiği adaylardan olmalı (v6.155): eski bir sekmeden ya da
     # elle kurulmuş bir istekten başka tedavinin embriyosu gelirse yazılmaz.
     uygun = {r["id"] for r in transfer_adaylari(c["hasta_id"], c)}
+    # PGT (v6.226): kararı "sorunsuz" olmayan biyopsili embriyo onaysız
+    # transfer edilmez (ekranın kutusu; sunucu da soruyor).
+    secilen_uygun = [{"id": s} for s in secilen if s in uygun]
+    if pgt_onay_gerekenler(_pgt_ekle(secilen_uygun)) and f.get("pgt_onay") != "1":
+        return RedirectResponse(f"/cycle/{cycle_id}/transfer?hata=pgt_onay",
+                                status_code=303)
 
     for sid in secilen:
         if sid not in uygun:
@@ -11085,9 +11449,14 @@ def arsiv_sil_ekran(request: Request, cycle_id: int):
                "JOIN hasta h ON h.id=c.hasta_id WHERE c.id=?", (cycle_id,))
     if not c:
         return RedirectResponse("/hastalar", status_code=303)
+    # Belge ekleri (Doktor Notu, genetik raporu, v6.226) arşiv değil: burada
+    # listelenip "arşivi temizle" ile silinmesin (v6.81'den beri Doktor Notu
+    # da siliniyordu).
+    belge = ",".join("?" * len(db.BELGE_ASAMALARI))
     arsiv = db.sorgu(
         "SELECT id, asama, zaman, orijinal_dosya_adi, kaynak FROM goruntu "
-        "WHERE cycle_id=? AND specimen_id IS NULL ORDER BY id", (cycle_id,))
+        f"WHERE cycle_id=? AND specimen_id IS NULL AND asama NOT IN ({belge}) "
+        "ORDER BY id", (cycle_id, *db.BELGE_ASAMALARI))
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
     return sablon.TemplateResponse(
@@ -11102,8 +11471,9 @@ async def arsiv_sil(request: Request, cycle_id: int):
     if not c:
         return RedirectResponse("/hastalar", status_code=303)
 
-    arsiv = db.sorgu("SELECT id FROM goruntu WHERE cycle_id=? AND specimen_id IS NULL",
-                     (cycle_id,))
+    belge = ",".join("?" * len(db.BELGE_ASAMALARI))
+    arsiv = db.sorgu("SELECT id FROM goruntu WHERE cycle_id=? AND specimen_id IS NULL "
+                     f"AND asama NOT IN ({belge})", (cycle_id, *db.BELGE_ASAMALARI))
     if (f.get("onay") or "").strip() != str(len(arsiv)):
         return RedirectResponse(f"/cycle/{cycle_id}/arsiv-sil?hata=1", status_code=303)
 
@@ -11367,6 +11737,9 @@ ASAMA_SIRASI = [
     # (`cycle_asamalari(pgt=True)`); `TIP_ASAMALARI`'nda yok, çünkü tipin
     # değil tedavinin sorusu.
     ("biyopsi", "Biyopsi", "/cycle/{id}/biyopsi"),
+    # Genetik sonuç (v6.226): biyopsinin koşuluyla; yeri vitrifikasyonun
+    # arkası (`cycle_asamalari()` diziyor, buradaki sıra değil).
+    ("pgt", "PGT sonuçları", "/cycle/{id}/pgt"),
     ("vitrifikasyon", "Vitrifikasyon", "/cycle/{id}/vitrifikasyon"),
     ("thaw", "Çözme", "/cycle/{id}/thaw"),
     ("transfer", "Transfer", "/cycle/{id}/transfer"),
@@ -11395,12 +11768,16 @@ def cycle_asamalari(cycle_tipi: str, pgt: bool = False):
 
     PGT'li tedavide (v6.225, `pgt`: tedavinin `pgt_testleri`'i dolu) biyopsi
     blastokistin hemen arkasına giriyor; blastokisti olmayan tipte yok
-    (biyopsi blastokistte, kullanıcının cevabı). İzin aşamanın modülünden
-    (`asama_yetkim()`: biyopsi blastokistin izniyle).
+    (biyopsi blastokistte, kullanıcının cevabı). PGT sonuçları (v6.226)
+    vitrifikasyonun arkasında: embriyo biyopsiden sonra dondurulur, sonuç
+    haftalar sonra gelir. İzin aşamanın modülünden (`asama_yetkim()`:
+    ikisi de blastokistin izniyle).
     """
     kodlar = list(TIP_ASAMALARI.get(cycle_tipi, TIP_ASAMALARI["ivf_icsi"]))
     if pgt and "blast" in kodlar:
         kodlar.insert(kodlar.index("blast") + 1, "biyopsi")
+        sonra = "vitrifikasyon" if "vitrifikasyon" in kodlar else "biyopsi"
+        kodlar.insert(kodlar.index(sonra) + 1, "pgt")
     sozluk = {a[0]: a for a in ASAMA_SIRASI}
     return [sozluk[k] for k in kodlar if k in sozluk and asama_yetkim(k)]
 

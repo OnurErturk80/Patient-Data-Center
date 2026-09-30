@@ -253,21 +253,11 @@ def tup_ayrintilari(idler) -> dict:
             d["pgt"] = []
             sonuc[r["id"]] = d
     # PGT (v6.225): tüpteki biyopsili embriyolar, PGT numarasıyla
-    # (`db.biyopsi_bilgisi()`: örneğin en son biyopsisi) -- goblet satırı,
-    # hasta kartı ve taşıma ekranı "PGT 2 · sonuç bekleniyor" basıyor.
-    ornekler = {}
-    for i in range(0, len(idler), 500):
-        parca = idler[i:i + 500]
-        for r in db.sorgu(
-                "SELECT vit_tasiyici_id, specimen_id FROM olay WHERE tip='vitrifikasyon' "
-                f"AND iptal_mi=0 AND vit_tasiyici_id IN ({','.join('?' * len(parca))})",
-                tuple(parca)):
-            ornekler.setdefault(r["vit_tasiyici_id"], []).append(r["specimen_id"])
-    biy = db.biyopsi_bilgisi([s for liste in ornekler.values() for s in liste])
-    for tid, liste in ornekler.items():
+    # (`db.tup_pgt()`: örneğin en son biyopsisi) -- goblet satırı, hasta
+    # kartı ve taşıma ekranı "PGT 2 · sonuç bekleniyor" basıyor.
+    for tid, liste in db.tup_pgt(idler).items():
         if tid in sonuc:
-            sonuc[tid]["pgt"] = sorted((biy[s] for s in liste if s in biy),
-                                       key=lambda b: (b["no"] is None, b["no"] or 0))
+            sonuc[tid]["pgt"] = liste
     return sonuc
 
 
