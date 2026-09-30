@@ -450,9 +450,10 @@ görünmüyor.
   `/cycle/{id}/vitrifikasyon?kaydedildi=<tüp>`, üstte `.uyari.tamam`
   mesajı. Metin veritabanından; tüpte bu tedavinin dondurması yoksa mesaj
   basılmaz. v6.197'ye kadar tüp sayfasına gidiyordu: orada aşama menüsü
-  yok ve geri ok `/cryo`'ya çıkıyor, çünkü yönlendirmeyle gelinen sayfada
-  geri betiği karışmıyor (v6.126). **Bir aşama kaydını başka bir modülün
-  sayfasına yönlendirme**: geri ok o sayfanın sabit adresine düşer.
+  yok ve geri ok `/cryo`'ya çıkıyordu (v6.126'nın betiği yönlendirmeyle
+  gelinen sayfaya karışmıyordu). **Bir aşama kaydını başka bir modülün
+  sayfasına yönlendirme**: orada aşama menüsü yok, v6.235'ten beri de geri ok
+  aşama ekranını gönderilmiş form sayıp atlar.
   Önerilen etiket varsa dakika ilerler (`_etiket_onerisi()`, aktarımın
   kuralı); yoksa aynı dakikadaki ikinci tüp "zaten var" diye reddedilirdi.
 - **Çözme kaydı da çözmenin tedavisinin ekranına döner** (v6.208, kullanıcı:
@@ -1976,12 +1977,15 @@ başına), sağda **Tüm Hastalar** (aktif hastaların tamamı, alfabetik). **Ar
 kutusu v6.208'den beri sütunların ÜSTÜNDE, sonuç hemen altında** (kullanıcı:
 "arama sonucu aramanın hemen altında görünsün aramadan geriye dönüş olsun"):
 kutu sağ sütundayken telefonda sonuç ay listesinin altında kalıyordu.
-Aramadayken sağ sütun basılmıyor, ay listesi sonuçların altında; geri ok ve
-"Aramayı temizle" aramasız hale (ay korunur). **Programdaki her arama
+Aramadayken sağ sütun basılmıyor, ay listesi sonuçların altında; "Aramayı
+temizle" aramasız hale (ay korunur), geri ok v6.235'ten beri aramadan önceki
+ekrana (burada aranmışsa aramasız hale, ana ekrandan aranmışsa ana ekrana;
+geçmiş yoksa şablonun adresi, aramasız hal). **Programdaki her arama
 kutusunda aynı kural**: sonuç kutunun hemen altında (arada başka kart yok --
 `/cryo` aramada Taşınma ve Excel kartlarını basmıyor), "Aramayı temizle" ve
-aramadayken geri ok aramasız hale. Yeni bir arama kutusu yazarsan bu üçünü
-koy. **v6.63'e kadar arama ay görünümünün
+aramadayken şablonun geri adresi aramasız hale. Yeni bir arama kutusu yazarsan
+bu üçünü koy; parametresi `ara` / `hasta_ara` değilse base.html'in `AYIRAN`'ına
+ekle. **v6.63'e kadar arama ay görünümünün
 YERİNE geçiyordu** (iki ayrı mod, hiç birlikte görünmezlerdi); kullanıcının
 isteğiyle (2026-09-16, "hasta kayıtları ve takvim aynı şey gibi"
 gözleminin yanıtı) artık **ikisi aynı anda** ekranda. Yeni bir davranış
@@ -2043,36 +2047,52 @@ takvim ve PGT sonucu bekleyenler (v6.226): sorgu `cycle_listesi()` (`bitmis` /
 `plangun` / `pgt`). Yeni bir liste ekranı yazarsan ayrı bir sorgu
 yazma, buraya bir kip ekle — hepsi aynı görünsün diye böyle.
 
-**Geri oku gerçekten bir önceki ekrana gider** (v6.126, kullanıcının
-bildirdiği sorun: "bir önceki menüye geçmesi gerekirken farklı menülere
-geçiyor"). `base.html`'in sonundaki küçük betik geri okuna tıklamayı
-yakalayıp `history.back()` çalıştırıyor — **tek yerde**, 55 şablonun
-okuna tek tek dokunmak tuzak #1'in tarifiydi.
-- **Şablonlardaki `{% block geri %}` adresi KALDIRILMADI** ve kaldırma:
-  o hâlâ ekranın "bir üst seviyesi" ve JS kapalıyken, doğrudan adresle/
-  yer iminden girildiğinde, karekoddan ya da ana ekran simgesinden
-  açıldığında tek davranış o. Yeni ekranda yine yaz.
-- **Betiğin karışmadığı dört durum, hepsi bilerek**: (1) referrer yok ya
-  da başka bir site — `history.back()` kullanıcıyı programın dışına
-  atardı; (2) gelinen sayfanın **yolu aynı**, yalnızca sorgusu farklı
-  (`?oosit=`, `?duzenle=`, `?gun=`, `?asama=`) — bu bir önceki ekran
-  değil, aynı ekranın başka hali; ICSI'nin "kaydet → sıradaki oosit"
-  akışında (v6.35) geri ok tedavi ekranına dönmeli, oositleri tek tek
-  geri yürümemeli; (3) sayfaya **yönlendirmeyle** gelinmiş
-  (`performance`'ın `redirectCount`'u > 0) — bu programda neredeyse her
-  zaman POST → 303, yani az önce kaydedilen form, ona dönmemeli;
-  (4) ekranda geri oku yok. Bu dördünü gevşetme.
-- **`?geri=<yol>` hâlâ yasak** — adresten gelen metin `href`'e yazılırsa
-  `javascript:` sokulabilir. Referrer burada yalnızca **karar vermek**
-  için okunuyor (aynı köken mi, aynı yol mu), hiçbir yere yazılmıyor.
-- **Yedek adresi yanlış olan iki ekran düzeltildi**: `/cryo` ve
-  `/yonetim` ana menü öğesi (`_gezinme.html` + `ana.html`), `/hastalar`'ın
-  altında değiller — `/hastalar` → `/`. Yeni bir ekranın adresini
-  yazarken "bu ekran hangi menünün altında" diye sor; "buraya kaç yoldan
-  geliniyor" sorusunu artık betik yanıtlıyor.
-- Betik `{% block tazeleme %}`'nin **dışında** — o blok yazdırma
-  ekranlarında (`form.html`, `/baglan`) boşaltılıyor, içine konsaydı
-  oralarda geri ok çalışmazdı.
+**Geri oku her seferinde bir önceki EKRANA gider** (v6.235, README v6.235;
+kullanıcı: "Her ekran geriye basınca bir önceki ekranına dönsün. Bazen ban başka
+bir ekrana dönüyor"). v6.126'nın betiği kayıttan sonra, yumurta / gün seçince ve
+tazelemeden sonra şablonun sabit adresine düşüyordu (menüden Denüdasyon → ICSI,
+kaydet, geri: tedavi ekranı). Bugün `base.html`'in sonundaki betik sekmenin
+geçmişini ekran ekran okuyor -- **tek yerde**, şablonlara tek tek dokunmak
+tuzak #1'in tarifi.
+- **Ekran = yol.** Sorgu farkı (`?oosit=`, `?duzenle=`, `?gun=`,
+  `?kaydedildi=`) aynı ekranın hali, atlanır (ICSI'de yumurtaları tek tek geri
+  yürümez, v6.35). **Arama sonucu ve arşiv ayrı ekran**: `AYIRAN` (`ara`,
+  `hasta_ara`, `arsiv`) adreste doluysa. Yeni bir arama kutusunun parametresi
+  başka bir adsa `AYIRAN`'a ekle; yoksa aramadan geri, aramadan önceki ekran
+  yerine onun da öncesine gider.
+- **Gönderilmiş form atlanır**: formunu KENDİ adresine gönderen sayfa (Düzenle,
+  yeni hasta / tedavi, silme onayı, çözme formu, bitir) kayıttan sonra başka
+  bir ekrana geçildiyse. Başka adrese gönderen merkez ekran (hasta kartı, tüp
+  sayfası, Excel kaydı) atlanmaz. Kayıt daha önce geçilmiş bir ekrana
+  döndüyse (Düzenle → tedavi, silme → liste) dönüş sayılır, aradakiler
+  kapanır. Yönlendirmesiz POST yanıtı formun ekranının hali. Bir aşama
+  ekranının formu bugün hep aynı ekrana dönüyor; başka ekrana yönlendirirsen
+  aşama ekranı gönderilmiş form sayılır, geri onu atlar.
+- **POST formunu betikle gönderme `form.submit()` ile**: `submit` olayı
+  çıkmaz, betik form sayfasının gönderildiğini bilmez. `requestSubmit()`.
+- **Geri, tarayıcının geçmişinde geri gitmek**: `navigation.traverseTo()`
+  (Navigation API), yoksa `history.state` kimliği + sekmenin sessionStorage
+  sırası ve `history.go(-n)` (varış denetleniyor, en çok iki düzeltme;
+  karşılıksız kalırsa sabit adres). Oku ileri gezintiyle (`location.href`)
+  yazma: telefonun geri hareketi ile ok aynı geçmişi yürümeli. Kendi
+  `location.replace`'ini yazan yeni bir yer olursa Navigation API'siz yolda
+  sıra bir kayar -- okun `yukari()`'sının `pdc_yerine` işareti gibi haber ver.
+- **Önceki ekran yoksa** (sekmenin ilk sayfası) şablonun `{% block geri %}`
+  adresi, girişin YERİNE (`location.replace`): üst ekrana çıkıp tekrar geri
+  basınca aşağıya dönen döngü olmasın.
+- **Şablonlardaki `{% block geri %}` adresi KALDIRILMADI** ve kaldırma: betik
+  yoksa, sessionStorage açılamıyorsa ve sekmenin ilk sayfasında tek davranış
+  o. Yeni ekranda yine yaz; "bu ekran hangi menünün altında" diye sor (`/cryo`
+  ve `/yonetim` ana menü öğesi, `/`'a döner).
+- **`?geri=<yol>` hâlâ yasak** — betik hiçbir adresi `href`'e yazmıyor,
+  yalnızca geçmişte geri gidiyor.
+- Betik `{% block tazeleme %}`'nin **dışında** — o blok yazdırma ekranlarında
+  (`form.html`, `/baglan`) boşaltılıyor. Oku olmayan ekranda da (ana ekran,
+  giriş) kayıt tutuyor: sonraki ekran oraya dönebilsin.
+- Denemesi dört yoldan (Navigation API var / yok × tarayıcının geri-ileri
+  önbelleği açık / kapalı; Playwright önbelleği kapatıyor,
+  `ignore_default_args=["--disable-back-forward-cache"]`, önbellekten dönen
+  sayfada `load` beklemek takılır). Oku değiştirirsen dördünü de çalıştır.
 
 **Üst çubukta iki dönüş var, ikisi farklı şey.** Geri oku (`‹`) **bir
 önceki** ekrana gider ve şablon başına ayrı yazılır; ev simgesi (`.anaya`)
@@ -2480,8 +2500,9 @@ cryo haritasından hem çözme ekranından giriliyor; `?cycle=N` ile hangisinden
 gelindiği söyleniyor ve geri adresi **sunucuda** kuruluyor (v6.32). Aynı
 şey tek ekranın iki durumu için de geçerli: hasta kayıtlarında geri oku
 arama/arşiv sonucundayken `/hastalar`'a, ay görünümündeyken `/`'a gider
-(v6.34). Yeni bir ekranda `{% block geri %}` yazarken "buraya kaç yoldan
-geliniyor" diye sor.
+(v6.34). v6.235'ten beri geçmiş varken ok gerçek önceki ekrana gidiyor; bu
+adres sekmenin ilk sayfasında ve betiksiz kullanılıyor. Yeni bir ekranda
+`{% block geri %}` yazarken yine "buraya kaç yoldan geliniyor" diye sor.
 `?geri=<yol>` kalıbını yeni yerlerde kullanma — adresten gelen metin doğrudan
 `href`'e yazılıyor, `javascript:` girilebilir. Sayı al, doğrula, yolu kendin
 kur. Kalıbı zaten okuyan eski bir rotada `app._yerel_geri()` (v6.226:

@@ -260,6 +260,11 @@
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) { dur(); } else if (kutu.hidden) { bak(); basla(); }
   });
+  // Geri okuyla (v6.235) ya da tarayıcının geri tuşuyla dönülen sayfa
+  // önbellekten olduğu gibi gelebilir: beş saniye eski görünmesin, hemen bak.
+  window.addEventListener('pageshow', function (o) {
+    if (o.persisted && kutu.hidden) { bak(); basla(); }
+  });
 
   document.getElementById('tazeledugme').addEventListener('click', function (o) {
     o.preventDefault();
@@ -274,31 +279,35 @@
 {% endblock %}
 
 {# ---------------------------------------------------------------- geri oku
-   Geri oku (`‹`) artık GERÇEKTEN bir önceki ekrana gidiyor (v6.126,
-   kullanıcının bildirdiği sorun: "bir önceki menüye geçmesi gerekirken
-   farklı menülere geçiyor").
+   Geri oku (`‹`) HER SEFERİNDE bir önceki ekrana gider (v6.235, kullanıcı:
+   "Her ekran geriye basınca bir önceki ekranına dönsün. Bazen ban başka bir
+   ekrana dönüyor"). v6.126'nın betiği yalnızca yönlendirmesiz, yolu farklı
+   bir sayfadan gelindiyse `history.back()` diyordu; kayıttan sonra, yumurta /
+   gün seçince ya da tazelemeden sonra ok şablonun SABİT adresine düşüyordu
+   (menüden Denüdasyon → ICSI, kaydet, geri: tedavi ekranı).
 
-   Şablonlardaki `{% block geri %}` adresi **kaldırılmadı** — o hâlâ
-   ekranın "bir üst seviyesi" ve JS kapalıyken, doğrudan adresle
-   girildiğinde, karekoddan/ana ekran simgesinden açıldığında tek
-   davranış o. Buradaki betik yalnızca gerçekten bir önceki ekran
-   biliniyorsa araya giriyor. Tek yerde duruyor: 55 şablonun geri
-   okuna tek tek dokunmak tuzak #1'in tarifi.
-
-   Dört durumda KARIŞMIYOR, hepsi bilerek:
-   1. Referrer yok ya da başka bir siteden gelinmiş — geçmişte bu
-      uygulamanın bir ekranı olduğunu bilmiyoruz, `history.back()`
-      kullanıcıyı programın dışına atardı.
-   2. Gelinen sayfanın YOLU aynı, yalnızca sorgusu farklı
-      (`?oosit=`, `?duzenle=`, `?gun=`, `?asama=`). Bu "bir önceki ekran"
-      değil, aynı ekranın başka bir hali: ICSI'de "kaydet → sıradaki
-      oosit" akışında (v6.35) beşinci oositten geri basınca dördüncüye
-      değil, tedavi ekranına dönmek gerekir.
-   3. Sayfaya bir yönlendirmeyle gelinmiş (`redirectCount`) — bu
-      programda neredeyse her zaman "POST → 303" demek, yani az önce
-      kaydedilen form. Geri ok orada formun kendisine dönmemeli.
-   4. Ekranda geri oku yok (ana ekran, giriş) — zaten yapacak iş yok.
-#}
+   Sekmenin geçmişi ekran ekran okunuyor (tek yerde, bu betik; 60 şablonun
+   hiçbirine dokunulmadı):
+   - Ekran = adresin yolu. `?oosit=`, `?duzenle=`, `?gun=`, `?kaydedildi=`
+     aynı ekranın halleri, atlanır (ICSI'de yumurtaları tek tek geri
+     yürümez, v6.35). Arama sonucu ve arşiv (`AYIRAN`: `ara`, `hasta_ara`,
+     `arsiv`) ayrı ekran: aramadan geri, aramadan önceki ekrana.
+   - Gönderilmiş form: formunu KENDİ adresine gönderen sayfa (Düzenle, yeni
+     tedavi, silme onayı, çözme formu) kayıttan sonra atlanır -- geri ok
+     gönderilmiş forma dönmez. Başka bir adrese gönderen sayfa (hasta kartının
+     "Çöz · yeni FET"i gibi merkez ekranlar) atlanmaz.
+   - Kayıt daha önce geçilmiş bir ekrana döndüyse (Düzenle → tedavi, silme →
+     liste) o dönüş sayılır: aradaki ekranlar kapanır, silinen kayda dönülmez.
+   - Yönlendirmesiz POST yanıtı (hatalı formun yeniden basılması) formun
+     ekranının hali.
+   Geri, tarayıcının kendi geçmişinde geri gitmek (`navigation.traverseTo`,
+   yoksa `history.go(-n)`): telefonun geri hareketi ile ok aynı geçmişi
+   yürür. Geçmişte önceki ekran yoksa (sekme bu sayfayla açıldı) şablonun
+   `{% block geri %}` adresi, geçmişin YERİNE (`location.replace`): ok ile
+   üst ekrana çıkıp tekrar geri basınca aşağıya dönen döngü olmasın.
+   `{% block geri %}` kaldırılmadı ve yeni ekranda yine yazılır: betik yoksa,
+   depo (sessionStorage) açılamıyorsa ve sekmenin ilk sayfasında tek davranış.
+   `?geri=<yol>` yasak kalıyor. Ayrıntı README v6.235. #}
 {# ------------------------------------------------------------ açılır menü
    Menü düğmesi `.yanmenu`'yü açıp kapatıyor (v6.195). Menü sayfada bir kez
    duruyor: geniş ekranda CSS onu solda sabit gösteriyor, dar ekranda
@@ -360,21 +369,277 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 </script>
 
 <script>
+/* Geri oku (v6.235) -- kurallar yukarıdaki açıklamada. Geçmişin kaynağı:
+   tarayıcının Navigation API'si (Chrome, Edge, yeni Safari: sekmenin gerçek
+   geçmişi), yoksa her sayfanın history.state'ine yazılan kimlik + sekmenin
+   sessionStorage'daki sırası. Ekranların bilgisi (hangi ekran, hangi formun
+   sonucu) sessionStorage'da, giriş başına. */
 (function () {
-  var ok = document.querySelector('.ust .geri');
-  if (!ok) return;                                   // (4)
-  var gelinen = document.referrer;
-  if (!gelinen || gelinen.indexOf(location.origin + '/') !== 0) return;   // (1)
-  var c = document.createElement('a');               // yolu ayıklamanın
-  c.href = gelinen;                                  // kütüphanesiz yolu
-  if (c.pathname === location.pathname) return;      // (2)
+  var AYIRAN = ['ara', 'hasta_ara', 'arsiv'];   // adreste doluysa ayrı ekran
+  var EN_COK = 60;                  // saklanan giriş (tarayıcılar 50 tutuyor)
+  var GONDERIM_OMRU = 600000;       // form gönderimi 10 dk içinde sonuçlanır
+  var BEKLEME = 2500;               // history.go karşılıksız kalırsa (ms)
+  var BILGI = 'pdc_ekranlar', SIRA = 'pdc_sira', GONDERIM = 'pdc_gonderim',
+      HEDEF = 'pdc_hedef', YERINE = 'pdc_yerine';
+
+  var depo;
   try {
-    var g = performance.getEntriesByType('navigation')[0];
-    if (g && g.redirectCount > 0) return;            // (3)
-  } catch (e) { /* eski tarayıcı: ölçemiyorsak karışmayalım */ }
+    depo = window.sessionStorage;
+    depo.setItem('pdc_dene', '1');
+    depo.removeItem('pdc_dene');
+  } catch (e) { return; }           // depo yok: ok şablonun adresine gider
+  function oku(ad) {
+    try { return JSON.parse(depo.getItem(ad) || 'null'); } catch (e) { return null; }
+  }
+  function yaz(ad, d) {
+    try {
+      if (d === null) depo.removeItem(ad); else depo.setItem(ad, JSON.stringify(d));
+    } catch (e) {}
+  }
+  function yeniKimlik() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  // Ekran = yol; arama sonucu ve arşiv ayrı ekran ("/hastalar|ara").
+  function ekrani(adres) {
+    if (!adres) return '';
+    var u;
+    try { u = new URL(adres, location.href); } catch (e) { return ''; }
+    if (u.origin !== location.origin) return '';
+    var k = u.pathname;
+    for (var i = 0; i < AYIRAN.length; i++) {
+      if (u.searchParams.get(AYIRAN[i])) k += '|' + AYIRAN[i];
+    }
+    return k;
+  }
+  function yolu(ekran) { return ekran.split('|')[0]; }
+  function gezinti() {
+    try {
+      var g = performance.getEntriesByType('navigation')[0];
+      if (g) return {tur: g.type, yon: g.redirectCount};
+    } catch (e) {}
+    try {
+      var n = performance.navigation;
+      return {tur: ['navigate', 'reload', 'back_forward'][n.type] || 'navigate',
+              yon: n.redirectCount};
+    } catch (e) {}
+    return {tur: 'navigate', yon: 0};
+  }
+
+  var NAV = window.navigation;
+  if (!(NAV && NAV.currentEntry && typeof NAV.entries === 'function' &&
+        typeof NAV.traverseTo === 'function')) NAV = null;
+
+  function etiket() {
+    var s = history.state;
+    return s && typeof s === 'object' && s.pdc ? s.pdc : null;
+  }
+  function etiketle(sekme, id) {
+    var s = history.state && typeof history.state === 'object' ? history.state : {};
+    s.pdc = {s: sekme, i: id};
+    try { history.replaceState(s, ''); } catch (e) {}
+  }
+
+  // ---- Bu sayfa geçmişe yazılıyor (oku olmayan ekranda da: ana ekran,
+  // giriş -- sonraki ekran buraya dönebilsin).
+  var bilgi = oku(BILGI) || {};
+  var gonderim = oku(GONDERIM);
+  yaz(GONDERIM, null);              // yalnızca hemen sonraki sayfa için
+  var gz = gezinti();
+  var gecerli = !!(gonderim && Date.now() - gonderim.t < GONDERIM_OMRU &&
+                   (gz.yon > 0 || location.pathname === gonderim.y));
+  // Bu sayfa bir önceki girişte gönderilen formun sonucu mu?
+  //   'k' formunu kendi adresine gönderen sayfanın sonucu (o form atlanır),
+  //   'b' başka adrese gönderen (hasta kartı gibi; atlanmaz),
+  //   'p' yönlendirmesiz POST yanıtı (formun ekranının bir hali).
+  function sonucu(oncekiId) {
+    if (!gecerli || gonderim.i !== oncekiId) return '';
+    return gz.yon > 0 ? (gonderim.k ? 'k' : 'b') : 'p';
+  }
+  var simdiId = null, yeni = false, sonuc = '', i;
+  if (NAV) {
+    var gs = NAV.entries(), ci = NAV.currentEntry.index;
+    simdiId = NAV.currentEntry.key;
+    yeni = gz.tur === 'navigate' || !bilgi[simdiId];
+    if (yeni && ci > 0 && gs[ci - 1]) sonuc = sonucu(gs[ci - 1].key);
+    var tut = {};
+    for (i = 0; i < gs.length; i++) {
+      if (bilgi[gs[i].key]) tut[gs[i].key] = bilgi[gs[i].key];
+    }
+    bilgi = tut;
+  } else {
+    var yerine = oku(YERINE);
+    yaz(YERINE, null);
+    var sira = oku(SIRA);
+    if (!sira || !sira.s || !sira.l) sira = {s: yeniKimlik(), l: [], n: -1};
+    if (sira.n >= sira.l.length) sira.n = sira.l.length - 1;
+    var et = etiket(), yer = et && et.s === sira.s ? sira.l.indexOf(et.i) : -1;
+    if (yer >= 0) {                 // yeniden yükleme ya da geri/ileri
+      simdiId = et.i;
+      sira.n = yer;
+    } else if (gz.tur !== 'back_forward') {
+      yeni = true;
+      var oncekiId = sira.n >= 0 ? sira.l[sira.n] : null;
+      sonuc = oncekiId ? sonucu(oncekiId) : '';
+      if (oncekiId && yerine && yerine.i === oncekiId &&
+          Date.now() - yerine.t < GONDERIM_OMRU) {
+        simdiId = oncekiId;         // okun location.replace'i: aynı giriş
+      } else if (!sonuc && oncekiId && gz.tur === 'navigate' &&
+                 document.referrer === location.href) {
+        simdiId = oncekiId;         // aynı adrese gidiş: tarayıcı girişi değiştirir
+      } else {
+        simdiId = yeniKimlik();
+        sira.l = sira.l.slice(0, sira.n + 1);
+        sira.l.push(simdiId);
+        if (sira.l.length > EN_COK) sira.l = sira.l.slice(sira.l.length - EN_COK);
+        sira.n = sira.l.length - 1;
+      }
+      etiketle(sira.s, simdiId);
+    }                               // bilinmeyen eski giriş: dokunma
+    var tut2 = {};
+    for (i = 0; i < sira.l.length; i++) {
+      if (bilgi[sira.l[i]]) tut2[sira.l[i]] = bilgi[sira.l[i]];
+    }
+    bilgi = tut2;
+    yaz(SIRA, sira);
+  }
+  if (simdiId && (yeni || !bilgi[simdiId])) {
+    bilgi[simdiId] = {e: ekrani(location.href), s: sonuc};
+  }
+  yaz(BILGI, bilgi);
+
+  // ---- POST formu gönderilince: sonraki sayfa onun sonucu.
+  window.addEventListener('submit', function (o) {
+    var f = o.target;
+    if (o.defaultPrevented || !f || !f.getAttribute) return;   // onay "vazgeç"
+    if ((f.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+    var hp = f.getAttribute('target');
+    if (hp && hp !== '_self') return;
+    var y;
+    try { y = new URL(f.getAttribute('action') || location.href, location.href).pathname; }
+    catch (e) { return; }
+    var id = NAV ? NAV.currentEntry.key : (etiket() || {}).i;
+    if (!id) return;
+    yaz(GONDERIM, {i: id, k: y === location.pathname, y: y, t: Date.now()});
+  });
+
+  // ---- Geçmiş, ekran ekran. `liste`: girişler (0..simdi), her biri
+  // {i: kimlik, e: ekran, s: sonuç}. Döner: gidilecek girişin sırası, -1 yok.
+  function hedefBul(liste, simdi) {
+    var S = [];                     // ekranlar: {e, i: gidilecek giriş, son}
+    for (var n = 0; n <= simdi; n++) {
+      var g = liste[n];
+      if (!g || !g.e) continue;
+      var ust = S.length ? S[S.length - 1] : null;
+      if (g.s === 'p' && ust) { ust.son = n; continue; }
+      if (ust && ust.e === g.e) { ust.i = n; ust.son = n; continue; }
+      if (g.s === 'k' || g.s === 'b') {
+        if (g.s === 'k' && ust && ust.son === n - 1) {   // gönderilmiş form
+          S.pop();
+          ust = S.length ? S[S.length - 1] : null;
+          if (ust && ust.e === g.e) { ust.i = n; ust.son = n; continue; }
+        }
+        var yol = yolu(g.e), j = -1;                     // daha önceki ekrana dönüş
+        for (var k = S.length - 1; k >= 0; k--) {
+          if (yolu(S[k].e) === yol) { j = k; break; }
+        }
+        if (j >= 0) { S.length = j + 1; S[j] = {e: g.e, i: n, son: n}; continue; }
+      }
+      S.push({e: g.e, i: n, son: n});
+    }
+    return S.length > 1 ? S[S.length - 2].i : -1;
+  }
+
+  function durum() {
+    var b = oku(BILGI) || {}, liste = [], simdi, n;
+    if (NAV) {
+      var gs2 = NAV.entries();
+      simdi = NAV.currentEntry.index;
+      for (n = 0; n <= simdi && n < gs2.length; n++) {
+        var k = b[gs2[n].key];
+        liste.push({i: gs2[n].key, e: k ? k.e : ekrani(gs2[n].url), s: k ? k.s : ''});
+      }
+    } else {
+      var s = oku(SIRA), et2 = etiket();
+      if (!s || !s.l || !et2 || et2.s !== s.s) return null;
+      simdi = s.l.indexOf(et2.i);
+      if (simdi < 0) return null;
+      for (n = 0; n <= simdi; n++) {
+        var k2 = b[s.l[n]];
+        liste.push({i: s.l[n], e: k2 ? k2.e : '', s: k2 ? k2.s : ''});
+      }
+    }
+    return {liste: liste, simdi: simdi};
+  }
+
+  // history.go sırası bir yerde kaydıysa (yerine geçen giriş, betiksiz
+  // sayfa) varılan giriş hedef değildir: en çok iki kez düzelt.
+  function hedefiDenetle() {
+    var h = oku(HEDEF);
+    if (!h) return;
+    yaz(HEDEF, null);
+    var s = oku(SIRA), et3 = etiket();
+    if (!s || !s.l || !et3 || et3.s !== s.s || et3.i === h.i || !(h.n > 0) ||
+        Date.now() - h.an > 15000) return;
+    var a = s.l.indexOf(et3.i), t = s.l.indexOf(h.i);
+    if (a < 0 || t < 0 || a === t) return;
+    h.n--;
+    h.an = Date.now();
+    yaz(HEDEF, h);
+    history.go(t - a);
+  }
+  if (!NAV) hedefiDenetle();
+
+  window.addEventListener('pageshow', function (o) {
+    if (!o.persisted) return;       // önbellekten dönüldü: betik yeniden koşmadı
+    yaz(GONDERIM, null);
+    if (NAV) return;
+    yaz(YERINE, null);
+    var s = oku(SIRA), et4 = etiket();
+    if (s && s.l && et4 && et4.s === s.s) {
+      var yer2 = s.l.indexOf(et4.i);
+      if (yer2 >= 0) { s.n = yer2; yaz(SIRA, s); }
+    }
+    hedefiDenetle();
+  });
+
+  // ---- Ok.
+  var ok = document.querySelector('.ust .geri');
+  if (!ok) return;
+  // Önceki ekran yok: şablonun adresi, bu girişin YERİNE. Navigation API'siz
+  // yolda sıra da bilsin ki sonraki sayfa yeni giriş sanılmasın (yoksa sıra
+  // bir kayar, ikinci geri programın dışına çıkardı).
+  function yukari() {
+    var et5 = NAV ? null : etiket();
+    if (et5) yaz(YERINE, {i: et5.i, t: Date.now()});
+    location.replace(ok.href);
+  }
   ok.addEventListener('click', function (o) {
+    if (o.defaultPrevented || o.button !== 0 ||
+        o.metaKey || o.ctrlKey || o.shiftKey || o.altKey) return;   // yeni sekme
+    var d = durum();
+    if (!d) return;                 // bilinmiyor: şablonun adresi, olduğu gibi
     o.preventDefault();
-    history.back();
+    var t = hedefBul(d.liste, d.simdi);
+    if (t < 0) { yukari(); return; }   // önceki ekran yok
+    if (NAV) {
+      try {
+        var r = NAV.traverseTo(d.liste[t].i);
+        r.committed.catch(function (h) {
+          if (h && h.name === 'InvalidStateError') yukari();
+        });
+        r.finished.catch(function () {});
+      } catch (e) { yukari(); }
+      return;
+    }
+    var fark = t - d.simdi;
+    if (-fark > history.length - 1) { yukari(); return; }
+    yaz(HEDEF, {i: d.liste[t].i, n: 2, an: Date.now()});
+    var gitti = false;
+    window.addEventListener('pagehide', function () { gitti = true; });
+    setTimeout(function () {        // geçmişte o kadar giriş yoksa go() susar
+      if (!gitti) { yaz(HEDEF, null); yukari(); }
+    }, BEKLEME);
+    history.go(fark);
   });
 })();
 </script>

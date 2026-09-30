@@ -18568,3 +18568,107 @@ tarih sırası, değişiklik geçmişi) aynı işlevden, her çift kendi işlemi
   çelişiyor" oldu, eşit kayıtlı belirsiz grup ekran işaretiyle birleşti;
   arşivde aynı adlı dosya olan grup ENGEL ile atlandı, `atla=` ile dışarıda
   bırakılan grup birleşmedi, listede olmayan numara uyarıldı.
+
+# v6.235 — Geri oku her seferinde bir önceki ekrana
+
+Kullanıcı: "Her ekran geriye basınca bir önceki ekranına dönsün. Bazen ban başka
+bir ekrana dönüyor. Her seferinde bir önceki ekrana dönsün."
+
+## Neden başka ekrana dönüyordu
+
+v6.126'nın betiği `history.back()` yalnızca gelinen sayfa yönlendirmesizse ve
+yolu farklıysa diyordu; başka her durumda ok şablonun SABİT adresine
+(`{% block geri %}`, ekranın "üst"ü) gidiyordu. Sabit adrese düşen durumlar
+günlük işin çoğu:
+- kayıttan sonra (POST → 303 yönlendirmesi): menüden Denüdasyon → ICSI,
+  kaydet, geri: tedavi ekranı (Denüdasyon değil);
+- aynı ekranda yumurta / gün seçince (`?oosit=`, `?gun=`);
+- tazelemenin yenilemesinden sonra (yönlendirme bilgisi düşüyor, bu sefer
+  `history.back()` gönderilmiş forma dönüyordu);
+- hasta kartında "Çöz · yeni FET" → çözme formu, geri: tüpün sayfası (hasta
+  kartı değil);
+- ana ekrandan arama → sonuç, geri: hasta kayıtlarının ay listesi (ana ekran
+  değil).
+
+## Bugün
+
+Sekmenin geçmişi ekran ekran okunuyor; ok o geçmişte bir önceki EKRANA gider
+(`base.html`'in sonundaki betik, tek yer; hiçbir şablona dokunulmadı).
+- **Ekran = adresin yolu.** Aynı ekranın halleri (`?oosit=`, `?duzenle=`,
+  `?gun=`, `?kaydedildi=`, `?hata=`, ay seçimi) atlanır: ICSI'de beş yumurta
+  kaydettikten sonra geri, ICSI'ye nereden gelindiyse oraya (yumurtaları tek
+  tek geri yürümez, v6.35'in isteği).
+- **Arama sonucu ve arşiv ayrı ekran** (`AYIRAN`: `ara`, `hasta_ara`,
+  `arsiv`): aramadan geri, aramadan önceki ekrana -- hasta kayıtlarında
+  aranmışsa aramasız hale (v6.208), ana ekrandan aranmışsa ana ekrana.
+  Sonuçtan hasta kartına geçip geri basınca sonuçlar.
+- **Gönderilmiş form atlanır.** Formunu kendi adresine gönderen sayfa (Düzenle,
+  yeni hasta / tedavi, silme onayı, çözme formu, bitir) kayıttan sonra başka
+  bir ekrana geçildiyse geri okta atlanır: geri ok gönderilmiş forma dönmez.
+  Formunu başka bir adrese gönderen sayfa (hasta kartı, tüpün sayfası, Excel
+  kaydı gibi merkez ekranlar) atlanmaz: "Çöz · yeni FET" → çözme formu, geri:
+  hasta kartı.
+- **Kayıt daha önce geçilmiş bir ekrana döndüyse o bir dönüş**: Düzenle →
+  tedavi ekranı, geri: tedaviye nereden gelindiyse. Silme → liste: aradaki
+  ekranlar kapanır, silinen kayda dönülmez.
+- **Yönlendirmesiz POST yanıtı** (hatalı formun yeniden basılması) formun
+  ekranının hali; ok ona değil formdan önceki ekrana gider.
+- Bağlantıyla (menü, düğme) daha önceki bir ekrana gidildiyse geçmiş olduğu
+  gibi: tedavi → ICSI → (menüden) tedavi, geri: ICSI. Tarayıcının geri tuşu
+  gibi, yalnızca aynı ekranın halleri ve gönderilmiş formlar olmadan.
+
+## Nasıl
+
+- Geri, **tarayıcının kendi geçmişinde** geri gitmek: Navigation API'si olan
+  tarayıcıda (Chrome, Edge, yeni Safari) `navigation.traverseTo()`, sekmenin
+  gerçek geçmişi `navigation.entries()`; yoksa her sayfanın `history.state`'ine
+  yazılan kimlik + sekmenin sırası (sessionStorage) ve `history.go(-n)`.
+  İleriye `location.href` ile gitmek yerine bu: telefonun geri hareketi ile ok
+  aynı geçmişi yürüyor, ok iki ekran atlayınca tarayıcının ileri tuşu yine
+  doğru.
+- Her ekranın bilgisi (hangi ekran, hangi formun sonucu) sessionStorage'da,
+  sekme başına (`pdc_ekranlar`): hasta verisi yok, yalnızca yol ve bir harf.
+  POST formu gönderilince (`submit`, onayda "vazgeç" değilse) sonraki sayfanın
+  onun sonucu olduğu yazılıyor; formu betikle gönderen yeni bir yer yazarsan
+  `requestSubmit()` kullan (`form.submit()` olay çıkarmaz, form sayfası
+  atlanmaz).
+- **Geçmişte önceki ekran yoksa** (sekme bu sayfayla açıldı: yer imi, yeni
+  sekme, karekod) şablonun sabit adresi, bu girişin **yerine**
+  (`location.replace`): ok ile üst ekrana çıkıp tekrar basınca aşağıya dönen
+  döngü (v6.126'da vardı) kalmadı.
+- Navigation API'siz yolda sıra kayarsa (tarayıcının aynı adrese gidişi yerine
+  koyması, betiksiz sayfa) varılan giriş denetleniyor, en çok iki kez
+  düzeltiliyor; `history.go` karşılıksız kalırsa (geçmişte o kadar giriş yok)
+  2,5 sn sonra sabit adres.
+- `{% block geri %}` kaldırılmadı, yeni ekranda yine yazılır: betik yoksa,
+  sessionStorage açılamıyorsa ve sekmenin ilk sayfasında tek davranış.
+  `?geri=<yol>` yasak kalıyor (betik hiçbir adresi `href`'e yazmıyor, yalnızca
+  geçmişte geri gidiyor).
+- Ctrl/⌘ ya da orta tuşla basmak eskisi gibi yeni sekmede açar.
+- Geri ile dönülen sayfa tarayıcının önbelleğinden (bfcache) olduğu gibi
+  gelirse tazeleme hemen bakıyor (`pageshow`), beş saniye eski durmuyor.
+
+## Deneme
+
+Playwright (Chromium), sahte veritabanı, 15 akış; dört kez: Navigation API
+var / yok × geri-ileri önbelleği açık / kapalı -- dördünde de 15 akış hatasız:
+- menüden Denüdasyon → ICSI → yumurta seç → iki kayıt → yeniden yükle → geri:
+  Denüdasyon, tedavi, hasta kartı, hasta kayıtları, ana ekran; tarayıcının
+  ileri tuşu hasta kayıtları;
+- hasta kartı → tedavi → Düzenle → kaydet → geri: hasta kartı; yeni tedavi →
+  kaydet → geri: hasta kartı; yeni hasta formu kayıtlı numarayla → hasta
+  kartı → geri: hasta kayıtları; hatalı sperm formu (aynı adreste POST
+  yanıtı) → geri: Cryo;
+- ana ekrandan arama → geri: ana ekran; hasta kayıtlarında arama → hasta kartı
+  → geri: sonuçlar → geri: aramasız → geri: ana ekran; Cryo arama → geri;
+- hasta kartı → Çöz · yeni FET → geri: hasta kartı; çöz, kaydet → tedavinin
+  çözme ekranı → geri: hasta kartı;
+- Cryo → kanister → tüp → geri: kanister, Cryo; ICSI kaydını silme onayı →
+  sil → geri: Denüdasyon; resmî form → geri: tedavi; kullanıcı düzenleme →
+  geri: Yönetici, ana ekran;
+- sekme doğrudan tedavi ekranıyla açıldı → geri: hasta kartı → geri: hasta
+  kayıtları, geçmiş büyümedi; ok ile tarayıcının geri / ileri tuşu karışık;
+  aynı adrese menüden tıklama;
+- kayıttan sonra önbellekten dönülen hasta kartı hemen tazelendi.
+46 ekran telefon boyunda iki yolda da JavaScript hatasız açıldı, hepsinde ok
+var (ana ekran hariç).
