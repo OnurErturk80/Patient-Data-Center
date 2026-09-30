@@ -3464,7 +3464,18 @@ def _tup_anlat(adaylar, alt) -> str:
             + " + ".join(adaylar[i]["etiket"] for i in alt))
 
 
-def _baglantilari_yeniden_sina() -> list:
+def _hasta_kosulu(hidler):
+    """`hidler` verilirse (hasta id'leri) FET sorgularının ek koşulu, yoksa boş.
+    Boş liste hiçbir FET'i tutmaz."""
+    if hidler is None:
+        return "", ()
+    hidler = tuple(hidler)
+    if not hidler:
+        return "AND 0 ", ()
+    return f"AND c.hasta_id IN ({','.join('?' * len(hidler))}) ", hidler
+
+
+def _baglantilari_yeniden_sina(hidler=None) -> list:
     """Tüpüne BAĞLANMIŞ aktarılmış FET'ler bugünkü tüplerle hâlâ tek seçenek
     mi? (v6.164) Döner: [(Access işareti, bağlı tüpler, öteki seçenekler)].
 
@@ -3473,8 +3484,9 @@ def _baglantilari_yeniden_sina() -> list:
     tarih sırasıyla aktarılsaydı "belirsiz" denirdi. Bağ çözülmüyor (FET'in
     kendi örnekleri silindi, tüpün yeri elle girilmiş olabilir); yalnızca
     söyleniyor, kullanıcı kâğıttan bakıyor ("belirsizi listele", v6.148).
-    Hiçbir şey yazmıyor."""
+    Hiçbir şey yazmıyor. `hidler`: yalnızca o hastaların FET'leri."""
     yer = ",".join("?" * len(FET_TIPLERI))
+    hasta_kosulu, hasta_par = _hasta_kosulu(hidler)
     b = _db.baglan()
     try:
         fetler = b.execute(
@@ -3482,10 +3494,10 @@ def _baglantilari_yeniden_sina() -> list:
             "MIN(o.zaman) FROM cycle c JOIN olay o ON o.thaw_cycle_id=c.id "
             "AND o.tip='thaw' AND o.iptal_mi=0 JOIN specimen s ON s.id=o.specimen_id "
             f"WHERE c.lab_id=? AND c.cycle_tipi IN ({yer}) "
-            "AND c.protokol_notu LIKE '%[Access kayd%' "
+            f"AND c.protokol_notu LIKE '%[Access kayd%' {hasta_kosulu}"
             "GROUP BY c.id HAVING SUM(s.cycle_id = c.id) = 0 "
             "AND SUM(o.thaw_tasiyici_id IS NULL) = 0 ORDER BY 6, c.id",
-            (_db.LAB_ID, *FET_TIPLERI)).fetchall()
+            (_db.LAB_ID, *FET_TIPLERI, *hasta_par)).fetchall()
         sonuc = []
         for cid, cno, tip, notu, hasta_id, t_cozme in fetler:
             cozulen = b.execute(
@@ -4657,7 +4669,7 @@ def _vt_satiri(b, cycle_id, tip) -> dict:
             "transfer_adet": len(yazimlar)}
 
 
-def butun_fetleri_bagla(yalnizca_ozet=False):
+def butun_fetleri_bagla(yalnizca_ozet=False, hidler=None):
     """Veritabanındaki BÜTÜN aktarılmış FET'leri tüpüne bağlamayı dener
     (v6.163, kullanıcının isteği: "aktardığım bütün tedavileri birbirine
     bağla ... her yeni aktarım yaptığımda eski kayıtlardan bağlantılı hasta
@@ -4671,16 +4683,18 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
     Kurallar aynı: tek eşleşme bağlanır, belirsiz ve tutmayan listelenir.
     Her aktarımın sonunda kendiliğinden çalışıyor (`aktar()`); ayrıca
     `bagla` kipi. Bağlı olana dokunmuyor, ikinci çalıştırma hiçbir şey
-    değiştirmez."""
+    değiştirmez. `hidler` verilirse yalnızca o hastaların FET'leri
+    (`hasta_birlestir.py benzer`, v6.234: birleşen kartlar)."""
     kid = _kullanici_id()
     yer = ",".join("?" * len(FET_TIPLERI))
+    hasta_kosulu, hasta_par = _hasta_kosulu(hidler)
     fetler = _db.sorgu(
         "SELECT c.id, c.cycle_no, c.cycle_tipi, c.protokol_notu, MIN(o.zaman) t "
         "FROM cycle c JOIN olay o ON o.thaw_cycle_id=c.id AND o.tip='thaw' "
         "AND o.iptal_mi=0 JOIN specimen s ON s.id=o.specimen_id AND s.cycle_id=c.id "
         f"WHERE c.lab_id=? AND c.cycle_tipi IN ({yer}) "
-        "AND c.protokol_notu LIKE '%[Access kayd%' "
-        "GROUP BY c.id ORDER BY t, c.id", (_db.LAB_ID, *FET_TIPLERI))
+        f"AND c.protokol_notu LIKE '%[Access kayd%' {hasta_kosulu}"
+        "GROUP BY c.id ORDER BY t, c.id", (_db.LAB_ID, *FET_TIPLERI, *hasta_par))
     sonuclar, eksik_aylar = [], []
     for f in fetler:
         m = re.search(r"\[Access kaydı\s+([^\]]+)\]",
@@ -4708,7 +4722,8 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
                 print(satir)
     bagli = sum(1 for _k, d in sonuclar if d == "bagli")
     elle = [(k, d) for k, d in sonuclar if d in ("belirsiz", "tutmuyor")]
-    print(f"\nBütün aktarılmış FET'ler: {len(fetler)} tanesi henüz tüpüne "
+    print(f"\n{'Bu hastaların' if hidler is not None else 'Bütün'} aktarılmış FET'leri: "
+          f"{len(fetler)} tanesi henüz tüpüne "
           f"bağlı değildi, {bagli} tanesi şimdi bağlandı, "
           f"{sum(1 for _k, d in sonuclar if d == 'yok')} tanesinin tüpü "
           f"programda yok (dondurma program öncesi).")
@@ -4723,7 +4738,7 @@ def butun_fetleri_bagla(yalnizca_ozet=False):
         for k, d in elle:
             print(f'  {k}  {"birden çok tüp seçeneği" if d == "belirsiz" else "dolu tüpler tutmuyor"}')
     # Önceden bağlanmış olanlar yeni gelen tüplerle hâlâ tek seçenek mi (v6.164)
-    simdi_belirsiz = _baglantilari_yeniden_sina()
+    simdi_belirsiz = _baglantilari_yeniden_sina(hidler)
     if simdi_belirsiz:
         print("Bağlı ama artık kesin değil -- sonradan gelen bir tüp de tutuyor, "
               "elle bakılmalı (Access kaydı: bağlı tüp | öteki seçenek):")

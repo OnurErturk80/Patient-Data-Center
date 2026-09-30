@@ -18479,3 +18479,92 @@ yer eskisi gibi onaylı. Sperm dondurma değişmedi.
   bağlama: tankta 2.781 embriyo Excel kaydının 564'ünün adı bir hastayla
   tutuyor; 69'u en az bir tedaviye bağlanabiliyor (hepsi değerlendirilmemiş
   embriyolara), 102 plan haritada olmayan tüp yüzünden duruyor, 80 tutmuyor.
+
+# v6.234 — Aynı hastanın numarası yanlış yazılmış kartları toplu birleşir
+
+Kullanıcı: "Dosya numaraları access ile gelen geçmiş hasta kayıtlarında eksik
+veya yanlış yazılma sorunu var. Bu da cryo harita eşleşmeleri gibi durumlarda
+sorun çıkarıyor. İsim soyad ve eş adı eşleşen ama dosya numaralarında bir kaç
+yanlış veya eksik olan hastaları birleştir."
+
+Aktarım hastayı yalnızca dosya numarasıyla tanıyor (v6.125). Access'te numarası
+bir kez eksik ya da yanlış yazılmış bir kayıt ikinci bir kart açmış: aynı
+hastanın dondurması bir kartta, çözmesi (FET) öbüründe. Sonuçları: FET tüpüne
+bağlanamıyor (tüp "dolu" kalıyor, formun "Kalan dondurulmuş"u yanlış), Cryo
+Haritası'nın Excel satırı iki aynı adlı kart arasında kalıyor ("aynı adlı
+birden çok hasta", bağlanmıyor).
+
+## `hasta_birlestir.py benzer`
+
+v6.215'in tek çift birleştirmesinin toplu kipi; birleştirmenin kendisi (tedavi,
+sperm dondurma, fotoğraf yolları, arşiv klasörü, eşin dosya no'su, boş alanlar,
+tarih sırası, değişiklik geçmişi) aynı işlevden, her çift kendi işleminde.
+
+- **Aday kullanıcının kuralı**: adı ve eşinin adı aynı (kelime kümesi, sıra
+  önemsiz; eş adı iki kartta da dolu), numaraları en çok 2 hane farklı
+  (`hane_farki()`: eksik, fazla, yanlış ya da bitişik iki hane yer
+  değiştirmiş; Damerau-Levenshtein). Üç kart zincirlenebiliyor (iki kartın
+  her biri öbür numaranın bir hanesini eksik yazmış). Geçici numaralar
+  (9000000001…, Cryo Excel'inden) dışarıda: yazılmış numara değil, ardışık
+  verildi.
+- **Hangi numara kalır** (`_yon()`) -- üç işaret, bulunanlar birbirini tutmalı:
+  1. programa **ekrandan** girilmiş kayıt (notunda Access ya da Cryo Excel
+     işareti olmayan tedavi / sperm dondurma; hiç kaydı olmayan kart da
+     ekrandan açılmış) yalnızca bir kartta;
+  2. **kayıt sayısı** (tedavi + sperm dondurma; silme ekranından iptal edilen
+     sayılmaz) çok olan: yanlış numara bir kez yazılmış;
+  3. **numaranın biçimi**: (hane sayısı, ilk iki hane) sınıfı programdaki
+     numaralar arasında en az 3 kat ve en az 5 numarada yaygın olan; sınıflar
+     küçükse yalnızca hane sayısı (`_bicim_isareti()`). Laboratuvarda birkaç
+     numara düzeni yan yana: "10" ile başlayan 9 hane (çoğu), "10"–"14" ile
+     başlayan 7 hane, "99" ile başlayan 8 hane, 6 hane; 10 ve 8 haneli "10…"
+     numaralar az (kopyada 6 ve 17) ve birleşen grupların çoğunda hane fazlası /
+     eksiği çıktı.
+  Hiçbiri yoksa (aynı biçim, eşit kayıt) ya da çelişiyorsa **birleştirilmez**:
+  iki yönün komutu yazılıyor ("doğrusu X ise: ..."), kullanıcı hastane
+  sisteminden bakıyor. Ekran işareti kayıt sayısını da biçimi de ezmiyor:
+  ekrandan açılmış tek kayıtlı kart ile üç Access kaydı olan kart çelişki
+  sayılıyor (hangisinin doğru yazıldığı bilinmiyor).
+- **Yalnızca listelenenler** (birleştirilmiyor, `hasta_birlestir_rapor.txt`):
+  adı aynı, numarası yakın ama eşinin adı farklı yazılmış ya da bir / iki
+  kartta yok; adı ve eşinin adı aynı ama numarası çok farklı. Kullanıcının
+  kuralı eş adının tutmasını istiyor; aynı hastaysa tek çift komutuyla.
+- `benzer` hiçbir şey yazmıyor; `benzer uygula` listeyi basıp "BIRLESTIR"
+  istiyor, önce bir kez `lab_ONCEKI_*.db`. `atla=<no>,<no>` o numaraların
+  gruplarını dışarıda bırakıyor (önizlemede de). Tek çiftin ENGEL'i (arşivde
+  aynı adlı dosya, tüp etiketi çakışması) o grubu atlatıyor, ötekiler sürüyor.
+  Tek çift kipi `sys.exit` yerine `Birlestirilemez` fırlatan aynı işlevleri
+  kullanıyor, davranışı değişmedi.
+- **Sonra bağlama**: birleşen hastaların aktarılmış FET'leri tüpüne
+  (`aktar_access.butun_fetleri_bagla(hidler=)`, `_baglantilari_yeniden_sina()`
+  de aynı süzgeçle; `bagla` kipinin kuralı) ve Cryo Haritası'ndaki Excel
+  kayıtları konumu boş tüpüne (`cryo_esle.excel_kayitlarini_bagla(hidler=)`,
+  aktarımın sonundaki adım). "BELİRSİZ" FET'e elle bakılıyor.
+- Ekranda hasta adı yok (dosya no, kayıt sayısı, farkın türü, sebep); adlar
+  `hasta_birlestir_rapor.txt`'de (`.gitignore`). Access düzeltme satırları
+  (`KAYNAK#KAYIT  DOSYA  eski  yeni`) raporun sonunda -- yalnızca aynı CSV
+  yeniden aktarılırsa gerekir.
+
+## Deneme
+
+- Deneme kopyası (1.823 hasta, hepsi Access'ten): adı ve eşinin adı aynı 31
+  grup; 2'sinde eş adı iki kartta da boş (yumurta dondurma hastaları, kuralda
+  değil), eş adı dolu 29 grubun hepsinde numara 1–2 hane farklı. 27 grup
+  birleşti (28 kart; bir grup üç kart: iki kartın her biri 7 haneli numaranın
+  başka bir hanesini eksik yazmış), 2 grup belirsiz (aynı biçim, eşit kayıt);
+  6 çift eş adı farklı / yok diye listelendi (hepsinin doğum tarihi aynı).
+  Silinen 28 kartın numarası: 1 hane eksik 14, 2 hane eksik 1, 1 hane fazla 8,
+  1 hane farklı 4, iki hane yer değiştirmiş 1. Üç grupta doğum tarihi de farklı
+  yazılmış (DİKKAT satırı).
+- Sonuç: hasta 1.823 → 1.795, tedavi 1.909 (değişmedi), 51 tedavinin sırası
+  tarihe göre yeniden; FET'lerden 7'si tüpüne bağlandı (dondurması öbür
+  karttaydı; 7 tüp "dolu"dan çıktı), 3'ü birden çok tüp seçeneğiyle "BELİRSİZ",
+  4'ü kopyada eksik aylar yüzünden ertelendi. Bu hastaların adıyla tutan 12
+  Excel kaydı birleştirmeden önce "aynı adlı birden çok hasta" idi, sonra tek
+  hastaya düşüyor (kopyada o günlerin tüpü yok, bağlanmadı). Yabancı anahtar ve
+  bütünlük denetimi temiz; birleşen 27 hastanın kartı, tedavileri ve iki resmî
+  formu açıldı. İkinci çalıştırma yalnızca 2 belirsizi listeledi.
+- Kurgu: bir karta ekrandan kayıt eklenince 7'ye 1 kayıtlı grup "işaretler
+  çelişiyor" oldu, eşit kayıtlı belirsiz grup ekran işaretiyle birleşti;
+  arşivde aynı adlı dosya olan grup ENGEL ile atlandı, `atla=` ile dışarıda
+  bırakılan grup birleşmedi, listede olmayan numara uyarıldı.

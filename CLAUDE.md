@@ -99,6 +99,11 @@ ekrandan giriyor, eski kayıtlara gerekirse elle) -- sorma.
 programda görünmüyor, kararı tüpün sayfasında; Excel kaydı tedaviye bağlanıyor
 (aşağıdaki "Cryo Haritası'nda olmayan tüp" ve "Tedaviye bağla"). Deneme
 kopyasında 514 tüp gizlendi; kullanıcının makinesinde kaç tane olduğu bilinmiyor.
+**v6.234**: kullanıcı numarası Access'te eksik / yanlış yazılmış kartların
+toplu birleşmesini istedi (adı ve eşinin adı aynı, numara 1–2 hane farklı):
+`python3 hasta_birlestir.py benzer` (liste) -> `benzer uygula`; kendi
+makinesinde çalıştırıyor -- çalıştırıp çalıştırmadığını ve belirsiz grupların
+hangi yönünü seçtiğini sor. Deneme kopyasında 28 kart birleşti, 2 grup belirsiz.
 Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -3257,7 +3262,15 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   dolar, kart silinir (alanları günlükte "BIRLESTIRME"); önce
   `lab_ONCEKI_*.db`. Hastayı KULLANICI söyler: araç ad / eş / doğum tarihinin
   tutup tutmadığını gösterir, karar vermez; aynı gün aynı tipte iki tedaviyi
-  birleştirmez, uyarır. **Yeni bir tabloya `hasta_id` eklersen bu araca da
+  birleştirmez, uyarır. **Toplu kip `benzer`** (v6.234, README v6.234): aday
+  adı ve eşinin adı aynı (eş adı dolu), numarası en çok 2 hane farklı
+  (`hane_farki()`); kalacak numara üç işaretten (ekrandan girilmiş kayıt,
+  kayıt sayısı, numaranın biçimi -- `_yon()`), işaretler çelişiyorsa ya da
+  yoksa birleştirmez, iki yönün komutunu yazar. Eş adı farklı / boş ve numarası
+  çok farklı olanlar yalnızca raporda. Sonra birleşenlerin FET'leri ve Excel
+  kayıtları tüpüne (`butun_fetleri_bagla(hidler=)`,
+  `excel_kayitlarini_bagla(hidler=)`). Kuralı gevşetme (eş adsız, doğum tarihi
+  ile) -- kullanıcıya sormadan. **Yeni bir tabloya `hasta_id` eklersen bu araca da
   ekle** (bugün yalnızca `cycle` ve `sperm_dondurma`): eklenmezse kart
   silinirken FOREIGN KEY hatası, işlem geri alınır, araç çalışmaz. Kartın
   numarası yazılı yeni bir yer (yol, etiket) eklersen de.
@@ -4141,7 +4154,10 @@ erkek) ve o çiftteki erkeğin sperm dondurması aynı satıra
 bir tablo ya da arama değil, var olan yabancı anahtarın okunması.
 - **`ad_soyad` ↔ `es_adi` karşılaştırması yazma.** Teknik olarak mümkün
   ama ad benzerliği kesin değil ve yanlış hasta bu işin en pahalı hatası.
-  Kullanıcı iki kez "dosya numarası üzerinden" dedi.
+  Kullanıcı iki kez "dosya numarası üzerinden" dedi. Tek istisna kullanıcının
+  kendi kuralı, yalnızca bir araçta: `hasta_birlestir.py benzer` (v6.234) adı
+  VE eşinin adı aynı, numarası en çok 2 hane farklı kartları birleştiriyor.
+  Bu ölçüyü başka bir yere (aktarım, ekran, Cryo eşleştirmesi) taşıma.
 - **Paylaşılan iki yardımcı**: `dosya_no_sahibi(dosya_no)` (kim + tedavi
   sayısı + sperm sayısı) ve `hastanin_sperm_kayitlari(hasta_id,
   yalnizca_bagsiz=False)`. Üç ekran da bunları çağırıyor, sorgu

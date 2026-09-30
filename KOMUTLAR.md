@@ -1001,6 +1001,41 @@ karttaydıysa) ve Haritadan yer tamamla (konumu girilmemiş tüp varsa).
 Yalnızca numara yanlışsa ve doğru numara hiç kayıtlı değilse birleştirme
 değil numara değişikliği: `python3 dosya_no_degistir.py <eski> <yeni>`.
 
+### Hepsi birden: adı ve eşinin adı aynı, numarası 1–2 hane farklı (v6.234)
+
+Access'ten gelen kayıtlarda numarası eksik ya da yanlış yazılmış kartları
+program kendisi bulur: **adı ve eşinin adı aynı** (eş adı iki kartta da
+yazılı), **numaraları en çok 2 hane farklı** (eksik, fazla, yanlış ya da yer
+değiştirmiş hane).
+
+```
+python3 hasta_birlestir.py benzer                   # listeler, hiçbir şey yazmaz
+python3 hasta_birlestir.py benzer uygula            # "BIRLESTIR" yazınca hepsini birleştirir
+python3 hasta_birlestir.py benzer uygula atla=<no>,<no>   # o numaraların gruplarını dışarıda bırakır
+```
+
+Hangi numaranın kalacağını program şu üçüne bakarak seçer; ikisi ya da üçü
+birbirini tutmalı:
+- programa **ekrandan** girilmiş kayıt (Access'ten değil) hangi numaradaysa,
+- **daha çok kaydı** (tedavi + sperm dondurma) olan numara,
+- **biçimi** programdaki numaraların çoğuna uyan numara (örneğin "10" ile
+  başlayan 9 haneli numaralar arasında 10 hanelisi fazla, 8 hanelisi eksik
+  yazılmış).
+
+Hiçbiri ayırmıyorsa ya da çelişiyorsa **birleştirmez**: iki yönün komutunu
+yazar ("doğrusu X ise: ..."). Hastane sisteminden bakıp doğru olanı
+çalıştırın. Eş adı farklı yazılmış ya da hiç yazılmamış kartlar ve numarası
+çok farklı olanlar da birleştirilmez, yalnızca sayısı ekranda, kendileri
+`hasta_birlestir_rapor.txt`'de (hasta adlarıyla -- paylaşmayın). Aynı
+hastaysa yukarıdaki tek çift komutuyla birleştirin.
+
+`uygula` önce bir kez `lab_ONCEKI_<zaman>.db` kopyası alır, sonra her çifti
+tek çift gibi birleştirir. Ardından birleşen hastaların Access FET'lerini
+tüpüne ve Cryo Haritası'ndaki Excel kayıtlarını tüpüne bağlamayı kendisi
+dener (iki kartta ayrı duran dondurma ve çözme artık aynı hastada);
+"BELİRSİZ" yazan FET'e elle bakın. İkinci çalıştırma yalnızca belirsizleri
+listeler.
+
 ---
 
 ## Aynı hastanın iki tedavisi — birleştirme (v6.228)
