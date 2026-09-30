@@ -2165,6 +2165,9 @@ METINLER = {
     "iy_kaydedilemedi": {"tr": "Kaydedilemedi. Kaydet düğmesine basın.",
                          "en": "Could not save. Press Save."},
     "opu_hekimi": {"tr": "OPU Hekimi", "en": "OPU Physician"},
+    # Hekim menüsü (v6.231): varsayılan hekim + "Diğer" (ad elle yazılır).
+    "hekim_diger": {"tr": "Diğer (elle yaz)", "en": "Other (type the name)"},
+    "hekim_adi": {"tr": "Hekimin adı", "en": "Physician's name"},
 
     # ---- örnek ızgarası ve bilgi kartı (her aşamada aynı düzen) ----
     "oosit_ekle": {"tr": "Yumurta ekle", "en": "Add oocyte"},
@@ -2202,6 +2205,15 @@ METINLER = {
               "olabilir. Yeni kayıt oluşturulmadı.",
         "en": "The frame was not found in the source folder — it may have "
               "been moved or deleted. No new record was created."},
+    # v6.231: Yumurta Dondurma'nın maturasyonu, yumurta başka bir tedavi için
+    # çözüldükten sonraki bir saate yazılamaz (o tedavinin kaydı olurdu).
+    "denudasyon_mat_cozmeden_sonra": {
+        "tr": "Kaydedilmedi: bu yumurta bu saatten önce başka bir tedavi için "
+              "çözülmüş. Denüdasyondaki değerlendirmenin saati çözmeden önce "
+              "olmalı.",
+        "en": "Not saved: this egg was thawed for another treatment before "
+              "this time. The denudation assessment must be timed before "
+              "the thaw."},
 
     # ---- ana ekran ----
     # Hasta adlari bu ekranda YOK: program acikken ekrana bakan herkes

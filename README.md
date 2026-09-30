@@ -18127,3 +18127,110 @@ söylüyor (`sablon_duzeltilen`).
 - Aynı kopyada program açıldı: kart "13 straw'ın HÜCRE'si tedavinin kaydına
   göre yazıldı" dedi, indirilen dosya ve veri klasöründeki dosya aynı, açılıyor,
   günlükte hata yok. Küçük tohumun bütün denemeleri (v6.228–v6.229) geçti.
+
+# v6.231 — Hekim menüsü, Yumurta Dondurma'da maturasyon, telefonda ana ekran
+
+Kullanıcı (2026-09-30): *"Hekim ismi yazılan her yerde sabit Mete Çağlar
+olsun. Hep onu göstersin. Farklı birini istersek açılır menüden diğer seçip
+elle yazabilelim. yumurta dondurmada denüdasyon da yazılan matürasyon küçük
+singelerde ICSI deki gibi görünsün. Vitrifikasyonda da maturasyonu görüp ona
+göre dondurma için seçelim. Mobilde ana sayfada devam eden tedaviler bugün
+bitenler ve yaklaşan tedaviler aramanın altında görünsün."*
+
+## Hekim: varsayılan hekim seçili açılır menü
+
+Programda hekim adı yalnızca OPU ekranında giriliyor (`cycle.opu_hekim`,
+goc_025); Embriyoloji Özet'in "OPU KLİNİSYEN"i, ART Lab'ın "Hekimler: OPU"su
+ve tedavinin Excel'i oradan basılıyor. Alan artık açılır menü: **Mete Çağlar**
+seçili geliyor, **"Diğer (elle yaz)"** seçilince altında yazı kutusu açılıyor.
+
+- **Kaydedilen hep yazı kutusu** (`opu_hekim`, adı değişmedi). Menü yalnızca
+  onu dolduruyor: varsayılanda kutu gizli ve varsayılan adı taşıyor, Diğer'de
+  açılıyor (Diğer'de yazılan ad menü varsayılana dönüp yeniden Diğer denirse
+  geri geliyor). Sunucunun kaydı değişmedi. Böylece betiksiz tarayıcı (menü
+  gizli, kutu varsayılanla açık) ve `git pull`'dan sonra yeniden başlatılmamış
+  program (tuzak #5: şablon `hekim_secimi is defined` diye soruyor, eski
+  kutuyu basıyor) aynı alanı yazıyor -- ikisi de denendi.
+- **Menünün hali `db.hekim_secimi(kayitli)`**: kayıt boşsa ya da varsayılanın
+  kendisiyse (büyük/küçük harf ve boşluk farkı sayılmıyor) varsayılan; başka
+  bir ad "Diğer" ve kutuda olduğu gibi.
+- **Eski kayıtlara dokunulmadı.** Access'ten gelen kayıtlarda başka hekimlerin
+  adları ve kısaltmalar ("M ÇAĞLAR" gibi) var: Düzenle'de "Diğer" ve olduğu
+  gibi görünüyorlar. Program kısaltmanın kim olduğunu tahmin edip değiştirmiyor.
+  Hekimi boş eski bir kaydın OPU'su Düzenle ile açılırsa menü varsayılan seçili
+  geliyor, kaydedilirse yazılıyor -- "İşlemi yapan"ın kuralı (v6.208): ekranda
+  görünen kaydedilen. Bilgi kartı ve formlar kayıtlı olanı basıyor, boş kayda
+  ad uydurulmuyor. FET tiplerinde OPU yok, hekim alanı da yok.
+- **Ad laboratuvarın, kodun değil**: `ayarlar.varsayilan_hekim`
+  (`db.varsayilan_hekim()`). `goc_060` anahtar yoksa "Mete Çağlar" yazıyor
+  (INSERT OR IGNORE); yeni kurulum (`kurulum.ayarlar()`) anahtarı boş açıyor,
+  göç ona dokunmuyor -- başka bir laboratuvarın yeni kurulumuna bu
+  laboratuvarın hekimi girmesin (ticari dağıtım, v6.41: o gün kod
+  değişmemeli). Boşsa alan eskisi gibi düz yazı kutusu. Ekrandan değiştirme
+  yok (istenmedi).
+- Resmî formların **TRANSFER KLİNİSYEN** / "ET" kutusu hâlâ boş: programda
+  transfer hekimi tutulmuyor (v6.37'nin "karşılığı olmayan alan boş kalır"
+  kuralı). Kullanıcıya soruldu.
+
+## Yumurta Dondurma: denüdasyon şeridinde maturasyon
+
+Yumurta Dondurma'da maturasyon denüdasyon ekranında soruluyor (v6.96). Numara
+şeridi artık ICSI'dekinin aynısı: "3-MII", "4-GV", "5-Dej." (`mat_kisa()`,
+v6.139), değerlendirilmiş kutu yeşil, dejenere kırmızı. Bu tipte kutucuk
+önceden over'ı (Sağ/Sol) yazıyordu; over altta ("Yumurta 3 Sağ") ve bilgi
+kartında. IVF/ICSI'nin denüdasyon şeridi değişmedi.
+
+**Yolda bulunan hata.** Yumurta sonra bir Yumurta Çözme'de çözülünce ICSI
+ekranında ikinci bir maturasyon kaydı açılıyor (v6.147), o da yumurtanın kendi
+olay satırı. Yumurta Çözme'nin ICSI ekranı yalnızca kendi kaydını okuyordu
+(`_tedavi_ek()`), ama denüdasyon ekranı "en son kaydı" okuyup güncelliyordu:
+çözmeden sonra denüdasyonda maturasyon düzeltmek Yumurta Çözme'nin kaydının
+üzerine yazıyordu, form da onu gösteriyordu. Artık şerit, form ve kayıt yalnızca
+**bu tedavinin** kaydını soruyor (`_denudasyon_mat_kosulu()` =
+`db.bu_tedavide()`). Yumurtanın başka bir tedavi için çözüldüğü andan sonraki
+bir saate yazılan değerlendirme reddediliyor, sebebi ekranda
+(`hata=denudasyon_mat_cozmeden_sonra`, `_baska_tedavide_cozulmus()`): o saatteki
+kayıt `db.olay_tedavisi()`'ne göre öteki tedavinin olurdu -- `_cozmeden_once()`'nin
+(v6.147) ters yönü.
+
+## Vitrifikasyonda yumurtanın maturasyonu
+
+Yumurta Dondurma'nın vitrifikasyon ekranında aday satırı artık yumurtanın
+maturasyonunu yazıyor ("Yumurta 3 · MI", kalın; önceden hepsi
+"değerlendirilmemiş" diyordu), "Dondurulmuş" kartında da "Maturasyon" satırı
+var (yumurtanın skoru olmaz: "Skor" satırı yalnızca varsa). Ölçü denüdasyonun
+şeridiyle ve dondurma süzgeciyle (`_dondurulmayan_yumurta()`, v6.208: GV,
+dejenere, atretik aday değil) aynı: `_bu_tedavinin_maturasyonu()`, tek alt
+sorgu. Embriyo donduran tiplerde değişiklik yok.
+
+## Telefonda ana ekran: tedaviler aramanın altında
+
+Telefonun menü ızgarası (`.anadugmeler`, v6.195'te arama kutusunun altına
+çıkmıştı) artık üç tedavi kartının (ve varsa PGT kartının) altında, özetin
+üstünde. Sıra: arama → Devam Eden / Bugün Biten / Yaklaşan Tedaviler →
+menü → özet. Menü üst çubuktaki menü düğmesinden de açılıyor (v6.195),
+kaydırmadan ulaşılıyor. Geniş ekranda ızgara zaten gizli: masaüstü değişmedi.
+
+## Deneme
+
+- Küçük tohum (`goc_060` çalıştı, "Mete Çağlar" yazıldı): OPU'su olmayan
+  tedavide menü varsayılanda; başka bir hekimin adı "Diğer" + kutuda; "mete
+  çağlar" (küçük harf, çift boşluk) varsayılan; hekimi boş eski kayıtta bilgi
+  kartı boş, Düzenle'de varsayılan. Kayıt, Özet ve ART Lab formları doğru adı
+  basıyor.
+- Tarayıcıda (telefon 390 px ve masaüstü): Diğer'e geçince kutu açılıp
+  odaklanıyor, geri dönüşte yazılan ad saklanıyor, kayıt menünün gösterdiğini
+  yazıyor; betik kapalıyken menü gizli, kutu "Mete Çağlar" ile açık; sayfalar
+  yatay taşmıyor, konsolda hata yok.
+- Yumurta Dondurma'da 6 yumurta (MII, MII, MI, GV, dejenere, değerlendirilmemiş),
+  1-2 dondurulup bir Yumurta Çözme'de çözüldü ve ICSI ekranında yeniden
+  değerlendirildi (1: MI): denüdasyon şeridi "1-MII" diyor (Yumurta Çözme'nin
+  MI'ı değil), düzeltme yalnızca kaynağın kaydını değiştirdi, çözmeden sonraki
+  saat reddedildi, Yumurta Çözme'nin ICSI şeridi kendi MI'ını gösteriyor.
+  Vitrifikasyonda adaylar 3 (MI) ve 6 (değerlendirilmemiş), GV ve dejenere
+  gizli, dondurulmuş kartlar MII.
+- Ana ekran: telefonda arama < üç kart < menü (ölçüldü), masaüstünde menü gizli
+  ve üç kart yan yana.
+- Eski program (v6.230) + yeni şablonlar: OPU düz kutu, şerit ve vitrifikasyon
+  eski halinde, hata yok. Yeni kurulum: `varsayilan_hekim` boş kaldı, alan düz
+  kutu.

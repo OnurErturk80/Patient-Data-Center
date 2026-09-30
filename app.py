@@ -455,6 +455,8 @@ sablon.env.globals["pgt_acik"] = db.pgt_acik
 sablon.env.globals["pgt_oku"] = db.pgt_oku
 sablon.env.globals["pgt_secenekleri"] = db.pgt_secenekleri
 sablon.env.globals["pgt_bandi"] = db.pgt_bandi
+# Hekim alanı (v6.231): varsayılan hekim seçili açılır menü + "Diğer" (elle).
+sablon.env.globals["hekim_secimi"] = db.hekim_secimi
 
 
 def bos_ise_none(deger):
@@ -4298,8 +4300,35 @@ from fastapi.responses import FileResponse, Response
 
 # Adresten gelen hata anahtarı doğrudan sözlüğe verilmez: `metin()` bulamadığı
 # anahtarı olduğu gibi döndürüyor, yani ?hata=... ile ekrana istenen yazı
-# yazdırılabilirdi. Yalnızca bu iki anahtar geçerli.
-DENUDASYON_HATALARI = {"kare_zaten_kaydedilmis", "kare_bulunamadi"}
+# yazdırılabilirdi. Yalnızca bu anahtarlar geçerli.
+DENUDASYON_HATALARI = {"kare_zaten_kaydedilmis", "kare_bulunamadi",
+                       "denudasyon_mat_cozmeden_sonra"}
+
+
+def _denudasyon_mat_kosulu(cycle_id, o) -> str:
+    """Yumurta Dondurma'nın denüdasyon maturasyonu: kayıt BU tedavide mi (v6.231).
+
+    Yumurta sonra bir Yumurta Çözme'de çözülünce ICSI ekranında ikinci bir
+    maturasyon kaydı açılıyor (v6.147), o da yumurtanın KENDİ olay satırı.
+    Denüdasyon ekranı "en son kaydı" okuyup güncelliyordu: çözmeden sonra
+    burada yapılan bir düzeltme çözme tedavisinin kaydının üzerine yazıyordu.
+    Şerit, form ve kayıt aynı koşulu soruyor (`db.bu_tedavide()`).
+    """
+    return db.bu_tedavide(cycle_id, o)
+
+
+def _baska_tedavide_cozulmus(specimen_id, cycle_id, zaman) -> bool:
+    """Bu saatten önceki son çözme başka bir tedavi için mi (v6.231).
+
+    O saatte yazılan değerlendirme `db.olay_tedavisi()`'ne göre o tedavinin
+    sayılır; denüdasyon ekranı onu göremez, her kayıtta yeni bir tane açardı
+    (`_cozmeden_once()`'nin ters yönü). Göç (goc_024) yoksa soru yok."""
+    if not db.kolon_var("olay", "thaw_cycle_id"):
+        return False
+    t = db.tek("SELECT COALESCE(thaw_cycle_id, cycle_id) tid FROM olay "
+               "WHERE specimen_id=? AND tip='thaw' AND iptal_mi=0 AND zaman <= ? "
+               "ORDER BY zaman DESC, id DESC LIMIT 1", (specimen_id, str(zaman)))
+    return bool(t) and t["tid"] != cycle_id
 
 
 @uygulama.get("/cycle/{cycle_id}/denudasyon")
@@ -4314,13 +4343,19 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
     )
     bekleyen = goruntuler.bekleyen_dosyalar()
+    # Yumurta Dondurma'da maturasyon bu ekranda soruluyor (v6.96); numara
+    # şeridi onu ICSI'deki gibi yazıyor (v6.231, kullanıcının isteği:
+    # "denüdasyonda yazılan matürasyon küçük simgelerde ICSI'deki gibi
+    # görünsün"). Yalnızca BU tedavinin kaydı (`_bu_tedavinin_maturasyonu()`).
+    yumurta_dondurma = bool(c) and c["cycle_tipi"] == "oosit_cryo"
+    mat_sql = _bu_tedavinin_maturasyonu(cycle_id) if yumurta_dondurma else "NULL"
     kayitli = db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.taraf, "
         "  (SELECT COUNT(*) FROM goruntu g WHERE g.specimen_id = s.id) AS kare, "
         "  (SELECT g.id FROM goruntu g WHERE g.specimen_id = s.id "
         "   ORDER BY g.id LIMIT 1) AS ilk_goruntu, "
         "  (SELECT group_concat(g.id) FROM goruntu g WHERE g.specimen_id = s.id) "
-        "  AS goruntu_idler "
+        f"  AS goruntu_idler, {mat_sql} AS mat "
         "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no", (cycle_id,)
     )
     son = db.tek(
@@ -4341,10 +4376,11 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
     # (kullanıcının isteği). ivf_icsi'de bu ekranda gösterilmiyor -- o
     # değerlendirme zaten ICSI ekranında, iki yerde aynı soruyu sormamak için.
     mat, secili_bulgular = None, set()
-    if sp and c["cycle_tipi"] == "oosit_cryo":
+    if sp and yumurta_dondurma:
         mat = db.tek(
             "SELECT * FROM olay WHERE specimen_id=? AND tip='maturasyon_kontrolu' "
-            "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sp["id"],)
+            "AND iptal_mi=0 AND " + _denudasyon_mat_kosulu(cycle_id, "olay") +
+            " ORDER BY id DESC LIMIT 1", (sp["id"],)
         )
         secili_bulgular = {r["bulgu_kodu"] for r in db.sorgu(
             "SELECT bulgu_kodu FROM specimen_bulgu WHERE specimen_id=? AND asama='denudasyon'",
@@ -8125,13 +8161,25 @@ def _dondurulmayan_yumurta(cycle_id) -> str:
     """
     cid = int(cycle_id)
     kodlar = ", ".join(f"'{k}'" for k in DONDURULMAYAN_OLGUNLUK)
-    return ("COALESCE((SELECT m.mat_deger FROM olay m "
-            "WHERE m.specimen_id = s.id AND m.tip = 'maturasyon_kontrolu' "
-            f"AND m.iptal_mi = 0 AND {db.bu_tedavide(cid, 'm')} "
-            f"ORDER BY m.zaman DESC, m.id DESC LIMIT 1), '') IN ({kodlar}) "
+    return (f"COALESCE({_bu_tedavinin_maturasyonu(cid)}, '') IN ({kodlar}) "
             "AND NOT EXISTS (SELECT 1 FROM olay v WHERE v.specimen_id = s.id "
             "AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
             f"AND {db.vit_tedavisi('v')} = {cid})")
+
+
+def _bu_tedavinin_maturasyonu(cycle_id, s="s") -> str:
+    """Yumurtanın BU tedavideki son maturasyonu -- alt sorgu, `mat_deger` (v6.231).
+
+    Yumurta Dondurma'da maturasyon denüdasyonda soruluyor (v6.96). Aynı ölçüyü
+    üç yer soruyor: denüdasyonun numara şeridi, vitrifikasyonun satırları ve
+    dondurma süzgeci (`_dondurulmayan_yumurta()`) -- ekranda görünen ile
+    süzgecin baktığı ayrı düşmesin. Yumurta Çözme'nin ICSI maturasyonu (v6.147)
+    sayılmıyor (`_denudasyon_mat_kosulu()`). `s`: dış sorgunun specimen takma
+    adı; alt sorgunun kendi adı `m`."""
+    return (f"(SELECT m.mat_deger FROM olay m WHERE m.specimen_id = {s}.id "
+            "AND m.tip = 'maturasyon_kontrolu' AND m.iptal_mi = 0 AND "
+            + _denudasyon_mat_kosulu(int(cycle_id), "m") +
+            " ORDER BY m.zaman DESC, m.id DESC LIMIT 1)")
 
 
 def _vit_adaylari(c) -> tuple:
@@ -8258,6 +8306,11 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         # yalnızca kendi tedavisinde tekil (v6.62) -- satırda kaynağı da yaz.
         "  (SELECT kc.cycle_no FROM cycle kc WHERE kc.id=s.cycle_id) "
         "  AS kaynak_cycle_no, "
+        # Yumurta Dondurma'da satır yumurtanın maturasyonunu yazıyor (v6.231,
+        # kullanıcı: "Vitrifikasyonda da maturasyonu görüp ona göre dondurma
+        # için seçelim"): denüdasyonda girilen, bu tedavinin kaydı.
+        + (_bu_tedavinin_maturasyonu(cycle_id) if db.yumurta_mi(c["cycle_tipi"])
+           else "NULL") + " AS mat, "
         # Kareler (v6.185): embriyoda yumurta/zigot karesi yok; yumurta
         # (Yumurta Dondurma, IVF/ICSI'de dondurulmuş aktarılmış yumurta)
         # eskisi gibi (`ornek_kareleri_sql()`).
@@ -12206,9 +12259,19 @@ async def oosit_degerlendirme_kaydet(request: Request, specimen_id: str):
 
     mat = f.get("mat_deger") or None
     if mat:
+        # Başka bir tedavi için çözüldükten sonraki saat o tedavinin kaydı
+        # olurdu (v6.231): reddet, sebebini yaz. Dönüş sunucuda kuruluyor.
+        if _baska_tedavide_cozulmus(specimen_id, sp["cycle_id"], simdi):
+            return RedirectResponse(
+                f"/cycle/{sp['cycle_id']}/denudasyon?duzenle=oosit"
+                f"&oosit={sp['cycle_sira_no']}&hata=denudasyon_mat_cozmeden_sonra",
+                status_code=303)
+        # Güncellenen BU tedavinin kaydı (v6.231): Yumurta Çözme'nin ICSI
+        # maturasyonu ezilmesin.
         olay_kaydet_veya_guncelle(
             specimen_id, sp["cycle_id"], "maturasyon_kontrolu",
             {"mat_deger": mat}, kid, simdi,
+            ek_kosul=_denudasyon_mat_kosulu(sp["cycle_id"], "olay"),
         )
 
     yeni_bulgular = set(f.getlist("bulgu"))

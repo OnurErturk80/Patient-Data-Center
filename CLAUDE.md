@@ -455,6 +455,13 @@ görünmüyor.
   tedavide dondurulmamış yumurta; ekran ve kayıt aynı koşul (`_vit_adaylari()`,
   `db.yumurta_mi(tip)` olan tip). Dondurulmuşu kalır. **MI listede**:
   kullanıcı yalnızca bu üçünü söyledi, MI'ı sormadan ekleme.
+- **Satır yumurtanın maturasyonunu yazıyor** (v6.231, kullanıcı:
+  "Vitrifikasyonda da maturasyonu görüp ona göre dondurma için seçelim"):
+  aday satırında "Yumurta 3 · MI", "Dondurulmuş" kartında "Maturasyon"
+  satırı (yumurtada "Skor" yalnızca varsa). Ölçü süzgecinkiyle aynı alt sorgu,
+  `_bu_tedavinin_maturasyonu()`: ekranda görünen ile süzgecin baktığı ayrı
+  düşmesin. Yalnızca `db.yumurta_mi(tip)` olan tipte; `e.mat` tanımsızsa
+  (eski program) satır basılmıyor.
 - **Vitrifikasyon ekranı `oosit_cryo` ile de paylaşılıyor — orada bu süzgeç
   UYGULANMAZ.** `oosit_cryo`'da maturasyon denüdasyonda değerlendiriliyor
   (aşağıdaki madde) ve ICSI aşaması hiç yok; `_ICSI_YAPILMADI` orada **her**
@@ -476,6 +483,19 @@ ayrılıyor. Denüdasyon ekranı bu bölümü yalnızca `c.cycle_tipi ==
 'oosit_cryo'` iken basıyor — `ivf_icsi`'de aynı soru iki yerde
 sorulmasın diye. Yeni bir `FET_TIPLERI` dışı cycle tipi eklersen ve o
 tipte de ICSI aşaması yoksa aynı ihtiyaç doğar, aynı deseni kullan.
+- **Numara şeridi maturasyonu ICSI'deki gibi yazıyor** (v6.231, kullanıcının
+  isteği): "3-MII", değerlendirilmiş yeşil, dejenere kırmızı; bu tipte over
+  (Sağ/Sol) şeritte değil, altta ve bilgi kartında. IVF/ICSI'nin denüdasyon
+  şeridi değişmedi (over, `dolu` = fotoğraflı).
+- **Şerit, form ve kayıt yalnızca BU tedavinin maturasyonu**
+  (`_denudasyon_mat_kosulu()` = `db.bu_tedavide()`, alt sorgu
+  `_bu_tedavinin_maturasyonu()`). v6.231'e kadar "en son kayıt" okunup
+  güncelleniyordu: yumurta Yumurta Çözme'de çözülüp ICSI'de yeniden
+  değerlendirilince (v6.147) denüdasyondaki düzeltme o tedavinin kaydını
+  eziyordu. Başka tedavi için çözüldükten sonraki bir saate yazılan
+  değerlendirme reddediliyor (`_baska_tedavide_cozulmus()`,
+  `hata=denudasyon_mat_cozmeden_sonra`). Aynı olay tipini iki tedavinin yazdığı
+  yeni bir ekranda "en son kayıt" yazma, tedaviye sor.
 
 **`fet`, `fet_kultur` ve `yumurta_cozme`'de dondurulan örnek BU cycle'dan
 gelmez** — `FET_TIPLERI` sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)`
@@ -526,8 +546,10 @@ Yumurta Dondurma; ekranlar onu `db.tedavi_ornekleri()` ile buluyor.
   Dondurma, v6.96) ve çözmeden sonra ICSI ekranında. ICSI ekranı yalnızca
   BU tedavinin maturasyonunu okuyor ve güncelliyor (`_tedavi_ek()`,
   `db.olay_tedavisi()` üzerinden); kaynağınki ezilmiyor, kaynağın özeti ve
-  formu değişmiyor. FET tipinde kaynağında da bulunabilen bir olay tipini
-  okuyan/yazan yeni bir ekran yazarsan aynı süzgeci kullan.
+  formu değişmiyor. v6.231'den beri ters yön de: kaynağın denüdasyon ekranı
+  yalnızca kendi kaydını (`_denudasyon_mat_kosulu()`). FET tipinde kaynağında
+  da bulunabilen bir olay tipini okuyan/yazan yeni bir ekran yazarsan aynı
+  süzgeci kullan -- kaynağın ekranında da.
 - **İşlem saati bu tedavideki çözmeden önce olamaz** (`_cozmeden_once()`,
   FET tiplerinin dört aşama POST'unda). Reddedilir, ekrana sebebi ve çözme
   saati yazılır (`?hata=cozmeden_once`, `ASAMA_HATALARI` beyaz listesi —
@@ -2073,8 +2095,11 @@ tarzı"). Düğme (`#menudugme`, `base.html`) yeni bir menü açmıyor, sayfadak
 panel yapıyor (`body.menuacik`). Menü öğesi eklersen yalnızca `_gezinme.html`'e
 ekle, panel kendiliğinden gösterir. `.yanmenu` olmayan ekranda düğme gizli.
 - **Alt alta düğme yığını yerine `.dugmeizgara`** (iki sütun, `.genis` iki
-  sütunu kaplar): ana ekranın telefon menüsü (arama kutusunun hemen altında,
-  sayfanın dibinde DEĞİL), tedavi ekranının aşama düğmeleri, yönetici paneli.
+  sütunu kaplar): ana ekranın telefon menüsü (v6.195'te arama kutusunun hemen
+  altındaydı; v6.231'den beri üç tedavi kartının ve PGT kartının ALTINDA,
+  özetin üstünde -- kullanıcı: "Mobilde ana sayfada devam eden tedaviler bugün
+  bitenler ve yaklaşan tedaviler aramanın altında görünsün"; sayfanın dibinde
+  DEĞİL), tedavi ekranının aşama düğmeleri, yönetici paneli.
   Telefonda sayfayı uzatan yeni bir düğme yığını yazarsan bunu kullan.
 
 **Menü artık her yerde olduğu için genişleyen ekranlar `yanmenusuz` değil
@@ -3890,6 +3915,31 @@ Bu kararı gevşetme (README v6.11).
 (`asama='opu'`). `UNIQUE(cycle_id, asama)` aşama başına tek kişi demek; ikinci
 bir kişi gerekiyorsa onu bu kısıtı gevşeterek değil, cycle verisi olarak ekle
 (README v6.9).
+
+**Hekim alanı varsayılan hekim seçili açılır menü** (v6.231, README v6.231;
+kullanıcı: "Hekim ismi yazılan her yerde sabit Mete Çağlar olsun. Hep onu
+göstersin. Farklı birini istersek açılır menüden diğer seçip elle
+yazabilelim"). Programda hekim adı yalnızca OPU ekranında giriliyor; formlar
+ve Excel kayıtlı olanı basıyor.
+- **Kaydedilen hep yazı kutusu `opu_hekim`**, menü (`opu_hekim_secim`, adı
+  yok) yalnızca onu dolduruyor; sunucunun kaydı değişmedi. Betiksiz tarayıcı
+  ve yeniden başlatılmamış program (`hekim_secimi is defined`, tuzak #5) aynı
+  alanı yazıyor. Menüye kayıt mantığı taşıma.
+- Hali `db.hekim_secimi(kayitli)`: boş ya da varsayılanın kendisi (büyük/küçük
+  harf, boşluk farkı sayılmıyor) → varsayılan; başka ad → "Diğer", olduğu gibi.
+  **Eski kayıtlara dokunma**: Access'ten gelen başka hekim adları ve
+  kısaltmalar ("M ÇAĞLAR") "Diğer"de kalıyor, program kimin olduğunu tahmin
+  etmiyor. Boş eski kayıt Düzenle'de varsayılanla açılıyor (v6.208'in
+  "ekranda görünen kaydedilen" kuralı); bilgi kartı ve formlar boş kayda ad
+  uydurmuyor.
+- **Ad laboratuvarın, kodun değil**: `ayarlar.varsayilan_hekim`
+  (`db.varsayilan_hekim()`). `goc_060` yalnızca anahtar yoksa yazıyor; yeni
+  kurulum (`kurulum.ayarlar()`) anahtarı BOŞ açıyor, göç ona dokunmuyor. Başka
+  bir laboratuvara bu laboratuvarın bir adını (kişi, kurum) veren yeni bir
+  varsayılan yazarsan aynı yolu izle. Ekrandan değiştirme yok (istenmedi).
+- Transfer hekimi (Özet'in TRANSFER KLİNİSYEN'i, ART Lab'ın "ET"si) programda
+  yok, kutular boş; kullanıcıya soruldu (2026-09-30). Cevap gelmeden ekleme.
+  Yeni bir hekim alanı eklenirse aynı menüyü (`hekim_secimi()`) kullan.
 
 **Embriyo Dondurma ve Sperm Dondurma tek ekranda, yan yana iki bağımsız
 modül** (`/cryo`, "Cryo Haritası" — v6.84'te ayrı bir ekrandı, v6.85'te

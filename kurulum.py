@@ -140,6 +140,11 @@ def ayarlar() -> list:
         ("lab_no_bosluk_doldur", "1", "1 = bosalan numara yeniden kullanilir"),
         ("lab_no_yillik_sifirla", "1", "1 = her yil sira 1'den baslar"),
         ("yedek_uyari_gun", "3", "Son yedek bu kadar gunden eskiyse uyar"),
+        # Hekim alanının varsayılanı (v6.231): yeni laboratuvar boş başlıyor.
+        # goc_060 anahtar yoksa bu laboratuvarın hekimini yazıyor (INSERT OR
+        # IGNORE) -- boş satır, başka bir laboratuvarın yeni kurulumuna o adın
+        # girmemesi için.
+        ("varsayilan_hekim", "", "Hekim alaninin varsayilani (bos = yok)"),
     ]
 
 

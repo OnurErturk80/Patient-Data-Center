@@ -67,10 +67,22 @@
        ("5HG3") -- aday listesinin aynısı (v6.137). Kart v6.148'e kadar
        yalnızca blastokist skorunu basıyordu; gün 3'te dondurulan her embriyo
        "girilmedi" görünüyordu, oysa kaydı var. #}
+    {#- Yumurta Dondurma'da (v6.231) yumurtanın maturasyonu, denüdasyonda
+        girilen (`app._bu_tedavinin_maturasyonu()`); yumurtanın skoru olmaz,
+        "Skor" satırı yalnızca varsa. `e.mat` tanımsızsa (program yeniden
+        başlatılmadı, tuzak #5) satır yok: "girilmedi" yanlış bilgi olurdu. -#}
+    {% set yumurta_tipi = yumurta_mi(c.cycle_tipi) %}
+    {% if yumurta_tipi and e.mat is defined %}
+    <div class="veri"><dt>{{ metin("maturasyon") }}</dt>
+      <dd {% if not e.mat %}class="yok"{% endif %}>
+        {{ liste_etiket('maturasyon', e.mat) if e.mat else metin("girilmedi") }}</dd></div>
+    {% endif %}
+    {% if e.kalite or not yumurta_tipi %}
     <div class="veri"><dt>{{ metin("skor") }}</dt>
       <dd {% if not e.kalite %}class="yok"{% endif %}>
         {{ e.kalite if e.kalite else metin("girilmedi") }}
         {%- if e.kalite and e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</dd></div>
+    {% endif %}
     {% if e.pgt %}<div class="veri"><dt>{{ metin("pgt") }}</dt><dd>{{ pgtm.yazi(e.pgt) }}</dd></div>{% endif %}
     <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
       <dd><a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ e.tasiyici_etiket }}</a>
@@ -113,8 +125,10 @@
       <span class="bilgi">
         <strong>{{ ornek_adi('vitrifikasyon', c.cycle_tipi) }} {{ e.cycle_sira_no }}</strong>
         {%- if fet %} <span class="ipucu">· {{ e.kaynak_cycle_no }}</span>{% endif %}
-        {# Blastokist skoru, yoksa gün 2/3 kaydı ("4HG2") -- app._vit_satiri() #}
+        {# Blastokist skoru, yoksa gün 2/3 kaydı ("4HG2") -- app._vit_satiri();
+           yumurtada maturasyon (v6.231, Yumurta Dondurma: denüdasyonda girilen). #}
         {% if e.kalite %}<em>{{ e.kalite }}{% if e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</em>
+        {% elif e.mat %}<em class="matrozet">{{ liste_etiket('maturasyon', e.mat) }}</em>
         {% else %}<em>{{ metin("degerlendirilmemis") }}</em>{% endif %}
         {#- PGT (v6.225): biyopsili embriyonun numarası -- tüpe hangisinin
             konduğu bununla bilinsin. -#}

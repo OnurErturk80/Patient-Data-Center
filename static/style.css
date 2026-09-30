@@ -990,6 +990,8 @@ body.kilitli { overflow: hidden; }
   outline: 2px solid var(--vurgu); outline-offset: 1px;
 }
 .alan.bulasdiger { padding: 8px 0 0; border: 0; }
+/* Hekim menüsü (v6.231, opu.html): "Diğer"de yazı kutusu menünün altında. */
+.hekimsec select:not([hidden]) + input { margin-top: 8px; }
 
 /* Kimlik bandının uyarısı: bandın hemen altında, aynı koyu zeminde (`.kimlik`
    sınıfı bandın genişlik ve hiza kurallarını da veriyor). Sabit kırmızı kutu,
@@ -1173,6 +1175,9 @@ body.kilitli { overflow: hidden; }
 }
 .secsatir .bilgi { flex: 1; }
 .secsatir .bilgi em { display: block; font-style: normal; font-size: 13px; color: var(--ink-2); }
+/* Yumurtanın maturasyonu (v6.231, Yumurta Dondurma'nın vitrifikasyonu):
+   seçimin ölçüsü, sönük değil. */
+.secsatir .bilgi em.matrozet { color: var(--ink); font-weight: 600; }
 
 /* --- küçük fotoğraflı satır --- */
 .fsatir {

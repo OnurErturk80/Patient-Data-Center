@@ -1514,3 +1514,45 @@ def ayar(anahtar, varsayilan=""):
     r = tek("SELECT deger FROM ayarlar WHERE lab_id = ? AND anahtar = ?",
             (LAB_ID, anahtar))
     return r["deger"] if r else varsayilan
+
+
+# ------------------------------------------------------------------ hekim
+
+def varsayilan_hekim() -> str:
+    """Hekim alanının varsayılan adı (v6.231; `ayarlar.varsayilan_hekim`).
+
+    Kullanıcı: "Hekim ismi yazılan her yerde sabit Mete Çağlar olsun. Hep onu
+    göstersin. Farklı birini istersek açılır menüden diğer seçip elle
+    yazabilelim." Ad laboratuvarın, kodun değil: `goc_060` bu laboratuvarın
+    veritabanına yazıyor, yeni kurulum (`kurulum.ayarlar()`) anahtarı boş
+    açıyor. Boşsa (ya da göç çalışmamışsa) '' -- alan eskisi gibi düz yazı
+    kutusu. Her hasta ekranında çağrılabilir, hata vermez.
+    """
+    try:
+        return (ayar("varsayilan_hekim", "") or "").strip()
+    except sqlite3.Error:
+        return ""
+
+
+def _hekim_anahtari(ad) -> str:
+    """Karşılaştırma için: Türkçe büyük harf (`app.tr_buyuk()`'ün kuralı),
+    fazla boşluk yok. Yazılan ad değişmiyor, yalnızca karşılaştırılıyor."""
+    return " ".join((ad or "").replace("i", "İ").upper().split())
+
+
+def hekim_secimi(kayitli):
+    """Hekim seçicisinin hali (v6.231): {'varsayilan', 'diger', 'deger'}.
+
+    Kayıt boşsa ya da varsayılanın kendisiyse (büyük/küçük harf ve boşluk farkı
+    sayılmıyor) seçici varsayılanda, yazı kutusu varsayılanı taşıyor: kaydedilen
+    ekranda görünen (`islem_yapani_doldur()`'un kuralı, v6.208). Başka bir ad
+    "Diğer", kutuda olduğu gibi -- eski kayıtların kısaltmaları ("M ÇAĞLAR")
+    dahil: program kısaltmanın kim olduğunu tahmin edip kaydı değiştirmez.
+    Varsayılan hekim yoksa None (alan düz yazı kutusu).
+    """
+    vh = varsayilan_hekim()
+    if not vh:
+        return None
+    ad = (kayitli or "").strip()
+    diger = bool(ad) and _hekim_anahtari(ad) != _hekim_anahtari(vh)
+    return {"varsayilan": vh, "diger": diger, "deger": ad if diger else vh}

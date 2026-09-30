@@ -70,10 +70,23 @@
     </div>
 
     {% if not goc_gerekli %}
-    <div class="alan">
+    {# Hekim (v6.231): varsayılan hekim seçili açılır menü, "Diğer" seçilince
+       ad elle yazılıyor (`db.hekim_secimi()`). Kaydedilen hep yazı kutusu
+       (`opu_hekim`), menü yalnızca onu dolduruyor: betik çalışmazsa ya da
+       program yeniden başlatılmadıysa (tuzak #5, `hekim_secimi` tanımsız) kutu
+       eskisi gibi, eski program da aynı alanı okuyor. #}
+    {% set hs = hekim_secimi(c.opu_hekim) if hekim_secimi is defined else none %}
+    <div class="alan hekimsec">
       <label for="opu_hekim">{{ metin("opu_hekimi") }}</label>
+      {% if hs %}
+      <select id="opu_hekim_secim" data-varsayilan="{{ hs.varsayilan }}" hidden>
+        <option value="varsayilan"{% if not hs.diger %} selected{% endif %}>{{ hs.varsayilan }}</option>
+        <option value="diger"{% if hs.diger %} selected{% endif %}>{{ metin("hekim_diger") }}</option>
+      </select>
+      {% endif %}
       <input id="opu_hekim" name="opu_hekim" type="text" autocomplete="off"
-             placeholder="{{ metin('ad_soyad') }}" value="{{ c.opu_hekim or '' }}">
+             placeholder="{{ metin('hekim_adi') if hs else metin('ad_soyad') }}"
+             value="{{ hs.deger if hs else (c.opu_hekim or '') }}">
     </div>
     {% endif %}
 
@@ -85,6 +98,34 @@
 {% if opu_var %}
 <a class="dugme ikincil" href="/cycle/{{ c.id }}/opu">{{ metin("vazgec_duzenleme") }}</a>
 {% endif %}
+<script>
+/* Hekim menüsü (v6.231): varsayılanda yazı kutusu gizli ve varsayılan adı
+   taşıyor, "Diğer"de açılıyor. Diğer'de yazılan ad menü varsayılana dönüp
+   yeniden Diğer denirse geri geliyor. */
+(function () {
+  var sec = document.getElementById('opu_hekim_secim');
+  var kutu = document.getElementById('opu_hekim');
+  if (!sec || !kutu) return;
+  var varsayilan = sec.getAttribute('data-varsayilan');
+  var etiket = document.querySelector('label[for="opu_hekim"]');
+  var elle = sec.value === 'diger' ? kutu.value : '';
+  function uygula(degisti) {
+    if (sec.value === 'diger') {
+      if (kutu.hidden) kutu.value = elle;
+      kutu.hidden = false;
+      if (degisti) kutu.focus();
+    } else {
+      if (degisti && !kutu.hidden) elle = kutu.value;
+      kutu.value = varsayilan;
+      kutu.hidden = true;
+    }
+  }
+  sec.hidden = false;
+  if (etiket) etiket.htmlFor = 'opu_hekim_secim';
+  uygula(false);
+  sec.addEventListener('change', function () { uygula(true); });
+})();
+</script>
 {% endif %}
 
 {{ gez.cubuk(c, gezinme) }}

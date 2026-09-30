@@ -172,10 +172,21 @@
 
 <div class="serit">
   {% for o in kayitli %}
+  {% if c.cycle_tipi == 'oosit_cryo' %}
+  {#- Yumurta Dondurma'da maturasyon burada soruluyor (v6.96): kutucuk onu
+      ICSI'deki gibi yazıyor, değerlendirilmiş yeşil, dejenere kırmızı
+      (v6.231). Over bilgisi altta ve bilgi kartında. -#}
+  <a href="{{ secim_oneki }}{{ o.cycle_sira_no }}"
+     class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.mat %}dolu{% endif %}
+            {% if o.mat == 'degenere' %}deg{% endif %}">
+    <b>{{ o.cycle_sira_no }}</b>{% if o.mat %}<i>-{{ mat_kisa(o.mat) }}</i>{% endif %}
+  </a>
+  {% else %}
   <a href="{{ secim_oneki }}{{ o.cycle_sira_no }}"
      class="sn {% if o.id == sp.id %}aktif{% endif %} {% if o.kare %}dolu{% endif %}">
     <b>{{ o.cycle_sira_no }}</b>{% if o.taraf %}<i>-{{ metin("sag_rozet") if o.taraf == "sag" else metin("sol_rozet") }}</i>{% endif %}
   </a>
+  {% endif %}
   {% endfor %}
 </div>
 
