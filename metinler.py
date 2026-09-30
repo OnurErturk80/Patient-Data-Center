@@ -915,6 +915,7 @@ METINLER = {
     "pgt_yer_cozuldu": {"tr": "Çözüldü ({etiket})", "en": "Thawed ({etiket})"},
     "pgt_yer_tasindi": {"tr": "Başka merkeze taşındı ({etiket})",
                         "en": "Moved to another centre ({etiket})"},
+    "pgt_yer_imha": {"tr": "İmha edildi ({etiket})", "en": "Discarded ({etiket})"},
     "pgt_yer_transfer": {"tr": "Transfer edildi · {tedavi}", "en": "Transferred · {tedavi}"},
     "pgt_yer_dondurulmadi": {"tr": "Dondurma kaydı yok", "en": "No freezing record"},
     "pgt_sonuc_duzenle": {"tr": "Sonuçları düzenle", "en": "Edit results"},
@@ -1171,6 +1172,13 @@ METINLER = {
         "en": "This carrier has been thawed. Deleting the freezing record "
               "would mean it was never frozen, but the thaw record remains. "
               "Undo the thaw record first."},
+    # v6.227: tüp taşındı ya da imha edildi işaretliyse dondurma kaydı geri
+    # alınmıyor, başka tüpe de taşınmıyor -- önce en son adım (işaret).
+    "vit_geri_alma_tanktan_cikmis": {
+        "tr": "Bu tüp başka merkeze taşındı ya da imha edildi olarak işaretli. "
+              "Önce tüpün sayfasından o işareti kaldır.",
+        "en": "This straw is marked as moved to another centre or discarded. "
+              "Undo that mark on the straw's page first."},
     # v6.147: çözmeden sonra girilmiş başka bir kayıt (ICSI, değerlendirme,
     # transfer) varsa çözme geri alınmıyor -- önce en son adım.
     "thaw_geri_alma_sonraki_kayit": {
@@ -1320,6 +1328,41 @@ METINLER = {
                                   "olarak işaretlenebilir.",
                             "en": "Only a full straw can be marked as moved."},
     "tasinan_tupler": {"tr": "Başka merkeze taşınan tüpler", "en": "Straws moved to another centre"},
+    # İmha edilen tüp (v6.227): gönderimin karşılığı, bütün tüplerde.
+    "tasiyici_imha": {"tr": "imha edildi", "en": "discarded"},
+    "imha_baslik": {"tr": "İmha edildi", "en": "Discarded"},
+    "imha_ac": {"tr": "İmha edildi olarak işaretle", "en": "Mark as discarded"},
+    "imha_ipucu": {
+        "tr": "Tüp imha edildiyse. Cryo Haritası'ndan ve formların \"Kalan "
+              "dondurulmuş\" satırından çıkar, çözülemez; kayıt silinmez, geri "
+              "alınabilir. Formun notlarına \"İmha: ... tarihinde imha edildi\" "
+              "diye yazılır.",
+        "en": "If the straw was discarded. It leaves the cryo map and the forms' "
+              "remaining list and cannot be thawed; the record is kept and can "
+              "be restored."},
+    "imha_tarihi": {"tr": "İmha edildiği gün", "en": "Date discarded"},
+    "imha_sebebi": {"tr": "Sebep", "en": "Reason"},
+    "imha_kaydet": {"tr": "İmha edildi olarak kaydet", "en": "Save as discarded"},
+    "imha_onay": {"tr": "Bu tüp imha edildi olarak işaretlenecek: Cryo Haritası'ndan "
+                        "çıkar, çözülemez. Emin misiniz?",
+                  "en": "This straw will be marked as discarded: it leaves the cryo "
+                        "map and cannot be thawed. Are you sure?"},
+    "imhayi_geri_al": {"tr": "İmha işaretini kaldır", "en": "Undo discarded"},
+    "imhayi_geri_al_onay": {"tr": "Tüp yeniden tankta (dolu) sayılacak. Emin misiniz?",
+                            "en": "The straw will count as in the tank again. Are you sure?"},
+    "imha_tarih_yok": {"tr": "İmha edildiği günü yazın.", "en": "Enter the date."},
+    "imha_tarih_ileri": {"tr": "İmha günü bugünden sonra olamaz.",
+                         "en": "The date cannot be in the future."},
+    "imha_tarih_once": {"tr": "İmha günü tüpün dondurulmasından önce olamaz.",
+                        "en": "The date cannot be before the freezing."},
+    "imha_sebep_hatali": {"tr": "Seçilen sebep listede yok. Sayfayı yenileyip yeniden seçin.",
+                          "en": "The selected reason is not in the list. Reload and choose again."},
+    "imha_dolu_degil": {"tr": "Yalnızca tankta duran (dolu) tüp imha edildi olarak "
+                              "işaretlenebilir.",
+                        "en": "Only a straw in the tank can be marked as discarded."},
+    "imha_cumlesi": {"tr": "{tarih} tarihinde imha edildi", "en": "Discarded on {tarih}"},
+    "imha_edilenler": {"tr": "İmha edilenler", "en": "Discarded"},
+    "imha_rozet": {"tr": "İmha edildi", "en": "Discarded"},
     # Taşınma bölümü (v6.205): hastanın örnekleri tek ekranda başka merkeze.
     "tasima": {"tr": "Taşınma", "en": "Transfers out"},
     "tasima_aciklama": {"tr": "Başka üniteye taşınan embriyo, yumurta ve sperm",
@@ -2411,10 +2454,10 @@ METINLER = {
     "bakanlik_ipucu": {
         "tr": "Sayılar her açılışta kayıtlardan hesaplanıyor, saklanmıyor: "
               "geçmiş bir ayın kaydı sonradan düzeltilirse o ayın sayısı da "
-              "düzelir. IUI ve embriyo imha programda tutulmuyor, tabloda yok.",
+              "düzelir. IUI ve embriyo imha sayısı tabloda yok.",
         "en": "The numbers are computed from the records on every visit; "
               "correcting an old record corrects that month too. IUI and "
-              "embryo disposal are not kept in the program."},
+              "embryo disposal counts are not in the table."},
     "bakanlik_tanimlar": {"tr": "Nasıl sayılıyor", "en": "How they are counted"},
     "bakanlik_tanim_opu": {
         "tr": "OPU'su yapılan tedavi, OPU gününün ayına.",

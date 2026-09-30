@@ -55,10 +55,17 @@
   </form>
 </div>
 
-{% macro yer(b) -%}
+{#- Embriyonun bugünkü yeri. `baglanti`: özet kipinde tankta duran tüpün
+    etiketi tüpün sayfasına açılıyor -- imha (v6.227) orada kaydediliyor.
+    Formun içinde düz metin (sayfadan çıkmak yazılanı bırakırdı). -#}
+{% macro yer(b, baglanti=false) -%}
 {%- if b.transfer is not none -%}{{ metin("pgt_yer_transfer").format(tedavi=b.transfer) }}
-{%- elif b.tup and b.tup.durum == "dolu" -%}{{ metin("pgt_yer_tankta").format(etiket=b.tup.etiket) }}{% if b.tup.tam_yol %} · {{ b.tup.tam_yol }}{% endif %}
+{%- elif b.tup and b.tup.durum == "dolu" -%}
+  {%- if baglanti and b.tup.id is defined -%}{{ metin("pgt_yer_tankta").format(etiket='<a href="/cryo/tasiyici/%d">%s</a>'|format(b.tup.id, b.tup.etiket|e))|safe }}
+  {%- else -%}{{ metin("pgt_yer_tankta").format(etiket=b.tup.etiket) }}{%- endif -%}
+  {%- if b.tup.tam_yol %} · {{ b.tup.tam_yol }}{% endif %}
 {%- elif b.tup and b.tup.durum == "gonderildi" -%}{{ metin("pgt_yer_tasindi").format(etiket=b.tup.etiket) }}
+{%- elif b.tup and b.tup.durum == "imha" -%}{{ metin("pgt_yer_imha").format(etiket=b.tup.etiket) }}
 {%- elif b.tup -%}{{ metin("pgt_yer_cozuldu").format(etiket=b.tup.etiket) }}
 {%- else -%}{{ metin("pgt_yer_dondurulmadi") }}{%- endif -%}
 {%- endmacro %}
@@ -79,7 +86,7 @@
   <div class="pgtsatir">
     {{ pgtm.rozet(b) }}
     <div class="pgtsonucmetni">{{ b.sonuc_metni or metin("pgt_sonuc_yok_metin") }}</div>
-    <div class="ipucu">{{ ornek_kodu(b.specimen_id) }}{% if b.skor %} · {{ b.skor }}{% endif %}{% if b.gun %} · {{ metin("gun_n_buyuk").format(n=b.gun) }}{% endif %} · {{ yer(b) }}</div>
+    <div class="ipucu">{{ ornek_kodu(b.specimen_id) }}{% if b.skor %} · {{ b.skor }}{% endif %}{% if b.gun %} · {{ metin("gun_n_buyuk").format(n=b.gun) }}{% endif %} · {{ yer(b, baglanti=true) }}</div>
     {% if b.sonuc_zamani %}<div class="ipucu">{{ metin("pgt_sonuc_girildi").format(tarih=gg_aa_yyyy_saat(b.sonuc_zamani)) }}</div>{% endif %}
   </div>
 </div>

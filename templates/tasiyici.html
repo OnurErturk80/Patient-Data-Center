@@ -2,6 +2,8 @@
 {% import "_kucukfoto.html" as kf %}
 {% import "_yer_kanit.html" as yk %}
 {% import "_pgt.html" as pgtm %}
+{% import "_tup_durum.html" as td %}
+{% import "_imha.html" as im %}
 {% block ustbaslik %}{{ metin("tasiyici") }}{% endblock %}
 {% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -9,14 +11,14 @@
   <div class="dosya">{{ t.etiket }}</div>
   <div class="alt">
     {{ etiketler.get(t.tip, t.tip) }}{% if t.renk %} · {{ etiketler.get(t.renk, t.renk) }}{% endif %}
-    {% if t.durum == "gonderildi" %}<span class="rozet arsiv">{{ metin("tasiyici_gonderildi") }}</span>
-    {%- elif t.durum != "dolu" %}<span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>{% endif %}
+    {{ td.rozet(t.durum) }}
   </div>
 </div>
 {% endblock %}
 {% block icerik %}
 
 {% if gonderim_hata %}<div class="tehlike">{{ metin(gonderim_hata) }}</div>{% endif %}
+{% if imha_hata %}<div class="tehlike">{{ metin(imha_hata) }}</div>{% endif %}
 {% if yer_sonuc == "baglandi" %}<div class="uyari tamam">{{ metin("yer_haritadan_yazildi") }}</div>{% endif %}
 {% if yer_sonuc == "atlandi" %}<div class="uyari">{{ metin("yer_yazilmadi") }}</div>{% endif %}
 
@@ -41,6 +43,9 @@
 </form>
 {% endif %}
 {% endif %}
+
+{# İmha edilen tüp (v6.227): tüp tanktan çıktı, kayıt duruyor. #}
+{% if t.durum == "imha" %}{{ im.kart(t.id, t.imha_zamani, t.imha_sebep, t.imha_notu) }}{% endif %}
 
 <div class="kart">
   <dl style="margin:0">
@@ -153,6 +158,7 @@
     <a href="/cryo/tasima/hasta/{{ icerik[0].hasta_id }}">{{ metin("tasima_hasta_baglanti") }}</a></div>{% endif %}
 </details>
 {% endif %}
+{% if imha_acik and yetkim("cryo") %}{{ im.formu(t.id, bugun, imha_sebepleri, imha_hata) }}{% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
 
 {% include "_buyutec.html" %}

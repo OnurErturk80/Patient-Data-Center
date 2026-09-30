@@ -4,6 +4,7 @@
    geliyor (`app.etiket_ara()` → `t.yol`): sperm kaydı kendi detayına,
    embriyo/yumurta taşıyıcısı cryo haritasındaki taşıyıcı sayfasına gider.
    Şablon kategoriye göre adres kurmasın diye. #}
+{% import "_tup_durum.html" as td %}
 {% macro sonuc(tasiyicilar, bos_mesaj=None) %}
 <div class="kart">
   <h2>{{ metin("etiket_sonucu") }}</h2>
@@ -12,12 +13,9 @@
     {# Boşaltılmış/kullanılmış taşıyıcı da bulunur (app.etiket_ara()): arama
        envanter değil, "bu etiket kimin" sorusu. Durumu rozetle söyleniyor --
        `kullanildi` (v6.86: sperm başka bir tedaviye bağlandı) "boşaltıldı"
-       değil, tüp duruyor; ikisi ayrı yazıyor. #}
-    <div class="no">{{ t.etiket }}
-      {%- if t.durum == "bosaltildi" %} <span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>
-      {%- elif t.durum == "kullanildi" %} <span class="rozet arsiv">{{ metin("tasiyici_kullanildi") }}</span>
-      {%- elif t.durum == "gonderildi" %} <span class="rozet arsiv">{{ metin("tasiyici_gonderildi") }}</span>
-      {%- endif %}</div>
+       değil, tüp duruyor; taşınan ve imha edilen (v6.227) de ayrı yazıyor
+       (`_tup_durum.html`). #}
+    <div class="no">{{ t.etiket }} {{ td.rozet(t.durum) }}</div>
     <div class="meta">
       {% if t.ad_soyad %}{{ t.ad_soyad }}{% if t.dosya_no %} · {{ t.dosya_no }}{% endif %}
       {%- else %}{{ metin("girilmedi") }}{% endif %}

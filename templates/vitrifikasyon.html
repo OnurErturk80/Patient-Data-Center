@@ -9,6 +9,7 @@
 {% import "_etiketsonuc.html" as es %}
 {% import "_yer_oneri.html" as yo %}
 {% import "_pgt.html" as pgtm %}
+{% import "_tup_durum.html" as td %}
 {% block ustbaslik %}{{ metin("asama_vitrifikasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -72,13 +73,15 @@
         {%- if e.kalite and e.kalite_gun %} · {{ metin("gun_n").format(n=e.kalite_gun) }}{% endif %}</dd></div>
     {% if e.pgt %}<div class="veri"><dt>{{ metin("pgt") }}</dt><dd>{{ pgtm.yazi(e.pgt) }}</dd></div>{% endif %}
     <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
-      <dd><a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ e.tasiyici_etiket }}</a></dd></div>
+      <dd><a href="/cryo/tasiyici/{{ e.tasiyici_id }}">{{ e.tasiyici_etiket }}</a>
+        {%- if e.tasiyici_durum in ("gonderildi", "imha") %} {{ td.rozet(e.tasiyici_durum) }}{% endif %}</dd></div>
     <div class="veri"><dt>{{ metin("konum") }}</dt>
       <dd {% if not e.konum %}class="yok"{% endif %}>
         {{ e.konum if e.konum else metin("konum_girilmemis") }}</dd></div>
   </dl>
   <div class="sfalt">
-    <a href="/cryo/tasiyici/{{ e.tasiyici_id }}/thaw" style="color:var(--ink)">{{ metin("coz") }}</a>
+    {#- Taşınan / imha edilen tüp çözülemez (v6.182, v6.227); sunucu da reddediyor. -#}
+    {% if e.tasiyici_durum not in ("gonderildi", "imha") %}<a href="/cryo/tasiyici/{{ e.tasiyici_id }}/thaw" style="color:var(--ink)">{{ metin("coz") }}</a>{% endif %}
     {# Hangi tedavinin dondurması geri alınacak (v6.143): bir örneğin artık
        birden çok dondurması olabiliyor, bağlantı bu ekranın tedavisini taşır. #}
     <a href="/specimen/{{ e.id }}/vit-sil?cycle={{ c.id }}">{{ metin("kaydi_geri_al") }}</a>

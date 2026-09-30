@@ -1241,6 +1241,25 @@ def yeniden_dondurma_var() -> bool:
     return kolon_var("olay", "vit_cycle_id") and cozme_tupu_var()
 
 
+# ------------------------------------------ tanktan çıkan tüp (v6.182, v6.227)
+
+# Tanktan çıkmış ama kaydı ve örnekleri duran tüpün durumları: başka merkeze
+# taşındı (v6.182) ve imha edildi (v6.227). İkisi de geri alınabilen bir
+# işaret -- tüp çözülemez, tedaviye bağlanamaz, dondurma kaydı geri alınamaz
+# ya da başka tüpe taşınamaz (önce işaret kaldırılır). "Tankta mı" sorusu
+# `durum = 'dolu'` (embriyo tüpü); sperm listesi kullanılmış tüpü de bilerek
+# gösterdiği için orada `durum NOT IN TANKTAN_CIKAN_SQL`.
+TANKTAN_CIKAN = ("gonderildi", "imha")
+TANKTAN_CIKAN_SQL = "(" + ", ".join(f"'{d}'" for d in TANKTAN_CIKAN) + ")"
+
+
+def imha_var() -> bool:
+    """`goc_059` (v6.227) çalıştı mı: tüpün imha günü, sebebi, notu. Göç
+    yoksa imha formu basılmıyor, ekranlar ve formlar eski haliyle (tuzak #3);
+    cevap `kolon_var()`'da saklanıyor, geri yüklemeden sonra unutuluyor."""
+    return kolon_var("tasiyici", "imha_zamani")
+
+
 # ------------------------------------------------- hastanın tedavi sırası
 
 def _kolonlari(b, tablo: str) -> set:

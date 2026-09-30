@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_imha.html" as im %}
 {% block ustbaslik %}{{ metin("sperm_dondurma") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cryo">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -11,6 +12,7 @@
 {% block icerik %}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
+{% if imha_hata %}<div class="tehlike">{{ metin(imha_hata) }}</div>{% endif %}
 
 <div class="kart">
   <dl style="margin:0">
@@ -48,9 +50,13 @@
   </form>
   {% endif %}
 </div>
+{% elif sd.tasiyici_durum == "imha" %}
+{#- İmha edildi (v6.227): tüp Cryo Haritası'ndan çıktı, kayıt duruyor. -#}
+{{ im.kart(sd.tasiyici_id, sd.imha_zamani, sd.imha_sebep, sd.imha_notu) }}
 {% elif sd.tasiyici_durum == "dolu" and yetkim("cryo") %}
 <a class="dugme ikincil" href="/cryo/tasima/hasta/{{ sd.hasta_id }}?sec={{ sd.tasiyici_id }}">{{ metin("gonderim_ac") }}</a>
 {% endif %}
+{% if imha_acik and yetkim("cryo") %}{{ im.formu(sd.tasiyici_id, bugun, imha_sebepleri, imha_hata) }}{% endif %}
 
 {% if sd.kul_cycle_no %}
 <div class="kart">

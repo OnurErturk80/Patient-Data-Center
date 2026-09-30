@@ -17738,3 +17738,103 @@ tarayıcıyla:
   fark beklenen (çözme formunda uyarının da rozeti var). v6.221'in
   denemesindeki tek hata (formda sağ over sayısını arıyor) v6.222'den beri
   beklenen, bu sürümden önce de vardı.
+
+# v6.227 — Tüpün imha kaydı (embriyo, yumurta, sperm)
+
+Kullanıcının v6.225'teki anlatımı: genetik incelemede sorunlu çıkan embriyo
+*"hastaya göre"* tankta kalıyor ya da imha ediliyor. İmha kaydının nerede
+olacağı sorusuna cevabı: *"Bütün tüpler"* -- embriyo, yumurta ve sperm tüpü.
+
+Programda tanktan çıkan bir tüp yalnızca çözülmüş, kullanılmış (sperm) ya da
+başka merkeze taşınmış (v6.182) olabiliyordu. İmha edilen tüp "dolu" kalınca
+Cryo Haritası'nda duruyor, boş yer önerisi yuvasını dolu sayıyor, formların
+"Kalan dondurulmuş" satırına giriyordu.
+
+**Tüpün sayfasında "İmha edildi olarak işaretle"** (sperm tüpünde sperm
+dondurma kaydının sayfasında, sperm tüpünün kendi ekranı): imha edildiği gün
+(zorunlu; bugünden sonra ve tüpün dondurulmasından önce olamaz), sebep
+(Gelişimsel, Genetik, Hasta talebi, Saklama süresi doldu, Diğer -- şemanın
+ilk sürümünden beri kurulumla gelen liste; boş bırakılabilir) ve not. Onay
+soruluyor. Tüpün sayfasında "İmha edildi" kartı ve "imha edildi" rozeti;
+"İmha işaretini kaldır" yanlış tüp işaretlendiyse geri alıyor.
+
+- Başka merkeze taşımanın (v6.182) aynı yolu: kayıt ve örneklerin durumu
+  değişmiyor, yalnızca tüpün durumu ve imhanın üç alanı. Değişiklik
+  geçmişine yazılıyor (kimin girdiği orada). Yazma koşullu: tüp bu arada
+  çözüldüyse ya da taşındıysa hiçbir şey yazılmıyor.
+- Tüp tanktan çıkıyor: Cryo Haritası, goblet doluluğu ve boş yer önerisi,
+  Cryo Haritası'nın Excel dosyası (laboratuvarın kendi dosyasında straw'ın
+  satırı boşalıyor) ve otomatik yedeğin tetiği yalnızca dolu tüpü sayıyor.
+  Goblette başka dolu tüp kalmadıysa yeri boşalıyor.
+- İmha edilen tüp çözülemiyor (çözme ekranı, kayıt ve yeni tedavi açma),
+  sperm tedaviye bağlanamıyor, tüpün dondurma kaydı geri alınamıyor ve eski
+  bir sekmeden başka tüpe taşınamıyor -- önce işaret kaldırılır ("önce en son
+  adım", v6.143). **Aynı kural taşınan tüpe de uygulandı**: taşınan tüpün
+  dondurması geri alınınca tüp "boşaltıldı" oluyor, taşındığı bilgisi
+  kayboluyordu (v6.182'den beri).
+
+**Nerede görünüyor.**
+
+- Hasta kartının "Dondurulmuş örnekler"inde "İmha edilenler": gün ve sebep
+  başına tüpler ve notları (embriyo, yumurta, sperm), taşımanın üstünde.
+  Sperm satırında "İmha edildi" rozeti; tedaviye bağlama formu yok.
+- Etiket araması, FET'in çözme listesi ve tedavinin vitrifikasyon ekranı tüpü
+  "imha edildi" rozetiyle gösteriyor; vitrifikasyon kartında "Çöz" yok.
+  Çözme listesinde taşınan tüp de artık rozetiyle ("0 çözme kaydı" tek
+  başına yanıltıyordu).
+- PGT sonuçları ekranında embriyonun yeri "İmha edildi (etiket)". Tankta
+  duran tüpün etiketi özet kipinde tüpün sayfasına açılıyor: sorunlu
+  embriyonun imhası oradan kaydediliyor.
+- Tankların Excel dökümünde "Tankta" sütunu "İmha edildi".
+
+**Formlar.** Embriyoloji Özet'in NOTLAR'ında dondurmanın yapıldığı tedavide,
+"Taşınan:"ın arkasında: "İmha: 1 embriyo, 1 tüp: (3BB) 30.09.2026 tarihinde
+imha edildi (Genetik)." "Kalan dondurulmuş" o tedavinin son işleminin gününe
+kadar imha edilen tüpü saymıyor; FET'in NOTLAR'ında kalanın altında o güne
+kadar imha edilenler (taşınanların deseni). Serbest not forma girmiyor.
+
+**Göç 059**: `tasiyici.imha_zamani` (gün), `imha_sebep` (`discard_sebep`
+listesinin kodu), `imha_notu`; liste eski bir kurulumda eksikse ekleniyor.
+Göç çalışmamışsa form basılmıyor, ekranlar ve formlar eski haliyle.
+
+**Bakanlık verileri.** Ekranın "IUI ve embriyo imha programda tutulmuyor"
+cümlesi artık doğru değildi; "IUI ve embriyo imha sayısı tabloda yok"
+oldu. Sütun eklenmedi: v6.201'de kullanıcının isteğiyle yoktu ("IUI sayısı
+ve İmha Sayısı hariç"), eklemek kendisine soruldu.
+
+**Bilinen sınır.** Programda tüpü olmayan Excel kayıtları (v6.189) için ayrı
+bir imha kaydı yok: kendi sayfalarındaki "Tanktan çıkarıldı" (tarih ve not)
+kullanılıyor.
+
+## Deneme
+
+Sahte veritabanında (v6.226'nın PGT sonuçları yazılmış kopyası), telefon
+genişliğinde tarayıcıyla ve doğrudan isteklerle:
+
+- Göç açılışta uygulandı. Hatalar: gün boş, ileride, yılı bozuk, dondurmadan
+  önce, listede olmayan sebep -- hiçbiri bir şey yazmadı, mesaj ekranda;
+  beyaz listede olmayan hata anahtarı basılmadı.
+- İmha (PGT 3'ün tüpü): onay soruluyor, "vazgeç" hiçbir şey yazmadı; kabulde
+  tüp imha, gün / sebep / not yazıldı, goblet boşaldı, değişiklik geçmişinde.
+  Sayfada kart, rozet; çöz, taşıma ve imha formu yok. Eski sekmeden ikinci
+  imha reddedildi, ilk kayıt ezilmedi.
+- Engeller: çözme ekranı açılmadı, çözme kaydı ve yeni tedavi reddedildi;
+  dondurmanın geri alınması ekranda sebebiyle ve sunucuda reddedildi; başka
+  tüpe taşıma reddedildi, yeni tüp açılmadı.
+- Ekranlar: Cryo Haritası'nda yok, etiket aramasında, FET'in çözme
+  listesinde ve vitrifikasyon kartında rozet; PGT ekranında "İmha edildi";
+  hasta kartında "İmha edilenler" (tüp bir kez, notuyla); Excel dökümünde
+  "İmha edildi".
+- Formlar: kaynak tedavide "İmha:" satırı; FET'in "Kalan dondurulmuş"u iki
+  tüpten bire düştü, "İmha:" satırı altında.
+- Geri alma: tüp dolu, alanlar boş, goblet dolu, form geri geldi, FET'in
+  formu eski haline döndü.
+- Sperm tüpü: form sperm sayfasında, hata dönüşü oraya; imha edilince Cryo
+  Haritası'nın sperm listesinden ve androlojinin bağlama aramasından çıktı,
+  hasta kartında "İmha edilenler"de, tedaviye bağlanamadı; geri alındı.
+- Göç çalışmamış veritabanı (göçü atlayan başlatıcıyla): 18 ekran hatasız,
+  imha formu yok, imha isteği hiçbir şey yazmıyor.
+- v6.226'nın programı bu sürümün şablonlarıyla (yeniden başlatılmamış
+  program): aynı 18 ekran hatasız, form basılmıyor.
+- 103 ekran iki genişlikte (1280 ve 390 px), imha edilmiş tüplerle de,
+  hatasız ve yatay kaymıyor. v6.226'nın denemesi bu sürümün koduyla geçti.

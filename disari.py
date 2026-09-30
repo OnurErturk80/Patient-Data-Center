@@ -417,9 +417,12 @@ def cryo_sayfalari():
     cikti = []
     for r in satirlar:
         tankta = not r["cozme"] and r["ornek_durum"] == "dondurulmus"
-        # Başka merkeze taşınan tüp (v6.182): örnek çözülmedi ama tankta değil.
+        # Başka merkeze taşınan (v6.182) ya da imha edilen (v6.227) tüp:
+        # örnek çözülmedi ama tankta değil.
         if r["tup_durum"] == "gonderildi":
             tank = "Taşındı"
+        elif r["tup_durum"] == "imha":
+            tank = "İmha edildi"
         else:
             tank = "Evet" if tankta else "Hayır"
         cikti.append([
@@ -816,7 +819,9 @@ def istatistik_sayfalari(yil: int = 0):
 # Bakanlığın ünite olarak her ay istediği sayılar, onun sütun adları ve
 # sırasıyla (kullanıcının gösterdiği form). IUI SAYISI ile EMBRİYO İMHA
 # SAYISI bilerek yok, kullanıcının isteği ("IUI sayısı ve İmha Sayısı
-# hariç"): programda tutulmuyorlar. Adlar bakanlığın formunun yazısı --
+# hariç"): v6.201'de programda tutulmuyorlardı. İmha v6.227'den beri tüpte
+# kaydediliyor (`tasiyici.imha_zamani`); sütunu eklemek kullanıcıya soruldu,
+# cevabı gelmeden ekleme. Adlar bakanlığın formunun yazısı --
 # ekrandaki "tedavi"/"yumurta" kuralının (v6.79, v6.134) dışında, resmî
 # formların kâğıt kalıbı gibi olduğu gibi duruyor ("SİKLUS", "OOSİT").
 BAKANLIK_SUTUNLARI = [

@@ -245,7 +245,7 @@ Patient Data Center/
   static/form_amblem.png  formların üstündeki üniversite amblemi (kâğıttan çıktı)
   templates/        ~42 Jinja2 şablonu
   static/style.css  tüm görsel tasarım
-  goc_002..058.py   veritabanı göçleri (sırayla)
+  goc_002..059.py   veritabanı göçleri (sırayla)
   baslat.py         programı başlatır — paketlenmiş uygulamanın giriş noktası
   kurulum.py        ilk açılış: yeni laboratuvar / eski bilgisayardan taşı, şema (v6.204)
   paket/pdc.spec    PyInstaller tarifi; pdc_kurulum.iss + gorev.ps1 Windows kurulumu,
@@ -2638,7 +2638,8 @@ besleniyor.
   -- program Türkçe ek uydurmuyor); "Kalan dondurulmuş" o güne kadar
   taşınanı saymıyor, çözme satırlarının altında "Taşınan:" yazıyor.
   **Yeni bir "tankta mı" sorusu yazarsan `durum='dolu'`'ya bak** --
-  `specimen.durum` taşınan embriyoda hâlâ `dondurulmus`. `cryo_esle.py
+  `specimen.durum` taşınan (ve imha edilen, v6.227) embriyoda hâlâ
+  `dondurulmus`. `cryo_esle.py
   eksik`: programda dolu, Excel'de karşılığı olmayan tüpler, yalnızca
   rapor; "adı farklı yazılmış" sınıfı (aynı gün aynı içerik, ad tutmuyor)
   taşınmış sayılmamalı. Programın kendisi hiçbir tüpü "taşındı" yapmaz.
@@ -2654,8 +2655,10 @@ besleniyor.
   - Taşınan sperm tüpü /cryo'nun sperm listesinde, androloji'nin bağlama
     listesinde, "bağlanmayı bekleyen" uyarısında yok ve tedaviye bağlanamaz
     (bağlama `durum`'u 'kullanildi' yapar, taşındı bilgisi silinirdi). Sperm
-    sorgusu yazarken `t.durum <> 'gonderildi'` süzgecini unutma: sperm
-    listesi 'kullanildi'yi bilerek gösteriyor, `durum='dolu'` yazılamıyor.
+    sorgusu yazarken `t.durum NOT IN {db.TANKTAN_CIKAN_SQL}` süzgecini
+    unutma (v6.227'ye kadar `<> 'gonderildi'`; imha edilen de dışarıda):
+    sperm listesi 'kullanildi'yi bilerek gösteriyor, `durum='dolu'`
+    yazılamıyor.
   - Hasta kartında tüp **dondurulduğu tedavinin** satırında (`db.vit_tedavisi()`),
     içerik formun "Taşınan:" kaynağından (`formlar.tasinan_tupler()`,
     `hastanin_tasinan_tedavileri()`) -- v6.182'nin ayrı kartı kaldırıldı.
@@ -2663,6 +2666,40 @@ besleniyor.
     değiller, ad tek başına kanıt değil); işaretlenen v6.189'un "tanktan
     çıkarıldı"sı olur, geri alması kendi sayfasından. Excel kaydını ad
     benzerliğiyle kendiliğinden işaretleyen ya da taşımaya bağlayan kod YAZMA.
+- **İmha edilen tüp** (v6.227, `goc_059`, README v6.227; kullanıcı: sorunlu
+  PGT embriyosu "hastaya göre" tankta kalıyor ya da imha ediliyor, imha kaydı
+  "bütün tüpler"de). Gönderimin aynı deseni: `tasiyici.durum = 'imha'` +
+  `imha_zamani` (gün) / `imha_sebep` (`discard_sebep` listesinin kodu, boş
+  olabilir) / `imha_notu`; kayıt ve örneklerin durumu değişmez, geri alınır.
+  Göç denetimi `db.imha_var()`.
+  - Form ve kart tek yerde, `_imha.html` (`kart()`, `formu()`): taşıyıcı
+    sayfası (embriyo / yumurta) ve sperm dondurma sayfası (sperm tüpünün kendi
+    ekranı). Dönüş sunucuda (`_imha_donusu()`), hata `?imha_hata=` beyaz
+    listeden (`IMHA_HATALARI`). Gün denetimi gönderiminki (`_gonderim_gunu()`)
+    + dondurmadan önce olamaz (`_tup_dondurma_gunu()`, sperm dahil).
+    Rotalar `/imha`, `/imhayi-geri-al` (tam `geri-al` değil: "silme").
+  - Yazma koşullu ve tek işlem (`_imha_yaz()`, `_imhayi_kaldir()`: `WHERE
+    durum='dolu'` / `'imha'` + goblet boşalması), değişiklik geçmişi işlemden
+    sonra. Tanktan çıkan yeni bir işaret yazarsan aynı koşulu koy.
+  - **"Tanktan çıkan" durumlar tek yerde: `db.TANKTAN_CIKAN`**
+    (`gonderildi`, `imha`) ve SQL hali `TANKTAN_CIKAN_SQL`. Çözme ekranının üç
+    kapısı, sperm süzgeçleri ve dondurmanın geri alınma / başka tüpe taşınma
+    engeli (`_vit_geri_alma_engeli()`: v6.227'den beri taşınan tüpte de; eski
+    davranış tüpü "boşaltıldı" yapıp işareti siliyordu) buna bakıyor. Yeni
+    bir "tanktan çıkmış ama kaydı duran" durum eklersen oraya ekle.
+  - Tüp durumunun rozeti `_tup_durum.html` (`rozet(durum)`): taşıyıcı
+    sayfası, etiket araması, FET'in çözme listesi, vitrifikasyon kartı.
+    İkinci bir yazım kurma.
+  - Hasta kartı: `hastanin_tasima_tupleri()` imha edilenleri de döndürüyor
+    (taşıma ekranı `tankta_gruplari()` / `tasinan_gruplari()` ile duruma göre
+    süzüyor), "İmha edilenler" `imha_gruplari()`: gün + sebep. Tedavi
+    satırı imhayı yazmıyor (taşımada kullanıcı istemişti, imhada sorulmadı).
+  - Formlar: `formlar.imha_tupler()` / `imha_notu()` ("İmha: ..."), taşınan
+    tüplerle ortak sorgu `_cikan_tupler()`; `_kalan_dondurulmus()` o güne
+    kadar imha edileni saymıyor.
+  - Excel kaydının imhası yok: kendi "tanktan çıkarıldı"sı. Bakanlık
+    tablosunda imha sütunu yok (v6.201'de kullanıcı istemedi; eklemek
+    soruldu, cevap gelmeden ekleme).
 - **Tankın fiziksel düzeni** (kullanıcı, 2026-09-25; Excel'den çıkarıldı,
   README v6.188): tank → kanister → goblet; **embriyo gobletine 4
   straw/Cryotop** konuyor ve **bir goblette farklı renkler** duruyor (straw'lar
@@ -4283,7 +4320,9 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 1. **Biyopsi / PGT modülü** — v6.225'te başladı: tedavinin PGT işareti,
    biyopsi ekranı, PGT numarası, tüp satırları; v6.226'da genetik sonuç,
    rapor, kullanıcının "sorunsuz" kararı, bekleyenler listesi ve FET'te onay
-   (yukarıdaki "PGT" bölümü). Sırada: tüp imhası, bütün tüplerde (v6.227).
+   (yukarıdaki "PGT" bölümü); v6.227'de tüp imhası, bütün tüplerde
+   (yukarıdaki "İmha edilen tüp" maddesi). Kullanıcıya soruldu: Bakanlık
+   tablosuna embriyo imha sütunu eklensin mi (v6.201'de istememişti).
 2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi, elle
    tetikleme v6.119'da, geri yükleme v6.120'de eklendi.**
    - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin

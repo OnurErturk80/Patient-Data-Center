@@ -4614,9 +4614,10 @@ def androloji_sperm_baglama_ekran(request: Request, cycle_id: int, ara: str = ""
         "  h.dosya_no, h.ad_soyad "
         "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
         "JOIN hasta h ON h.id = sd.hasta_id "
-        # Başka merkeze taşınan sperm artık laboratuvarda değil (v6.205).
+        # Başka merkeze taşınan (v6.205) ya da imha edilen (v6.227) sperm
+        # artık laboratuvarda değil.
         "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL "
-        "AND t.durum <> 'gonderildi'")
+        f"AND t.durum NOT IN {db.TANKTAN_CIKAN_SQL}")
     if ara.strip():
         # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- SQLite'ın
         # LIKE'ı Türkçe ı/ş/ğ/ö/ü/ç'de büyük/küçük harf eşitlemiyor, arama
@@ -8245,6 +8246,10 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
         "  (SELECT t.etiket FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
         "   WHERE o.specimen_id=s.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
         + bu_vit + "ORDER BY o.id DESC LIMIT 1) AS tasiyici_etiket, "
+        # Tüp taşındı / imha edildi mi (v6.227): kartta rozet, "Çöz" yok.
+        "  (SELECT t.durum FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
+        "   WHERE o.specimen_id=s.id AND o.tip='vitrifikasyon' AND o.iptal_mi=0 "
+        + bu_vit + "ORDER BY o.id DESC LIMIT 1) AS tasiyici_durum, "
         "  (SELECT k.tam_yol FROM olay o JOIN tasiyici t ON t.id=o.vit_tasiyici_id "
         "   JOIN konum k ON k.id=t.konum_id WHERE o.specimen_id=s.id "
         "   AND o.tip='vitrifikasyon' AND o.iptal_mi=0 " + bu_vit +
@@ -8658,10 +8663,11 @@ def cryo_harita(request: Request, ara: str = ""):
         "JOIN hasta h ON h.id = sd.hasta_id "
         "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
         "LEFT JOIN hasta uh ON uh.id = uc.hasta_id "
-        # Başka merkeze taşınan sperm tüpü haritadan çıkıyor (v6.205) --
-        # embriyo tüpünün `durum='dolu'` süzgecinin karşılığı. Kullanılmış
-        # tüp v6.86'daki gibi rozetiyle kalıyor.
-        "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND t.durum <> 'gonderildi'")
+        # Başka merkeze taşınan (v6.205) ya da imha edilen (v6.227) sperm
+        # tüpü haritadan çıkıyor -- embriyo tüpünün `durum='dolu'`
+        # süzgecinin karşılığı. Kullanılmış tüp v6.86'daki gibi rozetiyle
+        # kalıyor.
+        f"WHERE sd.lab_id=? AND sd.iptal_mi=0 AND t.durum NOT IN {db.TANKTAN_CIKAN_SQL}")
     if ara.strip():
         # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- arama
         # terimi Türkçe ı/ş/ğ/ö/ü/ç için `tr_buyuk()`'ten geçmeli (v6.116).
@@ -9468,7 +9474,7 @@ def sperm_tedaviye_bagla(sperm_dondurma_id: int, cycle_id: int) -> bool:
         "SELECT sd.tasiyici_id FROM sperm_dondurma sd "
         "JOIN tasiyici t ON t.id = sd.tasiyici_id WHERE sd.id=? AND sd.lab_id=? "
         "AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL "
-        "AND t.durum <> 'gonderildi'",
+        f"AND t.durum NOT IN {db.TANKTAN_CIKAN_SQL}",
         (sperm_dondurma_id, db.LAB_ID))
     if not (c and sd):
         return False
@@ -9502,16 +9508,19 @@ def hastanin_sperm_kayitlari(hasta_id: int, yalnizca_bagsiz: bool = False) -> li
     tedavide kullanıldığını da yazarak.
 
     Başka merkeze taşınan kayıt (v6.205) hasta kartında taşındığı gün ve
-    yerle görünüyor; "bağlanmayı bekleyen" sayılmıyor -- laboratuvarda değil.
+    yerle, imha edilen (v6.227) günü ve sebebiyle görünüyor; ikisi de
+    "bağlanmayı bekleyen" sayılmıyor -- laboratuvarda değil.
     """
-    ek = (" AND sd.kullanim_cycle_id IS NULL AND t.durum <> 'gonderildi'"
+    ek = (f" AND sd.kullanim_cycle_id IS NULL AND t.durum NOT IN {db.TANKTAN_CIKAN_SQL}"
           if yalnizca_bagsiz else "")
     gonderim = ("t.gonderim_zamani, t.gonderim_yeri, t.gonderim_notu"
                 if gonderim_var() else
                 "NULL AS gonderim_zamani, NULL AS gonderim_yeri, NULL AS gonderim_notu")
+    imha = ("t.imha_zamani, t.imha_sebep" if db.imha_var() else
+            "NULL AS imha_zamani, NULL AS imha_sebep")
     return db.sorgu(
         "SELECT sd.id, sd.dondurma_zamani, sd.sebep, sd.kullanim_cycle_id, "
-        f"  t.etiket, t.durum AS tasiyici_durum, k.tam_yol, {gonderim}, "
+        f"  t.etiket, t.durum AS tasiyici_durum, k.tam_yol, {gonderim}, {imha}, "
         "  uc.cycle_no AS kul_cycle_no, uh.dosya_no AS kul_dosya_no, "
         "  uh.ad_soyad AS kul_ad_soyad "
         "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
@@ -9665,13 +9674,16 @@ async def sperm_dondurma_yeni_hasta_kaydet(request: Request):
 
 
 @uygulama.get("/sperm-dondurma/{sperm_dondurma_id}")
-def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int, hata: str = ""):
-    # Başka merkeze taşındıysa (v6.205) günü, yeri, notu.
+def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int, hata: str = "",
+                         imha_hata: str = ""):
+    # Başka merkeze taşındıysa (v6.205) günü, yeri, notu; imha edildiyse
+    # (v6.227) günü, sebebi, notu.
     gonderim = ("t.gonderim_zamani, t.gonderim_yeri, t.gonderim_notu, "
                 if gonderim_var() else "")
+    imha = "t.imha_zamani, t.imha_sebep, t.imha_notu, " if db.imha_var() else ""
     sd = db.tek(
         "SELECT sd.*, t.etiket, t.tip, t.renk, t.durum AS tasiyici_durum, "
-        f"  {gonderim}"
+        f"  {gonderim}{imha}"
         "  k.tam_yol, h.id AS hasta_id, h.dosya_no, h.ad_soyad, "
         "  uh.dosya_no AS kul_dosya_no, uh.ad_soyad AS kul_ad_soyad, "
         "  uc.cycle_no AS kul_cycle_no "
@@ -9693,10 +9705,16 @@ def sperm_dondurma_detay(request: Request, sperm_dondurma_id: int, hata: str = "
             "ORDER BY id", (sperm_dondurma_id,))
     ]
     onam_resim_ids = [o["id"] for o in onamlar if not o["pdf_mi"]]
+    tup = db.tek("SELECT * FROM tasiyici WHERE id=?", (sd["tasiyici_id"],))
     return sablon.TemplateResponse(
         request, "sperm_dondurma_detay.html",
         {"sd": sd, "etiketler": etiketler, "onamlar": onamlar,
-         "onam_resim_ids": onam_resim_ids, "hata": hata})
+         "onam_resim_ids": onam_resim_ids, "hata": hata,
+         # İmha (v6.227): taşıyıcı sayfasının formu, dönüş buraya.
+         "imha_acik": imha_edilebilir(tup),
+         "imha_hata": IMHA_HATALARI.get(imha_hata),
+         "imha_sebepleri": db.liste("discard_sebep") if db.imha_var() else [],
+         "bugun": _dt.now().date().isoformat()})
 
 
 @uygulama.post("/sperm-dondurma/{sperm_dondurma_id}/islem-yapan")
@@ -9823,7 +9841,7 @@ def sperm_dondurma_sil(request: Request, sperm_dondurma_id: int):
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}")
 def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str = "",
-                   yer: str = ""):
+                   yer: str = "", imha_hata: str = ""):
     """Taşıyıcının içeriği.
 
     `?cycle=N` çözme ekranından gelindiğini söyler; geri oku cryo haritasına
@@ -9892,6 +9910,10 @@ def tasiyici_detay(request: Request, tasiyici_id: int, cycle: int = 0, hata: str
          "geri": geri, "geri_cycle": cycle if gecerli else 0,
          "gonderim_acik": gonderim_var() and _gonderilebilir(t, icerik),
          "gonderim_hata": GONDERIM_HATALARI.get(hata),
+         # İmha (v6.227): form, sebep listesi, kayıtlı sebebin etiketi.
+         "imha_acik": imha_edilebilir(t),
+         "imha_hata": IMHA_HATALARI.get(imha_hata),
+         "imha_sebepleri": db.liste("discard_sebep") if db.imha_var() else [],
          "bugun": _dt.now().date().isoformat(),
          "harita_kaydi": harita_kaydi, "yer_onerisi": yer_onerisi,
          "konum_neden": konum_neden,
@@ -9928,8 +9950,9 @@ GONDERIM_HATALARI = {
 def _gonderim_gunu(deger):
     """Taşındığı gün: (gün, None) ya da (None, hata anahtarı). Gün zorunlu,
     bugünden sonra olamaz (yapılmış bir işin kaydı), yıl `yil_kontrol()`'den.
-    Tek tüpün formu (v6.182) ve Taşınma bölümü (v6.205) aynı denetimden
-    geçiyor. Dondurmadan önce olmama denetimi çağıranda: tüpün günü orada."""
+    Tek tüpün formu (v6.182), Taşınma bölümü (v6.205) ve imha (v6.227) aynı
+    denetimden geçiyor. Dondurmadan önce olmama denetimi çağıranda: tüpün
+    günü orada."""
     gun = (deger or "").strip()[:10]
     try:
         gun = yil_kontrol(bos_ise_none(gun))
@@ -10032,6 +10055,147 @@ async def tasiyici_gonderimi_geri_al(request: Request, tasiyici_id: int):
     return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
 
+# ------------------------------------------------------ imha edilen tüp (v6.227)
+#
+# Kullanıcının anlatımı (2026-09-29, PGT): genetik incelemede sorunlu çıkan
+# embriyo "hastaya göre" tankta kalıyor ya da imha ediliyor; imha kaydı
+# "bütün tüpler"de -- embriyo, yumurta ve sperm tüpü. Gönderimin (v6.182)
+# aynı yolu: tüpün durumu 'imha' + gün, sebep (`discard_sebep` listesi), not;
+# kayıt ve örneklerin durumu değişmiyor, yanlış tüp işaretlendiyse geri
+# alınıyor. Cryo Haritası, boş yer önerisi, iki Excel dosyası ve formların
+# "Kalan dondurulmuş"u yalnızca dolu tüpü saydığı için tüp haritadan çıkıyor.
+
+# Adresten gelen hata anahtarı beyaz listeden (tuzak #9).
+IMHA_HATALARI = {
+    "tarih_yok": "imha_tarih_yok",
+    "tarih_hatali": "gonderim_tarih_hatali",
+    "tarih_ileri": "imha_tarih_ileri",
+    "tarih_once": "imha_tarih_once",
+    "sebep_hatali": "imha_sebep_hatali",
+    "dolu_degil": "imha_dolu_degil",
+}
+
+
+def imha_edilebilir(t) -> bool:
+    """Tüp imha edildi diye işaretlenebilir mi: hâlâ dolu ve içinde örnek var
+    (embriyo / yumurta tüpünde etkin dondurma kaydı, sperm tüpünde iptal
+    edilmemiş dondurma). Çözülmüş, kullanılmış (sperm) ya da taşınmış tüp
+    imha edilmiş olamaz. Göç yoksa hiçbiri."""
+    if not t or t["durum"] != "dolu" or not db.imha_var():
+        return False
+    if t["kategori"] == "sperm":
+        return db.tek("SELECT 1 FROM sperm_dondurma WHERE tasiyici_id=? "
+                      "AND iptal_mi=0 LIMIT 1", (t["id"],)) is not None
+    return db.tek("SELECT 1 FROM olay WHERE vit_tasiyici_id=? "
+                  "AND tip='vitrifikasyon' AND iptal_mi=0 LIMIT 1", (t["id"],)) is not None
+
+
+def _tup_dondurma_gunu(t) -> str:
+    """Tüpün (ilk) dondurulduğu gün, YYYY-MM-DD: imha günü ondan önce olamaz."""
+    if t["kategori"] == "sperm":
+        r = db.tek("SELECT MIN(dondurma_zamani) z FROM sperm_dondurma "
+                   "WHERE tasiyici_id=? AND iptal_mi=0", (t["id"],))
+    else:
+        r = db.tek("SELECT MIN(zaman) z FROM olay WHERE vit_tasiyici_id=? "
+                   "AND tip='vitrifikasyon' AND iptal_mi=0", (t["id"],))
+    return (r["z"] or "")[:10] if r else ""
+
+
+def _imha_donusu(t) -> str:
+    """İmha formunun döndüğü sayfa: sperm tüpünde dondurma kaydının sayfası
+    (sperm tüpünün kendi ekranı), embriyo / yumurta tüpünde tüpün sayfası.
+    Adres sunucuda kuruluyor, formdan gelen bir yol değil."""
+    if t["kategori"] == "sperm":
+        sd = db.tek("SELECT id FROM sperm_dondurma WHERE tasiyici_id=? AND iptal_mi=0 "
+                    "ORDER BY id LIMIT 1", (t["id"],))
+        if sd:
+            return f"/sperm-dondurma/{sd['id']}"
+    return f"/cryo/tasiyici/{t['id']}"
+
+
+@uygulama.post("/cryo/tasiyici/{tasiyici_id}/imha")
+async def tasiyici_imha(request: Request, tasiyici_id: int):
+    """Tüpü "imha edildi" diye işaretler (v6.227).
+
+    Gün zorunlu, bugünden sonra ve tüpün dondurulmasından önce olamaz
+    (yapılmış bir işin kaydı; `_gonderim_gunu()`'nün denetimi). Sebep
+    `discard_sebep` listesinden ya da boş; listede olmayan kod reddediliyor
+    (eski bir sekmede pasif yapılmış bir sebep). Yazma koşullu: tüp bu arada
+    çözüldüyse ya da taşındıysa hiçbir şey yazılmıyor.
+    """
+    f = await request.form()
+    t = db.tek("SELECT * FROM tasiyici WHERE id=? AND lab_id=?", (tasiyici_id, db.LAB_ID))
+    if not t or not db.imha_var():
+        return RedirectResponse("/cryo", status_code=303)
+    donus = _imha_donusu(t)
+    if not imha_edilebilir(t):
+        return RedirectResponse(donus + "?imha_hata=dolu_degil", status_code=303)
+    gun, hata = _gonderim_gunu(f.get("imha_zamani"))
+    if hata:
+        return RedirectResponse(donus + f"?imha_hata={hata}", status_code=303)
+    ilk = _tup_dondurma_gunu(t)
+    if ilk and gun < ilk:
+        return RedirectResponse(donus + "?imha_hata=tarih_once", status_code=303)
+    sebep = (f.get("imha_sebep") or "").strip()
+    if sebep and sebep not in {r["kod"] for r in db.liste("discard_sebep")}:
+        return RedirectResponse(donus + "?imha_hata=sebep_hatali", status_code=303)
+    if not _imha_yaz(t, gun, sebep or None, f.get("imha_notu"),
+                     request.state.kullanici["id"]):
+        return RedirectResponse(donus + "?imha_hata=dolu_degil", status_code=303)
+    return RedirectResponse(donus, status_code=303)
+
+
+def _imha_yaz(t, gun, sebep, notu, kid) -> bool:
+    """Tüpü "imha edildi" yapar: durum, gün, sebep, not; goblette başka dolu
+    tüp kalmadıysa konum boşalır. Yazma yalnızca tüp hâlâ doluysa (koşullu
+    UPDATE, tek işlem): arada çözülen ya da taşınan tüpün kaydı ezilmesin.
+    Değişiklik geçmişine işlemden sonra yazılıyor (kendi bağlantısını açıyor;
+    açık ekranların tazelemesi de oradan görüyor, v6.54). Yazıldıysa True."""
+    yeni = {"durum": "imha", "imha_zamani": gun, "imha_sebep": sebep,
+            "imha_notu": bos_ise_none((notu or "").strip())}
+    with db.yazma_islemi() as b:
+        n = b.execute("UPDATE tasiyici SET durum='imha', imha_zamani=?, imha_sebep=?, "
+                      "imha_notu=? WHERE id=? AND durum='dolu'",
+                      (gun, sebep, yeni["imha_notu"], t["id"])).rowcount
+        if n and t["konum_id"] and not b.execute(
+                "SELECT 1 FROM tasiyici WHERE konum_id=? AND durum='dolu' "
+                "AND id<>? LIMIT 1", (t["konum_id"], t["id"])).fetchone():
+            b.execute("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+    if n:
+        guvenlik.degisiklikleri_yaz("tasiyici", t["id"], t, yeni, kid)
+    return bool(n)
+
+
+def _imhayi_kaldir(t, kid) -> bool:
+    """"İmha edildi" işaretini kaldırır, tüp yeniden dolu (v6.227). Kayıt
+    hiç silinmediği için geri almak yalnızca durumu ve imhanın üç alanını
+    geri yazıyor; konum yeniden dolu. Yazıldıysa True."""
+    yeni = {"durum": "dolu", "imha_zamani": None, "imha_sebep": None,
+            "imha_notu": None}
+    with db.yazma_islemi() as b:
+        n = b.execute("UPDATE tasiyici SET durum='dolu', imha_zamani=NULL, "
+                      "imha_sebep=NULL, imha_notu=NULL WHERE id=? AND durum='imha'",
+                      (t["id"],)).rowcount
+        if n and t["konum_id"]:
+            b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (t["konum_id"],))
+    if n:
+        guvenlik.degisiklikleri_yaz("tasiyici", t["id"], t, yeni, kid)
+    return bool(n)
+
+
+@uygulama.post("/cryo/tasiyici/{tasiyici_id}/imhayi-geri-al")
+async def tasiyici_imhayi_geri_al(request: Request, tasiyici_id: int):
+    """İmha işaretini kaldırır (v6.227): yanlış tüp işaretlendiyse. Rota adı
+    tam `geri-al` değil: o ad "silme" modülüne düşer (`yol_modulu()`), bu bir
+    cryo işi (`gonderimi-geri-al`'ın deseni)."""
+    t = db.tek("SELECT * FROM tasiyici WHERE id=? AND lab_id=?", (tasiyici_id, db.LAB_ID))
+    if not t or not db.imha_var():
+        return RedirectResponse("/cryo", status_code=303)
+    if t["durum"] == "imha":
+        _imhayi_kaldir(t, request.state.kullanici["id"])
+    return RedirectResponse(_imha_donusu(t), status_code=303)
+
+
 # ------------------------------------------------ Taşınma bölümü (v6.205)
 #
 # Kullanıcının isteği (2026-09-28): "Bazı hastalar embriyo, yumurta ve
@@ -10098,9 +10262,13 @@ def tasima_hasta_ara(ara: str) -> list:
 
 
 def hastanin_tasima_tupleri(hasta_id: int) -> list:
-    """Hastanın tankta (dolu) ve başka merkeze taşınmış tüpleri: embriyo,
-    yumurta ve sperm. Çözülmüş (boşaltılmış) ya da kullanılmış tüp yok --
-    taşınamaz. Her satır: `id`, `kategori`, `durum`, `gonderim_*`, `tam_yol`,
+    """Hastanın tankta (dolu), başka merkeze taşınmış ve imha edilmiş (v6.227)
+    tüpleri: embriyo, yumurta ve sperm. Çözülmüş (boşaltılmış) ya da
+    kullanılmış tüp yok -- taşınamaz. Taşıma ekranı yalnızca dolu ve taşınmış
+    olanlara bakıyor (`tankta_gruplari()`, `tasinan_gruplari()`: duruma göre
+    süzüyorlar), hasta kartı imha edilenleri de gösteriyor
+    (`imha_gruplari()`). Her satır: `id`, `kategori`, `durum`, `gonderim_*`,
+    `imha_*`, `tam_yol`,
     `dondurma` (en erken dondurma anı: taşıma günü ondan önce olamaz),
     embriyo tüpünde `tedavi_id` (dondurmanın YAPILDIĞI tedavi,
     `db.vit_tedavisi()`), sperm tüpünde `sperm_id`; geri kalanı Cryo
@@ -10111,11 +10279,15 @@ def hastanin_tasima_tupleri(hasta_id: int) -> list:
     (goc_051) yoksa taşınmış tüp olamaz, yalnızca tanktakiler dönüyor --
     taşıma ekranı o durumda zaten açılmıyor."""
     gonderim = gonderim_var()
+    imha = db.imha_var()
     ortak = ("t.id, t.kategori, t.durum, t.konum_id, "
              + ("t.gonderim_zamani, t.gonderim_yeri, t.gonderim_notu, " if gonderim else
                 "NULL AS gonderim_zamani, NULL AS gonderim_yeri, NULL AS gonderim_notu, ")
+             + ("t.imha_zamani, t.imha_sebep, t.imha_notu, " if imha else
+                "NULL AS imha_zamani, NULL AS imha_sebep, NULL AS imha_notu, ")
              + "k.tam_yol")
-    durumlar = "('dolu', 'gonderildi')" if gonderim else "('dolu')"
+    durumlar = "(" + ", ".join(["'dolu'"] + (["'gonderildi'"] if gonderim else [])
+                               + (["'imha'"] if imha else [])) + ")"
     satirlar = [dict(r) for r in db.sorgu(
         f"SELECT {ortak}, MIN(o.zaman) AS dondurma, "
         f"  MIN({db.vit_tedavisi('o')}) AS tedavi_id, NULL AS sperm_id "
@@ -10182,6 +10354,21 @@ def tasinan_gruplari(tupler) -> list:
                                         reverse=True)]
 
 
+def imha_gruplari(tupler) -> list:
+    """İmha edilen tüpler (v6.227), gün + sebep başına, en yeni üstte -- hasta
+    kartının "Dondurulmuş örnekler"i. `tasinan_gruplari()`'nın deseni."""
+    gruplar = {}
+    for t in tupler:
+        if t["durum"] == "imha":
+            gruplar.setdefault((t["imha_zamani"] or "", t["imha_sebep"] or ""),
+                               []).append(t)
+    return [{"gun": gun or None, "sebep": sebep or None,
+             "tupler": sorted(l, key=lambda t: (t["kategori"], t.get("etiket") or "")),
+             "notlar": sorted({t["imha_notu"] for t in l if t["imha_notu"]})}
+            for (gun, sebep), l in sorted(gruplar.items(), key=lambda x: x[0][0],
+                                          reverse=True)]
+
+
 def tupun_cozme_secenekleri(tup_id: int, cycles) -> dict:
     """Hasta kartında bir tüpün "Çöz" düğmeleri (v6.217): açık tedaviler ve
     açılabilecek yeni tedavi tipleri.
@@ -10227,6 +10414,7 @@ def hastanin_dondurulmus_ornekleri(hasta, cycles) -> dict:
       olmayan straw'lar (tankta). Hastaya BAĞLI DEĞİL (ad tek başına kanıt
       değil, v6.205): çözülemez, kaydın sayfasında hastaya bağlanınca tüp
       olur (v6.213).
+    - `imha`: imha edilenler (v6.227), embriyo ve sperm (`imha_gruplari()`).
     - `tasima`: Taşınma ekranının düğmesi (tankta ya da taşınmış bir tüp var).
     """
     tupler = hastanin_tasima_tupleri(hasta["id"])
@@ -10236,7 +10424,9 @@ def hastanin_dondurulmus_ornekleri(hasta, cycles) -> dict:
             t["cozme"] = tupun_cozme_secenekleri(t["id"], cycles)
     excel = [e for e in hastanin_excel_adaylari(hasta) if e["durum"] == "tankta"]
     return {"tankta": tankta, "tasinan": tasinan_gruplari(tupler), "excel": excel,
-            "tasima": gonderim_var() and bool(tupler)}
+            "imha": imha_gruplari(tupler),
+            "tasima": gonderim_var() and any(t["durum"] in ("dolu", "gonderildi")
+                                             for t in tupler)}
 
 
 def hastanin_excel_adaylari(hasta) -> list:
@@ -10514,8 +10704,18 @@ def _vit_geri_alma_engeli(kayit):
     yapılan yeniden dondurma -- duruyor: geçmiş kendi içinde çelişirdi.
     Önce çözme geri alınmalı. Göç (goc_046) çalışmamışsa eski davranış:
     engel yok.
+
+    Tüp taşındı (v6.182) ya da imha edildi (v6.227) işaretliyse de önce o
+    işaret kaldırılır: dondurmayı silmek tüpü "boşaltıldı" yapıp işareti
+    silerdi, eski bir sekmeden başka tüpe taşımak (`vit_kaydet()`, aynı
+    engel) da.
     """
-    if not (kayit and kayit["vit_tasiyici_id"] and db.cozme_tupu_var()):
+    if not (kayit and kayit["vit_tasiyici_id"]):
+        return None
+    tup = db.tek("SELECT durum FROM tasiyici WHERE id=?", (kayit["vit_tasiyici_id"],))
+    if tup and tup["durum"] in db.TANKTAN_CIKAN:
+        return "vit_geri_alma_tanktan_cikmis"
+    if not db.cozme_tupu_var():
         return None
     cozme = db.tek("SELECT 1 FROM olay WHERE specimen_id=? AND tip='thaw' "
                    "AND iptal_mi=0 AND thaw_tasiyici_id=?",
@@ -10724,9 +10924,9 @@ def thaw_ekran(request: Request, tasiyici_id: int, hata: str = "", cycle: int = 
                "LEFT JOIN konum k ON k.id=t.konum_id WHERE t.id=?", (tasiyici_id,))
     if not t:
         return RedirectResponse("/cryo", status_code=303)
-    # Başka merkeze taşınan tüp burada çözülemez (v6.182); önce gönderim
-    # geri alınır (tüpün sayfasında).
-    if t["durum"] == "gonderildi":
+    # Başka merkeze taşınan (v6.182) ya da imha edilen (v6.227) tüp burada
+    # çözülemez; önce işaret kaldırılır (tüpün sayfasında).
+    if t["durum"] in db.TANKTAN_CIKAN:
         return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
     from datetime import datetime as _d
@@ -10798,7 +10998,7 @@ async def thaw_kaydet(request: Request, tasiyici_id: int):
     t = db.tek("SELECT * FROM tasiyici WHERE id=?", (tasiyici_id,))
     if not t:
         return RedirectResponse("/cryo", status_code=303)
-    if t["durum"] == "gonderildi":       # v6.182: sunucu da reddediyor
+    if t["durum"] in db.TANKTAN_CIKAN:   # v6.182, v6.227: sunucu da reddediyor
         return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
 
     icerik = tasiyici_icerigi(tasiyici_id)
@@ -10977,7 +11177,7 @@ async def thaw_yeni_tedavi(request: Request, tasiyici_id: int):
     hastalar = {r["hasta_id"] for r in icerik}
     tip = f.get("tip") or ""
     t = db.tek("SELECT durum FROM tasiyici WHERE id=?", (tasiyici_id,))
-    if t and t["durum"] == "gonderildi":   # v6.182
+    if t and t["durum"] in db.TANKTAN_CIKAN:   # v6.182, v6.227
         return RedirectResponse(f"/cryo/tasiyici/{tasiyici_id}", status_code=303)
     if not icerik or len(hastalar) != 1 or not thaw_cycle_var() \
             or tip not in thaw_tedavi_tipleri(icerik):

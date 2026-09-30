@@ -1,0 +1,12 @@
+{#- Tüpün durumu rozetle (v6.227): dolu tüp rozetsiz; çözülmüş, kullanılmış
+    (sperm, v6.86: "boşaltıldı" değil), başka merkeze taşınmış (v6.182) ve
+    imha edilmiş (v6.227) ayrı yazıyor -- taşınan ve imha edilen tüpün kaydı
+    duruyor. Taşıyıcı sayfası, etiket araması ve çözme ekranının tüp listesi
+    bunu çağırıyor; ikinci bir yazım kurma. -#}
+{% macro rozet(durum) -%}
+{%- if durum == "gonderildi" %}<span class="rozet arsiv">{{ metin("tasiyici_gonderildi") }}</span>
+{%- elif durum == "imha" %}<span class="rozet arsiv">{{ metin("tasiyici_imha") }}</span>
+{%- elif durum == "kullanildi" %}<span class="rozet arsiv">{{ metin("tasiyici_kullanildi") }}</span>
+{%- elif durum and durum != "dolu" %}<span class="rozet arsiv">{{ metin("tasiyici_bosaltildi") }}</span>
+{%- endif %}
+{%- endmacro %}

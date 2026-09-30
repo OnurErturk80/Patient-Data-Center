@@ -1,0 +1,47 @@
+{#- Tüpün imha kaydı (v6.227): kart (imha edildiyse) ve form (dolu tüpte).
+    Taşıyıcı sayfası (embriyo / yumurta) ve sperm dondurma sayfası (sperm
+    tüpünün kendi ekranı) aynı parçayı basıyor; formun döndüğü sayfa sunucuda
+    kuruluyor (`app._imha_donusu()`). Onaylar tek tırnaklı nitelikte
+    (tuzak #16). İçe aktarılan makro şablonun değişkenlerini görmüyor: gün,
+    sebep listesi ve hata parametre. -#}
+{% macro kart(tup_id, zamani, sebep, notu) %}
+<div class="kart">
+  <h2>{{ metin("imha_baslik") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("imha_tarihi") }}</dt>
+      <dd>{{ gg_aa_yyyy(zamani) if zamani else "—" }}</dd></div>
+    <div class="veri"><dt>{{ metin("imha_sebebi") }}</dt>
+      <dd {% if not sebep %}class="yok"{% endif %}>{{ liste_etiket("discard_sebep", sebep) if sebep else metin("girilmemis") }}</dd></div>
+    {% if notu %}
+    <div class="veri"><dt>{{ metin("gonderim_notu") }}</dt><dd>{{ notu }}</dd></div>
+    {% endif %}
+  </dl>
+  {% if yetkim("cryo") %}
+  <form method="post" action="/cryo/tasiyici/{{ tup_id }}/imhayi-geri-al" style="margin:0 14px 14px"
+        onsubmit='return confirm({{ metin('imhayi_geri_al_onay')|tojson }})'>
+    <button class="dugme ikincil" type="submit">{{ metin("imhayi_geri_al") }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro formu(tup_id, bugun, sebepler, hata=None) %}
+<details class="kart yardim" style="padding:0 14px 14px" {% if hata %}open{% endif %}>
+  <summary>{{ metin("imha_ac") }}</summary>
+  <div class="ipucu" style="margin:0 0 6px">{{ metin("imha_ipucu") }}</div>
+  <form method="post" action="/cryo/tasiyici/{{ tup_id }}/imha"
+        onsubmit='return confirm({{ metin('imha_onay')|tojson }})'>
+    <div class="alan"><label for="imha_zamani">{{ metin("imha_tarihi") }}</label>
+      <input type="date" id="imha_zamani" name="imha_zamani" min="1900-01-01"
+             value="{{ bugun }}" required></div>
+    <div class="alan"><label for="imha_sebep">{{ metin("imha_sebebi") }}</label>
+      <select id="imha_sebep" name="imha_sebep">
+        <option value="">—</option>
+        {% for s in sebepler %}<option value="{{ s.kod }}">{{ s.etiket }}</option>{% endfor %}
+      </select></div>
+    <div class="alan"><label for="imha_notu">{{ metin("gonderim_notu") }}</label>
+      <input type="text" id="imha_notu" name="imha_notu" maxlength="300"></div>
+    <button class="dugme tehlikeli" type="submit">{{ metin("imha_kaydet") }}</button>
+  </form>
+</details>
+{% endmacro %}

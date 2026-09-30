@@ -50,13 +50,18 @@
         <span class="rozet">{{ metin("tasindi_rozet") }}</span> {{ metin("gonderim_cumlesi").format(
           tarih=gg_aa_yyyy(sd.gonderim_zamani) if sd.gonderim_zamani else "—",
           yer=sd.gonderim_yeri or metin("gonderim_baska_merkeze")) }}
+      {% elif sd.tasiyici_durum == "imha" %}
+        {#- İmha edildi (v6.227): tüp laboratuvarda değil, bağlanamaz. #}
+        <span class="rozet">{{ metin("imha_rozet") }}</span> {{ metin("imha_cumlesi").format(
+          tarih=gg_aa_yyyy(sd.imha_zamani) if sd.imha_zamani else "—") }}
+        {%- if sd.imha_sebep %} · {{ liste_etiket("discard_sebep", sd.imha_sebep) }}{% endif %}
       {% elif sd.kullanim_cycle_id %}
         {{ metin("kullanildigi_tedavi") }}: {{ sd.kul_cycle_no }}
         {%- if sd.kul_ad_soyad %} · {{ sd.kul_dosya_no }} · {{ sd.kul_ad_soyad }}{% endif %}
       {% else %}{{ metin("sperm_bagli_degil") }}{% endif %}
     </div>
   </a>
-  {% if sd.tasiyici_durum == "gonderildi" %}
+  {% if sd.tasiyici_durum in ("gonderildi", "imha") %}
   {% elif not sd.kullanim_cycle_id %}
     {% if baglanabilir %}
     {# Tedavi seçimi BU hastanın tedavileri arasından; başka bir hastanın
@@ -252,8 +257,8 @@
    Kartın "Tedaviye bağla" / bağı kaldır formları sayfayı yeniden yüklüyor:
    kaldığı yer `_kaydirma.html` ile korunuyor (bloğun sonu). #}
 {% set d = dondurulmus %}
-{% set sperm_lab = sperm_kayitlari|rejectattr("tasiyici_durum", "equalto", "gonderildi")|list %}
-{% if yetkim("cryo") and (d.tankta or sperm_lab or d.tasinan or d.excel) %}
+{% set sperm_lab = sperm_kayitlari|rejectattr("tasiyici_durum", "in", ("gonderildi", "imha"))|list %}
+{% if yetkim("cryo") and (d.tankta or sperm_lab or d.tasinan or d.excel or d.imha) %}
 <div class="kart" id="dondurulmus">
   <h2>{{ metin("dondurulmus_ornekler") }}</h2>
   {% for g in d.tankta %}
@@ -293,6 +298,23 @@
       <em>{% if e.tam_yol %}{{ e.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
     </span>
   </a>
+  {% endfor %}
+  {% endif %}
+
+  {# İmha edilenler (v6.227): embriyo, yumurta ve sperm, gün + sebep başına.
+     Tüpün sayfası imhayı geri alabiliyor (yanlış tüp işaretlendiyse). #}
+  {% if d.imha %}
+  <div class="kartbolum">{{ metin("imha_edilenler") }}</div>
+  {% for g in d.imha %}
+  <div class="tasimagrup">{{ metin("imha_cumlesi").format(tarih=gg_aa_yyyy(g.gun) if g.gun else "—") }}
+    {%- if g.sebep %} · {{ liste_etiket("discard_sebep", g.sebep) }}{% endif %}</div>
+  {% for x in g.tupler %}
+  <a class="satir tasimasatir" href="{{ '/sperm-dondurma/' ~ x.sperm_id if x.sperm_id else '/cryo/tasiyici/' ~ x.id }}">
+    <span class="renknokta{% if x.renk %} renk-{{ x.renk }}{% endif %}"></span>
+    <span class="bilgi">{{ tb.tup_bilgisi(x, etiketler) }}</span>
+  </a>
+  {% endfor %}
+  {% for n in g.notlar %}<div class="ipucu" style="margin:6px 14px 0">{{ metin("gonderim_notu") }}: {{ n }}</div>{% endfor %}
   {% endfor %}
   {% endif %}
 

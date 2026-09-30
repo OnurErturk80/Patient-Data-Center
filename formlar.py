@@ -1069,26 +1069,24 @@ def _gonderim_var() -> bool:
     return db.kolon_var("tasiyici", "gonderim_zamani")
 
 
-def tasinan_tupler(kosul: str, par) -> list:
-    """Başka merkeze taşınan tüpler (v6.182), içindekilerle: `tup_metni()`'nin
-    beklediği sözlük + gün, yer, yumurta mı. `kosul` dondurma olayı `v`,
-    örnek `s`, tedavi `c`, taşıyıcı `t` üzerinden. v6.205'ten beri tüpün
-    kimliği, etiketi ve dondurulduğu tedavi (`tedavi`, `db.vit_tedavisi()`)
-    de dönüyor: hasta kartının tedavi satırı aynı tüpleri basıyor."""
-    if not _gonderim_var():
-        return []
+def _cikan_tupler(durum: str, gun: str, yer: str, kosul: str, par) -> list:
+    """Tanktan çıkmış ama kaydı duran tüpler (`db.TANKTAN_CIKAN`: taşındı,
+    imha edildi), içindekilerle: `tup_metni()`'nin beklediği sözlük + gün,
+    yer (taşımada nereye, imhada sebep kodu), yumurta mı. `durum`, `gun`,
+    `yer` koddan gelir (tüpün durumu ve iki kolonu). `kosul` dondurma olayı
+    `v`, örnek `s`, tedavi `c`, taşıyıcı `t` üzerinden."""
     vt = db.vit_tedavisi("v")
     satirlar = db.sorgu(
         f"""
         SELECT v.id, v.specimen_id, v.vit_tasiyici_id AS tup, {vt} AS vit_cid,
                {db.dondurulan_yumurta_sql('v')} AS yumurta, t.etiket,
-               t.gonderim_zamani AS gun, t.gonderim_yeri AS yer
+               t.{gun} AS gun, t.{yer} AS yer
           FROM olay v JOIN specimen s ON s.id = v.specimen_id
           JOIN cycle c ON c.id = s.cycle_id
           JOIN tasiyici t ON t.id = v.vit_tasiyici_id
          WHERE v.tip = 'vitrifikasyon' AND v.iptal_mi = 0
-           AND t.durum = 'gonderildi' AND {kosul}
-         ORDER BY t.gonderim_zamani, v.zaman, v.id
+           AND t.durum = '{durum}' AND {kosul}
+         ORDER BY t.{gun}, v.zaman, v.id
         """, par)
     tupler = {}
     for r in satirlar:
@@ -1100,6 +1098,25 @@ def tasinan_tupler(kosul: str, par) -> list:
         tp["olgunluk"].append(_yumurta_olgunlugu(r["specimen_id"], r["id"])
                               if r["yumurta"] else None)
     return list(tupler.values())
+
+
+def tasinan_tupler(kosul: str, par) -> list:
+    """Başka merkeze taşınan tüpler (v6.182), içindekilerle: `tup_metni()`'nin
+    beklediği sözlük + gün, yer, yumurta mı. `kosul` dondurma olayı `v`,
+    örnek `s`, tedavi `c`, taşıyıcı `t` üzerinden. v6.205'ten beri tüpün
+    kimliği, etiketi ve dondurulduğu tedavi (`tedavi`, `db.vit_tedavisi()`)
+    de dönüyor: hasta kartının tedavi satırı aynı tüpleri basıyor."""
+    if not _gonderim_var():
+        return []
+    return _cikan_tupler("gonderildi", "gonderim_zamani", "gonderim_yeri", kosul, par)
+
+
+def imha_tupler(kosul: str, par) -> list:
+    """İmha edilen tüpler (v6.227), `tasinan_tupler()`'in aynısı; `yer`
+    burada imhanın sebebi (`discard_sebep` kodu)."""
+    if not db.imha_var():
+        return []
+    return _cikan_tupler("imha", "imha_zamani", "imha_sebep", kosul, par)
 
 
 def tasinan_notu(tupler) -> str | None:
@@ -1133,6 +1150,38 @@ def tasinan_notu(tupler) -> str | None:
     return _sar("Taşınan: " + " ".join(cumleler))
 
 
+def imha_notu(tupler) -> str | None:
+    """NOTLAR satırı (v6.227), "Taşınan:"ın (`tasinan_notu()`) karşılığı:
+
+        İmha: 1 embriyo, 1 tüp: (3AB) 12.03.2025 tarihinde imha edildi
+        (Genetik).
+
+    Aynı gün ve sebeple imha edilen tüpler tek cümle; sebep yazılmamışsa
+    parantez yok. İçerik "Dondurulan:" satırının yazımıyla (`tup_metni()`).
+    Serbest not forma girmiyor (taşımanın notu gibi); tüpün sayfasında."""
+    if not tupler:
+        return None
+    h = _etiketler()
+    gruplar = {}
+    for tp in tupler:
+        gruplar.setdefault((tp["gun"], tp["yer"]), []).append(tp)
+    cumleler = []
+    for (gun, sebep), tuplar in gruplar.items():
+        parcalar = []
+        for ad, yumurta in (("embriyo", False), ("yumurta", True)):
+            bunlar = [tp for tp in tuplar if tp["yumurta"] == yumurta]
+            if bunlar:
+                adet = sum(len(tp["ogeler"]) for tp in bunlar)
+                parcalar.append(f"{adet} {ad}, {len(bunlar)} tüp: "
+                                + " ".join(tup_metni(tp) for tp in bunlar))
+        cumle = ("; ".join(parcalar)
+                 + f" {_gg_aa_yyyy(gun) or gun} tarihinde imha edildi")
+        if sebep:
+            cumle += f" ({_et(h, 'discard_sebep', sebep) or sebep})"
+        cumleler.append(cumle + ".")
+    return _sar("İmha: " + " ".join(cumleler))
+
+
 def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
     """Bu tedaviden sonra hastanın tankta kalan örnekleri, NOTLAR için.
 
@@ -1162,14 +1211,19 @@ def _kalan_dondurulmus(cycle_id: int, cozulenler) -> str:
         return ""
     hasta_id, t = an
     vt = db.vit_tedavisi("v")
-    # O güne kadar başka merkeze taşınmış tüp tankta değil (v6.182). Gün
-    # ölçüsü: taşımadan önceki bir işlemin formunda tüp hâlâ kalan.
+    # O güne kadar başka merkeze taşınmış (v6.182) ya da imha edilmiş
+    # (v6.227) tüp tankta değil. Gün ölçüsü: taşımadan / imhadan önceki bir
+    # işlemin formunda tüp hâlâ kalan.
     gitmedi, gpar = "", ()
+    cikanlar = []
     if _gonderim_var():
+        cikanlar.append("(g.durum = 'gonderildi' AND g.gonderim_zamani <= ?)")
+    if db.imha_var():
+        cikanlar.append("(g.durum = 'imha' AND g.imha_zamani <= ?)")
+    if cikanlar:
         gitmedi = ("AND NOT EXISTS (SELECT 1 FROM tasiyici g WHERE "
-                   "g.id = v.vit_tasiyici_id AND g.durum = 'gonderildi' "
-                   "AND g.gonderim_zamani <= ?)")
-        gpar = (t,)
+                   f"g.id = v.vit_tasiyici_id AND ({' OR '.join(cikanlar)}))")
+        gpar = (t,) * len(cikanlar)
     satirlar = db.sorgu(
         f"""
         SELECT v.id, v.vit_tasiyici_id AS tup, v.specimen_id, {vt} AS vit_cid,
@@ -1261,6 +1315,14 @@ def cozme_notu_satiri(cycle_id: int, cycle_tipi, cozulenler) -> str | None:
                 f"AND {vt} <> ?", (an[0], an[1], an[1], cycle_id)))
             if tasinan:
                 satirlar.append(tasinan)
+        # İmha edilenler de (v6.227), aynı ölçüyle.
+        if an and db.imha_var():
+            vt = db.vit_tedavisi("v")
+            imha = imha_notu(imha_tupler(
+                f"c.hasta_id = ? AND v.zaman <= ? AND t.imha_zamani <= ? "
+                f"AND {vt} <> ?", (an[0], an[1], an[1], cycle_id)))
+            if imha:
+                satirlar.append(imha)
     return "\n".join(satirlar)
 
 
@@ -1330,6 +1392,8 @@ def ozet_verisi(cycle_id: int):
     # satırının hemen altında.
     tasinan_satiri = tasinan_notu(tasinan_tupler(
         f"{db.vit_tedavisi('v')} = ?", (cycle_id,)))
+    # İmha edilenler de (v6.227), taşınanların arkasında.
+    imha_satiri = imha_notu(imha_tupler(f"{db.vit_tedavisi('v')} = ?", (cycle_id,)))
     genel_bulgu = genel_bulgu_notu(cycle_id, c["cycle_tipi"])
     # PGT (v6.225): genel bulguların arkasında, dondurmadan önce.
     pgt_satiri = pgt_notu(cycle_id)
@@ -1439,7 +1503,7 @@ def ozet_verisi(cycle_id: int):
         "cozdurme_viabilite": cozme_viabilitesi(cozulenler),
         "notlar": "\n".join(
             p for p in (c["protokol_notu"], genel_bulgu, pgt_satiri, don_notu, tasinan_satiri,
-                        cozulen_satiri, pgt_cozulen, cozme_notu, iptal_notu)
+                        imha_satiri, cozulen_satiri, pgt_cozulen, cozme_notu, iptal_notu)
             if p) or None,
         # --- başlık / künye ---
         "cycle_no": c["cycle_no"],
@@ -1935,7 +1999,8 @@ ALAN_ACIKLAMA = [
     ("tedavi_protokolu", "Tedavi protokolü"),
     ("fertilizasyon_yontemi", "Tedavi tipi (IVF/ICSI, FET, yumurta dondurma)"),
     ("onceki_tedavi", "Önceki tedavi sayısı"),
-    ("notlar", "Notlar: protokol notu, genel bulgular, PGT, dondurma, çözme, iptal sebebi"),
+    ("notlar", "Notlar: protokol notu, genel bulgular, PGT, dondurma, taşıma, imha, çözme, "
+               "iptal sebebi"),
     ("bugun", "Formun basıldığı tarih"),
     ("laboratuvar", "Laboratuvarın adı"),
     ("— OPU ve yumurta —", None),
