@@ -17994,3 +17994,81 @@ programın kendi "Hastaya bağla" yazımıyla açıldı):
 embriyolar) birleştirmiyor (durur). Hangi tedavinin esas olduğunu araç
 seçmiyor: kullanıcı söylüyor, araç ters yön daha doğruysa (esas Excel kaydı,
 fotoğraflar birleşende, esasın hiç örneği yok) onu öneriyor.
+
+# v6.229 — Excel'in yazısı tedaviden farklıysa: aynı straw iki tüp olmasın
+
+Kullanıcının sorusu (2026-09-30): *"Cryo haritadan excel olarak değişiklik
+yapsam daha sonra tekrar programa bu değişiklik ile yükleyebilir miyim? Yada
+program içerisinde cryo haritada yanlış yazımı değiştirme imkanım var mı?
+Yani tedavide dondurulan embriyodan farklı yazılmış cryo harita örneğini
+değiştirebilir miyim?"* v6.228'in birleştirme önizlemesinden sonra geldi
+(esas tedavi Excel kaydıydı, ters yön önerildi; numaralar sohbette).
+
+**Cevaplar.**
+
+- **Excel'de yapılan değişiklik programa geri alınmıyor**, bilerek (v6.191,
+  v6.199): dosya programın kayıtlarından türetiliyor ve harita her
+  değiştiğinde yeniden yazılıyor; elle değişiklik bir sonraki yazımda
+  kaybolur. Laboratuvarın kendi dosyasını yeniden yüklemek (Cryo Haritası
+  kartı) yalnızca çıktının kalıbını değiştirir, kayıtları değil.
+  `cryo_esle.py`'yi düzeltilmiş bir Excel'le yeniden çalıştırmak da düzeltme
+  yolu değil: dolu tüpün yazılmış konumunu ezmez, değişen satır yeni bir
+  Excel kaydı olarak aynı straw'ı ikinci kez gösterebilir.
+- **Excel kaydının yazısı (HÜCRE) programda düzenlenmiyor, gerek de yok.**
+  Straw tedavide dondurulmuş tüpse Excel kaydı o tüpe bağlanır; harita
+  straw'ı tedavinin kaydıyla (skor, embriyo sayısı) gösterir, Excel'in yazısı
+  yalnızca Excel kaydının sayfasında kalır. Straw'a "Hastaya bağla" (v6.213)
+  ile ikinci bir tüp açılmışsa önce "Açılan tüpü geri al" (o tüp ve boş kalan
+  Cryo Excel tedavisi silinir), sonra "Tüpe bağla" ile tedavinin tüpü. İkisi
+  de bugünkü ekranlar, kod değişmeden.
+- Laboratuvarın kendi Excel'inde (v6.199) o satır laboratuvarın yazdığı gibi
+  kalıyor ("straw hâlâ o gobletteyse satır aynen"). Programın yazımıyla
+  yazılsın mı, kullanıcıya soruldu.
+
+**Bulunan açık (v6.228).** Birleşenin tüpü esas tedavide birebir aynı
+içerikte bir tüp bulamayınca araç iki şeyden birini yapıyordu, ikisi de
+yanlış: esasın dondurulmamış embriyoları varsa tüpü onlara yazıyordu
+("değerlendirilmemiş embriyo", "yakın skor" -- yalnızca DİKKAT); esasın
+aynı gün dondurulmuş, yeri girilmemiş tüpü de aynı straw olabilirdi, sonuç
+aynı straw için iki tüp ve iki kat dondurulmuş embriyo. Aday yoksa
+"karşılık bulmadı ... Skor esas tedavide farklı yazıldıysa önce orada
+düzeltin" diyordu: doğru olan tedavi kaydını Excel'in yanlış yazısına
+uydurmaya yönlendiriyordu.
+
+**Kural.** Birebir eşleşmenin yer koşulları tek yardımcıda
+(`_straw_olabilir()`: ikisi de dolu, aynı kategori, esasınki Excel kaydına
+bağlı değil, en çok bir gün farkla, konumu boş ya da aynı yer). Birebir
+tutmayan tüp için `_benzer_tupler()`: aynı koşullar + aynı tür (embriyo /
+yumurta) + **yeri girilmemiş** -- yeri girilmiş tüp gobletinde kendi straw'ı,
+Excel'de kendi satırı. Böyle bir tüp varsa araç durur (`_benzer_engeli()`):
+iki yazım, Excel kaydının numarası ve sayfası, iki adım; adaylar birebir
+aynıysa "hangisi olduğu fark etmez" (v6.148'in kuralı). Birebir eşleşmeler
+önce bütün tüpler için aranıyor, sonra benzerler: sonraki bir tüpün birebir
+eşi öncekine "benzer" sayılmasın. "Karşılık bulmadı" iletisi artık tedaviyi
+düzeltmeyi önermiyor: "Esas tedavinin skoru yanlışsa orada düzeltip yeniden
+deneyin; Excel farklı yazdıysa (tedavinin kaydı doğru) elle bakılmalı."
+
+## Deneme
+
+- Sahte veritabanı, üç yeni senaryo: tedavinin yeri girilmemiş tüpü
+  3BB-1BB, Excel "3BA-1BB", "Hastaya bağla" ile ikinci tüp açılmış -- eski
+  araç "önce orada düzeltin", yeni araç iki adımı yazıyor; aynısı + esasın
+  dondurulmamış 3BC / 1BC embriyoları -- eski araç engelsizdi (tüpü onlara
+  yazacaktı), yeni araç duruyor; esasın tüpü başka gobletde -- engel yok,
+  tüp embriyolara geçti. Durduğu yerde hiçbir şey yazılmadı, önceki kopya
+  alınmadı. v6.228'in senaryoları değişmedi.
+- İki adım test sunucusunda ekrandan yapıldı: açılan tüp ve boş tedavi
+  silindi, Excel kaydı yeniden "tankta", tedavinin tüpü aday listesinde,
+  "Tüpe bağla" ile gobletine geçti (rengi Excel'den); tüpün skorları
+  tedavininki, dondurulmamış embriyolar dondurulmamış kaldı; goblet sayfası,
+  hasta kartı, ART Lab'ın Cryo yeri doğru, yabancı anahtar tamam.
+- Büyük deneme kopyası: aynı hastanın 1.894 tedavi çiftinde eski ve yeni
+  aracın sonucu aynı (kopyada Excel'den açılmış tedavi yok). Yer
+  tamamlamanın önerdiği 165 (yeri girilmemiş tüp, Excel kaydı) çiftinde
+  "Hastaya bağla" taklit edildi, sonra birleştirme planlandı: 106 birebir
+  aynı straw ve 35 OPU günü tutmayan (ikisi de değişmedi), 2 karşılıksız,
+  **22 yeni engel -- 13'ünde eski araç engelsizdi (straw iki tüp
+  olacaktı), 9'unda "önce orada düzeltin" diyordu.** Tek adaylı 14 vakada
+  iki adım aynı işlevlerle uygulandı: açılan tüpler ve boş tedaviler
+  silindi, tedavinin tüpleri yerlerine geçti, bütünlük tamam, harita
+  kuruldu. 8 vakada iki aday, içerikleri birebir aynı.

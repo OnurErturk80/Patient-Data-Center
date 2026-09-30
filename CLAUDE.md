@@ -81,10 +81,14 @@ kartını bildirdi (numaralar sohbette, buraya yazılmadı); `hasta_birlestir.py
 çalıştırıp çalıştırmadığını sor. **2026-09-30**: kullanıcı aynı hastanın iki
 tedavisinin birleştirilmesini istedi, esas tedaviyi kendisi söyledi
 (numaralar sohbette); `tedavi_birlestir.py` (v6.228) onun için yazıldı,
-kullanıcı kendi makinesinde çalıştırıyor. İki tedavinin ne olduğu buradan
-görünmüyordu (Excel'den açılmış dondurma kaydı mı, aynı OPU'nun ikinci kaydı
-mı): önizlemenin çıktısını gördün mü, "ENGEL" dedi mi, uyguladı mı -- sor.
-Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
+kullanıcı kendi makinesinde çalıştırıyor. Önizleme "ENGEL: esas tedavi
+Excel kaydı" dedi (kullanıcının söylediği esas, Excel'den açılmış dondurma
+kaydıydı), ters yön önerildi. Ardından kullanıcı Excel'in yazısının tedavide
+dondurulan embriyodan farklı olduğunu sordu (v6.229): o straw tedavinin kendi
+tüpüyse birleştirme gerekmiyor, Excel kaydının sayfasında "Açılan tüpü geri
+al" + "Tüpe bağla". Ters yönü mü çalıştırdı, iki adımı mı yaptı, sonuç ne --
+sor. Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu
+hesaba kat.
 
 ---
 
@@ -2923,7 +2927,12 @@ besleniyor.
     değiştirirsen değişmeyen dosyanın çıktısı şablonla hücre hücre aynı
     kalmalı (v6.199'da 38.138 hücre) -- karşılaştırmayı tekrar çalıştır.
   - Dosyayı okuyup programa geri alan bir yol YAZMA (v6.191'in kuralı
-    burada da): kaynak programın kayıtları; dosya türetilmiş.
+    burada da): kaynak programın kayıtları; dosya türetilmiş. Kullanıcı
+    2026-09-30'da sordu (v6.229): Excel'de düzeltip geri yükleyemez; Excel
+    kaydının yazısı programda da düzenlenmiyor -- straw tedavinin tüpüne
+    bağlanır, harita tedavinin kaydını gösterir. Bağlanan straw'ın satırı
+    laboratuvarın dosyasında eski yazıyla kalıyor; programın yazımıyla
+    yazılsın mı diye soruldu, cevap gelmeden değiştirme.
 - **Excel'in iki belirsiz yeri cevaplandı** (kullanıcı, 2026-09-26; README
   v6.192): sayfanın altındaki ikinci "TANK 3" tablosu "KÜÇÜK TANK / TANK 3"
   ile AYNI tank (v6.173'ten beri zaten birleşiyor); en alttaki "TANK 2 /
@@ -3158,6 +3167,13 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   söyler; araç ters yön daha doğruysa önerir. **Yeni bir tabloya `cycle_id`
   eklersen** tedavi düzeyindeki kayıtlar arasına (`_kayitlar_plani()`) ekle:
   eklenmezse araç "birleşen tedaviyi gösteren kayıt kaldı" diye durur.
+  **Birebir tutmayan tüp + esasta aynı gün dondurulmuş, yeri girilmemiş aynı
+  türden tüp = araç durur** (v6.229, `_benzer_tupler()`): Excel aynı straw'ı
+  başka bir yazımla gösteriyor olabilir; tüpü esasın başka embriyolarına
+  yazmak straw'ı ikiye çıkarırdı (büyük kopyada 165 benzetimin 13'ünde öyle
+  olacaktı). İleti Excel kaydının sayfasındaki iki adımı söylüyor. Tedavinin
+  kaydını Excel'in yazısına uydurmayı önerme; yeri girilmiş tüp aday değil
+  (gobletinde kendi straw'ı).
 - **Dondurma notunun yazım hataları** (v6.168, `_skor_metni()`): "KACG1"
   kavitasyon (C, V'nin yanında; yalnızca arkasından derece geliyorsa),
   "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk

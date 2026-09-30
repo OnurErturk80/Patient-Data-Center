@@ -33,6 +33,11 @@ Tüpün esas tedavideki karşılığı:
     en çok bir gün farkla, konumu boş ya da aynı goblet, Excel kaydına bağlı
     değil): Excel kaydı o tüpe bağlanır (`cryo_esle.excel_kaydini_tupe_bagla()`,
     "bağı çöz" bildiği gibi geri alır), fazla tüp örnekleriyle silinir;
+  - içerik tutmuyor ama esas tedavide aynı gün dondurulmuş, yeri girilmemiş
+    aynı türden bir tüp varsa araç durur (v6.229): Excel aynı straw'ı başka
+    bir yazımla gösteriyor olabilir; tüp esasın başka örneklerine yazılsaydı
+    straw iki tüp olurdu. Excel kaydından açılmış tüpte yol programda:
+    kaydın sayfasında "Açılan tüpü geri al", sonra "Tüpe bağla";
   - yoksa tüp esas tedavinin örneklerine geçer: aynı skor, yoksa esas
     tedavide hiç değerlendirilmemiş örnek (skoru tüpten yazılır), yoksa aynı
     evre ve sayı (cleavage'da hücre, blastokistte genişleme -- "yakın skor");
@@ -65,7 +70,8 @@ Excel kaydının notu eklenmez (işareti esas tedaviyi istatistikten düşürür
 Durduğu yerler (hiçbir şey yazılmaz): iki tedavi farklı hastaların; esas
 tedavi Excel kaydı, birleşen gerçek tedavi (ters yön); tipler farklı; OPU
 günleri farklı (Excel kaydında bir gün; OPU'suz tedavide günler 1, Excel'de
-8 günden uzak); tüpün içeriği esas tedavide karşılık bulmuyor; silinecek
+8 günden uzak); tüpün içeriği esas tedavide karşılık bulmuyor ya da esasta
+aynı straw olabilecek, farklı yazılmış bir tüp var (v6.229); silinecek
 örnekte fotoğraf / bulgu / PGT ya da başka tedaviye yazılmış kayıt; iki
 tedavide de gebelik sonucu (aynı işlemin ikinci kaydı değilse); arşivde iki
 klasörde aynı adlı dosya. Boş bir tedavi (hiç kaydı yok) her tedaviye
@@ -392,24 +398,83 @@ def _tup_turu(g, B_orn, B) -> str:
     return "yumurta" if B["cycle_tipi"] == "oosit_cryo" else "embriyo"
 
 
+def _straw_olabilir(g, tid, h, kullanilan) -> bool:
+    """Esas tedavinin `h` tüpü birleşenin `g` tüpüyle aynı straw olabilir mi,
+    içeriğe bakmadan: ikisi de dolu, aynı kategori, esasınki Excel kaydına
+    bağlı değil, en çok bir gün farkla, konumu boş ya da aynı yer."""
+    t, ht = g["bilgi"]["t"], h["bilgi"]["t"]
+    return not (t["durum"] != "dolu" or tid in kullanilan or ht["durum"] != "dolu"
+                or h["bilgi"]["excel"] or ht["kategori"] != t["kategori"]
+                or _gun_farki(h["gun"], g["gun"]) > 1
+                or (ht["konum_id"] and t["konum_id"] and ht["konum_id"] != t["konum_id"]))
+
+
 def _ayni_straw(g, B_orn, A_tupler, A_orn, kullanilan) -> dict:
-    """Esas tedavide aynı straw: dolu, aynı içerik, en çok bir gün farkla,
-    konumu boş ya da aynı yer, Excel kaydına bağlı değil."""
-    t = g["bilgi"]["t"]
-    if t["durum"] != "dolu":
-        return None
+    """Esas tedavide aynı straw: `_straw_olabilir()` ve aynı içerik."""
     istenen = sorted(B_orn[s]["anahtar"] for s in g["ornekler"])
     for tid, h in A_tupler.items():
-        ht = h["bilgi"]["t"]
-        if (tid in kullanilan or ht["durum"] != "dolu" or h["bilgi"]["excel"]
-                or ht["kategori"] != t["kategori"]
-                or _gun_farki(h["gun"], g["gun"]) > 1
-                or (ht["konum_id"] and t["konum_id"] and ht["konum_id"] != t["konum_id"])):
+        if not _straw_olabilir(g, tid, h, kullanilan):
             continue
         if sorted(A_orn[s]["anahtar"] for s in h["ornekler"] if s in A_orn) == istenen \
                 and len(h["bilgi"]["ornekler"]) == len(g["ornekler"]):
             return {"tid": tid, **h}
     return None
+
+
+def _benzer_tupler(g, tur, p, kullanilan) -> list:
+    """Esas tedavide aynı straw OLABİLECEK, içeriği farklı yazılmış tüpler
+    (v6.229): `_straw_olabilir()`, aynı tür (embriyo / yumurta) ve yeri
+    girilmemiş. Excel, tedavide dondurulmuş bir tüpü başka bir yazımla
+    gösterebiliyor ("3BA-1BB" / "3BB-1BB"); araç birleşenin tüpünü esas
+    tedavinin başka örneklerine yazsaydı aynı straw iki tüp olurdu. Yeri
+    girilmiş tüp gobletinde kendi straw'ı (Excel'de kendi satırı), aday değil.
+    Hangisi olduğuna kullanıcı karar veriyor, araç durur (`_benzer_engeli()`)."""
+    return [(tid, h) for tid, h in p["A_tupler"].items()
+            if _straw_olabilir(g, tid, h, kullanilan) and not h["bilgi"]["t"]["konum_id"]
+            and _tup_turu(h, p["A_orn"], p["A"]) == tur]
+
+
+def _benzer_engeli(p, k) -> str:
+    """Aynı straw olabilecek tüpün engeli: iki yazım ve ne yapılacağı. Excel
+    kaydından açılmış tüpte yol programda var (v6.213): "Açılan tüpü geri
+    al" o tüpü (ve boş kalan tedaviyi) siler, "Tüpe bağla" Excel kaydını esas
+    tedavinin tüpüne bağlar -- straw tedavinin kaydıyla görünür."""
+    eski = p["B"]["cycle_no"]
+    g, t = k["g"], k["g"]["bilgi"]["t"]
+    yumurta = k["tur"] == "yumurta"
+    yazim = _tup_yazimi([p["B_orn"][s]["yazim"] for s in g["ornekler"]], yumurta)
+    esasin, yazimlar = [], set()
+    for _tid, h in k["benzer"]:
+        ht = h["bilgi"]["t"]
+        y = _tup_yazimi([p["A_orn"][s]["yazim"] for s in h["ornekler"] if s in p["A_orn"]],
+                        yumurta)
+        yazimlar.add(y)
+        esasin.append(f"{ht['etiket']} ({y}; {_gun(h['gun'])}; "
+                      f"{ht['tam_yol'] or 'yeri girilmemiş'})")
+    metin = (f"{t['etiket']} ({yazim}; {_gun(g['gun'])}) tüpü esas tedavinin aynı gün "
+             "dondurulmuş " + ("tüpüyle" if len(esasin) == 1 else "tüplerinden biriyle")
+             + " aynı straw olabilir, yazımı farklı: " + ", ".join(esasin) + ". ")
+    # Birebir aynı tüplerden hangisinin straw olduğu fark etmez (v6.148'in
+    # "aynı tedavinin birebir aynı tüpleri" kuralı).
+    if len(esasin) == 1:
+        hedef, ayni_not = k["benzer"][0][1]["bilgi"]["t"]["etiket"], ""
+    elif len(yazimlar) == 1:
+        hedef, ayni_not = "bu tüplerden biri", " İçerikleri aynı: hangisi olduğu fark etmez."
+    else:
+        hedef, ayni_not = "doğru tüp", ""
+    acilan = [e for e in g["bilgi"]["excel"]
+              if (cryo_esle.acilan_bilgisi(e) or {}).get("tur") == "tedavi"]
+    if len(g["bilgi"]["excel"]) == 1 and acilan:
+        e = acilan[0]
+        metin += (f"Aynı straw'sa birleştirme gerekmez: Cryo Haritası'nda Excel kaydı "
+                  f"#{e['id']} sayfasında (/cryo/excel-kaydi/{e['id']}) önce \"Açılan tüpü "
+                  f"geri al\" ({t['etiket']} tüpü silinir; {eski} tedavisi boş kalırsa o da), "
+                  f"sonra \"Tüpe bağla\" ile {hedef} (listede yoksa etiketini yazın)."
+                  f"{ayni_not} ")
+    else:
+        metin += "Aynı straw'sa elle bakılmalı. "
+    return metin + ("Esas tedavinin kaydı doğruysa onu Excel'in yazısına göre değiştirmeyin. "
+                    "Başka bir straw'sa elle bakılmalı.")
 
 
 # ------------------------------------------------------------------ plan
@@ -644,10 +709,20 @@ def _tup_plani(b, p, tasi):
             if ayni:
                 kullanilan.add(ayni["tid"])
                 k.update(karar="ayni", hedef=ayni)
-            else:
-                k["karar"] = "esle"
-                istenen += [(s, k["tur"], B_orn[s]["anahtar"]) for s in g["ornekler"]]
         p["tup_kararlari"].append(k)
+    # Birebir tutmayanlar: esasta aynı straw olabilecek bir tüp varsa durulur
+    # (v6.229); yoksa esas tedavinin örneklerine. Birebir eşleşmeler önce --
+    # sonraki bir tüpün birebir eşi öncekine "benzer" sayılmasın.
+    for k in p["tup_kararlari"]:
+        if "karar" in k:
+            continue
+        benzer = _benzer_tupler(k["g"], k["tur"], p, kullanilan)
+        if benzer:
+            k.update(karar="benzer", benzer=benzer)
+            p["engel"].append(_benzer_engeli(p, k))
+        else:
+            k["karar"] = "esle"
+            istenen += [(s, k["tur"], B_orn[s]["anahtar"]) for s in k["g"]["ornekler"]]
     atanan = _eslestir(istenen, _adaylar(A_orn)) if istenen else {}
     p["atanan"] = atanan
     # PGT'li örnek: sonuç biyopsi kaydına bağlı (`pgt_sonuc.biyopsi_id`), iki
@@ -674,7 +749,8 @@ def _tup_plani(b, p, tasi):
                 + ("embriyoları" if k["tur"] == "embriyo" else "yumurtaları") + ": "
                 + (", ".join(f"{a['id']} ({a['yazim']})" for a in bos
                              if _tur_esit(a, k["tur"])) or "yok")
-                + ". Skor esas tedavide farklı yazıldıysa önce orada düzeltin.")
+                + ". Esas tedavinin skoru yanlışsa orada düzeltip yeniden deneyin; Excel "
+                "farklı yazdıysa (tedavinin kaydı doğru) elle bakılmalı.")
     for sid, (a, katman) in atanan.items():
         if katman == "aynı skor":
             continue
@@ -690,7 +766,7 @@ def _tup_plani(b, p, tasi):
         dolu = {r[0] for r in b.execute("SELECT etiket FROM tasiyici WHERE lab_id=?",
                                         (_db.LAB_ID,))}
         for k in p["tup_kararlari"]:
-            if k["karar"] == "ayni":
+            if k["karar"] in ("ayni", "benzer"):
                 continue
             eski_e = k["g"]["bilgi"]["t"]["etiket"]
             m = _ETIKET.match(eski_e)

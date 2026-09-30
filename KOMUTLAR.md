@@ -1009,6 +1009,21 @@ açıkken çalışabilir; sonra sayfayı yenileyin, esas tedavinin Embriyoloji �
 ve ART Lab formlarına bakın. Silinen tedavinin bütün alanları değişiklik
 geçmişinde kalır.
 
+**"aynı straw olabilir" ENGEL'i** (v6.229): Excel kaydından açılmış tüp
+esas tedavide birebir karşılık bulmuyor ama esas tedavinin aynı gün
+dondurulmuş, yeri girilmemiş bir tüpü var -- Excel aynı straw'ı başka bir
+yazımla göstermiş olabilir. Aynı straw'sa birleştirme gerekmez, programın
+içinde iki adım (iletide Excel kaydının numarası ve tüpün etiketi yazar):
+
+1. Cryo Haritası'nda o Excel kaydının sayfası → **"Açılan tüpü geri al"**:
+   Excel'den açılan tüp silinir, Cryo Excel tedavisi boş kaldıysa o da.
+2. Aynı sayfada **"Tüpe bağla"** → tedavinin tüpü (listede yoksa etiketini
+   yazın). Tüp gobletine geçer; harita straw'ı tedavinin kaydıyla gösterir.
+
+Excel'de yazıyı düzeltip dosyayı programa geri yüklemek mümkün değil: Excel
+dosyası programın kayıtlarından her değişiklikte yeniden yazılıyor. Tedavinin
+kaydı doğruysa onu Excel'in yazısına göre değiştirmeyin.
+
 İki tedavi farklı kartlardaysa (aynı hasta iki dosya numarasıyla) önce
 `hasta_birlestir.py` (yukarıda), sonra bu.
 
