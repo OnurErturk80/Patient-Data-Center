@@ -18072,3 +18072,58 @@ deneyin; Excel farklı yazdıysa (tedavinin kaydı doğru) elle bakılmalı."
   iki adım aynı işlevlerle uygulandı: açılan tüpler ve boş tedaviler
   silindi, tedavinin tüpleri yerlerine geçti, bütünlük tamam, harita
   kuruldu. 8 vakada iki aday, içerikleri birebir aynı.
+
+# v6.230 — Laboratuvarın Excel'inde bağlanan straw'ın HÜCRE'si tedaviye göre
+
+Kullanıcı (2026-09-30), v6.229'daki soruya cevap olarak: *"... hastanın
+tedavide görünen dondurulmuş embriyoları ile cryo haritadakiler farklı. Ben
+tedaviye göre cryo harita içeriğini değiştirmek istiyorum."* (örnek hastanın
+numarası sohbette; buraya yazılmıyor).
+
+**İki yer var, ikisi de artık tedaviyi izliyor.**
+
+- **Programın Cryo Haritası ekranı**: Excel kaydı bir tedavinin tüpüne
+  bağlanınca goblette straw tüp olarak, tedavinin içeriğiyle görünüyor --
+  bu v6.189'dan beri böyle. Bağlanmamış Excel kaydı Excel'in yazısını
+  gösteriyor; tedaviye göre değiştirmenin yolu bağlamak: Excel kaydının
+  sayfasında "Tüpe bağla" (straw'a "Hastaya bağla" ile ikinci bir tüp
+  açılmışsa önce "Açılan tüpü geri al", v6.229) ya da tüpün sayfasındaki /
+  "Haritadan yer tamamla"daki öneri (v6.214).
+- **Laboratuvarın kendi Excel dosyası** (v6.199): straw hâlâ o gobletteyse
+  satır laboratuvarın yazdığı gibi kalıyordu -- bağlanan straw'da da. v6.230:
+  **Excel kaydı bir tüpe bağlanmış ve satırın içeriği tüpünkünden farklıysa
+  HÜCRE tedavinin kaydına göre yazılıyor** (`cryo_sablon._tedaviye_gore()`),
+  yeni straw'ın yazımıyla ("D5 (3BB-1BB)", "OOSİT (2M2-2M1)", FET'te
+  "REFREEZE"; `_program_satirlari()`, `_yeni_satirlar()`'dan ayrıldı).
+
+**Neyin değişmediği.**
+
+- Yalnızca HÜCRE. SOYAD, AD, EŞİ, TARİH, VİAL, NOTLAR laboratuvarın yazdığı
+  gibi (istenen embriyoların içeriği).
+- İçerik aynıysa satıra dokunulmuyor: karşılaştırma aracın kendi ölçüsü
+  (`cryo_esle.excel_icerik()` + `_uyar()`), "8HG2" / "8G2", "MII" / "M2"
+  gibi yazım farkı aynı sayılıyor. Programın birebir içerikle kendiliğinden
+  bağladıkları (aktarımın sonu, `excel_bagla`, birleştirmenin "aynı straw"u)
+  bu yüzden değişmiyor; değişen, kullanıcının "bu straw o tüp" diye
+  bağladıkları.
+- Tüpün içeriği eksikse (skoru bilinmeyen örnek, yazımda "?") laboratuvarın
+  yazısı kalıyor -- daha çok şey söylüyor. Sperm satırları değişmiyor.
+- Yüklenen şablonun kendisi değişmiyor: her çıktı şablondan yeniden
+  kuruluyor. Bağ çözülürse satır yine laboratuvarın yazısıyla çıkar;
+  Excel'in yazısı Excel kaydının sayfasında da duruyor.
+- Dosyada elle yapılan değişiklik yine programa girmiyor (v6.191).
+
+Cryo Haritası kartı ve günlük kaç straw'ın tedaviye göre yazıldığını
+söylüyor (`sablon_duzeltilen`).
+
+## Deneme
+
+- Büyük deneme kopyası (laboratuvarın şablonu yüklü, 5.400 satır): temiz
+  kopyada eski ve yeni çıktı hücre hücre aynı (0 fark). v6.229'un benzetimiyle
+  13 straw farklı yazılmış tedavi tüplerine bağlandıktan sonra tam 13 hücre
+  değişti, hepsi o straw'ların HÜCRE'si (öteki 5.392 satır aynen): "D5 (3CB)"
+  → "D5 (3BB)", "OOSİT (1M1)" → "OOSİT (1M2)", "D3 (8HG3-1HG2-5HG3)" → "D3
+  (8HG3-7HG2-5HG3)". Skoru bilinmeyen bir tüpün satırı ("?") değişmedi.
+- Aynı kopyada program açıldı: kart "13 straw'ın HÜCRE'si tedavinin kaydına
+  göre yazıldı" dedi, indirilen dosya ve veri klasöründeki dosya aynı, açılıyor,
+  günlükte hata yok. Küçük tohumun bütün denemeleri (v6.228–v6.229) geçti.

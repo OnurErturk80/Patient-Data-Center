@@ -162,6 +162,7 @@
   {% elif o and o.sablon %}
   <div class="ipucu" style="margin:4px 14px">{{ metin("sablon_ozet").format(
       korunan=o.korunan or 0, bosalan=o.bosalan or 0, yeni=o.yeni or 0) }}</div>
+  {% if o.duzeltilen %}<div class="ipucu" style="margin:4px 14px">{{ metin("sablon_duzeltilen").format(n=o.duzeltilen) }}</div>{% endif %}
   {% if o.bilinmeyen %}<div class="uyari" style="margin:4px 14px">{{ metin("sablon_bilinmeyen").format(n=o.bilinmeyen) }}</div>{% endif %}
   {% if o.sigmayan %}
   <div class="uyari" style="margin:4px 14px">{{ metin("sablon_sigmayan").format(n=o.sigmayan) }}

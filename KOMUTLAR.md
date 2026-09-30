@@ -1022,7 +1022,9 @@ içinde iki adım (iletide Excel kaydının numarası ve tüpün etiketi yazar):
 
 Excel'de yazıyı düzeltip dosyayı programa geri yüklemek mümkün değil: Excel
 dosyası programın kayıtlarından her değişiklikte yeniden yazılıyor. Tedavinin
-kaydı doğruysa onu Excel'in yazısına göre değiştirmeyin.
+kaydı doğruysa onu Excel'in yazısına göre değiştirmeyin. Bağladıktan sonra
+laboratuvarın Excel dosyasında o straw'ın HÜCRE'si de tedavinin kaydına göre
+yazılır (v6.230; ad, tarih, VİAL olduğu gibi kalır).
 
 İki tedavi farklı kartlardaysa (aynı hasta iki dosya numarasıyla) önce
 `hasta_birlestir.py` (yukarıda), sonra bu.

@@ -11,6 +11,9 @@ genişlikleri, biçimler, başlıklar, NO sütunu -- dokunulmuyor; yalnızca str
 satırlarının değer hücrelerine (SOYAD, AD, EŞİ, TARİH, HÜCRE, VİAL, NOTLAR):
 
 - **Straw hâlâ o gobletteyse satır aynen kalır**, laboratuvarın yazdığı gibi.
+  Tek istisna (v6.230): Excel kaydı bir tedavinin tüpüne bağlanmış, içeriği
+  tüpünkünden farklı -- HÜCRE tedavinin kaydına göre yazılır
+  (`_tedaviye_gore()`).
   Hangi satırın hangi straw olduğu `cryo_esle.py`'nin eşleştirmesiyle (hasta +
   gün + içerik), sperm satırında ad + günle, Excel kayıtlarında içerik
   anahtarıyla bulunuyor -- `cryo_esle.yerlesim_plani()`'nin "temsil" ölçüsü:
@@ -404,6 +407,7 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
         if yerinde(tid, s):
             ata(kim, ("t", tid))
     # 3) Excel kayıtları: içerik anahtarıyla.
+    bagli_satirlar = []
     for kim, anahtar in p["anahtar"].items():
         if kim in temsil:
             continue
@@ -417,6 +421,8 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
             asil_satir.setdefault(e["tasiyici_id"], kim)
             if yerinde(e["tasiyici_id"], p["satirlar"][kim]):
                 ata(kim, ("t", e["tasiyici_id"]))
+                bagli_satirlar.append((kim, e["tasiyici_id"]))
+    duzeltilecek = _tedaviye_gore(bagli_satirlar, temsil, tup, p)
 
     duzenleme = {}
     ozet = collections.Counter()
@@ -475,6 +481,19 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
             bosalt(r)
             ozet["bosalan"] += 1
 
+    # Tedaviye göre düzeltilen satırlar (v6.230): yalnızca HÜCRE, satırın geri
+    # kalanı laboratuvarın yazdığı gibi.
+    if duzeltilecek:
+        yazilar = _program_satirlari(sorted(set(duzeltilecek.values())), p)
+        for kim, tid in duzeltilecek.items():
+            r = p["satirlar"][kim]
+            c = r["alanlar"].get("icerik")
+            hucre = (yazilar.get(("t", tid)) or {}).get("icerik")
+            # Yazımda skoru bilinmeyen örnek ("?") varsa laboratuvarın yazısı kalır.
+            if c and hucre and "?" not in hucre:
+                duzenleme[(r["sayfa"], r["satir"], c)] = _deger("icerik", hucre)
+                ozet["duzeltilen"] += 1
+                ozet["korunan"] -= 1
     metinler = _yeni_satirlar([s for _r, s in yazilacak], asil_satir, p)
     for r, sakin in yazilacak:
         degerler = metinler.get(sakin)
@@ -497,6 +516,31 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
     imza_ = hashlib.sha256((imza + repr(ic)).encode("utf-8")).hexdigest()
     return {"duzenleme": duzenleme, "ozet": ozet_d, "imza": imza_,
             "baytlar": baytlar, "sablon_imza": imza}
+
+
+def _tedaviye_gore(bagli_satirlar, temsil, tup, p) -> dict:
+    """Excel kaydı bir tüpe bağlanmış satırlardan HÜCRE'si tedavinin yazımıyla
+    yazılacaklar -> {satır kimliği: tüp} (v6.230; kullanıcı, 2026-09-30:
+    "Ben tedaviye göre cryo harita içeriğini değiştirmek istiyorum").
+
+    Bağlamayı kullanıcı yaptı ("Tüpe bağla", "Haritadan yer tamamla") ya da
+    program birebir içerikle: straw o tüp, tedavinin kaydı esas. Yalnızca
+    içerik farklıysa (`cryo_esle._uyar()`; "8HG2" / "8G2" gibi yazım farkı
+    aynı sayılır, satıra dokunulmaz) ve tüpün içeriği eksiksizse: skoru
+    bilinmeyen örneği olan tüpte laboratuvarın yazısı daha çok şey söylüyor,
+    kalıyor. Sperm tüpü `cryo_esle.tupler()`'de yok, satırı değişmez."""
+    tup_tid = {t["tid"]: t for liste in tup.values() for t in liste}
+    sonuc = {}
+    for kim, tid in bagli_satirlar:
+        t = tup_tid.get(tid)
+        if temsil.get(kim) != ("t", tid) or not t or not t["skorlar"] \
+                or any(x in ("?", "") for x in t["skorlar"]):
+            continue
+        ic = cryo_esle.excel_icerik(p["satirlar"][kim]["icerik"] or "")
+        if ic and any(cryo_esle._uyar(x, t["skorlar"]) for x in ic):
+            continue
+        sonuc[kim] = tid
+    return sonuc
 
 
 def cikti(plan) -> bytes:
@@ -629,8 +673,16 @@ def _yeni_satirlar(sakinler, asil_satir, p) -> dict:
                         "icerik": r["icerik"], "vial": r["vial_metni"], "notlar": r["notlar"]}
         else:
             yeni.append(x[1])
-    if not yeni:
-        return sonuc
+    if yeni:
+        sonuc.update(_program_satirlari(yeni, p))
+    return sonuc
+
+
+def _program_satirlari(yeni, p) -> dict:
+    """Programdaki tüplerin laboratuvar yazımıyla satırı -> {("t", tüp): {alan:
+    değer}} (`_yeni_satirlar()`'ın yeni straw'ı; v6.230'dan beri tedaviye göre
+    düzeltilen satırın HÜCRE'si de buradan)."""
+    sonuc = {}
     ayrinti = yerlesim.tup_ayrintilari(yeni)
     etiket = {}
     for r in db.sorgu("SELECT liste_adi, kod, etiket FROM liste_degeri WHERE lab_id = ? "

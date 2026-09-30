@@ -87,7 +87,9 @@ kaydıydı), ters yön önerildi. Ardından kullanıcı Excel'in yazısının te
 dondurulan embriyodan farklı olduğunu sordu (v6.229): o straw tedavinin kendi
 tüpüyse birleştirme gerekmiyor, Excel kaydının sayfasında "Açılan tüpü geri
 al" + "Tüpe bağla". Ters yönü mü çalıştırdı, iki adımı mı yaptı, sonuç ne --
-sor. Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu
+sor. Sonra bir hastanın örneğiyle (numarası sohbette) Cryo Haritası'nın
+tedaviye göre olmasını istedi: v6.230 (laboratuvarın Excel'inde bağlanan
+straw'ın HÜCRE'si); o hastanın straw'ını bağlayıp bağlamadığını sor. Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu
 hesaba kat.
 
 ---
@@ -2906,7 +2908,8 @@ besleniyor.
     hücreleri (`cryo_sablon.ALANLAR`, NO değil); satır EKLEME (kanister
     blokları yan yana, komşular kayar) -- yer yoksa straw "sığmayan" olarak
     kartta. Stil, tablo, sütun XML'i olduğu gibi kopyalanıyor.
-  - **Satır kararı**: straw hâlâ o gobletteyse satır AYNEN (eşleştirme
+  - **Satır kararı**: straw hâlâ o gobletteyse satır AYNEN (v6.230'dan beri
+    tek istisna: bağlanmış, içeriği farklı straw'ın HÜCRE'si; eşleştirme
     `cryo_esle.esle()` + sperm ad/gün + Excel kaydı anahtarı, `yerlesim`'in
     "temsil" ölçüsü); tanktan çıktıysa boşalt; programın HİÇBİR kaydıyla
     eşleşmeyen satıra dokunma (Excel'de sonradan elle eklenmiş olabilir);
@@ -2930,9 +2933,15 @@ besleniyor.
     burada da): kaynak programın kayıtları; dosya türetilmiş. Kullanıcı
     2026-09-30'da sordu (v6.229): Excel'de düzeltip geri yükleyemez; Excel
     kaydının yazısı programda da düzenlenmiyor -- straw tedavinin tüpüne
-    bağlanır, harita tedavinin kaydını gösterir. Bağlanan straw'ın satırı
-    laboratuvarın dosyasında eski yazıyla kalıyor; programın yazımıyla
-    yazılsın mı diye soruldu, cevap gelmeden değiştirme.
+    bağlanır, harita tedavinin kaydını gösterir.
+  - **Bağlanan straw'ın HÜCRE'si tedaviye göre** (v6.230, kullanıcı: "Ben
+    tedaviye göre cryo harita içeriğini değiştirmek istiyorum";
+    `_tedaviye_gore()`): Excel kaydı bir tüpe bağlanmış, satırın içeriği
+    tüpünkünden farklı (`cryo_esle._uyar()`; yazım farkı aynı sayılır) ve
+    tüpün yazımında "?" yok -> HÜCRE yeni straw'ın yazımıyla
+    (`_program_satirlari()`). Yalnızca HÜCRE; ad, tarih, VİAL laboratuvarın.
+    Şablon değişmiyor, bağ çözülünce satır eski yazısıyla çıkar. "Satır
+    aynen" kuralının tek istisnası -- genişletmeden önce sor.
 - **Excel'in iki belirsiz yeri cevaplandı** (kullanıcı, 2026-09-26; README
   v6.192): sayfanın altındaki ikinci "TANK 3" tablosu "KÜÇÜK TANK / TANK 3"
   ile AYNI tank (v6.173'ten beri zaten birleşiyor); en alttaki "TANK 2 /

@@ -548,8 +548,9 @@ def guncelle(bayt_iste: bool = False) -> dict:
         o = v["ozet"]
         if o.get("sablon"):
             _gunluk.info("CRYO EXCEL: laboratuvarin dosyasi yazildi (%d satir aynen, "
-                         "%d bosaldi, %d yeni, %d yer bulamadi).", o.get("korunan", 0),
-                         o.get("bosalan", 0), o.get("yeni", 0), o.get("sigmayan", 0))
+                         "%d tedaviye gore, %d bosaldi, %d yeni, %d yer bulamadi).",
+                         o.get("korunan", 0), o.get("duzeltilen", 0), o.get("bosalan", 0),
+                         o.get("yeni", 0), o.get("sigmayan", 0))
         else:
             _gunluk.info("CRYO EXCEL: harita yazildi (%d tup, %d Excel kaydi).",
                          o["tup"], o["excel"])

@@ -3276,14 +3276,18 @@ METINLER = {
     "sablon_ipucu": {
         "tr": "Excel çıktıları laboratuvarın kendi Cryo Haritası Excel'inin "
               "biçiminde ({dosya}, {zaman} yüklendi): sayfalar, tablolar ve "
-              "yazılar aynen. Straw hâlâ o gobletteyse satırı olduğu gibi kalır; "
-              "çözülen, taşınan ya da başka yere konan straw'ın satırı boşalır; "
-              "programda dondurulan straw gobletin boş satırına yazılır. Harita "
+              "yazılar aynen. Straw hâlâ o gobletteyse satırı olduğu gibi kalır -- "
+              "Excel kaydı bir tedavinin tüpüne bağlanmış ve içeriği farklıysa "
+              "HÜCRE'si tedavinin kaydına göre yazılır; çözülen, taşınan ya da "
+              "başka yere konan straw'ın satırı boşalır; programda dondurulan "
+              "straw gobletin boş satırına yazılır. Harita "
               "her değiştiğinde dosya veri klasörüne de yazılır, her günün son "
               "hali 30 gün saklanır. Dosyada elle yapılan değişiklik programa girmez.",
         "en": "Excel output uses the lab's own Cryo Map workbook ({dosya}, "
               "uploaded {zaman}): same sheets, tables and wording. A straw still "
-              "in its goblet keeps its row as written; the row of a thawed, "
+              "in its goblet keeps its row as written -- if its Excel record is "
+              "linked to a treatment's tube with different contents, the HÜCRE "
+              "cell follows the treatment's record; the row of a thawed, "
               "transferred or moved straw is emptied; a straw frozen in the "
               "program is written into a free row of its goblet. The file is also "
               "rewritten in the data folder whenever the map changes; each day's "
@@ -3294,6 +3298,13 @@ METINLER = {
               "{yeni} straw boş satıra yazıldı.",
         "en": "Last write: {korunan} rows unchanged, {bosalan} rows emptied, "
               "{yeni} straws written into free rows."},
+    "sablon_duzeltilen": {
+        "tr": "{n} straw'ın HÜCRE'si tedavinin kaydına göre yazıldı: Excel kaydı "
+              "tedavinin tüpüne bağlı, Excel'deki yazı farklıydı (Excel'in yazısı "
+              "Excel kaydının sayfasında duruyor).",
+        "en": "{n} straws had their HÜCRE cell written from the treatment's record: "
+              "the Excel record is linked to the treatment's tube and the workbook "
+              "said something else (the workbook's text stays on the record's page)."},
     "sablon_bilinmeyen": {
         "tr": "{n} dolu satırın programda hiçbir karşılığı yok (dosya tank düzeni "
               "kurulduktan sonra Excel'de değiştirilmiş olabilir); olduğu gibi "
