@@ -457,6 +457,8 @@ sablon.env.globals["pgt_secenekleri"] = db.pgt_secenekleri
 sablon.env.globals["pgt_bandi"] = db.pgt_bandi
 # Hekim alanı (v6.231): varsayılan hekim seçili açılır menü + "Diğer" (elle).
 sablon.env.globals["hekim_secimi"] = db.hekim_secimi
+# Transfer hekimi (v6.232, goc_061): göç çalışmamışsa transfer ekranı alanı basmıyor.
+sablon.env.globals["transfer_hekim_acik"] = lambda: db.kolon_var("cycle", "transfer_hekim")
 
 
 def bos_ise_none(deger):
@@ -11533,7 +11535,8 @@ TRANSFER_HATALARI = {"pgt_onay": "pgt_onay_eksik"}
 
 
 @uygulama.get("/cycle/{cycle_id}/transfer")
-def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
+def transfer_ekran(request: Request, cycle_id: int, hata: str = "",
+                   duzenle: str = ""):
     c = db.tek("SELECT c.*, h.dosya_no, h.ad_soyad, h.id AS hasta_id FROM cycle c "
                "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
     if not c:
@@ -11560,6 +11563,8 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = ""):
     return sablon.TemplateResponse(
         request, "transfer.html",
         {"c": c, "adaylar": adaylar, "edilen": _pgt_ekle(edilen), "hata": hata,
+         # Transfer hekimini düzeltmek (v6.232): transferden sonra form yok.
+         "duzenle": "hekim" if duzenle == "hekim" else "",
          "gezinme": asama_gezinme(cycle_id, "transfer"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -11572,13 +11577,18 @@ async def transfer_kaydet(request: Request, cycle_id: int):
     if not c:
         return RedirectResponse("/hastalar", status_code=303)
 
+    kid = request.state.kullanici["id"]
+    # Yalnızca transfer hekimi (v6.232): transferden sonra "Düzenle" ile.
+    if f.get("eylem") == "hekim":
+        _transfer_hekimini_yaz(c, f, kid)
+        return RedirectResponse(f"/cycle/{cycle_id}/transfer", status_code=303)
+
     secilen = f.getlist("embriyo")
     if not secilen:
         return RedirectResponse(
             f"/cycle/{cycle_id}/transfer?hata=" + quote("Hiç embriyo seçilmedi."),
             status_code=303)
 
-    kid = request.state.kullanici["id"]
     simdi = islem_zamani(f.get("islem_zamani"))
     # Ekranın gösterdiği adaylardan olmalı (v6.155): eski bir sekmeden ya da
     # elle kurulmuş bir istekten başka tedavinin embriyosu gelirse yazılmaz.
@@ -11605,10 +11615,30 @@ async def transfer_kaydet(request: Request, cycle_id: int):
             kid, simdi)
         db.yaz("UPDATE specimen SET durum='transfer_edildi' WHERE id=?", (sid,))
 
+    # Transfer hekimi transferle birlikte (v6.232): formdaki menü.
+    _transfer_hekimini_yaz(c, f, kid)
     # FET'in günü transfer günü de olabilir (v6.144, `db.tedavi_tarihi()`).
     tedavi_sirasini_duzelt(c["hasta_id"], kid)
     islem_yapani_doldur(cycle_id, "transfer")   # v6.208
     return RedirectResponse(f"/cycle/{cycle_id}/transfer", status_code=303)
+
+
+def _transfer_hekimini_yaz(c, f, kid):
+    """Formdaki transfer hekimini tedavinin kaydına yazar (v6.232).
+
+    Kullanıcı: "Resmî formların TRANSFER KLİNİSYENi yazsın." `cycle.transfer_hekim`
+    transferin YAPILDIĞI tedavinin (rotanın) kaydı. **Formda alan yoksa
+    dokunulmaz** (eski sekme, yeniden başlatılmamış programın şablonu): düz
+    okuma boş sanıp kayıtlı adı silerdi (v6.220'nin "formda olmayan alan
+    yazılmıyor" kuralı). Göç (goc_061) yoksa hiçbir şey yazmaz."""
+    if "transfer_hekim" not in f or not db.kolon_var("cycle", "transfer_hekim"):
+        return
+    yeni = {"transfer_hekim": bos_ise_none(f.get("transfer_hekim"))}
+    if (c["transfer_hekim"] or None) == yeni["transfer_hekim"]:
+        return
+    guvenlik.degisiklikleri_yaz("cycle", c["id"], c, yeni, kid)
+    db.yaz("UPDATE cycle SET transfer_hekim=? WHERE id=?",
+           (yeni["transfer_hekim"], c["id"]))
 
 
 @uygulama.get("/specimen/{specimen_id}/transfer-sil")

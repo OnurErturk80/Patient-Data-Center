@@ -1,0 +1,63 @@
+{# Hekim alanı (v6.231 OPU, v6.232 transfer): varsayılan hekim seçili açılır
+   menü, "Diğer" seçilince ad elle yazılıyor. Kullanıcı: "Hekim ismi yazılan her
+   yerde sabit Mete Çağlar olsun. Hep onu göstersin. Farklı birini istersek
+   açılır menüden diğer seçip elle yazabilelim."
+
+   - Menünün hali `db.hekim_secimi(kayitli)`: boş ya da varsayılanın kendisi
+     -> varsayılan; başka ad (eski kayıtların kısaltmaları dahil) -> "Diğer",
+     kutuda olduğu gibi.
+   - **Kaydedilen hep yazı kutusu** (`ad`), menünün adı yok, yalnızca kutuyu
+     dolduruyor. Betik çalışmazsa menü gizli kalıyor, kutu varsayılanla açık;
+     program yeniden başlatılmadıysa (tuzak #5, `hekim_secimi` tanımsız) kutu
+     eskisi gibi -- eski program da aynı alanı okuyor.
+   - Aynı sayfada iki alan olabilir: `kimlik` ayrı verilmeli. Betik sayfada
+     bir kez (`betik()`), bütün menülere bakıyor. #}
+{% macro alan(ad, kayitli, etiket, kimlik=None) %}
+{%- set kimlik = kimlik or ad -%}
+{%- set hs = hekim_secimi(kayitli) if hekim_secimi is defined else none -%}
+<div class="alan hekimsec">
+  <label for="{{ kimlik }}">{{ etiket }}</label>
+  {% if hs %}
+  <select id="{{ kimlik }}_secim" class="hekimmenu" data-kutu="{{ kimlik }}"
+          data-varsayilan="{{ hs.varsayilan }}" hidden>
+    <option value="varsayilan"{% if not hs.diger %} selected{% endif %}>{{ hs.varsayilan }}</option>
+    <option value="diger"{% if hs.diger %} selected{% endif %}>{{ metin("hekim_diger") }}</option>
+  </select>
+  {% endif %}
+  <input id="{{ kimlik }}" name="{{ ad }}" type="text" autocomplete="off"
+         placeholder="{{ metin('hekim_adi') if hs else metin('ad_soyad') }}"
+         value="{{ hs.deger if hs else (kayitli or '') }}">
+</div>
+{% endmacro %}
+
+{% macro betik() %}
+<script>
+/* Hekim menüsü (v6.231): varsayılanda yazı kutusu gizli ve varsayılan adı
+   taşıyor, "Diğer"de açılıyor. Diğer'de yazılan ad menü varsayılana dönüp
+   yeniden Diğer denirse geri geliyor. */
+(function () {
+  document.querySelectorAll('select.hekimmenu').forEach(function (sec) {
+    var kutu = document.getElementById(sec.getAttribute('data-kutu'));
+    if (!kutu) return;
+    var varsayilan = sec.getAttribute('data-varsayilan');
+    var etiket = document.querySelector('label[for="' + kutu.id + '"]');
+    var elle = sec.value === 'diger' ? kutu.value : '';
+    function uygula(degisti) {
+      if (sec.value === 'diger') {
+        if (kutu.hidden) kutu.value = elle;
+        kutu.hidden = false;
+        if (degisti) kutu.focus();
+      } else {
+        if (degisti && !kutu.hidden) elle = kutu.value;
+        kutu.value = varsayilan;
+        kutu.hidden = true;
+      }
+    }
+    sec.hidden = false;
+    if (etiket) etiket.htmlFor = sec.id;
+    uygula(false);
+    sec.addEventListener('change', function () { uygula(true); });
+  });
+})();
+</script>
+{% endmacro %}

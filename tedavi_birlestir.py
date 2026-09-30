@@ -109,6 +109,7 @@ ALANLAR = {
     "afc": "AFC", "hcg_zamani": "hCG zamanı", "opu_zamani": "OPU zamanı",
     "denudasyon_zamani": "denüdasyon zamanı", "opu_sag_oosit": "OPU sağ",
     "opu_sol_oosit": "OPU sol", "opu_hekim": "OPU hekimi",
+    "transfer_hekim": "transfer hekimi",
     "planlanan_tarih": "planlanan tarih", "bulas_kadin": "bulaş (kadın)",
     "bulas_erkek": "bulaş (erkek)", "pgt_testleri": "PGT", "pgt_notu": "PGT notu"}
 

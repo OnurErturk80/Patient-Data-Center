@@ -86,11 +86,15 @@ Excel kaydı" dedi (kullanıcının söylediği esas, Excel'den açılmış dond
 kaydıydı), ters yön önerildi. Ardından kullanıcı Excel'in yazısının tedavide
 dondurulan embriyodan farklı olduğunu sordu (v6.229): o straw tedavinin kendi
 tüpüyse birleştirme gerekmiyor, Excel kaydının sayfasında "Açılan tüpü geri
-al" + "Tüpe bağla". Ters yönü mü çalıştırdı, iki adımı mı yaptı, sonuç ne --
-sor. Sonra bir hastanın örneğiyle (numarası sohbette) Cryo Haritası'nın
-tedaviye göre olmasını istedi: v6.230 (laboratuvarın Excel'inde bağlanan
-straw'ın HÜCRE'si); o hastanın straw'ını bağlayıp bağlamadığını sor. Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu
-hesaba kat.
+al" + "Tüpe bağla". Kullanıcı 2026-09-30'da "önceki birleştirme tamam" dedi
+(hangi yolla yaptığı söylenmedi; sorma). Sonra bir hastanın örneğiyle
+(numarası sohbette) Cryo Haritası'nın tedaviye göre olmasını istedi: v6.230
+(laboratuvarın Excel'inde bağlanan straw'ın HÜCRE'si); o hastanın straw'ını
+bağlayıp bağlamadığını sor.
+**Transfer hekimi** (v6.232): aktarılmış tedavilerin boş transfer hekimini
+Access'ten `aktar_toplu.py kip=transfer_hekim` yazıyor (kopyada 700 tedavi);
+kullanıcı kendi makinesinde çalıştıracak -- çalıştırıp çalıştırmadığını sor.
+Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
 
@@ -1449,9 +1453,10 @@ kalıptan**: `form_kalip.json`.
   boş olan kutuya yazar, `ek` kâğıtta basılı yazının arkasına ekler
   (`"Dosya No :"` + numara).
 - **Programda karşılığı olmayan alan boş kalır** (kimlik no, empty zona,
-  intakt, tüp no, medium/lot, seleksiyon, transfer klinisyeni, 24. saat
-  hücre sayısı). Uydurma — resmî forma yanlış veri yazmak boş bırakmaktan
-  kötü. Kullanıcı hangilerinin programa gireceğine sonra karar verecek.
+  intakt, tüp no, medium/lot, seleksiyon, 24. saat hücre sayısı). Uydurma —
+  resmî forma yanlış veri yazmak boş bırakmaktan kötü. Kullanıcı hangilerinin
+  programa gireceğine sonra karar verecek. Transfer klinisyeni v6.232'den
+  beri var (`cycle.transfer_hekim`, aşağıdaki "Hekim alanı" maddesi).
 - **ART raporunda gün 2 "40-45 saat", gün 3 "72 saat" satırına yazılır.**
   Eşleme olduğu için kullanıcıya soruldu, **"kalsın" dedi** (2026-09-11).
   Boşaltma. "24 saat : hücre" satırı boş — programda o kayıt yok.
@@ -2735,8 +2740,9 @@ besleniyor.
     tüplerle ortak sorgu `_cikan_tupler()`; `_kalan_dondurulmus()` o güne
     kadar imha edileni saymıyor.
   - Excel kaydının imhası yok: kendi "tanktan çıkarıldı"sı. Bakanlık
-    tablosunda imha sütunu yok (v6.201'de kullanıcı istemedi; eklemek
-    soruldu, cevap gelmeden ekleme).
+    tablosunda imha sütunu yok (v6.201'de kullanıcı istemedi; 2026-09-30'da
+    yeniden soruldu, cevap: "Bakanlık tablosuna imha şimdilik ekleme").
+    Kullanıcı istemeden ekleme.
 - **Tankın fiziksel düzeni** (kullanıcı, 2026-09-25; Excel'den çıkarıldı,
   README v6.188): tank → kanister → goblet; **embriyo gobletine 4
   straw/Cryotop** konuyor ve **bir goblette farklı renkler** duruyor (straw'lar
@@ -3116,8 +3122,11 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   yazılıyor: `guvenlik.degisiklikleri_yaz()` kendi bağlantısını açar,
   `yazma_islemi()`'nin kilidi içinde bekler. Öteki dar kipler:
   `transfer` (v6.154), `bagla` (v6.160: yalnızca kaynağa bağlama; v6.163'ten
-  beri dosyasız, bütün veritabanı) ve `tip` (v6.167: ICSI'siz, yalnızca
-  yumurta donduran IVF/ICSI tedavisini Yumurta Dondurma yapar; dosyasız).
+  beri dosyasız, bütün veritabanı), `tip` (v6.167: ICSI'siz, yalnızca
+  yumurta donduran IVF/ICSI tedavisini Yumurta Dondurma yapar; dosyasız) ve
+  `transfer_hekim` (v6.232: Access'in "TRANSFER KLİNİSYEN"ini yalnızca boş
+  `cycle.transfer_hekim`'e; bütün aylar `aktar_toplu.py kip=transfer_hekim`,
+  2026'nın yılsız etiketleriyle -- `aktar_toplu.etiket()`).
 - **Her aktarımın sonunda bütün aktarılmış FET'ler yeniden deneniyor**
   (v6.163, kullanıcının isteği: "her yeni aktarım yaptığımda eski
   kayıtlardan bağlantılı hasta varsa tedavileri bağla"):
@@ -3201,6 +3210,8 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   söyler; araç ters yön daha doğruysa önerir. **Yeni bir tabloya `cycle_id`
   eklersen** tedavi düzeyindeki kayıtlar arasına (`_kayitlar_plani()`) ekle:
   eklenmezse araç "birleşen tedaviyi gösteren kayıt kaldı" diye durur.
+  Tedavinin yeni bir alanı (`cycle` kolonu, v6.232'nin `transfer_hekim`'i gibi)
+  `ALANLAR`'a: esasta boşsa birleşenin değeri geçer, farklıysa listelenir.
   **Birebir tutmayan tüp + esasta aynı gün dondurulmuş, yeri girilmemiş aynı
   türden tüp = araç durur** (v6.229, `_benzer_tupler()`): Excel aynı straw'ı
   başka bir yazımla gösteriyor olabilir; tüpü esasın başka embriyolarına
@@ -3911,20 +3922,23 @@ listelemez. Sıfırlamayı yönetici yapar; yönetici de kilitlenirse `kullanici
 Bu kararı gevşetme (README v6.11).
 
 **Laboratuvar personeli olmayan kişi `islem_yapan`'a yazılmaz.** **OPU Hekimi**
-`cycle.opu_hekim` kolonunda, **OPU Embriyoloğu** `islem_yapan`'da
-(`asama='opu'`). `UNIQUE(cycle_id, asama)` aşama başına tek kişi demek; ikinci
+`cycle.opu_hekim` kolonunda, **Transfer Hekimi** `cycle.transfer_hekim`'de
+(v6.232), **OPU Embriyoloğu** `islem_yapan`'da (`asama='opu'`). `UNIQUE(cycle_id, asama)` aşama başına tek kişi demek; ikinci
 bir kişi gerekiyorsa onu bu kısıtı gevşeterek değil, cycle verisi olarak ekle
 (README v6.9).
 
 **Hekim alanı varsayılan hekim seçili açılır menü** (v6.231, README v6.231;
 kullanıcı: "Hekim ismi yazılan her yerde sabit Mete Çağlar olsun. Hep onu
 göstersin. Farklı birini istersek açılır menüden diğer seçip elle
-yazabilelim"). Programda hekim adı yalnızca OPU ekranında giriliyor; formlar
-ve Excel kayıtlı olanı basıyor.
-- **Kaydedilen hep yazı kutusu `opu_hekim`**, menü (`opu_hekim_secim`, adı
-  yok) yalnızca onu dolduruyor; sunucunun kaydı değişmedi. Betiksiz tarayıcı
-  ve yeniden başlatılmamış program (`hekim_secimi is defined`, tuzak #5) aynı
-  alanı yazıyor. Menüye kayıt mantığı taşıma.
+yazabilelim"). Hekim adı OPU ekranında (`opu_hekim`) ve v6.232'den beri
+transfer ekranında (`transfer_hekim`) giriliyor; formlar ve Excel kayıtlı
+olanı basıyor. Menü ile kutu tek makroda: `_hekim.html` (`alan()`, sayfada bir
+kez `betik()`); yeni bir hekim alanı onu çağırsın.
+- **Kaydedilen hep yazı kutusu** (`opu_hekim` / `transfer_hekim`), menü
+  (`<kimlik>_secim`, adı yok) yalnızca onu dolduruyor; sunucunun kaydı
+  değişmedi. Betiksiz tarayıcı ve yeniden başlatılmamış program
+  (`hekim_secimi is defined`, tuzak #5) aynı alanı yazıyor. Menüye kayıt
+  mantığı taşıma.
 - Hali `db.hekim_secimi(kayitli)`: boş ya da varsayılanın kendisi (büyük/küçük
   harf, boşluk farkı sayılmıyor) → varsayılan; başka ad → "Diğer", olduğu gibi.
   **Eski kayıtlara dokunma**: Access'ten gelen başka hekim adları ve
@@ -3937,9 +3951,25 @@ ve Excel kayıtlı olanı basıyor.
   kurulum (`kurulum.ayarlar()`) anahtarı BOŞ açıyor, göç ona dokunmuyor. Başka
   bir laboratuvara bu laboratuvarın bir adını (kişi, kurum) veren yeni bir
   varsayılan yazarsan aynı yolu izle. Ekrandan değiştirme yok (istenmedi).
-- Transfer hekimi (Özet'in TRANSFER KLİNİSYEN'i, ART Lab'ın "ET"si) programda
-  yok, kutular boş; kullanıcıya soruldu (2026-09-30). Cevap gelmeden ekleme.
-  Yeni bir hekim alanı eklenirse aynı menüyü (`hekim_secimi()`) kullan.
+- **Transfer hekimi** (v6.232, `goc_061`, README v6.232; kullanıcı: "Resmî
+  formların TRANSFER KLİNİSYENi yazsın"): `cycle.transfer_hekim`, transferin
+  YAPILDIĞI tedavinin kaydı (FET'te FET'in), tedavi başına tek. Transferin
+  formunda menü, transferle birlikte kaydediliyor; transferden sonra
+  "Transfer" kartı + Düzenle (`?duzenle=hekim`, aynı POST `eylem=hekim`).
+  `_transfer_hekimini_yaz()`: formda alan yoksa dokunmuyor (eski sekme,
+  v6.220'nin kuralı), değişiklik geçmişine yazıyor; şablon
+  `transfer_hekim_acik is defined` diye soruyor (göç yoksa ya da program
+  yeniden başlatılmadıysa alan yok).
+- **Formlar ve ay listesi transfer hekimini yalnızca bu tedavide transfer
+  varsa basıyor** (`formlar._transfer_hekimi()`, `disari._transfer_hekimi()`):
+  transfer geri alınınca ad silinmiyor, ama transferi olmayan tedavinin resmî
+  formuna "transferi yapan hekim" yazılmaz. Tedavinin dökümü ve Tüm veriler
+  kaydın kendisi. Özet'in OPU/TRANSFER KLİNİSYEN'i ve ART Lab'ın OPU/ET
+  kutuları küçülerek sığıyor (`OZET_SIGDIR_HUCRELER`,
+  `ARTLAB_SIGDIR_HUCRELER`).
+- Access'ten: yeni aktarım yazıyor, aktarılmış tedaviler `transfer_hekim`
+  kipiyle (yukarıdaki dar kipler). Adlar Access'teki gibi (kısaltmalar, yazım
+  hataları); "Diğer"de kalıyor, düzeltme ya da eşleme YAZMA.
 
 **Embriyo Dondurma ve Sperm Dondurma tek ekranda, yan yana iki bağımsız
 modül** (`/cryo`, "Cryo Haritası" — v6.84'te ayrı bir ekrandı, v6.85'te
@@ -4419,8 +4449,8 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
    biyopsi ekranı, PGT numarası, tüp satırları; v6.226'da genetik sonuç,
    rapor, kullanıcının "sorunsuz" kararı, bekleyenler listesi ve FET'te onay
    (yukarıdaki "PGT" bölümü); v6.227'de tüp imhası, bütün tüplerde
-   (yukarıdaki "İmha edilen tüp" maddesi). Kullanıcıya soruldu: Bakanlık
-   tablosuna embriyo imha sütunu eklensin mi (v6.201'de istememişti).
+   (yukarıdaki "İmha edilen tüp" maddesi). Bakanlık tablosuna embriyo imha
+   sütunu: kullanıcı 2026-09-30'da "şimdilik ekleme" dedi.
 2. **Yedekleme — kısmen kuruldu, hedef ayarı v6.8'de düzeltildi, elle
    tetikleme v6.119'da, geri yükleme v6.120'de eklendi.**
    - `yedek.py` artık `db.ayar()` kullanıyor; argümansız çalıştırma bu makinenin

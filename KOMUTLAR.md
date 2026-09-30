@@ -937,6 +937,35 @@ Ne bağlanacağını sayar, ayrıntıyı `cryo_esle_rapor_excel_bagla.txt`'ye ya
 içerikli, yeri girilmiş bir tüp varsa dokunmaz (ayrı bir straw olabilir),
 raporda yazar.
 
+### Transfer hekimi (v6.232)
+
+v6.232'den önce aktarılmış tedavilerde transfer hekimi boş: araç Access'in
+"TRANSFER KLİNİSYEN" sütununu okumuyordu. Yazmak için önce `git pull origin
+main`, programı bir kez kapatıp aç, yedek al. **Veritabanının olduğu
+bilgisayarda** çalıştır. Aktardığın bütün Access CSV'lerini ve
+`tarih_duzeltme*.txt` dosyalarını tek klasöre koy -- adları aktarırken
+kullandığın gibi (`ocak2019.csv` … `aralik2025.csv`; 2026'nın ayları
+`ocak.csv` … `temmuz.csv`, `agustos.csv`, `eylul.csv` ya da `ocak2026.csv`):
+
+```
+python3 aktar_toplu.py kip=transfer_hekim klasor="<CSV klasörü>"
+```
+
+Dosyaları ve etiketlerini listeler, "YAZ" yazınca her ayı dener (dosya başına
+birkaç saniye). Yalnızca **boş** transfer hekimini yazar: ekrandan girilmiş
+ada ve başka hiçbir şeye dokunmaz; iki kez çalıştırmak güvenli (ikincisi
+"0 tedaviye yazıldı" der). CSV'ler birkaç klasördeyse her klasör için ayrı
+çalıştır. "YAZILMADI" diyen dosyanın mesajı sonda (çoğu zaman o ayın
+düzeltme dosyası klasörde değildir). Tek bir ay:
+
+```
+python3 aktar_access.py transfer_hekim kaynak=OCAK2019 ocak2019.csv
+python3 aktar_access.py transfer_hekim agustos.csv
+```
+
+(Ağustos 2026 etiketsiz aktarıldı, `kaynak=` yok.) Yeni aktarımlar transfer
+hekimini kendisi yazıyor.
+
 ---
 
 ## Aynı hastanın iki kartı — birleştirme (v6.215)

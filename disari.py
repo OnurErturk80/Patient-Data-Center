@@ -84,6 +84,15 @@ def _bitis(kod):
     return metinler.t("bitis_" + kod) if kod else None
 
 
+def _transfer_hekimi(c, transfer_var=True):
+    """`cycle.transfer_hekim` (v6.232, goc_061); göç yoksa boş (tuzak #3).
+    Ay listesi resmî formun kuralıyla yalnızca transferi olan tedavide basıyor
+    (`formlar._transfer_hekimi()`); tedavinin dökümü kaydın kendisini."""
+    if not transfer_var or "transfer_hekim" not in c.keys():
+        return None
+    return c["transfer_hekim"]
+
+
 def _kolon_var(tablo: str, kolon: str) -> bool:
     """Göç çalıştırılmamış olabilir (tuzak #3) — çıktı yine de alınabilmeli."""
     return any(r["name"] == kolon for r in db.sorgu(f"PRAGMA table_info({tablo})"))
@@ -97,8 +106,8 @@ AY_BASLIK = [
     "Trigger", "AMH", "AFC", "Folikül", "Endometrium (mm)",
     "OPU tarihi", "OPU hekimi", "Toplam yumurta", "Sağ", "Sol",
     "MII", "ICSI yapılan", "2PN", "Gün 2", "Gün 3", "Blastokist",
-    "Donan", "Çözülen", "Transfer", "Durum", "Bitiş sebebi", "Bitiş tarihi",
-    "Planlanan tarih", "Hasta durumu",
+    "Donan", "Çözülen", "Transfer", "Transfer hekimi", "Durum", "Bitiş sebebi",
+    "Bitiş tarihi", "Planlanan tarih", "Hasta durumu",
 ]
 
 
@@ -196,7 +205,7 @@ def ay_sayfalari(ay: str, baslik: str):
             c["opu_zamani"], c["opu_hekim"],
             c["oosit"], c["sag"], c["sol"],
             c["mii"], c["icsi"], c["ikipn"], c["gun2"], c["gun3"], c["blast"],
-            c["donan"], c["cozulen"], c["transfer"],
+            c["donan"], c["cozulen"], c["transfer"], _transfer_hekimi(c, c["transfer"]),
             _durum(c["durum"]), _bitis(c["bitis_sebebi"]), c["bitis_zamani"],
             c["planlanan_tarih"],
             metinler.t("arsiv") if c["hasta_durum"] == "arsiv" else None,
@@ -263,6 +272,7 @@ def cycle_sayfalari(cycle_id: int):
         ("OPU sağ yumurta", c["opu_sag_oosit"]),
         ("OPU sol yumurta", c["opu_sol_oosit"]),
         ("Denüdasyon saati", c["denudasyon_zamani"]),
+        ("Transfer hekimi", _transfer_hekimi(c)),
         ("Protokol notu", c["protokol_notu"]),
         ("Durum", _durum(c["durum"])),
     ]

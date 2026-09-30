@@ -2168,6 +2168,8 @@ METINLER = {
     # Hekim menüsü (v6.231): varsayılan hekim + "Diğer" (ad elle yazılır).
     "hekim_diger": {"tr": "Diğer (elle yaz)", "en": "Other (type the name)"},
     "hekim_adi": {"tr": "Hekimin adı", "en": "Physician's name"},
+    # v6.232: Özet'in TRANSFER KLİNİSYEN'i, ART Lab'ın "ET"si.
+    "transfer_hekimi": {"tr": "Transfer Hekimi", "en": "Transfer Physician"},
 
     # ---- örnek ızgarası ve bilgi kartı (her aşamada aynı düzen) ----
     "oosit_ekle": {"tr": "Yumurta ekle", "en": "Add oocyte"},

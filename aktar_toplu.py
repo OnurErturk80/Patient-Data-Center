@@ -10,6 +10,10 @@ Seçenekler:
                        (`dosya_no_degistir.py`); eski numara kayıtlı değilse
                        ya da yeni numara zaten varsa atlar ve söyler
     klasor=<yol>       CSV'lerin klasörü (varsayılan: bulunduğun klasör)
+    kip=transfer_hekim aktarmaz: daha önce aktarılmış tedavilere yalnızca
+                       Access'in transfer hekimini yazar, boş olana (v6.232,
+                       `aktar_access.py transfer_hekim`); 2026 dosyaları da
+                       (aşağıda)
 
 CSV adları `<ay><yıl>.csv` olmalı (`ocak2019.csv`, `agustos2023.csv`);
 etiket adından çıkar (`OCAK2019`), sıra tarih sırası. Her dosya için
@@ -20,6 +24,13 @@ yalnızca kontrol edilip geçilir). Bir dosya hata verirse durur. Bütün çıkt
 
 53 dosya bir saat kadar sürer (her dosyadan sonra bütün FET'ler yeniden
 bağlanıyor). Önce yedek alın (Yönetici → Yedekleme → Şimdi yedekle).
+
+**`kip=transfer_hekim`** (v6.232) aktarım yapmıyor, her dosya için
+`aktar_access.py transfer_hekim` çalıştırıyor (dosya başına birkaç saniye).
+Aktarılmış tedaviyi bulmak için etiket doğru olmalı: 2026'nın ayları yılsız
+aktarıldı -- `ocak2026.csv` ya da `ocak.csv` `kaynak=OCAK`, ağustos 2026
+(`agustos2026.csv` / `agustos.csv`) etiketsiz; öteki yıllar `OCAK2019` gibi.
+Klasörde olmayan ay atlanır; bir dosya durursa (çakışma) ötekiler devam eder.
 
 Başlamadan önce her dosya `liste` kipinden geçer ve ekrana "kaç tedavi
 yazılacak" basılır (v6.173); "AKTAR" ondan sonra sorulur. Yazacak bir şeyi
@@ -38,17 +49,31 @@ import tempfile
 AYLAR = ["ocak", "subat", "mart", "nisan", "mayis", "haziran", "temmuz",
          "agustos", "eylul", "ekim", "kasim", "aralik"]
 _AD = re.compile(r"^(" + "|".join(AYLAR) + r")(\d{4})\.csv$", re.I)
+# 2026'nın elle aktarılan ayları çoğu zaman yılsız adla duruyor (`temmuz.csv`).
+_AD_YILSIZ = re.compile(r"^(" + "|".join(AYLAR) + r")\.csv$", re.I)
+KIPLER = ("transfer_hekim",)
 PROJE = pathlib.Path(__file__).resolve().parent
 
 
 def secenekler(argv):
-    s = {"duzelt": None, "dosya": None, "klasor": "."}
+    s = {"duzelt": None, "dosya": None, "klasor": ".", "kip": None}
     for a in argv:
         if "=" not in a or a.split("=", 1)[0] not in s:
             sys.exit(__doc__)
         k, v = a.split("=", 1)
         s[k] = v
+    if s["kip"] is not None and s["kip"] not in KIPLER:
+        sys.exit(__doc__)
     return s
+
+
+def etiket(yil, ay) -> str:
+    """Aktarımın `kaynak=` etiketi: 2026'nın ayları yılsız (`OCAK`), ağustos
+    2026 etiketsiz (ilk aktarım, v6.130 -- "" = `kaynak=` verilmez), öteki
+    yıllar `OCAK2019`. CLAUDE.md "Etiket her dosyada tekil"."""
+    if yil == 2026:
+        return "" if AYLAR[ay] == "agustos" else AYLAR[ay].upper()
+    return f"{AYLAR[ay].upper()}{yil}"
 
 
 def dosya_no_adimi(deger):
@@ -117,7 +142,7 @@ def duzeltmeleri_birlestir(klasor, verilen):
     return dosya.name, [y.name for y in yollar]
 
 
-def _calistir(etiket, p, duzelt, liste=False):
+def _calistir(etiket, p, duzelt, liste=False, kip=None):
     """`aktar_access.py`'yi alt süreçte çalıştırır. -> CompletedProcess.
 
     **Alt sürecin çıktısı UTF-8'e sabitleniyor** (v6.173). Windows'ta bir
@@ -132,12 +157,15 @@ def _calistir(etiket, p, duzelt, liste=False):
     komut = [sys.executable, str(PROJE / "aktar_access.py")]
     if liste:
         komut.append("liste")
-    komut.append(f"kaynak={etiket}")
+    elif kip:
+        komut.append(kip)             # onarım kipi: kendisi bir şey sormuyor
+    if etiket:
+        komut.append(f"kaynak={etiket}")
     if duzelt:
         komut.append(f"duzelt={duzelt}")
     komut.append(str(p.resolve()))
     ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
-    return subprocess.run(komut, input=None if liste else "AKTAR\n",
+    return subprocess.run(komut, input=None if (liste or kip) else "AKTAR\n",
                           capture_output=True, text=True, encoding="utf-8",
                           errors="replace", cwd=str(PROJE), env=ortam)
 
@@ -145,6 +173,12 @@ def _calistir(etiket, p, duzelt, liste=False):
 def main():
     s = secenekler(sys.argv[1:])
     klasor = pathlib.Path(s["klasor"])
+    if s["kip"] == "transfer_hekim":
+        if s["dosya"]:
+            sys.exit("dosya= bu kipte kullanılmaz (numara değiştirmez); "
+                     "önce kipsiz komutla ya da dosya_no_degistir.py ile.")
+        _hekim_kipi(s, klasor)
+        return
     dosyalar = []
     for p in klasor.iterdir():
         m = _AD.match(p.name)
@@ -161,6 +195,69 @@ def main():
     duzelt, kullanilan = duzeltmeleri_birlestir(klasor, s["duzelt"])
     try:
         _aktar(s, dosyalar, duzelt, kullanilan)
+    finally:
+        if duzelt:
+            os.unlink(duzelt)
+
+
+def _hekim_kipi(s, klasor):
+    """`kip=transfer_hekim` (v6.232): klasördeki bütün ayların -- 2026 dahil --
+    aktarılmış tedavilerine Access'in transfer hekimini yazar, boş olana."""
+    dosyalar = []
+    for p in klasor.iterdir():
+        m, yilsiz = _AD.match(p.name), _AD_YILSIZ.match(p.name)
+        if m and int(m.group(2)) > 2026:
+            print(f"{p.name} atlandı: 2026'dan sonrası aktarılmadı.")
+        elif m:
+            dosyalar.append((int(m.group(2)), AYLAR.index(m.group(1).lower()), p))
+        elif yilsiz:
+            dosyalar.append((2026, AYLAR.index(yilsiz.group(1).lower()), p))
+    ayni = {}
+    for yil, ay, p in dosyalar:
+        ayni.setdefault((yil, ay), []).append(p.name)
+    iki = [adlar for adlar in ayni.values() if len(adlar) > 1]
+    if iki:
+        # `ocak2026.csv` ile `ocak.csv` aynı ay: hangisinin doğru olduğunu
+        # bilmiyoruz, ikisini de çalıştırmak aynı işi iki kez yapar.
+        sys.exit("Aynı ayın iki dosyası var: " + "; ".join(", ".join(a) for a in iki)
+                 + "\nBirini klasörden çıkarıp komutu yeniden verin.")
+    if not dosyalar:
+        sys.exit(f"{klasor.resolve()} içinde <ay><yıl>.csv ya da <ay>.csv adında dosya yok.")
+    dosyalar.sort()
+    duzelt, kullanilan = duzeltmeleri_birlestir(klasor, s["duzelt"])
+    try:
+        print(f"{len(dosyalar)} dosya, {dosyalar[0][2].name} → {dosyalar[-1][2].name}")
+        print("Düzeltme dosyaları: " + (", ".join(kullanilan) if kullanilan else "YOK"))
+        for yil, ay, p in dosyalar:
+            print(f"  {p.name:20} kaynak={etiket(yil, ay) or '(etiketsiz)'}")
+        print("Yalnızca boş transfer hekimi yazılır, başka hiçbir şeye dokunulmaz.")
+        if input('Başlamak için "YAZ" yazın: ').strip() != "YAZ":
+            sys.exit("Vazgeçildi.")
+        gunluk = open("aktar_toplu.log", "a", encoding="utf-8")
+        gunluk.write(f"\n===== {_dt.datetime.now():%Y-%m-%d %H:%M} — "
+                     f"transfer hekimi, {len(dosyalar)} dosya\n")
+        toplam, duran = 0, []
+        for i, (yil, ay, p) in enumerate(dosyalar, 1):
+            e = etiket(yil, ay)
+            sonuc = _calistir(e, p, duzelt, kip="transfer_hekim")
+            cikti, hata = sonuc.stdout or "", sonuc.stderr or ""
+            gunluk.write(f"\n--- {e or '(etiketsiz)'} ({p.name})\n{cikti}{hata}\n")
+            gunluk.flush()
+            m = re.search(r"Bitti\. (\d+) tedaviye transfer hekimi yazildi", cikti)
+            if sonuc.returncode != 0 or not m:
+                duran.append((p.name, (hata or cikti).strip()))
+                print(f"[{i}/{len(dosyalar)}] {p.name}: YAZILMADI -- aşağıda")
+                continue
+            toplam += int(m.group(1))
+            farkli = re.search(r"(\d+) tedavide programda baska bir ad yazili", cikti)
+            print(f"[{i}/{len(dosyalar)}] {p.name}: {m.group(1)} tedaviye yazıldı"
+                  + (f", {farkli.group(1)} tedavide başka ad (dokunulmadı)" if farkli else "")
+                  + (f", {cikti.count('UYARI')} uyarı" if "UYARI" in cikti else ""))
+        for ad, cikti in duran:
+            print(f"\n{ad} yazılmadı. Aracın mesajı:")
+            print(cikti[-1200:])
+        print(f"\nBitti. {toplam} tedaviye transfer hekimi yazıldı. "
+              "Ayrıntı aktar_toplu.log'da.")
     finally:
         if duzelt:
             os.unlink(duzelt)

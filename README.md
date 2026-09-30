@@ -18234,3 +18234,106 @@ kaydırmadan ulaşılıyor. Geniş ekranda ızgara zaten gizli: masaüstü deği
 - Eski program (v6.230) + yeni şablonlar: OPU düz kutu, şerit ve vitrifikasyon
   eski halinde, hata yok. Yeni kurulum: `varsayilan_hekim` boş kaldı, alan düz
   kutu.
+
+# v6.232 — Transfer hekimi (TRANSFER KLİNİSYEN)
+
+Kullanıcı (2026-09-30): *"Resmî formların TRANSFER KLİNİSYENi yazsın. Ekle."*
+(v6.231'de sorulmuştu: Embriyoloji Özet'in "TRANSFER KLİNİSYEN"i ve ART Lab'ın
+"Hekimler: ... ET"si v6.37'den beri boştu, programda transfer hekimi yoktu.)
+Aynı mesajda iki cevap: önceki tedavi birleştirmesi (v6.228–v6.229) tamam;
+Bakanlık tablosuna imha sütunu **şimdilik eklenmiyor**.
+
+## Kayıt: `cycle.transfer_hekim` (goc_061)
+
+Transferin **yapıldığı** tedavinin kaydı -- FET'te FET'in, taze transferde
+tedavinin kendisi; `opu_hekim`'in (goc_025) karşılığı. Bir tedavide tek transfer
+hekimi (bir transfer günü). Hekim laboratuvar personeli değil, `islem_yapan`'a
+yazılmıyor (v6.9'un kuralı). Göç var olan kayıtlara dokunmuyor.
+
+## Transfer ekranı
+
+- Transferin formunda (transfer saatinin altında) **Transfer Hekimi**: OPU'nun
+  menüsünün aynısı (v6.231) -- Mete Çağlar seçili, "Diğer (elle yaz)" ile ad.
+  Menü ile kutu ortak bir makroda, `_hekim.html` (OPU ekranı da onu
+  kullanıyor); kaydedilen hep yazı kutusu. Transferle birlikte kaydediliyor.
+- Transferden sonra transfer edilenlerin altında **"Transfer" kartı**: Transfer
+  Hekimi + Düzenle (`?duzenle=hekim`, aynı POST, `eylem=hekim`). Düzenlerken
+  aday listesi gizli, kayıt aynı ekrana dönüyor (kaldığı yerde, v6.210). Kart
+  yalnızca transferi olan tedavide.
+- **Formda alan yoksa kayıtlı ada dokunulmuyor** (eski sekme; `git pull`'dan
+  sonra yeniden başlatılmamış programın şablonu alanı basmıyor --
+  `transfer_hekim_acik is defined`, tuzak #5). Düz okuma boş sanıp silerdi
+  (v6.220'nin kuralı). Her değişiklik değişiklik geçmişine yazılıyor.
+- Hekimi boş eski transfer: kart boş gösteriyor, Düzenle menüyü varsayılan
+  seçili açıyor, kaydedilmedikçe boş kalıyor (v6.231'in "ekranda görünen
+  kaydedilen" kuralı; boş kayda ad uydurulmuyor).
+
+## Formlar ve Excel
+
+- Özet'in TRANSFER KLİNİSYEN'i, ART Lab'ın "Hekimler: ... ET"si ve yüklenen
+  formların `{{transfer_klinisyen}}` etiketi; ay listesinde "Transfer hekimi"
+  sütunu, tedavinin dökümünde satır.
+- **Yalnızca bu tedavide transfer varsa basılıyor** (`formlar._transfer_hekimi()`).
+  Ad tedavinin kaydında kalıyor, transfer geri alınınca silinmiyor (yeniden
+  girilince formda hazır) -- ama transferi olmayan tedavinin resmî formuna
+  "transferi yapan hekim" basmak yanlış bilgi olurdu. Ay listesi aynı kural;
+  tedavinin dökümü ve Tüm veriler kaydın kendisini gösteriyor.
+- **Sığma** (ölçüldü): ART Lab'da ET formun sağ kenarında, OPU'nun sağı artık
+  dolu ET kutusu -- ikisi de küçülerek sığıyor (`ARTLAB_SIGDIR_HUCRELER`).
+  Özet'in OPU KLİNİSYEN (sağ kenar) ve TRANSFER KLİNİSYEN (sağı EMBRİYO2'nin
+  basılı yazısı) kutuları da (`OZET_SIGDIR_HUCRELER`): 38 harflik bir ad ekranda
+  199 px'lik yazıyla 128 px'lik kutuda kesiliyordu, şimdi küçülüp sığıyor.
+  Access'teki olağan adlar tam puntoda sığıyor, yazdırmada kutular zaten geniş.
+
+## Access'ten aktarılmış tedaviler
+
+Access'in "TRANSFER KLİNİSYEN" sütunu yalnızca transferi olan satırda dolu
+(bütün dosyalarda); araç onu okumuyordu.
+
+- **Yeni aktarımda yazılıyor** (`_transfer_hekimi_yaz()`, satırın sonunda,
+  transferden sonra).
+- **Daha önce aktarılmışlar: `aktar_access.py transfer_hekim`** (dar kip) --
+  yalnızca boş olana yazıyor, değişiklik geçmişine düşüyor; programda başka bir
+  ad yazılıysa (ekrandan girilmiş) dokunmuyor, sayıyor; programda o tedavinin
+  transferi yoksa (araç yazamamışsa) hekimi yine yazıp UYARI veriyor -- formda
+  transfer girilince görünür. `tamamla`'nın 7. adımı da bu.
+- **Bütün aylar tek komutta: `aktar_toplu.py kip=transfer_hekim klasor=...`**.
+  Aktarılmış tedaviyi işaretinden bulmak için etiket doğru olmalı: 2026'nın
+  ayları yılsız (`ocak.csv` ya da `ocak2026.csv` -> `OCAK`), ağustos 2026
+  etiketsiz, öteki yıllar `OCAK2019` gibi. Klasördeki bütün `tarih_duzeltme*.txt`
+  birleştiriliyor (v6.173): yer tutucu dosya numarası düzeltilmezse işaret başka
+  hastanın tedavisini bulur, araç o dosyayı çakışma diye durdurur. Duran dosya
+  ötekileri durdurmuyor, sonda mesajıyla listeleniyor. Aynı ayın iki dosyası
+  (`ocak.csv` + `ocak2026.csv`) varsa başlamıyor.
+- Adlar Access'teki gibi: kısaltmalar ve yazım hataları olduğu gibi
+  ("M ÇAĞLAR" gibi). Menüde "Diğer"de görünüyorlar; program kimin olduğunu
+  tahmin etmiyor (v6.231).
+- `goc_061` yoksa araç yazmadan duruyor (aktarım, `tamamla`, `transfer_hekim`);
+  öteki onarım kipleri o kolona dokunmadığı için durmuyor.
+
+## Deneme
+
+- Tohum: dört tedavi -- adayları olan (ekrandan transfer), hekimi boş eski
+  transfer, Access kısaltması yazılı transfer, transferi geri alınmış ama hekimi
+  yazılı. Transferle kayıt (betiksiz: yalnızca kutu), eski sekmeden ikinci
+  transfer (alan yok: dokunulmadı, geçmişe satır yok), Düzenle ile "Diğer",
+  boşaltma (NULL), aynı değer (geçmişe satır yok). Özet/ART Lab ekranda ve
+  Excel'de doğru adı basıyor; transferi geri alınmış tedavide ikisi de boş, ay
+  listesinde de.
+- Tarayıcıda (telefon 390 px, masaüstü): menü varsayılanda, Diğer'de yazılan ad
+  transferle kaydediliyor, Düzenle Diğer'de açılıyor ve varsayılana dönüp
+  kaydediyor; betik kapalıyken menü gizli, kutu görünür; sayfa yatay taşmıyor,
+  konsolda favicon'un 404'ü dışında hata yok.
+- Eski program (v6.231) + yeni şablonlar + göçsüz veritabanı: transfer ekranında
+  alan yok, OPU menüsü çalışıyor, formlar ve Excel hata vermiyor, eski programla
+  transfer kaydediliyor. Yeni kod göçsüz veritabanında: formlar boş, kayıt hiçbir
+  şey yazmıyor, hata yok. Yeni kurulum: kolon geliyor, varsayılan hekim boş.
+- Aktarım kopyası (1.909 tedavi, 22 Access dosyası, 2024–2026): 700 dolu hücrenin
+  700'ü yazıldı; 1 tedavide programda transfer yok (uyarı); yalnızca
+  `cycle.transfer_hekim` ve değişiklik geçmişi değişti; ikinci çalıştırma hiçbir
+  tabloyu değiştirmedi. Başka ad yazılı tedavi sayılıp atlandı. `tamamla`'nın
+  öteki adımları eski araçla birebir aynı (bir iptal saat damgası dışında). Boş
+  veritabanına yeni aktarım: 20 satırın 6'sına yazdı, sonraki kip "0" dedi.
+- v6.231'in denemeleri (OPU menüsü, Yumurta Dondurma, telefonda ana ekran) yeni
+  kodla yeniden geçti. Paketin duman testi derlenmiş paket istediği için
+  çalıştırılmadı (paket tarifi değişmedi: göç adından, şablon `templates/`'ten).

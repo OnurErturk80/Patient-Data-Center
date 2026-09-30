@@ -70,6 +70,14 @@ değerlendirmesi olmayan örneğin skorunu ekler, var olan skora dokunmaz:
 
     python3 aktar_access.py dondurma kaynak=OCAK duzelt=tarih_duzeltme.txt ocak.csv
 
+**Yalnızca transfer hekimi: `transfer_hekim`** (v6.232, goc_061). v6.231'e
+kadar programda transfer hekimi yoktu, araç Access'in "TRANSFER KLİNİSYEN"
+sütununu okumuyordu. Bu kip daha önce aktarılmış tedavilere onu yazar,
+yalnızca boş olana (transfer ekranında girilmiş ada dokunmaz); başka hiçbir
+şeye dokunmaz. Bütün dosyalar için tek komut `aktar_toplu.py kip=transfer_hekim`:
+
+    python3 aktar_access.py transfer_hekim kaynak=OCAK ocak.csv
+
 **FET'leri tüpüne bağlama: `bagla`** (v6.160, v6.163'ten beri dosyasız).
 Daha eski bir ay sonradan aktarıldıysa (2026 aktarılmışken 2025) önceki
 FET'ler o tüplere ancak şimdi bağlanabilir. **Her aktarımın sonunda bu
@@ -486,6 +494,9 @@ def satirlari_oku(yol: str) -> list:
             "opu": opu,
             "transfer": transfer,
             "opu_hekim": _m(v("OPU KLİNİSYEN")) or None,
+            # Transfer hekimi (v6.232, goc_061): transferin yapıldığı tedavinin
+            # kaydı. Access'te yalnızca transferi olan satırda dolu.
+            "transfer_hekim": _m(v("TRANSFER KLİNİSYEN")) or None,
             "notlar": _m(v("NOTLAR")),
             "gizli_not": _m(v("NOTLAR CONFIDENTIAL")),
             # --- oosit sayıları ---
@@ -4176,6 +4187,9 @@ def _satiri_yaz(r) -> list:
         # SONRA: bağlanan embriyonun kaynaktaki aynı günün kaydıyla
         # çakışmasın diye o kayda bakıyor.
         _fet_transfer_kalitesi(b, r, cycle_id, kid, rapor)
+        # Transfer hekimi (v6.232) -- transfer yazıldıktan sonra: yazılamadıysa
+        # rapor söylesin. Yeni kayıt, değişiklik geçmişine yazılmıyor.
+        _transfer_hekimi_yaz(b, r, cycle_id, kid, rapor, gecmis=False)
         _tedavi_sirasi(b, hasta_id, cycle_id, rapor)
     return rapor, durum
 
@@ -4496,6 +4510,79 @@ def _cozme_tupu_duzelt(b, r, cycle_id, rapor):
     if n:
         rapor.append(f"    çözmenin tüpü düzeltildi ({n}): kendi yeniden dondurma "
                      "tüpü yazılmıştı (goc_046)")
+
+
+def _transfer_hekimi_yaz(b, r, cycle_id, kid, rapor, gecmis=True):
+    """Access'in "TRANSFER KLİNİSYEN"ini `cycle.transfer_hekim`'e yazar
+    (v6.232, goc_061) -> "yazildi" / "farkli" / None.
+
+    v6.231'e kadar araç bu sütunu hiç okumuyordu (programda alan yoktu).
+    **Yalnızca boşsa yazılıyor**: programda bir ad varsa (transfer ekranında
+    girilmiş ya da düzeltilmiş) ona dokunulmuyor, "farkli" dönüyor. Ad
+    Access'teki gibi ("M ÇAĞLAR" gibi kısaltmalar dahil): hekim menüsü onu
+    "Diğer"de gösteriyor, program kimin olduğunu tahmin etmiyor (v6.231).
+
+    Access'te bu sütun yalnızca transferi olan satırda dolu. Programda o
+    tedavinin transferi yoksa (araç yazamamışsa) hekim yine yazılıyor --
+    kaynağın bilgisi, transfer sonradan girilince formda görünür -- ama rapor
+    söylüyor: resmî formlar transfer hekimini transferi olmayan tedavide
+    basmıyor (`formlar._transfer_hekimi()`).
+
+    `gecmis`: var olan kayıtta değişiklik geçmişine yazılıyor (ekrandaki bir
+    değişiklik gibi); yeni aktarılan tedavide gerekmiyor.
+    """
+    ad = r.get("transfer_hekim")
+    if not ad or not _db.kolon_var("cycle", "transfer_hekim"):
+        return None
+    ad = re.sub(r"\s+", " ", ad).strip()
+    c = b.execute("SELECT transfer_hekim FROM cycle WHERE id=?", (cycle_id,)).fetchone()
+    if not c:
+        return None
+    if c["transfer_hekim"]:
+        return None if c["transfer_hekim"] == ad else "farkli"
+    b.execute("UPDATE cycle SET transfer_hekim=? WHERE id=?", (ad, cycle_id))
+    if gecmis:
+        # `yazma_islemi()`'nin kilidi içinde: aynı bağlantıdan (`_iptal_sebebi_duzelt()`).
+        b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                  "eski_deger, yeni_deger, kullanici_id, zaman) "
+                  "VALUES (?,?,?,?,?,?,?,?)",
+                  (_db.LAB_ID, "cycle", str(cycle_id), "transfer_hekim", None,
+                   ad, kid, _dt.datetime.now().isoformat(" ", "seconds")))
+        rapor.append(f"    transfer hekimi: {ad}")
+    if not b.execute("SELECT 1 FROM olay o WHERE o.tip='transfer' AND o.iptal_mi=0 "
+                     "AND COALESCE(o.tr_cycle_id, o.cycle_id)=? LIMIT 1",
+                     (cycle_id,)).fetchone():
+        rapor.append("    UYARI: Access transfer hekimi yazıyor ama programda bu "
+                     "tedavinin transferi yok -- hekim yazıldı, transfer "
+                     "girilince formda görünür")
+    return "yazildi"
+
+
+def transfer_hekimlerini_yaz(satirlar):
+    """Yalnızca transfer hekimi (v6.232): daha önce aktarılmış tedavilere
+    Access'in "TRANSFER KLİNİSYEN"ini yazar, boş olana. Başka hiçbir şeye
+    dokunmaz (`iptal` kipinin gerekçesi: `tamamla` elle düzeltilmiş skoru
+    ezebilir). İkinci çalıştırma hiçbir şey değiştirmez."""
+    kid = _kullanici_id()
+    sayac = {"yazildi": 0, "farkli": 0}
+    for r in satirlar:
+        if not r.get("transfer_hekim"):
+            continue
+        var = _zaten_var(r["kimlik"])
+        if not var:
+            continue
+        rapor = []
+        with _db.yazma_islemi() as b:
+            sonuc = _transfer_hekimi_yaz(b, r, var["id"], kid, rapor)
+        if sonuc:
+            sayac[sonuc] += 1
+        if rapor:
+            print(f'#{r["kimlik"]:>3}  {var["cycle_no"]}')
+            for satir in rapor:
+                print(satir)
+    print(f'\nBitti. {sayac["yazildi"]} tedaviye transfer hekimi yazildi.'
+          + (f' {sayac["farkli"]} tedavide programda baska bir ad yazili, '
+             'dokunulmadi.' if sayac["farkli"] else ""))
 
 
 def _iptal_sebebi_duzelt(b, r, cycle_id, kid, rapor):
@@ -5075,7 +5162,8 @@ def tamamla(satirlar):
     4. çözülen örneği dondurulduğu tüpe bağlama;
     5. iptal sebebi: genel "iptal" kalmış tedavi, not bugün tanınan ayrıntılı
        bir sebep söylüyorsa (v6.150: "OOSİT ÇIKMADI", "İNMATÜR OOSİT");
-    6. FET'te transfer edilen embriyonun kalitesi (v6.154).
+    6. FET'te transfer edilen embriyonun kalitesi (v6.154);
+    7. transfer hekimi, boşsa (v6.232).
     **Hemen çalıştır**: değerlendirme nottaki değerle güncelleniyor, aktarılan
     bir skoru ekranda elle düzelttiysen `tamamla` o düzeltmeyi ezer (v6.142).
     """
@@ -5104,6 +5192,7 @@ def tamamla(satirlar):
                 durum = _kaynaga_bagla(b, r, var["id"], kid, rapor)
                 _iptal_sebebi_duzelt(b, r, var["id"], kid, rapor)
                 _fet_transfer_kalitesi(b, r, var["id"], kid, rapor)
+                _transfer_hekimi_yaz(b, r, var["id"], kid, rapor)
         except Exception as hata:
             sayac["hata"] += 1
             print(f'#{r["kimlik"]:>3}  HATA: {hata}')
@@ -5134,7 +5223,7 @@ def main():
             arg.append(a)
     kip = "aktar"
     if arg and arg[0] in ("liste", "tamamla", "iptal", "transfer", "bagla", "dondurma",
-                          "tip", "ikiz", "tasi"):
+                          "tip", "ikiz", "tasi", "transfer_hekim"):
         kip, arg = arg[0], arg[1:]
     if kip == "tasi":
         # v6.175: yanlış tüpe bağlanmış FET'i kullanıcının gösterdiği tüpe taşır.
@@ -5176,6 +5265,9 @@ def main():
                  "  python3 aktar_access.py dondurma <dosya.csv>  yalnizca eksik\n"
                  "                                                dondurma (tupteki\n"
                  "                                                ornege dokunmaz)\n"
+                 "  python3 aktar_access.py transfer_hekim <dosya.csv>\n"
+                 "                                                yalnizca bos transfer\n"
+                 "                                                hekimini yazar\n"
                  "  python3 aktar_access.py bagla                 aktarilmis butun\n"
                  "                                                FET'leri tupune\n"
                  "                                                baglar (dosya gerekmez)\n"
@@ -5262,6 +5354,11 @@ def main():
     eksik = [ad for ad, var in (
         ("goc_046", _db.yeniden_dondurma_var()),
         ("goc_047", _db.kolon_var("cycle", "hasta_cycle_no_elle"))) if not var]
+    # goc_061 (v6.232): transfer hekimini yazan kipler. Öteki onarım kipleri
+    # o kolona dokunmuyor, onları durdurmaya gerek yok.
+    if kip in ("aktar", "tamamla", "transfer_hekim") \
+            and not _db.kolon_var("cycle", "transfer_hekim"):
+        eksik.append("goc_061")
     if eksik:
         sys.exit(f"Veritabani guncellemesi eksik ({', '.join(eksik)}). Programi "
                  "bir kez kapatip ac -- guncellemeler acilista uygulanir -- ya "
@@ -5277,6 +5374,9 @@ def main():
         return
     if kip == "dondurma":
         eksik_dondurmalari_yaz(satirlar)
+        return
+    if kip == "transfer_hekim":
+        transfer_hekimlerini_yaz(satirlar)
         return
     onizleme(satirlar, kopyalar, tutmayan, atla, ikizler)
     print("Bu, veritabanina YAZAR. Once yedek al (/yedekleme -> Simdi yedekle).")

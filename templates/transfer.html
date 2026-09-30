@@ -7,6 +7,8 @@
 {% import "_kucukfoto.html" as kf %}
 {% import "_ornekkart.html" as ok %}
 {% import "_pgt.html" as pgtm %}
+{% import "_bilgikart.html" as bk %}
+{% import "_hekim.html" as hk %}
 {% block ustbaslik %}{{ metin("asama_transfer") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -48,7 +50,33 @@
 {% endcall %}
 {% endif %}
 
-{% if not adaylar %}
+{#- Transfer hekimi (v6.232): Özet'in TRANSFER KLİNİSYEN'i, ART Lab'ın "ET"si.
+    Transferle birlikte formda giriliyor; transferden sonra form kalmıyor,
+    düzeltmesi burada (`?duzenle=hekim`, aynı POST, `eylem=hekim`). `is
+    defined`: yeniden başlatılmamış program (tuzak #5). -#}
+{% set hekim_acik = transfer_hekim_acik is defined and transfer_hekim_acik() %}
+{% set hekim_duzen = hekim_acik and edilen and duzenle == "hekim" %}
+{% if hekim_acik and edilen %}
+{% if hekim_duzen %}
+<form method="post" action="/cycle/{{ c.id }}/transfer">
+  <input type="hidden" name="eylem" value="hekim">
+  <div class="kart" style="margin-top:16px">
+    <h2>{{ metin("asama_transfer") }}</h2>
+    {{ hk.alan("transfer_hekim", c.transfer_hekim, metin("transfer_hekimi"), "tr_hekim_duzen") }}
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">{{ metin("kaydet") }}</button>
+    </div>
+  </div>
+</form>
+<a class="dugme ikincil" href="/cycle/{{ c.id }}/transfer">{{ metin("vazgec_duzenleme") }}</a>
+{% else %}
+{{ bk.kart(metin("asama_transfer"), [(metin("transfer_hekimi"), c.transfer_hekim)],
+           '/cycle/' ~ c.id ~ '/transfer?duzenle=hekim') }}
+{% endif %}
+{% endif %}
+
+{% if hekim_duzen %}
+{% elif not adaylar %}
 <div class="kart"><div class="bos">
   {{ metin("transfer_edilebilir_yok") }}<br>
   {{ metin("transfer_aday_ipucu") }}
@@ -87,6 +115,10 @@
       <label for="islem_zamani">{{ metin("transfer_saati") }}</label>
       <input id="islem_zamani" name="islem_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ simdi }}">
     </div>
+    {#- Transfer hekimi transferle birlikte kaydediliyor (v6.232). -#}
+    {% if hekim_acik %}
+    {{ hk.alan("transfer_hekim", c.transfer_hekim, metin("transfer_hekimi"), "tr_hekim") }}
+    {% endif %}
   </div>
 
   {#- PGT (v6.226): kararı "sorunsuz" olmayan biyopsili embriyo seçilirse
@@ -113,6 +145,7 @@
 {% include "_buyutec.html" %}
 {{ kf.baglama() }}
 {{ ok.baglama() }}
+{{ hk.betik() }}
 <script>
 document.querySelectorAll('.secsatir input').forEach(function (i) {
   i.addEventListener('change', function () {

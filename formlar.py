@@ -19,10 +19,11 @@ görünmek zorunda. Yeni bir alan ekleyeceksen kutunun **içini** doldur,
 başlığını değiştirme.
 
 **Programda karşılığı olmayan alan boş bırakılır.** Kimlik no, empty zona,
-intakt, tüp no, medium/lot numaraları, seleksiyon, transfer klinisyeni ve
-personel sınıflandırması programda tutulmuyor; kutuları boş çıkıyor,
-kullanıcı kalemle dolduruyor. Bu alanları **uydurma** — resmî bir forma
-yanlış veri yazmak, boş bırakmaktan kötü.
+intakt, tüp no, medium/lot numaraları, seleksiyon ve personel sınıflandırması
+programda tutulmuyor; kutuları boş çıkıyor, kullanıcı kalemle dolduruyor
+(transfer klinisyeni v6.232'den beri tutuluyor: `cycle.transfer_hekim`). Bu
+alanları **uydurma** — resmî bir forma yanlış veri yazmak, boş bırakmaktan
+kötü.
 """
 
 import datetime as _dt
@@ -1484,7 +1485,9 @@ def ozet_verisi(cycle_id: int):
         ) or None,
         "transfer_tarihi": _gg_aa_yyyy(tr[0]["zaman"]) if tr else None,
         "transfer_sayisi": len(tr) or None,
-        "transfer_klinisyen": None,              # programda tutulmuyor
+        # Transfer hekimi (v6.232, goc_061): transferin yapıldığı tedavinin
+        # kaydı -- bu formun tedavisi -- yalnızca bu tedavide transfer varsa.
+        "transfer_klinisyen": _transfer_hekimi(c, tr),
         "transfer_embriyolog": _yapan(cycle_id, "transfer"),
         "embriyo1_asama": _emb(0, "asama"),
         "embriyo1_kalite": _emb(0, "kalite"),
@@ -1569,8 +1572,12 @@ OZET_SIGDIR_HUCRELER = {
     for satir, sol, sag in OZET_KUTULARI
     for anahtar, sutun in ((sol, _OZET_SOL), (sag, _OZET_SAG))
     # ÇÖZDÜRME SONRASI VİABİLİTE de sağ kenarda (v6.152): "2 Canlı,
-    # 1 Dejenere · %90-%85" uzayabiliyor.
-    if anahtar in ("soyadi", "adi", "esinin_adi", "cozdurme_viabilite")
+    # 1 Dejenere · %90-%85" uzayabiliyor. Hekim kutuları (v6.232): OPU
+    # KLİNİSYEN sağ kenarda, TRANSFER KLİNİSYEN'in sağı EMBRİYO2'nin basılı
+    # yazısı; 38 harflik bir ad ekranda kesiliyordu (ölçüldü: 199 px yazı,
+    # 128 px kutu).
+    if anahtar in ("soyadi", "adi", "esinin_adi", "cozdurme_viabilite",
+                   "opu_klinisyen", "transfer_klinisyen")
 }
 
 
@@ -1584,7 +1591,7 @@ def ozet_dolgu(v: dict) -> list:
 
     `değer` kâğıtta **boş** olan kutulara yazıyor; bu formda hepsi öyle, o
     yüzden `ek` boş. Programda karşılığı olmayan kutular (kimlik no, empty
-    zona, intakt, transfer klinisyen) None geliyor ve boş basılıyor.
+    zona, intakt) None geliyor ve boş basılıyor.
     """
     d = {}
     for satir, sol, sag in OZET_KUTULARI:
@@ -1626,6 +1633,20 @@ _IZGARA_SUTUN0, _IZGARA_ADIM = 3, 2
 # yazıyor. Onu Freezing ile değiştirelim").
 _ARTLAB_TRANSFER_SATIR = 21
 ARTLAB_DONDURULDU = "Freezing"
+
+def _transfer_hekimi(c, transferler):
+    """Tedavinin transfer hekimi (v6.232, `cycle.transfer_hekim`).
+
+    **Yalnızca bu tedavide transfer varsa** (`transferler` boş değilse): ad
+    tedavinin kaydında kalıyor, transfer geri alınınca silinmiyor (yeniden
+    girilince formda yine hazır); transferi olmayan tedavinin resmî formuna
+    "transferi yapan hekim" basmak yanlış bilgi olurdu. Göç (goc_061)
+    çalışmamışsa None: form yine basılsın (tuzak #3).
+    """
+    if not transferler or "transfer_hekim" not in c.keys():
+        return None
+    return c["transfer_hekim"]
+
 
 def artlab_verisi(cycle_id: int):
     """ART Lab. Raporu'nun (DH.FR.107) verisi.
@@ -1728,6 +1749,7 @@ def artlab_verisi(cycle_id: int):
 
     tupler = dondurma_tupleri(cycle_id)
     cozulenler = cozulen_ornekler(cycle_id)
+    transfer_satirlari = _transfer_satirlari(cycle_id, cozulenler)
     # Kâğıttaki FERTİLİZASYON bloğunun "Dej" sütunu: işlemden **sonra**
     # dejenere olan oosit (ICSI sırasında ya da fert kontrolünde görülen).
     dej_islem = _bu_tedavide_adet(cycle_id, _DEJ_ISLEM)
@@ -1743,6 +1765,7 @@ def artlab_verisi(cycle_id: int):
         "sperm_kaynagi": _et(h, "sperm_alinma",
                              ornek["alinma_yontemi"] if ornek else None) or "",
         "hekim": c["opu_hekim"] or "",
+        "et_hekim": _transfer_hekimi(c, transfer_satirlari) or "",   # v6.232: "Hekimler: ... ET"
         "laboratuvar": _yapan(cycle_id, "opu") or "",
         "sutunlar": sutunlar,
         "cizelge": cizelge,
@@ -1779,7 +1802,7 @@ def artlab_verisi(cycle_id: int):
         # sayı)" kutularında transfer edilen embriyoların kalitesi, sayısı ve
         # çözmedeki canlılık oranı.
         "thaw_satirlari": [tup_metni(t) for t in cozulen_tupler(cozulenler)],
-        "transfer_satirlari": _transfer_satirlari(cycle_id, cozulenler),
+        "transfer_satirlari": transfer_satirlari,
         # "Deselect grade (x sayı)": çözülüp kullanılmayan embriyolar (v6.208).
         "deselect_satirlari": _deselect_satirlari(cozulenler),
         # ÖZET tablosunun altındaki boş satır: dondurulan (v6.208) ve
@@ -1826,7 +1849,9 @@ _ARTLAB_OZET_EK = [
 # kaplıyor, "Yorum:"dan sonra tam puntoda ~35 harf sığıyor (ölçüldü). Satır
 # sayfanın sağ kenarında bitiyor -- taşma olmaz, genel bulgular uzunsa satır
 # küçülüyor. Bulgu yokken basılı yazı zaten sığıyor, punto değişmiyor.
-ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2), (_ARTLAB_YORUM_SATIR, 0)}
+# "Hekimler: OPU ... ET ..." (v6.232): ET formun sağ kenarında, taşacak yeri
+# yok; OPU'nun sağı artık dolu ET kutusu. İkisi de sığmazsa küçülür.
+ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2), (6, 21), (6, 25), (_ARTLAB_YORUM_SATIR, 0)}
 
 
 def sigdir_hucreleri(ad: str, deger=None) -> set:
@@ -1936,6 +1961,7 @@ def artlab_dolgu(v: dict) -> list:
         ek[(6, 9)] = "→ " + v["islem"] if v["islem"] else None
         ek[(8, 9)] = ("→ " + v["sperm_kaynagi"]) if v["sperm_kaynagi"] else None
         ek[(6, 21)] = v["hekim"]              # Hekimler: OPU
+        ek[(6, 25)] = v["et_hekim"]           # Hekimler: ET (v6.232)
         ek[(7, 17)] = v["laboratuvar"]        # Labratuvar
         # Kâğıdın altındaki tek satırlık "... Yorum:" alanı (tüm sayfa
         # genişliğinde tek birleşik hücre). Bulgular oraya, basılı yazının
@@ -2036,6 +2062,7 @@ ALAN_ACIKLAMA = [
     ("transfer_tarihi", "Transfer tarihi"),
     ("transfer_sayisi", "Transfer edilen embriyo sayısı"),
     ("transfer_asamasi", "Transfer aşaması"),
+    ("transfer_klinisyen", "Transfer hekimi"),
     ("transfer_embriyolog", "Transfer embriyoloğu"),
     ("embriyo1_asama", "1. embriyonun hücre/aşaması"),
     ("embriyo1_kalite", "1. embriyonun kalitesi"),
