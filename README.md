@@ -17838,3 +17838,159 @@ genişliğinde tarayıcıyla ve doğrudan isteklerle:
   program): aynı 18 ekran hatasız, form basılmıyor.
 - 103 ekran iki genişlikte (1280 ve 390 px), imha edilmiş tüplerle de,
   hatasız ve yatay kaymıyor. v6.226'nın denemesi bu sürümün koduyla geçti.
+
+# v6.228 — Aynı hastanın iki tedavisi birleştiriliyor (`tedavi_birlestir.py`)
+
+Kullanıcı: *"... tedavisini ... tedavisine bağla. Esas tedavi .... dondurulmuş
+örneklerini de tek tedaviye topla."* (tedavi numaraları sohbette; buraya
+yazılmıyor).
+
+Kullanıcının veritabanı bu oturumda yok, iki tedavinin ne olduğu buradan
+görünmüyor. En olası iki durum: "Hastaya bağla" (v6.213) o günün gerçek
+tedavisi dururken straw'ı ayrı bir "Cryo Excel" tedavisine açtı (kural bilerek
+öyle: "yumurtaları orada sayılı, yeni örnek sayıları bozardı"), ya da kartlar
+birleşince (v6.215) aynı OPU iki tedavi olarak kaldı -- `hasta_birlestir.py`
+bunu "aynı gün aynı tipte iki tedavi" diye uyarıyor ama birleştirmiyor.
+Birleştirmeyi kullanıcı kendi bilgisayarında çalıştırıyor; bu sürüm onun
+aracını yazdı. Araç önce ne yapacağını gösteriyor, hangi yolu seçtiğini ve
+neden durduğunu yazıyor.
+
+```
+python3 tedavi_birlestir.py <birleşen no> <esas no>          # ne olacak, yalnızca listeler
+python3 tedavi_birlestir.py <birleşen no> <esas no> uygula   # "BIRLESTIR" yazınca birleştirir
+```
+
+**Neden düz birleştirme değil.** `hasta_birlestir.py` tedavileri karttan
+karta taşıyor, hiçbir şey ikileşmiyor. İki tedaviyi birleştirmek öyle değil:
+iki tedavi aynı yumurtaları ikişer kez kaydetmişse örnekleri tek tedaviye
+toplamak yumurta, blastokist ve dondurulan embriyo sayılarını ikiye katlar --
+tedavi ekranının özeti, resmî formun ızgarası, istatistik, Bakanlık verileri.
+Excel'den açılan tüpün embriyoları da esas tedavide zaten kayıtlı
+embriyolardır. O yüzden araç birleşen tedaviye bakıp üç yoldan birini seçiyor:
+
+1. **Excel kaydı** (birleşen `db.CRYO_EXCEL_ISARETI` taşıyor): her tüp esas
+   tedavinin eşleşen, dondurulmamış embriyolarına geçer; Excel'in açtığı
+   örnekler silinir. Esas tedavinin hiç örneği yoksa (ya da o da bir Excel
+   kaydıysa) örnekler esas tedaviye taşınır, esas tedavinin numarasıyla.
+2. **Aynı işlemin ikinci kaydı** (aynı tip, aynı OPU günü): tüpler aynı
+   kuralla geçer; birleşenin öteki yumurtaları esas tedavide zaten kayıtlı,
+   silinir. Birleşende daha çok yumurta varsa, transferi esasınkinden
+   farklıysa, silinecek örnekte fotoğraf / bulgu / PGT ya da başka tedaviye
+   yazılmış kayıt varsa durur (fotoğraflıysa ters yönü önerir).
+3. **Kendi örneği yok** (iki FET, boş açılmış tedavi): çözme, transfer ve
+   yeniden dondurma kayıtları (`thaw_cycle_id`, `tr_cycle_id`,
+   `vit_cycle_id`) esas tedavinin olur. Tipler ve günler aynı olmalı; hiç
+   kaydı olmayan tedavi her tedaviye birleşir (birleştirmek onu silmek),
+   tipi ya da günü farklıysa önizleme uyarır.
+
+**Tüpün karşılığı.** Aynı straw esas tedavide zaten bir tüp olarak varsa
+(dolu, aynı içerik, en çok bir gün farkla, konumlardan biri boş ya da aynı
+goblet, Excel kaydına bağlı değil): Excel kaydı o tüpe bağlanır
+(`cryo_esle.excel_kaydini_tupe_bagla()`, "bağı çöz" bildiği gibi geri alır),
+fazla tüp örnekleriyle silinir. Yoksa tüp esas tedavinin embriyolarına geçer,
+katman katman: aynı skor; esas tedavide hiç değerlendirilmemiş embriyo (tüpün
+skoru ona yazılır -- Access'ten aktarılan embriyoların çoğunun değerlendirmesi
+yok); aynı evre ve sayı (cleavage'da hücre, blastokistte genişleme; esasın
+skoru kalır); tüpte skor yoksa herhangi biri. İlk katman dışındaki her eşleşme
+önizlemede "doğru embriyo mu, bakın" diye yazılıyor. Adaylar dondurulmamış,
+çözülmemiş, transfer edilmemiş, dejenere ve arrest olmayan örnekler. Aynı
+skorlu embriyolar birbirinden ayırt edilemez, sıra no sırasıyla (v6.148'in
+kuralı). Karşılığı bulunmayan tüp aracı durdurur ve esas tedavinin
+dondurulmamış embriyolarını skorlarıyla yazar.
+
+- Dondurma ve sonrası (çözme, transfer, yeniden dondurma) yeni kimlikle esas
+  tedavinin örneğine yazılıyor: kimlik sırası işlem sırası kalsın (v6.143,
+  v6.175). PGT sonucu ve değişiklik geçmişinin olay satırları yeni kimliğe.
+- Tüp kalıyor: yeri, rengi, Excel bağı. Etiketi programın ürettiği bir
+  koddaysa (Excel ya da Access kaydı, `<no>-SSDD`) esas tedavinin numarasına
+  çevriliyor -- birleşenin numarası boşalınca yeni bir tedaviye verilir
+  (`lab_no_bosluk_doldur`), eski etiket onu gösterirdi. Ekrandan girilmiş
+  tüpün etiketi straw'ın üstünde yazıyor olabilir, dokunulmuyor.
+- Excel kaydının notu "açılan: tüp N, tedavi M" (v6.213) ise: tüp esas
+  tedavinin embriyolarına geçtiyse sıradan bağ olur ("bağı çöz" tüpü
+  silmez, konumsuz bırakır); örnekler taşındıysa not esas tedaviyi gösterir
+  ("bağı çöz" Excel'in açtığı tüpü siler, esas tedavi kalır -- Excel
+  tedavisi olmadığı için).
+- Taşınan örneğin numarası (`specimen.id`) esas tedavinin numarasıyla
+  yeniden veriliyor. "Örnek kodu değişmez" kuralının istisnası, bilerek:
+  yalnızca Excel'in açtığı, esas tedavinin hiç örneği olmayan durumda;
+  birleşenin numarasını taşıyan örnek kalsaydı o numara yeniden verilince
+  aynı kod iki örneğe düşerdi.
+
+**Tedavi düzeyi.** İşlemi yapan, androloji, gebelik sonucu, beta hCG, doğan
+bebek, genel bulgular, belge ekleri (Doktor Notu, PGT raporu): esas tedavide
+yoksa geçer; varsa esasınki kalır (aynı işlemin ikinci kaydında birleşeninki
+düşer, günlükte; öbür yollarda araç durur -- hangisinin doğru olduğunu
+kullanıcı bilir). Genel bulgular aşama başına bir küme, iki küme
+karıştırılmıyor. Esas tedavinin boş alanları birleşenden doluyor (iki
+tedavide de dolu ve farklıysa esasınki); Excel kaydından değil -- OPU günü
+Excel'in gün sayısından, bitiş "dondurma": üretilmiş değerler. Fotoğraflar
+esas tedavinin arşiv klasörüne taşınıyor, iki klasörde aynı adlı dosya varsa
+araç baştan duruyor.
+
+**Protokol notu.** Birleşenin notu esasınkinin altına ekleniyor. İki istisna:
+Excel kaydının notu eklenmiyor ("OPU, ICSI ve döllenme kaydı yok" esas
+tedavide yanlış olurdu, işareti de onu istatistikten düşürürdü); Access
+kaydının notundan (aynı işlemin ikinci kaydı ya da boş tedavi) yalnızca
+işareti ekleniyor. Denemede notun tamamı eklenince esas tedavinin Embriyoloji
+Özet'i 4AA'yı iki kez yazdı: bir kez Access notunun cümlesinde, bir kez
+"Dondurulan:"da. İşaret ise kalmalı -- aynı Access dosyası yeniden
+aktarılırsa kayıt "zaten aktarılmış" sayılsın (`aktar_access._zaten_var()`,
+denendi), ikinci kez açılmasın. O zaman taşınan tüpün dondurma notunun
+`db.KAYNAK_DONDURMA_NOTU` öneki de "… tedavisinden birleştirildi" oluyor:
+form o öneki taşıyan tüpü "Dondurulan:"a yazmıyor (notun anlattığını
+varsayıyor, v6.159), yazılmalı.
+
+**Güvenlik.** `hasta_birlestir.py`'nin deseni: önizleme hiçbir şey yazmıyor,
+`uygula` planı yazma kilidinin içinde yeniden kuruyor, "BIRLESTIR" onayı,
+önce `lab_ONCEKI_<zaman>.db`, tek işlem. Birleşen tedavi silinmeden önce onu
+gösteren kolonu olan bütün tablolar taranıyor (`cycle_id`, `thaw_cycle_id`,
+`tr_cycle_id`, `vit_cycle_id`, `kullanim_cycle_id`): bir şey kaldıysa hiçbir
+şey yazılmadan duruyor -- yeni bir tabloya `cycle_id` eklenip araca
+eklenmezse sessizce bozulmak yerine (tuzak #4). Silinen tedavinin bütün
+alanları, düşen kayıtlar ve silinen örnekler değişiklik geçmişinde.
+Tedaviler tarih sırasıyla yeniden numaralanıyor. Numaralara ek getirilmiyor
+(numaranın okunuşuna göre "'in / 'ün" yerine "… tedavisinin"): program
+Türkçe ek uydurmuyor.
+
+## Deneme
+
+Sahte veritabanında (v6.213'ün Excel kayıtlı tohumu, Excel tedavileri
+programın kendi "Hastaya bağla" yazımıyla açıldı):
+
+- Excel kaydı, esas tedavide embriyolar: iki tüp (3BA-1BB, 4AA) esas
+  tedavinin üç embriyosuna; dondurma değerlendirmeden sonraki kimlikte,
+  örnek sayısı 6'da kaldı, etiketler esas tedavinin numarasıyla, Excel
+  kayıtları sıradan bağ. Program açıldı: hasta kartı, tedavi, vitrifikasyon,
+  Embriyoloji Özet ("Dondurulan: 3 embriyo"), ART Lab (Cryo yeri), Cryo
+  Haritası, Excel kaydı; "bağı çöz" tüpü silmedi, konumsuz bıraktı.
+- Aynı straw esas tedavide tüp (Yumurta Dondurma, konumsuz): Excel kaydı ona
+  bağlandı, yeri ve rengi geçti, fazla tüp ve beş yumurtası silindi.
+- Esas tedavinin örneği yok: örnekler esas tedavinin numarasıyla taşındı;
+  "bağı çöz" Excel'in açtığını sildi, esas tedavi kaldı.
+- Aynı işlemin ikinci kaydı (Access): bir tüp aynı straw (yer esasın tüpüne),
+  biri esasın embriyosuna; iki yumurta ve transfer tekrarı silindi, gebelik
+  esasınki, eksik işlemi yapan geçti, boş alan doldu, not yalnızca işaret;
+  Özet "Dondurulan: 2 embriyo, 5. gün, 2 tüp: (4AA) (3BB)", 4AA bir kez;
+  aynı Access kaydı "zaten aktarılmış" sayıldı.
+- İki FET: çözme ve yeniden dondurma esas FET'e, gebelik geçti, işlemi yapan
+  esasınki.
+- Fotoğraflar: embriyo fotoğrafı eşleşen örneğe, Doktor Notu esas tedaviye;
+  dosyalar esasın klasörüne, birleşenin klasörü kalktı. Aynı adlı dosya:
+  durdu.
+- Durdu, hiçbir şey yazmadı, önceki kopya alınmadı: farklı hastalar, ters
+  yön (esas Excel kaydı), tipler farklı, OPU günü farklı, karşılıksız tüp,
+  silinecek örnekte fotoğraf, "hayir".
+- Her senaryodan sonra `PRAGMA foreign_key_check` boş, bütünlük tamam.
+- Büyük deneme kopyasında (1.909 tedavi) aynı hastanın 1.894 tedavi çiftinin
+  önizlemesi hatasız; tarama iki açığı gösterdi, kapandı: kendi örneği
+  olmayan iki FET aylar arayla da birleşebiliyordu (gün denetimi) ve OPU'su
+  bilinmeyen iki Excel kaydı (2012 / 2013) günlerine bakılmadan
+  birleşebiliyordu. Engelsiz 30 plan uygulandı: yabancı anahtar ve bütünlük
+  tamam, esas tedavilerin formları kuruldu.
+
+**Bilinen sınır.** İki tedavinin biyopsisini / PGT sonucunu birleştirmiyor
+(durur). Kendi örnekleri olan bir Access FET'i (kaynak tüpüne bağlanmamış
+embriyolar) birleştirmiyor (durur). Hangi tedavinin esas olduğunu araç
+seçmiyor: kullanıcı söylüyor, araç ters yön daha doğruysa (esas Excel kaydı,
+fotoğraflar birleşende, esasın hiç örneği yok) onu öneriyor.

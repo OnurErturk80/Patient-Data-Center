@@ -78,8 +78,13 @@ makinesinde görünüyor; çalıştırıp çalıştırmadığını ve #19/#22 ik
 hangisini seçtiğini sor. **2026-09-29**: kullanıcı aynı hastanın iki
 kartını bildirdi (numaralar sohbette, buraya yazılmadı); `hasta_birlestir.py`
 (v6.215) onun için yazıldı, kullanıcı kendi makinesinde çalıştırıyor --
-çalıştırıp çalıştırmadığını sor. Göç, kalıcı silme, geri yükleme gibi
-veriye dokunan her işte bunu hesaba kat.
+çalıştırıp çalıştırmadığını sor. **2026-09-30**: kullanıcı aynı hastanın iki
+tedavisinin birleştirilmesini istedi, esas tedaviyi kendisi söyledi
+(numaralar sohbette); `tedavi_birlestir.py` (v6.228) onun için yazıldı,
+kullanıcı kendi makinesinde çalıştırıyor. İki tedavinin ne olduğu buradan
+görünmüyordu (Excel'den açılmış dondurma kaydı mı, aynı OPU'nun ikinci kaydı
+mı): önizlemenin çıktısını gördün mü, "ENGEL" dedi mi, uyguladı mı -- sor.
+Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
 
@@ -260,6 +265,7 @@ Patient Data Center/
   cozme_ayir.py     IVF/ICSI'ye yazılmış çözmeleri FET'e taşır (v6.155)
   dosya_no_degistir.py  hastanın dosya numarasını her yerde değiştirir (v6.172)
   hasta_birlestir.py    aynı hastanın iki kartını birleştirir (v6.215)
+  tedavi_birlestir.py   aynı hastanın iki tedavisini birleştirir (v6.228)
   aktar_toplu.py    klasördeki bütün Access CSV'lerini sırayla aktarır (v6.172)
   cryo_excel.py     laboratuvarın cryo haritası Excel'ini çözer (v6.173)
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
@@ -2775,7 +2781,9 @@ besleniyor.
     - Straw programdaki bir tedavinin eksik tüpü olsa bile tüp O TEDAVİYE
       eklenmiyor (yumurtaları orada sayılı, yeni örnek sayıları bozardı);
       önizleme o günün tedavisini uyarıyla gösteriyor. Bunu değiştirmeden
-      önce kullanıcıya sor.
+      önce kullanıcıya sor. Sonradan tek tedaviye toplamak
+      `tedavi_birlestir.py` ile (v6.228): tüp o tedavinin embriyolarına
+      geçer, sayılar değişmez.
     - Okunamayan HÜCRE ve bir satırda birden çok tüp açılmıyor (içeriği
       bilinmeyen tüp uydurmak olurdu); Excel'in günü yoksa ya da ileriyse
       gün elle yazılıyor, not Excel'deki tarihi söylüyor.
@@ -3136,6 +3144,20 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   ekle** (bugün yalnızca `cycle` ve `sperm_dondurma`): eklenmezse kart
   silinirken FOREIGN KEY hatası, işlem geri alınır, araç çalışmaz. Kartın
   numarası yazılı yeni bir yer (yol, etiket) eklersen de.
+  **Aynı hastanın iki tedavisi**: `tedavi_birlestir.py <birleşen> <esas>`
+  (v6.228, README v6.228) -- esas kalır. Düz birleştirme DEĞİL: iki kayıt
+  aynı yumurtaları taşıyorsa örnekleri toplamak sayıları ikiye katlardı.
+  Birleşen Excel kaydıysa tüpleri esasın eşleşen, dondurulmamış embriyolarına
+  geçer (aynı skor; değerlendirilmemiş embriyo; aynı evre ve sayı), Excel'in
+  açtığı örnekler silinir; aynı OPU'nun ikinci kaydıysa aynısı + öteki
+  yumurtaları silinir; kendi örneği yoksa (FET) kayıtları esasın olur. Aynı
+  straw esasta tüp olarak varsa Excel kaydı ona bağlanır. Tip, gün, karşılıksız
+  tüp, silinecek fotoğraf / PGT, iki gebelik sonucu durdurur. Access
+  kaydından esasın notuna yalnızca işareti geçer (tamamı NOTLAR'da embriyoyu
+  iki kez yazdırıyordu; işaret yeniden aktarımı durdurur). Esası KULLANICI
+  söyler; araç ters yön daha doğruysa önerir. **Yeni bir tabloya `cycle_id`
+  eklersen** tedavi düzeyindeki kayıtlar arasına (`_kayitlar_plani()`) ekle:
+  eklenmezse araç "birleşen tedaviyi gösteren kayıt kaldı" diye durur.
 - **Dondurma notunun yazım hataları** (v6.168, `_skor_metni()`): "KACG1"
   kavitasyon (C, V'nin yanında; yalnızca arkasından derece geliyorsa),
   "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk
@@ -4165,7 +4187,8 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
 4. **`kaynak_dosya.cycle_id` silme kaskadını kırar.** Denüdasyonda "Atla"
    denen kareler cycle'a bağlı satır bırakıyor. Yeni bir tabloya `cycle_id`
    eklersen kalıcı silme adımlarına da ekle, yoksa FOREIGN KEY hatası.
-   Aynısını `teshis_silme.py`'ye de ekle — `islem_yapan` (v6.3) oraya
+   Tedavi birleştirmeye de (`tedavi_birlestir.py`'nin `_kayitlar_plani()`,
+   v6.228; eklenmezse araç durur). Aynısını `teshis_silme.py`'ye de ekle — `islem_yapan` (v6.3) oraya
    eklenmediği için araç silinebilir bir hastayı aylarca yanlış raporladı.
 
 5. **Şablon değişikliği sessizce tutmayabilir.** Değiştirdiğin ekranı tarayıcıda

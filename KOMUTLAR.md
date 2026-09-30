@@ -974,6 +974,46 @@ değil numara değişikliği: `python3 dosya_no_degistir.py <eski> <yeni>`.
 
 ---
 
+## Aynı hastanın iki tedavisi — birleştirme (v6.228)
+
+Aynı hastanın bir işlemi iki tedavide kayıtlıysa (Cryo Haritası'nın Excel
+kaydından "Hastaya bağla" ile açılmış bir dondurma kaydı, Access'ten ikinci
+kez gelmiş aynı OPU, boş açılmış bir tedavi): **birleşen tedavi silinir,
+dondurulmuş örnekleri ve kayıtları esas tedavinin olur**. Düz toplama değil:
+iki kayıt aynı yumurtaları taşıyorsa her tüp esas tedavinin eşleşen,
+dondurulmamış embriyolarına geçer (aynı skor; değerlendirilmemiş embriyo;
+aynı evre ve sayı), yumurta ve embriyo sayıları ikiye katlanmaz. Tüpün
+etiketi, yeri, rengi ve Excel bağı kalır; etiket programın ürettiği bir
+koddaysa esas tedavinin numarasına çevrilir.
+
+**Programın veritabanının durduğu bilgisayarda** (tank düzeni Mac'te),
+proje klasöründe. Sıra: önce birleşen (silinecek) tedavi, sonra esas
+tedavi -- ikisi de lab kayıt no (tedavi ekranının başlığındaki 2026-0xxx).
+
+```
+python3 tedavi_birlestir.py <birleşen no> <esas no>          # ne olacak, yalnızca listeler
+python3 tedavi_birlestir.py <birleşen no> <esas no> uygula   # "BIRLESTIR" yazınca birleştirir
+```
+
+Önizleme iki tedavinin ne olduğunu (Excel kaydı / Access kaydı / programda
+girilmiş), seçilen yolu ve her tüpün esas tedavide hangi embriyolara
+geçeceğini yazar (adlar yazılmaz). **"ENGEL" varsa hiçbir şey yazılmaz**,
+sebebi satırda: farklı hastalar, farklı tip ya da OPU günü, tüpün içeriği
+esas tedavide karşılık bulmuyor, silinecek yumurtada fotoğraf / PGT, ...;
+ters yön daha doğruysa araç söyler. **"DİKKAT" görürseniz** (skorlar farklı,
+embriyo değerlendirilmemiş) önce esas tedavinin vitrifikasyon ekranında doğru
+embriyo mu bakın. `uygula` önce veritabanının tamamını
+`lab_ONCEKI_<zaman>.db` diye kopyalar (hasta kartı birleştirmedeki gibi:
+Yönetici → Yedekleme → "Yedekten geri yükle" listesinde görünür). Program
+açıkken çalışabilir; sonra sayfayı yenileyin, esas tedavinin Embriyoloji Özet
+ve ART Lab formlarına bakın. Silinen tedavinin bütün alanları değişiklik
+geçmişinde kalır.
+
+İki tedavi farklı kartlardaysa (aynı hasta iki dosya numarasıyla) önce
+`hasta_birlestir.py` (yukarıda), sonra bu.
+
+---
+
 ## Sorun teşhisi
 
 ```
