@@ -18672,3 +18672,97 @@ var / yok × geri-ileri önbelleği açık / kapalı -- dördünde de 15 akış 
 - kayıttan sonra önbellekten dönülen hasta kartı hemen tazelendi.
 46 ekran telefon boyunda iki yolda da JavaScript hatasız açıldı, hepsinde ok
 var (ana ekran hariç).
+
+# v6.236 — Telefonda menüye basınca bazen hiçbir şey olmuyordu
+
+Kullanıcı: "Android telefonlarda tarayıcı kaynaklı mı bilemiyorum bir menüye
+basınca bazen hiç bir şey olmuyor ama ekran bir kere dokununca o basılan menüyü
+gösteriyor."
+
+## Sebep: tazelemenin yenilemesi basılan menüyü iptal ediyordu
+
+Tarayıcı kaynaklı değil, programın kendisi. Tazeleme (v6.54) beş saniyede bir
+`/degisim`'e soruyor; başka bir telefon kayıt girdiyse ve sayfada yazılmış bir
+şey yoksa sayfayı yeniliyor (`location.reload()`). Menüye basılınca tarayıcı
+yeni ekranı istiyor, cevap gelene kadar eski sayfa ekranda kalıyor ve betikleri
+çalışmaya devam ediyor. O arada tazelemenin cevabı "değişti" derse yenileme
+yeni bir gezinti başlatıyor, tarayıcı bekleyen gezintiyi (basılan menüyü) iptal
+ediyor: aynı ekran yeniden yükleniyor, menü hiç açılmıyor. İkinci dokunuşta
+açılıyor -- kullanıcının gördüğü tam bu.
+- Ölçüldü (telefon taklidi, Chromium): `/hastalar` isteği 6 sn bekletildi,
+  dokunmadan hemen önce başka bir kayıt yazıldı; beş saniyelik yoklama ana
+  ekranı yeniledi, `/hastalar` hiç açılmadı.
+- **Neden "bazen", neden telefonda:** yarış yalnızca gezinti beklerken
+  yoklamanın sırası gelirse ve o ekran açıldıktan sonra başka biri kayıt
+  girmişse çıkıyor. Klinikte birkaç telefon aynı anda kayıt giriyor; telefonda
+  istek Wi-Fi üzerinden gidiyor ve ana ekrana eklenmiş uygulamada önce uyuyan
+  service worker uyanıyor. Bu deneme kopyasında (1.823 hasta, 1.909 tedavi)
+  sunucunun kendi süresi çoğu ekranda 0,03–0,3 sn, Cryo Haritası 0,2–0,3 sn,
+  istatistik 0,6–1,3 sn; telefondaki toplam süre bunun üstüne geliyor.
+- İkinci yarı: ana ekrana eklenmiş uygulamada (tam ekran) tarayıcının adres
+  çubuğu ve yükleniyor çizgisi yok. Yavaş açılan bir ekranda dokunuşun alınıp
+  alınmadığı hiç görünmüyordu.
+
+## Bugün
+
+1. **Gezinti sürerken tazeleme yenilemiyor.** `base.html`'in yeni gezinti
+   betiği bir ekrana geçişin başladığını biliyor (`window.pdcGeziniyor()`),
+   tazelemenin `bak()`'ı o sırada yenilemiyor. Yeni ekran zaten güncel veriyle
+   geliyor. Gezinti:
+   - Navigation API'si olan tarayıcıda (Android'de Chrome ve onun gibi
+     Chromium tabanlılar) `navigate` olayı: bağlantı, form, geri oku, betikle
+     gidiş -- hepsi.
+   - Yoksa tıklanan bağlantı, gönderilen form ve geri okunun kendi haberi
+     (`pdcGezintiBasladi()`). Sonra çalışan bir dinleyici dokunuşu durdurduysa
+     (`preventDefault`) bayrak geri alınıyor. Ay / yıl seçicileri (hasta
+     kayıtları, istatistik, Bakanlık) formu artık `requestSubmit()` ile
+     gönderiyor (olay çıkıyor; seçici sayfayı zaten "kirli" yaptığı için
+     yenileme orada iptal etmiyordu, değişiklik yalnızca çizgi için),
+     görüntü eşleştirmenin aşama seçicisi haber veriyor.
+   - İndirmeler (`/disari/` Excel'leri, sertifika) ve `tel:` / `mailto:` gibi
+     bağlantılar gezinti sayılmıyor: sayfa yerinde kalıyor, tarayıcı "indirmeye
+     döndü" diye olay vermiyor (denendi). Başka kapıya gidiş (sertifika
+     ekranının güvenli adresi, 8443) gezinti.
+   - 30 sn'de bitmeyen gezinti (durduruldu) unutuluyor, tazeleme yeniden
+     çalışıyor. Önbellekten (bfcache) dönülen sayfada bayrak ve çizgi kapalı.
+2. **Yükleniyor çizgisi.** Yeni ekran 150 ms'de gelmediyse üst çubuğun alt
+   kenarında 3 px'lik ince bir çizgi (`.yukleniyor`, pembe `--vurgu` gri bir
+   iz üzerinde kayıyor; "hareketi azalt" ayarında sabit). Hızlı açılan ekranda
+   hiç görünmüyor. Tazelemenin kendi yenilemesi uzun sürerse onda da görünebilir.
+3. **Service worker gezinti önyüklemesi** (`navigationPreload`): telefonda
+   boşta kalınca service worker uyuyor; sayfa isteği artık onun uyanmasını
+   beklemeden ağa çıkıyor, service worker hazır cevabı (`preloadResponse`)
+   veriyor; POST'ta önyükleme yok, istek eskisi gibi. Hâlâ hiçbir şey önbelleğe
+   alınmıyor (v6.195'in kuralı). Telefonlarda bir şey yapmak gerekmiyor: yeni
+   service worker bir sonraki açılışta kendini kuruyor.
+
+Kullanıcının yapacağı: `git pull`, sonra programı yeniden başlatmak (service
+worker `app.py`'de).
+
+## Deneme
+
+Playwright (Chromium, Pixel 7 taklidi), Navigation API var / yok:
+- Yarış: `/hastalar` isteği 6 sn bekletildi, dokunmadan önce başka bir kayıt
+  yazıldı -- iki yolda da yoklama yenilemedi, `/hastalar` açıldı. Ay seçicide
+  aynı deneme: seçilen ay açıldı.
+- Çizgi: 2 sn bekletilen Cryo Haritası'nda dokunuştan ~150 ms sonra göründü,
+  yeni ekranda kapalı; hızlı açılan hasta kayıtlarında hiç görünmedi; ay
+  Excel'ini indirmek bayrağı kaldırmadı; geri oku ile bekletilen ekrana
+  dönüşte göründü; sonradan durdurulan dokunuşta bayrak geri alındı;
+  `tel:` / `mailto:` bayrağı kaldırmadı, başka kapıya gidiş kaldırdı.
+- Service worker: önyükleme açık, her gezintide sunucuya tek istek; uyutulmuş
+  service worker'la gezinti; GET yönlendirmesi (`/sperm-dondurma` → `/cryo`);
+  çıkış ve giriş (POST); sunucu kapalıyken "Programa ulaşılamıyor", açılınca
+  "Tekrar dene".
+- v6.235'in 15 geri oku akışı dört yolda (Navigation API var / yok × geri-ileri
+  önbelleği açık / kapalı) hatasız; 47 ekran telefon boyunda iki yolda
+  JavaScript hatasız, hepsinde gezinti betiği var, bayrak ve çizgi kapalı.
+
+## Bilinen sınırlar
+
+- Gerçek telefonda denenmedi; sorun sürerse kullanıcı söylemeli.
+- Gezintiyi tarayıcı haber vermediği için indirmeler adresinden tanınıyor:
+  `/disari/` dışında bir indirme yolu açılırsa çizgi 30 sn açık kalır.
+- Navigation API'siz tarayıcıda betikle başlatılan yeni bir gezinti
+  (`location.href`, `form.submit()`) görülmez: `pdcGezintiBasladi()` /
+  `requestSubmit()` yazılmalı.

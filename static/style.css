@@ -1389,6 +1389,35 @@ body.menuacik .ust .menudugme { background: var(--vurgu); border-color: var(--vu
      sayfa da kayıyordu. */
   body.menuacik { overflow: hidden; }
 }
+/* Ekran açılıyor (v6.236): basılan menünün gittiği belli olsun -- ana ekrana
+   eklenmiş uygulamada tarayıcının yükleniyor çizgisi yok. Üst çubuğun alt
+   kenarında; betik (base.html, "gezinti") yeni ekran 150 ms'de gelmediyse
+   gösteriyor. Yer kaplamıyor (mutlak konum), dokunuşu kapmıyor. */
+.yukleniyor {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--line);
+}
+.yukleniyor::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -40%; width: 40%;
+  background: var(--vurgu);
+  animation: yukleniyor 1s ease-in-out infinite;
+}
+@keyframes yukleniyor {
+  from { left: -40%; }
+  to   { left: 100%; }
+}
+/* Genel `* { animation: none }` kuralı ::before'a uymuyor; hareketsiz
+   isteyen telefonda çizgi sabit ve dolu. */
+@media (prefers-reduced-motion: reduce) {
+  .yukleniyor::before { animation: none; left: 0; width: 100%; }
+}
 @keyframes menuinis {
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: none; }

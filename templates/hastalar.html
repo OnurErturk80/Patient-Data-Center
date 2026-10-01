@@ -169,7 +169,10 @@
   if (!d) return;                       // ay görünümü basılmadı (tuzak #10)
   d.hidden = true;                      // JS var: düğmeye gerek yok
   d.form.querySelectorAll('select').forEach(function (s) {
-    s.addEventListener('change', function () { d.form.submit(); });
+    // requestSubmit: `submit` olayı çıkar, gezinti betiği görür (v6.236).
+    s.addEventListener('change', function () {
+      if (d.form.requestSubmit) d.form.requestSubmit(); else d.form.submit();
+    });
   });
 })();
 </script>

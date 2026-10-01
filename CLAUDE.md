@@ -2068,8 +2068,9 @@ tuzak #1'in tarifi.
   kapanır. Yönlendirmesiz POST yanıtı formun ekranının hali. Bir aşama
   ekranının formu bugün hep aynı ekrana dönüyor; başka ekrana yönlendirirsen
   aşama ekranı gönderilmiş form sayılır, geri onu atlar.
-- **POST formunu betikle gönderme `form.submit()` ile**: `submit` olayı
-  çıkmaz, betik form sayfasının gönderildiğini bilmez. `requestSubmit()`.
+- **Formu betikle gönderme `form.submit()` ile**: `submit` olayı
+  çıkmaz, betik form sayfasının gönderildiğini bilmez. `requestSubmit()`
+  (v6.236'dan beri GET formunda da: gezinti betiği görsün; yoksa `submit()`).
 - **Geri, tarayıcının geçmişinde geri gitmek**: `navigation.traverseTo()`
   (Navigation API), yoksa `history.state` kimliği + sekmenin sessionStorage
   sırası ve `history.go(-n)` (varış denetleniyor, en çok iki düzeltme;
@@ -2311,6 +2312,29 @@ Veri hep anında kaydoluyordu — eski olan sayfaydı. `base.html`'deki
 - **Yoklama oturumu tazelemez** (`dokun=False`). Olmasa ekranı açık
   bırakılmış telefon hiç düşmez, 12 saatlik sınır işlevsiz kalırdı.
   `son_erisim` de artık her istekte değil, bir dakikadan eskiyse yazılıyor.
+- **Bir ekrana geçiş sürerken yenilemez** (v6.236, README v6.236; kullanıcı:
+  "bir menüye basınca bazen hiç bir şey olmuyor ama ekran bir kere dokununca
+  o basılan menüyü gösteriyor"). Menüye basılınca tarayıcı yeni ekranı
+  beklerken eski sayfa çalışmaya devam ediyor; yoklamanın `location.reload()`'u
+  o gezintiyi İPTAL edip aynı ekranı yeniden yüklüyordu (ölçüldü). `bak()`
+  `window.pdcGeziniyor()` doğruyken yenilemiyor. Bu kontrolü kaldırma ya da
+  `kirli()`'nin arkasına alma.
+  - Gezintiyi `base.html`'in gezinti betiği bildiriyor (tek yer): Navigation
+    API'nin `navigate` olayı (her tür gezinti), yoksa tıklanan bağlantı,
+    `submit` ve geri okunun `pdcGezintiBasladi()`'sı. **Navigation API'siz
+    tarayıcı için betikle gezinti başlatan yeni bir yer** `location.href` /
+    `history.go`'dan önce `pdcGezintiBasladi()` çağırsın, formu
+    `requestSubmit()` ile göndersin.
+  - İndirme gezinti sayılmaz ve **adresinden** tanınıyor (`/disari/`,
+    `.crt`; `tel:` / `mailto:` da sayılmaz, başka kapı sayılır): tarayıcı
+    "gezinti indirmeye döndü" diye olay vermiyor (denendi, 204'te de). Yeni bir indirme yolu `/disari/` altında olsun; değilse
+    `indirme()`'ye ekle, yoksa bayrak ve çizgi 30 sn açık kalır.
+  - 30 sn'de bitmeyen gezinti unutuluyor; `pagehide` ve önbellekten dönüş
+    (`pageshow` persisted) bayrağı kapatıyor.
+  - **Yükleniyor çizgisi**: gezinti 150 ms'yi aşınca üst çubuğun alt
+    kenarında `.yukleniyor` (3 px, `--vurgu`). Ana ekrana eklenmiş uygulamada
+    tarayıcının çizgisi yok, dokunuşun alındığı başka türlü görünmüyordu.
+    Kullanıcıya sorulmadan eklendi -- istemezse kaldır.
 
 **Aynı kaydı iki kişi düzenlerse uyarı çıkar** (v6.55). Klinikte birkaç
 telefon aynı anda kayıt giriyor; ikinci kaydeden birincinin yazdığını siliyor.
@@ -4008,6 +4032,11 @@ ekranı karekod + adım adım yönerge veriyor, yazdırılıp laboratuvara asıl
   Önbelleğe alma ekleme -- kullanıcıya sormadan. Kaydı yalnızca güvenli
   bağlantıda; düz HTTP'de sessizce atlanıyor. Manifest renkleri koyu tema,
   simgeler `any`/`maskable` ayrı, üç kısayol.
+  v6.236'dan beri **gezinti önyüklemesi** (`navigationPreload`, `activate`'te
+  açılıyor): boşta uyuyan service worker'ın uyanması beklenmeden sayfa isteği
+  ağa çıkıyor; `fetch` önce `e.preloadResponse`, yoksa (POST) `fetch()`.
+  Önyüklemeyi açıp cevabını kullanmayan bir değişiklik yazma: istek iki kez
+  gidebilir.
 - **Bir web sayfası kendini ana ekrana ekleyemez.** iOS'ta API yok;
   Android'de `beforeinstallprompt` var ama HTTPS + service worker istiyor.
   Kod hazır duruyor, HTTPS gelince kendiliğinden çalışacak. "Otomatik ekle"

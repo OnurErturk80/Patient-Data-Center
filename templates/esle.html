@@ -12,7 +12,7 @@
 <div class="kart">
   <div class="alan">
     <label for="asamasec">Hangi aşamaya</label>
-    <select id="asamasec" onchange="location.href='/cycle/{{ c.id }}/esle?asama='+this.value">
+    <select id="asamasec" onchange="if (window.pdcGezintiBasladi) pdcGezintiBasladi(); location.href='/cycle/{{ c.id }}/esle?asama='+this.value">
       {% for a in asamalar %}
       <option value="{{ a.kod }}" {% if a.kod == asama %}selected{% endif %}>{{ a.etiket }}</option>
       {% endfor %}

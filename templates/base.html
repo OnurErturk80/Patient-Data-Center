@@ -238,6 +238,11 @@
         if (!d) return;
         if (anahtar) baskalari(d.baskalari);
         if (!d.damga || d.damga === damga) return;
+        // Kullanıcı başka bir ekrana geçiyorsa (menü, bağlantı, form, geri
+        // oku) yenileme o gezintiyi İPTAL eder: basılan menü hiç açılmaz,
+        // aynı ekran yeniden yüklenir (v6.236; telefonda "bastım, bir şey
+        // olmadı"). Gezintiyi aşağıdaki betik bildiriyor.
+        if (window.pdcGeziniyor && window.pdcGeziniyor()) return;
         if (kirli()) { seridiAc(); dur(); return; }
         location.reload();
       })
@@ -355,6 +360,110 @@
   else if (genis.addListener) genis.addListener(degisti);
   // Geri tuşuyla dönülen sayfa önbellekten açık menüyle gelmesin.
   window.addEventListener('pageshow', kapat);
+})();
+</script>
+
+{# ------------------------------------------------------------- gezinti
+   Bir ekrana geçiş başladı mı (v6.236; kullanıcı: "Android telefonlarda ...
+   bir menüye basınca bazen hiç bir şey olmuyor ama ekran bir kere dokununca
+   o basılan menüyü gösteriyor"). İki iş:
+   1. Tazeleme (`bak()`) gezinti sürerken sayfayı yenilemiyor. Yenileme
+      gezintiyi İPTAL edip aynı ekranı yeniden yüklüyordu: başka bir telefon
+      kayıt girdikten sonra menüye basan kişi yerinde kalıyordu (denendi:
+      `/hastalar`'a basıldı, beş saniyelik yoklama `/`'ı yeniledi).
+   2. Basılan menünün açıldığı belli olsun -- ana ekrana eklenmiş uygulamada
+      tarayıcının çizgisi de yok: yeni ekran 150 ms'de gelmediyse üst
+      çubuğun altında ince bir çizgi (`.yukleniyor`).
+   Gezinti: Navigation API'nin `navigate` olayı (bağlantı, form, geri oku,
+   betikle gidiş); yoksa tıklanan bağlantı, gönderilen form ve geri okunun
+   haberi (`pdcGezintiBasladi`). İndirmeler (`/disari/` Excel'leri,
+   sertifika) adresinden tanınıp sayılmıyor: sayfa yerinde kalıyor ve
+   tarayıcı "gezinti indirmeye döndü" diye hiçbir olay vermiyor (denendi,
+   204 cevabında da) -- yeni bir indirme yolu `/disari/` altında olsun. 30
+   sn'de bitmeyen gezinti (durduruldu) unutulur, tazeleme yeniden çalışır. #}
+<script>
+(function () {
+  var GOSTER = 150, UNUT = 30000;      // ms
+  var bas = 0, zaman = null, cizgi = null;
+  // Sayfadan çıkmayan adres: indirme ya da tel:/mailto: gibi bağlantı.
+  // Başka kapı (sertifika ekranının güvenli adresi, 8443) gezintidir.
+  function indirme(adres) {
+    var u;
+    try { u = new URL(adres, location.href); } catch (e) { return true; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return true;
+    return u.pathname.indexOf('/disari/') === 0 || /\.crt$/.test(u.pathname);
+  }
+  function cizgiyiKur() {
+    if (!cizgi) {
+      cizgi = document.createElement('div');
+      cizgi.className = 'yukleniyor';
+      cizgi.hidden = true;
+      cizgi.setAttribute('aria-hidden', 'true');
+      (document.querySelector('.ust') || document.body).appendChild(cizgi);
+    }
+    return cizgi;
+  }
+  function bitti() {
+    bas = 0;
+    clearTimeout(zaman);
+    if (cizgi) cizgi.hidden = true;
+  }
+  function basladi() {
+    bas = Date.now();
+    clearTimeout(zaman);
+    zaman = setTimeout(function () {
+      if (!bas) return;
+      cizgiyiKur().hidden = false;
+      zaman = setTimeout(bitti, UNUT);
+    }, GOSTER);
+  }
+  window.pdcGeziniyor = function () { return !!bas && Date.now() - bas < UNUT; };
+  window.pdcGezintiBasladi = basladi;
+  // Yeni ekran gelince eski sayfa gidiyor; önbellekten (bfcache) geri
+  // dönülen sayfa çizgisiz ve tazelemesi açık dönsün.
+  window.addEventListener('pagehide', bitti);
+  window.addEventListener('pageshow', function (o) { if (o.persisted) bitti(); });
+
+  var NAV = window.navigation;
+  if (NAV && typeof NAV.addEventListener === 'function') {
+    NAV.addEventListener('navigate', function (e) {
+      var h = e.destination;
+      if (!h || h.sameDocument || e.hashChange || e.downloadRequest) return;
+      if (indirme(h.url)) return;
+      basladi();
+    });
+    NAV.addEventListener('navigateerror', bitti);
+    return;
+  }
+  // Navigation API'siz: dokunuş ve form. Hemen başlatılıyor (tazelemenin o
+  // anki cevabı beklemesin); sonra koşan bir dinleyici gezintiyi durdurduysa
+  // (preventDefault, ör. büyüteç) bir sonraki adımda geri alınıyor.
+  function geriAl(o) {
+    var b = bas;
+    setTimeout(function () { if (o.defaultPrevented && bas === b) bitti(); }, 0);
+  }
+  window.addEventListener('click', function (o) {
+    if (o.defaultPrevented || o.button !== 0 ||
+        o.metaKey || o.ctrlKey || o.shiftKey || o.altKey) return;
+    var a = o.target && o.target.closest ? o.target.closest('a[href]') : null;
+    if (!a || a.hasAttribute('download')) return;
+    var hp = a.getAttribute('target'), href = a.getAttribute('href');
+    if (hp && hp !== '_self') return;
+    if (!href || href.charAt(0) === '#' || /^javascript:/i.test(href)) return;
+    if (a.hash && a.pathname === location.pathname && a.search === location.search) return;
+    if (indirme(a.href)) return;
+    basladi();
+    geriAl(o);
+  });
+  window.addEventListener('submit', function (o) {
+    var f = o.target;
+    if (o.defaultPrevented || !f || !f.getAttribute) return;
+    var hp = f.getAttribute('target');
+    if (hp && hp !== '_self') return;
+    if (indirme(f.getAttribute('action') || location.href)) return;
+    basladi();
+    geriAl(o);
+  });
 })();
 </script>
 
@@ -585,6 +694,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     h.n--;
     h.an = Date.now();
     yaz(HEDEF, h);
+    if (window.pdcGezintiBasladi) window.pdcGezintiBasladi();   // v6.236
     history.go(t - a);
   }
   if (!NAV) hedefiDenetle();
@@ -611,6 +721,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   function yukari() {
     var et5 = NAV ? null : etiket();
     if (et5) yaz(YERINE, {i: et5.i, t: Date.now()});
+    if (window.pdcGezintiBasladi) window.pdcGezintiBasladi();   // v6.236
     location.replace(ok.href);
   }
   ok.addEventListener('click', function (o) {
@@ -639,6 +750,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     setTimeout(function () {        // geçmişte o kadar giriş yoksa go() susar
       if (!gitti) { yaz(HEDEF, null); yukari(); }
     }, BEKLEME);
+    if (window.pdcGezintiBasladi) window.pdcGezintiBasladi();   // tazeleme beklesin
     history.go(fark);
   });
 })();

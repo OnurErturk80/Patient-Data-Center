@@ -1519,11 +1519,26 @@ background:#e0356f;color:#fff;font:600 16px inherit;padding:14px 28px}
 mı?</p><button onclick="location.reload()">Tekrar dene</button></div>
 </body></html>`;
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', e => e.waitUntil((async () => {
+  // Gezinti önyüklemesi (v6.236): telefonda boşta kalınca service worker
+  // uyuyor; sayfa isteği onun uyanmasını beklemeden ağa çıksın.
+  if (self.registration.navigationPreload) {
+    try { await self.registration.navigationPreload.enable(); } catch (_) {}
+  }
+  await self.clients.claim();
+})()));
 self.addEventListener('fetch', e => {
   if (e.request.mode !== 'navigate') return;   // yalnızca sayfa açılışları
-  e.respondWith(fetch(e.request).catch(() =>
-    new Response(CEVRIMDISI, {headers: {'Content-Type': 'text/html; charset=utf-8'}})));
+  e.respondWith((async () => {
+    try {
+      const hazir = await e.preloadResponse;   // önyükleme yoksa (POST) boş
+      if (hazir) return hazir;
+      return await fetch(e.request);
+    } catch (_) {
+      return new Response(CEVRIMDISI,
+        {headers: {'Content-Type': 'text/html; charset=utf-8'}});
+    }
+  })());
 });
 """
 
