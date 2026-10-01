@@ -11648,11 +11648,24 @@ def cycle_thaw_listesi(request: Request, cycle_id: int, kaydedildi: int = 0):
                          "  AND v.tip='vitrifikasyon' AND v.iptal_mi=0 "
                          "LEFT JOIN tasiyici t ON t.id=v.vit_tasiyici_id ")
         tr_kosul = ""
+    # Kareler (v6.238, kullanıcının isteği: "çözülen embriyonun fotoğrafı
+    # yüklendiyse bu tedavide çözülenler kısmında transfer kısmında gösterdiği
+    # gibi embriyonun fotoğrafını göstersin"): transfer ekranının işlevi
+    # (`ornek_kareleri_sql()`), önce çözme formunun "Çözme sonrası" karesi,
+    # yoksa gösterilebilen en son kare. Yumurta mı embriyo mu, bu tüpe
+    # dondurulduğu andaki içerik (taşıyıcı sayfasının ölçüsü); dondurması
+    # programda yoksa (aktarılmış FET) embriyo -- yumurta karesi gösterilmez.
+    vit_esi = "AND kv.vit_tasiyici_id = o.thaw_tasiyici_id " if tup_yeni else ""
+    yumurta = ("COALESCE((SELECT " + db.dondurulan_yumurta_sql("kv") +
+               " FROM olay kv WHERE kv.specimen_id = s.id "
+               "AND kv.tip = 'vitrifikasyon' AND kv.iptal_mi = 0 " + vit_esi +
+               "ORDER BY kv.id DESC LIMIT 1), 0)")
     cozulenler = [] if not thaw_cycle_var() else db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no AS kaynak_cycle_no, "
         "  c2.hasta_cycle_no AS kaynak_hasta_cycle_no, "
         "  o.zaman, o.thaw_sagkalim, o.thaw_canlilik, o.thaw_re_expansion, "
         "  t.etiket AS tasiyici_etiket, "
+        "  " + ornek_kareleri_sql(("thaw_sonrasi",), yumurta) + ", "
         "  (SELECT tr.id FROM olay tr WHERE tr.specimen_id=s.id "
         f"   AND tr.tip='transfer' AND tr.iptal_mi=0 {tr_kosul}) AS transfer_id "
         "FROM olay o JOIN specimen s ON s.id=o.specimen_id "

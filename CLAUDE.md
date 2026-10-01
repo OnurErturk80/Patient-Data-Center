@@ -803,7 +803,8 @@ ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
 - `_ornekkart.html` `izgara(...)` + `baglama()` — kayıt listesi ızgarası,
   kartları **sunucu** basar (`{% call(e) %}` ile satırları çağıran verir).
   Vitrifikasyon, çözme, transfer: orada bir örneğin tek kaydı var, kareye
-  basınca altında kartı açılır.
+  basınca altında kartı açılır. Kartın fotoğrafına basınca büyüteç o kareden
+  açılıyor (`data-ilk`, v6.238), örneğin ilk karesinden değil.
 
 **Bir ekranda birden çok düzenlenebilir şey varsa adreste adıyla söyle.**
 Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati) ve `?duzenle=oosit`
@@ -3713,9 +3714,13 @@ gösterir. (Eskiden devralıyordu, kafa karıştırdı, kaldırıldı — README
 - **Birden çok aşamanın örneğini gösteren ekranlarda embriyoya yumurta ve
   zigot karesi gösterilmez** (v6.185, kullanıcının isteği: "embriyo
   işlemlerinde yumurta fotoğrafını göstermesin, embriyo fotoğrafsız
-  kalsın"). Vitrifikasyon, taşıyıcı sayfası ve transfer karesini
-  `app.ornek_kareleri_sql()`'den alıyor: önce ekranın tercih ettiği aşama
-  (blastokist / transfer öncesi), yoksa gösterilebilen en son kare. Embriyoda
+  kalsın"). Vitrifikasyon, taşıyıcı sayfası, transfer ve v6.238'den beri
+  tedavinin çözme listesi ("Bu tedavide çözülenler", kullanıcı: "çözülen
+  embriyonun fotoğrafı yüklendiyse ... transfer kısmında gösterdiği gibi")
+  karesini `app.ornek_kareleri_sql()`'den alıyor: önce ekranın tercih ettiği
+  aşama (blastokist / transfer öncesi / çözme sonrası), yoksa gösterilebilen
+  en son kare. Çözme listesinde yumurta mı embriyo mu, tüpe dondurulduğu
+  andaki içerik (`dondurulan_yumurta_sql()`). Embriyoda
   denüdasyon, ICSI ve fertilizasyon kontrolü kareleri yok -- ne kare, ne
   büyüteç, ne sayı; yumurtada her kare (dondurulan yumurtanın karesi onun
   denüdasyon karesi). v6.184'e kadar bu dört sorgu örneğin **herhangi bir**

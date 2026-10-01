@@ -86,8 +86,10 @@
 
 {% set thaw_ad = ornek_adi('thaw', c.cycle_tipi) %}
 {% if cozulenler %}
-{# Kaydı olanlar: kareye basınca altında bilgi kartı (v6.21). Çözme
-   kayıtlarında fotoğraf yok, kareler numara gösteriyor. #}
+{# Kaydı olanlar: kareye basınca altında bilgi kartı (v6.21). Kare, transfer
+   ekranındaki gibi örneğin fotoğrafı (v6.238): önce çözme formunun "Çözme
+   sonrası" karesi, yoksa gösterilebilen en son kare; hiç yoksa "fotoğrafsız".
+   Kareleri rota veriyor (`ornek_kareleri_sql()`). #}
 {% set thaw_ozet = metin("canli") ~ " " ~ ozet.canli ~ "/" ~ ozet.toplam
                    ~ " (" ~ yuzde(ozet.oran) ~ ") · "
                    ~ metin("transfer_edilen") ~ " " ~ ozet.transfer %}
@@ -145,6 +147,10 @@
    embriyo yeniden dondurulabiliyor). Koşul rotada TIP_ASAMALARI'ndan. #}
 {% if vit_var %}<a class="dugme ikincil" href="/cycle/{{ c.id }}/vitrifikasyon">{{ metin("vitrifikasyon_ekrani") }}</a>{% endif %}
 <a class="dugme ikincil" href="/cryo">{{ metin("cryo_haritasi") }}</a>
+{# Bilgi kartındaki fotoğrafa basınca büyüteç (v6.238, transfer ekranının
+   aynısı): `ok.baglama()` onu `buyutecAc` ile açıyor. #}
+{% set buyutec_ad = thaw_ad %}
+{% include "_buyutec.html" %}
 {{ ok.baglama() }}
 {{ gez.cubuk(c, gezinme) }}
 {# Kayıttan sonra kaldığı yerde açılır (v6.210, `_kaydirma.html`). #}

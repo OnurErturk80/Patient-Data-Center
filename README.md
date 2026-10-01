@@ -18832,3 +18832,54 @@ Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak (`formlar.p
   girilmiş, genişlemesi yazılmamış bir blastokist değerlendirmesi de
   ("4AA") "Blastokist 5. Gün" çıkıyor: aşama ile kalite aynı
   değerlendirmeden, cleavage'ın gününe düşmüyor.
+
+# v6.238 — Çözme listesinde çözülen embriyonun fotoğrafı
+
+Kullanıcı: "Fet tedavilerinde eğer çözülen embriyonun fotografı yüklendiyse
+bu tedavide çözülenler kısmında transfer kısmında gösterdiği gibi embriyonun
+fotoğrafını göstersin."
+
+## Önce
+
+- Tedavinin çözme ekranındaki (`/cycle/{id}/thaw`) "Bu tedavide çözülenler"
+  ızgarası her karede "fotoğrafsız" yazıyordu: rota kareleri hiç vermiyordu
+  (şablonun notu: "Çözme kayıtlarında fotoğraf yok"). Çözme formunda
+  "Çözme sonrası" ve "İkinci kontrol" kutularına yüklenen fotoğraflar
+  yalnızca o formda ve transfer ekranında görünüyordu.
+
+## Bugün
+
+- Kare, transfer ekranının işlevinden (`ornek_kareleri_sql()`, v6.185):
+  önce çözme formunun "Çözme sonrası" karesi, yoksa örneğin gösterilebilen en
+  son karesi (İkinci kontrol ya da dondurulmadan önceki fotoğraf). Hiç
+  fotoğrafı yoksa yine "fotoğrafsız". Karede kaç fotoğraf olduğu rozetle,
+  kareye basınca açılan bilgi kartında büyük fotoğraf, ona basınca büyüteç
+  (sayfaya eklendi).
+- Embriyoda yumurta ve zigot kareleri (denüdasyon, ICSI, fertilizasyon
+  kontrolü) gösterilmiyor (v6.185'in kuralı); yumurtada (Yumurta Çözme,
+  Yumurta Dondurma'nın kendi çözmesi) yumurtanın kendi kareleri. Yumurta mı
+  embriyo mu, tüpe dondurulduğu andaki içerik (`dondurulan_yumurta_sql()`,
+  taşıyıcı sayfasının ölçüsü); dondurması programda olmayan çözme (aktarılmış
+  FET) embriyo sayılıyor.
+- Büyüteç basılan kareden açılıyor: ortak ızgarada (vitrifikasyon, transfer,
+  çözme listesi) önceden örneğin ilk karesinden açılıyordu. Çözme listesinde
+  çözme fotoğrafına basınca dondurulmadan önceki fotoğraf gelirdi.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak (`app.py`).
+Yeniden başlatılmazsa liste eskisi gibi "fotoğrafsız" görünür, hata vermez.
+
+## Deneme
+
+- Deneme veritabanında fotoğraflar çözme formunun yolundan yüklendi:
+  - Hem dondurulmadan önceki (gün 5) hem çözme sonrası fotoğrafı olan
+    embriyo: çözme fotoğrafı ve "2" rozeti, transfer ekranıyla aynı kare.
+  - Yalnızca İkinci kontrol fotoğrafı olan: o fotoğraf.
+  - Yalnızca denüdasyon (yumurta) fotoğrafı olan embriyo: "fotoğrafsız".
+  - Yumurta Çözme'de denüdasyon fotoğrafı olan yumurta: o fotoğraf.
+  - Fotoğrafı olmayan: "fotoğrafsız".
+- Telefon ve masaüstü genişliğinde: karede resim yükleniyor, bilgi kartı
+  açılıyor, büyüteç çözme fotoğrafından ("2/2") açılıyor, ileri-geri
+  çalışıyor; konsolda hata yok. Vitrifikasyon ve transfer ekranları değişmeden
+  açılıyor.
+- Yeni şablon + eski kod (yeniden başlatılmamış program): çözme listesi ve
+  transfer ekranı hatasız, liste eskisi gibi.

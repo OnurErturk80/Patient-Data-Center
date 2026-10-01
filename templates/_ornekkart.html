@@ -49,8 +49,11 @@
     <button type="button" class="okkapat" aria-label="{{ metin('kapat') }}">&times;</button>
   </h2>
   {% if e.goruntu %}
+  {#- Büyüteç basılan kareden açılır (v6.238): gösterilen kare listenin ilki
+      olmayabilir (tercih edilen aşamanın karesi, `ornek_kareleri_sql()`). -#}
   <button type="button" class="sffoto okbuyut"
           data-idler="{{ e.goruntu_idler or e.goruntu }}"
+          data-ilk="{{ e.goruntu }}"
           data-ad="{{ ad }} {{ e.cycle_sira_no }}"
           aria-label="{{ metin('buyuk_goster') }}">
     <img src="/dosya/{{ e.goruntu }}" alt="{{ ad }} {{ e.cycle_sira_no }}">
@@ -91,7 +94,8 @@
   document.querySelectorAll('.okbuyut').forEach(function (b) {
     b.addEventListener('click', function () {
       var idler = (b.dataset.idler || '').split(',').filter(Boolean);
-      if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.ad, 0);
+      var bas = Math.max(0, idler.indexOf(b.dataset.ilk || ''));
+      if (idler.length && window.buyutecAc) window.buyutecAc(idler, b.dataset.ad, bas);
     });
   });
 })();
