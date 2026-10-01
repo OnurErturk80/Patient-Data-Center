@@ -368,6 +368,9 @@ def _transfer_edilenler(cycle_id):
         "  (SELECT b.bl_genisleme FROM olay b WHERE b.specimen_id = s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS bl_genisleme, "
+        "  (SELECT b.gun FROM olay b WHERE b.specimen_id = s.id "
+        "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
+        "   ORDER BY b.gun DESC LIMIT 1) AS bl_gun, "
         f"  (SELECT {db.cl_hucre_ifadesi('cl')} FROM olay cl WHERE cl.specimen_id = s.id "
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
         "   ORDER BY cl.gun DESC LIMIT 1) AS hucre, "
@@ -1411,14 +1414,44 @@ def ozet_verisi(cycle_id: int):
         cycle_id, c["cycle_tipi"],
         [t for t in tupler if not (access_notu and t["aktarim"])])
 
-    def _asama_ozeti(satirlar, alan):
-        """Dondurma/transfer aşaması: kayıtlardaki farklı aşamalar, virgülle."""
-        kodlar = []
-        for r in satirlar:
-            e = _et(h, "bl_genisleme", r[alan]) if r[alan] else None
-            if e and e not in kodlar:
-                kodlar.append(e)
-        return ", ".join(kodlar) or None
+    def _evre_gunu(r):
+        """Transfer edilen embriyonun aşaması günüyle (v6.237, kullanıcının
+        isteği: "işlemin yapıldığı güne bağlı olarak Blastokist 5. Gün veya
+        6. Gün, 2. Gün veya 3. Gün şeklinde yazsın"): "Blastokist 5. Gün",
+        cleavage'da "3. Gün".
+
+        Gün embriyonun son değerlendirmesinin günü (blastokist, yoksa
+        cleavage) -- Dondurma Aşaması kutusunun kuralı (`dondurma_gunleri()`):
+        "kaçıncı günde transfer edildi" diye ayrı bir alan yok ve
+        uydurulmuyor. Taze transferde değerlendirme transfer günü yapılıyor
+        (kopyada OPU'dan sayılan günle hepsi tuttu); FET'te embriyonun
+        dondurulduğu gün, FET (3→5)'te kültürden sonraki. Aktarılmış
+        kayıtlarda transferin tarihi OPU günü yazılmış olabiliyor, tarihten
+        gün hesaplanmıyor. Genişleme (1-6) "Blastokist" (genişleme kalite
+        kutusunda, "4AA"); morula ve kavitasyon kendi adıyla ("Morula 5.
+        Gün") -- blastokist olmayanı blastokist diye basmamak için. 1-7
+        dışındaki gün (aktarımın bozuk değeri) yazılmıyor, aşama kalıyor.
+        """
+        if r["bl_genisleme"]:
+            evre = ("Blastokist" if str(r["bl_genisleme"]).isdigit()
+                    else _et(h, "bl_genisleme", r["bl_genisleme"]))
+            gun = r["bl_gun"]
+        elif r["bl_gun"] is not None:
+            # Genişlemesi yazılmamış blastokist değerlendirmesi (ekran hep
+            # yazıyor; elle girilmiş eski kayıt): skor rakamla başlıyorsa
+            # ("4AA") blastokist, değilse yalnızca gün. Kalite kutusu da bu
+            # değerlendirmenin skorunu basıyor -- cleavage'ın günü yazılmasın.
+            skor = r["bl_skor"] or ""
+            evre = "Blastokist" if skor[:1].isdigit() else None
+            gun = r["bl_gun"]
+        else:
+            evre, gun = None, r["cl_gun"]
+        try:
+            gun = int(gun)
+        except (TypeError, ValueError):
+            gun = None
+        gun = f"{gun}. Gün" if gun is not None and 1 <= gun <= 7 else None
+        return " ".join(p for p in (evre, gun) if p) or None
 
     def _emb(i, alan):
         """Transfer edilen i. embriyonun bir alanı (form iki embriyo soruyor)."""
@@ -1426,10 +1459,13 @@ def ozet_verisi(cycle_id: int):
             return None
         r = tr[i]
         if alan == "asama":
-            return (_et(h, "bl_genisleme", r["bl_genisleme"])
-                    or (db.BIRLESME if r["hucre"] == db.BIRLESME
-                        else f"{r['hucre']} hücre" if r["hucre"] else None))
-        return r["bl_skor"] or _et(h, "simetri", r["cl_skor"]) or r["cl_skor"]
+            return _evre_gunu(r)
+        # Kalite laboratuvarın yazımıyla (v6.237): "4AA", "8HG2", "Birleşme
+        # G2" -- ART Lab'ın "Uterus grade"i ve dondurma satırıyla aynı işlev.
+        # Hücre sayısı HÜCRE/AŞAMA kutusundan ("8 hücre") buraya geçti; kutu
+        # artık günü yazıyor.
+        return _dondurma_kalitesi({"bl_skor": r["bl_skor"], "cl_hucre": r["hucre"],
+                                   "cl_skor": r["cl_skor"]})
 
     anormal = sum(n for k, n in pn.items() if k and k != "2")
     return {
@@ -1485,12 +1521,12 @@ def ozet_verisi(cycle_id: int):
         "anormal_fertilizasyon": anormal or None,
         "fert_embriyolog": _yapan(cycle_id, "fert") or _yapan(cycle_id, "icsi"),
         # --- transfer ---
-        # Blastokistte evre; cleavage embriyosunda (blastokist kaydı yok) gün
-        # -- "3. gün" (v6.154). Önceden 3. gün transferinde kutu boştu.
-        "transfer_asamasi": _asama_ozeti(tr, "bl_genisleme") or ", ".join(
-            f"{g}. gün" for g in sorted({r["cl_gun"] for r in tr
-                                         if r["cl_gun"] and not r["bl_genisleme"]})
-        ) or None,
+        # Aşama günüyle, embriyolarınkinin aynısı (v6.237): "Blastokist 5.
+        # Gün"; farklı olanlar virgülle ("Blastokist 5. Gün, Morula 5. Gün").
+        # v6.154'ten v6.236'ya kadar blastokistte genişleme etiketi ("4 -
+        # Genişlemiş"), cleavage'da "3. gün" yazıyordu.
+        "transfer_asamasi": ", ".join(dict.fromkeys(
+            y for y in map(_evre_gunu, tr) if y)) or None,
         "transfer_tarihi": _gg_aa_yyyy(tr[0]["zaman"]) if tr else None,
         "transfer_sayisi": len(tr) or None,
         # Transfer hekimi (v6.232, goc_061): transferin yapıldığı tedavinin
@@ -1583,9 +1619,12 @@ OZET_SIGDIR_HUCRELER = {
     # 1 Dejenere · %90-%85" uzayabiliyor. Hekim kutuları (v6.232): OPU
     # KLİNİSYEN sağ kenarda, TRANSFER KLİNİSYEN'in sağı EMBRİYO2'nin basılı
     # yazısı; 38 harflik bir ad ekranda kesiliyordu (ölçüldü: 199 px yazı,
-    # 128 px kutu).
+    # 128 px kutu). Transfer aşaması ve embriyoların aşaması (v6.237): iki
+    # farklı evre transfer edilince "Blastokist 5. Gün, Kavitasyon 5. Gün"
+    # 189 px; sağı EMBRİYO1'in basılı yazısı, embriyo kutuları sağ kenarda.
     if anahtar in ("soyadi", "adi", "esinin_adi", "cozdurme_viabilite",
-                   "opu_klinisyen", "transfer_klinisyen")
+                   "opu_klinisyen", "transfer_klinisyen", "transfer_asamasi",
+                   "embriyo1_asama", "embriyo2_asama")
 }
 
 
@@ -2069,12 +2108,12 @@ ALAN_ACIKLAMA = [
     ("— Transfer —", None),
     ("transfer_tarihi", "Transfer tarihi"),
     ("transfer_sayisi", "Transfer edilen embriyo sayısı"),
-    ("transfer_asamasi", "Transfer aşaması"),
+    ("transfer_asamasi", "Transfer aşaması ve günü (Blastokist 5. Gün, 3. Gün)"),
     ("transfer_klinisyen", "Transfer hekimi"),
     ("transfer_embriyolog", "Transfer embriyoloğu"),
-    ("embriyo1_asama", "1. embriyonun hücre/aşaması"),
-    ("embriyo1_kalite", "1. embriyonun kalitesi"),
-    ("embriyo2_asama", "2. embriyonun hücre/aşaması"),
+    ("embriyo1_asama", "1. embriyonun aşaması ve günü (Blastokist 5. Gün, 3. Gün)"),
+    ("embriyo1_kalite", "1. embriyonun kalitesi (4AA, 8HG2)"),
+    ("embriyo2_asama", "2. embriyonun aşaması ve günü"),
     ("embriyo2_kalite", "2. embriyonun kalitesi"),
     ("— Dondurma / çözme —", None),
     ("dondurulan_sayi", "Dondurulan embriyo sayısı"),

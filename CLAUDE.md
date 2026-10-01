@@ -1589,6 +1589,24 @@ kalıptan**: `form_kalip.json`.
     kutu bir yumurta genişliğinde, bugün sığıyor (68 px), sığmazsa küçülüyor
     (`sigdir_hucreleri()`, Excel'de `shrinkToFit`) -- yanı öteki yumurtanın
     kutusu, taşamaz.
+- **Özet'in transfer kutuları aşamayı GÜNÜYLE yazar** (v6.237, README v6.237;
+  kullanıcı: "işlemin yapıldığı güne bağlı olarak Blastokist 5.Gün veya
+  6.Gün, 2. Gün veya 3. Gün şeklinde yazsın"): EMBRİYO TRANSFER AŞAMASI ve
+  EMBRİYO 1/2 HÜCRE/AŞAMA "Blastokist 5. Gün", cleavage'da "3. Gün"; morula
+  ve kavitasyon kendi adıyla ("Morula 5. Gün" -- blastokist olmayanı
+  blastokist diye basma). Tek yer `ozet_verisi()`'nin `_evre_gunu()`'su.
+  - **Gün embriyonun son değerlendirmesinin günü** (`_transfer_edilenler()`'in
+    `bl_gun` / `cl_gun`), Dondurma Aşaması'nın kuralı. Günü transfer tarihi
+    ile OPU'dan hesaplayan kod yazma: aktarılmış kayıtlarda transferin tarihi
+    OPU günü yazılmış olabiliyor (kopyada 13 transfer "0. gün" çıkardı). Taze
+    transferde iki ölçü tutuyor, FET'te değerlendirme günü embriyonun
+    dondurulduğu gün. 1–7 dışındaki gün basılmaz.
+  - Kalite kutusu `_dondurma_kalitesi()` ("4AA", "8HG2", "Birleşme G2"): hücre
+    sayısı HÜCRE/AŞAMA'dan buraya geçti. ART Lab'ın "Uterus grade"i ile aynı
+    işlev; ikinci bir kalite yazımı kurma.
+  - Üç aşama kutusu `OZET_SIGDIR_HUCRELER`'de (iki evreli satır 189 px, kutu
+    128 px). Dondurma Aşaması kutusu değişmedi ("5. gün"); aynı yazıma
+    çekmeden önce kullanıcıya sor.
 - **"Formda görünmüyor" derse önce `teshis_form.py`** (v6.153). Bilinen
   iki sebep: program `git pull`'dan sonra yeniden başlatılmamış (tuzak #5)
   ya da çözme FET'e değil kaynak ICSI'ye yazılmış — v6.155'e kadar çözme

@@ -18766,3 +18766,69 @@ Playwright (Chromium, Pixel 7 taklidi), Navigation API var / yok:
 - Navigation API'siz tarayıcıda betikle başlatılan yeni bir gezinti
   (`location.href`, `form.submit()`) görülmez: `pdcGezintiBasladi()` /
   `requestSubmit()` yazılmalı.
+
+# v6.237 — Özet formunun transfer kutuları günü yazıyor
+
+Kullanıcı: "Embriyoloji özet formunda EMBRİYO TRANSFER AŞAMASI, EMBRİYO 1
+HÜCRE/AŞAMA, EMBRİYO2 HÜCRE/AŞAMA bölümlerinde işlemin yapıldığı güne bağlı
+olarak Blastokist 5.Gün veya 6.Gün,2. Gün veya 3. Gün şeklinde yazsın."
+
+## Önce
+
+- TRANSFER AŞAMASI: blastokistte genişleme etiketi ("4 - Genişlemiş"; iki
+  embriyoda "4 - Genişlemiş, 3 - Tam blastokist"), cleavage'da "3. gün"
+  (v6.154).
+- EMBRİYO 1/2 HÜCRE/AŞAMA: genişleme etiketi ya da "8 hücre".
+- EMBRİYO 1/2 KALİTE: blastokist skoru ("4AA"), cleavage'da yalnızca grade
+  ("G2").
+
+## Bugün
+
+- Üç kutu: "Blastokist 5. Gün", "Blastokist 6. Gün", cleavage'da "2. Gün",
+  "3. Gün". Morula ve kavitasyon kendi adıyla ("Morula 5. Gün", "Kavitasyon 5.
+  Gün"): blastokist ekranında seçilen evre bu -- blastokist olmayanı
+  "Blastokist" diye basmamak için. TRANSFER AŞAMASI'nda farklı olanlar
+  virgülle ("Blastokist 5. Gün, Kavitasyon 5. Gün"), aynı olanlar bir kez.
+- **Gün embriyonun son değerlendirmesinin günü** (blastokist, yoksa
+  cleavage) -- Dondurma Aşaması kutusunun kuralı (`dondurma_gunleri()`).
+  Programda "kaçıncı günde transfer edildi" diye ayrı bir alan yok.
+  - Taze transferde değerlendirme transfer günü yapılıyor: kopyada OPU'dan
+    transfer tarihine sayılan günle, iki tarih de anlamlıyken, 45 transferin
+    45'i tuttu.
+  - Aktarılmış kayıtlarda transfer tarihi bazen OPU günü yazılmış (0 gün, 13
+    transfer) ya da 34 gün sonrası: tarihten hesaplasaydık yanlış gün
+    çıkardı.
+  - FET'te embriyonun dondurulduğu gün (5. günde dondurulan blastokist
+    "Blastokist 5. Gün"), FET (3→5)'te kültürden sonraki değerlendirme.
+  - 1–7 dışındaki gün yazılmıyor, aşama kalıyor ("Blastokist"): kopyada bir
+    kaydın günü 58 (aktarımın bozuk değeri).
+- **Kalite kutusu laboratuvarın yazımıyla**: "8HG2", "Birleşme G2"
+  (`_dondurma_kalitesi()`; ART Lab'ın "Uterus grade"i ve NOTLAR'ın dondurma
+  satırı da bunu basıyor). Hücre sayısı HÜCRE/AŞAMA kutusundan buraya geçti,
+  kaybolmadı. Blastokistte değişmedi ("4AA").
+- Kutu sığmazsa küçülüyor (ekranda punto, Excel'de "sığacak şekilde
+  küçült", `OZET_SIGDIR_HUCRELER`): iki evreli TRANSFER AŞAMASI 189 px, kutu
+  128 px; sağı EMBRİYO1'in basılı yazısı, taşamaz.
+- Yüklenen formların `{{transfer_asamasi}}`, `{{embriyo1_asama}}`,
+  `{{embriyo1_kalite}}`... etiketleri aynı değerleri alıyor; açıklamaları
+  (`ALAN_ACIKLAMA`) güncellendi.
+- Dondurma Aşaması kutusu değişmedi ("5. gün").
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak (`formlar.py`).
+
+## Deneme
+
+- Büyük deneme kopyasında transferli 719 tedavinin beş kutusu eski ve yeni
+  kodla karşılaştırıldı: 715'inde TRANSFER AŞAMASI ve EMBRİYO1 değişti,
+  kalite yalnızca cleavage'da ("G1" → "8HG1"; 84 tedavi, birleşmede boştu →
+  "Birleşme"). Eskiden dolu olup şimdi boş kalan kutu yok. Dağılım: 552
+  "Blastokist 5. Gün", 83 "3. Gün", 28 "Blastokist 5. Gün, Kavitasyon 5.
+  Gün", 19 "Blastokist 6. Gün", 16 "Kavitasyon 5. Gün", 4 boş (değerlendirme
+  yok).
+- 719 tedavinin Özet ekranı, Özet Excel'i ve ART Lab ekranı açıldı (2.157
+  sayfa, hata yok). Ekranda kutular ölçüldü: yalnızca iki evreli satır
+  sığmıyordu, şimdi küçülüyor; Excel'de hücreler doğru, küçültmeli.
+- Deneme veritabanında programdan girilmiş taze ve FET transferleri. Elle
+  girilmiş, genişlemesi yazılmamış bir blastokist değerlendirmesi de
+  ("4AA") "Blastokist 5. Gün" çıkıyor: aşama ile kalite aynı
+  değerlendirmeden, cleavage'ın gününe düşmüyor.
