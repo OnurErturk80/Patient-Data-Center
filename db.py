@@ -1431,6 +1431,17 @@ def tedavi_tarihi(b, c: str = "c") -> str:
     return "COALESCE(" + ", ".join(parca) + ")"
 
 
+def tedavi_gunu(cycle_id):
+    """Bir tedavinin işlem günü ('YYYY-MM-DD'), `tedavi_tarihi()`'nin
+    kuralıyla, tek tedavi için. Resmî formların YAŞI bu günden (v6.243): OPU'su
+    olmayan tedavide (FET, Yumurta Çözme) çözme / transfer günü. Tedavi
+    yoksa None."""
+    with ortak_baglanti() as b:
+        r = b.execute(f"SELECT {tedavi_tarihi(b, 'c')} FROM cycle c "
+                      "WHERE c.id = ?", (cycle_id,)).fetchone()
+    return r[0] if r else None
+
+
 def tedavileri_sirala(b, hasta_id) -> list:
     """Hastanın tedavilerini işlem günlerine göre numaralar (v6.144, goc_047).
 

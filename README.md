@@ -19178,3 +19178,44 @@ Sentetik veritabanında, telefon (390 px) ve masaüstü genişliğinde:
   adresi: beklenen davranış.
 - Yeni şablon + eski kod (yeniden başlatılmamış v6.241 programı): denüdasyon,
   ICSI ve fotoğraf ekleme sayfaları hatasız, yükleme eskisi gibi.
+
+# v6.243 — Formlarda yaş: tedavinin yapıldığı gündeki yaş
+
+Kullanıcı: "Embriyoloji özet formu ve ART lab formunda hastanın güncel yaşı
+yazıyor. Tedavilerin yapıldığı tarihteki yaşı yazsın."
+
+## Önce
+
+- İki formun YAŞI kutusu OPU gününden hesaplanıyordu, OPU yoksa **bugünden**.
+  OPU'su olmayan tedavilerde (FET, FET (3→5), Yumurta Çözme) ve OPU'su
+  girilmemiş tedavilerde form hastanın bugünkü yaşını basıyordu: iki yıl
+  önceki bir FET'in formu bugünkü yaşı yazıyordu.
+
+## Bugün
+
+- **Yaş tedavinin günündeki tam yaş.** Gün, programın tedaviyi tarih sırasına
+  koyarken kullandığı gün (`db.tedavi_tarihi()`, v6.144): OPU, yoksa hCG;
+  FET ve Yumurta Çözme'de çözme ya da transfer günü; o da yoksa planlanan
+  tarih, en son tedavinin açıldığı gün. Tek tedavi için `db.tedavi_gunu()`.
+  Yumurta toplanan tedavide sonuç değişmedi (yine OPU günü). Tüm veri
+  Excel'inin "Yaş" sütunu (v6.239) zaten bu kuraldaydı; formlar ona uydu.
+- **Gün okunamazsa yaş boş**, bugüne düşmüyor: resmî forma yanlış yaş yazmak
+  boş bırakmaktan kötü. Doğum tarihi girilmemişse yine boş.
+- Yüklenen formların `{{yasi}}` etiketinin açıklaması "Tedavi günündeki
+  yaşı".
+- Hasta kartının tedavi satırındaki yaş değişmedi: orada bilerek yıl farkı
+  ("o yıl kaçındaydı"); doğum günü o yıl henüz gelmemişse formdaki tam yaştan
+  bir fazla.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak.
+
+## Deneme
+
+- Deneme kopyasında (1.909 tedavi) eski ve yeni kodla iki formun bütün
+  alanları karşılaştırıldı: değişen tek alan YAŞI, 601 tedavide (570 FET, 27
+  Yumurta Çözme, 1 FET (3→5); OPU'su girilmemiş 2 Yumurta Dondurma ve 1
+  IVF/ICSI). Öteki alanlar birebir aynı.
+- Sentetik veritabanında 1990-07-15 doğumlu bir hasta: 2022-02 OPU'lu IVF/ICSI
+  ve 2022-06'daki FET'in iki formu da ekranda ve Excel'de 31 yazıyor (eski kod
+  FET'te bugünkü yaşı, 36'yı yazıyordu). Doğum gününün bir gün öncesi ve günü
+  doğru (35 / 36).

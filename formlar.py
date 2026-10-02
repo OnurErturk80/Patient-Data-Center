@@ -128,10 +128,15 @@ def _iptal_notu(c):
 
 
 def _yas(dogum, tarih):
-    """`tarih` günündeki yaş. Tedavi anındaki yaş istendiği için bugünün
-    yaşı değil, OPU günündeki yaş yazılıyor."""
-    d, t = _zaman_coz(dogum), _zaman_coz(tarih) or _dt.datetime.now()
-    if not d:
+    """`tarih` günündeki tam yaş. Tedavinin yaşı: formlar tedavinin gününü
+    veriyor (`db.tedavi_gunu()`), Tüm veri dökümü de aynı kuraldan.
+
+    Gün okunamıyorsa yaş YOK: v6.242'ye kadar bugüne düşüyordu, OPU'su
+    olmayan tedavide (FET, Yumurta Çözme) formlar hastanın bugünkü yaşını
+    basıyordu (kullanıcı bildirdi). Resmî forma yanlış yaş yazmak boş
+    bırakmaktan kötü."""
+    d, t = _zaman_coz(dogum), _zaman_coz(tarih)
+    if not d or not t:
         return None
     return t.year - d.year - ((t.month, t.day) < (d.month, d.day))
 
@@ -1536,7 +1541,7 @@ def ozet_verisi(cycle_id: int):
         "soyadi": soyadi,
         "adi": adi,
         "esinin_adi": c["es_adi"],
-        "yasi": _yas(c["dogum_tarihi"], c["opu_zamani"]),
+        "yasi": _yas(c["dogum_tarihi"], db.tedavi_gunu(cycle_id)),
         "onceki_tedavi": (c["hasta_cycle_no"] - 1
                           if c["hasta_cycle_no"] else None),
         "tedavi_protokolu": _et(h, "protokol_tipi", c["protokol_tipi"]),
@@ -1867,7 +1872,7 @@ def artlab_verisi(cycle_id: int):
         "cycle_no": c["cycle_no"],
         "dosya_no": c["dosya_no"],
         "adi": c["ad_soyad"],
-        "yasi": _yas(c["dogum_tarihi"], c["opu_zamani"]),
+        "yasi": _yas(c["dogum_tarihi"], db.tedavi_gunu(cycle_id)),
         "esinin_adi": c["es_adi"],
         "islem": metinler.t("tip_" + c["cycle_tipi"]) if c["cycle_tipi"] else "",
         "sperm_kaynagi": _et(h, "sperm_alinma",
@@ -2124,7 +2129,7 @@ ALAN_ACIKLAMA = [
     ("adi", "Adı (son kelime soyadı sayılıyor)"),
     ("soyadi", "Soyadı"),
     ("dosya_no", "Dosya numarası"),
-    ("yasi", "OPU günündeki yaşı"),
+    ("yasi", "Tedavi günündeki yaşı (OPU; FET'te çözme / transfer)"),
     ("esinin_adi", "Eşinin adı"),
     ("kimlik_no", "Kimlik no — programda tutulmuyor, boş çıkar"),
     ("— Cycle —", None),

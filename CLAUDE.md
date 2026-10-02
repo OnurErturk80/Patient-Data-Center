@@ -1516,6 +1516,16 @@ kalıptan**: `form_kalip.json`.
   resmî forma yanlış veri yazmak boş bırakmaktan kötü. Kullanıcı hangilerinin
   programa gireceğine sonra karar verecek. Transfer klinisyeni v6.232'den
   beri var (`cycle.transfer_hekim`, aşağıdaki "Hekim alanı" maddesi).
+- **YAŞI tedavinin günündeki tam yaş** (v6.243, README v6.243; kullanıcı:
+  "hastanın güncel yaşı yazıyor. Tedavilerin yapıldığı tarihteki yaşı
+  yazsın"): gün `db.tedavi_gunu()`, yani `db.tedavi_tarihi()`'nin kuralı
+  (OPU, hCG, FET'te çözme / transfer, planlanan tarih, açılış); Tüm veri'nin
+  "Yaş"ı da aynı kuraldan. v6.242'ye kadar OPU'dan, OPU yoksa BUGÜNden:
+  FET, FET (3→5) ve Yumurta Çözme formları hastanın bugünkü yaşını
+  basıyordu. Gün okunamazsa yaş boş (`formlar._yas()`); bugüne düşen bir
+  yaş yazma. Hasta kartının tedavi satırı bilerek yıl farkı
+  (`app.tedavi_yasi()`, "o yıl kaçındaydı"): doğum günü o yıl henüz
+  gelmemişse formdan bir fazla.
 - **ART raporunda gün 2 "40-45 saat", gün 3 "72 saat" satırına yazılır.**
   Eşleme olduğu için kullanıcıya soruldu, **"kalsın" dedi** (2026-09-11).
   Boşaltma. "24 saat : hücre" satırı boş — programda o kayıt yok.
