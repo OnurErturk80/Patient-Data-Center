@@ -19043,3 +19043,54 @@ Sentetik veritabanında, telefon ve masaüstü genişliğinde:
 - Yeni şablon + eski kod (yeniden başlatılmamış v6.239 programı): eski kart
   basılıyor, IVF/ICSI, FET ve Yumurta Dondurma formları kaydedilince hCG,
   OPU, denüdasyon ve sayılar korunuyor.
+
+# v6.241 — Beta hCG girilince gebelik testi pozitif
+
+Kullanıcı: "Beta hCG değeri girince gebelik pozitif olarak kayıtlara geç."
+Sorulan iki şeyin cevabı: "pozitif" klinik gebelikten **ayrı** bir bilgi
+olsun (klinik gebelik yine elle işaretleniyor), eşik **10 mIU/mL ve üstü**.
+
+## Önce
+
+- Gebelik ekranına girilen beta hCG değerleri yalnızca liste olarak duruyordu
+  (artış hızıyla); hiçbir yerde "gebelik testi pozitif" diye görünmüyordu.
+  İstatistikte tek gebelik oranı klinik gebelikti (elle işaretlenen).
+
+## Bugün
+
+- **Gebelik ekranı**: beta hCG kartının başında "Gebelik testi (beta hCG):
+  Pozitif" (yeşil) ya da "Negatif". Bir değer 10 ya da üstüyse pozitif,
+  değerler varsa ve hepsi 10'un altındaysa negatif; değer yoksa satır yok.
+  Kutunun altındaki ipucu eşiği söylüyor.
+- **Türetilmiş, saklanmıyor**: sonuç her açılışta beta değerlerinden
+  hesaplanıyor (`db.gebelik_testi()`, SQL hali `db.beta_pozitif_sql()`; eşik
+  `db.BETA_POZITIF_ESIK`). Değer silinince sonuç da değişiyor; ayrı bir
+  "pozitif" kaydını güncel tutmak gerekmiyor.
+- **Klinik gebelik ayrı**: "Klinik gebelik" alanına dokunulmuyor (kese
+  görüldüğünde yine elle işaretleniyor). Sağlık Bakanlığı tablosunun gebelik
+  sayısı da klinik gebelik olarak kaldı.
+- **İstatistik**: oranlar kartında yeni satır "Beta hCG pozitif oranı
+  (transfer başına)" -- beta hCG'si pozitif tedavi / transfer yapılan tedavi,
+  payı ve paydasıyla, klinik gebelik oranının üstünde. Aylık tabloda "Beta+"
+  sütunu; tablo yedi sütun olunca 390 px'lik telefonda son sütun kesik
+  kaldığı için hücre dolgusu kısaldı (8 → 4 px): artık sığıyor, daha dar
+  telefonlarda eski altı sütunlu tablodan az taşıyor (ölçüldü). İstatistik
+  Excel'inde aylara göre ve genel sayfada sayı ve oran.
+- **Tüm veri Excel'i**: "Beta hCG" sütununun yanında "Gebelik testi (beta
+  hCG)": Pozitif / Negatif.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmazsa ekranlar eskisi gibi görünür, hata vermez.
+
+## Deneme
+
+Sentetik veritabanında, telefon (390, 375, 360 px) ve masaüstü genişliğinde:
+
+- Beta 4,5 → Negatif; 9,99 eklendi → Negatif; 10 eklendi → Pozitif; 10
+  silindi → Negatif; 250 eklendi → Pozitif. Klinik gebelik kaydı değişmedi.
+- İstatistik ekranı ve Excel'i: beta hCG'si pozitif iki tedavi, oran payı ve
+  paydasıyla; aylık tablo 390 px'te taşmıyor.
+- Tüm veri Excel'inde sütun Pozitif yazıyor; dosya Excel okuyucusunda
+  açılıyor.
+- Yeni şablon + eski kod (yeniden başlatılmamış v6.240 programı): gebelik ve
+  istatistik ekranları hatasız, eskisi gibi.

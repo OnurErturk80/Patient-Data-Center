@@ -634,6 +634,8 @@ TUM_SUTUNLAR = [
     ("Transfer edilen", "transfer_edilen", _asamada("transfer")),
     ("Transfer hekimi", "transfer_hekimi", _asamada("transfer")),
     ("Beta hCG", "beta", _asamada("gebelik")),
+    # v6.241: beta hCG'den türetilen sonuç (`db.gebelik_testi()`).
+    ("Gebelik testi (beta hCG)", "gebelik_testi", _asamada("gebelik")),
     ("Klinik gebelik", "klinik_gebelik", _asamada("gebelik")),
     ("Gebelik kesesi sayısı", "gebelik_kesesi_sayisi", _asamada("gebelik")),
     ("Fetal kalp atımı", "fk", _asamada("gebelik")),
@@ -754,7 +756,7 @@ def _tum_veri(b):
     gebelik = {r["cycle_id"]: r for r in b.execute(
         "SELECT * FROM gebelik_sonucu WHERE lab_id = ? ORDER BY id",
         (db.LAB_ID,))}
-    beta = {}
+    beta, beta_deger = {}, {}
     for r in b.execute("SELECT cycle_id, zaman, deger FROM beta_hcg "
                        "ORDER BY cycle_id, zaman, id"):
         if r["deger"] is not None:
@@ -762,6 +764,7 @@ def _tum_veri(b):
             beta.setdefault(r["cycle_id"], []).append(
                 f"{_sayi_metni(r['deger'])} ({tarih})" if tarih
                 else _sayi_metni(r["deger"]))
+            beta_deger.setdefault(r["cycle_id"], []).append(r["deger"])
     bebek = {}
     for r in (b.execute("SELECT cycle_id, cinsiyet, kilo_kg FROM dogan_bebek "
                         "WHERE lab_id = ? ORDER BY cycle_id, sira, id",
@@ -805,6 +808,7 @@ def _tum_veri(b):
         if coz and biyopsi_var and tip in db.FET_TIPLERI:
             pgt.append(formlar.pgt_cozulen_notu(cid, coz))
         analiz = {a: sp.get(a) for a in ("bazal", "hazirlik_sonrasi")}
+        test = db.gebelik_testi(beta_deger.get(cid, ()))     # v6.241
 
         def olcu(asama, alan):
             r = analiz.get(asama)
@@ -848,6 +852,7 @@ def _tum_veri(b):
                 cid, coz, transferler.get(cid, []))) or None,
             "transfer_hekimi": _transfer_hekimi(c, n.get("transfer", 0)),
             "beta": " → ".join(beta.get(cid, [])) or None,
+            "gebelik_testi": metinler.t(test) if test else None,
             "klinik_gebelik": _evet_hayir(g["klinik_gebelik"], "var", "yok") if g else None,
             "gebelik_kesesi_sayisi": g["gebelik_kesesi_sayisi"] if g else None,
             "fk": _evet_hayir(g["fk_pozitif"], "pozitif", "negatif") if g else None,
@@ -1036,6 +1041,14 @@ def istatistikler(ay: str = "") -> dict:
         f"AND g.cycle_id IN (SELECT c.id FROM cycle c WHERE {cycle_kosul})",
         (db.LAB_ID,)) if gebelik_var else 0
 
+    # Gebelik testi pozitif (v6.241): beta hCG'si eşiği geçen tedavi
+    # (`db.beta_pozitif_sql()`); klinik gebelikten ayrı sayı, payda aynı
+    # (transfer yapılan tedavi).
+    beta_var = db.tablo_var("beta_hcg")
+    beta = _tek(
+        f"SELECT COUNT(*) n FROM cycle c WHERE {cycle_kosul} "
+        f"AND {db.beta_pozitif_sql('c.id')}", (db.LAB_ID,)) if beta_var else 0
+
     cycle_sayisi = _tek(
         f"SELECT COUNT(*) n FROM cycle c WHERE {cycle_kosul}", (db.LAB_ID,))
     tipler = db.sorgu(
@@ -1071,6 +1084,8 @@ def istatistikler(ay: str = "") -> dict:
         "transfer_embriyo": transfer_embriyo,
         "gebelik": gebelik,
         "gebelik_var": gebelik_var,
+        "beta": beta,
+        "beta_var": beta_var,
         "foto": _tek("SELECT COUNT(*) n FROM goruntu g WHERE g.cycle_id IN "
                      f"(SELECT c.id FROM cycle c WHERE {cycle_kosul})",
                      (db.LAB_ID,)),
@@ -1079,6 +1094,7 @@ def istatistikler(ay: str = "") -> dict:
         "oran_fert": _oran(ikipn, icsi),
         "oran_blast": _oran(blast, ikipn),
         "oran_gebelik": _oran(gebelik, transfer_cycle),
+        "oran_beta": _oran(beta, transfer_cycle),
     }
 
 
@@ -1090,7 +1106,8 @@ def _oran(pay, payda):
 
 
 def istatistik_aylari(yil: int = 0, n: int = ISTATISTIK_AY) -> list:
-    """Ay ay kırılım: sayılar **ve dört oran** (v6.123, kullanıcının isteği).
+    """Ay ay kırılım: sayılar **ve oranlar** (v6.123, kullanıcının isteği;
+    v6.241'den beri beşinci oran gebelik testi).
 
     `yil` verilirse o yılın on iki ayı, verilmezse bugünden geriye `n` ay
     (eski davranış). Ekran yıl seçicisiyle çalıştığı için hep yıl veriyor;
@@ -1126,9 +1143,10 @@ def istatistik_aylari(yil: int = 0, n: int = ISTATISTIK_AY) -> list:
                 "ay": a, "cycle": i["cycle"], "oosit": i["oosit"],
                 "mii": i["mii"], "icsi": i["icsi"], "ikipn": i["ikipn"],
                 "blast": i["blast"], "transfer": i["transfer_cycle"],
-                "gebelik": i["gebelik"],
+                "gebelik": i["gebelik"], "beta": i["beta"],
                 "oran_mii": i["oran_mii"], "oran_fert": i["oran_fert"],
                 "oran_blast": i["oran_blast"], "oran_gebelik": i["oran_gebelik"],
+                "oran_beta": i["oran_beta"],
             })
     return satirlar
 
@@ -1217,9 +1235,12 @@ def son_kayitlar(sayfa: int = 1) -> dict:
 
 
 ISTATISTIK_BASLIK = ["Ay", "Cycle", "Yumurta", "MII", "ICSI yapılan", "2PN",
-                     "Blastokist", "Transfer edilen cycle", "Klinik gebelik",
+                     "Blastokist", "Transfer edilen cycle",
+                     "Beta hCG pozitif", "Klinik gebelik",
                      "M2 oranı (%)", "Fertilizasyon oranı (%)",
-                     "Blastokist oranı (%)", "Klinik gebelik oranı (%)"]
+                     "Blastokist oranı (%)",
+                     "Beta hCG pozitif oranı (%)",
+                     "Klinik gebelik oranı (%)"]
 
 
 def istatistik_sayfalari(yil: int = 0):
@@ -1231,9 +1252,9 @@ def istatistik_sayfalari(yil: int = 0):
     edilemez yapardı.
     """
     aylar = [[s["ay"], s["cycle"], s["oosit"], s["mii"], s["icsi"],
-              s["ikipn"], s["blast"], s["transfer"], s["gebelik"],
+              s["ikipn"], s["blast"], s["transfer"], s["beta"], s["gebelik"],
               s["oran_mii"], s["oran_fert"], s["oran_blast"],
-              s["oran_gebelik"]] for s in istatistik_aylari(yil)]
+              s["oran_beta"], s["oran_gebelik"]] for s in istatistik_aylari(yil)]
     g = istatistikler()
     genel = [
         ["Hasta (toplam)", g["hasta"]],
@@ -1249,11 +1270,13 @@ def istatistik_sayfalari(yil: int = 0):
         ["Çözülen", g["cozulen"]],
         ["Transfer edilen cycle", g["transfer_cycle"]],
         ["Transfer edilen embriyo", g["transfer_embriyo"]],
+        [f"Beta hCG pozitif (≥ {db.BETA_POZITIF_ESIK} mIU/mL)", g["beta"]],
         ["Klinik gebelik", g["gebelik"]],
         ["Fotoğraf", g["foto"]],
         ["M2 oranı (%)", g["oran_mii"]],
         ["Fertilizasyon oranı (%)", g["oran_fert"]],
         ["Blastokist oranı (%)", g["oran_blast"]],
+        ["Beta hCG pozitif oranı (%)", g["oran_beta"]],
         ["Klinik gebelik oranı (%)", g["oran_gebelik"]],
     ]
     return [(f"{yil} aylara göre" if yil else "Aylara göre",

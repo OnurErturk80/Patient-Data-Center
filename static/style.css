@@ -42,6 +42,10 @@
   --pgt:      #2f5fb3;
   /* Ayni mavinin koyu zemindeki yazi tonu (`--yuzey`de ~7:1). */
   --pgt-yazi: #8fb0ea;
+  /* Olumlu sonuc (v6.241, gebelik testi pozitif): `.kart h2.ikili .rozet`'in
+     yesili -- zemin koyu, yazi `--yuzey`de okunur. */
+  --olumlu:      #17342a;
+  --olumlu-yazi: #8fe3b8;
   --r: 6px;
   /* Genis ekranda icerik sutunu. Yan menu solda 200px yer kapliyor,
      500px pay onunla carpismayi onluyor. Formul TEK yerde: kimlik bandinin
@@ -874,6 +878,11 @@ body.kilitli { overflow: hidden; }
   vertical-align: 2px;
 }
 .rozet.arsiv { background: #3d4f63; font-size: 11px; }
+/* Olumlu sonuc (v6.241, gebelik testi pozitif): baslik rozetinin yesili. */
+.rozet.olumlu { background: var(--olumlu); color: var(--olumlu-yazi); }
+/* Gebelik ekraninda beta hCG kartinin basindaki sonuc satiri (v6.241). */
+.betasonuc { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 
 
 .hucre .kk.bos {
@@ -1580,11 +1589,14 @@ body.menuacik .ust .menudugme { background: var(--vurgu); border-color: var(--vu
    Sayilar `nowrap` kaliyor, yalnizca ilk sutun sariyor. */
 .cizelge.oran td.ad { white-space: normal; }
 
-/* Aylik oran tablosu alti sutunlu: dar telefonda `.cizelgekap` icinde
-   kaydirmasi kalsin (istatistik ekraninin bilinen ve kabul edilmis
-   cozumu, yukaridaki yoruma bak) ama once yatay dolguyu kisaltip
-   kaydirma ihtiyacini azalt -- sutun basina 12px, alti sutunda 72px. */
-.cizelge.aylik th, .cizelge.aylik td { padding-left: 8px; padding-right: 8px; }
+/* Aylik oran tablosu yedi sutunlu (v6.241'den beri gebelik testi de):
+   dar telefonda `.cizelgekap` icinde kaydirmasi kalsin (istatistik
+   ekraninin bilinen ve kabul edilmis cozumu, yukaridaki yoruma bak) ama
+   once yatay dolguyu kisaltip kaydirma ihtiyacini azalt. 8px'te yedi sutun
+   390px'lik telefonda 18px tasiyordu, son sutun ("Gebelik") kesik
+   gorunuyordu; 4px'te en uzun ay adi ve en genis yuzdeyle 390'da sigiyor,
+   375 ve 360'ta alti sutunlu eski tablodan az tasiyor (olculdu). */
+.cizelge.aylik th, .cizelge.aylik td { padding-left: 4px; padding-right: 4px; }
 
 /* Saglik Bakanligi'nin aylik verileri (v6.201): on sutun, basliklar
    bakanligin uzun adlari ("DONDURULMUS OOSIT SAYISI"). Baslik satiri sarar,

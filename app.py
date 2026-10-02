@@ -3933,6 +3933,8 @@ sablon.env.globals["asama_ekrani_alanlari"] = ASAMA_EKRANI_ALANLARI
 OPU_TIPLERI = tuple(t for t, a in db.TIP_ASAMALARI.items() if "opu" in a)
 OPU_TIPI_ALANLARI = ("hcg_zamani", "opu_zamani")
 sablon.env.globals["opu_tipleri"] = OPU_TIPLERI
+# Gebelik testinin eşiği (v6.241): gebelik ekranının ipucu ve istatistik.
+sablon.env.globals["beta_pozitif_esik"] = db.BETA_POZITIF_ESIK
 
 # Tarayıcının datetime-local değeri: "2026-10-02T09:00", saniye sıfırsa yok.
 _DL_DEGERI = re.compile(r"^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2})"
@@ -12674,6 +12676,8 @@ def gebelik_ekran(request: Request, cycle_id: int, hata: str = ""):
     return sablon.TemplateResponse(
         request, "gebelik.html",
         {"c": c, "k": kayit, "betalar": betalar, "artis": artis,
+         # Gebelik testi (v6.241): beta hCG'den türetiliyor, kayıt değil.
+         "gebelik_testi": db.gebelik_testi(b["deger"] for b in betalar),
          "transferler": transferler, "hata": hata,
          "sonlanmalar": db.liste("sonlanma"),
          "bebek_siralari": bebek_siralari, "bebek_kayitli": bebek_kayitli,

@@ -2023,13 +2023,17 @@ METINLER = {
                        "en": "No beta hCG value entered yet."},
     "olcum_zamani": {"tr": "Ölçüm zamanı", "en": "Measurement time"},
     "beta_ekle": {"tr": "Beta ekle", "en": "Add beta"},
+    # v6.241: eşiği geçen değer gebelik testini pozitif yapıyor.
     "beta_ipucu": {
-        "tr": "Değer sayı olarak saklanır; pozitif/negatif eşiği sonradan "
-              "istediğin gibi uygulanır. Birden fazla ölçüm girersen artış "
-              "hızı hesaplanır.",
-        "en": "The value is stored as a number; you can apply the "
-              "positive/negative threshold however you like later. If you "
-              "enter more than one measurement the rate of rise is calculated."},
+        "tr": "{esik} mIU/mL ve üstü bir değer gebelik testini pozitif yapar; "
+              "klinik gebelik aşağıda ayrıca işaretlenir. Birden fazla ölçüm "
+              "girersen artış hızı hesaplanır.",
+        "en": "A value of {esik} mIU/mL or more makes the pregnancy test "
+              "positive; clinical pregnancy is marked separately below. If "
+              "you enter more than one measurement the rate of rise is "
+              "calculated."},
+    "gebelik_testi_beta": {"tr": "Gebelik testi (beta hCG)",
+                           "en": "Pregnancy test (beta hCG)"},
     "klinik_gebelik": {"tr": "Klinik gebelik", "en": "Clinical pregnancy"},
     "var": {"tr": "Var", "en": "Present"},
     "yok": {"tr": "Yok", "en": "Absent"},
@@ -2639,6 +2643,10 @@ METINLER = {
     "aylara_gore": {"tr": "Aylara göre", "en": "By month"},
     "tum_zamanlar": {"tr": "Tüm zamanlar", "en": "All time"},
     "gebelik_kisa": {"tr": "Gebelik", "en": "Pregnancy"},
+    # v6.241: beta hCG'si pozitif tedavi / transfer yapılan tedavi.
+    "oran_beta": {"tr": "Beta hCG pozitif oranı (transfer başına)",
+                  "en": "Positive beta hCG rate (per transfer)"},
+    "beta_kisa": {"tr": "Beta+", "en": "Beta+"},
     "aylik_oran_ipucu": {
         "tr": "Sütunlar yüzde oranıdır. Bir ayın sayılarını görmek için "
               "ayın adına dokunun.",

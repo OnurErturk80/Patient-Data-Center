@@ -977,6 +977,38 @@ def klinik_gebelik_sql(g: str = "g") -> str:
     return f"{g}.klinik_gebelik IN ('evet', '1')"
 
 
+# Gebelik testi (beta hCG, v6.241). Kullanıcının isteği: "Beta hCG değeri
+# girince gebelik pozitif olarak kayıtlara geç." Cevapları (2026-10-02):
+# ayrı bir bilgi -- klinik gebelik (kese) ayrı kalır, elle işaretlenir --
+# ve eşik "10 ve üstü" (mIU/mL). Sonuç TÜRETİLMİŞ, saklanmıyor: beta
+# değerlerinden her soruşta hesaplanıyor, beta silinince sonuç da değişiyor
+# (istatistiklerin sayaç tutmama kuralı, v6.38). Eşiği değiştirmek klinik
+# bir karar: kullanıcıya sormadan değiştirme.
+BETA_POZITIF_ESIK = 10
+
+
+def gebelik_testi(degerler):
+    """Beta hCG değerlerinden gebelik testi (v6.241): `"pozitif"` (bir değer
+    eşikte ya da üstünde), `"negatif"` (değer var, hepsi altında), None
+    (değer girilmemiş). SQL hali `beta_pozitif_sql()` -- ikisi aynı kural."""
+    sayilar = []
+    for d in degerler:
+        try:
+            sayilar.append(float(d))
+        except (TypeError, ValueError):
+            continue
+    if not sayilar:
+        return None
+    return "pozitif" if max(sayilar) >= BETA_POZITIF_ESIK else "negatif"
+
+
+def beta_pozitif_sql(cycle: str = "c.id") -> str:
+    """Tedavinin gebelik testi pozitif mi -- SQL koşulu, `gebelik_testi()`'nin
+    "pozitif"i (v6.241). `cycle`: dış sorgudaki tedavi kimliği, koddan gelir."""
+    return ("EXISTS (SELECT 1 FROM beta_hcg bh WHERE bh.cycle_id = "
+            f"{cycle} AND bh.deger >= {BETA_POZITIF_ESIK})")
+
+
 def tedavi_bulgu_metni(cycle_id, asama="icsi"):
     """Genel bulguların tek satırı: "Kalın zona, Sperm motilitesi kötü, ...".
 

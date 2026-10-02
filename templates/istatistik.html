@@ -102,6 +102,15 @@
       <td>{{ yuzde(ga.oran_blast) if ga.oran_blast is not none else "—" }}</td>
       <td class="kesir">{{ ga.blast }} / {{ ga.ikipn }}</td>
       <td class="genel">{{ yuzde(g.oran_blast) if g.oran_blast is not none else "—" }}</td></tr>
+    {# Gebelik testi (v6.241): beta hCG'si eşiği geçen tedavi / transfer
+       yapılan tedavi; klinik gebelikten ayrı oran. `is defined`: yeniden
+       başlatılmamış program bu sayıyı vermiyor (tuzak #5). #}
+    {% if g.beta_var is defined and g.beta_var %}
+    <tr><td class="ad">{{ metin("oran_beta") }}</td>
+      <td>{{ yuzde(ga.oran_beta) if ga.oran_beta is not none else "—" }}</td>
+      <td class="kesir">{{ ga.beta }} / {{ ga.transfer_cycle }}</td>
+      <td class="genel">{{ yuzde(g.oran_beta) if g.oran_beta is not none else "—" }}</td></tr>
+    {% endif %}
     {% if g.gebelik_var %}
     <tr><td class="ad">{{ metin("oran_gebelik") }}</td>
       <td>{{ yuzde(ga.oran_gebelik) if ga.oran_gebelik is not none else "—" }}</td>
@@ -115,7 +124,7 @@
   {% endif %}
 </div>
 
-{# Seçilen yılın ayları, dört oranla. Kaydı olmayan ay listeye girmiyor
+{# Seçilen yılın ayları, oranlarıyla (v6.241'den beri gebelik testi de). Kaydı olmayan ay listeye girmiyor
    (bkz. `disari.istatistik_aylari`). Ayın adı bağlantı: üstteki kart o aya
    geçiyor, sayıları payı paydasıyla orada görünüyor. #}
 <div class="kart" style="margin-top:14px">
@@ -126,6 +135,7 @@
     <tr>
       <th>{{ metin("ay") }}</th><th>{{ metin("cycle") }}</th>
       <th>M2</th><th>2PN</th><th>{{ metin("blastokist_ad") }}</th>
+      {% if g.beta_var is defined and g.beta_var %}<th>{{ metin("beta_kisa") }}</th>{% endif %}
       {% if g.gebelik_var %}<th>{{ metin("gebelik_kisa") }}</th>{% endif %}
     </tr>
     {% for s in aylar %}
@@ -138,6 +148,9 @@
       <td>{{ yuzde(s.oran_mii) if s.oran_mii is not none else "—" }}</td>
       <td>{{ yuzde(s.oran_fert) if s.oran_fert is not none else "—" }}</td>
       <td>{{ yuzde(s.oran_blast) if s.oran_blast is not none else "—" }}</td>
+      {% if g.beta_var is defined and g.beta_var %}
+      <td>{{ yuzde(s.oran_beta) if s.oran_beta is not none else "—" }}</td>
+      {% endif %}
       {% if g.gebelik_var %}
       <td>{{ yuzde(s.oran_gebelik) if s.oran_gebelik is not none else "—" }}</td>
       {% endif %}

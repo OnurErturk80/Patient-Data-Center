@@ -1941,7 +1941,10 @@ kaydedilebilir mi" diye sordu, cevap "kaydetmeye gerek yok, zaten kayıtlı".
     `oran_mii` = MII / kayıtlı oosit (specimen sayısı — OPU'da elle
     girilen "toplanan" sayısı **değil**, v6.112'nin ayrımı burada da
     geçerli), `oran_fert` = 2PN / ICSI, `oran_blast` = blastokist / 2PN,
-    `oran_gebelik` = klinik gebelik / transfer edilen tedavi.
+    `oran_gebelik` = klinik gebelik / transfer edilen tedavi. v6.241'den
+    beri beşincisi `oran_beta` = beta hCG'si pozitif tedavi / transfer
+    edilen tedavi (aşağıdaki "Gebelik testi" maddesi); aylık tablo yedi
+    sütun, dolgusu bu yüzden 4px (390px'lik telefonda sığıyor, ölçüldü).
   - **Ay kırılımı oranı kendi hesaplamıyor**, her ay için
     `istatistikler(ay)` çağırıp ondan alıyor — ekranın üstündeki kart ile
     altındaki tablo iki ayrı formül kullansaydı biri düzeltilip öteki
@@ -1989,6 +1992,17 @@ tutulmuyor, yok (kullanıcının isteği). 2026'dan başlıyor
   kuralının dışında (resmî formun kalıbı gibi).
 - Tarihi girilmemiş için sayılmayan gebelik/doğum ekranda listeleniyor;
   sessizce eksik sayma.
+- **Gebelik testi (beta hCG) türetilmiş, klinik gebelikten ayrı** (v6.241,
+  README v6.241; kullanıcı: "Beta hCG değeri girince gebelik pozitif olarak
+  kayıtlara geç"; cevapları: ayrı bilgi, eşik "10 ve üstü"). Kural tek yerde:
+  `db.gebelik_testi(değerler)` ("pozitif": bir değer `BETA_POZITIF_ESIK`'te ya
+  da üstünde, "negatif": değer var hepsi altında, None: değer yok) ve SQL
+  hali `db.beta_pozitif_sql()`. Saklanmıyor: beta silinince sonuç da değişir.
+  Gebelik ekranının beta kartı, istatistiğin `oran_beta`'sı (+ aylık sütun,
+  Excel'i) ve Tüm veri'nin "Gebelik testi (beta hCG)" sütunu buradan.
+  **Klinik gebelik alanını kendiliğinden doldurma** -- kullanıcı ayrı tutmayı
+  seçti; Bakanlık tablosunun gebeliği de klinik gebelik kaldı. Eşiği
+  değiştirmek klinik bir karar: sormadan değiştirme.
 - **Klinik gebelik `db.klinik_gebelik_sql()`**: ekran `evet`/`hayir`/
   `bilinmiyor` yazıyor, ilk kayıtlar `1`/`0`. `/istatistik` v6.201'e kadar
   yalnızca `1`'i sayıyordu (ekrandan girilenlerin hiçbiri oranda yoktu).

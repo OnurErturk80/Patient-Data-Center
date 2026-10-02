@@ -43,6 +43,18 @@
 
 <div class="kart">
   <h2>{{ metin("beta_hcg") }} ({{ betalar|length }})</h2>
+  {# Gebelik testi (v6.241, kullanıcı: "Beta hCG değeri girince gebelik
+     pozitif olarak kayıtlara geç"): beta değerlerinden türetiliyor
+     (`db.gebelik_testi()`, eşik `db.BETA_POZITIF_ESIK` = 10 mIU/mL,
+     kullanıcının cevabı), saklanmıyor -- beta silinince sonuç da değişir.
+     Klinik gebelik aşağıda ayrı, elle işaretleniyor. `is defined`: yeniden
+     başlatılmamış program bu değişkeni vermiyor (tuzak #5). #}
+  {% if gebelik_testi is defined and gebelik_testi %}
+  <div class="betasonuc">
+    <span>{{ metin("gebelik_testi_beta") }}</span>
+    <span class="rozet{% if gebelik_testi == 'pozitif' %} olumlu{% endif %}">{{ metin(gebelik_testi) }}</span>
+  </div>
+  {% endif %}
   {% for b in betalar %}
   <div class="fsatir">
     <div class="bilgi">
@@ -79,7 +91,7 @@
     </div>
     <div class="alan" style="border:0;padding-top:0">
       <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("beta_ekle") }}</button>
-      <div class="ipucu">{{ metin("beta_ipucu") }}</div>
+      <div class="ipucu">{{ metin("beta_ipucu").format(esik=beta_pozitif_esik if beta_pozitif_esik is defined else "") }}</div>
     </div>
   </form>
 </div>
