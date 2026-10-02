@@ -47,7 +47,12 @@
 {# OPU ve denüdasyon saati bu kartta YOK (v6.220, kullanıcı: "tedavi ana
    sayfasındaki zamanlar bölümünde denüdasyon ve opu tarih ve saatleri
    gereksiz bu bilgiler ilgili yerlerde giriliyor zaten"): ikisi kendi aşama
-   ekranında giriliyor ve görünüyor, sırası zaman çizelgesinde. #}
+   ekranında görünüyor, sırası zaman çizelgesinde (OPU zamanı v6.240'tan beri
+   tedavi formunda da giriliyor). hCG yalnızca yumurta toplanan tipte
+   (v6.240, `opu_tipleri`; kayıtlı bir değer varsa yine görünür); FET
+   tiplerinde planlanan tarih de yoksa kart basılmıyor. #}
+{% set _hcg_goster = opu_tipleri is not defined or c.cycle_tipi in opu_tipleri or c.hcg_zamani %}
+{% if c.planlanan_tarih or _hcg_goster %}
 <div class="kart">
   <h2>{{ metin("zamanlar") }}</h2>
   <dl style="margin:0">
@@ -55,9 +60,12 @@
     <div class="veri"><dt>{{ metin("planlanan_tarih") }}</dt>
       <dd>{{ takvim_basligi(c.planlanan_tarih) }}</dd></div>
     {% endif %}
+    {% if _hcg_goster %}
     <div class="veri"><dt>hCG</dt><dd {% if not c.hcg_zamani %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(c.hcg_zamani) if c.hcg_zamani else 'girilmedi' }}</dd></div>
+    {% endif %}
   </dl>
 </div>
+{% endif %}
 
 <div class="kart">
   <h2>{{ metin("protokol") }}</h2>

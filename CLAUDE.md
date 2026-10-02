@@ -1066,16 +1066,33 @@ kullanıcı: "tedavi ana sayfasındaki zamanlar bölümünde denüdasyon ve opu
 tarih ve saatleri gereksiz bu bilgiler ilgili yerlerde giriliyor zaten"):
 ikisi kendi aşama ekranında giriliyor ve görünüyor, sırası zaman
 çizelgesinde. Kartta hCG (başka bir ekranda gösterilmiyor) ve planlanan
-tarih kaldı. Geri koyma.
-- **Tedavi formunda da yok** (v6.221 saatler, kullanıcı: "Düzenle değimde
-  hala görünüyorlar"; v6.222 OPU'nun yumurta sayıları, "Onlar da kalksın"):
-  yeni tedavi ve Düzenle formunun kartı artık "Zamanlar" ve yalnızca hCG.
-  OPU saati ve sağ / sol sayılar OPU ekranında, denüdasyon saati denüdasyon
-  ekranında. Folikül sayısı formda (Stimülasyon kartı) kaldı: OPU ekranı
-  yalnızca gösteriyor, girmiyor.
+tarih kaldı. Geri koyma. hCG v6.240'tan beri yalnızca yumurta toplanan tipte
+(kayıtlı değer varsa yine görünür); FET tiplerinde planlanan tarih de yoksa
+kart basılmıyor.
+- **Tedavi formunda denüdasyon saati ve OPU'nun yumurta sayıları yok**
+  (v6.221 saatler, kullanıcı: "Düzenle değimde hala görünüyorlar"; v6.222
+  sayılar, "Onlar da kalksın"): OPU'nun sağ / sol sayıları OPU ekranında,
+  denüdasyon saati denüdasyon ekranında. Folikül sayısı formda (Stimülasyon
+  kartı) kaldı: OPU ekranı yalnızca gösteriyor, girmiyor.
+- **OPU zamanı formda yine var, hCG'nin altında; ikisi yalnızca yumurta
+  toplanan tipte** (v6.240, README v6.240; kullanıcı: "Tedavi kaydı yaparken
+  IVF/ICSI ve yumurta dondurma tedavilerine hcg zamanın altında opu zamanını
+  da girebileyim. Yumurta çözme ve FET tedavilerinde de hcg zamanını
+  kaldır"). Ölçü tipin aşamaları (`app.OPU_TIPLERI`: aşamalarında OPU olan,
+  Jinja global `opu_tipleri`), tip adı yazma. Kart (`#zamankart`) tip
+  seçilince betikle açılıp gizleniyor; sunucu öteki tipte iki alana da
+  dokunmuyor (`OPU_TIPI_ALANLARI`, gizli kartın değeri yazılmaz).
+  - **OPU zamanı OPU ekranıyla aynı kayıt, iki yerden yazılıyor**: form
+    açıldığı değeri `opu_zamani_ilk`'te taşıyor, değiştirilmeden gönderilirse
+    yazmıyor (`_dl_kanonik()`: "09:00:00" ile "09:00" aynı, tarayıcının boş
+    gösterdiği geçersiz değer ile boş gönderilen aynı) -- açık kalmış form OPU
+    ekranında sonradan girileni ezmesin (denendi). Hata dönüşünde `ilk`
+    formun ilk açıldığı değer kalıyor. İki ekranın yazdığı yeni bir alan
+    eklersen aynı güvenceyi koy.
+  - Tip değiştirilirse (IVF/ICSI → FET) kayıtlı hCG / OPU silinmiyor.
 - **Formda olmayan alan yazılmıyor**: `app.ASAMA_EKRANI_ALANLARI`
-  (`opu_zamani`, `denudasyon_zamani`, `opu_sag_oosit`, `opu_sol_oosit`)
-  POST'ta yoksa `cycle_formu_oku()` sözlüğe koymuyor, iki rota yalnızca
+  (`opu_zamani`, `denudasyon_zamani`, `opu_sag_oosit`, `opu_sol_oosit`) ve
+  v6.240'tan beri hCG POST'ta yoksa `cycle_formu_oku()` sözlüğe koymuyor, iki rota yalnızca
   sözlükteki alanları yazıyor (`[a for a in cycle_alanlari() if a in d]`) ve
   değişiklik geçmişine veriyor. Düz okuma boş değer sanıp kayıtlı değeri
   silerdi. Gizli alanla taşıma (v6.220'ye kadar denüdasyon saati öyleydi)
@@ -1090,7 +1107,11 @@ tarih kaldı. Geri koyma.
   programı sayıları saymıyor, v6.220'ninki hiçbirini (ikisi de denendi).
   Listeye alan eklersen şablonun listesine de ekle. **Bir formdan alan
   kaldırırken hep sor: eski Python bu şablonla ne yazar?** Kaldırılan alanı
-  düz okuyan eski bir kayıt rotası varsa aynı güvenceyi koy.
+  düz okuyan eski bir kayıt rotası varsa aynı güvenceyi koy. v6.240'ın kartı
+  `opu_tipleri is defined` diye soruyor: tanımlı değilse (eski program) eski
+  kart basılıyor -- eski kod tip kuralını ve "değişmeyen OPU yazılmaz"
+  güvencesini bilmez, formdaki OPU zamanını her kayıtta yazardı (denendi:
+  v6.239 programı yeni şablonla eski kartı basıyor, kayıt değerleri koruyor).
 
 **Cycle ekranında "Oositler" numara şeridi ve genel "Fotoğraf ekle" düğmesi
 yerini türetilmiş bir embriyoloji özetine bıraktı** (v6.110, kullanıcının

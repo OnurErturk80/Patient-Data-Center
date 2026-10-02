@@ -18983,3 +18983,63 @@ eski ve yeni kodla:
   biyopsisi, bulaş, beta hCG, gebelik ve iki bebekli bir tedavi: sütunların
   hepsi doğru yazılıyor. Yönetici düğmesi dosyayı indiriyor
   (`tum_veri_<gün>.xlsx`), 14:00'teki yazım iş parçacığında da çalışıyor.
+
+# v6.240 — Tedavi formunda OPU zamanı; FET tiplerinde hCG yok
+
+Kullanıcı: "Tedavi kaydı yaparken IVF/ICSI ve yumurta dondurma tedavilerine
+hcg zamanın altında opu zamanını da girebileyim. Yumurta çözme ve FET
+tedavilerinde de hcg zamanını kaldır."
+
+## Önce
+
+- Yeni tedavi ve Düzenle formunun "Zamanlar" kartında yalnızca hCG zamanı
+  vardı, her tipte. OPU zamanı v6.221'den beri yalnızca OPU ekranında
+  giriliyordu (kullanıcının o günkü isteği: tedavi formunda görünmesin).
+
+## Bugün
+
+- **IVF/ICSI ve Yumurta Dondurma**: kartta hCG zamanı, altında OPU zamanı.
+  OPU zamanı OPU ekranındaki saatin aynı kaydı: ikisinden biri değişince
+  öteki de değişmiş görünür, kutunun altında yazıyor.
+- **FET, FET (3→5) ve Yumurta Çözme**: kart yok, hCG sorulmuyor. Tedavi
+  ekranının "Zamanlar" kartında da hCG satırı yok (kayıtlı bir değer varsa
+  görünür); planlanan tarih de yoksa kart basılmıyor.
+- Ölçü tipin aşamaları: aşamalarında OPU olan tip (`db.TIP_ASAMALARI`);
+  yeni bir tip kendiliğinden doğru davranır. Formda tip değiştirilince kart
+  hemen açılıyor ya da gizleniyor; sunucu da aynı kuralla: OPU'suz tipte iki
+  alana dokunmuyor (gizli kartın değeri yazılmaz, kayıtlı değer silinmez).
+- **Açık kalmış form OPU ekranında girileni ezmiyor**: form OPU zamanını
+  açıldığı haliyle taşıyor, kutu değiştirilmeden kaydedilirse yazmıyor.
+  v6.220'de denüdasyon saatinin gizli alanla dolaşması tam bu yüzden
+  kaldırılmıştı.
+- Tedavi tipinin açıklamasındaki Yumurta Çözme cümlesi güncellendi (v6.147'den
+  beri yalnızca çözme değil, androlojiden gebeliğe aşamalar da var); hCG ve
+  OPU zamanının hangi tipte sorulduğu da orada.
+- Denüdasyon saati ve OPU'nun yumurta sayıları formda yine yok (v6.221,
+  v6.222): kendi aşama ekranlarında.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmazsa form eskisi gibi (yalnızca hCG, her tipte) görünür, kayıt
+eskisi gibi çalışır.
+
+## Deneme
+
+Sentetik veritabanında, telefon ve masaüstü genişliğinde:
+
+- Yeni tedavi formu IVF/ICSI ile açılıyor, kartta hCG üstte OPU altta; tip
+  FET, FET (3→5), Yumurta Çözme seçilince kart gizleniyor, Yumurta Dondurma
+  ve IVF/ICSI'de geri geliyor.
+- IVF/ICSI hCG + OPU ile kaydedildi: ikisi de yazıldı, OPU ekranı aynı
+  saati gösteriyor. hCG yazılıp tip FET'e çevrilerek kaydedilen tedavide
+  hCG ve OPU boş; FET'in tedavi ekranında Zamanlar kartı yok. Var olan bir
+  FET Düzenle'den kaydedildi: hCG / OPU değişmedi.
+- Düzenle formu açıkken OPU saati OPU ekranında değiştirildi, form başka bir
+  alan değiştirilerek kaydedildi: OPU ekranındaki saat kaldı. Formda OPU
+  değiştirilince yazıldı; hata dönüşünde (bozuk hCG yılı) yazılan OPU kutuda
+  kaldı, düzeltip kaydedince yazıldı.
+- OPU tarihi girilen yeni tedavi hastanın tedavileri arasında tarih
+  sırasına yerleşti, OPU'su Düzenle'den sonraya alınınca sırası yeniden
+  kaydı; değişiklik geçmişinde görünüyor.
+- Yeni şablon + eski kod (yeniden başlatılmamış v6.239 programı): eski kart
+  basılıyor, IVF/ICSI, FET ve Yumurta Dondurma formları kaydedilince hCG,
+  OPU, denüdasyon ve sayılar korunuyor.

@@ -1231,14 +1231,18 @@ METINLER = {
               "çözme ve transferle başlanır. FET (3→5) seçilirse çözme ile "
               "transfer arasına blastokist değerlendirmesi eklenir — gün 2/3 "
               "embriyosu çözülüp gün 5'e kadar kültürlenir. Yumurta Çözme "
-              "seçilirse yalnızca çözme aşaması gösterilir — daha önce "
-              "dondurulmuş bir yumurtanın bu tedavide çözülmesi.",
+              "seçilirse daha önce dondurulmuş yumurta bu tedavide çözülür, "
+              "ardından androlojiden gebeliğe IVF/ICSI'nin aşamaları gelir "
+              "(OPU ve denüdasyon yok). hCG ve OPU zamanı yalnızca IVF/ICSI "
+              "ve Yumurta Dondurma'da sorulur.",
         "en": "If FET is selected the laboratory stages are hidden; the cycle "
               "starts directly with thaw and transfer. If FET (D3→5) is "
               "selected, a blastocyst assessment stage is added between thaw "
               "and transfer — a day 2/3 embryo is thawed and cultured to "
-              "day 5. If Egg Thaw is selected, only the thaw stage is shown "
-              "— a previously frozen egg is thawed in this treatment."},
+              "day 5. If Egg Thaw is selected, a previously frozen egg is "
+              "thawed in this treatment, followed by the IVF/ICSI stages from "
+              "andrology to pregnancy (no OPU, no denudation). The hCG and OPU "
+              "times are asked only for IVF/ICSI and oocyte cryo."},
     "endikasyon": {"tr": "Endikasyon", "en": "Indication"},
     "klinik_protokol": {"tr": "Klinik protokol", "en": "Clinical protocol"},
     "gonadotropin": {"tr": "Gonadotropin", "en": "Gonadotropin"},
@@ -1258,6 +1262,12 @@ METINLER = {
         "en": "Enter the time of day as well — the OPU and ICSI intervals are "
               "calculated from it."},
     "opu_zamani": {"tr": "OPU zamanı", "en": "OPU time"},
+    # Tedavi formunda (v6.240): OPU ekranındaki saatin aynı kaydı.
+    "opu_zamani_form_ipucu": {
+        "tr": "OPU ekranındaki saatle aynı kayıt: burada ya da OPU ekranında "
+              "girilebilir, biri değişince öteki de değişir.",
+        "en": "The same record as the time on the OPU screen: enter it here "
+              "or there, changing one changes the other."},
     "opu_oosit_sayilari": {"tr": "OPU'da toplanan yumurta sayıları",
                            "en": "Oocytes collected at OPU"},
     "sag_overden": {"tr": "Sağ overden toplanan",

@@ -219,6 +219,44 @@
     </div>
   </div>
 
+  {# Zamanlar: hCG ve altında OPU zamanı, yalnızca yumurta toplanan tipte
+     (v6.240, kullanıcı: "Tedavi kaydı yaparken IVF/ICSI ve yumurta dondurma
+     tedavilerine hcg zamanın altında opu zamanını da girebileyim. Yumurta
+     çözme ve FET tedavilerinde de hcg zamanını kaldır"). Tipler sunucudan
+     (`opu_tipleri`: aşamalarında OPU olan), kart tip seçilince aşağıdaki
+     betikle gizlenip açılıyor; sunucu öteki tipte iki alana da dokunmuyor.
+     OPU zamanı OPU ekranının aynı kaydı: `opu_zamani_ilk` formun açıldığı
+     değer, değiştirilmeden gönderilirse yazılmıyor (açık kalmış form OPU
+     ekranında sonradan girileni ezmesin). Denüdasyon saati ve OPU'nun
+     yumurta sayıları yine YOK (v6.221, v6.222): kendi aşama ekranlarında.
+     `opu_tipleri` tanımlı değilse program `git pull`'dan sonra yeniden
+     başlatılmamış (tuzak #5): eski kart, eski kod onu doğru yazıyor. #}
+  {% if opu_tipleri is defined %}
+  <div class="kart" id="zamankart" data-opu-tipleri="{{ opu_tipleri|join(',') }}"
+       {%- if (v.get('cycle_tipi') or 'ivf_icsi') not in opu_tipleri %} hidden{% endif %}>
+    <h2>{{ metin("zamanlar") }}</h2>
+    <div class="alan">
+      <label for="hcg_zamani">{{ metin("hcg_zamani") }}</label>
+      <input id="hcg_zamani" name="hcg_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('hcg_zamani') }}">
+      <div class="ipucu">{{ metin("hcg_zamani_ipucu") }}</div>
+    </div>
+    <div class="alan">
+      <label for="opu_zamani">{{ metin("opu_zamani") }}</label>
+      <input id="opu_zamani" name="opu_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('opu_zamani') }}">
+      <input type="hidden" name="opu_zamani_ilk"
+             value="{{ v.get('opu_zamani_ilk') if v.get('opu_zamani_ilk') is not none else dz('opu_zamani') }}">
+      <div class="ipucu">{{ metin("opu_zamani_form_ipucu") }}</div>
+    </div>
+    {# Yeniden başlatılmamış programın formda olmayan alanı silmemesi için
+       (aşağıdaki eski kartın notu); burada `opu_tipleri` tanımlı, yani
+       program yeni -- döngü yalnızca bir güvence. #}
+    {% for alan in ("denudasyon_zamani", "opu_sag_oosit", "opu_sol_oosit") %}
+    {% if alan not in asama_ekrani_alanlari %}
+    <input type="hidden" name="{{ alan }}" value="{{ dz(alan) if alan.endswith('_zamani') else d(alan) }}">
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
   <div class="kart">
     <h2>{{ metin("zamanlar") }}</h2>
     <div class="alan">
@@ -226,29 +264,37 @@
       <input id="hcg_zamani" name="hcg_zamani" min="1900-01-01T00:00" type="datetime-local" value="{{ dz('hcg_zamani') }}">
       <div class="ipucu">{{ metin("hcg_zamani_ipucu") }}</div>
     </div>
-    {# OPU'nun saati ve yumurta sayıları (sağ / sol over), denüdasyon saati bu
-       formda YOK (v6.221 saatler, v6.222 sayılar; kullanıcı: "Düzenle değimde
-       hala görünüyorlar", "Onlar da kalksın"): kendi aşama ekranlarında
-       giriliyor. Alanı geri koyma, gizli alan da koyma -- sunucu formda
-       olmayan bu alanlara dokunmuyor (`app.ASAMA_EKRANI_ALANLARI`), gizli
-       alan açık kalmış formun eski değerini aşama ekranında sonradan
-       yazılanın üzerine geri koyardı.
-       TEK İSTİSNA: çalışan program bir alanı `asama_ekrani_alanlari`'nda
-       saymıyorsa (ya da ad hiç tanımlı değilse) şablon diskten yeni, program
-       eski (`git pull`'dan sonra yeniden başlatılmadı, tuzak #5): eski kod
-       formda olmayan alanı boş sayıp SİLER. Yalnızca o alan, yalnızca o
-       durumda gizli taşınıyor. #}
+    {# v6.221–v6.239'un kartı: OPU'nun saati ve yumurta sayıları (sağ / sol
+       over), denüdasyon saati formda yok, kendi aşama ekranlarında giriliyor;
+       sunucu formda olmayan bu alanlara dokunmuyor
+       (`app.ASAMA_EKRANI_ALANLARI`). Çalışan program bir alanı
+       `asama_ekrani_alanlari`'nda saymıyorsa (ya da ad hiç tanımlı değilse)
+       şablon diskten yeni, program eski: eski kod formda olmayan alanı boş
+       sayıp SİLER. Yalnızca o alan, yalnızca o durumda gizli taşınıyor. #}
     {% for alan in ("opu_zamani", "denudasyon_zamani", "opu_sag_oosit", "opu_sol_oosit") %}
     {% if asama_ekrani_alanlari is not defined or alan not in asama_ekrani_alanlari %}
     <input type="hidden" name="{{ alan }}" value="{{ dz(alan) if alan.endswith('_zamani') else d(alan) }}">
     {% endif %}
     {% endfor %}
   </div>
+  {% endif %}
 
   <button class="dugme" type="submit">{{ metin("degisiklikleri_kaydet") if duzenleme else metin("cycle_i_kaydet") }}</button>
   {% if duzenleme %}<a class="dugme ikincil" href="/cycle/{{ cycle_id }}">{{ metin("vazgec") }}</a>{% endif %}
 </form>
 <script>
+(function () {
+  // Zamanlar kartı (v6.240): hCG ve OPU zamanı yalnızca yumurta toplanan
+  // tipte; tip değişince kart açılıp gizleniyor. Sunucu öteki tipte iki
+  // alana da dokunmuyor, gizli kartın değeri yazılmaz.
+  var kart = document.getElementById('zamankart');
+  var tip = document.getElementById('cycle_tipi');
+  if (!kart || !tip) return;                           // tuzak #10
+  var opu = (kart.dataset.opuTipleri || '').split(',');
+  function uygula() { kart.hidden = opu.indexOf(tip.value) < 0; }
+  tip.addEventListener('change', uygula);
+  uygula();
+})();
 (function () {
   // Bulaş hastalığı (v6.219): "Yok" ile hastalıklar birbirini dışlıyor.
   // Sunucu da aynı kuralı uyguluyor (`db.bulas_yaz()`: hastalık kazanır).

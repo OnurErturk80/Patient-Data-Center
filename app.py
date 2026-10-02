@@ -3919,15 +3919,55 @@ ASAMA_EKRANI_ALANLARI = ("opu_zamani", "denudasyon_zamani",
 # eklerken şablonun listesine de ekle.
 sablon.env.globals["asama_ekrani_alanlari"] = ASAMA_EKRANI_ALANLARI
 
+# hCG ve OPU zamanı yalnızca yumurta toplanan tipte (v6.240, kullanıcı:
+# "Tedavi kaydı yaparken IVF/ICSI ve yumurta dondurma tedavilerine hcg
+# zamanın altında opu zamanını da girebileyim. Yumurta çözme ve FET
+# tedavilerinde de hcg zamanını kaldır"). Ölçü tipin aşamaları: OPU'su olan
+# tip (`db.TIP_ASAMALARI`), tip adı yazılmıyor -- yeni bir tip kendiliğinden
+# doğru davranır. Öteki tipte iki alan formda yok (kart gizli), sunucu da
+# kayıtlı değere dokunmuyor. OPU zamanı OPU ekranının aynı kaydı: formda
+# değiştirilmediyse yazılmıyor (`_dl_kanonik()`), açık kalmış formun eski
+# değeri OPU ekranında sonradan girilenin üzerine gelmesin (v6.220'nin
+# uyarısı). Şablon `opu_tipleri`'ni göremezse program yeniden başlatılmamış
+# (tuzak #5): eski kart basılıyor.
+OPU_TIPLERI = tuple(t for t, a in db.TIP_ASAMALARI.items() if "opu" in a)
+OPU_TIPI_ALANLARI = ("hcg_zamani", "opu_zamani")
+sablon.env.globals["opu_tipleri"] = OPU_TIPLERI
+
+# Tarayıcının datetime-local değeri: "2026-10-02T09:00", saniye sıfırsa yok.
+_DL_DEGERI = re.compile(r"^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2})"
+                        r"(?::(\d{2})(?:\.\d+)?)?$")
+
+
+def _dl_kanonik(v):
+    """Bir datetime-local kutusunun değeri tarayıcıda nasıl görünür: geçerliyse
+    (yıl, ay, gün, saat, dakika, saniye), değilse None -- tarayıcı geçersiz
+    değeri (saatsiz bir tarih gibi) boş gösterir ve boş gönderir. Formun
+    açıldığı değerle gönderileni karşılaştırmak için: "09:00:00" ile
+    "09:00" aynı, boş görünen ile boş gönderilen aynı."""
+    m = _DL_DEGERI.match((v or "").strip().replace(" ", "T"))
+    return tuple(int(x or 0) for x in m.groups()) if m else None
+
 
 def cycle_formu_oku(f: dict) -> dict:
     """Tedavi formunun değerleri. Formda olmayan aşama ekranı alanı
     (`ASAMA_EKRANI_ALANLARI`) sözlükte yok: çağıran yalnızca sözlükteki
-    alanları yazıyor ve değişiklik geçmişine veriyor."""
+    alanları yazıyor ve değişiklik geçmişine veriyor. hCG ve OPU zamanı
+    yalnızca yumurta toplanan tipte (`OPU_TIPLERI`, v6.240); OPU zamanı
+    formda değiştirilmediyse yok."""
     d = cycle_formu_degerleri(f)
     for alan in ASAMA_EKRANI_ALANLARI:
         if alan not in f:
             del d[alan]
+    if d["cycle_tipi"] not in OPU_TIPLERI:
+        for alan in OPU_TIPI_ALANLARI:
+            d.pop(alan, None)
+    elif "hcg_zamani" not in f:
+        del d["hcg_zamani"]
+    if ("opu_zamani" in d and "opu_zamani_ilk" in f
+            and _dl_kanonik(f.get("opu_zamani"))
+            == _dl_kanonik(f.get("opu_zamani_ilk"))):
+        del d["opu_zamani"]
     return d
 
 
