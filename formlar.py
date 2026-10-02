@@ -360,8 +360,28 @@ def _transfer_edilenler(cycle_id):
     Ölçü `tr_cycle_id`: FET'te embriyo başka cycle'dan gelir, transferin
     yapıldığı cycle burasıdır (bkz. CLAUDE.md "Embriyo cycle değiştirmez").
     """
+    return _transfer_edilen_satirlari(
+        "COALESCE(o.tr_cycle_id, s.cycle_id) = ?", (cycle_id,))
+
+
+def tedavilerin_transfer_edilenleri() -> dict:
+    """`_transfer_edilenler()` bütün tedaviler için tek sorguda (v6.239):
+    {tedavi id: satırlar}. Tüm veri dökümü soruyor -- tedavi tedavi sormak her
+    seferinde olay tablosunun tamamını tarıyordu (`COALESCE` koşulu dizin
+    kullanamıyor)."""
+    gruplar = {}
+    for r in _transfer_edilen_satirlari("1 = 1", ()):
+        gruplar.setdefault(r["tedavi"], []).append(r)
+    return gruplar
+
+
+def _transfer_edilen_satirlari(kosul, parametre):
+    """Transfer olayları, örnek örnek; `kosul` koddan gelir. Sıra örneğin
+    numarası, eşitlikte transfer kaydının sırası (v6.239: iki kaynak tedavinin
+    aynı numaralı embriyosu bir FET'te transfer edilince sıra belirsizdi)."""
     return db.sorgu(
         "SELECT s.id, s.cycle_sira_no, o.zaman, o.tr_tipi, "
+        "  COALESCE(o.tr_cycle_id, s.cycle_id) AS tedavi, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id = s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS bl_skor, "
@@ -381,9 +401,8 @@ def _transfer_edilenler(cycle_id):
         "   AND cl.tip='cleavage_degerlendirme' AND cl.iptal_mi=0 "
         "   ORDER BY cl.gun DESC LIMIT 1) AS cl_gun "
         "FROM olay o JOIN specimen s ON s.id = o.specimen_id "
-        "WHERE o.tip='transfer' AND o.iptal_mi=0 "
-        "  AND COALESCE(o.tr_cycle_id, s.cycle_id) = ? "
-        "ORDER BY s.cycle_sira_no", (cycle_id,))
+        f"WHERE o.tip='transfer' AND o.iptal_mi=0 AND {kosul} "
+        "ORDER BY s.cycle_sira_no, o.id", parametre)
 
 
 # ------------------------------------------------ dondurulan örnekler, tüp tüp
@@ -425,6 +444,18 @@ def dondurma_tupleri(cycle_id: int) -> list:
         f"{db.vit_tedavisi('o')} = ?", (cycle_id,), str(int(cycle_id))))
 
 
+def tedavilerin_dondurma_tupleri() -> dict:
+    """`dondurma_tupleri()` bütün tedaviler için tek sorguda (v6.239):
+    {tedavi id: tüpler}. Kalite her dondurmanın KENDİ tedavisinden
+    (`tup_icerikleri()` gibi) -- tedavi tedavi sorulunca da öyle. Tüm veri
+    dökümü soruyor: `vit_tedavisi()` koşulu dizin kullanamadığı için tedavi
+    tedavi sormak her seferinde olay tablosunun tamamını tarıyordu."""
+    gruplar = {}
+    for r in _dondurma_satirlari("1 = 1", (), db.vit_tedavisi("o")):
+        gruplar.setdefault(r["vit_tedavi"], []).append(r)
+    return {cid: _tuplere_topla(satirlar) for cid, satirlar in gruplar.items()}
+
+
 def tup_icerikleri(tasiyici_idler) -> dict:
     """Tüplerin içeriği -- `dondurma_tupleri()`'nin tüp tüp hali (v6.189).
 
@@ -451,6 +482,7 @@ def _dondurma_satirlari(kosul, parametre, tedavi):
     return db.sorgu(
         f"""
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
+               {db.vit_tedavisi('o')} AS vit_tedavi,
                o.notlar LIKE ? || '%' AS aktarim,
                {db.dondurulan_yumurta_sql('o')} AS yumurta,
                {_olgunluk_sql()} AS mat,
@@ -468,7 +500,7 @@ def _dondurma_satirlari(kosul, parametre, tedavi):
           LEFT JOIN tasiyici t ON t.id = o.vit_tasiyici_id
          WHERE {kosul} AND o.tip='vitrifikasyon'
            AND o.iptal_mi = 0
-         ORDER BY o.vit_tasiyici_id, s.cycle_sira_no
+         ORDER BY o.vit_tasiyici_id, s.cycle_sira_no, o.id
         """, (db.KAYNAK_DONDURMA_NOTU, *parametre))
 
 
@@ -626,7 +658,7 @@ _ARTLAB_YORUM_SATIR = 36
 # Kırpmak yerine taşırmak bilinçli: kesilen bir skor yanlış bilgi olurdu.
 
 
-def _transfer_satirlari(cycle_id, cozulenler) -> list:
+def _transfer_satirlari(cycle_id, cozulenler, edilenler=None) -> list:
     """ART Lab'ın "Uterus grade (x sayı)" kutuları (v6.152).
 
     Kâğıdın başlığı "grade (x sayı)": aynı kalitede embriyolar tek satırda
@@ -637,7 +669,11 @@ def _transfer_satirlari(cycle_id, cozulenler) -> list:
     """
     oran = {o["kod"]: o["canlilik"] for o in cozulenler}
     gruplar = {}
-    for r in _transfer_edilenler(cycle_id):
+    # `edilenler`: tüm veri dökümü bütün tedavilerinkini bir kez okuyor
+    # (`tedavilerin_transfer_edilenleri()`, v6.239).
+    if edilenler is None:
+        edilenler = _transfer_edilenler(cycle_id)
+    for r in edilenler:
         k = _ornek_kalitesi(r["id"]) or "?"
         g = gruplar.setdefault(k, [])
         g.append(oran.get(r["id"]))
@@ -961,17 +997,42 @@ def cozulen_ornekler(cycle_id: int) -> list:
     tüpe konduğu andaki kalite, sağkalım etiketi, canlılık oranı ve bu
     tedavide ne olduğu (transfer / yeniden dondurma).
     """
+    return _cozulenleri_kur(cycle_id, _cozme_satirlari(
+        "COALESCE(o.thaw_cycle_id, s.cycle_id) = ?", (cycle_id,)))
+
+
+def tedavilerin_cozulenleri() -> dict:
+    """`cozulen_ornekler()` bütün tedaviler için (v6.239): {tedavi id: öğeler}.
+    Çözmeler tek sorguda okunuyor -- tedavi tedavi sormak her seferinde olay
+    tablosunun tamamını tarıyordu (`COALESCE` koşulu dizin kullanamıyor);
+    öğelerin ayrıntısı örnek örnek, dizinle. Tüm veri dökümü soruyor."""
+    gruplar = {}
+    for r in _cozme_satirlari("1 = 1", ()):
+        gruplar.setdefault(r["tedavi"], []).append(r)
+    h = _etiketler()
+    return {cid: _cozulenleri_kur(cid, satirlar, h)
+            for cid, satirlar in gruplar.items()}
+
+
+def _cozme_satirlari(kosul, parametre):
+    """Çözme olayları, çözme sırasıyla; `kosul` koddan gelir."""
     tup_kolonu = ("o.thaw_tasiyici_id" if db.cozme_tupu_var() else "NULL")
-    satirlar = db.sorgu(
+    return db.sorgu(
         f"""
         SELECT o.id, o.specimen_id, o.zaman, o.thaw_sagkalim, o.thaw_canlilik,
-               {tup_kolonu} AS cozme_tupu, s.cycle_sira_no
+               {tup_kolonu} AS cozme_tupu, s.cycle_sira_no,
+               COALESCE(o.thaw_cycle_id, s.cycle_id) AS tedavi
           FROM olay o JOIN specimen s ON s.id = o.specimen_id
-         WHERE o.tip = 'thaw' AND o.iptal_mi = 0
-           AND COALESCE(o.thaw_cycle_id, s.cycle_id) = ?
+         WHERE o.tip = 'thaw' AND o.iptal_mi = 0 AND {kosul}
          ORDER BY o.zaman, o.id
-        """, (cycle_id,))
-    h = _etiketler()
+        """, parametre)
+
+
+def _cozulenleri_kur(cycle_id, satirlar, h=None) -> list:
+    """`cozulen_ornekler()`'in öğeleri: çözme satırlarına tüp, kalite ve bu
+    tedavide ne olduğu ekleniyor."""
+    if h is None:
+        h = _etiketler()
     vt = db.vit_tedavisi("v")
     sonuc = []
     for r in satirlar:

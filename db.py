@@ -1,5 +1,6 @@
 """Veritabanı bağlantısı ve yardımcı fonksiyonlar."""
 
+import contextvars
 import json
 import logging
 import os
@@ -351,14 +352,48 @@ def yazma_islemi():
 _wal_ac()
 
 
+# `ortak_baglanti()` bloğunun bağlantısı (v6.239). ContextVar: istek başına
+# (FastAPI her isteği kendi bağlamında çalıştırıyor) ve iş parçacığı başına.
+_ORTAK_BAGLANTI = contextvars.ContextVar("pdc_ortak_baglanti", default=None)
+
+
+@contextmanager
+def ortak_baglanti():
+    """Bu blokta `sorgu()` ve `tek()` tek bağlantıyı paylaşır (v6.239).
+
+    Her sorgu kendi bağlantısını açıyor (`baglan()`); bedeli sorgu başına
+    ~0,6 ms, küçük bir sorgunun kendisinden yüz kat fazla (ölçüldü). Binlerce
+    küçük sorgu atan salt okunur toplu işler (tüm veri dökümü,
+    `disari.tumu_sayfalari()`) blokta çalışıyor. Yazma (`yaz()`,
+    `yazma_islemi()`) etkilenmez, kendi bağlantısını açar. İç içe blok
+    dıştakinin bağlantısını kullanır. Döner: bağlantı."""
+    var = _ORTAK_BAGLANTI.get()
+    if var is not None:
+        yield var
+        return
+    b = baglan()
+    jeton = _ORTAK_BAGLANTI.set(b)
+    try:
+        yield b
+    finally:
+        _ORTAK_BAGLANTI.reset(jeton)
+        b.close()
+
+
 def sorgu(sql, parametre=()):
     """Birden çok satır döndüren sorgu."""
+    ortak = _ORTAK_BAGLANTI.get()
+    if ortak is not None:
+        return ortak.execute(sql, parametre).fetchall()
     with baglan() as b:
         return b.execute(sql, parametre).fetchall()
 
 
 def tek(sql, parametre=()):
     """Tek satır döndüren sorgu. Bulunamazsa None."""
+    ortak = _ORTAK_BAGLANTI.get()
+    if ortak is not None:
+        return ortak.execute(sql, parametre).fetchone()
     with baglan() as b:
         return b.execute(sql, parametre).fetchone()
 
@@ -1102,15 +1137,27 @@ def tedavide_yapilan_ifade(tedavi: str, o: str = "o") -> str:
     return _tedavide_yapilan(o, tedavi, [])[0]
 
 
-def _tedavide_yapilan(o, t, p1) -> tuple:
+def tedavi_adayi(o: str, t: str) -> str:
+    """Olayın örneği `t` tedavisinin bir örneği mi -- `tedavide_yapilan()`'ın
+    aday süzgeci, SQL koşulu (v6.239'da ayrıldı): tedavinin kendi örnekleri ile
+    bu tedavi için çözülenler. `t` koddan gelen bir ifade (`?` ya da bir kolon);
+    göç çalışmamışsa yalnızca kendi örnekleri. Tüm veri dökümü
+    (`disari.tedavi_sayilari()`) bütün tedavileri tek geçişte sayarken soruyor --
+    kural tek yerde kalsın diye."""
     adaylar = f"{o}.specimen_id IN (SELECT id FROM specimen WHERE cycle_id = {t})"
-    p = list(p1)
     if kolon_var("olay", "thaw_cycle_id"):
         adaylar = (f"({adaylar} OR {o}.specimen_id IN (SELECT tc.specimen_id "
                    "FROM olay tc WHERE tc.tip = 'thaw' AND tc.iptal_mi = 0 "
                    f"AND tc.thaw_cycle_id = {t}))")
-        p += p1
-    return f"{adaylar} AND {olay_tedavisi(o)} = {t}", p + p1
+    return adaylar
+
+
+def _tedavide_yapilan(o, t, p1) -> tuple:
+    # `t` aday süzgecinde iki kez (göç yoksa bir kez), karşılaştırmada bir kez
+    # geçiyor; `?` ise her biri için bir parametre.
+    n = 3 if kolon_var("olay", "thaw_cycle_id") else 2
+    return (f"{tedavi_adayi(o, t)} AND {olay_tedavisi(o)} = {t}",
+            list(p1) * n)
 
 
 def bu_tedavide(cycle_id: int, o: str = "o") -> str:

@@ -1373,9 +1373,35 @@ Yılı 1900'den küçük tarih **metin** yazılır: bozuk `0026-09-04` kaydı
   beri her gün 14:00'te Cryo haritası klasörüne de yazılıyor (`oto_yedek.py`,
   aşağıdaki "Cryo Haritası değişince yedek" bölümü): ağdan verilmiyor,
   yöneticinin seçtiği klasöre. O dosyayı bir rotadan sunma.
-- **Dökümde şifre ve oturum anahtarı yok.** `oturum`/`yetki` hiç çıkmıyor,
-  `kullanici`'dan yalnızca `KULLANICI_KOLONLARI`. Yeni bir tabloya gizli bir
-  alan eklersen `disari.TUM_TABLOLAR`'ı gözden geçir.
+- **"Tüm veri" tedavilerin kendisi, tablo dökümü değil** (v6.239, README
+  v6.239; kullanıcı: "tüm veriyi excel'e aktar butonuna basınca bütün
+  tedavileri excel'e aktarsın; FETler, yumurta dondurmalar, ve çözmeler,
+  IVF/ICSI ler. Cryo haritayı içine eklemesin"). `disari.tumu_sayfalari()`:
+  tedavi türü başına bir sayfa (`TUM_SAYFALAR`: IVF-ICSI, FET + FET (3→5),
+  Yumurta Dondurma, Yumurta Çözme; listede olmayan tip kendi adıyla ayrı
+  sayfaya), satır başına bir tedavi; sonda "Yumurta ve embriyolar" (tedavi
+  dökümünün örnek satırı, `_ornek_satirlari()`). v6.238'e kadar tabloların
+  ham dökümüydü (`TUM_TABLOLAR`, kalktı).
+  - **Cryo Haritası yok**: tankta yer, taşıyıcı / konum / Excel kaydı
+    tabloları, sperm dondurma (Cryo Haritası'nın modülü). Tüp etiketi var
+    (dondurma kaydının parçası). Şifre, oturum, kullanıcı tablosu hiç
+    okunmuyor. Kullanıcı ham döküm ya da sperm isterse sor, kendiliğinden
+    geri koyma.
+  - **Sütun tipin aşamalarından** (`TUM_SUTUNLAR`, koşul `_asamada()`):
+    sayfada, tiplerinden birinin aşaması varsa; hücrede, satırın KENDİ
+    tipinin aşaması varsa (düz FET'in Blastokist'i boş, `cycle_ozet()`'in
+    kuralı). Yeni bir tedavi alanı eklersen `TUM_SUTUNLAR`'a ve
+    `_tum_veri()`'ye ekle.
+  - **Her bilgi bütün tedaviler için tek sorguda** (`tedavi_sayilari()`,
+    `formlar.tedavilerin_dondurma_tupleri()` / `tedavilerin_cozulenleri()` /
+    `tedavilerin_transfer_edilenleri()`), blok `db.ortak_baglanti()` içinde.
+    Tedavi tedavi sorgu YAZMA: `COALESCE(...)` koşulları dizin kullanamıyor,
+    her tedavide olay tablosunun tamamı taranır (deneme kopyasında yarım
+    dakikadan 2,7 sn'ye indi).
+  - Değer programın başka yerdeki kuralıyla: sayılar ay listesinin
+    (`tedavi_sayilari()`), tüpler formların (`tup_metni()`), transfer edilen
+    ART Lab'ın "Uterus grade"i (`_transfer_satirlari()`). İkinci bir yazım
+    kurma.
 - Yeni bir çıktı eklersen sorguyu `disari.py`'ye yaz, rotayı `app.py`'ye:
   bütün rotalar orada duruyor.
 - Ay listesinde **çözme ve transfer tedavinin yapıldığı cycle'a** yazılır
@@ -1746,8 +1772,8 @@ yükleyip programdaki verilerle doldurup basıyor.
   diye; yükleme listesi de ayrıca uyarıyor. Boş basma.
 - **Kalıp veritabanında** (`lab_formu.kalip`, JSON metin), logosu da içinde
   base64. `lab.db` USB ile taşınan tek dosya; kalıp diskte ayrı dursaydı
-  taşınırken unutulurdu. Aynı sebeple `/disari/tumu` dökümüne **girmiyor** —
-  `TUM_TABLOLAR`'a `lab_formu` ekleme: klinik kayıt değil ve tek Excel
+  taşınırken unutulurdu. `/disari/tumu` dökümünde yok (v6.239'dan beri döküm
+  tedavilerin kendisi, tablo dökümü değil): klinik kayıt değil ve tek Excel
   hücresine sığmaz (sınır 32767 karakter).
 - **Yükleme/gizleme/silme yalnızca yönetici** (`yonetici_kontrol`); **basmak
   serbest**, gömülü formlarla aynı. Rotalar `kaldir`/`gizle` diye adlandırıldı:
@@ -2524,7 +2550,8 @@ dakikada bir.
 - **Saklama** `yedek.silinecek_yedekler()`: 24 saatin hepsi, 14 güne kadar her
   günün sonuncusu, daha eskide her ayın ilki; `lab_ONCEKI_*`'ye ve kalıp dışı
   ada dokunma. Yedek geçici dosyaya yazılıp doğrulanınca adını alıyor.
-- **"Tüm veriler"**: `disari.tumu_sayfalari()` -> `harita_excel.klasor()` /
+- **"Tüm veriler"**: `disari.tumu_sayfalari()` (v6.239'dan beri tedavi türü
+  başına sayfalar, Cryo Haritası'sız) -> `harita_excel.klasor()` /
   `Tum_Veriler_YYYY-AA-GG.xlsx`, 30 gün; bugünkü varsa yazılmaz, 14:00'te
   kapalıysa o gün açılınca. Bütün hasta kayıtları: klasörü yönetici seçiyor,
   ekranlar söylüyor. "Cryo haritanın yedeklendiği dosya" Cryo haritası klasörü
@@ -3665,7 +3692,8 @@ yedi yer tek tek yazılı.
   eski kalıyor, saati güncelleniyor.
 - "Bu tedavide yapılan olaylar" koşulu `db.tedavide_yapilan(cid)` →
   `(kosul, parametreler)`. Adaylar tedavinin kendi örnekleri ile bu tedavi
-  için çözülenler.
+  için çözülenler (`db.tedavi_adayi()`, v6.239: bütün tedavileri tek geçişte
+  sayan `disari.tedavi_sayilari()` da soruyor).
 - Zaman çizelgesi (ART Lab'ın İŞLEM saatleri ve yüklenen formların
   `{{saat_*}}` etiketleri de oradan) ve özet kutusu bu koşulu kullanıyor.
   Tedavi başına bir işlemi soran yeni bir sayım/saat yazarsan `s.cycle_id`
@@ -3678,8 +3706,10 @@ yedi yer tek tek yazılı.
     satırları `formlar.yumurta_kosulu()`: kendi örnekleri, Yumurta Çözme'de
     çözülen yumurtalar (`db.cozulen_yumurta_islenir()`); `fet`/`fet_kultur`'un
     ızgarası değişmedi. Özet formunun "Toplanan"ı FET tiplerinde boş.
-  - ay listesinin M2'den blastokiste sayıları (`db.tedavide_yapilan_ifade("c.id")`,
-    bağıntılı alt sorgu hali); FET tiplerinde "Toplam yumurta/Sağ/Sol" boş.
+  - ay listesinin M2'den blastokiste sayıları (v6.239'dan beri bütün
+    tedaviler tek geçişte, `disari.tedavi_sayilari()`: `db.olay_tedavisi()` +
+    aday süzgeci `db.tedavi_adayi()`; tanımlar `ASAMA_SAYILARI`, tüm veri
+    dökümüyle ortak); FET tiplerinde "Toplam yumurta/Sağ/Sol" boş.
   - **Tedavinin Excel dökümü bilerek değil**: bir geçmiş, hücreleri örneğin
     son kaydı; FET tiplerinde yalnızca satırlara bu tedavi için çözülenler
     eklendi. İstatistik ekranı da örneğin kendi tedavisinin ayına yazıyor
@@ -3748,6 +3778,11 @@ Veritabanı **göreli** yol saklar — tam yol yazma, makine değişince bulunam
 NFC farkı, Windows'un yasak karakterleri ve ayrılmış adları (`CON`, `NUL`)
 yüzünden klasör USB ile taşınınca yollar bozulabilir. Hasta **adı** klasör
 adında yok, sadece dosya no — ad değişse bile yol bozulmasın diye (README v6.4).
+
+**Binlerce küçük sorgu atan salt okunur toplu iş `db.ortak_baglanti()` ile**
+(v6.239): blokta `db.sorgu()` / `db.tek()` tek bağlantıyı paylaşıyor. Her
+sorgunun kendi bağlantısını açması ~0,6 ms, küçük bir sorgunun kendisi
+~0,003 ms (ölçüldü). Yazma yolları etkilenmez. Bugün Tüm veri dökümü.
 
 **Numara üretirken `db.yazma_islemi()` kullan.** "En yüksek numarayı oku →
 artır → kaydet" iki kullanıcıda aynı numarayı üretir; `BEGIN IMMEDIATE` bunu
@@ -4115,8 +4150,8 @@ kez `betik()`); yeni bir hekim alanı onu çağırsın.
 - **Formlar ve ay listesi transfer hekimini yalnızca bu tedavide transfer
   varsa basıyor** (`formlar._transfer_hekimi()`, `disari._transfer_hekimi()`):
   transfer geri alınınca ad silinmiyor, ama transferi olmayan tedavinin resmî
-  formuna "transferi yapan hekim" yazılmaz. Tedavinin dökümü ve Tüm veriler
-  kaydın kendisi. Özet'in OPU/TRANSFER KLİNİSYEN'i ve ART Lab'ın OPU/ET
+  formuna "transferi yapan hekim" yazılmaz; Tüm veri de (v6.239). Tedavinin
+  dökümü kaydın kendisi. Özet'in OPU/TRANSFER KLİNİSYEN'i ve ART Lab'ın OPU/ET
   kutuları küçülerek sığıyor (`OZET_SIGDIR_HUCRELER`,
   `ARTLAB_SIGDIR_HUCRELER`).
 - Access'ten: yeni aktarım yazıyor, aktarılmış tedaviler `transfer_hekim`
@@ -4366,8 +4401,9 @@ paralel ama ayrı birer yol açıldı.
     Yeni bir `sperm_dondurma_id`-referanslı tablo eklersen üçünü de
     (`hasta_sil()`, `teshis_silme.py`, ileride bir `sperm_dondurma_sil()`
     kalıcı silme yolu açılırsa onu da) güncelle.
-  - `disari.TUM_TABLOLAR`'a eklendi (`goruntu` gibi — `lab_formu` gibi
-    büyük blob içermiyor, dökümden çıkarılmasına gerek yok).
+  - v6.238'e kadar `disari.TUM_TABLOLAR`'daydı; v6.239'dan beri Tüm veri
+    tedavilerin dökümü, sperm dondurma (Cryo Haritası'nın modülü) içinde
+    değil.
 
 ---
 

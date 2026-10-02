@@ -18883,3 +18883,103 @@ Yeniden başlatılmazsa liste eskisi gibi "fotoğrafsız" görünür, hata verme
   açılıyor.
 - Yeni şablon + eski kod (yeniden başlatılmamış program): çözme listesi ve
   transfer ekranı hatasız, liste eskisi gibi.
+
+# v6.239 — Tüm veri Excel'i: bütün tedaviler, türüne göre
+
+Kullanıcı: "Yönetici kısmında tüm veriyi excel'e aktar butonuna basınca
+bütün tedavileri excel'e aktarsın; FETler, yumurta dondurmalar, ve çözmeler,
+IVF/ICSI ler. Cryo haritayı içine eklemesin."
+
+## Önce
+
+- "Tüm veriyi Excel'e aktar" (`/disari/tumu`) veritabanının ham dökümüydü:
+  tablo başına bir sayfa (23 sayfa), kolon adları ve kodlar (`ivf_icsi`,
+  `mii`, `canli`). Tedaviler yalnızca ham "cycle" sayfasında, sayılar,
+  dondurulanlar, çözülenler, transfer ve gebelik ayrı ayrı tablolarda
+  kimliklerle. Cryo Haritası'nın tabloları da içindeydi: taşıyıcılar, tank /
+  kanister / goblet düzeni, Excel kayıtları.
+- Her gün 14:00'te Cryo haritası klasörüne yazılan "Tüm veriler" dosyası
+  (v6.216) aynı dökümdü.
+
+## Bugün
+
+- Tedavi türü başına bir sayfa, satır başına bir tedavi, etiketler ekrandaki
+  gibi: **IVF-ICSI**, **FET** (FET ve FET (3→5) birlikte, "Tip" sütunu
+  ayırıyor), **Yumurta Dondurma**, **Yumurta Çözme**. Sonda **Yumurta ve
+  embriyolar**: örnek başına bir satır, tedavinin Excel dökümündeki örnek
+  satırının aynısı (maturasyon, ICSI, döllenme, gün 2/3, blastokist,
+  dondurma, çözme, transfer), önünde hastası ve tedavisi; dondurmanın,
+  çözmenin ve transferin yapıldığı tedavi de yazılı.
+- Her sayfanın sütunları o türün aşamalarından (`db.TIP_ASAMALARI`): kimlik
+  (dosya no, ad, doğum tarihi, eşi, tedavi no, kaçıncı tedavi, tedavinin
+  günü, o günkü yaş, endikasyon); yumurta toplanan türde stimülasyon ve OPU
+  (OPU'da girilen "Toplanan" ile programdaki "Kayıtlı yumurta" ayrı, v6.112);
+  çözme (zaman, sayı, tüpler, sağkalım, kaynak tedavi); androloji;
+  laboratuvar sayıları; dondurma (sayı, tüp, tüpler "(3AA) (4AB)", gün);
+  transfer (sayı, zaman, transfer edilen "3AA x2 · %90-%85", hekim); gebelik
+  (beta hCG değerleri, klinik gebelik, kese sayısı, fetal kalp atımı,
+  sonlanma, doğum, bebekler); PGT; bulaş hastalığı; işlemi yapanlar; durum ve
+  protokol notu. Endometrium transferi olan türde.
+- Hücre satırın kendi türüne göre: FET sayfasının "Blastokist"i FET (3→5)
+  için, düz FET'in satırında boş (tedavi ekranının özet kutusu gibi; "0"
+  ölçülmemişi ölçülmüş gösterirdi).
+- Değerler programın başka yerdeki kuralıyla: sayılar ay listesinin, tüpler
+  ve çözülenler resmî formların, transfer edilen ART Lab'ın "Uterus grade"i.
+- **Cryo Haritası yok**: tankta yer, taşıyıcı ve Excel kaydı tabloları,
+  sperm dondurma (Cryo Haritası'nın modülü). Tüp etiketi var (dondurma
+  kaydının parçası, tüpün üstünde yazan). Şifre, oturum ve kullanıcı tablosu
+  zaten okunmuyor.
+- 14:00'teki "Tüm veriler" dosyası da bu içerikte (aynı işlev).
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmazsa düğme eski ham dökümü verir, hata vermez.
+
+## Hız
+
+Bütün tedavileri tedavi tedavi saymak yavaştı: ay listesinin sayım sorguları
+(dondurma, çözme, transfer) dizin kullanamıyor, her tedavide olay tablosunun
+tamamı taranıyordu -- deneme kopyasında 1.909 tedavi yarım dakika, çözülen
+embriyoların tüp / kalite sorguları da bir o kadar. Döküm her bilgiyi bütün
+tedaviler için tek sorguda okuyor:
+
+- `disari.tedavi_sayilari()`: ay listesinin sayıları tek geçişte (olayın
+  yapıldığı tedavi `db.olay_tedavisi()`, aday süzgeci yeni
+  `db.tedavi_adayi()` -- `tedavide_yapilan()`'ın parçası, kural yine tek
+  yerde). Ay listesi de artık bunu kullanıyor: sayıların tanımı
+  (`ASAMA_SAYILARI`, `_islem_tedavileri()`) tek yerde, 67 ayın listesi 31 sn
+  yerine 12 sn.
+- `formlar.tedavilerin_dondurma_tupleri()`, `tedavilerin_cozulenleri()`,
+  `tedavilerin_transfer_edilenleri()`: resmî formların `dondurma_tupleri()`,
+  `cozulen_ornekler()`, `_transfer_edilenler()`'inin bütün tedaviler hali,
+  aynı satır sorgusu ve aynı öğe kurucusu.
+- `db.ortak_baglanti()`: blokta `sorgu()` / `tek()` tek bağlantıyı paylaşıyor.
+  Her sorgunun kendi bağlantısını açması sorgu başına ~0,6 ms (küçük bir
+  sorgunun kendisi ~0,003 ms); çözülen embriyonun tüpünü, kalitesini soran
+  binlerce küçük sorgu yalnızca bağlantı açmaya 4 sn harcıyordu.
+
+Deneme kopyasında döküm 2,7 sn (eski ham döküm 4,1 sn), dosya 1,2 MB
+(3,3 MB).
+
+İki küçük sıra düzeltmesi: dondurulan ve transfer edilen örneklerin sırası
+eşitlikte (aynı tüpte ya da aynı FET'te iki kaynak tedavinin aynı numaralı
+embriyosu) kayıt sırasıyla -- önce belirsizdi. Deneme kopyasında hiçbir form
+değişmedi.
+
+## Deneme
+
+Kullanıcının veritabanının deneme kopyasında (1.909 tedavi, 11.666 örnek)
+eski ve yeni kodla:
+
+- 67 ayın ay listesi birebir aynı; toplu sayımın sayıları 1.909 tedavinin
+  hepsinde ay listesininkiyle aynı.
+- 1.909 tedavinin Embriyoloji Özet ve ART Lab verisi birebir aynı; tedavi
+  Excel dökümleri birebir aynı; 1.890 tüpün içeriği (Cryo Haritası, Excel
+  haritası) birebir aynı.
+- Dökümde her tedavi bir kez (1.909); örnek sayfasının satırları tedavi
+  dökümlerinin örnek satırlarıyla aynı (Konum hariç, 12.124 satır).
+- Dosya Excel okuyucusunda (openpyxl, uyarılar hata sayılarak) açılıyor:
+  tarihler tarih, sayılar sayı, başlık satırı sabit, süzgeç açık.
+- Sentetik veritabanında stimülasyon, androloji, genel bulgular, PGT
+  biyopsisi, bulaş, beta hCG, gebelik ve iki bebekli bir tedavi: sütunların
+  hepsi doğru yazılıyor. Yönetici düğmesi dosyayı indiriyor
+  (`tum_veri_<gün>.xlsx`), 14:00'teki yazım iş parçacığında da çalışıyor.

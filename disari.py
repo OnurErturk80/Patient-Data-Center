@@ -8,7 +8,8 @@ Dört çıktı:
   - `ay_sayfalari(ay)`       — o ayın cycle'ları, satır başına bir cycle
   - `cycle_sayfalari(id)`    — bir cycle'ın tamamı, satır başına bir örnek
   - `cryo_sayfalari()`       — tankların dökümü, satır başına bir örnek
-  - `tumu_sayfalari()`       — tabloların ham dökümü, tablo başına bir sayfa
+  - `tumu_sayfalari()`       — bütün tedaviler, tedavi türü başına bir sayfa
+                               (v6.239; v6.238'e kadar tabloların ham dökümü)
 
 Hepsi `excel.kitap()`'ın beklediği `[(ad, başlıklar, satırlar), ...]` biçimini
 döndürüyor.
@@ -18,13 +19,14 @@ yönetici düzenleyebiliyor (`liste_degeri`); ekranda olduğu gibi Excel'de de
 etiketleri görünmeli. Etiketler tek sorguda okunup sözlüğe alınıyor — satır
 başına sorgu atmak 40 oositlik bir cycle'da 400 sorgu demek olurdu.
 
-**"Tüm veri" dökümünde şifre ve oturum anahtarı yok.** `kullanici` tablosundan
-yalnızca kimlik alanları alınıyor (`kullanici_id` kolonlarını okumak için
-lazım), `sifre_hash` ve `oturum` tablosu hiç çıkmıyor. Dosya klinik dışına
-çıkabilir; bu bilinçli.
+**"Tüm veri" dökümünde şifre, oturum ve Cryo Haritası yok.** v6.239'dan beri
+döküm tedavilerin kendisi (tedavi türü başına bir sayfa); kullanıcı tablosu,
+oturumlar ve tankların düzeni hiç okunmuyor. Dosya bütün hasta adlarını
+içeriyor ve klinik dışına çıkabilir; bu bilinçli.
 """
 
 import db
+import formlar
 import metinler
 # Örnek başına alt sorgu kuran iki parça `formlar.py`'de duruyor: resmî
 # formlar da aynı sorguları kuruyor, iki kopya birbirinden ayrı düşerdi.
@@ -111,6 +113,67 @@ AY_BASLIK = [
 ]
 
 
+# Tedavi başına aşama sayıları (v6.239'da tek yere alındı): ad -> olayın
+# koşulu (olay takma adı `o`). Sayılan, bu tedavide YAPILAN işlem
+# (`db.olay_tedavisi()` + `db.tedavi_adayi()`, `tedavide_yapilan()`'ın
+# kuralı). Ay listesi de tüm veri dökümü de `tedavi_sayilari()`'nden okuyor.
+ASAMA_SAYILARI = (
+    ("mii", "o.tip = 'maturasyon_kontrolu' AND o.mat_deger = 'mii'"),
+    ("icsi", "o.tip = 'icsi'"),
+    ("ikipn", "o.tip = 'fertilizasyon_kontrolu' AND o.fert_pn_sayisi = '2'"),
+    ("gun2", "o.tip = 'cleavage_degerlendirme' AND o.gun = 2"),
+    ("gun3", "o.tip = 'cleavage_degerlendirme' AND o.gun = 3"),
+    ("blast", "o.tip = 'blastokist_degerlendirme'"),
+)
+
+
+def _islem_tedavileri():
+    """Dondurma, çözme ve transfer sayıları: `(ad, olay tipi, işlemin
+    tedavisi)` -- SQL ifadesi, olay `o`, örnek `s`. Çözme ve transfer
+    tedavinin yapıldığı cycle'a (`thaw_cycle_id` / `tr_cycle_id`), dondurma
+    yapıldığı tedaviye (`db.vit_tedavisi()`, v6.143). İşlev: göç sorusu her
+    çağrıda (tuzak #15)."""
+    return (("donan", "vitrifikasyon", db.vit_tedavisi("o")),
+            ("cozulen", "thaw", "COALESCE(o.thaw_cycle_id, s.cycle_id)"),
+            ("transfer", "transfer", "COALESCE(o.tr_cycle_id, s.cycle_id)"))
+
+
+def tedavi_sayilari(b) -> dict:
+    """Tedavi başına sayılar, bütün tedaviler için tek geçişte (v6.239):
+    `{tedavi id: {ad: sayı, ...}}`; listede olmayan sayı sıfır. Çözme ve
+    transferin ilk anı da (`cozulen_ilk`, `transfer_ilk`).
+
+    v6.238'e kadar ay listesi her tedaviyi kendi alt sorgularıyla sayıyordu:
+    dondurma, çözme ve transfer koşulu (`COALESCE`) dizin kullanamıyor, her
+    tedavide olay tablosunun tamamı taranıyordu -- bir ayın listesi deneme
+    kopyasında yarım saniye, bütün tedaviler yarım dakika. Tek geçiş bütün
+    tedavileri 0,2 sn'de sayıyor; sayılar birebir aynı (denendi: 67 ay, 1.909
+    tedavi). `b`: açık bağlantı."""
+    sayilar = {}
+    secim = ", ".join(f"({kosul}) AS k{i}"
+                      for i, (_, kosul) in enumerate(ASAMA_SAYILARI))
+    herhangi = " OR ".join(f"({kosul})" for _, kosul in ASAMA_SAYILARI)
+    say = ", ".join(f"COUNT(DISTINCT CASE WHEN x.k{i} THEN x.specimen_id END) AS {ad}"
+                    for i, (ad, _) in enumerate(ASAMA_SAYILARI))
+    for r in b.execute(
+            f"SELECT x.tedavi, {say} FROM "
+            f"(SELECT o.specimen_id, {db.olay_tedavisi('o')} AS tedavi, {secim} "
+            f"   FROM olay o WHERE o.iptal_mi = 0 AND ({herhangi})) x "
+            f"WHERE {db.tedavi_adayi('x', 'x.tedavi')} "
+            "GROUP BY x.tedavi"):
+        sayilar.setdefault(r["tedavi"], {}).update(
+            {ad: r[ad] for ad, _ in ASAMA_SAYILARI})
+    for ad, tip, ifade in _islem_tedavileri():
+        for r in b.execute(
+                f"SELECT {ifade} AS tedavi, COUNT(DISTINCT o.specimen_id) AS n, "
+                "MIN(o.zaman) AS ilk FROM olay o "
+                "JOIN specimen s ON s.id = o.specimen_id "
+                "WHERE o.iptal_mi = 0 AND o.tip = ? GROUP BY 1", (tip,)):
+            sayilar.setdefault(r["tedavi"], {}).update(
+                {ad: r["n"], f"{ad}_ilk": r["ilk"]})
+    return sayilar
+
+
 def ay_sayfalari(ay: str, baslik: str):
     """O ay işlem yapılan cycle'lar, satır başına bir cycle.
 
@@ -126,9 +189,10 @@ def ay_sayfalari(ay: str, baslik: str):
     sayıları da v6.147'den beri işlemin yapıldığı tedaviden**
     (`db.tedavide_yapilan_ifade()`, tedavi ekranının özet kutusuyla aynı
     koşul): Yumurta Çözme'de çözülen yumurtanın ICSI'si o satıra yazılır,
-    yumurtanın toplandığı Yumurta Dondurma'nınkine değil.
+    yumurtanın toplandığı Yumurta Dondurma'nınkine değil. Tanımlar
+    `ASAMA_SAYILARI` ve `_islem_tedavileri()`'nde (v6.239): tüm veri dökümü
+    aynı sayıları bütün tedaviler için sayıyor.
     """
-    bu = db.tedavide_yapilan_ifade("c.id")
     # FET tiplerinde yumurta toplanmıyor: "Yumurta" sütunu boş (v6.147). Program
     # öncesi aktarılan FET'in embriyoları FET'in kendi altında (v6.130);
     # sayılsaydı çözülen embriyolar toplanan yumurta gibi görünürdü --
@@ -141,58 +205,33 @@ def ay_sayfalari(ay: str, baslik: str):
              else "NULL AS bitis_sebebi, NULL AS bitis_zamani")
     plan = "c.planlanan_tarih" if plan_var else "NULL AS planlanan_tarih"
 
-    satirlar = db.sorgu(
-        f"""
-        SELECT c.*, {bitis}, {plan},
-               h.dosya_no, h.ad_soyad, h.durum AS hasta_durum,
-               CASE WHEN {fet} THEN NULL ELSE
-               (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id) END AS oosit,
-               CASE WHEN {fet} THEN NULL ELSE
-               (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id
-                 AND s.taraf = 'sag') END AS sag,
-               CASE WHEN {fet} THEN NULL ELSE
-               (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id
-                 AND s.taraf = 'sol') END AS sol,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                WHERE {bu} AND o.iptal_mi = 0
-                  AND o.tip = 'maturasyon_kontrolu' AND o.mat_deger = 'mii') AS mii,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                WHERE {bu} AND o.iptal_mi = 0
-                  AND o.tip = 'icsi') AS icsi,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                WHERE {bu} AND o.iptal_mi = 0
-                  AND o.tip = 'fertilizasyon_kontrolu'
-                  AND o.fert_pn_sayisi = '2') AS ikipn,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                WHERE {bu} AND o.iptal_mi = 0
-                  AND o.tip = 'cleavage_degerlendirme' AND o.gun = 2) AS gun2,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                WHERE {bu} AND o.iptal_mi = 0
-                  AND o.tip = 'cleavage_degerlendirme' AND o.gun = 3) AS gun3,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                WHERE {bu} AND o.iptal_mi = 0
-                  AND o.tip = 'blastokist_degerlendirme') AS blast,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE {db.vit_tedavisi('o')} = c.id AND o.iptal_mi = 0
-                  AND o.tip = 'vitrifikasyon') AS donan,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE o.iptal_mi = 0 AND o.tip = 'thaw'
-                  AND COALESCE(o.thaw_cycle_id, s.cycle_id) = c.id) AS cozulen,
-               (SELECT COUNT(DISTINCT o.specimen_id) FROM olay o
-                 JOIN specimen s ON s.id = o.specimen_id
-                WHERE o.iptal_mi = 0 AND o.tip = 'transfer'
-                  AND COALESCE(o.tr_cycle_id, s.cycle_id) = c.id) AS transfer
-          FROM cycle c JOIN hasta h ON h.id = c.hasta_id
-         WHERE c.lab_id = ?
-           AND strftime('%Y-%m', COALESCE(c.opu_zamani, c.olusturma_zamani)) = ?
-         ORDER BY COALESCE(c.opu_zamani, c.olusturma_zamani), h.dosya_no
-        """,
-        (db.LAB_ID, ay))
+    b = db.baglan()
+    try:
+        satirlar = b.execute(
+            f"""
+            SELECT c.*, {bitis}, {plan},
+                   h.dosya_no, h.ad_soyad, h.durum AS hasta_durum,
+                   CASE WHEN {fet} THEN NULL ELSE
+                   (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id) END AS oosit,
+                   CASE WHEN {fet} THEN NULL ELSE
+                   (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id
+                     AND s.taraf = 'sag') END AS sag,
+                   CASE WHEN {fet} THEN NULL ELSE
+                   (SELECT COUNT(*) FROM specimen s WHERE s.cycle_id = c.id
+                     AND s.taraf = 'sol') END AS sol
+              FROM cycle c JOIN hasta h ON h.id = c.hasta_id
+             WHERE c.lab_id = ?
+               AND strftime('%Y-%m', COALESCE(c.opu_zamani, c.olusturma_zamani)) = ?
+             ORDER BY COALESCE(c.opu_zamani, c.olusturma_zamani), h.dosya_no
+            """,
+            (db.LAB_ID, ay)).fetchall()
+        sayilar = tedavi_sayilari(b) if satirlar else {}
+    finally:
+        b.close()
 
     cikti = []
     for c in satirlar:
+        n = sayilar.get(c["id"], {})
         cikti.append([
             c["dosya_no"], c["ad_soyad"], c["cycle_no"], c["hasta_cycle_no"],
             _tip(c["cycle_tipi"]),
@@ -204,8 +243,9 @@ def ay_sayfalari(ay: str, baslik: str):
             c["amh"], c["afc"], c["folikul_sayisi"], c["endometrium_mm"],
             c["opu_zamani"], c["opu_hekim"],
             c["oosit"], c["sag"], c["sol"],
-            c["mii"], c["icsi"], c["ikipn"], c["gun2"], c["gun3"], c["blast"],
-            c["donan"], c["cozulen"], c["transfer"], _transfer_hekimi(c, c["transfer"]),
+            *(n.get(ad, 0) for ad in ("mii", "icsi", "ikipn", "gun2", "gun3",
+                                      "blast", "donan", "cozulen", "transfer")),
+            _transfer_hekimi(c, n.get("transfer", 0)),
             _durum(c["durum"]), _bitis(c["bitis_sebebi"]), c["bitis_zamani"],
             c["planlanan_tarih"],
             metinler.t("arsiv") if c["hasta_durum"] == "arsiv" else None,
@@ -300,9 +340,43 @@ def cycle_sayfalari(cycle_id: int):
     fet = c["cycle_tipi"] in db.FET_TIPLERI
     satir_kosulu = (f"({db.tedavi_ornekleri(c['cycle_tipi'])} OR s.cycle_id = ?)"
                     if fet else "s.cycle_id = ?")
-    ornekler = db.sorgu(
+    ornekler = _ornek_satirlari(satir_kosulu,
+                                (cycle_id, cycle_id) if fet else (cycle_id,))
+    tasiyicilar = _tasiyicilar()
+
+    satirlar = []
+    for o in ornekler:
+        etiket, konum = tasiyicilar.get(o["vit_tasiyici"], (None, None))
+        satirlar.append(_ornek_degerleri(o, f"{c['dosya_no']}-{o['id']}", h,
+                                         etiket, konum=konum))
+
+    ad = f"{c['dosya_no']}-{c['cycle_no']}"
+    return ad, [("Cycle bilgisi", ["Alan", "Değer"],
+                 [[a, d] for a, d in bilgi]),
+                ("Örnekler", ORNEK_BASLIK, satirlar)]
+
+
+def _tasiyicilar() -> dict:
+    """Taşıyıcı etiketi ve konumu: örnek başına sorgu atmak yerine tek okuma."""
+    return {r["id"]: (r["etiket"], r["tam_yol"]) for r in db.sorgu(
+        "SELECT t.id, t.etiket, k.tam_yol FROM tasiyici t "
+        "LEFT JOIN konum k ON k.id = t.konum_id WHERE t.lab_id = ?",
+        (db.LAB_ID,))}
+
+
+def _ornek_satirlari(kosul: str, parametre=()):
+    """Örnek başına bir satır, her aşamanın son kaydıyla (alt sorgular).
+
+    Tedavinin dökümü (`cycle_sayfalari()`) ve tüm veri dökümünün "Yumurta ve
+    embriyolar" sayfası (v6.239) aynı sorgudan -- iki kopya birbirinden ayrı
+    düşerdi. `kosul`: örnek tablosu `s` üzerinde, koddan gelir. Dondurmanın,
+    çözmenin ve transferin YAPILDIĞI tedavi de (`vit_tedavi`, `thaw_tedavi`,
+    `tr_tedavi`): FET'te çözülüp transfer edilen embriyo hangi tedavide.
+    """
+    vit = "(" + db.vit_tedavisi("x") + ")"
+    return db.sorgu(
         f"""
-        SELECT s.id, s.cycle_sira_no, s.taraf, s.durum,
+        SELECT s.id, s.cycle_id, s.cycle_sira_no, s.taraf, s.durum,
                {_son_alt('mat_deger', 'maturasyon_kontrolu')} AS mat,
                {_son_alt('zaman', 'maturasyon_kontrolu')} AS mat_zaman,
                {_son_alt('icsi_sonuc', 'icsi')} AS icsi,
@@ -328,51 +402,53 @@ def cycle_sayfalari(cycle_id: int):
                {_son_alt('bl_skor', 'blastokist_degerlendirme', 'x.gun DESC')} AS bl_skor,
                {_son_alt('zaman', 'vitrifikasyon')} AS vit_zaman,
                {_son_alt('vit_tasiyici_id', 'vitrifikasyon')} AS vit_tasiyici,
+               {_son_alt(vit, 'vitrifikasyon')} AS vit_tedavi,
                {_son_alt('zaman', 'thaw')} AS thaw_zaman,
+               {_son_alt('(COALESCE(x.thaw_cycle_id, s.cycle_id))', 'thaw')} AS thaw_tedavi,
                {_son_alt('thaw_sagkalim', 'thaw')} AS sagkalim,
                {_son_alt('thaw_re_expansion', 'thaw')} AS re_exp,
                {_son_alt('zaman', 'transfer')} AS tr_zaman,
+               {_son_alt('(COALESCE(x.tr_cycle_id, s.cycle_id))', 'transfer')} AS tr_tedavi,
                {_son_alt('tr_tipi', 'transfer')} AS tr_tipi,
                (SELECT group_concat(x.notlar, ' | ') FROM olay x
                  WHERE x.specimen_id = s.id AND x.iptal_mi = 0
                    AND x.notlar IS NOT NULL AND x.notlar <> '') AS notlar
-          FROM specimen s WHERE {satir_kosulu}
+          FROM specimen s WHERE {kosul}
           ORDER BY s.cycle_id, s.cycle_sira_no
-        """,
-        (cycle_id, cycle_id) if fet else (cycle_id,))
+        """, parametre)
 
-    # Taşıyıcı etiketi ve konumu: örnek başına sorgu atmak yerine tek okuma.
-    tasiyicilar = {r["id"]: (r["etiket"], r["tam_yol"]) for r in db.sorgu(
-        "SELECT t.id, t.etiket, k.tam_yol FROM tasiyici t "
-        "LEFT JOIN konum k ON k.id = t.konum_id WHERE t.lab_id = ?",
-        (db.LAB_ID,))}
 
-    satirlar = []
-    for o in ornekler:
-        etiket, konum = tasiyicilar.get(o["vit_tasiyici"], (None, None))
-        satirlar.append([
-            f"{c['dosya_no']}-{o['id']}", o["cycle_sira_no"],
-            _taraf(o["taraf"]),
-            _et(h, "maturasyon", o["mat"]), o["mat_zaman"],
-            _et(h, "icsi_sonuc", o["icsi"]),
-            _et(h, "gecis_zorlugu", o["zorluk"]), o["icsi_zaman"],
-            _et(h, "fert_sonuc", o["fert"]), _et(h, "pn_sayisi", o["pn"]),
-            _et(h, "pn_skoru", o["pn_skor"]), o["fert_zaman"],
-            o["g2_hucre"], _et(h, "simetri", o["g2_sim"]), o["g2_frag"], o["g2_skor"],
-            o["g3_hucre"], _et(h, "simetri", o["g3_sim"]), o["g3_frag"], o["g3_skor"],
-            o["bl_gun"], _et(h, "bl_genisleme", o["bl_gen"]),
-            _et(h, "bl_icm", o["bl_icm"]), _et(h, "bl_te", o["bl_te"]),
-            _et(h, "bl_derece", o["bl_der"]), o["bl_skor"],
-            o["vit_zaman"], etiket, konum,
-            o["thaw_zaman"], _et(h, "thaw_sagkalim", o["sagkalim"]), o["re_exp"],
-            o["tr_zaman"], o["tr_tipi"],
-            _ornek_durum(o["durum"]), o["notlar"],
-        ])
-
-    ad = f"{c['dosya_no']}-{c['cycle_no']}"
-    return ad, [("Cycle bilgisi", ["Alan", "Değer"],
-                 [[a, d] for a, d in bilgi]),
-                ("Örnekler", ORNEK_BASLIK, satirlar)]
+def _ornek_degerleri(o, kod, h, etiket, konum=None, tedavi_no=None):
+    """Bir örneğin satırı: tedavinin dökümünde `ORNEK_BASLIK`'ın, tüm veri
+    dökümünde (`tedavi_no` verilince: {tedavi id: tedavi no}, v6.239)
+    `TUM_ORNEK_BASLIK`'ın sırasıyla. Tüm veri dökümünde dondurma, çözme ve
+    transferin yapıldığı tedavi de yazılıyor; Konum yok (Cryo Haritası'nın
+    bilgisi, dökümde istenmedi)."""
+    deger = [
+        kod, o["cycle_sira_no"],
+        _taraf(o["taraf"]),
+        _et(h, "maturasyon", o["mat"]), o["mat_zaman"],
+        _et(h, "icsi_sonuc", o["icsi"]),
+        _et(h, "gecis_zorlugu", o["zorluk"]), o["icsi_zaman"],
+        _et(h, "fert_sonuc", o["fert"]), _et(h, "pn_sayisi", o["pn"]),
+        _et(h, "pn_skoru", o["pn_skor"]), o["fert_zaman"],
+        o["g2_hucre"], _et(h, "simetri", o["g2_sim"]), o["g2_frag"], o["g2_skor"],
+        o["g3_hucre"], _et(h, "simetri", o["g3_sim"]), o["g3_frag"], o["g3_skor"],
+        o["bl_gun"], _et(h, "bl_genisleme", o["bl_gen"]),
+        _et(h, "bl_icm", o["bl_icm"]), _et(h, "bl_te", o["bl_te"]),
+        _et(h, "bl_derece", o["bl_der"]), o["bl_skor"],
+    ]
+    sagkalim = _et(h, "thaw_sagkalim", o["sagkalim"])
+    if tedavi_no is None:
+        deger += [o["vit_zaman"], etiket, konum,
+                  o["thaw_zaman"], sagkalim, o["re_exp"],
+                  o["tr_zaman"], o["tr_tipi"]]
+    else:
+        deger += [o["vit_zaman"], tedavi_no.get(o["vit_tedavi"]), etiket,
+                  o["thaw_zaman"], tedavi_no.get(o["thaw_tedavi"]),
+                  sagkalim, o["re_exp"],
+                  o["tr_zaman"], tedavi_no.get(o["tr_tedavi"]), o["tr_tipi"]]
+    return deger + [_ornek_durum(o["durum"]), o["notlar"]]
 
 
 # ------------------------------------------------------------------ cryo dökümü
@@ -454,56 +530,412 @@ def cryo_sayfalari():
 
 
 # --------------------------------------------------------------- tüm veri
+#
+# Yönetici panelinin "Tüm veriyi Excel'e aktar"ı (`/disari/tumu`) ve her gün
+# 14:00'te Cryo haritası klasörüne yazılan "Tüm veriler" dosyası
+# (`oto_yedek.py`). v6.239'da yeniden kuruldu (kullanıcının isteği: "tüm
+# veriyi excel'e aktar butonuna basınca bütün tedavileri excel'e aktarsın;
+# FETler, yumurta dondurmalar, ve çözmeler, IVF/ICSI ler. Cryo haritayı içine
+# eklemesin"). v6.238'e kadar tabloların ham dökümüydü: tablo başına bir
+# sayfa, kodlar, kolon adları; tedaviler yalnızca ham "cycle" sayfasında,
+# Cryo Haritası'nın tabloları (taşıyıcı, konum, Excel kayıtları) da içinde.
+#
+# Bugün tedavi türü başına bir sayfa, satır başına bir tedavi, etiketler
+# ekrandaki gibi; sonda örnek başına "Yumurta ve embriyolar". Cryo Haritası
+# yok: tüp etiketi var (dondurma kaydının parçası), tankta yeri yok; sperm
+# dondurma Cryo Haritası'nın modülü, yok. Şifre ve oturum zaten hiç yok.
 
-# Hangi tablolar dökülüyor. Sıra okunma sırası: önce kimlik, sonra işlem.
-# **`oturum` ve `yetki` burada yok**, `kullanici` da tam değil (aşağıya bak):
-# bu dosya klinik dışına çıkabilir, şifre özeti ve oturum anahtarı çıkmamalı.
-TUM_TABLOLAR = [
-    "hasta", "cycle", "specimen", "olay", "goruntu", "specimen_bulgu",
-    # Tedavinin genel bulguları (v6.200, ICSI ekranı).
-    "tedavi_bulgu",
-    "sperm_ornek", "sperm_analiz", "sperm_dondurma", "sperm_dondurma_dosya",
-    "islem_yapan", "gebelik_sonucu",
-    "beta_hcg", "dogan_bebek", "pgt_sonuc", "tasiyici", "konum", "konum_semasi",
-    "liste_degeri", "degisiklik_log",
-    # Cryo Haritası Excel'inde duran, programda tüpü bulunamamış straw'lar
-    # (v6.189) -- haritanın parçası, dökümde de olmalı.
-    "excel_kaydi",
+# Sayfalar ve hangi tiplerin bir arada durduğu. Burada olmayan bir tip
+# (ileride eklenirse) kendi adıyla ayrı sayfaya düşer -- hiçbir tedavi
+# dökümden sessizce kaybolmasın.
+TUM_SAYFALAR = (
+    ("IVF-ICSI", ("ivf_icsi",)),
+    ("FET", ("fet", "fet_kultur")),
+    ("Yumurta Dondurma", ("oosit_cryo",)),
+    ("Yumurta Çözme", ("yumurta_cozme",)),
+)
+
+
+def _asamada(*asamalar):
+    """Sütun koşulu: sayfanın tiplerinden birinde bu aşamalardan biri var
+    (`db.TIP_ASAMALARI`, tedavi ekranının özet kutusunun ölçüsü). Yeni bir tip
+    kendi aşamalarının sütunlarını kendiliğinden alır."""
+    return lambda tipler: any(a in db.TIP_ASAMALARI.get(t, ())
+                              for t in tipler for a in asamalar)
+
+
+def _her_zaman(tipler):
+    return True
+
+
+def _embriyo_donduran(tipler):
+    """Dondurma günü yalnızca embriyo donduran tipte (yumurtanın günü yok)."""
+    return any("vitrifikasyon" in db.TIP_ASAMALARI.get(t, ())
+               and not db.yumurta_mi(t) for t in tipler)
+
+
+# (başlık, `_tedavi_degerleri()`'nin anahtarı, koşul). Sıra klinik akış:
+# kimlik, stimülasyon, OPU, çözme, androloji, laboratuvar, dondurma, transfer,
+# gebelik; sonda PGT, bulaş, işlemi yapanlar ve durum.
+TUM_SUTUNLAR = [
+    ("Dosya no", "dosya_no", _her_zaman),
+    ("Hasta", "ad_soyad", _her_zaman),
+    ("Doğum tarihi", "dogum_tarihi", _her_zaman),
+    ("Eşi", "es_adi", _her_zaman),
+    ("Tedavi no", "cycle_no", _her_zaman),
+    ("Kaçıncı tedavi", "hasta_cycle_no", _her_zaman),
+    ("Tip", "tip", _her_zaman),
+    ("Tedavi tarihi", "tedavi_gunu", _her_zaman),
+    ("Yaş", "yas", _her_zaman),
+    ("Endikasyon", "endikasyon", _her_zaman),
+    ("Protokol", "protokol", _asamada("opu")),
+    ("Gonadotropin", "gonadotropin_tipi", _asamada("opu")),
+    ("Başlangıç doz", "baslangic_doz", _asamada("opu")),
+    ("Toplam doz", "toplam_doz", _asamada("opu")),
+    ("Stim günü", "stim_gun_sayisi", _asamada("opu")),
+    ("Trigger", "trigger", _asamada("opu")),
+    ("hCG zamanı", "hcg_zamani", _asamada("opu")),
+    ("hCG günü E2", "hcg_gunu_e2", _asamada("opu")),
+    ("hCG günü P4", "hcg_gunu_p4", _asamada("opu")),
+    ("AMH", "amh", _asamada("opu")),
+    ("AFC", "afc", _asamada("opu")),
+    ("Folikül", "folikul_sayisi", _asamada("opu")),
+    ("Endometrium (mm)", "endometrium_mm", _asamada("transfer")),
+    ("OPU zamanı", "opu_zamani", _asamada("opu")),
+    ("OPU hekimi", "opu_hekim", _asamada("opu")),
+    # İki ayrı sayı, iki ayrı ad (v6.112): OPU ekranında girilen sayı ve
+    # programda açılmış yumurta kaydı.
+    ("Toplanan yumurta (OPU)", "toplanan", _asamada("opu")),
+    ("Kayıtlı yumurta", "kayitli", _asamada("opu")),
+    ("Çözme zamanı", "cozulen_ilk", _asamada("thaw")),
+    ("Çözülen", "cozulen", _asamada("thaw")),
+    ("Çözülen tüpler", "cozulen_tupler", _asamada("thaw")),
+    ("Sağkalım", "sagkalim", _asamada("thaw")),
+    ("Kaynak tedavi", "kaynak", _asamada("thaw")),
+    ("Sperm alınma yöntemi", "sperm_alinma", _asamada("androloji")),
+    ("Sperm hazırlama", "sperm_hazirlama", _asamada("androloji")),
+    ("Bazal konsantrasyon (milyon/ml)", "bazal_kons", _asamada("androloji")),
+    ("Bazal total motil (%)", "bazal_motil", _asamada("androloji")),
+    ("Hazırlık sonrası konsantrasyon (milyon/ml)", "son_kons", _asamada("androloji")),
+    ("Hazırlık sonrası total motil (%)", "son_motil", _asamada("androloji")),
+    ("MII", "mii", _asamada("denudasyon", "icsi")),
+    ("ICSI", "icsi", _asamada("icsi")),
+    ("2PN", "ikipn", _asamada("fert")),
+    ("Gün 2", "gun2", _asamada("cleavage")),
+    ("Gün 3", "gun3", _asamada("cleavage")),
+    ("Blastokist", "blast", _asamada("blast")),
+    ("Genel bulgular", "genel_bulgu", _asamada("icsi")),
+    ("Dondurulan", "donan", _asamada("vitrifikasyon")),
+    ("Dondurulan tüp", "donan_tup", _asamada("vitrifikasyon")),
+    ("Dondurulan tüpler", "donan_tupler", _asamada("vitrifikasyon")),
+    ("Dondurma günü", "dondurma_gunu", _embriyo_donduran),
+    ("Transfer", "transfer", _asamada("transfer")),
+    ("Transfer zamanı", "transfer_ilk", _asamada("transfer")),
+    ("Transfer edilen", "transfer_edilen", _asamada("transfer")),
+    ("Transfer hekimi", "transfer_hekimi", _asamada("transfer")),
+    ("Beta hCG", "beta", _asamada("gebelik")),
+    ("Klinik gebelik", "klinik_gebelik", _asamada("gebelik")),
+    ("Gebelik kesesi sayısı", "gebelik_kesesi_sayisi", _asamada("gebelik")),
+    ("Fetal kalp atımı", "fk", _asamada("gebelik")),
+    ("FK kontrol zamanı", "fk_kontrol_zamani", _asamada("gebelik")),
+    ("Sonlanma", "sonlanma", _asamada("gebelik")),
+    ("Doğum zamanı", "dogum_zamani", _asamada("gebelik")),
+    ("Doğum haftası", "dogum_haftasi", _asamada("gebelik")),
+    ("Bebek sayısı", "bebek_sayisi", _asamada("gebelik")),
+    ("Bebekler", "bebekler", _asamada("gebelik")),
+    ("PGT", "pgt", _asamada("blast", "transfer")),
+    ("Bulaş (kadın)", "bulas_kadin", _her_zaman),
+    ("Bulaş (erkek)", "bulas_erkek", _her_zaman),
+    ("İşlemi yapanlar", "yapanlar", _her_zaman),
+    ("Durum", "durum", _her_zaman),
+    ("Bitiş sebebi", "bitis", _her_zaman),
+    ("Bitiş tarihi", "bitis_zamani", _her_zaman),
+    ("Planlanan tarih", "planlanan_tarih", _her_zaman),
+    ("Protokol notu", "protokol_notu", _her_zaman),
+    ("Hasta durumu", "hasta_durumu", _her_zaman),
 ]
 
-# Kullanıcı tablosundan yalnızca bunlar: `kullanici_id` kolonlarının kimi
-# gösterdiği okunabilsin diye var, kimlik doğrulama verisi için değil.
-KULLANICI_KOLONLARI = ["id", "ad_soyad", "kisa_kod", "rol", "kullanici_adi",
-                       "aktif_mi", "olusturma_zamani"]
+# "Yumurta ve embriyolar" sayfası: tedavinin dökümünün örnek satırı
+# (`ORNEK_BASLIK`), önünde hastası ve tedavisi; dondurma, çözme ve transferin
+# yapıldığı tedavi de yazılı (FET'te çözülen embriyo kaynağının satırında).
+# Konum yok -- Cryo Haritası'nın bilgisi.
+TUM_ORNEK_BASLIK = [
+    "Dosya no", "Hasta", "Tedavi no", "Tip",
+    "Örnek kodu", "No", "Over", "Maturasyon", "Maturasyon saati",
+    "ICSI", "Geçiş zorluğu", "ICSI saati",
+    "Fertilizasyon", "PN", "PN skoru", "Fert. kontrol saati",
+    "Gün 2 hücre", "Gün 2 simetri", "Gün 2 frag. (%)", "Gün 2 skor",
+    "Gün 3 hücre", "Gün 3 simetri", "Gün 3 frag. (%)", "Gün 3 skor",
+    "Blastokist günü", "Genişleme", "ICM", "TE", "Derece", "Blastokist skoru",
+    "Vitrifikasyon", "Dondurulduğu tedavi", "Taşıyıcı",
+    "Çözme", "Çözüldüğü tedavi", "Sağkalım", "Re-expansion",
+    "Transfer", "Transfer edildiği tedavi", "Transfer tipi",
+    "Örnek durumu", "Notlar",
+]
+
+
+def _sayi_metni(x):
+    """Bir ölçümün yazısı: 85.0 -> "85", 2.45 -> "2,45" (yuvarlama yok)."""
+    if isinstance(x, float):
+        x = int(x) if x.is_integer() else x
+    return str(x).replace(".", ",")
+
+
+def _evet_hayir(kod, evet, hayir):
+    """Gebelik ekranının üç seçeneği (`evet` / `hayir` / `bilinmiyor`); ilk
+    kayıtlarda `1` / `0` (`db.klinik_gebelik_sql()`'in gerekçesi)."""
+    if kod in ("evet", "1", 1):
+        return metinler.t(evet)
+    if kod in ("hayir", "0", 0):
+        return metinler.t(hayir)
+    if kod == "bilinmiyor":
+        return metinler.t("bilinmiyor")
+    return kod or None
+
+
+def _bulas_yazisi(deger):
+    """Bulaş kaydı (`db.bulas_oku()`): girilmedi boş, "Yok", ya da hastalıklar."""
+    durum, kodlar, diger = db.bulas_oku(deger)
+    if durum is None:
+        return None
+    if durum == "yok":
+        return metinler.t("yok")
+    return ", ".join(db.bulas_etiketleri(kodlar, diger))
+
+
+def _tek_satir(metin):
+    """Resmî formun NOTLAR satırı 68'de sarılı (`formlar._sar()`); hücrede
+    tek satır."""
+    return " ".join(metin.split()) if metin else None
+
+
+def _tum_veri(b):
+    """Tüm veri dökümünün tedavileri: `[(cycle_tipi, değerler sözlüğü)]`,
+    tedavinin günü sırasıyla, ve {tedavi id: tedavi no}.
+
+    Bütün tedavilerin her bilgisi tablo başına bir sorguyla okunuyor
+    (`tedavi_sayilari()`, `formlar.tedavilerin_*()`); tedavi tedavi sormak
+    bin tedavide dakikalar sürerdi. Ekranlar ve resmî formlarla aynı kural:
+    sayılar ay listesinin (`tedavi_sayilari()`), tüpler ve çözülenler resmî
+    formların (`dondurma_tupleri()`, `cozulen_ornekler()`), transfer edilenin
+    kalitesi ART Lab'ın "Uterus grade"i (`_transfer_satirlari()`).
+    """
+    h = _etiket_haritasi()
+    gun = db.tedavi_tarihi(b, "c")
+    cycleler = [dict(r) for r in b.execute(
+        f"SELECT c.*, h.dosya_no, h.ad_soyad, h.dogum_tarihi, h.es_adi, "
+        f"  h.durum AS hasta_durum, {gun} AS tedavi_gunu "
+        "FROM cycle c JOIN hasta h ON h.id = c.hasta_id WHERE c.lab_id = ? "
+        "ORDER BY tedavi_gunu, h.dosya_no, c.cycle_no", (db.LAB_ID,))]
+    tedavi_no = {c["id"]: c["cycle_no"] for c in cycleler}
+
+    sayilar = tedavi_sayilari(b)
+    kayitli = {r[0]: r[1] for r in b.execute(
+        "SELECT cycle_id, COUNT(*) FROM specimen GROUP BY cycle_id")}
+    kaynaklar = {}
+    for r in b.execute(
+            "SELECT DISTINCT COALESCE(o.thaw_cycle_id, s.cycle_id) AS tedavi, "
+            "  s.cycle_id AS kaynak FROM olay o "
+            "JOIN specimen s ON s.id = o.specimen_id "
+            "WHERE o.tip = 'thaw' AND o.iptal_mi = 0"):
+        if r["kaynak"] != r["tedavi"]:
+            kaynaklar.setdefault(r["tedavi"], set()).add(r["kaynak"])
+
+    # Androloji: tedavinin ilk örneği ve iki analizi (resmî formların okuması).
+    sperm = {}
+    for r in b.execute("SELECT * FROM sperm_ornek ORDER BY id"):
+        sperm.setdefault(r["cycle_id"], {"ornek": r})
+    ornek_tedavisi = {v["ornek"]["id"]: cid for cid, v in sperm.items()}
+    for r in b.execute("SELECT * FROM sperm_analiz ORDER BY id"):
+        cid = ornek_tedavisi.get(r["sperm_ornek_id"])
+        if cid is not None:
+            sperm[cid][r["asama"]] = r
+
+    gebelik = {r["cycle_id"]: r for r in b.execute(
+        "SELECT * FROM gebelik_sonucu WHERE lab_id = ? ORDER BY id",
+        (db.LAB_ID,))}
+    beta = {}
+    for r in b.execute("SELECT cycle_id, zaman, deger FROM beta_hcg "
+                       "ORDER BY cycle_id, zaman, id"):
+        if r["deger"] is not None:
+            tarih = formlar._gg_aa_yyyy(r["zaman"])
+            beta.setdefault(r["cycle_id"], []).append(
+                f"{_sayi_metni(r['deger'])} ({tarih})" if tarih
+                else _sayi_metni(r["deger"]))
+    bebek = {}
+    for r in (b.execute("SELECT cycle_id, cinsiyet, kilo_kg FROM dogan_bebek "
+                        "WHERE lab_id = ? ORDER BY cycle_id, sira, id",
+                        (db.LAB_ID,)) if db.tablo_var("dogan_bebek") else ()):
+        parca = [metinler.t(r["cinsiyet"])] if r["cinsiyet"] in ("kiz", "erkek") else []
+        if r["kilo_kg"] is not None:
+            parca.append(f"{_sayi_metni(r['kilo_kg'])} kg")
+        bebek.setdefault(r["cycle_id"], []).append(" ".join(parca) or "?")
+    yapanlar = {}
+    for r in b.execute("SELECT cycle_id, asama, yapan_ad FROM islem_yapan "
+                       "WHERE lab_id = ? AND yapan_ad IS NOT NULL "
+                       "AND yapan_ad <> ''", (db.LAB_ID,)):
+        yapanlar.setdefault(r["cycle_id"], {})[r["asama"]] = r["yapan_ad"]
+    bulgulu = ({r[0] for r in b.execute(
+        "SELECT DISTINCT cycle_id FROM tedavi_bulgu WHERE asama = 'icsi'")}
+        if db.tablo_var("tedavi_bulgu") else set())
+    biyopsi_var = b.execute(
+        "SELECT 1 FROM olay WHERE tip = 'biyopsi' AND iptal_mi = 0 LIMIT 1"
+    ).fetchone() is not None
+
+    tupler = formlar.tedavilerin_dondurma_tupleri()
+    cozulenler = formlar.tedavilerin_cozulenleri()
+    transferler = formlar.tedavilerin_transfer_edilenleri()
+
+    sonuc = []
+    for c in cycleler:
+        cid, tip = c["id"], c["cycle_tipi"]
+        asamalar = db.TIP_ASAMALARI.get(tip, ())
+        n = sayilar.get(cid, {})
+        tup = tupler.get(cid, [])
+        coz = cozulenler.get(cid, [])
+        sp = sperm.get(cid, {})
+        g = gebelik.get(cid)
+        yapan = yapanlar.get(cid, {})
+        sira = list(asamalar) + sorted(a for a in yapan if a not in asamalar)
+        sag, sol = c.get("opu_sag_oosit"), c.get("opu_sol_oosit")
+
+        pgt = []
+        if db.pgt_oku(c.get("pgt_testleri")):
+            pgt.append(formlar.pgt_notu(cid))
+        if coz and biyopsi_var and tip in db.FET_TIPLERI:
+            pgt.append(formlar.pgt_cozulen_notu(cid, coz))
+        analiz = {a: sp.get(a) for a in ("bazal", "hazirlik_sonrasi")}
+
+        def olcu(asama, alan):
+            r = analiz.get(asama)
+            return r[alan] if r is not None and alan in r.keys() else None
+
+        d = {
+            **c,
+            "tip": _tip(tip),
+            "yas": formlar._yas(c["dogum_tarihi"], c["tedavi_gunu"]),
+            "endikasyon": _et(h, "endikasyon", c.get("endikasyon")),
+            "protokol": _et(h, "protokol_tipi", c.get("protokol_tipi")),
+            "trigger": _et(h, "trigger_tipi", c.get("trigger_tipi")),
+            "toplanan": (None if sag is None and sol is None
+                         else (sag or 0) + (sol or 0)),
+            "kayitli": kayitli.get(cid, 0),
+            "cozulen_ilk": n.get("cozulen_ilk"),
+            "cozulen": n.get("cozulen", 0),
+            "cozulen_tupler": " ".join(
+                formlar.tup_metni(t) for t in formlar.cozulen_tupler(coz)) or None,
+            "sagkalim": formlar.cozme_viabilitesi(coz),
+            "kaynak": ", ".join(sorted(
+                tedavi_no.get(k, str(k)) for k in kaynaklar.get(cid, ()))) or None,
+            "sperm_alinma": _et(h, "sperm_alinma",
+                                sp["ornek"]["alinma_yontemi"] if sp else None),
+            "sperm_hazirlama": _et(h, "sperm_hazirlama",
+                                   sp["ornek"]["hazirlama_yontemi"] if sp else None),
+            "bazal_kons": olcu("bazal", "konsantrasyon_milyon_ml"),
+            "bazal_motil": olcu("bazal", "total_motil_yuzde"),
+            "son_kons": olcu("hazirlik_sonrasi", "konsantrasyon_milyon_ml"),
+            "son_motil": olcu("hazirlik_sonrasi", "total_motil_yuzde"),
+            **{ad: n.get(ad, 0) for ad, _ in ASAMA_SAYILARI},
+            "genel_bulgu": (db.tedavi_bulgu_metni(cid)
+                            if cid in bulgulu and "icsi" in asamalar else None),
+            "donan": n.get("donan", 0),
+            "donan_tup": len(tup),
+            "donan_tupler": " ".join(formlar.tup_metni(t) for t in tup) or None,
+            "dondurma_gunu": formlar.dondurma_gunleri(tup),
+            "transfer": n.get("transfer", 0),
+            "transfer_ilk": n.get("transfer_ilk"),
+            "transfer_edilen": "; ".join(formlar._transfer_satirlari(
+                cid, coz, transferler.get(cid, []))) or None,
+            "transfer_hekimi": _transfer_hekimi(c, n.get("transfer", 0)),
+            "beta": " → ".join(beta.get(cid, [])) or None,
+            "klinik_gebelik": _evet_hayir(g["klinik_gebelik"], "var", "yok") if g else None,
+            "gebelik_kesesi_sayisi": g["gebelik_kesesi_sayisi"] if g else None,
+            "fk": _evet_hayir(g["fk_pozitif"], "pozitif", "negatif") if g else None,
+            "fk_kontrol_zamani": g["fk_kontrol_zamani"] if g else None,
+            "sonlanma": _et(h, "sonlanma", g["sonlanma"]) if g else None,
+            "dogum_zamani": g["dogum_zamani"] if g else None,
+            "dogum_haftasi": (g["dogum_haftasi"]
+                              if g and "dogum_haftasi" in g.keys() else None),
+            "bebek_sayisi": g["bebek_sayisi"] if g else None,
+            "bebekler": " · ".join(bebek.get(cid, [])) or None,
+            "pgt": " · ".join(_tek_satir(p) for p in pgt if p) or None,
+            "bulas_kadin": _bulas_yazisi(c.get("bulas_kadin")),
+            "bulas_erkek": _bulas_yazisi(c.get("bulas_erkek")),
+            "yapanlar": " · ".join(
+                f"{metinler.t('asama_' + a)}: {yapan[a]}"
+                for a in sira if a in yapan) or None,
+            "durum": _durum(c["durum"]),
+            "bitis": _bitis(c.get("bitis_sebebi")),
+            "bitis_zamani": c.get("bitis_zamani"),
+            "planlanan_tarih": c.get("planlanan_tarih"),
+            "hasta_durumu": (metinler.t("arsiv") if c["hasta_durum"] == "arsiv"
+                             else None),
+        }
+        sonuc.append((tip, d))
+    return sonuc, tedavi_no
 
 
 def tumu_sayfalari():
-    """Bütün tabloların ham dökümü, tablo başına bir sayfa.
+    """Bütün tedaviler, tedavi türü başına bir sayfa (`TUM_SAYFALAR`), satır
+    başına bir tedavi; sonda "Yumurta ve embriyolar", örnek başına (v6.239).
 
-    Ham: kodlar etikete çevrilmiyor, kolon adları veritabanındaki adlar.
-    Amaç okumak değil **aktarmak** — başka bir programa vermek ya da veriyi
-    elde tutmak. Okunacak çıktı ay listesi ve cycle detayı.
+    Bir sayfanın sütunları tiplerinin aşamalarından (`TUM_SUTUNLAR`): FET'te
+    OPU ve stimülasyon yok, Yumurta Dondurma'da transfer ve gebelik yok.
+    Tedavisi olmayan sayfa da basılıyor (yalnızca başlık) -- "bu türden hiç
+    tedavi yok" demek. Her tedavi bir kez, tipinin sayfasında.
     """
-    sayfalar = []
-    for tablo in TUM_TABLOLAR:
-        kolonlar = [r["name"] for r in db.sorgu(f"PRAGMA table_info({tablo})")]
-        if not kolonlar:
-            continue                        # tablo bu veritabanında yok
-        secim = ", ".join(f'"{k}"' for k in kolonlar)
-        nerede = " WHERE lab_id = ?" if "lab_id" in kolonlar else ""
-        p = (db.LAB_ID,) if nerede else ()
-        satirlar = [[r[k] for k in kolonlar]
-                    for r in db.sorgu(f"SELECT {secim} FROM {tablo}{nerede}", p)]
-        sayfalar.append((tablo, kolonlar, satirlar))
-
-    mevcut = {r["name"] for r in db.sorgu("PRAGMA table_info(kullanici)")}
-    kolonlar = [k for k in KULLANICI_KOLONLARI if k in mevcut]
-    if kolonlar:
-        secim = ", ".join(f'"{k}"' for k in kolonlar)
-        satirlar = [[r[k] for k in kolonlar] for r in db.sorgu(
-            f"SELECT {secim} FROM kullanici WHERE lab_id = ?", (db.LAB_ID,))]
-        sayfalar.append(("kullanici", kolonlar, satirlar))
+    # Tek bağlantı (`db.ortak_baglanti()`): döküm binlerce küçük sorgu atıyor
+    # (çözülen her embriyonun tüpü, kalitesi), her biri bağlantı açsa deneme
+    # kopyasında 4 sn yalnızca bağlantı açmaya giderdi.
+    with db.ortak_baglanti() as b:
+        tedaviler, tedavi_no = _tum_veri(b)
+        sayfalar = _tum_sayfalar(tedaviler, tedavi_no)
     return sayfalar
+
+
+def _tum_sayfalar(tedaviler, tedavi_no):
+    """`tumu_sayfalari()`'nın sayfaları: tedaviler tiplerinin sayfasına,
+    sonda örnekler."""
+    tip_sayfasi = {t: ad for ad, tipler in TUM_SAYFALAR for t in tipler}
+    sayfalar = [(ad, tipler) for ad, tipler in TUM_SAYFALAR]
+    for tip in dict.fromkeys(t for t, _ in tedaviler):
+        if tip not in tip_sayfasi:
+            tip_sayfasi[tip] = _tip(tip) or str(tip)
+            sayfalar.append((tip_sayfasi[tip], (tip,)))
+
+    cikti = []
+    for ad, tipler in sayfalar:
+        sutunlar = [(baslik, anahtar, kosul) for baslik, anahtar, kosul
+                    in TUM_SUTUNLAR if kosul(tipler)]
+        # Hücre satırın KENDİ tipine göre: FET sayfasının Blastokist'i FET
+        # (3→5) için var, düz FET'in satırında boş -- tedavi ekranının özet
+        # kutusu gibi (`cycle_ozet()`), aşaması olmayan tipte "0" ölçülmemişi
+        # ölçülmüş gösterirdi. (Aktarılan FET'te transfer günü değerlendirmesi
+        # bir sayı verirdi; kalitesi "Transfer edilen"de.)
+        satirlar = [[d.get(anahtar) if kosul((tip,)) else None
+                     for _, anahtar, kosul in sutunlar]
+                    for tip, d in tedaviler if tip_sayfasi[tip] == ad]
+        cikti.append((ad, [baslik for baslik, _, _ in sutunlar], satirlar))
+
+    # Örnekler: tedavisinin sırasıyla (tedavi sayfalarınınki), içinde numara.
+    h = _etiket_haritasi()
+    sira = {d["id"]: i for i, (_, d) in enumerate(tedaviler)}
+    bilgi = {d["id"]: d for _, d in tedaviler}
+    tasiyicilar = _tasiyicilar()
+    ornekler = sorted(_ornek_satirlari("1 = 1"),
+                      key=lambda o: (sira.get(o["cycle_id"], len(sira)),
+                                     o["cycle_sira_no"] or 0, o["id"]))
+    satirlar = []
+    for o in ornekler:
+        c = bilgi.get(o["cycle_id"])
+        if c is None:
+            continue                     # başka laboratuvarın tedavisi
+        etiket, _konum = tasiyicilar.get(o["vit_tasiyici"], (None, None))
+        satirlar.append([c["dosya_no"], c["ad_soyad"], c["cycle_no"], c["tip"]]
+                        + _ornek_degerleri(o, f"{c['dosya_no']}-{o['id']}", h,
+                                           etiket, tedavi_no=tedavi_no))
+    cikti.append(("Yumurta ve embriyolar", TUM_ORNEK_BASLIK, satirlar))
+    return cikti
 
 
 # --------------------------------------------------------------- istatistikler

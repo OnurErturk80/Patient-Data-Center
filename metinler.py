@@ -2947,11 +2947,11 @@ METINLER = {
         "tr": "Her gün {saat}'te \"Tüm veriler\" Excel'i de bu klasöre "
               "yazılır (Tum_Veriler_<gün>.xlsx, son {gun} gün): yönetici "
               "panelindeki \"Tüm veriyi Excel'e aktar\"ın aynısı, bütün "
-              "hasta kayıtları.",
+              "tedaviler.",
         "en": "Every day at {saat} the \"All data\" Excel is also written to "
               "this folder (Tum_Veriler_<day>.xlsx, last {gun} days): the same "
               "as \"Export all data to Excel\" in the admin panel, every "
-              "patient record."},
+              "cycle."},
     "tum_veri_son": {"tr": "Son: {ad} ({zaman})", "en": "Last: {ad} ({zaman})"},
     "tum_veri_yazilamadi": {
         "tr": "\"Tüm veriler\" yazılamadı ({zaman}): {hata}. On dakika sonra "
@@ -3554,17 +3554,20 @@ METINLER = {
                            "en": "Download the Excel map"},
     "excel_tumu": {"tr": "Tüm veriyi Excel'e aktar",
                    "en": "Export all data to Excel"},
+    # v6.239: döküm tedavi türü başına bir sayfa (`disari.tumu_sayfalari()`).
     "excel_tumu_ipucu": {
-        "tr": "Bütün hastalar, tedaviler, örnekler ve olaylar; her tablo ayrı "
-              "sayfada. Dosya bütün hasta adlarını içerir — kime verildiğine "
-              "dikkat et. Şifreler ve oturum anahtarları dosyaya girmez. "
-              "Program aynı dosyayı her gün 14:00'te Cryo haritası klasörüne "
-              "de yazar (Klasörler ekranı; son 30 gün).",
-        "en": "All patients, cycles, samples and events; one sheet per table. "
-              "The file contains every patient name — mind who receives it. "
-              "Passwords and session tokens are not included. The program "
-              "also writes the same file to the Cryo map folder every day at "
-              "14:00 (Folders screen; last 30 days)."},
+        "tr": "Bütün tedaviler, türüne göre ayrı sayfada (IVF/ICSI, FET, "
+              "Yumurta Dondurma, Yumurta Çözme), her satır bir tedavi; son "
+              "sayfada yumurta ve embriyolar tek tek. Cryo haritası dosyaya "
+              "girmez. Dosya bütün hasta adlarını içerir — kime verildiğine "
+              "dikkat et. Program aynı dosyayı her gün 14:00'te Cryo haritası "
+              "klasörüne de yazar (Klasörler ekranı; son 30 gün).",
+        "en": "Every cycle, one sheet per cycle type (IVF/ICSI, FET, oocyte "
+              "cryo, egg thaw), one row per cycle; the last sheet lists eggs "
+              "and embryos one by one. The cryo map is not included. The file "
+              "contains every patient name — mind who receives it. The "
+              "program also writes the same file to the Cryo map folder every "
+              "day at 14:00 (Folders screen; last 30 days)."},
     "aktif_hastalara_don": {"tr": "Aktif hastalara dön",
                             "en": "Back to active patients"},
     "yeni_hasta": {"tr": "Yeni hasta", "en": "New patient"},
