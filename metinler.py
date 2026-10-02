@@ -2086,6 +2086,65 @@ METINLER = {
               "selected they are all added to it. Max 25 MB, "
               "jpg/png/tif/bmp/webp."},
     "yukle": {"tr": "Yükle", "en": "Upload"},
+    # Sırayla bütün yumurtalara (v6.242)
+    "sirayla_butun_yumurtalara": {
+        "tr": "Sırayla bütün yumurtalara ({m} yumurta)",
+        "en": "In order to all oocytes ({m} oocytes)"},
+    "foto_sira_ekle_ipucu": {
+        "tr": "Birden çok fotoğraf seçince sırayla bütün yumurtalara eklenir: "
+              "dosya adına göre ilk fotoğraf ilk yumurtaya, son fotoğraf son "
+              "yumurtaya. Hepsini tek yumurtaya eklemek için yukarıdan o "
+              "yumurtayı seçin.",
+        "en": "With several photos selected they are added in order to all "
+              "oocytes: by file name, the first photo to the first oocyte, the "
+              "last to the last. To add them all to one oocyte, select it above."},
+    "foto_sira_baslik": {"tr": "Ekleneceği yer", "en": "Where they go"},
+    "foto_sira_ipucu": {
+        "tr": "Dosya adına göre sıralandı: ilk fotoğraf ilk yumurtaya, son "
+              "fotoğraf son yumurtaya.",
+        "en": "Sorted by file name: the first photo to the first oocyte, the "
+              "last to the last."},
+    "foto_sira_dosya_adina": {"tr": "Dosya adına göre sıralandı.",
+                              "en": "Sorted by file name."},
+    "foto_sira_eksik": {
+        "tr": "{n} fotoğraf, {m} yumurta: fotoğrafsız kalacak: {liste}.",
+        "en": "{n} photos, {m} oocytes: left without a photo: {liste}."},
+    "foto_sira_eksik_onay": {"tr": "Yine de sırayla ekle",
+                             "en": "Add in order anyway"},
+    "foto_sira_onay_gerekli": {
+        "tr": "{n} fotoğraf seçildi, {m} yumurta var: sırayla eklemek için "
+              "\"Yine de sırayla ekle\" kutusunu işaretleyip fotoğrafları "
+              "yeniden seçin.",
+        "en": "{n} photos selected, {m} oocytes: to add them in order, tick "
+              "\"Add in order anyway\" and select the photos again."},
+    "foto_sira_fazla": {
+        "tr": "{n} fotoğraf seçildi ama bu ekranda {m} yumurta var: sırayla "
+              "eklemek için en çok {m} fotoğraf seçin.",
+        "en": "{n} photos selected but this screen has {m} oocytes: select at "
+              "most {m} photos to add them in order."},
+    "foto_sira_yumurta_yok": {
+        "tr": "Bu ekranda yumurta yok: fotoğraflar sırayla eklenemez.",
+        "en": "No oocytes on this screen: photos cannot be added in order."},
+    "foto_yumurta_yok": {"tr": "Seçilen yumurta bu tedavide yok.",
+                         "en": "The selected oocyte is not in this cycle."},
+    "foto_yeni_yumurta": {"tr": "Yumurta {n} (yeni)", "en": "Oocyte {n} (new)"},
+    "foto_tedavi_arsivi": {"tr": "Tedavi arşivi (yumurtaya bağlı değil)",
+                           "en": "Cycle archive (not linked to an oocyte)"},
+    "foto_zaten_kare": {"tr": "zaten {n} kare var", "en": "already {n} frames"},
+    "foto_kareli_uyari": {
+        "tr": "{n} yumurtanın bu aşamada zaten fotoğrafı var: yeni fotoğraf ek "
+              "kare olur, ekrandaki ana fotoğraf değişmez.",
+        "en": "{n} oocytes already have a photo at this stage: the new photo "
+              "becomes an extra frame, the main photo stays."},
+    "foto_onizleme_yok": {"tr": "önizleme yok", "en": "no preview"},
+    "foto_hic_eklenmedi": {"tr": "Hiçbir fotoğraf eklenmedi.",
+                           "en": "No photo was added."},
+    "foto_yazilamadi": {
+        "tr": "Fotoğraflar arşive yazılamadı (disk dolu ya da klasöre "
+              "yazılamıyor olabilir); yazılanlar geri alındı.",
+        "en": "The photos could not be written to the archive (the disk may be "
+              "full or the folder not writable); the written ones were undone."},
+    "dosya_secilmedi": {"tr": "Dosya seçilmedi.", "en": "No file selected."},
     "goruntuyu_sil": {"tr": "Görüntüyü sil", "en": "Delete image"},
     "goruntu_kalici_silinecek": {
         "tr": "<strong>Bu görüntü kalıcı olarak silinecek.</strong><br>Yumurta "

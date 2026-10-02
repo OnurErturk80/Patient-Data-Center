@@ -1,0 +1,33 @@
+{#- Fotoğraf ekleme önizlemesi (v6.242): `_foto_plani()`'nın planı -- hangi
+    dosya hangi yumurtaya. Sayfa bu parçayı seçilen dosyaların ADLARIYLA
+    `POST /cycle/{id}/foto-ekle/sira`'dan alıp formun içine koyuyor, küçük
+    resimleri kendi seçiminden ekliyor (`data-i` = dosyanın seçimdeki yeri).
+    Kayıt aynı planı soruyor: burada görünen, yazılacak olan. Sırayı ya da
+    satırı JS'te kurma. -#}
+<div class="fotoplan{% if not p.engel %} kart{% endif %}" data-engel="{{ 1 if p.engel else 0 }}">
+{% if p.engel %}
+  <div class="tehlike">{{ p.engel }}</div>
+{% else %}
+  <h2>{{ metin("foto_sira_baslik") }}</h2>
+  <div class="ipucu">{{ metin("foto_sira_ipucu") if p.sirali else metin("foto_sira_dosya_adina") }}</div>
+  {% if p.eksik %}
+  <div class="uyari">
+    {{ metin("foto_sira_eksik").format(n=p.satirlar|length,
+         m=p.satirlar|length + p.eksik|length, liste=p.eksik|join(", ")) }}
+    <label class="onaysatir"><input type="checkbox" name="eksik_onay" value="1" required>
+      <span>{{ metin("foto_sira_eksik_onay") }}</span></label>
+  </div>
+  {% endif %}
+  {% if p.kareli %}<div class="ipucu">{{ metin("foto_kareli_uyari").format(n=p.kareli) }}</div>{% endif %}
+  <ol class="fotosiralist">
+    {% for s in p.satirlar %}
+    <li data-i="{{ s.i }}">
+      <span class="onizleme" data-yok="{{ metin('foto_onizleme_yok') }}"></span>
+      <span class="fsmetin"><b>{{ s.etiket }}</b>
+        <span class="fsad">{{ s.ad }}</span>
+        {%- if s.kare %}<em>{{ metin("foto_zaten_kare").format(n=s.kare) }}</em>{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ol>
+{% endif %}
+</div>

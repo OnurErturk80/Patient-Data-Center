@@ -2611,7 +2611,8 @@ adres sekmenin ilk sayfasında ve betiksiz kullanılıyor. Yeni bir ekranda
 `?geri=<yol>` kalıbını yeni yerlerde kullanma — adresten gelen metin doğrudan
 `href`'e yazılıyor, `javascript:` girilebilir. Sayı al, doğrula, yolu kendin
 kur. Kalıbı zaten okuyan eski bir rotada `app._yerel_geri()` (v6.226:
-yalnızca programın kendi yolu; bugün `/goruntu/{id}/sil`).
+yalnızca programın kendi yolu; bugün `/goruntu/{id}/sil` ve v6.242'den beri
+`/cycle/{id}/foto-ekle`).
 
 **Cryo haritası türetilmiştir.** `/cryo` ekranı vitrifikasyon ve çözme
 kayıtlarından hesaplanır; elle güncellenen bir konum tablosu yok.
@@ -3808,6 +3809,40 @@ yazarsan "Yumurta" diye sabit yazma, bu fonksiyonu kullan.
 (`snapshot/`) temizlense de program görüntüyü `arsiv/`'den gösterir.
 Yapı: `arsiv/<hasta dosya no>/<cycle no>/` (v6.4; öncesi `<yıl>/<cycle no>`).
 Veritabanı **göreli** yol saklar — tam yol yazma, makine değişince bulunamaz.
+
+**Fotoğraf ekle: çoklu fotoğraf sırayla bütün yumurtalara** (v6.242, README
+v6.242; kullanıcı: "Denüdasyon ve ICSI bölümünde fotoğraf ekle dendiğinde
+çoklu fotoğraf seçilirse sırayla bütün yumurtalara uygula. İlk sıradaki
+birinci yumurta son sıradaki son yumurta"). Seçicide "Sırayla bütün
+yumurtalara"; birden çok dosya seçilince sayfa kendiliğinden ona geçiyor
+(seçiciyi elle değiştirenin seçimine ve "Her dosya ayrı yumurta" açılışına
+dokunmuyor).
+- **Dosyaların sırası tek yerde: `goruntuler.dosya_sirasi()`** -- dosya adına
+  göre doğal sıra (önce uzantısız ad, sayılar sayı olarak), adı aynı olanlar
+  seçim sırasıyla. Tarayıcının sırasına güvenme: Windows'un dosya penceresi
+  son tıklananı başa koyabiliyor. Bütün yüklemeler bu sırayla (tek yumurtanın
+  ilk karesi, "Her dosya ayrı yumurta"nın numaraları da).
+- **Plan tek yerde: `app._foto_plani()`**; önizleme (`POST
+  /cycle/{id}/foto-ekle/sira`, yalnızca dosya ADLARI, hiçbir şey yazmaz,
+  `_foto_sira.html`) ve kayıt aynı planı soruyor. Sırayı ya da satırı JS'te
+  kurma; küçük resimleri sayfa `data-i` ile kendi seçiminden koyuyor.
+- **Yumurtalar açan ekranın listesi** (`_foto_sira_ornekleri()`): `ekran`
+  beyaz listede (`FOTO_SIRA_EKRANLARI`: denüdasyon ve ICSI, kullanıcının
+  istediği iki ekran). ICSI'de ekranın tedavisi `tedavi=` ile (Yumurta
+  Çözme), aynı hastanın ICSI'li tedavisi olmalı; fotoğraf her yumurtanın
+  KENDİ tedavisine. Rota yumurtanın kendi tedavisinde kaldı: yeni şablon +
+  eski Python'da (tuzak #5) eski kayıt rotanın tedavisini yazıyor. Başka bir
+  ekrana açarsan listeye ekle ve yumurtalarını o ekranın kendi sorgusundan al.
+- **Dosya yumurtadan çoksa engel, azsa onay** (`eksik_onay`, kutu `required`,
+  sunucu da soruyor): azda arada bir fotoğraf eksikse sonrakiler bir yumurta
+  kayar. Fazlayı yeni yumurta yapma -- yumurta sayısı klinik bir sayı.
+- **Ya hepsi ya hiçbiri**: önce bütün dosyalar `goruntuler.dosya_hatasi()`'ndan,
+  sonra yazma (`elle_yaz()` kimlik döndürüyor); yarıda kalırsa yazılanlar ve
+  açılan yumurtalar geri alınıyor. Çok dosyalı yeni bir yükleme yazarsan
+  aynısını yap. Hata adrese yazılmıyor, sayfa yeniden basılıyor
+  (`_foto_ekle_sayfasi()`).
+- Şablon yeni değişkenleri `is defined` ile soruyor; eski programda seçenek ve
+  önizleme yok, yükleme eskisi gibi (denendi).
 
 **Yol parçalarını `goruntuler.guvenli_ad()`'den geçir.** macOS NFD / Windows
 NFC farkı, Windows'un yasak karakterleri ve ayrılmış adları (`CON`, `NUL`)

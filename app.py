@@ -5851,81 +5851,264 @@ async def goruntu_sil(request: Request, goruntu_id: int):
     return RedirectResponse(geri, status_code=303)
 
 
-@uygulama.get("/cycle/{cycle_id}/foto-ekle")
-def foto_ekle_ekran(request: Request, cycle_id: int, hata: str = "",
-                    specimen_id: str = "", asama: str = "", geri: str = ""):
-    c = db.tek(
-        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
-        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
-    )
-    if not c:
-        return RedirectResponse("/hastalar", status_code=303)
-    specimenler = db.sorgu(
-        "SELECT id, cycle_sira_no FROM specimen WHERE cycle_id = ? "
-        "ORDER BY cycle_sira_no", (cycle_id,)
-    )
+# ------------------------------------------- fotoğraf ekle: sırayla (v6.242)
+#
+# Kullanıcının isteği: "Denüdasyon ve ICSI bölümünde fotoğraf ekle dendiğinde
+# çoklu fotoğraf seçilirse sırayla bütün yumurtalara uygula. İlk sıradaki
+# birinci yumurta, son sıradaki son yumurta." Dosyaların sırası
+# `goruntuler.dosya_sirasi()` (dosya adına göre), yumurtaların sırası açan
+# ekranın kendi listesi. Plan tek yerde (`_foto_plani()`): sayfanın önizlemesi
+# ve kayıt aynı planı soruyor.
+
+FOTO_SIRAYLA = "__sirayla__"
+FOTO_YENI = "__yeni__"            # her dosya yeni bir yumurta (denüdasyon)
+FOTO_SIRA_EKRANLARI = ("denudasyon", "icsi")
+
+
+def _foto_sira_ornekleri(c, ekran: str, tedavi) -> list:
+    """Sırayla eklemenin yumurtaları: açan ekranın listesi, ekrandaki sırayla.
+
+    Denüdasyon tedavinin kendi yumurtaları (`denudasyon()`'un şeridi). ICSI,
+    ICSI ekranının listesi (`icsi_durum()`); Yumurta Çözme'de o, bu tedavi
+    için çözülen yumurtalar -- rota yumurtanın KENDİ tedavisinde (fotoğraf
+    oraya yazılır), ekranın tedavisi `tedavi=` ile geliyor ve aynı hastanın,
+    ICSI aşaması olan bir tedavisi olmalı. Ekran tanınmazsa boş: sırayla
+    ekleme yalnızca bu iki ekrandan (kullanıcının isteği)."""
+    if ekran not in FOTO_SIRA_EKRANLARI:
+        return []
+    if ekran == "denudasyon":
+        if "denudasyon" not in db.TIP_ASAMALARI.get(c["cycle_tipi"], ()):
+            return []
+        satirlar = db.sorgu(
+            "SELECT id, cycle_id, cycle_sira_no FROM specimen WHERE cycle_id = ? "
+            "ORDER BY cycle_sira_no", (c["id"],))
+    else:
+        t = None
+        if str(tedavi or "").isdigit():
+            t = db.tek("SELECT id, hasta_id, cycle_tipi FROM cycle WHERE id = ?",
+                       (int(tedavi),))
+            if t and t["hasta_id"] != c["hasta_id"]:
+                t = None
+        t = t or c
+        if "icsi" not in db.TIP_ASAMALARI.get(t["cycle_tipi"], ()):
+            return []
+        satirlar = icsi_durum(t["id"], t["cycle_tipi"])
+    if not satirlar:
+        return []
+    tedaviler = sorted({s["cycle_id"] for s in satirlar})
+    nolar = {r["id"]: r["cycle_no"] for r in db.sorgu(
+        f"SELECT id, cycle_no FROM cycle WHERE id IN "
+        f"({','.join('?' * len(tedaviler))})", tuple(tedaviler))}
+    coklu = len(nolar) > 1
+    return [{"id": s["id"], "cycle_id": s["cycle_id"],
+             "cycle_no": nolar.get(s["cycle_id"], ""),
+             "cycle_sira_no": s["cycle_sira_no"],
+             "etiket": metinler.t("oosit_n").format(n=s["cycle_sira_no"])
+             + (f" · {nolar.get(s['cycle_id'], '')}" if coklu else "")}
+            for s in satirlar]
+
+
+def _foto_tek_ornekler(c) -> list:
+    """Tek yumurta seçicisinin yumurtaları: rotanın tedavisinin kendileri."""
+    return [{"id": s["id"], "cycle_id": c["id"], "cycle_no": c["cycle_no"],
+             "cycle_sira_no": s["cycle_sira_no"],
+             "etiket": metinler.t("oosit_n").format(n=s["cycle_sira_no"])}
+            for s in db.sorgu(
+                "SELECT id, cycle_sira_no FROM specimen WHERE cycle_id = ? "
+                "ORDER BY cycle_sira_no", (c["id"],))]
+
+
+def _foto_asamasi(asama: str) -> str:
+    """Fotoğrafın aşaması `goruntu_asama` listesinin bir kodu olmalı
+    (pasif yapılmış olan da: açık sekme). Değilse "diger"."""
+    kodlar = {r["kod"] for r in db.sorgu(
+        "SELECT kod FROM liste_degeri WHERE lab_id = ? "
+        "AND liste_adi = 'goruntu_asama'", (db.LAB_ID,))}
+    return asama if asama in kodlar else "diger"
+
+
+def _foto_plani(c, secim: str, asama: str, ekran: str, tedavi, adlar) -> dict:
+    """Hangi dosya hangi yumurtaya (v6.242). Sayfanın önizlemesi
+    (`foto_ekle_sira()`) ve kayıt (`foto_ekle()`) bunu soruyor.
+
+    Satırlar `goruntuler.dosya_sirasi()`'nın sırasıyla. Sırayla: k. dosya
+    ekranın k. yumurtasına. Dosya yumurtadan çoksa ENGEL (fazlası bir yere
+    konamaz); azsa son yumurtalar fotoğrafsız kalır, bu ancak onayla
+    (`onay`) -- arada bir yumurtanın fotoğrafı eksikse sonrakiler bir
+    yumurta kayardı, kullanıcı önizlemede görüp karar versin. `engel` doluysa
+    hiçbir şey yazılmaz."""
+    sira = goruntuler.dosya_sirasi(adlar)
+    p = {"secim": secim, "sirali": secim == FOTO_SIRAYLA, "satirlar": [],
+         "engel": "", "eksik": [], "onay": False, "kareli": 0}
+    if not sira:
+        p["engel"] = metinler.t("dosya_secilmedi")
+        return p
+    hedefler = [None] * len(sira)
+    if secim == FOTO_SIRAYLA:
+        ornekler = _foto_sira_ornekleri(c, ekran, tedavi)
+        n, m = len(sira), len(ornekler)
+        if not m:
+            p["engel"] = metinler.t("foto_sira_yumurta_yok")
+            return p
+        if n > m:
+            p["engel"] = metinler.t("foto_sira_fazla").format(n=n, m=m)
+            return p
+        hedefler = ornekler[:n]
+        p["eksik"] = [o["etiket"] for o in ornekler[n:]]
+        p["onay"] = bool(p["eksik"])
+    elif secim and secim != FOTO_YENI:
+        o = next((o for o in _foto_tek_ornekler(c) if o["id"] == secim), None)
+        if o is None:
+            p["engel"] = metinler.t("foto_yumurta_yok")
+            return p
+        hedefler = [o] * len(sira)
+    kare = {}
+    idler = list({h["id"] for h in hedefler if h})
+    if idler:
+        kare = {r["specimen_id"]: r["k"] for r in db.sorgu(
+            "SELECT specimen_id, COUNT(*) k FROM goruntu WHERE asama = ? "
+            f"AND specimen_id IN ({','.join('?' * len(idler))}) "
+            "GROUP BY specimen_id", (asama, *idler))}
+    yeni = goruntuler.sonraki_sira(c["id"]) if secim == FOTO_YENI else 0
+    gorulen = set()
+    for k, (i, h) in enumerate(zip(sira, hedefler)):
+        if secim == FOTO_YENI:
+            etiket = metinler.t("foto_yeni_yumurta").format(n=yeni + k)
+        elif h:
+            etiket = h["etiket"]
+        else:
+            etiket = metinler.t("foto_tedavi_arsivi")
+        var = kare.get(h["id"], 0) if h and h["id"] not in gorulen else 0
+        if h:
+            gorulen.add(h["id"])
+        p["kareli"] += 1 if var else 0
+        p["satirlar"].append({"i": i, "ad": adlar[i], "hedef": h,
+                              "etiket": etiket, "kare": var})
+    return p
+
+
+def _foto_ekle_sayfasi(request, c, secim, asama, geri, ekran, tedavi,
+                       hata=""):
+    """Fotoğraf ekleme sayfası: ilk açılış ve reddedilen yükleme (v6.242'den
+    beri hata adrese yazılmıyor, sayfa yeniden basılıyor)."""
+    asamalar = list(db.liste("goruntu_asama"))
+    if asama not in {a["kod"] for a in asamalar}:
+        # Listeden kaldırılmış (pasif) aşama (tuzak #6): kendi seçeneğiyle
+        # kalsın, yoksa tarayıcı ilk seçeneği (Denüdasyon) seçili sanardı.
+        r = db.tek("SELECT etiket FROM liste_degeri WHERE lab_id = ? AND "
+                   "liste_adi = 'goruntu_asama' AND kod = ?", (db.LAB_ID, asama))
+        asamalar.insert(0, {"kod": asama, "etiket": r["etiket"] if r else asama})
+    sira_sayisi = len(_foto_sira_ornekleri(c, ekran, tedavi))
     return sablon.TemplateResponse(
         request, "foto_ekle.html",
-        {"c": c, "specimenler": specimenler,
-         "asamalar": db.liste("goruntu_asama"), "hata": hata,
-         "secili_specimen": specimen_id, "secili_asama": asama or "diger",
-         "geri": geri or f"/cycle/{cycle_id}"},
+        {"c": c, "specimenler": _foto_tek_ornekler(c), "asamalar": asamalar,
+         "hata": hata, "secili_specimen": secim, "secili_asama": asama,
+         "geri": geri, "ekran": ekran if sira_sayisi else "",
+         "tedavi": str(tedavi) if str(tedavi or "").isdigit() else "",
+         "sirayla_sayisi": sira_sayisi,
+         "sira_yolu": f"/cycle/{c['id']}/foto-ekle/sira"},
     )
+
+
+def _foto_cycle(cycle_id: int):
+    return db.tek(
+        "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
+        "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,))
+
+
+@uygulama.get("/cycle/{cycle_id}/foto-ekle")
+def foto_ekle_ekran(request: Request, cycle_id: int,
+                    specimen_id: str = "", asama: str = "", geri: str = "",
+                    ekran: str = "", tedavi: str = ""):
+    c = _foto_cycle(cycle_id)
+    if not c:
+        return RedirectResponse("/hastalar", status_code=303)
+    return _foto_ekle_sayfasi(
+        request, c, specimen_id, _foto_asamasi(asama or "diger"),
+        _yerel_geri(geri, f"/cycle/{cycle_id}"), ekran, tedavi)
+
+
+@uygulama.post("/cycle/{cycle_id}/foto-ekle/sira")
+async def foto_ekle_sira(request: Request, cycle_id: int):
+    """Önizleme (v6.242): seçilen dosyaların adlarıyla planı basar, hiçbir
+    şey yazmaz. Dosyaların kendisi gelmiyor -- küçük resimleri sayfa kendi
+    seçiminden koyuyor (`data-i` = dosyanın seçimdeki yeri)."""
+    c = _foto_cycle(cycle_id)
+    if not c:
+        return HTMLResponse("")
+    f = await request.form()
+    adlar = [str(a) for a in f.getlist("ad")][:500]
+    asama = _foto_asamasi(f.get("asama") or "diger")
+    plan = _foto_plani(c, f.get("specimen_id") or "", asama,
+                       f.get("ekran") or "", f.get("tedavi") or "", adlar)
+    return sablon.TemplateResponse(request, "_foto_sira.html",
+                                   {"p": plan, "asama": asama})
 
 
 @uygulama.post("/cycle/{cycle_id}/foto-ekle")
 async def foto_ekle(request: Request, cycle_id: int):
-    c = db.tek("SELECT * FROM cycle WHERE id = ?", (cycle_id,))
+    c = _foto_cycle(cycle_id)
     if not c:
         return RedirectResponse("/hastalar", status_code=303)
 
     form = await request.form()
     secim = form.get("specimen_id") or ""
-    asama = form.get("asama") or "diger"
-    geri = form.get("geri") or f"/cycle/{cycle_id}"
-    dosyalar = form.getlist("dosyalar")
+    asama = _foto_asamasi(form.get("asama") or "diger")
+    geri = _yerel_geri(form.get("geri"), f"/cycle/{cycle_id}")
+    ekran = form.get("ekran") or ""
+    tedavi = form.get("tedavi") or ""
     kid = request.state.kullanici["id"]
 
-    hatalar, eklenen = [], 0
-    for d in dosyalar:
+    def reddet(mesaj):
+        return _foto_ekle_sayfasi(
+            request, c, secim, asama, geri, ekran, tedavi,
+            hata=f"{metinler.t('foto_hic_eklenmedi')} {mesaj}")
+
+    dosyalar = []
+    for d in form.getlist("dosyalar"):
         ad = getattr(d, "filename", "") or ""
-        if not ad:
-            continue
-        icerik = await d.read()
+        if ad:
+            dosyalar.append((ad, await d.read()))
 
-        if secim == "__yeni__":
-            # Her dosya kendi oositini alir
-            hedef = goruntuler.specimen_olustur(cycle_id, c["cycle_no"])
-        else:
-            hedef = secim or None
-
-        mesaj = goruntuler.elle_ekle(
-            icerik, ad, cycle_id, c["cycle_no"], hedef, asama, kid
-        )
-        if mesaj:
-            hatalar.append(mesaj)
-            # Bos kalan oositi geri al
-            if secim == "__yeni__":
-                bos = db.tek("SELECT COUNT(*) k FROM goruntu WHERE specimen_id=?",
-                             (hedef,))["k"]
-                if bos == 0:
-                    db.yaz("DELETE FROM specimen WHERE id=?", (hedef,))
-        else:
-            eklenen += 1
-
-    from urllib.parse import quote
-    geri_ek = (f"&specimen_id={quote(secim)}&asama={quote(asama)}"
-               f"&geri={quote(geri)}")
+    plan = _foto_plani(c, secim, asama, ekran, tedavi, [a for a, _ in dosyalar])
+    if plan["engel"]:
+        return reddet(plan["engel"])
+    if plan["onay"] and form.get("eksik_onay") != "1":
+        return reddet(metinler.t("foto_sira_onay_gerekli").format(
+            n=len(dosyalar), m=len(dosyalar) + len(plan["eksik"])))
+    # Önce hepsi denetlenir: biri reddedilirse hiçbiri eklenmez -- sırayla
+    # eklemede yarım kalan yükleme, yeniden denenince ilk yumurtalara ikinci
+    # kare olurdu.
+    hatalar = [h for h in (goruntuler.dosya_hatasi(icerik, ad)
+                           for ad, icerik in dosyalar) if h]
     if hatalar:
-        return RedirectResponse(
-            f"/cycle/{cycle_id}/foto-ekle?hata=" + quote(" ".join(hatalar)) + geri_ek,
-            status_code=303,
-        )
-    if eklenen == 0:
-        return RedirectResponse(
-            f"/cycle/{cycle_id}/foto-ekle?hata=" + quote("Dosya secilmedi.") + geri_ek,
-            status_code=303,
-        )
+        return reddet(" ".join(hatalar))
+
+    yazilan, acilan = [], []
+    try:
+        for s in plan["satirlar"]:
+            ad, icerik = dosyalar[s["i"]]
+            if secim == FOTO_YENI:
+                # Her dosya kendi yumurtasını alır, dosya sırasıyla.
+                sid = goruntuler.specimen_olustur(cycle_id, c["cycle_no"])
+                acilan.append(sid)
+                hedef_cycle, hedef_no = cycle_id, c["cycle_no"]
+            elif s["hedef"]:
+                sid = s["hedef"]["id"]
+                # Yumurtanın KENDİ tedavisi: arşiv klasörü de oranın.
+                hedef_cycle = s["hedef"]["cycle_id"]
+                hedef_no = s["hedef"]["cycle_no"]
+            else:
+                sid, hedef_cycle, hedef_no = None, cycle_id, c["cycle_no"]
+            yazilan.append(goruntuler.elle_yaz(
+                icerik, ad, hedef_cycle, hedef_no, sid, asama, kid))
+    except Exception:
+        _gunluk.exception("Fotoğraf ekleme yarıda kaldı, geri alınıyor")
+        for gid in yazilan:
+            goruntuler.goruntu_sil(gid)
+        for sid in acilan:
+            goruntuler.bos_specimen_sil(sid)
+        return reddet(metinler.t("foto_yazilamadi"))
     return RedirectResponse(geri, status_code=303)
 
 

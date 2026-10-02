@@ -19094,3 +19094,87 @@ Sentetik veritabanında, telefon (390, 375, 360 px) ve masaüstü genişliğinde
   açılıyor.
 - Yeni şablon + eski kod (yeniden başlatılmamış v6.240 programı): gebelik ve
   istatistik ekranları hatasız, eskisi gibi.
+
+# v6.242 — Fotoğraf ekle: çoklu fotoğraf sırayla bütün yumurtalara
+
+Kullanıcı: "Denüdasyon ve ICSI bölümünde fotoğraf ekle dendiğinde çoklu
+fotoğraf seçilirse sırayla bütün yumurtalara uygula. İlk sıradaki birinci
+yumurta, son sıradaki son yumurta olarak ekle."
+
+## Önce
+
+- "Fotoğraf ekle" sayfasında birden çok dosya seçilince hepsi tek yumurtaya
+  (sayfanın açıldığı yumurtaya) ek kare olarak ekleniyordu. Yumurtalara tek
+  tek fotoğraf eklemek için her yumurtada sayfayı ayrı ayrı açmak gerekiyordu.
+- Dosyalar tarayıcının verdiği sırayla işleniyordu. Windows'un dosya penceresi
+  çoklu seçimde en son tıklanan dosyayı başa koyabiliyor: "Her dosya ayrı
+  yumurta" ile açılan yumurtaların numarası dosyaların sırasını tutmayabilirdi.
+- Bir dosya reddedilirse (tür, boyut) ötekiler yine ekleniyordu.
+
+## Bugün
+
+- **Sırayla bütün yumurtalara**: denüdasyon ve ICSI ekranından açılan "Fotoğraf
+  ekle" sayfasının yumurta seçicisinde yeni seçenek, "Sırayla bütün
+  yumurtalara (N yumurta)". Birden çok dosya seçilince seçici kendiliğinden bu
+  seçeneğe geçiyor (tek dosyaya inilince sayfanın açıldığı yumurtaya döner;
+  seçiciyi elle değiştiren kişinin seçimine dokunulmuyor). 1. fotoğraf 1.
+  yumurtaya, son fotoğraf son yumurtaya.
+  - **Yumurtaların sırası açan ekranınki**: denüdasyonda tedavinin
+    yumurtaları, numara sırasıyla; ICSI'de ICSI ekranının şeridi. Yumurta
+    Çözme'nin ICSI'sinde bu tedavi için çözülen yumurtalar; fotoğraf her
+    yumurtanın KENDİ tedavisinin arşivine yazılıyor (v6.62'nin kuralı).
+  - **Dosyaların sırası dosya adından**, "doğal" sırayla: "Kare2" "Kare10"dan
+    önce, "Kare.jpg" "Kare (2).jpg"den önce; adı aynı olanlar seçim sırasıyla.
+    Mikroskobun ve telefonun dosya adları çekim sırasını taşıyor (saat ya da
+    artan numara), dosya penceresi de varsayılan olarak ada göre sıralı.
+    Kural yalnızca sırayla eklemede değil her yüklemede: tek yumurtaya eklenen
+    karelerde ilk kare (ekranın ana fotoğrafı) adı en önce geleni, "Her dosya
+    ayrı yumurta"da yumurta numaraları dosya adı sırasıyla.
+  - **Önizleme**: dosyalar seçilince sayfada "Ekleneceği yer" listesi
+    çıkıyor: her satırda küçük resim, hangi yumurtaya gideceği ve dosya adı;
+    yumurtanın o aşamada zaten fotoğrafı varsa "zaten N kare var" (yeni
+    fotoğraf ek kare olur, ana fotoğraf değişmez). Liste sunucudan geliyor
+    (yalnızca dosya adları gidiyor); kayıt aynı planı soruyor, yani önizlemede
+    görünen yazılan.
+  - **Dosya yumurtadan çoksa eklenmiyor**: "9 fotoğraf seçildi ama bu ekranda 8
+    yumurta var" -- fazlası bir yere konamaz, "Yükle" kapalı.
+  - **Dosya yumurtadan azsa onayla**: "5 fotoğraf, 8 yumurta: fotoğrafsız
+    kalacak: Yumurta 6, Yumurta 7, Yumurta 8." + "Yine de sırayla ekle" kutusu, işaretlenmeden
+    gönderilmiyor. Arada bir yumurtanın fotoğrafı eksikse sonrakiler bir
+    yumurta kayardı; önizlemede görüp karar veren kullanıcı.
+- **Ya hepsi ya hiçbiri**: dosyalar yazılmadan önce hepsi denetleniyor; biri
+  reddedilirse hiçbiri eklenmiyor ("Hiçbir fotoğraf eklenmedi." + sebep). Yazma
+  yarıda kalırsa (disk dolu) yazılanlar geri alınıyor. Hata artık adrese
+  yazılmıyor, sayfa yeniden basılıyor.
+- Sayfanın dönüş adresi yalnızca programın kendi yolu (`_yerel_geri()`, v6.226);
+  seçilen yumurta tedavinin yumurtalarından biri olmalı; fotoğrafın aşaması
+  listenin bir kodu. Listeden kaldırılmış aşamayla açılan sayfa o aşamayı
+  kendi seçeneğiyle gösteriyor (önce tarayıcı ilk seçeneği, Denüdasyon'u seçili
+  sanıyordu).
+- Öteki aşama ekranlarının (fertilizasyon, cleavage, blastokist, biyopsi,
+  çözme) "Fotoğraf ekle"si eskisi gibi tek yumurtaya; sıra kuralı onlarda da
+  geçerli.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmazsa sayfa eskisi gibi çalışır (sırayla seçeneği ve önizleme yok),
+hata vermez.
+
+## Deneme
+
+Sentetik veritabanında, telefon (390 px) ve masaüstü genişliğinde:
+
+- Denüdasyon, 8 yumurta: karışık sırayla seçilen Kare1–Kare8 → seçici
+  kendiliğinden "Sırayla"ya geçti, önizleme Yumurta 1 ← Kare1 … Yumurta 8 ←
+  Kare8, kayıt aynısı; ekran 3. yumurtadan açıldığı için dönüş yine 3.
+  yumurtaya.
+- 9 dosya: engel, "Yükle" kapalı, hiçbir şey yazılmadı. 5 dosya: uyarı, kutu
+  işaretlenmeden gönderilmedi; işaretlenince Yumurta 1–5.
+- Bozuk dosya karışınca hiçbiri eklenmedi. Tek yumurtaya 3 dosya ada göre;
+  "Her dosya ayrı yumurta"da 3 yeni yumurta ada göre numaralandı.
+- Yumurta Çözme'nin ICSI'si (yumurtalar başka tedavinin): 2 dosya çözülen iki
+  yumurtaya, kayıtlar yumurtaların kendi tedavisinde. Başka hastanın tedavisi
+  adrese yazılınca sırayla seçeneği yok, kayıt reddediliyor.
+- Öteki aşama ekranları, Doktor Notu, dosyasız gönderim, program dışı dönüş
+  adresi: beklenen davranış.
+- Yeni şablon + eski kod (yeniden başlatılmamış v6.241 programı): denüdasyon,
+  ICSI ve fotoğraf ekleme sayfaları hatasız, yükleme eskisi gibi.

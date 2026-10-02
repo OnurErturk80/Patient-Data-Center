@@ -344,6 +344,61 @@ def geri_al(goruntu_id: int):
 MAKS_BOYUT = 25 * 1024 * 1024      # 25 MB
 
 
+def _dogal_parcalar(metin: str) -> list:
+    """Metni sayı ve sayı olmayan parçalara böler; sayılar sayı olarak."""
+    parca, parcalar = "", []
+    for ch in metin + "\0":
+        if parca and (ch == "\0" or ch.isdigit() != parca[-1].isdigit()):
+            parcalar.append((0, int(parca), "") if parca[-1].isdigit()
+                            else (1, 0, parca))
+            parca = ""
+        if ch != "\0":
+            parca += ch
+    return parcalar
+
+
+def dogal_anahtar(ad: str):
+    """Dosya adının "doğal" sıralama anahtarı (v6.242): içindeki sayılar sayı
+    olarak karşılaştırılır -- "Kare2" "Kare10"dan önce gelir, düz metin
+    sıralaması tersini derdi. Önce uzantısız ad, sonra uzantı: "Kare.jpg",
+    "Kare (2).jpg"den (Windows) ve "Kare 2.jpg"den (Mac) önce -- kopyanın
+    numarası ilkinin arkasına gelir. Büyük/küçük harf ve macOS'un ayrık
+    yazdığı Türkçe harfler (NFD) fark etmez."""
+    p = Path(unicodedata.normalize("NFC", ad or "").casefold())
+    return (_dogal_parcalar(p.stem), _dogal_parcalar(p.suffix))
+
+
+def dosya_sirasi(adlar) -> list:
+    """Yüklenen dosyaların işlenme sırası (v6.242): dosya adına göre doğal
+    sıra, adı aynı olanlar tarayıcının verdiği sırayla. Döndürülen, `adlar`
+    içindeki konumlar.
+
+    Tarayıcının sırasına güvenilmiyor: Windows'un dosya penceresi çoklu
+    seçimde en son tıklanan dosyayı başa koyabiliyor. Mikroskobun ve
+    telefonun dosya adları çekim sırasını taşıyor (saat ya da artan numara),
+    dosya penceresi de varsayılan olarak ada göre sıralı -- kullanıcının
+    gördüğü "ilk dosya" bu. Sırayla eklemenin ekranı ve kaydı bu işlevi
+    soruyor; ikinci bir sıralama yazma."""
+    adlar = list(adlar)
+    return sorted(range(len(adlar)), key=lambda i: (dogal_anahtar(adlar[i]), i))
+
+
+def dosya_hatasi(icerik: bytes, orijinal_ad: str,
+                 izin_uzantilari: set = UZANTILAR):
+    """Yüklenen dosya kabul edilebilir mi -- değilse sebebi, öyleyse None.
+    Çok dosyalı yüklemede bütün dosyalar yazmadan ÖNCE buradan geçiyor
+    (v6.242): biri reddedilirse hiçbiri eklenmesin."""
+    uzanti = Path(orijinal_ad).suffix.lower()
+    if uzanti not in izin_uzantilari:
+        return (f"'{orijinal_ad}' desteklenmeyen bir dosya türü. "
+                f"İzin verilenler: {', '.join(sorted(izin_uzantilari))}")
+    if len(icerik) > MAKS_BOYUT:
+        return f"'{orijinal_ad}' çok büyük (en fazla {MAKS_BOYUT // 1024 // 1024} MB)."
+    if not icerik:
+        return f"'{orijinal_ad}' boş."
+    return None
+
+
 def elle_ekle(icerik: bytes, orijinal_ad: str, cycle_id: int, cycle_no: str,
               specimen_id, asama: str, kullanici_id: int,
               izin_uzantilari: set = UZANTILAR):
@@ -355,15 +410,20 @@ def elle_ekle(icerik: bytes, orijinal_ad: str, cycle_id: int, cycle_no: str,
     yalnızca görüntü, doktor notu ekranı `DOKTOR_NOTU_UZANTILARI` geçiyor.
     Hata durumunda açıklama metni döndürür, başarılıysa None.
     """
-    uzanti = Path(orijinal_ad).suffix.lower()
-    if uzanti not in izin_uzantilari:
-        return (f"'{orijinal_ad}' desteklenmeyen bir dosya türü. "
-                f"İzin verilenler: {', '.join(sorted(izin_uzantilari))}")
-    if len(icerik) > MAKS_BOYUT:
-        return f"'{orijinal_ad}' çok büyük (en fazla {MAKS_BOYUT // 1024 // 1024} MB)."
-    if not icerik:
-        return f"'{orijinal_ad}' boş."
+    hata = dosya_hatasi(icerik, orijinal_ad, izin_uzantilari)
+    if hata:
+        return hata
+    elle_yaz(icerik, orijinal_ad, cycle_id, cycle_no, specimen_id, asama,
+             kullanici_id)
+    return None
 
+
+def elle_yaz(icerik: bytes, orijinal_ad: str, cycle_id: int, cycle_no: str,
+             specimen_id, asama: str, kullanici_id: int) -> int:
+    """`dosya_hatasi()`'ndan geçmiş dosyayı arşive yazar, `goruntu`
+    kimliğini döndürür (v6.242: çok dosyalı yükleme yarıda kalırsa
+    yazdıklarını geri alabilsin). `cycle_id` örneğin KENDİ tedavisi."""
+    uzanti = Path(orijinal_ad).suffix.lower()
     ts = datetime.now()
     klasor = hedef_klasor(cycle_id, cycle_no)
     klasor.mkdir(parents=True, exist_ok=True)
@@ -378,14 +438,18 @@ def elle_ekle(icerik: bytes, orijinal_ad: str, cycle_id: int, cycle_no: str,
 
     hedef.write_bytes(icerik)
 
-    db.yaz(
-        "INSERT INTO goruntu (lab_id, cycle_id, specimen_id, asama, zaman, "
-        "dosya_yolu, orijinal_dosya_adi, kullanici_id, kaynak) "
-        "VALUES (?,?,?,?,?,?,?,?,'elle')",
-        (db.LAB_ID, cycle_id, specimen_id, asama,
-         ts.isoformat(" ", "seconds"), goreli_yap(hedef), orijinal_ad, kullanici_id),
-    )
-    return None
+    try:
+        return db.yaz(
+            "INSERT INTO goruntu (lab_id, cycle_id, specimen_id, asama, zaman, "
+            "dosya_yolu, orijinal_dosya_adi, kullanici_id, kaynak) "
+            "VALUES (?,?,?,?,?,?,?,?,'elle')",
+            (db.LAB_ID, cycle_id, specimen_id, asama,
+             ts.isoformat(" ", "seconds"), goreli_yap(hedef), orijinal_ad,
+             kullanici_id),
+        )
+    except Exception:
+        hedef.unlink(missing_ok=True)   # kaydı olmayan dosya arşivde kalmasın
+        raise
 
 
 def goruntu_sil(goruntu_id: int):

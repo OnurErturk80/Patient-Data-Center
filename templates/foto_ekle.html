@@ -10,12 +10,24 @@
 {% block icerik %}
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
-<form method="post" action="/cycle/{{ c.id }}/foto-ekle" enctype="multipart/form-data">
+{#- Sırayla bütün yumurtalara (v6.242): yalnızca denüdasyon ve ICSI'den
+    açılınca (`ekran`), sunucu yeni programsa (`is defined`, tuzak #5 --
+    yeniden başlatılmamış program bu değişkenleri vermez, sayfa eskisi gibi). -#}
+{% set sirali_var = sirayla_sayisi is defined and sirayla_sayisi %}
+<form method="post" action="/cycle/{{ c.id }}/foto-ekle" enctype="multipart/form-data"
+      id="fotoform"{% if sira_yolu is defined %} data-sira-yolu="{{ sira_yolu }}"{% endif %}>
   <input type="hidden" name="geri" value="{{ geri }}">
+  {% if ekran is defined %}
+  <input type="hidden" name="ekran" value="{{ ekran }}">
+  <input type="hidden" name="tedavi" value="{{ tedavi }}">
+  {% endif %}
   <div class="kart">
     <div class="alan">
       <label for="specimen_id">{{ metin("hangi_oosite") }}</label>
       <select id="specimen_id" name="specimen_id">
+        {% if sirali_var %}
+        <option value="__sirayla__" {% if secili_specimen == '__sirayla__' %}selected{% endif %}>{{ metin("sirayla_butun_yumurtalara").format(m=sirayla_sayisi) }}</option>
+        {% endif %}
         <option value="__yeni__" {% if secili_specimen == '__yeni__' %}selected{% endif %}>{{ metin("her_dosya_ayri_oosit") }}</option>
         <option value="" {% if not secili_specimen %}selected{% endif %}>{{ metin("oosite_baglama") }}</option>
         {% for s in specimenler %}
@@ -35,10 +47,94 @@
       <label for="dosyalar">{{ metin("dosyalar") }}</label>
       <input id="dosyalar" name="dosyalar" type="file" multiple
              accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp">
+      {% if sirali_var %}<div class="ipucu">{{ metin("foto_sira_ekle_ipucu") }}</div>{% endif %}
       <div class="ipucu">{{ metin("foto_ekle_ipucu") }}</div>
     </div>
   </div>
-  <button class="dugme" type="submit">{{ metin("yukle") }}</button>
+  {#- Önizleme: seçimden sonra `_foto_sira.html` buraya geliyor (`.alan`
+      dışında: onay kutusu `.alan input`'un genişliğini almasın, tuzak #14). -#}
+  <div id="fotosira" class="fotosira" aria-live="polite"></div>
+  <button class="dugme" type="submit" id="yukledugme">{{ metin("yukle") }}</button>
   <a class="dugme ikincil" href="{{ geri }}">{{ metin("vazgec") }}</a>
 </form>
+
+<script>
+/* Fotoğraf ekleme önizlemesi (v6.242). Birden çok dosya seçilince ekran
+   yumurta seçiliyken "Sırayla bütün yumurtalara"ya geçer (kullanıcının
+   isteği); seçiciyi elle değiştiren kişinin seçimine dokunulmaz. Plan
+   sunucudan (`_foto_plani()`, kayıt da onu soruyor): yalnızca dosya adları
+   gidiyor, küçük resimler buradan. */
+(function () {
+  var form = document.getElementById('fotoform');
+  if (!form || !form.getAttribute('data-sira-yolu') || !window.fetch ||
+      !window.FormData || !window.URL || !URL.createObjectURL) return;
+  var yol = form.getAttribute('data-sira-yolu');
+  var dosya = document.getElementById('dosyalar');
+  var sec = document.getElementById('specimen_id');
+  var asama = document.getElementById('asama');
+  var kutu = document.getElementById('fotosira');
+  var dugme = document.getElementById('yukledugme');
+  var ilk = sec.value, elle = false, istek = 0, urller = [];
+
+  function temizle() {
+    urller.forEach(function (u) { URL.revokeObjectURL(u); });
+    urller = [];
+    kutu.innerHTML = '';
+    dugme.disabled = false;
+  }
+  function onizle(li, f) {
+    var yer = li.querySelector('.onizleme');
+    if (!yer || !f) return;
+    var u = URL.createObjectURL(f);
+    urller.push(u);
+    var img = document.createElement('img');
+    img.alt = '';
+    img.onerror = function () {
+      img.remove();
+      yer.textContent = yer.getAttribute('data-yok') || '';
+      yer.className += ' yok';
+    };
+    img.src = u;
+    yer.appendChild(img);
+  }
+  function plan() {
+    var secilen = dosya.files || [];
+    var no = ++istek;
+    if (!secilen.length) { temizle(); return; }
+    var v = new FormData();
+    for (var i = 0; i < secilen.length; i++) v.append('ad', secilen[i].name);
+    v.append('specimen_id', sec.value);
+    v.append('asama', asama.value);
+    ['ekran', 'tedavi'].forEach(function (a) {
+      if (form.elements[a]) v.append(a, form.elements[a].value);
+    });
+    fetch(yol, {method: 'POST', body: v, credentials: 'same-origin'})
+      .then(function (r) { return r.ok ? r.text() : ''; })
+      .then(function (html) {
+        if (no !== istek) return;              // arkadan gelen eski cevap
+        temizle();
+        var g = document.createElement('div');
+        g.innerHTML = html;
+        var p = g.querySelector('.fotoplan');
+        if (!p) return;                        // oturum düştü: giriş sayfası
+        kutu.appendChild(p);
+        dugme.disabled = p.getAttribute('data-engel') === '1';
+        var satirlar = p.querySelectorAll('[data-i]');
+        for (var k = 0; k < satirlar.length; k++) {
+          onizle(satirlar[k], secilen[+satirlar[k].getAttribute('data-i')]);
+        }
+      })
+      .catch(function () { if (no === istek) temizle(); });
+  }
+  sec.addEventListener('change', function () { elle = true; plan(); });
+  asama.addEventListener('change', plan);
+  dosya.addEventListener('change', function () {
+    if (!elle && sec.querySelector('option[value="__sirayla__"]') &&
+        ilk && ilk.charAt(0) !== '_') {
+      sec.value = (dosya.files && dosya.files.length > 1) ? '__sirayla__' : ilk;
+    }
+    plan();
+  });
+})();
+</script>
 {% endblock %}
