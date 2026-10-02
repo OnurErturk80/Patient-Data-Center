@@ -19219,3 +19219,87 @@ Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak.
   ve 2022-06'daki FET'in iki formu da ekranda ve Excel'de 31 yazıyor (eski kod
   FET'te bugünkü yaşı, 36'yı yazıyordu). Doğum gününün bir gün öncesi ve günü
   doğru (35 / 36).
+
+# v6.244 — Androloji: ileri / yerinde hareketli, hazırlık sonrası NP ve IM, TPSS kendiliğinden
+
+Kullanıcı: "Androlojide bazal incelemede İlerleyen — PR (%) yerine İleri
+hareketli-PR (%), İlerlemeyen — NP (%) yerine Yerinde Hareketli — NP (%)
+olsun. Hazırlık sonrasında da İlerleyen — PR (%) yerine İleri hareketli-PR (%)
+olsun ve hazırlık sonrasına Yerinde Hareketli — NP (%) ve Hareketsiz — IM (%)
+eklensin. Total motilite (%) hep bunların üzerinde olsun hem bazal hem de
+hazırlık sonrasında. Ayrıca TMSC (milyon) TPSS (milyon) olarak adı değişsin ve
+otomatik hesaplansın. Konsantrasyon çarpı hacim çarpı ileri hareketli bölü 100
+formülünden çıkan sonuç TPSS değeri olarak yazılsın."
+
+## Önce
+
+- Etiketler "İlerleyen — PR (%)" ve "İlerlemeyen — NP (%)". Hazırlık
+  sonrasında yalnızca PR vardı: NP ve IM'in kolonları `goc_019`'dan beri
+  duruyordu, kayıt rotası da okuyordu, formda kutuları yoktu.
+- Hazırlık sonrasında Total motilite PR'nin yanındaydı (sağında), bilgi
+  kartında PR'den sonra. Bazalde zaten üstündeydi.
+- "TMSC (milyon)" elle giriliyordu (ipucu: hacim × konsantrasyon ×
+  motilite / 100). Deneme kopyasında hiç girilmemişti: 818 androloji kaydının
+  hepsi Access aktarımı, hiçbirinde TMSC yok.
+
+## Bugün
+
+- **Etiketler**: "İleri hareketli — PR (%)" ve "Yerinde hareketli — NP (%)",
+  iki bölümde de; "Hareketsiz — IM (%)" aynı. Yazım ekranın öteki etiketleri
+  gibi (uzun tire, küçük harfle devam). Metin anahtarları değişmedi
+  (`ilerleyen_pr`, `ilerlemeyen_np`, `tmsc`): `git pull`'dan sonra yeniden
+  başlatılmamış program yeni şablonla kendi eski metnini basıyor, ekranda
+  çıplak anahtar görünmüyor (tuzak #5).
+- **Hazırlık sonrasına NP ve IM** kutuları, bilgi kartında da.
+- **Total motilite PR / NP / IM'in üstünde**, iki bölümde de sağ sütunda,
+  PR | NP satırının hemen üstünde. Bazalin düzeni değişmedi (konsantrasyon |
+  total motilite → PR | NP → IM | normal morfoloji → vitalite | TPSS);
+  hazırlık sonrası: hazırlık hacmi | konsantrasyon → normal morfoloji | total
+  motilite → PR | NP → IM | TPSS. Bilgi kartlarında sıra total, PR, NP, IM.
+- **TPSS (milyon) = konsantrasyon × hacim × ileri hareketli (PR) / 100**,
+  kendiliğinden. Bazalde hacim Makroskopik'teki hacim (ejakülat), hazırlık
+  sonrasında hazırlık hacmi. Türetilmiş, saklanmıyor (`db.tpss()`, v6.38'in
+  gerekçesi): aktarılmış kayıtlarda da hemen görünüyor, bir girdi
+  düzeltilince kendiliğinden doğru. Üçünden biri girilmemişse "Hesaplanmadı
+  (konsantrasyon, hacim ve PR gerekli)"; konsantrasyon ya da PR 0 ise "0".
+- **Formda TPSS yazılan bir kutu değil**, kesik çizgili hesaplanan alan:
+  konsantrasyon, hacim ya da PR yazıldıkça sayfada yeniden hesaplanıyor,
+  kaydedince bilgi kartı aynı yazıyı basıyor. Altında formülü yazıyor.
+- **Yazısı**: en çok iki ondalık ("50.96", "540"), 0,1'in altında iki anlamlı
+  hane ("0.053", "0.004"). Hazırlık sonrasında 0,01 milyonun altı olağan
+  (deneme kopyasında 817 kaydın 27'si); iki ondalık onları "0" gösterirdi,
+  "hiç sperm yok" gibi okunurdu.
+- **Eski elle girilen TMSC** (`sperm_analiz.toplam_motil_sayi`) artık
+  gösterilmiyor ve yazılmıyor; kolon ve kayıtlı değer veritabanında duruyor.
+- Hata iletisi yeni adla: "Yerinde hareketli (NP) % alanına sayı yazılmalı."
+- **Telefonda bilgi kartının etiketi değere yapışmıyordu** (uzayan "İleri
+  hareketli — PR (%)" sütunu tam dolduruyordu): `.veri dt`'ye 8 px sağ dolgu,
+  bütün bilgi kartlarında. Dolgu etiketin kutusunun içinde, hiçbir kartta
+  değerin yeri kaymıyor; sütunu dolduran uzun etiket bir satır aşağı sarılıyor.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak.
+
+## Deneme
+
+- Sentetik veritabanında: PR'si ve hacmi olmayan eski kayıt "Hesaplanmadı";
+  bazal 45,5 × 3,2 × 35 → 50.96, hazırlık sonrası 20 × 0,8 × 85 → 13.6; yeni
+  örnekte konsantrasyon 0 → "0", 0,05 × 0,8 × 10 → "0.004". Hazırlık sonrası
+  NP / IM yazılıyor; elle girilmiş eski bir TMSC değeri kayıttan sonra yerinde,
+  değişiklik geçmişine TMSC satırı düşmüyor; yeni kayıtta kolon boş.
+- Tarayıcıda (390 ve 1280 px): Total motilite iki bölümde de PR, NP ve IM'in
+  üstünde; TPSS alanı girdi kutusunun boyunda; sayfanın hesabı ile sunucunun
+  yazısı 356 durumda birebir (yarımlar: 0,125 → "0.13", virgüllü yazım, boş
+  ve geçersiz girdi dahil); kaydedince kart canlı hesabın yazısını basıyor;
+  yatay taşma yok.
+- Tazeleme: hesaplanan alan "yazılıyor" sayılmıyor (`kirli()` yalnızca
+  input / select / textarea'ya bakıyor). Bu düzenleme ekranı, seçilmemiş
+  seçim kutuları (renk, viskozite, aglütinasyon) yüzünden eski kodla da
+  "kirli" sayılıyor ve yeni kayıt gelince yenilemek yerine şerit gösteriyor;
+  değişmedi.
+- Eski Python + yeni şablonlar (yeniden başlatılmamış program): eski etiketler
+  ve elle TMSC kutusu değeriyle, kayıt eskisi gibi; hazırlık sonrası NP / IM
+  onda da yazılıyor; çıplak metin anahtarı yok.
+- Deneme kopyasında (aktarılmış 818 androloji kaydı) 140 tedavinin 280 TPSS
+  yerinin 277'si hesaplandı ve ekrandaki veritabanından hesaplananla aynı
+  (22'si 0, 18'i 0,01'in altında); 3'ünde hazırlık sonrası analizi hiç yok,
+  bütün satırlar gibi "girilmedi".

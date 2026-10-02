@@ -368,6 +368,29 @@ gerekçesi). Androloji (`sperm_ornek` + iki `sperm_analiz`: bazal /
 hazırlık sonrası) `ivf_icsi`'de ve Yumurta Çözme'de. Şema/listeler: README
 v6.2, `goc_019`.
 
+**Androloji'nin TPSS'i türetilmiş** (v6.244, README v6.244; kullanıcı:
+"TMSC (milyon) TPSS (milyon) olarak adı değişsin ve otomatik hesaplansın.
+Konsantrasyon çarpı hacim çarpı ileri hareketli bölü 100"):
+- `db.tpss(kons, hacim, pr)` (sayı) / `db.tpss_yazimi()` (yazı), Jinja global
+  `tpss` (yazı). Bazalde hacim `sperm_ornek.hacim_ml` (Makroskopik), hazırlık
+  sonrasında `sperm_analiz.hacim_ml` (hazırlık hacmi). Saklanmıyor; üçünden
+  biri yoksa None ("Hesaplanmadı"). TPSS'i başka bir yere (form, Excel)
+  koyacaksan bunu çağır.
+- Formda `<output class="hesaplanan">`, sayfanın betiği (`tpssHesapla()`)
+  aynı hesabı yapıyor: işlem sırası, sayı okuma (virgül = nokta, `sayi()`
+  gibi), yuvarlama (yarım büyüğe: `toFixed` ile `Decimal` ROUND_HALF_UP aynı).
+  Birini değiştirirsen ikisini; 356 durumda karşılaştırıldı. Hesaplanan bir
+  değeri formda `<input readonly>` ile değil `<output>` ile göster: formla
+  gönderilmez, tazelemenin `kirli()`'si saymaz.
+- `toplam_motil_sayi` (eski elle girilen TMSC) yazılmıyor, gösterilmiyor;
+  kolon ve değer duruyor -- okuma.
+- Etiketlerin metin anahtarı aynı kaldı (`ilerleyen_pr` = "İleri hareketli —
+  PR (%)", `ilerlemeyen_np` = "Yerinde hareketli — NP (%)", `tmsc` = "TPSS
+  (milyon)"): eski program yeni şablonda kendi metnini basar. Şablon
+  `tpss is defined` diye soruyor (tuzak #5), yoksa eski TMSC kutusu.
+- Hazırlık sonrasında da NP ve IM; Total motilite iki bölümde de PR / NP /
+  IM'in üstünde (sağ sütun). Sırayı değiştirmeden önce kullanıcıya sor.
+
 **ICSI'de "enjekte edilmedi" işaretlenen oosit sonraki aşamalara sızmaz**
 (v6.105, kullanıcının isteği). ICSI ekranının "Enjekte edildi mi?" kutusu
 hayır iken (`icsi_kaydet()`) hiçbir `icsi` olayı yazılmıyor, `specimen.durum`

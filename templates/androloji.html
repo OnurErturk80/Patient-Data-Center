@@ -27,6 +27,22 @@
 </div>
 {% endmacro %}
 
+{#- Hesaplanan değer (v6.244, TPSS): yazılan kutu değil, formla gönderilmeyen
+    `<output>` (tazelemenin `kirli()`'si de saymıyor). Yazısı sunucunun
+    (`tpss()`); girdiler değişince aşağıdaki betik aynı hesabı yapıyor.
+    `hacim`: hacim kutusunun kimliği (bazalde Makroskopik'in `hacim_ml`'si),
+    `on`: bölümün öneki. -#}
+{% macro hesap(ad, deger, hacim, on, ipucu) %}
+<div>
+  <label for="{{ ad }}">{{ metin("tmsc") }}</label>
+  <output id="{{ ad }}" class="hesaplanan"
+          for="{{ on }}konsantrasyon_milyon_ml {{ hacim }} {{ on }}pr_yuzde"
+          data-kons="{{ on }}konsantrasyon_milyon_ml" data-hacim="{{ hacim }}"
+          data-pr="{{ on }}pr_yuzde">{{ deger if deger is not none else "—" }}</output>
+  <div class="ipucu">{{ ipucu }}</div>
+</div>
+{% endmacro %}
+
 {% macro sec(ad, etiket, liste, kaynak, alan) %}
 <div>
   <label for="{{ ad }}">{{ etiket }}</label>
@@ -50,6 +66,23 @@
 {% block icerik %}
 {# İşlemi yapan en üstte (v6.208, kullanıcının isteği). #}
 {{ iy.kutu(c.id, "androloji") }}
+
+{#- TPSS (v6.244): konsantrasyon × hacim × PR / 100, kayıttan türetiliyor
+    (`db.tpss()`); bazalde hacim Makroskopik'in hacmi, hazırlık sonrasında
+    hazırlık hacmi. `tpss is defined` (tuzak #5): yeniden başlatılmamış
+    program eski elle girilen TMSC kutusunu basar, kaydı da onu yazar. -#}
+{% set tpss_var = tpss is defined %}
+{% if tpss_var %}
+  {% set bazal_tpss = tpss(bazal.konsantrasyon_milyon_ml, secili.hacim_ml if secili else none,
+                           bazal.pr_yuzde) if bazal else none %}
+  {% set sonrasi_tpss = tpss(sonrasi.konsantrasyon_milyon_ml, sonrasi.hacim_ml,
+                             sonrasi.pr_yuzde) if sonrasi else none %}
+  {% set bazal_tpss_kart = (bazal_tpss or metin("tpss_hesaplanamadi")) if bazal else none %}
+  {% set sonrasi_tpss_kart = (sonrasi_tpss or metin("tpss_hesaplanamadi")) if sonrasi else none %}
+{% else %}
+  {% set bazal_tpss_kart = bazal.toplam_motil_sayi if bazal else none %}
+  {% set sonrasi_tpss_kart = sonrasi.toplam_motil_sayi if sonrasi else none %}
+{% endif %}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
@@ -148,7 +181,7 @@
        (metin("hareketsiz_im"), bazal.im_yuzde if bazal else None),
        (metin("normal_morfoloji"), bazal.morfoloji_normal_yuzde if bazal else None),
        (metin("vitalite"), bazal.vitalite_yuzde if bazal else None),
-       (metin("tmsc"), bazal.toplam_motil_sayi if bazal else None),
+       (metin("tmsc"), bazal_tpss_kart),
        (metin("yuvarlak_hucre"), bazal.yuvarlak_hucre_milyon_ml if bazal else None),
        (metin("lokosit"), bazal.lokosit_milyon_ml if bazal else None),
        (metin("aglutinasyon"),
@@ -161,10 +194,12 @@
        (metin("analiz_zamani"), gg_aa_yyyy_saat(sonrasi.zaman) if sonrasi else None),
        (metin("hazirlik_hacmi"), sonrasi.hacim_ml if sonrasi else None),
        (metin("konsantrasyon"), sonrasi.konsantrasyon_milyon_ml if sonrasi else None),
-       (metin("ilerleyen_pr"), sonrasi.pr_yuzde if sonrasi else None),
        (metin("total_motilite"), sonrasi.total_motil_yuzde if sonrasi else None),
+       (metin("ilerleyen_pr"), sonrasi.pr_yuzde if sonrasi else None),
+       (metin("ilerlemeyen_np"), sonrasi.np_yuzde if sonrasi else None),
+       (metin("hareketsiz_im"), sonrasi.im_yuzde if sonrasi else None),
        (metin("normal_morfoloji"), sonrasi.morfoloji_normal_yuzde if sonrasi else None),
-       (metin("tmsc"), sonrasi.toplam_motil_sayi if sonrasi else None),
+       (metin("tmsc"), sonrasi_tpss_kart),
        (metin("hazirlik_sonrasi_not"), sonrasi.notlar if sonrasi else None),
      ]) }}
 
@@ -228,7 +263,11 @@
     </div>
     <div class="alan ikili">
       {{ num('bazal_vitalite_yuzde', metin('vitalite'), bazal, 'vitalite_yuzde') }}
+      {% if tpss_var %}
+      {{ hesap('bazal_tpss', bazal_tpss, 'hacim_ml', 'bazal_', metin('tpss_bazal_ipucu')) }}
+      {% else %}
       {{ num('bazal_toplam_motil_sayi', metin('tmsc'), bazal, 'toplam_motil_sayi') }}
+      {% endif %}
     </div>
     <div class="alan ikili">
       {{ num('bazal_yuvarlak_hucre_milyon_ml', metin('yuvarlak_hucre'), bazal, 'yuvarlak_hucre_milyon_ml') }}
@@ -253,13 +292,23 @@
       {{ num('sonrasi_hacim_ml', metin('hazirlik_hacmi'), sonrasi, 'hacim_ml') }}
       {{ num('sonrasi_konsantrasyon_milyon_ml', metin('konsantrasyon'), sonrasi, 'konsantrasyon_milyon_ml') }}
     </div>
+    {#- Total motilite PR / NP / IM'in üstünde, bazaldeki gibi sağ sütunda
+        (v6.244, kullanıcının isteği); NP ve IM hazırlık sonrasında da. -#}
     <div class="alan ikili">
-      {{ num('sonrasi_pr_yuzde', metin('ilerleyen_pr'), sonrasi, 'pr_yuzde') }}
+      {{ num('sonrasi_morfoloji_normal_yuzde', metin('normal_morfoloji'), sonrasi, 'morfoloji_normal_yuzde') }}
       {{ num('sonrasi_total_motil_yuzde', metin('total_motilite'), sonrasi, 'total_motil_yuzde') }}
     </div>
     <div class="alan ikili">
-      {{ num('sonrasi_morfoloji_normal_yuzde', metin('normal_morfoloji'), sonrasi, 'morfoloji_normal_yuzde') }}
+      {{ num('sonrasi_pr_yuzde', metin('ilerleyen_pr'), sonrasi, 'pr_yuzde') }}
+      {{ num('sonrasi_np_yuzde', metin('ilerlemeyen_np'), sonrasi, 'np_yuzde') }}
+    </div>
+    <div class="alan ikili">
+      {{ num('sonrasi_im_yuzde', metin('hareketsiz_im'), sonrasi, 'im_yuzde') }}
+      {% if tpss_var %}
+      {{ hesap('sonrasi_tpss', sonrasi_tpss, 'sonrasi_hacim_ml', 'sonrasi_', metin('tpss_sonrasi_ipucu')) }}
+      {% else %}
       {{ num('sonrasi_toplam_motil_sayi', metin('tmsc'), sonrasi, 'toplam_motil_sayi') }}
+      {% endif %}
     </div>
     <div class="alan">
       <label for="sonrasi_notlar">{{ metin("hazirlik_sonrasi_not") }}</label>
@@ -269,6 +318,45 @@
 
   <button class="dugme" type="submit">{{ metin("kaydet") }}</button>
 </form>
+<script>
+/* TPSS (v6.244): konsantrasyon, hacim ya da PR değişince yeniden hesaplanır.
+   Hesap ve yazı `db.tpss()` / `db.tpss_yazimi()`'nin aynısı: işlem sırası,
+   sayının okunuşu (sunucunun `sayi()`'si gibi virgül = nokta) ve yuvarlama
+   (`toFixed` yarımı büyüğe yuvarlıyor, sunucu da öyle). Kaydedince bilgi
+   kartı sunucunun yazısını basıyor; birini değiştirirsen ötekini de. */
+(function () {
+  var kutular = document.querySelectorAll('output.hesaplanan[data-kons]');
+  if (!kutular.length) return;
+  function oku(id) {
+    var e = document.getElementById(id);
+    var s = e ? e.value.trim().replace(/,/g, '.') : '';
+    if (!s) return null;
+    var v = Number(s);
+    return isFinite(v) ? v : null;
+  }
+  function yazi(v) {
+    if (v === 0) return '0';
+    var hane = 2, esik = 0.1;
+    while (Math.abs(v) < esik && hane < 8) { hane += 1; esik /= 10; }
+    return v.toFixed(hane).replace(/\.?0+$/, '');
+  }
+  function tpssHesapla(k) {
+    var kons = oku(k.getAttribute('data-kons')),
+        hacim = oku(k.getAttribute('data-hacim')),
+        pr = oku(k.getAttribute('data-pr'));
+    var v = (kons === null || hacim === null || pr === null)
+      ? null : kons * hacim * pr / 100;
+    k.value = (v === null || !isFinite(v)) ? '—' : yazi(v);
+  }
+  Array.prototype.forEach.call(kutular, function (k) {
+    ['data-kons', 'data-hacim', 'data-pr'].forEach(function (a) {
+      var e = document.getElementById(k.getAttribute(a));
+      if (e) e.addEventListener('input', function () { tpssHesapla(k); });
+    });
+    tpssHesapla(k);
+  });
+})();
+</script>
 {% if kayit_var %}
 <a class="dugme ikincil"
    href="/cycle/{{ c.id }}/androloji{% if secili %}?ornek={{ secili.id }}{% endif %}">

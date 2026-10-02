@@ -1985,23 +1985,32 @@ METINLER = {
     "konsantrasyon": {"tr": "Konsantrasyon (milyon/mL)",
                       "en": "Concentration (million/mL)"},
     "total_motilite": {"tr": "Total motilite (%)", "en": "Total motility (%)"},
-    "ilerleyen_pr": {"tr": "İlerleyen — PR (%)", "en": "Progressive — PR (%)"},
-    "ilerlemeyen_np": {"tr": "İlerlemeyen — NP (%)",
+    # PR / NP / TPSS (v6.244, kullanıcının isteği): anahtarlar aynı kaldı
+    # (yeniden başlatılmamış program yeni şablonda da kendi metnini basar).
+    "ilerleyen_pr": {"tr": "İleri hareketli — PR (%)", "en": "Progressive — PR (%)"},
+    "ilerlemeyen_np": {"tr": "Yerinde hareketli — NP (%)",
                        "en": "Non-progressive — NP (%)"},
     "hareketsiz_im": {"tr": "Hareketsiz — IM (%)", "en": "Immotile — IM (%)"},
     "normal_morfoloji": {"tr": "Normal morfoloji (%)", "en": "Normal morphology (%)"},
     "vitalite": {"tr": "Vitalite (%)", "en": "Vitality (%)"},
-    "tmsc": {"tr": "TMSC (milyon)", "en": "TMSC (million)"},
+    "tmsc": {"tr": "TPSS (milyon)", "en": "TPMSC (million)"},
+    "tpss_bazal_ipucu": {
+        "tr": "Kendiliğinden: konsantrasyon × hacim (Makroskopik) × PR / 100.",
+        "en": "Calculated: concentration × volume (macroscopic) × PR / 100."},
+    "tpss_sonrasi_ipucu": {
+        "tr": "Kendiliğinden: konsantrasyon × hazırlık hacmi × PR / 100.",
+        "en": "Calculated: concentration × preparation volume × PR / 100."},
+    "tpss_hesaplanamadi": {
+        "tr": "Hesaplanmadı (konsantrasyon, hacim ve PR gerekli)",
+        "en": "Not calculated (concentration, volume and PR needed)"},
     "yuvarlak_hucre": {"tr": "Yuvarlak hücre (milyon/mL)",
                        "en": "Round cells (million/mL)"},
     "lokosit": {"tr": "Lökosit (milyon/mL)", "en": "Leukocytes (million/mL)"},
     "aglutinasyon": {"tr": "Aglütinasyon", "en": "Agglutination"},
     "bazal_analiz_notu": {"tr": "Bazal analiz notu", "en": "Baseline analysis note"},
     "tmsc_ipucu": {
-        "tr": "TMSC ≈ hacim × konsantrasyon × motilite/100. Boş bırakılan alan "
-              "\"girilmedi\" olarak saklanır.",
-        "en": "TMSC ≈ volume × concentration × motility/100. A field left empty "
-              "is stored as \"not entered\"."},
+        "tr": "Boş bırakılan alan \"girilmedi\" olarak saklanır.",
+        "en": "A field left empty is stored as \"not entered\"."},
     "hazirlik_sonrasi_analiz": {"tr": "Hazırlık sonrası analiz",
                                 "en": "Post-preparation analysis"},
     "hazirlik_hacmi": {"tr": "Hazırlık hacmi (mL)", "en": "Preparation volume (mL)"},

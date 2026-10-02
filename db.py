@@ -3,11 +3,13 @@
 import contextvars
 import json
 import logging
+import math
 import os
 import platform
 import sqlite3
 import sys
 from contextlib import contextmanager
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 # ----------------------------------------------------------------- iki kök
@@ -1007,6 +1009,48 @@ def beta_pozitif_sql(cycle: str = "c.id") -> str:
     "pozitif"i (v6.241). `cycle`: dış sorgudaki tedavi kimliği, koddan gelir."""
     return ("EXISTS (SELECT 1 FROM beta_hcg bh WHERE bh.cycle_id = "
             f"{cycle} AND bh.deger >= {BETA_POZITIF_ESIK})")
+
+
+# ------------------------------------------------- androloji: TPSS (v6.244)
+
+def tpss(konsantrasyon, hacim, pr):
+    """TPSS (milyon), toplam ileri hareketli sperm (v6.244, kullanıcının
+    formülü): konsantrasyon (milyon/mL) × hacim (mL) × ileri hareketli PR (%)
+    / 100. Bazalde hacim ejakülatın (`sperm_ornek.hacim_ml`, Makroskopik),
+    hazırlık sonrasında hazırlık hacmi (`sperm_analiz.hacim_ml`).
+
+    Türetilmiş, saklanmıyor (v6.38'in gerekçesi): aktarılmış kayıtlarda da
+    kendiliğinden var, bir girdi düzeltilince kendiliğinden doğru. Üçünden
+    biri girilmemişse None: sıfır yazmak "ölçüldü, yok" derdi. Androloji
+    formu aynı hesabı betikle yapıyor (`androloji.html`, `tpssHesapla()`):
+    işlem sırasını ya da yuvarlamayı değiştirirsen ikisini birlikte."""
+    if konsantrasyon is None or hacim is None or pr is None:
+        return None
+    try:
+        v = float(konsantrasyon) * float(hacim) * float(pr) / 100
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def tpss_yazimi(v):
+    """TPSS'in yazısı (v6.244): en çok iki ondalık ("39.81", "384"), 0,1'in
+    altında iki anlamlı hane ("0.053", "0.0025"). Hazırlık sonrasında 0,01
+    milyonun altı olağan (deneme kopyasında 817 kaydın 27'si); iki ondalık
+    onları "0" gösterirdi. Yarım büyüğe yuvarlanıyor, sayının kendi ikili
+    değerinden: JavaScript'in `toFixed`'ı da öyle, formun betiği aynı yazıyı
+    basıyor."""
+    if v is None:
+        return None
+    if v == 0:
+        return "0"
+    hane, esik = 2, 0.1
+    while abs(v) < esik and hane < 8:
+        hane += 1
+        esik /= 10
+    s = format(Decimal(v).quantize(Decimal(1).scaleb(-hane),
+                                   rounding=ROUND_HALF_UP), "f")
+    return s.rstrip("0").rstrip(".")
 
 
 def tedavi_bulgu_metni(cycle_id, asama="icsi"):

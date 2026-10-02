@@ -457,6 +457,11 @@ sablon.env.globals["pgt_secenekleri"] = db.pgt_secenekleri
 sablon.env.globals["pgt_bandi"] = db.pgt_bandi
 # Hekim alanı (v6.231): varsayılan hekim seçili açılır menü + "Diğer" (elle).
 sablon.env.globals["hekim_secimi"] = db.hekim_secimi
+# TPSS (v6.244), androloji ekranının hesaplanan değeri, yazısıyla. Şablon
+# `tpss is defined` diye soruyor (tuzak #5): yeniden başlatılmamış program
+# eski TMSC kutusunu basar, kaydı da eskisi gibi yazar.
+sablon.env.globals["tpss"] = lambda kons, hacim, pr: db.tpss_yazimi(
+    db.tpss(kons, hacim, pr))
 # Transfer hekimi (v6.232, goc_061): göç çalışmamışsa transfer ekranı alanı basmıyor.
 sablon.env.globals["transfer_hekim_acik"] = lambda: db.kolon_var("cycle", "transfer_hekim")
 
@@ -4580,9 +4585,12 @@ SPERM_ORNEK_KOLON = [
     "hazirlama_zamani", "notlar",
 ]
 
+# `toplam_motil_sayi` (eski elle girilen TMSC) v6.244'ten beri yok: yerine
+# TPSS, kayıttan türetiliyor (`db.tpss()`), formda kutusu yok. Kolon duruyor,
+# kayıtlı değere dokunulmuyor.
 SPERM_ANALIZ_KOLON = [
     "hacim_ml", "konsantrasyon_milyon_ml", "pr_yuzde", "np_yuzde", "im_yuzde",
-    "total_motil_yuzde", "toplam_motil_sayi", "morfoloji_normal_yuzde",
+    "total_motil_yuzde", "morfoloji_normal_yuzde",
     "vitalite_yuzde", "yuvarlak_hucre_milyon_ml", "lokosit_milyon_ml",
     "aglutinasyon", "notlar",
 ]
@@ -4612,11 +4620,10 @@ def _sperm_analiz_form(f, on):
     return {
         "hacim_ml": s("hacim_ml", "Hacim"),
         "konsantrasyon_milyon_ml": s("konsantrasyon_milyon_ml", "Konsantrasyon"),
-        "pr_yuzde": s("pr_yuzde", "İlerleyen (PR) %"),
-        "np_yuzde": s("np_yuzde", "İlerlemeyen (NP) %"),
+        "pr_yuzde": s("pr_yuzde", "İleri hareketli (PR) %"),
+        "np_yuzde": s("np_yuzde", "Yerinde hareketli (NP) %"),
         "im_yuzde": s("im_yuzde", "Hareketsiz (IM) %"),
         "total_motil_yuzde": s("total_motil_yuzde", "Total motilite %"),
-        "toplam_motil_sayi": s("toplam_motil_sayi", "TMSC"),
         "morfoloji_normal_yuzde": s("morfoloji_normal_yuzde", "Morfoloji %"),
         "vitalite_yuzde": s("vitalite_yuzde", "Vitalite %"),
         "yuvarlak_hucre_milyon_ml": s("yuvarlak_hucre_milyon_ml", "Yuvarlak hücre"),
