@@ -6,9 +6,13 @@ Seçimi: "Bugünkü düzen + düz liste" -- her tank ayrı sayfa, kanisterler ya
 yana, her goblet kapasitesi kadar satır (boş yerler de görünür); ek olarak
 süzülebilir tek bir liste sayfası.
 
-Dosya programın veri klasöründe, `lab.db`'nin yanında durur:
-`cryo_harita/Cryo_Haritasi.xlsx`. Her günün son hali ayrıca
-`Cryo_Haritasi_YYYY-AA-GG.xlsx` olarak `GUNLUK_SAKLA_GUN` gün saklanır.
+Dosya bu bilgisayarın Cryo haritası klasöründe durur (Klasörler ekranı,
+v6.203; varsayılanı veri klasöründe `cryo_harita/`): yalnızca son hali,
+`Cryo_Haritasi.xlsx` -- kullanıcı istediği an oradan kopyalıyor. Eski
+günlerin hali yedek klasöründe (v6.248, `yedek.harita_yedekle()`): her
+yedekte son hali ve günün kopyası, 30 gün. v6.247'ye kadar günlük kopyalar
+bu klasördeydi (ve "Tüm veriler" de, v6.216); yedeğin ilk turu onları
+yedek klasörüne taşıyor (`yedek.eski_duzeni_tasi()`).
 
 **v6.199'dan beri laboratuvarın kendi Cryo Haritası Excel'i yüklüyse
 (`cryo_sablon.py`) yazılan O dosyadır**, bugünkü haliyle -- kullanıcı:
@@ -56,7 +60,6 @@ _gunluk = logging.getLogger("program")
 
 KLASOR_ADI = "cryo_harita"
 DOSYA_KOKU = "Cryo_Haritasi"
-GUNLUK_SAKLA_GUN = 30
 KONTROL_SN = 60
 # Program açılır açılmaz değil: göçler ve ilk istekler önce.
 ILK_BEKLEME_SN = 5
@@ -64,7 +67,6 @@ ILK_BEKLEME_SN = 5
 BANT_KANISTER = 6
 
 EXCEL_KAYDI = "EXCEL KAYDI"
-_GUNLUK_AD = re.compile(r"^" + DOSYA_KOKU + r"_(\d{4}-\d{2}-\d{2})\.xlsx$")
 
 # Laboratuvarın Excel'indeki blok: NO SOYAD AD EŞİ TARİH HÜCRE VİAL. Soyad ve
 # ad TEK sütun: program adı tek alanda tutuyor (`hasta.ad_soyad`) ve soyadın
@@ -460,8 +462,8 @@ def _sayfalar(v, simdi) -> list:
 
 def atomik_yaz(yol, veri: bytes) -> None:
     """Atomik: yanındaki geçici dosyaya, sonra yerine. Yarım dosya kalmaz.
-    Aynı klasöre yazılan günlük "Tüm veriler" dosyası da (v6.216,
-    `oto_yedek.py`) bununla yazılıyor."""
+    Yedek klasörüne yazılan "Tüm veriler" (`oto_yedek.py`), durum dosyası
+    ve `BENI_OKU.txt` (`yedek.py`) da bununla yazılıyor."""
     gecici = yol.with_name(yol.name + ".yaziliyor")
     try:
         gecici.write_bytes(veri)
@@ -472,21 +474,6 @@ def atomik_yaz(yol, veri: bytes) -> None:
                 gecici.unlink()
             except OSError:
                 pass
-
-
-def _temizle(bugun) -> None:
-    """`GUNLUK_SAKLA_GUN` günden eski günlük kopyaları siler; başka dosyaya
-    dokunmaz (ad kalıbı tutmuyorsa)."""
-    sinir = bugun - _dt.timedelta(days=GUNLUK_SAKLA_GUN)
-    for yol in klasor().iterdir():
-        e = _GUNLUK_AD.match(yol.name)
-        if not e:
-            continue
-        try:
-            if _dt.date.fromisoformat(e.group(1)) < sinir:
-                yol.unlink()
-        except (ValueError, OSError):
-            pass
 
 
 def _sablonlu():
@@ -509,7 +496,8 @@ def _sablonlu():
 
 def guncelle(bayt_iste: bool = False) -> dict:
     """Haritayı kurar; içeriği son yazılandan farklıysa (ya da dosya yoksa)
-    ana dosyayı ve bugünün kopyasını yazar.
+    dosyayı yazar. Günün kopyası v6.248'den beri yedek klasöründe
+    (`yedek.harita_yedekle()`).
 
     Laboratuvarın Cryo Haritası Excel'i yüklüyse (v6.199) yazılan O dosya,
     bugünkü haliyle (`cryo_sablon.py`); değilse programın düzeni (v6.191).
@@ -543,11 +531,6 @@ def guncelle(bayt_iste: bool = False) -> dict:
                 _gunluk.warning("CRYO EXCEL: %s yazilamadi: %s", ana_dosya(), e)
             _DURUM.update(hata=str(e), kurulamadi=None)
             return {"yazildi": False, "veri": veri}
-        try:
-            atomik_yaz(klasor() / f"{DOSYA_KOKU}_{simdi.date().isoformat()}.xlsx", veri)
-            _temizle(simdi.date())
-        except OSError as e:           # ana dosya yazıldı; kopya bir sonrakinde
-            _gunluk.warning("CRYO EXCEL: gunluk kopya yazilamadi: %s", e)
         _DURUM.update(imza=v["imza"], zaman=simdi.isoformat(" ", "seconds"),
                       hata=None, kurulamadi=None, ozet=v["ozet"])
         o = v["ozet"]

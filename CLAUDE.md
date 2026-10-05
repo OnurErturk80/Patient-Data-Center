@@ -110,6 +110,11 @@ Excel'de tarihi bir yıl ileri yazıldığı için yalnızca Excel kaydı). v6.2
 ekrandan düzeltme yolunu verdi (README v6.247 "Kullanıcının yapacağı"): ikinci
 tüpü bağla, Excel kaydını hastaya aç ve tedavide kullan, kayıt silindiyse
 "Silmeyi geri al" -- yapıp yapmadığını sor.
+**v6.248** (2026-10-05, kullanıcı: "Bütün otomatik yedeklemeleri düzenle"):
+bütün yedekler yedek klasöründe dört alt klasörde, her gün 14:00'te yedek;
+ilk açılışta eski dosyalar kendiliğinden taşınıyor. Kullanıcının iki
+makinesinde yedek klasörünün nerede / takılı olup olmadığı bilinmiyor --
+"Yedek alınamıyor" uyarısından ya da klasörün halinden söz ederse sor.
 Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -297,7 +302,7 @@ Patient Data Center/
   cryo_esle.py      Excel'in satırlarını aktarılmış tüplere bağlar, konum yazar (v6.173)
   yerlesim.py       tank düzeni: goblet doluluğu, yer anahtarı, haritanın ağacı (v6.189)
   harita_excel.py   Cryo Haritası'nın Excel'ini her değişiklikte yazar (v6.191)
-  oto_yedek.py      Cryo Haritası değişince yedek + her gün 14:00 "Tüm veriler" (v6.216)
+  oto_yedek.py      otomatik yedek: Cryo değişince + her gün 14:00; 14:00 "Tüm veriler" (v6.216, v6.248)
   cryo_sablon.py    laboratuvarın kendi Cryo Excel'ini bugünkü haliyle doldurur (v6.199)
   sertifika.py      kliniğin HTTPS sertifikası -- kütüphanesiz, açılışta kendini yeniler (v6.196)
   liste_duzenle.py  seçim listelerini görüntüle / temizle
@@ -306,7 +311,7 @@ Patient Data Center/
   aktar_access.py   program öncesi Access kayıtlarını içeri alır (araç)
   yerel_kur.py      bu makinenin klasör yollarını ayarlar
   sifirdan_kur.py   boş veritabanı
-  yedek.py          yedekleme (Windows'ta zamanlama kurulmadı)
+  yedek.py          yedekleme ve yedek klasörünün düzeni (dört alt klasör, v6.248)
   sema_guncel.sql   şema referansı — GÜNCEL DEĞİL, bkz. bekleyen iş 7
 ```
 
@@ -1474,9 +1479,10 @@ Yılı 1900'den küçük tarih **metin** yazılır: bozuk `0026-09-04` kaydı
 - **`/disari/tumu` yalnızca yönetici** — rota `yonetici_kontrol(request)` ile
   başlıyor. Ötekiler ekrandaki veriyi verir, bu laboratuvarın tamamını tek
   dosyada klinik dışına çıkarabilir. Bu kuralı gevşetme. Aynı dosya v6.216'dan
-  beri her gün 14:00'te Cryo haritası klasörüne de yazılıyor (`oto_yedek.py`,
-  aşağıdaki "Cryo Haritası değişince yedek" bölümü): ağdan verilmiyor,
-  yöneticinin seçtiği klasöre. O dosyayı bir rotadan sunma.
+  beri her gün 14:00'te kendiliğinden de yazılıyor, v6.248'den beri yedek
+  klasörünün `tum_veriler/` alt klasörüne (`oto_yedek.py`, aşağıdaki
+  "Otomatik kayıtlar" bölümü): ağdan verilmiyor, yöneticinin seçtiği
+  klasöre. O dosyayı bir rotadan sunma.
 - **"Tüm veri" tedavilerin kendisi, tablo dökümü değil** (v6.239, README
   v6.239; kullanıcı: "tüm veriyi excel'e aktar butonuna basınca bütün
   tedavileri excel'e aktarsın; FETler, yumurta dondurmalar, ve çözmeler,
@@ -2623,16 +2629,14 @@ alındığı andaki hâline döndürüyor, aradan girilmiş her şey kayboluyor.
   eklersen bu üçünü de koy, ikisi yetmez.
 - **Değiştirmeden önce mevcut veritabanının güvenlik kopyası otomatik
   alınır** (`lab_ONCEKI_<tarih>.db`) — yanlış yedek seçilirse geri
-  dönülebilsin. **`tasi.py`'nin kendi ONCEKI'sinden farklı olarak bu kopya
-  `VERI_KOK`'a değil, seçilen yedeğin bulunduğu `yedek_klasor`'e yazılır**
-  (`yedek_dosyasi.parent`) — geliştirme sırasında tam tersi yazılmıştı,
-  test bunu yakaladı: `yedekleri_listele()` yalnızca `yedek_klasor`'ü
-  taradığı için `VERI_KOK`'a yazılan bir ONCEKI hiçbir zaman geri yükleme
-  listesinde görünmüyordu. `tasi.py`'ninki `VERI_KOK`'ta kalmaya devam
-  ediyor — onun bağlamı "bu makinede hemen geri alınacak bir USB taşıma
-  hatası", ayrı diske ihtiyacı yok. Yeni bir "değiştirmeden önce yedekle"
-  akışı yazarsan bu kopyanın SONRADAN nereden bulunacağını/seçileceğini
-  düşün, öyle karar ver.
+  dönülebilsin. **Yeri bütün güvenlik kopyaları için tek yerden:
+  `yedek.guvenlik_kopyasi_yolu()`** (v6.248): yedek klasörü bu bilgisayarda
+  varsa `veritabani/` (başka disk, geri yükleme listesinde), yoksa veri
+  klasörü. Geri yükleme, `tasi.py iceri`, `hasta_birlestir.py` /
+  `tedavi_birlestir.py` onu çağırıyor. v6.247'ye kadar `tasi.py`'ninki veri
+  klasöründeydi ve ekrandan geri yüklenemiyordu; ilk yedek eskilerini
+  `veritabani/`'na taşıyor. Yeni bir "değiştirmeden önce yedekle" akışı
+  yazarsan bunu çağır, kendi yolunu kurma.
 - **Değiştirme mekaniği `tasi.py`'nin USB'den içeri alma deseninin
   birebir aynısı** — elle taklit edilmedi, aynı üç adım kopyalandı: SQLite
   backup API ile bir **geçici dosyaya** kopyala (`VERI_KOK`'ta —
@@ -2645,11 +2649,16 @@ alındığı andaki hâline döndürüyor, aradan girilmiş her şey kayboluyor.
   WAL gerekçesi).
 - **Güvenlik: seçilen dosya adı whitelist'ten geçiyor.** Formdan gelen
   `dosya` alanını doğrudan `Path(hedef) / dosya`'ya eklemek yol aşımına
-  (`../../lab.db`) açık olurdu (tuzak #9'un dosya-yolu hali). Sunucu önce
-  `yedekleri_listele()`'nin döndürdüğü **gerçek** dosya adlarının kümesini
-  kuruyor, `dosya` o kümede değilse reddediyor. Yeni bir "kullanıcının
+  (`../../lab.db`) açık olurdu (tuzak #9'un dosya-yolu hali). Sunucu adı
+  `yedekleri_listele()`'nin **gerçek** dosyalarında arıyor ve yolu listeden
+  alıyor (`geri_yukle.yedek_yolu()`, v6.248: yedekler `veritabani/` alt
+  klasöründe, eski düzende kalmışlar klasörün kendisinde -- ikisi de
+  listede, aynı ad iki yerdeyse `veritabani/`'ndaki). Yeni bir "kullanıcının
   seçtiği dosya adını yola ekleyen" rota yazarsan aynı deseni kullan —
   yolun kendisini değil, önceden bilinen bir listeye karşı doğrula.
+- **Geri yükleme `yedek.KILIT`'i tutar** (v6.248; v6.216'nın yorumu
+  söylüyordu, kod almıyordu): otomatik yedeğin temizliği ya da eski düzenin
+  taşınması seçilen yedeği o sırada silmesin, yerinden oynatmasın.
 - **Arşivdeki fotoğraflar geri yüklenmiyor, bilinçli bir sınır.**
   `yedek.arsiv_yedekle()` hedeften hiçbir şey silmiyor (yalnızca birikimli
   kopyalıyor) — "şu yedeğin arşiv anlık görüntüsü" diye bir kavram yok.
@@ -2669,43 +2678,78 @@ alındığı andaki hâline döndürüyor, aradan girilmiş her şey kayboluyor.
   önceki hâlin kopyası duruyor, hata panelde. Terminaldeki
   `geri_yukle.py` de aynı işlevden geçiyor. Ayrıntı tuzak #15.
 
-**Cryo Haritası değişince yedek, her gün 14:00'te "Tüm veriler"** (v6.216,
-`oto_yedek.py`, README v6.216; kullanıcı: "Cryo haritada yapılan her
-değişiklikten sonra yedekleme yapsın. Yönetici kısmındaki tüm verileri excele
-aktarda her gün 14:00 da cryo haritanın yedeklendiği dosyaya aktarsın").
-Açılışta haritanınkinden sonra başlayan ikinci arka plan iş parçacığı,
-dakikada bir.
+**Otomatik kayıtlar: ne, ne zaman, nereye** (v6.216, düzeni v6.248;
+`yedek.py`, `oto_yedek.py`, README v6.216 ve v6.248). Kullanıcı (v6.216):
+"Cryo haritada yapılan her değişiklikten sonra yedekleme yapsın. Yönetici
+kısmındaki tüm verileri excele aktarda her gün 14:00 da cryo haritanın
+yedeklendiği dosyaya aktarsın"; (v6.248) "Bütün otomatik yedeklemeleri
+düzenle. Yani ne ne zaman ve nereye kayıt oluyor? Biraz karmaşa var
+düzenleyelim." Ekrandaki tek özet: Yedekleme → "Ne, ne zaman, nereye".
+- **Nereye: bütün yedekler bu bilgisayarın yedek klasöründe, dört alt
+  klasörde** (`yedek.VERITABANI` / `ARSIV` / `CRYO` / `TUM_VERILER`):
+  `veritabani/` (`lab_YYYYAAGG_SSDD.db`, `lab_ONCEKI_*.db`,
+  `yedek_durumu.json`), `arsiv/` (fotoğraflar, birikimli), `cryo_harita/`
+  (Cryo Excel'inin son hali + her günün son hali, 30 gün), `tum_veriler/`
+  (her gün 14:00, 30 gün) ve `BENI_OKU.txt`. Bilgisayarın kendi diskinde
+  yalnızca çalışma dosyaları: veritabanı, fotoğraf arşivi, Cryo Excel'inin
+  SON hali (Cryo haritası klasörü). Yedek klasörüne yeni bir şey yazarsan
+  kendi alt klasörüne koy, `yedek.py`'nin belgesine ve `BENI_OKU.txt`'nin
+  metnine ekle; klasörün kendisine dosya bırakma.
+- **Eski düzen kendiliğinden taşınıyor** (`yedek.eski_duzeni_tasi()`, açılışta
+  ve her yedekte; taşınacak yoksa bir şey yapmaz): klasörün kendisindeki
+  yedekler, veri klasöründeki `lab_ONCEKI_*`, eski durum dosyası, Cryo
+  haritası klasöründeki günlük kopyalar ve "Tüm veriler". Yalnızca programın
+  verdiği adlar (`_YEDEK_AD`, `_ONCEKI_AD`, `<kök>_YYYY-AA-GG.xlsx`); elle
+  konan dosyaya dokunma. Hiçbir hata yedeği durdurmaz.
+- **Ne zaman -- veritabanı yedeği** (yeni fotoğraflar ve Cryo Excel'i onunla):
+  Cryo Haritası değişince, **her gün 14:00'te** (`yedek.GUNLUK_SAAT`;
+  `oto_yedek._gunluk_turu()`: klasördeki son yedek en son geçen 14:00'ten
+  eskiyse -- program o saatte kapalıysa açılınca, ertesi sabah da), "Şimdi
+  yedekle", terminal. v6.247'ye kadar Cryo değişmeyen günlerde yedek yoktu.
 - **Ölçü haritanın içerik imzası** (`harita_excel.guncel_imza()`), veritabanının
   damgası değil: ICSI yedek aldırmıyor, dondurma / çözme / taşıma aldırıyor.
   Haritada görünecek yeni bir şey eklersen `_kur()`'a (imzaya) girdiğinden emin
-  ol, yoksa yedek de tetiklenmez. Harita kurulamıyorsa damga.
-- **Değişiklikler bitince** (bir tur sessizlik), sürerse en geç 10 dk. Son
-  yedeklenen imza yedek klasöründe (`cryo_yedek_durumu.json`): yeniden açılış
-  yedek aldırmıyor, kapalıyken değişen harita aldırıyor. Bellekte ya da
-  veritabanında tutma (README v6.216).
-- **Yedek klasörü kendiliğinden OLUŞTURULMAZ** (takılı olmayan disk, Mac'te
-  `/Volumes`); yoksa beklenir. İlk yedeği "Şimdi yedekle" açar.
+  ol, yoksa yedek de tetiklenmez. Harita kurulamıyorsa damga. Değişiklikler
+  bitince (bir tur sessizlik), sürerse en geç 10 dk. Yedeklenen imza klasörün
+  durum dosyasında (`yedek.durum_oku()`; her yedek yazıyor, terminal imzayı
+  korur): yeniden açılış yedek aldırmıyor, kapalıyken değişen harita
+  aldırıyor. Bellekte ya da veritabanında tutma (README v6.216).
+- **Yedek klasörü kendiliğinden OLUŞTURULMAZ** (`yedek.hedef_durumu()`;
+  takılı olmayan disk, Mac'te `/Volumes`); yoksa üç iş de beklenir. İlk
+  yedeği "Şimdi yedekle" açar. Klasörün İÇİNDEKİ alt klasörler açılabilir.
 - **Yedeğin adımları tek yerde: `yedek.yedekle()`**; "Şimdi yedekle" ve otomatik
-  yedek `oto_yedek.yedekle()`'den (klasörün durum dosyası). Aynı süreçte iki
-  yedek aynı anda çalışmaz (`yedek.KILIT`, RLock). Yeni bir yedek yolu yazarsan
-  bunları çağır, adımları kopyalama.
-- **Saklama** `yedek.silinecek_yedekler()`: 24 saatin hepsi, 14 güne kadar her
-  günün sonuncusu, daha eskide her ayın ilki; `lab_ONCEKI_*`'ye ve kalıp dışı
-  ada dokunma. Yedek geçici dosyaya yazılıp doğrulanınca adını alıyor.
+  yedek `oto_yedek.yedekle()`'den (kilitten sonra yeniden bakış: aynı imza ya
+  da eşikten sonra alınmış yedek varsa ikincisi yok). Aynı süreçte iki yedek
+  ya da yedek ile geri yükleme aynı anda çalışmaz (`yedek.KILIT`, RLock).
+  Yeni bir yedek yolu yazarsan bunları çağır, adımları kopyalama; `neden`
+  `yedek.NEDENLER`'den (ekran `yedek_neden_<kod>` basıyor).
+- **Saklama** `yedek.silinecek_yedekler()` (`veritabani/`'nda): 24 saatin
+  hepsi, 14 güne kadar her günün sonuncusu, daha eskide her ayın ilki;
+  `lab_ONCEKI_*`'ye ve kalıp dışı ada dokunma. Yedek geçici dosyaya yazılıp
+  doğrulanınca adını alıyor. Günlük Excel'ler `yedek.gunlukleri_temizle()`.
 - **"Tüm veriler"**: `disari.tumu_sayfalari()` (v6.239'dan beri tedavi türü
-  başına sayfalar, Cryo Haritası'sız) -> `harita_excel.klasor()` /
-  `Tum_Veriler_YYYY-AA-GG.xlsx`, 30 gün; bugünkü varsa yazılmaz, 14:00'te
-  kapalıysa o gün açılınca. Bütün hasta kayıtları: klasörü yönetici seçiyor,
-  ekranlar söylüyor. "Cryo haritanın yedeklendiği dosya" Cryo haritası klasörü
-  diye okundu (Klasörler ekranının anlattığı yer); kullanıcı başka yer derse
-  sabit orada (`tum_veri_dosyasi()`).
-- **Ekran durumu bellekten** (`oto_yedek.durum()`, cümle `_oto_yedek.html`):
-  sayfa açılırken yedek diskine sorma -- takılı olmayan disk ya da yavaş ağ
-  klasörü sayfayı bekletirdi.
+  başına sayfalar, Cryo Haritası'sız) -> `<yedek>/tum_veriler/
+  Tum_Veriler_YYYY-AA-GG.xlsx` (`oto_yedek.tum_veri_dosyasi()`), 30 gün;
+  bugünkü varsa yazılmaz, 14:00'te kapalıysa o gün açılınca, yedek klasörü
+  yoksa yazılmaz. v6.216–v6.247 Cryo haritası klasörüne yazılıyordu
+  ("cryo haritanın yedeklendiği dosya" o klasör diye okunmuştu); v6.248'de
+  Cryo Haritası'nın yedeğiyle aynı yere, yedek klasörüne.
+- **"Son yedek" ve uyarı bu bilgisayarın yedek klasöründen** (v6.248):
+  `yedek.son_yedek()` (en yeni `lab_*.db`'nin adı), arka plan her turda
+  okuyor. Veritabanındaki `son_yedek` ayarını EKRANA BASMA -- USB ile öteki
+  bilgisayardan, geri yüklemeyle eski bir günden geliyor; eski sürümler için
+  yazılmaya devam ediyor. `app.yedek_durumu()` (ana ekran, hasta kayıtları,
+  Yönetici, Yedekleme -- herkese) yalnızca bir SEBEP varken (klasör yok /
+  bu bilgisayarın yolu değil / son deneme başarısız) ve son yedek
+  `yedek_uyari_gun`'den eskiyse ya da bilinmiyorsa; sebep yoksa günlük yedek
+  birazdan alınıyor, uyarma.
+- **Ekran durumu bellekten** (`oto_yedek.durum()`, cümleler `_oto_yedek.html`'in
+  `durum()` / `son()`'u): sayfa açılırken yedek diskine sorma -- takılı olmayan
+  disk ya da yavaş ağ klasörü sayfayı bekletirdi. Klasör ayarı ulaşılamayan
+  başka klasöre değişince eski klasörün bilgisi siliniyor; disk çekildiyse
+  (aynı klasör) bilinen son yedek kalıyor.
 - `print` yok: `yedek.yaz()` programda günlüğe, terminalde (`yedek.EKRANA`,
   `yedek.py` / `geri_yukle.py`'nin `main()`'i) ekrana da.
-- Cryo değişmeyen günlerde otomatik yedek yok; günlük yedek için Görev
-  Zamanlayıcı yine kurulabilir (bekleyen iş 2).
 
 **İki yerden gelinen ekranın geri oku sabit olamaz.** Taşıyıcı ekranına hem
 cryo haritasından hem çözme ekranından giriliyor; `?cycle=N` ile hangisinden
@@ -3201,8 +3245,9 @@ besleniyor.
 - **Excel haritası kendiliğinden yazılıyor** (v6.191, README v6.191;
   kullanıcının sözü: "ben istediğim zaman bu excel cryo haritayı
   kopyalıyabileyim", seçimi "Bugünkü düzen + düz liste").
-  `harita_excel.py`: `<veri klasörü>/cryo_harita/Cryo_Haritasi.xlsx` + günün
-  kopyası (30 gün); klasör v6.203'ten beri Klasörler ekranından seçilebiliyor
+  `harita_excel.py`: `<veri klasörü>/cryo_harita/Cryo_Haritasi.xlsx`, yalnızca
+  son hali (günün kopyası v6.248'den beri yedek klasöründe, `cryo_harita/`,
+  30 gün); klasör v6.203'ten beri Klasörler ekranından seçilebiliyor
   (`harita_excel.klasor()`; değişince dosya hedefte yoksa döngü veri
   değişmeden de yazıyor, en geç bir dakikada). Sayfalar: Bilgi, tank başına bir sayfa (kanisterler yan
   yana, her goblet kapasitesi kadar satır, boş yuva boş satır), Liste, Boş
@@ -3225,8 +3270,8 @@ besleniyor.
     laboratuvarın dosyası yüklüyken SOYAD/AD ayrı, aşağıdaki madde.)
   - İndirme `/disari/cryo/harita` (izin `cryo`, `yol_modulu()`'nın `disari`
     kuralı), kart `/cryo`'nun sol sütununda (yol yalnızca yöneticiye).
-    Yedekleme son hali yedek diskine de kopyalıyor (`yedek.harita_yedekle()`,
-    hata yedeklemeyi durdurmaz).
+    Yedekleme son halini ve günün kopyasını yedek diskine kopyalıyor
+    (`yedek.harita_yedekle()`, hata yedeklemeyi durdurmaz).
   - `cryo_harita/` `.gitignore`'da: bugünkü kurulumlarda veri klasörü depo
     klasörü, dosyada hasta adları var.
   - Goblet ekranının tüp satırı `yerlesim.tup_ayrintilari()` (app'teki
@@ -4638,9 +4683,11 @@ makinede yoksa sessizce varsayılana döner.
 kayıtları" ayırmak mümkün değil, taşınan dosyanın tamamı ve karşıdakinin üzerine
 yazıyor. Bu yüzden araç kopyalamadan **önce iki tarafı karşılaştırıyor**: hedef
 daha yeniyse durup açık onay istiyor ve üzerine yazmadan önce
-`lab_ONCEKI_<tarih>.db` yedeği bırakıyor. "Daha yeni" ölçüsü `olusturma_zamani`
-kolonları — klinik zamanları (`opu_zamani` gibi) elle geri tarihlenebildiği için
-onlara bakılmaz.
+`lab_ONCEKI_<tarih>.db` yedeği bırakıyor (v6.248'den beri yedek klasörünün
+`veritabani/` alt klasörüne, yoksa veri klasörüne --
+`yedek.guvenlik_kopyasi_yolu()`; ekrandan geri yüklenebiliyor). "Daha yeni"
+ölçüsü `olusturma_zamani` kolonları — klinik zamanları (`opu_zamani` gibi)
+elle geri tarihlenebildiği için onlara bakılmaz.
 - **Yeni bilgisayara geçiş** (v6.203, `KOMUTLAR.md`'de adım adım):
   `disari <usb> sertifika` telefonların güvendiği sertifikayı da koyuyor,
   `iceri` alıp USB'den siliyor; bu makinenin kendi sertifikası varsa ve
@@ -4863,17 +4910,17 @@ Bunlar gerçekten başa geldi, tekrarlanmasın:
      çalışıyor. Yol ayarları artık makineye özgü
      dosyadan okunuyor, DB'deki `goc_008` değeri hedefi belirlemiyor. Yapılmazsa
      o makinede varsayılan `D:\lab_yedek` olur.
-   - **Mac'te otomatik zamanlama YOK.** `yedek.bat` sadece Windows Görev
-     Zamanlayıcı için. İstenirse `launchd` görevi kurulacak. v6.216'dan beri
-     program açıkken **Cryo Haritası değişince** yedek kendiliğinden alınıyor
-     (`oto_yedek.py`, iki makinede de); Cryo değişmeyen günlerde yedek yok,
-     günlük zamanlama o boşluğu kapatır. Kullanıcının makinesinde yedek
-     klasörünün var olup olmadığını bilmiyoruz: yoksa otomatik yedek
-     alınmıyor, Yedekleme ekranı söylüyor -- "yedek alınmıyor" derse önce
-     orayı sor.
+   - **Günlük yedek programın içinde** (v6.248): program açıkken her gün
+     14:00'te (o saatte kapalıysa açılınca) ve Cryo Haritası her değişince
+     (v6.216), iki makinede de (`oto_yedek.py`, yukarıdaki "Otomatik
+     kayıtlar"). Görev Zamanlayıcı / `launchd` artık gerekmiyor; `yedek.bat`
+     duruyor (kurulursa zararsız). Kullanıcının makinesinde yedek klasörünün
+     var olup olmadığını bilmiyoruz: yoksa otomatik yedek alınmıyor,
+     Yedekleme ekranı söylüyor, ana ekranda herkese "Yedek alınamıyor"
+     çıkıyor -- "yedek alınmıyor" derse önce orayı sor.
    - **Asıl iş klinikteki Windows mini PC'de:** gerçek hasta verisi orada.
-     Görev Zamanlayıcı + farklı disk hedefi orada kurulmalı (README v1.2).
-     `~/lab_yedek` aynı diskte — bu Mac test verisi için geçici çözüm.
+     Farklı disk hedefi orada kurulmalı (README v1.2). `~/lab_yedek` aynı
+     diskte — bu Mac test verisi için geçici çözüm.
    - **`/yedekleme` ekranında "Şimdi yedekle" düğmesi var** (v6.119,
      kullanıcının isteği: "Elle yedekleme olsun"; ekran v6.121'de
      `/klasorler`'den ayrıldı, aşağıya bak) — otomatik zamanlamanın

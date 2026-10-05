@@ -1,12 +1,27 @@
-{# Cryo Haritası değişince alınan yedeğin durumu (v6.216, `oto_yedek.durum()`):
+{# Otomatik yedeğin durumu (v6.216; günlük yedek v6.248, `oto_yedek.durum()`):
    Yedekleme ekranı, Yönetici paneli ve Cryo Haritası'nın Excel kartı aynı
-   cümleyi bassın. Sorun varsa uyarı renginde. #}
+   cümleyi bassın. Sorun varsa uyarı renginde.
+
+   `y.sonraki` v6.248'in programından geliyor: `git pull`'dan sonra yeniden
+   başlatılmamış eski program (tuzak #5) onu vermiyor, o zaman eski cümle --
+   anahtarları eski programın kendi sözlüğünde. #}
 {% macro durum(y) -%}
   {%- if y.engel == "ayarlanmamis" %}<span style="color:var(--uyari)">{{ metin("oto_yedek_ayarsiz") }}</span>
   {%- elif y.engel == "yanlis_makine" %}<span style="color:var(--uyari)">{{ metin("oto_yedek_yanlis_makine").format(yol=y.yol) }}</span>
   {%- elif y.engel == "bulunamadi" %}<span style="color:var(--uyari)">{{ metin("oto_yedek_klasor_yok").format(yol=y.yol) }}</span>
   {%- elif y.hata %}<span style="color:var(--uyari)">{{ metin("oto_yedek_hata").format(zaman=gg_aa_yyyy_saat(y.hata_zamani), hata=y.hata, dk=y.tekrar_dk) }}</span>
   {%- elif y.bekliyor %}{{ metin("oto_yedek_bekliyor") }}
+  {%- elif not y.bakildi %}{{ metin("oto_yedek_henuz") }}
+  {%- elif y.sonraki is defined %}{{ metin("oto_yedek_yolunda_" ~ y.sonraki).format(saat=y.saat) }}
   {%- elif y.yedekli %}{{ metin("oto_yedek_guncel").format(zaman=gg_aa_yyyy_saat(y.son), dosya=y.dosya) }}
   {%- else %}{{ metin("oto_yedek_henuz") }}{% endif -%}
+{%- endmacro %}
+
+{# Son yedek (v6.248): bu bilgisayarın yedek klasöründeki en yeni yedek --
+   zamanı ve adı dosyanın adından, nedeni klasörün durum dosyasından
+   (`yedek.NEDENLER`). v6.247'ye kadar veritabanındaki `son_yedek` ayarıydı. #}
+{% macro son(y) -%}
+  {%- if y.son %}{{ gg_aa_yyyy_saat(y.son) }} · {{ y.dosya }}{% if y.neden %} · {{ metin("yedek_neden_" ~ y.neden) }}{% endif %}
+  {%- elif not y.bakildi %}{{ metin("oto_yedek_henuz") }}
+  {%- else %}<span class="yok">{{ metin("hic_yedek_yok") }}</span>{% endif -%}
 {%- endmacro %}

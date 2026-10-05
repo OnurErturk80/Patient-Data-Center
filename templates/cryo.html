@@ -192,9 +192,16 @@
     {% if yonetici %}<br>{{ metin("excel_harita_klasor") }}: {{ harita_excel.klasor }}
       · <a href="/klasorler">{{ metin("klasorler") }}</a>{% endif %}
   </div>
-  {% if yonetici %}
-  {# Her değişiklikten sonra yedek ve her gün 14:00'te "Tüm veriler" bu
-     klasöre (v6.216, `oto_yedek.py`). #}
+  {% if yonetici and oto.yedek.sonraki is defined %}
+  {# Yedek (v6.216; v6.248'den beri "Tüm veriler" bu klasöre değil yedek
+     klasörüne yazılıyor, Excel'in günlük kopyaları da orada): yalnızca
+     durum, ayrıntısı Yedekleme ekranının "Ne, ne zaman, nereye"sinde. #}
+  <div class="ipucu" style="margin:0 14px 10px">
+    <b>{{ metin("oto_yedek") }}:</b> {{ metin("oto_yedek_kisa").format(saat=oto.yedek.saat) }}. {{ oy.durum(oto.yedek) }}
+    · <a href="/yedekleme#ne-ne-zaman-nereye">{{ metin("ne_ne_zaman_nereye") }}</a>
+  </div>
+  {% elif yonetici %}
+  {# Yeniden başlatılmamış eski program (tuzak #5): v6.247'nin satırları. #}
   {% set tv = oto.tum_veri %}
   <div class="ipucu" style="margin:0 14px 10px">
     {{ metin("tum_veri_cryo").format(saat=tv.saat, gun=tv.gun) }}

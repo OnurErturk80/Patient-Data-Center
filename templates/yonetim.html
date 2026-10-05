@@ -66,15 +66,27 @@
 
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("yedekleme") }}</h2>
+  {# v6.248: son yedek bu bilgisayarın yedek klasöründen, otomatik yedek
+     Cryo değişince ve her gün 14:00'te; ne / ne zaman / nereye Yedekleme
+     ekranında. `sonraki`'yi yeni program veriyor -- yeniden başlatılmamış
+     eski program (tuzak #5) eski satırları basar. #}
+  {% if oto.yedek.sonraki is defined %}
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("son_yedek") }}</dt>
+      <dd>{{ oy.son(oto.yedek) }}</dd></div>
+    <div class="veri"><dt>{{ metin("oto_yedek") }}</dt>
+      <dd>{{ metin("oto_yedek_kisa").format(saat=oto.yedek.saat) }}<br><span class="ipucu">{{ oy.durum(oto.yedek) }}</span></dd></div>
+  </dl>
+  {% else %}
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("son_yedek") }}</dt>
       <dd {% if not son_yedek %}class="yok"{% endif %}>{{ gg_aa_yyyy_saat(son_yedek) if son_yedek else metin("hic_yedek_yok") }}</dd></div>
     <div class="veri"><dt>Uyarı eşiği</dt>
       <dd>{{ yedek_uyari_gun }} gün</dd></div>
-    {# Cryo Haritası değişince alınan yedek (v6.216). #}
     <div class="veri"><dt>{{ metin("oto_yedek") }}</dt>
       <dd>{{ metin("oto_yedek_kisa") }}<br><span class="ipucu">{{ oy.durum(oto.yedek) }}</span></dd></div>
   </dl>
+  {% endif %}
   {# v6.121'de "terminalden python3 yedek.py" tavsiyesi kalktı -- artık
      ekrandan da elle yedeklenip geri yüklenebiliyor (v6.119/v6.120), panel
      yine salt okunur (v6.12), yalnızca bağlantı veriyor. #}

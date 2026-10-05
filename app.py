@@ -34,6 +34,7 @@ import kurulum
 import metinler
 import oto_yedek
 import xlsx_oku
+import yedek
 import yerlesim
 
 KOK = db.PROGRAM_KOK          # kod: static/, templates/
@@ -70,8 +71,9 @@ async def _yasam(app):
     # plan işi, harita değişince veri klasöründeki dosyayı yeniden yazar.
     # Göçlerden SONRA: tank düzeni kolonları göçle geliyor.
     harita_excel.baslat(veri_damgasi)
-    # Cryo Haritası değişince yedek ve her gün 14:00'te "Tüm veriler"
-    # (v6.216): haritanın imzasına bakıyor, o yüzden haritadan sonra.
+    # Otomatik yedek -- Cryo Haritası değişince ve her gün 14:00'te -- ve her
+    # gün 14:00'te "Tüm veriler" (v6.216, v6.248; hepsi yedek klasörüne):
+    # haritanın imzasına bakıyor, o yüzden haritadan sonra.
     oto_yedek.baslat(veri_damgasi)
     yield
     oto_yedek.durdur()
@@ -1840,6 +1842,16 @@ def yedekleme_ekran(request: Request, yhata: str = "", yedeklendi: int = 0,
     red = yonetici_kontrol(request)
     if red:
         return red
+    # "Ne, ne zaman, nereye" (v6.248): yedek klasörünün alt klasörleri
+    # `yedek.py`'nin düzeninden, ekrana tam yolları. Ayar yoksa boş.
+    yedek_klasoru = db.ayar("yedek_klasor", "")
+    yollar = {}
+    if yedek_klasoru:
+        k = Path(yedek_klasoru)
+        yollar = {"klasor": yedek_klasoru,
+                  "veritabani": str(k / yedek.VERITABANI),
+                  "arsiv": str(k / yedek.ARSIV), "cryo": str(k / yedek.CRYO),
+                  "tum": str(k / yedek.TUM_VERILER)}
     return sablon.TemplateResponse(request, "yedekleme.html", {
         # `yhata`/`gymesaj` `hata`'nın aksine beyaz listeden geçmiyor:
         # adresten gelen bir anahtar değil, sunucunun ürettiği bitmiş metin
@@ -1848,10 +1860,15 @@ def yedekleme_ekran(request: Request, yhata: str = "", yedeklendi: int = 0,
         "yhata": yhata,
         "yedeklendi": yedeklendi,
         "gymesaj": gymesaj,
-        "son_yedek": _ayar("son_yedek", ""),
         "yedek_uyari": yedek_durumu(),
-        # Cryo Haritası değişince alınan yedek (v6.216).
+        # Otomatik yedek ve "Tüm veriler" (v6.216, v6.248): bellekten,
+        # sayfa yedek diskine sormuyor.
         "oto": oto_yedek.durum(),
+        "yollar": yollar,
+        "cryo_dosyasi": str(harita_excel.ana_dosya()),
+        "harita": harita_excel.durum(),
+        "saklama": {"tumu": yedek.TUMU_SAKLA_SAAT, "gunluk": yedek.GUNLUK_SAKLA,
+                    "excel": yedek.EXCEL_SAKLA_GUN},
         "kullanici": request.state.kullanici,
     })
 
@@ -1892,7 +1909,7 @@ def yedekleme_yedekle_simdi(request: Request):
     hedef_klasor = Path(hedef)
     kullanici_adi = request.state.kullanici["kullanici_adi"]
     try:
-        oto_yedek.yedekle(hedef_klasor, f"/yedekleme, {kullanici_adi}")
+        oto_yedek.yedekle(hedef_klasor, f"/yedekleme, {kullanici_adi}", neden="elle")
     except Exception as e:                # sebebi yedek.log'da da
         mesaj = f"{metinler.t('yedekleme_basarisiz')}: {e}"
         return RedirectResponse("/yedekleme?yhata=" + quote(mesaj), status_code=303)
@@ -1966,15 +1983,16 @@ async def yedekleme_geri_yukle(request: Request):
 
     # `dosya` bir form alanı -- adresten gelen bir metnin doğrudan dosya
     # yoluna eklenmesi tuzak #9'un aynısı (whitelisting yok). Beyaz liste
-    # burada `yedekleri_listele()`'nin döndürdüğü gerçek dosya adları:
-    # `../../lab.db` gibi bir değer bu kümede olmayacağı için elenir,
-    # `Path(hedef) / dosya` hiçbir zaman `yedek_klasor`'ün dışına çıkamaz.
-    yedekler = _gy.yedekleri_listele(Path(hedef))
-    gecerli_adlar = {y["ad"] for y in yedekler}
+    # burada `yedekleri_listele()`'nin döndürdüğü gerçek dosyalar:
+    # `../../lab.db` gibi bir değer listede olmayacağı için elenir; yol
+    # listeden geliyor (`yedek_yolu()`), formdaki metin klasöre eklenmiyor.
+    # v6.248'den beri yedekler `veritabani/` alt klasöründe, eski düzende
+    # kalmışlar klasörün kendisinde -- ikisi de listede.
     dosya = (f.get("dosya") or "").strip()
     if not dosya:
         return hata(metinler.t("geri_yukle_secim_yok"))
-    if dosya not in gecerli_adlar:
+    yedek_yolu = _gy.yedek_yolu(Path(hedef), dosya)
+    if yedek_yolu is None:
         return hata(metinler.t("geri_yukle_secim_yok"))
     if (f.get("onay") or "").strip() != dosya:
         return hata(metinler.t("geri_yukle_dosya_yanlis"))
@@ -1982,7 +2000,7 @@ async def yedekleme_geri_yukle(request: Request):
         return hata(metinler.t("geri_yukle_onay_yanlis"))
 
     try:
-        sonuc = _gy.geri_yukle(Path(hedef) / dosya)
+        sonuc = _gy.geri_yukle(yedek_yolu)
     except Exception as e:
         return hata(f"{metinler.t('geri_yukleme_basarisiz')}: {e}")
 
@@ -2356,7 +2374,7 @@ def klasorler_kaydet(request: Request,
 
     kamera = goruntu_kaynak_klasor.strip()
     arsiv = goruntu_arsiv_klasor.strip()
-    yedek = yedek_klasor.strip()
+    yedek_yol = yedek_klasor.strip()
 
     if kamera and not Path(kamera).is_dir():
         return RedirectResponse("/klasorler?hata=klasor_hata_kamera",
@@ -2371,7 +2389,7 @@ def klasorler_kaydet(request: Request,
 
     db.yerel_yaz({"goruntu_kaynak_klasor": kamera,
                   "goruntu_arsiv_klasor": arsiv,
-                  "yedek_klasor": yedek,
+                  "yedek_klasor": yedek_yol,
                   "cryo_harita_klasor": cryo})
     return RedirectResponse("/klasorler?kaydedildi=1", status_code=303)
 
@@ -2452,8 +2470,8 @@ def yonetim_ekran(request: Request):
         request, "yonetim.html",
         {"kullanici": request.state.kullanici,
          "yedek": yedek_durumu(),
-         "son_yedek": _ayar("son_yedek", ""),
-         "yedek_uyari_gun": _ayar("yedek_uyari_gun", "3"),
+         # Son yedek ve otomatik yedeğin durumu bu bilgisayarın yedek
+         # klasöründen (v6.248; bellekten, panel diske sormuyor).
          "oto": oto_yedek.durum(),
          "db_boyut": boyut, "db_yolu": str(db.DB_YOLU),
          # Açılışta çalışan göçlerin sonucu (v6.49). Panel salt okunur:
@@ -2888,19 +2906,43 @@ async def kullanici_sil(request: Request, kid: int):
 
 
 def yedek_durumu():
-    """Son yedek eskiyse uyarı metni döndürür, sorun yoksa None."""
-    son = _ayar("son_yedek", "")
-    sinir = int(_ayar("yedek_uyari_gun", "3") or 3)
-    if not son:
-        return "Henüz hiç yedek alınmadı. yedek.py çalıştırılmalı."
-    try:
-        t = _dt.fromisoformat(son)
-    except ValueError:
+    """Yedek eskidiyse ya da hiç yoksa uyarı metni, sorun yoksa None. Ana
+    ekran ve hasta kayıtları (herkese), Yönetici paneli ve Yedekleme ekranı.
+
+    Ölçü bu bilgisayarın yedek klasörü (`oto_yedek.durum()`, v6.248).
+    v6.247'ye kadar veritabanındaki `son_yedek` ayarıydı: USB ile öteki
+    bilgisayardan, geri yüklemeyle eski bir günden geliyordu -- ekran başka
+    bir bilgisayarın yedeğini "son yedek" diye gösterebiliyordu.
+
+    Uyarı yalnızca bir SEBEP varken, sebebiyle: yedek klasörü yok /
+    ayarlanmamış / bu bilgisayarın yolu değil ya da son deneme başarısız;
+    son yedek biliniyorsa yalnızca `yedek_uyari_gun` günden eskiyse (disk bir
+    gün takılı değil diye herkese uyarı çıkmasın).
+    Sebep yoksa günlük yedek birkaç dakika içinde alınıyor
+    (`oto_yedek._gunluk_turu()`), uyarmaya gerek yok. Klasöre henüz
+    bakılmadıysa (açılışın ilk yarım dakikası) de yok.
+    """
+    y = oto_yedek.durum()["yedek"]
+    if not y.get("bakildi"):
         return None
-    gun = (_dt.now() - t).days
-    if gun >= sinir:
-        return (f"Son yedek {gun} gün önce alındı ({gg_aa_yyyy_saat(son)}). "
-                "Yedekleme çalışmıyor olabilir.")
+    if y.get("engel"):
+        sebep = metinler.t("yedek_sebep_" + y["engel"])
+    elif y.get("hata"):
+        sebep = metinler.t("yedek_sebep_hata")
+    else:
+        return None
+    if not y.get("son"):
+        # Klasöre ulaşılamıyorsa (disk çekili açılış) son yedeği bilmiyoruz:
+        # "hiç yedek yok" demek yanlış olabilir.
+        anahtar = "yedek_uyari_alinamiyor" if y.get("engel") else "yedek_uyari_hic"
+        return metinler.t(anahtar).format(sebep=sebep)
+    try:
+        sinir = int(_ayar("yedek_uyari_gun", "3") or 3)
+    except ValueError:
+        sinir = 3
+    if (y.get("gun_once") or 0) >= sinir:
+        return metinler.t("yedek_uyari_eski").format(
+            gun=y["gun_once"], zaman=gg_aa_yyyy_saat(y["son"]), sebep=sebep)
     return None
 
 
@@ -9534,7 +9576,7 @@ def cryo_harita(request: Request, ara: str = ""):
          # Taşınma bölümünün satırı (v6.205); göç yoksa None, satır yok.
          "tasima": tasima_ozeti(),
          "harita_excel": harita_excel.durum(),
-         # Otomatik yedek ve her gün 14:00'te "Tüm veriler" (v6.216).
+         # Otomatik yedeğin durumu (v6.216, v6.248): kartta tek satır.
          "oto": oto_yedek.durum(),
          # Laboratuvarın kendi Excel'i (v6.199) ve az önceki yüklemenin sonucu.
          "cryo_sablon": cryo_sablon.bilgi(),

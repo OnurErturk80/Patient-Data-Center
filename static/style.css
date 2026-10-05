@@ -440,6 +440,19 @@ body.seritli .kap { padding-bottom: 160px; }
 .veri dd { flex: 1; margin: 0; font-size: 15px; }
 .veri dd.yok { color: var(--ink-3); }
 
+/* "Ne, ne zaman, nereye" (v6.248, Yedekleme ekranı): her otomatik kayıt bir
+   blok, satırları kısa etiketli (`.veri`'nin %45'lik etiketi uzun cümleyi
+   telefonda dar bir sütuna sıkıştırırdı). */
+.otokayit { padding: 10px 14px 6px; border-top: 1px solid var(--line); }
+.otokayit h3 { margin: 0; font-size: 15px; color: var(--ink); }
+.otokayit > .ipucu { margin-top: 2px; }
+.otokayit dl { margin: 6px 0 0; }
+.otokayit .veri { padding: 5px 0; border-bottom: 0; }
+.otokayit .veri dt { flex: 0 0 86px; }
+.otokayit .veri dd { font-size: 14px; }
+code.yolyazi { word-break: break-all; font-size: 13px; }
+span.yok { color: var(--ink-3); }
+
 /* --- form --- */
 form { margin: 0; }
 .alan { padding: 12px 14px; border-bottom: 1px solid var(--line); }

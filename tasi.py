@@ -38,9 +38,11 @@ from datetime import datetime
 from pathlib import Path
 
 import db
+import yedek
 
-# Taşınan her şey veri kökünde: `lab.db`, geçici kopya, `lab_ONCEKI_*.db`
-# ve `arsiv/` (bkz. db.py "iki kök").
+# Taşınan her şey veri kökünde: `lab.db`, geçici kopya ve `arsiv/` (bkz.
+# db.py "iki kök"). Güvenlik kopyası (`lab_ONCEKI_*.db`) v6.248'den beri
+# yedek klasöründe (`yedek.guvenlik_kopyasi_yolu()`), yoksa burada.
 KOK = db.VERI_KOK
 KLASOR_ADI = "lab_tasima"          # USB'de açılacak klasör
 DB_ADI = "lab.db"
@@ -347,11 +349,14 @@ def iceri(usb: str):
 
     # Uzerine yazmadan once mevcut veritabaninin yedegi — yanlislikla
     # yapildiysa geri donulebilsin. Bos makinede yedeklenecek bir sey yok.
+    # Yedek klasoru bu bilgisayarda varsa oraya (`veritabani/`, geri yukleme
+    # listesinde gorunur), yoksa veri klasorune (v6.248; oncesinde hep veri
+    # klasorundeydi, ekrandan geri yuklenemiyordu).
     gz = None
     if burasi:
-        gz = KOK / f"lab_ONCEKI_{datetime.now():%Y%m%d_%H%M%S}.db"
+        gz = yedek.guvenlik_kopyasi_yolu()
         tutarli_kopya(db.DB_YOLU, gz)
-        print(f"\n  bu makinenin onceki hali yedeklendi: {gz.name}")
+        print(f"\n  bu makinenin onceki hali yedeklendi: {gz}")
 
     gecici = KOK / (DB_ADI + ".yeni")
     tutarli_kopya(usb_klasoru(usb) / DB_ADI, gecici)
@@ -367,7 +372,7 @@ def iceri(usb: str):
         sys.exit(f"\nHATA: lab.db degistirilemedi ({e}).\n"
                  "Uygulama calisiyor olabilir — terminalde Ctrl+C ile durdur, "
                  "sonra bu komutu tekrar calistir."
-                 + (f"\nOnceki hali duruyor: {gz.name}" if gz else ""))
+                 + (f"\nOnceki hali duruyor: {gz}" if gz else ""))
     print("  veritabani alindi ve dogrulandi")
 
     arsiv = Path(db.ayar("goruntu_arsiv_klasor", str(KOK / "arsiv")))
@@ -387,7 +392,8 @@ def iceri(usb: str):
     komut = "python" if platform.system() == "Windows" else "python3"
     print(f"  {komut} baslat.py")
     if gz:
-        print(f"\nHer sey yolundaysa {gz.name} dosyasini silebilirsin.")
+        print(f"\nYanlis olduysa onceki hale donmek icin: Yonetici -> Yedekleme -> "
+              f"Yedekten geri yukle -> {gz.name}")
 
 
 def main():

@@ -334,14 +334,12 @@ def _logla(b, tablo, kayit, alan, eski, yeni, kid, simdi):
 
 def onceki_kopya() -> Path:
     """Birleştirmeden önce veritabanının tamamı (SQLite yedek API'si,
-    doğrulanmış). Yedek klasörü bu bilgisayarda varsa oraya: Yedekleme
-    ekranının "geri yükle" listesi `lab_ONCEKI_*`'yı da gösteriyor
-    (`geri_yukle.yedekleri_listele()`); yoksa veri klasörüne (`tasi.py`'nin
-    yeri). Günlük temizlik bu adı silmiyor (`yedek.eskileri_temizle()`)."""
-    hedef = _db.ayar("yedek_klasor", "")
-    klasor = (Path(hedef) if hedef and yedek.bu_makineye_uygun_mu(hedef)
-              and Path(hedef).is_dir() else _db.VERI_KOK)
-    yol = klasor / f"lab_ONCEKI_{datetime.now():%Y%m%d_%H%M%S}.db"
+    doğrulanmış). Yeri bütün güvenlik kopyaları için tek yerden
+    (`yedek.guvenlik_kopyasi_yolu()`, v6.248): yedek klasörü bu bilgisayarda
+    varsa `veritabani/` -- Yedekleme ekranının "geri yükle" listesi
+    `lab_ONCEKI_*`'yı da gösteriyor --, yoksa veri klasörü. Günlük temizlik
+    bu adı silmiyor (`yedek.eskileri_temizle()`)."""
+    yol = yedek.guvenlik_kopyasi_yolu()
     geri_yukle._tutarli_kopya(_db.DB_YOLU, yol)
     return yol
 

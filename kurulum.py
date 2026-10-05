@@ -29,6 +29,7 @@ from datetime import datetime
 from pathlib import Path
 
 import db
+import yedek
 
 _KILIT = threading.Lock()
 SURUYOR = threading.Event()
@@ -276,15 +277,22 @@ def adaylar(klasor: Path) -> list:
     """Seçilen klasörde alınabilecek veritabanları, en yeni önce.
 
     `lab.db` (tasi.py'nin USB klasörü ya da eski programın kendi klasörü) ve
-    yedek dosyaları (`lab_*.db`, yedek.py). Her biri için kayıt sayıları ve son
-    kayıt (`tasi.ozet()`, salt okunur). Açılamayan ya da programın veritabanı
-    olmayan (hasta tablosu yok) dosya listeye girmiyor."""
+    yedek dosyaları (`lab_*.db`, yedek.py). Yedek klasöründe yedekler v6.248'den
+    beri `veritabani/` alt klasöründe: oraya da bakılıyor, adı alt klasörüyle
+    ("veritabani/lab_...db"). Her biri için kayıt sayıları ve son kayıt
+    (`tasi.ozet()`, salt okunur). Açılamayan ya da programın veritabanı olmayan
+    (hasta tablosu yok) dosya listeye girmiyor."""
     import tasi
     sonuc = []
     try:
         dosyalar = [p for p in klasor.iterdir() if p.is_file() and p.suffix == ".db"]
     except OSError:
         return []
+    alt = yedek.veritabani_klasoru(klasor)
+    try:
+        dosyalar += [p for p in alt.iterdir() if p.is_file() and p.suffix == ".db"]
+    except OSError:
+        pass
     for p in sorted(dosyalar, key=lambda x: x.stat().st_mtime, reverse=True)[:30]:
         try:
             o = tasi.ozet(p)
@@ -292,13 +300,18 @@ def adaylar(klasor: Path) -> list:
             continue
         if o["sayilar"].get("hasta") is None:
             continue
-        sonuc.append({"ad": p.name, "yol": p, **o})
+        ad = p.name if p.parent == klasor else f"{yedek.VERITABANI}/{p.name}"
+        sonuc.append({"ad": ad, "yol": p, **o})
     return sonuc
 
 
 def arsiv_klasoru(klasor: Path):
-    a = klasor / "arsiv"
-    return a if a.is_dir() else None
+    """Klasörün yanındaki fotoğraf arşivi. Yedek klasöründen seçilen
+    veritabanı `veritabani/` alt klasöründe (v6.248), arşiv onun yanında."""
+    for k in (klasor, klasor.parent if klasor.name == yedek.VERITABANI else None):
+        if k is not None and (k / "arsiv").is_dir():
+            return k / "arsiv"
+    return None
 
 
 def sertifika_klasoru(klasor: Path):

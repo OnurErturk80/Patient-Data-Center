@@ -10,8 +10,11 @@ takas et. Yarım kalan bir kopya asla canlı veritabanının yerine geçmez —
 takas ya tam olur ya hiç olmaz.
 
 **Değiştirmeden önce mevcut veritabanının güvenlik kopyası otomatik alınır**
-(`lab_ONCEKI_<tarih>.db`, `tasi.py`'nin aynı adlandırması) — yanlış yedek
-seçilirse geri dönülebilsin.
+(`lab_ONCEKI_<tarih>.db`, yeri `yedek.guvenlik_kopyasi_yolu()`: yedek
+klasöründe `veritabani/`) — yanlış yedek seçilirse geri dönülebilsin.
+
+**Yedekler yedek klasöründe `veritabani/`** (v6.248, `yedek.py`'nin belgesi);
+eski düzende kalmışlar (klasörün kendisi) da listede.
 
 **Takastan hemen sonra eksik veritabanı güncellemeleri uygulanır** (v6.145,
 `_gocleri_uygula()`): yedek eski bir sürümden olabilir, program yeniden
@@ -52,15 +55,29 @@ DB_ADI = "lab.db"
 
 
 def yedekleri_listele(hedef_klasor: Path) -> list:
-    """`yedek_klasor`'deki `lab_*.db` dosyalarını yeniden eskiye sıralar.
+    """Yedek klasöründeki `lab_*.db` dosyaları, yeniden eskiye: `veritabani/`
+    (v6.248) ve eski düzende kalmışsa klasörün kendisi; aynı ad iki yerde
+    varsa `veritabani/`'ndaki. Her satırın `yol`'u dosyanın kendisi --
+    seçilen ad bununla bulunuyor (`yedek_yolu()`), klasöre eklenerek değil.
 
     `lab_ONCEKI_*.db` (güvenlik kopyaları) da listeye giriyor -- bir önceki
     geri yüklemeden pişman olunursa onlar da seçilebilir olmalı.
     """
+    hedef_klasor = Path(hedef_klasor)
     if not hedef_klasor.is_dir():
         return []
+    dosyalar, gorulen = [], set()
+    for klasor in (yedek.veritabani_klasoru(hedef_klasor), hedef_klasor):
+        try:
+            adaylar = sorted(klasor.glob("lab_*.db"))
+        except OSError:
+            continue
+        for p in adaylar:
+            if p.name not in gorulen and p.is_file():
+                gorulen.add(p.name)
+                dosyalar.append(p)
     sonuc = []
-    for p in sorted(hedef_klasor.glob("lab_*.db")):
+    for p in dosyalar:
         ad = p.stem[4:]           # "lab_" sonrası
         tarih = None
         for kalip in ("%Y%m%d_%H%M", "%Y%m%d_%H%M%S"):
@@ -77,6 +94,16 @@ def yedekleri_listele(hedef_klasor: Path) -> list:
         })
     sonuc.sort(key=lambda s: s["tarih"] or datetime.min, reverse=True)
     return sonuc
+
+
+def yedek_yolu(hedef_klasor: Path, ad: str):
+    """Listedeki adın dosyası ya da None. Seçilen ad yalnızca listeye karşı
+    doğrulanıyor: formdan ya da komut satırından gelen metin yola eklenmez
+    (`../../lab.db`, tuzak #9'un dosya yolu hali)."""
+    for y in yedekleri_listele(hedef_klasor):
+        if y["ad"] == ad:
+            return y["yol"]
+    return None
 
 
 def _tutarli_kopya(kaynak: Path, hedef: Path):
@@ -101,6 +128,15 @@ def geri_yukle(yedek_dosyasi: Path) -> dict:
     Dönen sözlük: {"onceki_yedek": Path, "hasta": int, "cycle": int, ...}
     (yeni durumun sayıları — ekrana "şunlar geri geldi" diye basmak için).
     """
+    with yedek.KILIT:
+        # Aynı programın otomatik yedeği bu sırada çalışmasın: temizliği ve
+        # eski düzenin taşınması seçilen yedeği silmesin, yerinden
+        # oynatmasın (v6.248'e kadar `yedek.KILIT`'in yorumu bunu
+        # söylüyordu, burada alınmıyordu).
+        return _geri_yukle(yedek_dosyasi)
+
+
+def _geri_yukle(yedek_dosyasi: Path) -> dict:
     if not yedek_dosyasi.is_file():
         raise RuntimeError(f"Yedek dosyası bulunamadı: {yedek_dosyasi}")
 
@@ -116,21 +152,17 @@ def geri_yukle(yedek_dosyasi: Path) -> dict:
                            "geri yüklenmedi.")
 
     kok = db.VERI_KOK
-    # Güvenlik kopyası (`lab_ONCEKI_*.db`) `yedek_dosyasi.parent`'a, yani
-    # seçilen yedeğin bulunduğu **yedek klasörüne** yazılıyor -- `tasi.py`
-    # kendi ONCEKI'sini VERI_KOK'a (canlı veritabanıyla aynı diske) yazıyor,
-    # ama orada gerekçe farklı ("bu makinede hemen geri alınacak, USB
-    # taşıma hatası"). Buradaki güvenlik kopyası `yedek_klasor`'ün "başka
-    # bir diskte olmalı" kuralından (metinler.py `yedek_klasor_ipucu`) aynı
-    # şekilde faydalanmalı, ayrıca `yedekleri_listele()`'nin taradığı yer de
-    # `yedek_klasor` olduğu için ONCEKI dosyası sonraki bir geri yüklemede
-    # de seçilebilir listede görünsün diye buraya yazılıyor.
+    # Güvenlik kopyası (`lab_ONCEKI_*.db`) yedek klasörüne (`veritabani/`,
+    # yoksa veri klasörü; `yedek.guvenlik_kopyasi_yolu()`, v6.248'den beri
+    # bütün güvenlik kopyaları için tek yer): başka bir diskte, ve
+    # `yedekleri_listele()` orayı taradığı için sonraki bir geri yüklemede
+    # seçilebilir. v6.247'ye kadar seçilen yedeğin yanına yazılıyordu --
+    # yedek klasöründen seçilince aynı yer.
     onceki_yedek = None
     if db.DB_YOLU.exists():
-        onceki_yedek = (yedek_dosyasi.parent
-                        / f"lab_ONCEKI_{datetime.now():%Y%m%d_%H%M%S}.db")
+        onceki_yedek = yedek.guvenlik_kopyasi_yolu()
         _tutarli_kopya(db.DB_YOLU, onceki_yedek)
-        yedek.yaz(f"Geri yüklemeden önceki hâl yedeklendi: {onceki_yedek.name}")
+        yedek.yaz(f"Geri yüklemeden önceki hâl yedeklendi: {onceki_yedek}")
 
     gecici = kok / (DB_ADI + ".geri-yukleniyor")
     _tutarli_kopya(yedek_dosyasi, gecici)
@@ -150,7 +182,7 @@ def geri_yukle(yedek_dosyasi: Path) -> dict:
             "istek işliyor olabilir -- tekrar dene; sürerse programı "
             "durdurup terminalden 'python3 geri_yukle.py geri-yukle "
             f"{yedek_dosyasi.name}' çalıştır."
-            + (f" Önceki hâlin yedeği duruyor: {onceki_yedek.name}."
+            + (f" Önceki hâlin yedeği duruyor: {onceki_yedek}."
                if onceki_yedek else ""))
 
     # Yedek eski bir sürümden olabilir: açılışta olanı şimdi yap (v6.145).
@@ -230,7 +262,11 @@ def main():
         if not yol.is_absolute():
             if not hedef_klasor:
                 sys.exit("HATA: yedek klasörü tanımlı değil, tam yol ver.")
-            yol = hedef_klasor / dosya
+            # Ad listede aranıyor (`veritabani/` ya da eski düzen, v6.248).
+            yol = yedek_yolu(hedef_klasor, dosya)
+            if yol is None:
+                sys.exit(f"HATA: '{dosya}' yedek klasöründe yok. "
+                         "Adları görmek için: python3 geri_yukle.py listele")
         onay = input(
             f"'{yol.name}' canlı veritabanının ({db.DB_YOLU}) üzerine "
             "yazılacak. Bu geri alınamaz bir işlem (bir güvenlik kopyası "
@@ -241,7 +277,7 @@ def main():
         print(f"Tamam. {sonuc['hasta']} hasta, {sonuc['cycle']} cycle, "
              f"{sonuc['specimen']} örnek, {sonuc['goruntu']} fotoğraf.")
         if sonuc["onceki_yedek"]:
-            print(f"Önceki hâlin yedeği: {sonuc['onceki_yedek'].name}")
+            print(f"Önceki hâlin yedeği: {sonuc['onceki_yedek']}")
         g = sonuc["goc"]
         if g.get("calisti"):
             print(f"Yedek eski bir sürümdendi: {len(g['calisti'])} veritabanı "

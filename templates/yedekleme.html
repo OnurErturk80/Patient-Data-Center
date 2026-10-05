@@ -8,13 +8,138 @@
    v6.121'de kullanıcının isteğiyle ("Klasörlerin altında zor bulunuyor")
    kendi ekranına taşındı -- `/yonetim`'den Kullanıcılar/Klasörler'in
    yanına doğrudan bağlantı verildi. Yedek klasörünün YOLU hâlâ
-   `/klasorler`'de ayarlanıyor (o bir klasör ayarı), buradaki tek konu
-   eylemler: şimdi yedekle / geri yükle. #}
+   `/klasorler`'de ayarlanıyor (o bir klasör ayarı).
+
+   v6.248 (kullanıcı: "Bütün otomatik yedeklemeleri düzenle. Yani ne ne
+   zaman ve nereye kayıt oluyor?"): otomatik kayıtların hepsi tek yerde,
+   "Ne, ne zaman, nereye" kartında -- beş kalem, tanımları `yedek.py` ve
+   `oto_yedek.py`'de. Yönetici paneli ve Cryo Haritası kartı yalnızca
+   durumu söyleyip buraya bağlanıyor. Bilgiler bellekten (`oto_yedek.durum()`):
+   sayfa yedek diskine sormuyor. #}
 
 {% if yhata %}<div class="uyari">{{ yhata }}</div>{% endif %}
-{% if yedeklendi %}<div class="uyari">{{ metin("yedek_alindi") }}</div>{% endif %}
+{% if yedeklendi %}<div class="uyari tamam">{{ metin("yedek_alindi") }}</div>{% endif %}
 {% if gymesaj %}<div class="uyari">{{ gymesaj }}</div>{% endif %}
 
+{# `yollar`'ı yalnızca v6.248'in programı veriyor: `git pull`'dan sonra
+   yeniden başlatılmamış program (tuzak #5) aşağıdaki eski düzeni basar --
+   yeni metin anahtarları onun sözlüğünde yok. #}
+{% if yollar is defined %}
+{% set y = oto.yedek %}
+{% set t = oto.tum_veri %}
+{% macro yol(p) -%}
+  {%- if p %}<code class="yolyazi">{{ p }}</code>
+  {%- else %}<span class="yok">{{ metin("nnn_klasorsuz") }}</span>{% endif -%}
+{%- endmacro %}
+
+{% if yedek_uyari %}<div class="uyari">{{ yedek_uyari }}</div>{% endif %}
+
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("yedek_klasor") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("nnn_nereye") }}</dt><dd>{{ yol(yollar.klasor) }}</dd></div>
+    <div class="veri"><dt>{{ metin("son_yedek") }}</dt><dd>{{ oy.son(y) }}</dd></div>
+    <div class="veri"><dt>{{ metin("yedek_durum") }}</dt><dd>{{ oy.durum(y) }}</dd></div>
+  </dl>
+  <div class="alan" style="border:0">
+    <form method="post" action="/yedekleme/yedekle-simdi">
+      <button class="dugme" type="submit" style="margin-top:0">{{ metin("simdi_yedekle") }}</button>
+    </form>
+    <div class="ipucu">{{ metin("yedekleniyor_uyari") }}</div>
+    <div class="ipucu">{{ metin("yedekleme_ipucu")|safe }}</div>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px" id="ne-ne-zaman-nereye">
+  <h2>{{ metin("ne_ne_zaman_nereye") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 10px">{{ metin("nnn_giris") }}</div>
+
+  <div class="otokayit">
+    <h3>{{ metin("kayit_veritabani") }}</h3>
+    <div class="ipucu">{{ metin("kayit_veritabani_ne") }}</div>
+    <dl>
+      <div class="veri"><dt>{{ metin("nnn_ne_zaman") }}</dt>
+        <dd>{{ metin("kayit_veritabani_zaman").format(saat=y.saat) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_nereye") }}</dt><dd>{{ yol(yollar.veritabani) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_saklanan") }}</dt>
+        <dd>{{ metin("kayit_veritabani_saklanan").format(tumu=saklama.tumu, gunluk=saklama.gunluk) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_son") }}</dt><dd>{{ oy.son(y) }}</dd></div>
+    </dl>
+  </div>
+
+  <div class="otokayit">
+    <h3>{{ metin("kayit_fotograf") }}</h3>
+    <dl>
+      <div class="veri"><dt>{{ metin("nnn_ne_zaman") }}</dt><dd>{{ metin("kayit_fotograf_zaman") }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_nereye") }}</dt><dd>{{ yol(yollar.arsiv) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_saklanan") }}</dt><dd>{{ metin("kayit_fotograf_saklanan") }}</dd></div>
+    </dl>
+  </div>
+
+  <div class="otokayit">
+    <h3>{{ metin("kayit_cryo") }}</h3>
+    <dl>
+      <div class="veri"><dt>{{ metin("nnn_ne_zaman") }}</dt><dd>{{ metin("kayit_cryo_zaman") }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_nereye") }}</dt>
+        <dd>{{ metin("nnn_bu_bilgisayarda") }}: <code class="yolyazi">{{ cryo_dosyasi }}</code><br>
+            {{ metin("nnn_yedekte") }}: {{ yol(yollar.cryo) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_saklanan") }}</dt>
+        <dd>{{ metin("kayit_cryo_saklanan").format(excel=saklama.excel) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_son") }}</dt>
+        <dd>{% if harita.kurulamadi %}<span style="color:var(--uyari)">{{ metin("excel_harita_kurulamadi") }}</span>
+            {%- elif harita.hata %}<span style="color:var(--uyari)">{{ metin("excel_harita_yazilamadi") }}</span>
+            {%- elif harita.zaman %}{{ metin("harita_yazildi").format(zaman=gg_aa_yyyy_saat(harita.zaman)) }}
+            {%- else %}{{ metin("excel_harita_henuz") }}{% endif %}</dd></div>
+    </dl>
+  </div>
+
+  <div class="otokayit">
+    <h3>{{ metin("kayit_tum") }}</h3>
+    <div class="ipucu">{{ metin("kayit_tum_ne") }}</div>
+    <dl>
+      <div class="veri"><dt>{{ metin("nnn_ne_zaman") }}</dt>
+        <dd>{{ metin("kayit_tum_zaman").format(saat=t.saat) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_nereye") }}</dt><dd>{{ yol(yollar.tum) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_saklanan") }}</dt>
+        <dd>{{ metin("kayit_tum_saklanan").format(excel=t.gun) }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_son") }}</dt>
+        <dd>{% if t.hata %}<span style="color:var(--uyari)">{{ metin("tum_veri_yazilamadi").format(zaman=gg_aa_yyyy_saat(t.hata_zamani), hata=t.hata) }}</span>
+            {%- elif t.son %}{{ t.son.dosya }} · {{ metin("tum_veri_bugun") if t.bugun else metin("tum_veri_bugun_yazilacak").format(saat=t.saat) }}
+            {%- elif t.engel %}<span class="yok">—</span>
+            {%- else %}{{ metin("tum_veri_henuz").format(saat=t.saat) }}{% endif %}</dd></div>
+    </dl>
+  </div>
+
+  <div class="otokayit">
+    <h3>{{ metin("kayit_guvenlik") }}</h3>
+    <dl>
+      <div class="veri"><dt>{{ metin("nnn_ne_zaman") }}</dt><dd>{{ metin("kayit_guvenlik_zaman") }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_nereye") }}</dt>
+        <dd>{{ yol(yollar.veritabani) }} {{ metin("kayit_guvenlik_nereye") }}</dd></div>
+      <div class="veri"><dt>{{ metin("nnn_saklanan") }}</dt><dd>{{ metin("kayit_guvenlik_saklanan") }}</dd></div>
+    </dl>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("yedekten_geri_yukle") }}</h2>
+  <div class="alan" style="border:0">
+    <div class="ipucu">{{ metin("geri_yukle_kisa_ipucu") }}</div>
+    <a class="dugme ikincil tehlike-bag" href="/yedekleme/geri-yukle"
+       style="margin-top:8px">{{ metin("yedekten_geri_yukle") }}</a>
+  </div>
+</div>
+
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0">
+    <div class="ipucu">
+      {{ metin("yedek_klasoru_degistir_ipucu")|safe }}
+    </div>
+  </div>
+</div>
+
+{% else %}
+{# Eski program (yeniden başlatılmamış): v6.247'nin düzeni. #}
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("son_yedek") }}</h2>
   <div class="alan" style="border:0">
@@ -27,7 +152,6 @@
   </div>
 </div>
 
-{# Cryo Haritası değişince alınan yedek (v6.216, `oto_yedek.py`). #}
 <div class="kart" style="margin-top:12px">
   <h2>{{ metin("oto_yedek") }}</h2>
   <div class="alan" style="border:0">
@@ -63,5 +187,6 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {% endblock %}
