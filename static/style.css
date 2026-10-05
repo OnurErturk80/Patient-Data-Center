@@ -1186,6 +1186,8 @@ body.kilitli { overflow: hidden; }
 .serit.sade.toplu { padding: 0; }
 .serit .sn.kalir { opacity: .45; }                     /* dokunulmayacak */
 .serit .sn.degisir { outline: 2px solid var(--uyari); outline-offset: -1px; }
+/* ICSI'de çözmede dejenere çıkan yumurta (v6.246): sırada atlanır. */
+.serit .sn.kilitli { opacity: .45; border-style: dashed; }
 .ipucu.hatali { color: #ff9b9b; }
 .zaman {
   background: var(--yuzey); border: 1px solid var(--line); border-radius: var(--r);

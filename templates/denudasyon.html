@@ -8,6 +8,7 @@
 {% import "_islem_yapan.html" as iy %}
 {% import "_bilgikart.html" as bk %}
 {% import "_kareler.html" as kr %}
+{% import "_toplu_mat.html" as tm %}
 {% block ustbaslik %}{{ metin("asama_denudasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -159,76 +160,11 @@
 {% endif %}
 
 {# --- Toplu maturasyon (v6.245): yalnızca Yumurta Dondurma, yumurta varken ---
-   Kullanıcı: "3 M2 2M1 1GV seçtiğimde otomatik sıralama imkanım olsun".
-   Sayılar listenin sırasıyla yumurta numarası sırasına dağıtılıyor; kural
-   sunucuda (`_toplu_mat_plani()`), aşağıdaki betik önizlemede aynısını
-   izliyor. `toplu is defined`: yeniden başlatılmamış program (tuzak #5). #}
+   Kart ve önizleme ICSI ekranıyla ortak (`_toplu_mat.html`, v6.246).
+   `toplu is defined`: yeniden başlatılmamış program (tuzak #5). #}
 {% if toplu is defined and toplu %}
-{% if duzenle == "toplu" %}
-<div class="kart" style="margin-top:12px">
-  <h2>{{ metin("toplu_mat_baslik") }}</h2>
-  <form method="post" action="{{ kok }}/toplu-maturasyon" id="topluMatForm">
-    <input type="hidden" name="secili" value="{{ sp.cycle_sira_no if sp else '' }}">
-    <input type="hidden" name="mevcut" value="{{ toplu.imza }}">
-    <div class="alan">
-      <label>{{ metin("toplu_mat_kac") }}</label>
-      <div class="topluadet">
-        {% for m in maturasyonlar %}
-        <label class="adet">
-          <span>{{ m.etiket }}</span>
-          <input type="number" name="adet_{{ m.kod }}" min="0" max="{{ kayitli|length }}"
-                 step="1" inputmode="numeric" pattern="[0-9]*"
-                 value="{{ toplu.adet.get(m.kod) or '' }}"
-                 data-kod="{{ m.kod }}" data-kisa="{{ mat_kisa(m.kod) }}">
-        </label>
-        {% endfor %}
-      </div>
-      <div class="ipucu">{{ metin("toplu_mat_ipucu") }}</div>
-    </div>
-    <div class="alan">
-      <label>{{ metin("toplu_mat_onizleme") }}</label>
-      {#- Betik yoksa kayıtlı hali gösterir; betik sayılar yazıldıkça kaydedilince
-          ne olacağını basar. -#}
-      <div class="serit sade toplu" id="topluOnizleme">
-        {% for o in kayitli %}
-        <span class="sn {% if o.mat %}dolu{% endif %}{% if o.mat == 'degenere' %} deg{% endif %}"
-              data-mat="{{ o.mat or '' }}" data-kisa="{{ mat_kisa(o.mat) }}">
-          <b>{{ o.cycle_sira_no }}</b><i>{{ mat_kisa(o.mat) }}</i></span>
-        {% endfor %}
-      </div>
-      <div class="ipucu" id="topluDurum" aria-live="polite"></div>
-    </div>
-    {#- Kayıtlı değeri değişecek yumurta varsa onay (engel değil); sunucu da
-        soruyor. Betik yoksa sunucunun hata dönüşünde görünür. -#}
-    <div class="uyari" id="topluDegisim" style="margin:12px 14px 0"{% if not toplu.onay_gerek %} hidden{% endif %}>
-      {{ metin("toplu_mat_degisecek") }} <span id="topluDegisimMetni">{{ toplu.degisim_metni }}</span>
-      <label class="onaysatir"><input type="checkbox" name="onay" value="1">
-        <span>{{ metin("toplu_mat_onayla") }}</span></label>
-    </div>
-    <div class="alan">
-      <label for="toplu_islem_zamani">{{ metin("islem_saati") }}</label>
-      <input id="toplu_islem_zamani" name="islem_zamani" min="1900-01-01T00:00"
-             type="datetime-local" value="{{ simdi }}">
-    </div>
-    <div class="alan" style="border:0">
-      <button class="dugme" type="submit" id="topluKaydet" style="margin-top:0">{{ metin("kaydet") }}</button>
-      <a class="dugme ikincil" href="{{ kok }}{% if sp %}?oosit={{ sp.cycle_sira_no }}{% endif %}">{{ metin("toplu_mat_vazgec") }}</a>
-    </div>
-  </form>
-</div>
-{% else %}
-<div class="kart" style="margin-top:12px">
-  <h2>{{ metin("toplu_mat_baslik") }}</h2>
-  <dl style="margin:0">
-    <div class="veri"><dt>{{ metin("maturasyon") }}</dt>
-      <dd>{% if toplu.dagilim %}{% for ad, n in toplu.dagilim %}{{ n }} {{ ad }}{% if not loop.last %} · {% endif %}{% endfor %}{% if toplu.bos %} · {{ metin("toplu_mat_bos_n").format(n=toplu.bos) }}{% endif %}{% else %}{{ metin("toplu_mat_hic") }}{% endif %}</dd></div>
-  </dl>
-  <div class="alan" style="border:0">
-    <a class="dugme{% if toplu.dagilim %} ikincil{% endif %}" style="margin-top:0"
-       href="{{ kok }}?duzenle=toplu{% if sp %}&oosit={{ sp.cycle_sira_no }}{% endif %}">{{ metin("toplu_mat_yaz") }}</a>
-  </div>
-</div>
-{% endif %}
+{{ tm.kart(toplu, duzenle == "toplu", maturasyonlar, kayitli, kok,
+           sp.cycle_sira_no if sp else '', simdi) }}
 {% endif %}
 
 {# --- Kaydedilen oositler: iki kipte de görünür --- #}
@@ -464,65 +400,7 @@ document.querySelectorAll('.stripkare').forEach(function (b) {
 })();
 </script>
 
-{% if toplu is defined and toplu and duzenle == "toplu" %}
-<script>
-(function () {
-  // Toplu maturasyon (v6.245): yalnızca ?duzenle=toplu iken basılıyor; form
-  // yoksa dön (tuzak #10). Önizleme sunucunun kuralını izliyor (`_toplu_mat_plani()`):
-  // kutular listenin sırasıyla, yumurtalar numara sırasıyla; kayıt sunucuda
-  // yeniden hesaplanıyor.
-  var form = document.getElementById('topluMatForm');
-  if (!form) return;
-  var kutular = Array.prototype.slice.call(form.querySelectorAll('input[data-kod]'));
-  var cipler = Array.prototype.slice.call(document.querySelectorAll('#topluOnizleme .sn'));
-  var durum = document.getElementById('topluDurum');
-  var degisim = document.getElementById('topluDegisim');
-  var degisimMetni = document.getElementById('topluDegisimMetni');
-  var kaydet = document.getElementById('topluKaydet');
-  var M = {toplam: {{ metin("toplu_mat_toplam")|tojson }},
-           kalanTek: {{ metin("toplu_mat_kalan_tek")|tojson }},
-           kalan: {{ metin("toplu_mat_kalan")|tojson }},
-           fazla: {{ metin("toplu_mat_fazla_n")|tojson }}};
-  function bicim(s, d) { return s.replace(/\{(\w+)\}/g, function (_, k) { return d[k]; }); }
-  function no(c) { return c.querySelector('b').textContent; }
-
-  function guncelle() {
-    var sira = [];
-    kutular.forEach(function (k) {
-      var v = k.value.trim(), n = /^[0-9]{1,3}$/.test(v) ? parseInt(v, 10) : 0;
-      for (var i = 0; i < n; i++) sira.push(k);
-    });
-    var N = cipler.length, T = sira.length, degisen = [];
-    cipler.forEach(function (c, i) {
-      var eski = c.dataset.mat, k = i < T ? sira[i] : null;
-      var kod = k ? k.dataset.kod : eski;
-      c.querySelector('i').textContent = k ? k.dataset.kisa : c.dataset.kisa;
-      c.classList.toggle('dolu', !!kod);
-      c.classList.toggle('deg', kod === 'degenere');
-      c.classList.toggle('kalir', !k && T > 0);          // dokunulmayacak
-      var degisir = !!(k && eski && eski !== kod);
-      c.classList.toggle('degisir', degisir);
-      if (degisir) degisen.push(no(c) + ' (' + c.dataset.kisa + ' → ' + k.dataset.kisa + ')');
-    });
-    var yazi = bicim(M.toplam, {n: T, m: N});
-    if (T > N) {
-      yazi += ' · ' + bicim(M.fazla, {n: T - N});
-    } else if (T > 0 && T < N) {
-      var ilk = no(cipler[T]), son = no(cipler[N - 1]);
-      yazi += ' · ' + (ilk === son ? bicim(M.kalanTek, {n: ilk})
-                                    : bicim(M.kalan, {ilk: ilk, son: son}));
-    }
-    durum.textContent = yazi;
-    durum.classList.toggle('hatali', T > N);
-    degisimMetni.textContent = degisen.join(', ');
-    degisim.hidden = !degisen.length;
-    kaydet.disabled = !T || T > N;
-  }
-  kutular.forEach(function (k) { k.addEventListener('input', guncelle); });
-  guncelle();
-})();
-</script>
-{% endif %}
+{% if toplu is defined and toplu and duzenle == "toplu" %}{{ tm.betik(toplu) }}{% endif %}
 
 {{ gez.cubuk(c, gezinme) }}
 {# Kayıttan sonra kaldığı yerde açılır (v6.210, `_kaydirma.html`). #}

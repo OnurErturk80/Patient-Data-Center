@@ -19386,3 +19386,124 @@ kayıt reddediliyor (yukarıdaki "hal değişti"), sessizce ezilmiyor.
   kayıt → şerit "1-MII 2-MII 3-MII 4-MI 5-GV"; yatay taşma yok.
 - Eski Python + yeni şablonlar: denüdasyonun bütün halleri açılıyor, kart
   yok, yumurta yumurta kayıt çalışıyor.
+
+# v6.246 — ICSI ekranında toplu maturasyon
+
+Kullanıcı, v6.245'in "IVF/ICSI'de maturasyon ICSI ekranında soruluyor; orada
+da toplu yazım isterseniz söyleyin" sorusuna: "İstiyorum yap".
+
+## Önce
+
+- IVF/ICSI'de ve Yumurta Çözme'de maturasyon ICSI ekranında yumurta yumurta
+  soruluyor: maturasyon, bulgular, "Enjeksiyon: Yapıldı / Yapılmadı", geçiş
+  zorluğu, sonuç, saat → "Kaydet → sıradaki yumurta".
+- Toplu yazım yalnızca Yumurta Dondurma'nın denüdasyonundaydı (v6.245).
+
+## Bugün
+
+- ICSI ekranında aynı **"Toplu maturasyon" kartı**, numara şeridinin üstünde:
+  bugünkü dağılım ("5 MII · 2 MI · 1 GV"), enjeksiyon ("5 yumurta enjekte
+  edildi") ve "Toplu yaz" (`?duzenle=toplu`). Kart, önizleme ve kural
+  denüdasyonla ortak (`templates/_toplu_mat.html`, `_toplu_mat_plani()`):
+  sayılar listenin sırasıyla yumurtaların ekrandaki sırasına dağılıyor,
+  iki ekranda bire bir aynı.
+- **Enjeksiyon formda ayrıca soruluyor**: "MII yumurtaların enjeksiyonu:
+  Yapıldı / Yapılmadı", **varsayılan yok** — program yumurtanın enjekte
+  edildiğini kendisi varsaymıyor. MII sayısı yazılıysa seçim yapılmadan
+  Kaydet kapalı, sunucu da reddediyor. MI, GV, dejenere ve atretik yumurta
+  enjekte edilmedi olarak yazılıyor: yumurta yumurta formun varsayılanı (MII
+  değilse "Yapılmadı"). Enjekte edilenin sonucu Başarılı, geçiş zorluğu boş;
+  geçiş zorluğu, enjeksiyonda dejenere olan ve enjekte edilen MI yumurta kendi
+  formundan.
+- Yazılan kayıt yumurta yumurta formunkiyle aynı (`icsi_kaydet()`): bu
+  tedavinin maturasyonu, ICSI kaydı, "Yapılmadı"da ICSI kaydı silinmiyor
+  iptal ediliyor ("enjekte edilmedi olarak degistirildi"), yumurtanın durumu
+  (enjekte / immatur / degenere). Enjekte edilmedi yazılan yumurta
+  fertilizasyonda "ICSI yapılmadı" kartıyla duruyor, cleavage ve
+  blastokistte görünmüyor (v6.105) — formdaki gibi.
+- Önizleme: "Toplam 8 / 8 yumurta · Enjekte: 1–5". Kayıtlı hali değişecek
+  yumurta turuncu çerçeveli; onay metni maturasyonu ve enjeksiyonu birlikte
+  yazıyor: "5 (MII, enjekte → MI)". Hali (maturasyon ve enjeksiyon) aynı
+  kalan yumurtaya dokunulmuyor, saati de değişmiyor.
+- Hiçbir şey yazılmayan durumlar (v6.245'inkilere ek):
+  - MII varken enjeksiyon seçilmedi;
+  - toplam, yazılabilecek yumurta sayısını aşıyor;
+  - **değişecek yumurtanın fertilizasyon ya da sonraki bir aşamada kaydı
+    var**, numaralarıyla. Enjekte edilmedi yazılsa cleavage ve blastokistte
+    kayıtlarıyla birlikte ekrandan düşerdi; bir sayının yanlış yazılması buna
+    yetmesin. Yumurta yumurta form değiştirebiliyor (tek yumurta, bilerek).
+    Hali aynı kalan yumurta engel değil: sonraki aşamaya geçmiş bir tedavide
+    aynı sayılarla kaydetmek yalnızca boş yumurtaları yazıyor;
+  - Yumurta Çözme'de işlem saati bu tedavideki çözmeden önce (v6.147'nin
+    kuralı), numaralar ve çözme saatiyle.
+- Yumurta Çözme'de yumurtalar bu tedavi için çözülenler; kayıt bu tedavinin,
+  kaynak Yumurta Dondurma'nın denüdasyon maturasyonu değişmiyor; ICSI
+  kaydının `cycle_id`'si yumurtanın kendi tedavisi. Liste birden çok tedaviden
+  gelebildiği için önizlemenin dayandığı hal yumurtanın kimliğiyle tutuluyor.
+  **Çözmede dejenere çıkan yumurta kilitli**: önizlemede soluk ve kesik
+  çizgili, sırada atlanıyor, hiç yazılmıyor (yumurta yumurta formun v6.147
+  kilidi).
+- Toplu kipte yumurta yumurta form basılmıyor (iki "Kaydet" yan yana
+  olmasın); kaydı olan yumurtanın bilgi kartı duruyor.
+- **Denetimler kilidin içinde, iki ekranda da**: kayıt yazma kilidini
+  (`BEGIN IMMEDIATE`) aldıktan sonra yumurtaları yeniden okuyup önizlemenin
+  dayandığı halle karşılaştırıyor; kilit tutulurken başka bir yazar kayıt
+  yapamadığı için okunan hal kayda kadar değişmiyor. v6.245'te karşılaştırma
+  kilitten önceydi: aradaki birkaç milisaniyede başka bir telefonun kaydı
+  geçerse üzerine yazılabiliyordu (v6.245'in "sessizce ezilmiyor" sözü o
+  pencerede tutmuyordu).
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmamış program yeni şablonla ICSI'de kartı göstermiyor; denüdasyonun
+toplu yazımı eskisi gibi çalışıyor.
+
+Bilinen sınırlar:
+- Yumurta bulguları ve genel bulgular toplu yazılmıyor.
+- IVF/ICSI'de ICSI ekranı yumurtanın en son maturasyon kaydını okuyor
+  (yumurta yumurta formun bugünkü kuralı); toplu yazım da aynısını yapıyor.
+  Access'ten aktarılmış bir IVF/ICSI yumurtası sonradan bir Yumurta
+  Çözme'de çözülüp değerlendirildiyse (nadir) o kayıt çözme tedavisinin
+  olabilir.
+
+## Deneme
+
+- Sahte veritabanında 8 boş yumurtalı bir IVF/ICSI tedavisi: kart, form,
+  enjeksiyonun varsayılansız gelmesi, toplu kipte yumurta formunun
+  basılmaması. Hatalar (fazla, harf, boş, enjeksiyon seçilmemiş ya da bozuk,
+  eski ya da eksik hal): hiçbir şey yazılmadı; sayılar, seçim ve seçili
+  yumurta adreste ve formda geri.
+- 5 MII (Yapıldı) + 2 MI + 1 GV: 1–5 MII enjekte (sonuç Başarılı, geçiş
+  zorluğu boş, kayıtlar yumurtanın tedavisinde, işlem saatiyle), 6–7 MI ve 8
+  GV enjekte edilmedi (immatur); fertilizasyonda 6. yumurta "ICSI
+  yapılmadı" kartında, cleavage'da 6–8 yok; tedavi ekranında M2 5.
+- 4 MII + 3 MI + 1 GV: onaysız red, metin "5 (MII, enjekte → MI)"; onaylı
+  kayıtta 5. yumurtanın ICSI kaydı iptal, yalnızca onun saati ve geçmişi
+  değişti. Yalnızca enjeksiyon: 4 MII "Yapılmadı" → 1–4'ün ICSI kayıtları
+  iptal, maturasyon saatlerine dokunulmadı; yeniden "Yapıldı" → yeni kayıt.
+  Aynı sayılar: onaysız geçti, hiçbir şey yazılmadı.
+- ICSI'si ve fertilizasyonu girilmiş tedavi: 6. yumurtayı değiştirecek sayılar
+  "kaydı var: 6" ile red; 1–6 aynı kalıp 7–8'i yazan sayılar geçti, 1–6'nın
+  durumu (transfer edildi, çözüldü, 2. gün) değişmedi.
+- Yumurta Çözme: çözmeden önceki saat "1, 2 (çözme 20.09.2026 09:00)" ile
+  red; sonraki saatte bu tedavinin kayıtları yazıldı, kaynağın denüdasyon
+  maturasyonları ve şeridi aynı kaldı. 2. yumurtanın çözmesi dejenere
+  yapılınca: kilitli, "2 MII" fazla sayıldı, "1 MI" yalnızca 1. yumurtayı
+  yazdı, özet "1 MI · 1 çözmede dejenere".
+- Yumurta yumurta form eskisi gibi kaydediyor (`?duzenle=1` ile Düzenle,
+  bozuk `?duzenle=` hata vermiyor); enjeksiyonda dejenere olan yumurta toplu
+  yazımdan sonra da dejenere kaldı.
+- Yarış: başka bir bağlantı yazma kilidini 1,5 sn tutup 1. yumurtayı
+  değiştirirken toplu kayıt geldi; bekledi, yeni hali gördü, "bu arada
+  değişti" ile reddetti, hiçbir şey yazmadı.
+- Adresten gelen bilinmeyen hata, yumurta listesine yazılan metin, bozuk
+  enjeksiyon değeri ekrana basılmıyor; Yumurta Dondurma'ya gelen ICSI
+  isteği hiçbir şey yazmıyor.
+- Tarayıcıda (390 ve 1280 px): seçimsiz Kaydet kapalı, "MII yumurtaların
+  enjeksiyonunu seçin"; "Yapıldı" → "Enjekte: 1–5"; kayıt → şerit "1-MII …
+  6-MI 7-MI 8-GV"; değişiklik onayı; Yumurta Çözme'de kilitli yumurta
+  atlanıyor; yatay taşma yok, sayfada betik hatası yok.
+- Denüdasyonun v6.245 denemeleri (sunucu ve iki genişlikte tarayıcı) yeni
+  kodla ve yeni şablonlar + eski (v6.245) Python ile yeniden geçti. Eski
+  Python ICSI'de kartı göstermiyor, yumurta formu çalışıyor.
+- Büyük kopya: 1.232 tedavinin ICSI / denüdasyon ekranı ve toplu kipi (2.464
+  istek), hata yok; ortalama 67 ms, en yavaş %5 102 ms.

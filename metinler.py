@@ -1864,6 +1864,60 @@ METINLER = {
               "olmalı.",
         "en": "Not saved: these oocytes were thawed for another cycle before this "
               "time: {n}. The denudation assessment must be before the thaw."},
+    # ICSI ekranında toplu maturasyon (v6.246): MII'lerin enjeksiyonuyla.
+    "toplu_icsi_kilitli_ipucu": {"tr": "Çözmede dejenere çıkan yumurta atlanır.",
+                                 "en": "Oocytes degenerate at thaw are skipped."},
+    "toplu_icsi_kilitli_n": {"tr": "{n} çözmede dejenere", "en": "{n} degenerate at thaw"},
+    "toplu_icsi_enjekte_n": {"tr": "{n} yumurta enjekte edildi",
+                             "en": "{n} oocytes injected"},
+    "toplu_icsi_enjekte_yok": {"tr": "Enjekte edilen yumurta yok",
+                               "en": "No oocyte injected"},
+    "toplu_icsi_enjeksiyon": {"tr": "MII yumurtaların enjeksiyonu",
+                              "en": "Injection of the MII oocytes"},
+    "toplu_icsi_enjeksiyon_ipucu": {
+        "tr": "Yalnızca MII yumurtalara uygulanır; MI, GV, dejenere ve atretik "
+              "yumurta enjekte edilmedi olarak yazılır. Sonuç Başarılı yazılır; "
+              "geçiş zorluğu, enjeksiyonda dejenere olan ve enjekte edilen MI "
+              "yumurta kendi formundan girilir.",
+        "en": "Applies to the MII oocytes only; MI, GV, degenerate and atretic "
+              "oocytes are recorded as not injected. The result is recorded as "
+              "successful: enter the passage difficulty, an oocyte that degenerated "
+              "at injection and an injected MI on the oocyte's own form."},
+    "toplu_icsi_enjekte": {"tr": "enjekte", "en": "injected"},
+    "toplu_icsi_enj_durum": {"tr": "Enjekte: {n}", "en": "Injected: {n}"},
+    "toplu_icsi_enj_yok": {"tr": "Enjekte edilen yok", "en": "None injected"},
+    "toplu_icsi_enj_sec": {"tr": "MII yumurtaların enjeksiyonunu seçin",
+                           "en": "Choose the injection of the MII oocytes"},
+    "toplu_icsi_degisecek": {
+        "tr": "Kayıtlı maturasyonu ya da enjeksiyonu değişecek yumurtalar:",
+        "en": "Oocytes whose recorded maturation or injection will change:"},
+    "toplu_icsi_onayla": {"tr": "Bu yumurtaların kaydını değiştir",
+                          "en": "Change the record of these oocytes"},
+    "toplu_icsi_fazla": {
+        "tr": "Kaydedilmedi: toplam {n}, kaydedilebilecek yumurta sayısı {m}.",
+        "en": "Not saved: total {n}, number of oocytes that can be recorded {m}."},
+    "toplu_icsi_enjeksiyon_yok": {
+        "tr": "Kaydedilmedi: MII yumurtaların enjeksiyonunu seçin (Yapıldı / "
+              "Yapılmadı).",
+        "en": "Not saved: choose the injection of the MII oocytes (performed / "
+              "not performed)."},
+    "toplu_icsi_onay": {
+        "tr": "Kaydedilmedi: kayıtlı maturasyonu ya da enjeksiyonu değişecek "
+              "yumurtalar var. Aşağıda onaylayıp yeniden kaydedin.",
+        "en": "Not saved: the recorded maturation or injection of some oocytes "
+              "will change. Confirm below and save again."},
+    "toplu_icsi_sonraki": {
+        "tr": "Kaydedilmedi: şu yumurtaların fertilizasyon ya da sonraki "
+              "aşamalarda kaydı var: {n}. Toplu yazım onları değiştirmez; sayıları "
+              "değiştirin ya da yumurtanın kendi formundan düzeltin.",
+        "en": "Not saved: these oocytes have a fertilization or later record: {n}. "
+              "Bulk entry does not change them; change the counts or correct the "
+              "oocyte on its own form."},
+    "toplu_icsi_cozmeden_once": {
+        "tr": "Kaydedilmedi: işlem saati şu yumurtaların bu tedavideki "
+              "çözmesinden önce: {n} (çözme {z}). Saati düzeltip yeniden kaydedin.",
+        "en": "Not saved: the procedure time is before the thaw of these oocytes "
+              "in this cycle: {n} (thaw {z}). Correct the time and save again."},
     "temizle": {"tr": "Temizle", "en": "Clear"},
     "tamam": {"tr": "Tamam", "en": "Done"},
     "enjeksiyon": {"tr": "Enjeksiyon", "en": "Injection"},

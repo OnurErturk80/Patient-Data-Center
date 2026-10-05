@@ -1,0 +1,212 @@
+{#- Toplu maturasyon (v6.245 denüdasyon, v6.246 ICSI) -- iki ekranın ortak
+    kartı ve önizleme betiği. Kullanıcı: "3 M2 2M1 1GV seçtiğimde otomatik
+    sıralama imkanım olsun". Sayılar listenin sırasıyla yumurtaların ekrandaki
+    sırasına dağıtılıyor, kilitli yumurta (ICSI'de çözmede dejenere) atlanıyor;
+    kural sunucuda (`app._toplu_mat_plani()`, `_toplu_hedef_enjekte()`,
+    `_toplu_mat_degisim_metni()`), `betik()` önizlemede aynısını izliyor --
+    birini değiştirirsen ikisini.
+
+    `t` sunucunun `_toplu_mat_ekrani()`'si. Yeniden başlatılmamış v6.245
+    programının sözlüğünde `icsi`/`kilitli`/`enjekte_n`/`enjeksiyon` yok
+    (tuzak #5): hepsi yokken yanlış sayılıyor, denüdasyon eskisi gibi.
+    `yumurtalar` ekranın kendi satırları (denüdasyonda `kayitli`, ICSI'de
+    `oositler`); ICSI'ye özgü alanlar (`enjekte`, `icsi`, `cozme_dejenere`)
+    denüdasyonun satırında yok, yine yanlış. -#}
+
+{% macro kart(t, form, maturasyonlar, yumurtalar, kok, secili, simdi) %}
+{% set on = "toplu_icsi_" if t.icsi else "toplu_mat_" %}
+{% if form %}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("toplu_mat_baslik") }}</h2>
+  <form method="post" action="{{ kok }}/toplu-maturasyon" id="topluMatForm">
+    <input type="hidden" name="secili" value="{{ secili }}">
+    <input type="hidden" name="mevcut" value="{{ t.imza }}">
+    <div class="alan">
+      <label>{{ metin("toplu_mat_kac") }}</label>
+      <div class="topluadet">
+        {% for m in maturasyonlar %}
+        <label class="adet">
+          <span>{{ m.etiket }}</span>
+          <input type="number" name="adet_{{ m.kod }}" min="0"
+                 max="{{ t.n if t.n is defined else yumurtalar|length }}"
+                 step="1" inputmode="numeric" pattern="[0-9]*"
+                 value="{{ t.adet.get(m.kod) or '' }}"
+                 data-kod="{{ m.kod }}" data-kisa="{{ mat_kisa(m.kod) }}">
+        </label>
+        {% endfor %}
+      </div>
+      <div class="ipucu">{{ metin("toplu_mat_ipucu") }}{% if t.kilitli %} {{ metin("toplu_icsi_kilitli_ipucu") }}{% endif %}</div>
+    </div>
+    {% if t.icsi %}
+    {#- ICSI ekranı (v6.246): MII'lerin enjeksiyonu açıkça soruluyor, varsayılan
+        yok -- program enjekte edildiğini kendisi varsaymaz. Öteki yumurtalar
+        enjekte edilmedi (yumurta yumurta formun varsayılanı). -#}
+    <div class="alan" id="topluEnjeksiyon">
+      <label>{{ metin("toplu_icsi_enjeksiyon") }}</label>
+      <div class="secenek" role="radiogroup">
+        {% for deger, ad in (("evet", "yapildi"), ("hayir", "yapilmadi")) %}
+        <label class="sec {% if t.enjeksiyon == deger %}secili{% endif %}">
+          <input type="radio" name="enjeksiyon" value="{{ deger }}"
+                 {% if t.enjeksiyon == deger %}checked{% endif %}>
+          <span>{{ metin(ad) }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="ipucu">{{ metin("toplu_icsi_enjeksiyon_ipucu") }}</div>
+    </div>
+    {% endif %}
+    <div class="alan">
+      <label>{{ metin("toplu_mat_onizleme") }}</label>
+      {#- Betik yoksa kayıtlı hali gösterir; betik sayılar yazıldıkça kaydedilince
+          ne olacağını basar. -#}
+      <div class="serit sade toplu" id="topluOnizleme">
+        {% for o in yumurtalar %}
+        {% set kisa = mat_kisa(o.mat) if o.mat else (metin("mat_kisa_degenere") if o.cozme_dejenere else "") %}
+        <span class="sn {% if o.mat %}dolu{% endif %}{% if o.mat == 'degenere' or o.icsi == 'degenere' or o.cozme_dejenere %} deg{% endif %}{% if o.cozme_dejenere %} kilitli{% endif %}"
+              data-mat="{{ o.mat or '' }}" data-kisa="{{ kisa }}"
+              data-enj="{{ 1 if o.enjekte else 0 }}"
+              data-enjdeg="{{ 1 if o.enjekte and o.icsi == 'degenere' else 0 }}"
+              {%- if o.cozme_dejenere %} data-kilitli="1"{% endif %}>
+          <b>{{ o.cycle_sira_no }}</b><i>{{ kisa }}</i></span>
+        {% endfor %}
+      </div>
+      <div class="ipucu" id="topluDurum" aria-live="polite"></div>
+    </div>
+    {#- Kayıtlı hali değişecek yumurta varsa onay (engel değil); sunucu da
+        soruyor. Betik yoksa sunucunun hata dönüşünde görünür. -#}
+    <div class="uyari" id="topluDegisim" style="margin:12px 14px 0"{% if not t.onay_gerek %} hidden{% endif %}>
+      {{ metin(on ~ "degisecek") }} <span id="topluDegisimMetni">{{ t.degisim_metni }}</span>
+      <label class="onaysatir"><input type="checkbox" name="onay" value="1">
+        <span>{{ metin(on ~ "onayla") }}</span></label>
+    </div>
+    <div class="alan">
+      <label for="toplu_islem_zamani">{{ metin("islem_saati") }}</label>
+      <input id="toplu_islem_zamani" name="islem_zamani" min="1900-01-01T00:00"
+             type="datetime-local" value="{{ simdi }}">
+    </div>
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit" id="topluKaydet" style="margin-top:0">{{ metin("kaydet") }}</button>
+      <a class="dugme ikincil" href="{{ kok }}{% if secili %}?oosit={{ secili|urlencode }}{% endif %}">{{ metin("toplu_mat_vazgec") }}</a>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="kart" style="margin-top:12px">
+  <h2>{{ metin("toplu_mat_baslik") }}</h2>
+  <dl style="margin:0">
+    <div class="veri"><dt>{{ metin("maturasyon") }}</dt>
+      <dd>{% if t.dagilim %}{% for ad, n in t.dagilim %}{{ n }} {{ ad }}{% if not loop.last %} · {% endif %}{% endfor %}{% if t.bos %} · {{ metin("toplu_mat_bos_n").format(n=t.bos) }}{% endif %}{% else %}{{ metin("toplu_mat_hic") }}{% endif %}{% if t.kilitli %} · {{ metin("toplu_icsi_kilitli_n").format(n=t.kilitli) }}{% endif %}</dd></div>
+    {% if t.icsi and t.dagilim %}
+    <div class="veri"><dt>{{ metin("enjeksiyon") }}</dt>
+      <dd>{{ metin("toplu_icsi_enjekte_n").format(n=t.enjekte_n) if t.enjekte_n else metin("toplu_icsi_enjekte_yok") }}</dd></div>
+    {% endif %}
+  </dl>
+  <div class="alan" style="border:0">
+    <a class="dugme{% if t.dagilim %} ikincil{% endif %}" style="margin-top:0"
+       href="{{ kok }}?duzenle=toplu{% if secili %}&oosit={{ secili|urlencode }}{% endif %}">{{ metin("toplu_mat_yaz") }}</a>
+  </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+
+{% macro betik(t) %}
+<script>
+(function () {
+  // Toplu maturasyon (v6.245, v6.246): yalnızca ?duzenle=toplu iken basılıyor;
+  // form yoksa dön (tuzak #10). Önizleme sunucunun kuralını izliyor: kutular
+  // listenin sırasıyla, yumurtalar ekranın sırasıyla, kilitli yumurta atlanır;
+  // ICSI'de enjeksiyon yalnızca MII'ye (`_toplu_hedef_enjekte()`). Kayıt
+  // sunucuda yeniden hesaplanıyor.
+  var form = document.getElementById('topluMatForm');
+  if (!form) return;
+  var kutular = Array.prototype.slice.call(form.querySelectorAll('input[data-kod]'));
+  var cipler = Array.prototype.slice.call(document.querySelectorAll('#topluOnizleme .sn'))
+    .filter(function (c) { return !c.dataset.kilitli; });
+  var enjAlan = document.getElementById('topluEnjeksiyon');
+  var enjRadyo = Array.prototype.slice.call(form.querySelectorAll('input[name="enjeksiyon"]'));
+  var durum = document.getElementById('topluDurum');
+  var degisim = document.getElementById('topluDegisim');
+  var degisimMetni = document.getElementById('topluDegisimMetni');
+  var kaydet = document.getElementById('topluKaydet');
+  var M = {toplam: {{ metin("toplu_mat_toplam")|tojson }},
+           kalanTek: {{ metin("toplu_mat_kalan_tek")|tojson }},
+           kalan: {{ metin("toplu_mat_kalan")|tojson }},
+           fazla: {{ metin("toplu_mat_fazla_n")|tojson }},
+           enjekte: {{ metin("toplu_icsi_enjekte")|tojson }},
+           enjDurum: {{ metin("toplu_icsi_enj_durum")|tojson }},
+           enjYok: {{ metin("toplu_icsi_enj_yok")|tojson }},
+           enjSec: {{ metin("toplu_icsi_enj_sec")|tojson }}};
+  function bicim(s, d) { return s.replace(/\{(\w+)\}/g, function (_, k) { return d[k]; }); }
+  function no(c) { return c.querySelector('b').textContent; }
+  // Değişiklik listesindeki hal -- sunucunun `_toplu_hal()`'ı.
+  function hal(kisa, enj) { return (kisa || '—') + (enj ? ', ' + M.enjekte : ''); }
+  // "1–3, 5": art arda üç ve daha çok numara aralık olarak.
+  function aralik(nolar) {
+    var parca = [], i = 0;
+    while (i < nolar.length) {
+      var j = i;
+      while (j + 1 < nolar.length && +nolar[j + 1] === +nolar[j] + 1) j++;
+      if (j - i >= 2) parca.push(nolar[i] + '–' + nolar[j]);
+      else for (var x = i; x <= j; x++) parca.push(nolar[x]);
+      i = j + 1;
+    }
+    return parca.join(', ');
+  }
+
+  function guncelle() {
+    var sira = [];
+    kutular.forEach(function (k) {
+      var v = k.value.trim(), n = /^[0-9]{1,3}$/.test(v) ? parseInt(v, 10) : 0;
+      for (var i = 0; i < n; i++) sira.push(k);
+    });
+    var N = cipler.length, T = sira.length, degisen = [], enjekte = [];
+    var miiVar = sira.some(function (k) { return k.dataset.kod === 'mii'; });
+    var secim = enjRadyo.filter(function (r) { return r.checked; })[0];
+    var enj = secim ? secim.value : '';
+    enjRadyo.forEach(function (r) { r.required = miiVar; });
+    cipler.forEach(function (c, i) {
+      var eski = c.dataset.mat, eskiEnj = c.dataset.enj === '1', k = i < T ? sira[i] : null;
+      var kod = k ? k.dataset.kod : eski;
+      var yeniEnj = eskiEnj;
+      if (k && enjAlan) yeniEnj = kod === 'mii' && (enj ? enj === 'evet' : eskiEnj);
+      c.querySelector('i').textContent = k ? k.dataset.kisa : c.dataset.kisa;
+      c.classList.toggle('dolu', !!kod);
+      c.classList.toggle('deg', kod === 'degenere'
+                                || (yeniEnj && eskiEnj && c.dataset.enjdeg === '1'));
+      c.classList.toggle('kalir', !k && T > 0);          // dokunulmayacak
+      var degisir = !!(k && (eski || eskiEnj) && (eski !== kod || eskiEnj !== yeniEnj));
+      c.classList.toggle('degisir', degisir);
+      if (degisir) degisen.push(no(c) + ' (' + hal(c.dataset.kisa, eskiEnj) + ' → '
+                                + hal(k.dataset.kisa, yeniEnj) + ')');
+      if (yeniEnj) enjekte.push(no(c));
+    });
+    var yazi = bicim(M.toplam, {n: T, m: N});
+    if (T > N) {
+      yazi += ' · ' + bicim(M.fazla, {n: T - N});
+    } else if (T > 0 && T < N) {
+      var ilk = no(cipler[T]), son = no(cipler[N - 1]);
+      yazi += ' · ' + (ilk === son ? bicim(M.kalanTek, {n: ilk})
+                                    : bicim(M.kalan, {ilk: ilk, son: son}));
+    }
+    if (enjAlan && T > 0) {
+      yazi += ' · ' + (miiVar && !enj ? M.enjSec
+                       : enjekte.length ? bicim(M.enjDurum, {n: aralik(enjekte)}) : M.enjYok);
+    }
+    durum.textContent = yazi;
+    durum.classList.toggle('hatali', T > N);
+    degisimMetni.textContent = degisen.join(', ');
+    degisim.hidden = !degisen.length;
+    kaydet.disabled = !T || T > N || !!(enjAlan && miiVar && !enj);
+  }
+  kutular.forEach(function (k) { k.addEventListener('input', guncelle); });
+  enjRadyo.forEach(function (r) {
+    r.addEventListener('change', function () {
+      enjRadyo.forEach(function (x) { x.closest('.sec').classList.toggle('secili', x.checked); });
+      guncelle();
+    });
+  });
+  guncelle();
+})();
+</script>
+{% endmacro %}

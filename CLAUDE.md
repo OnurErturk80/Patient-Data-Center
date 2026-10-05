@@ -409,6 +409,32 @@ olayı yok. Bu ayrım şart — enjekte edilip **sonra** dejenere olan oositin
   ve `blast_durum()`'un `WHERE`'ine `AND NOT (_ICSI_YAPILMADI)` eklendi;
   ikisi de zaten yalnızca `ivf_icsi`'de (ya da `fet_kultur` gibi ondan gelen
   embriyolarla) çalışıyor, güvenli.
+
+**ICSI'de toplu maturasyon** (v6.246, README v6.246; kullanıcı, v6.245'in
+"orada da toplu yazım isterseniz" sorusuna: "İstiyorum yap"). Denüdasyonun
+toplu yazımı (aşağıdaki "Toplu maturasyon", aynı kart ve plan) + MII'lerin
+enjeksiyonu; IVF/ICSI ve Yumurta Çözme (ICSI aşaması olan tip).
+- **Enjeksiyon formda soruluyor, varsayılanı yok** ("MII yumurtaların
+  enjeksiyonu: Yapıldı / Yapılmadı"): program enjekte edildiğini varsaymaz,
+  MII varken seçimsiz kayıt yok (ekran ve sunucu). MI, GV, dejenere, atretik
+  enjekte edilmedi (`_toplu_hedef_enjekte()`; yumurta yumurta formun "MII
+  değilse Yapılmadı" varsayılanı), sonuç Başarılı, geçiş zorluğu boş. Bir
+  varsayılan seçmeden ya da MI'ı enjekte saymadan önce kullanıcıya sor.
+- Kayıt `icsi_kaydet()`'inkiyle aynı (`_icsi_toplu_yaz()`): kapsam
+  `_tedavi_ek()`, "Yapılmadı" ICSI kaydını iptal eder, `specimen.durum`
+  formunkiyle. Hali (maturasyon + enjeksiyon) aynı kalan yumurtaya dokunulmaz.
+  `icsi_durum()`'un `enjekte`'si sonucu boş ICSI kaydını da sayıyor
+  (aktarılmış kayıtlarda `icsi_sonuc` boş).
+- **Fertilizasyon ya da sonraki aşamada kaydı olan yumurta toplu yazımla
+  değişmez** (`_icsiden_sonra_kayit_var()`): enjekte edilmedi yazılan yumurta
+  cleavage / blastokistte kayıtlarıyla düşerdi. Yumurta yumurta form
+  değiştirebiliyor. Bu engeli gevşetme.
+- Yumurta Çözme: çözmede dejenere yumurta kilitli, sırada atlanır
+  (`_toplu_yumurta()`'nın `kilitli`'si); saat bu tedavideki çözmeden önce
+  olamaz (`_cozmeden_once()`, hata dönüşü yumurta kimlikleri `?ornekler=`,
+  ekrana numara); imza yumurtanın kimliğiyle (numara tekil değil).
+- Toplu kipte yumurta yumurta form basılmıyor. ICSI'nin `?duzenle=` metin
+  (`1` ya da `toplu`); şablon `toplu is defined` diye soruyor (tuzak #5).
 **Dejenere işaretlenen yumurta sonraki aşamalarda GÖRÜNÜR ama KİLİTLİDİR**
 (v6.139, kullanıcının isteği: "dejenere işaretlenen yumurta ileriki menülerde
 yumurtanın kutucuğunda Dej. kısaltmasıyla gösterilsin ve işlem yapılamasın.
@@ -538,19 +564,28 @@ tipte de ICSI aşaması yoksa aynı ihtiyaç doğar, aynı deseni kullan.
   seçtiğimde otomatik sıralama imkanım olsun"): şeridin üstünde kart (dağılım +
   "Toplu yaz", `?duzenle=toplu`), formda listenin etkin değerleri başına sayı.
   Sayılar listenin sırasıyla, yumurta NUMARASI sırasına (`_toplu_mat_plani()`;
-  önizleme betiği aynı kuralı izliyor -- birini değiştirirsen ikisini).
+  önizleme betiği aynı kuralı izliyor -- birini değiştirirsen ikisini). Kart ve
+  betik v6.246'dan beri ICSI ekranıyla ortak: `_toplu_mat.html` (`kart()`,
+  `betik()`), yumurta satırı `_toplu_yumurta()` biçiminde; ikinci bir kopya
+  yazma.
   - POST `/cycle/{id}/denudasyon/toplu-maturasyon`, tek işlem, ya hepsi ya
     hiçbiri: toplam yumurtadan fazlaysa engel (yeni yumurta açılmaz, v6.242);
     kayıtlı değer değişecekse onay (`onay`, engel değil); önizlemenin dayandığı
     hal değiştiyse red (`mevcut` = `_toplu_mat_imzasi()`); çözülmüş yumurta
     yukarıdaki kural. Değeri aynı kalan yumurtaya dokunulmaz (saati de).
+  - **Denetimler yazma kilidinin İÇİNDE** (v6.246, `_TopluDur`): kayıt
+    `yazma_islemi()`'ni aldıktan sonra yumurtaları yeniden okuyor; kilit
+    tutulurken başka yazar kayıt yapamaz, okunan hal kayda kadar değişmez.
+    v6.245'te karşılaştırma kilitten önceydi (milisaniyelik pencere).
+    Önizlemeye dayanan yeni bir toplu kayıt yazarsan aynısını yap.
   - Kayıt yumurta yumurta formunkiyle aynı (`_denudasyon_mat_kosulu()`); günlük
     satırı işlemin İÇİNDE `b` ile -- `degisiklikleri_yaz()` kendi bağlantısıyla
     kilidi beklerdi. Hata dönüşü sayıları adreste taşıyor (`adet_<kod>`,
     tamsayıya sabit), metni `_toplu_mat_ekrani()`; şablon `toplu is defined`
     diye soruyor (tuzak #5).
-  - Yalnızca Yumurta Dondurma. IVF/ICSI'nin maturasyonu ICSI ekranında, orada
-    toplu yazım yok (istenmedi); eklenecekse enjeksiyonla birlikte düşün.
+  - Denüdasyonda yalnızca Yumurta Dondurma. IVF/ICSI'nin ve Yumurta Çözme'nin
+    toplu yazımı ICSI ekranında, enjeksiyonla birlikte (v6.246, aşağıdaki
+    "ICSI'de toplu maturasyon").
 
 **`fet`, `fet_kultur` ve `yumurta_cozme`'de dondurulan örnek BU cycle'dan
 gelmez** — `FET_TIPLERI` sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)`
@@ -849,7 +884,8 @@ ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
 **Bir ekranda birden çok düzenlenebilir şey varsa adreste adıyla söyle.**
 Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati), `?duzenle=oosit`
 (oositlerin çalışma kipi) ve `?duzenle=toplu` (Yumurta Dondurma'nın toplu
-maturasyonu, v6.245) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
+maturasyonu, v6.245) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22). ICSI'de
+`?duzenle=1` (seçili yumurtanın formu) ve `?duzenle=toplu` (v6.246).
 
 **Aşama ekranının ana fotoğrafının yeri yüklenmeden ayrılır** (v6.208,
 kullanıcı: "Denüdasyon ekranı işlem yaparken sayfa kayıyor"). `.foto img`

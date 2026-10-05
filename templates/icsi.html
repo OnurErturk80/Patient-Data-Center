@@ -3,12 +3,13 @@
 {% block yanmenu %}{% endblock %}
 {# Ayni kaydi baska biri duzenliyorsa uyari (v6.55): birim ALAN degil
    KAYIT, cunku kaydederken formun tamami yaziliyor. #}
-{% block kayitanahtari %}{% if sp %}cycle:{{ c.id }}:icsi:{{ sp.id }}{% endif %}{% endblock %}
+{% block kayitanahtari %}{% if toplu is defined and toplu and toplu.form %}cycle:{{ c.id }}:icsi:toplu{% elif sp %}cycle:{{ c.id }}:icsi:{{ sp.id }}{% endif %}{% endblock %}
 {% import "_kareler.html" as kr %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
 {% import "_bilgikart.html" as bk %}
+{% import "_toplu_mat.html" as tm %}
 {% block ustbaslik %}{{ metin("asama_icsi") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -33,6 +34,16 @@
 {% if fet_tipi_mi(c.cycle_tipi) %}<a class="dugme" href="/cycle/{{ c.id }}/thaw">{{ metin("cozme_ekrani") }}</a>
 {% else %}<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("denudasyon_ekrani") }}</a>{% endif %}
 {% else %}
+
+{#- Toplu maturasyon (v6.246, kullanıcının isteği): denüdasyonun toplu
+    yazımının aynısı (`_toplu_mat.html`), MII'lerin enjeksiyonuyla. Toplu
+    kipte yumurta yumurta form basılmıyor -- iki "Kaydet" yan yana olmasın.
+    `toplu is defined`: yeniden başlatılmamış program (tuzak #5). -#}
+{% set toplu_kipi = toplu is defined and toplu and toplu.form %}
+{% if toplu is defined and toplu %}
+{{ tm.kart(toplu, toplu.form, maturasyonlar, oositler, '/cycle/' ~ c.id ~ '/icsi',
+           sp.id, simdi) }}
+{% endif %}
 
 <div class="serit">
   {% for o in oositler %}
@@ -107,6 +118,10 @@
    (v6.147) -- v6.139'un "gizlemek değil kilitlemek" kuralı; asıl engel
    sunucuda (`icsi_kaydet()`). #}
 <div class="kart"><div class="bos">{{ metin("cozmede_dejenere_form_yok") }}</div></div>
+
+{% elif toplu_kipi %}
+{# Toplu yazım açık (v6.246): kaydı olmayan yumurtanın formu yukarıdaki
+   toplu formla yan yana basılmıyor. #}
 
 {% else %}
 {# --- kayit yok ya da duzenleniyor: form --- #}
@@ -412,6 +427,7 @@
 })();
 </script>
 {% endif %}
+{% if toplu is defined and toplu and toplu.form %}{{ tm.betik(toplu) }}{% endif %}
 {{ gez.cubuk(c, gezinme) }}
 {% include "_buyutec.html" %}
 <script>
