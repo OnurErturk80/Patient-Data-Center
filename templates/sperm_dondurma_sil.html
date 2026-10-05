@@ -11,6 +11,12 @@
 {% block icerik %}
 
 <div class="tehlike">{{ metin("sperm_dondurma_silinecek") }}</div>
+{# Tedavide kullanılan tüp (v6.247): haritada zaten yok; silinirse tedavinin
+   kaydından da düşer. Silme yine yapılabilir (yanlış girilmiş kayıt), geri
+   alınabilir (hasta kartı). #}
+{% if sd.kul_cycle_no %}
+<div class="uyari">{{ metin("sperm_kullanilan_silinmesin").format(no=sd.kul_cycle_no) }}</div>
+{% endif %}
 
 <div class="kart">
   <h2>{{ metin("silinecek_kayit") }}</h2>

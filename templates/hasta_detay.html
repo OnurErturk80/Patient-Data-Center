@@ -187,8 +187,16 @@
     {{ es_sahibi.dosya_no }} · <strong>{{ es_sahibi.ad_soyad }}</strong>
     &mdash; <a href="/hasta/{{ es_sahibi.id }}">{{ metin("kaydi_ac") }}</a>
   </div>
-  {% for sd in es_sperm %}{{ sperm_satiri(sd) }}
+  {# Tankta olanlar önce, tedavide kullanılanlar ayrı başlıkla (v6.247; yeniden
+     başlatılmamış programda tek liste -- yeni başlığın metni onda yok). #}
+  {% set _es_yeni = silinen_spermler is defined %}
+  {% set _es_kullanilan = (es_sperm or [])|selectattr("kullanim_cycle_id")|list if _es_yeni else [] %}
+  {% for sd in ((es_sperm or [])|rejectattr("kullanim_cycle_id") if _es_yeni else (es_sperm or [])) %}{{ sperm_satiri(sd) }}
   {% else %}<div class="bos">{{ metin("dondurulmus_sperm_yok") }}</div>{% endfor %}
+  {% if _es_kullanilan %}
+  <div class="kartbolum">{{ metin("kullanilan_sperm") }}</div>
+  {% for sd in _es_kullanilan %}{{ sperm_satiri(sd) }}{% endfor %}
+  {% endif %}
   {% else %}
   <div class="bos">{{ metin("es_kayitli_degil") }}</div>
   {% endif %}
@@ -258,7 +266,16 @@
    kaldığı yer `_kaydirma.html` ile korunuyor (bloğun sonu). #}
 {% set d = dondurulmus %}
 {% set sperm_lab = sperm_kayitlari|rejectattr("tasiyici_durum", "in", ("gonderildi", "imha"))|list %}
-{% if yetkim("cryo") and (d.tankta or sperm_lab or d.tasinan or d.excel or d.imha) %}
+{# Tanktaki ve tedavide kullanılan sperm ayrı (v6.247, kullanıcı: "androloji
+   kısmında kullanılınca cryo haritadan silinmesi gerekiyor"): kullanılan tüp
+   Cryo Haritası'nda yok, burada kullanıldığı tedaviyle -- bağı buradan da
+   kaldırılabiliyor. Silinen kayıtlar (v6.247) silme izni olana, geri almak
+   için; yeniden başlatılmamış programda yok (tuzak #5). #}
+{% set _yeni_kod = silinen_spermler is defined %}
+{% set sperm_tankta = sperm_lab|rejectattr("kullanim_cycle_id")|list if _yeni_kod else sperm_lab %}
+{% set sperm_kullanilan = sperm_lab|selectattr("kullanim_cycle_id")|list if _yeni_kod else [] %}
+{% set sperm_silinen = silinen_spermler if _yeni_kod and yetkim("silme") else [] %}
+{% if yetkim("cryo") and (d.tankta or sperm_lab or d.tasinan or d.excel or d.imha or sperm_silinen) %}
 <div class="kart" id="dondurulmus">
   <h2>{{ metin("dondurulmus_ornekler") }}</h2>
   {% for g in d.tankta %}
@@ -276,10 +293,14 @@
   {% if cycles %}<div class="bos">{{ metin("tankta_embriyo_yok") }}</div>{% endif %}
   {% endfor %}
 
-  {% if sperm_lab %}
+  {% if sperm_tankta %}
   <div class="kartbolum">{{ metin("dondurulmus_sperm") }}</div>
-  {% for sd in sperm_lab %}{{ sperm_satiri(sd) }}{% endfor %}
+  {% for sd in sperm_tankta %}{{ sperm_satiri(sd) }}{% endfor %}
   <div class="ipucu" style="padding:8px 2px">{{ metin("sperm_dosya_esleme_ipucu") }}</div>
+  {% endif %}
+  {% if sperm_kullanilan %}
+  <div class="kartbolum">{{ metin("kullanilan_sperm") }}</div>
+  {% for sd in sperm_kullanilan %}{{ sperm_satiri(sd) }}{% endfor %}
   {% endif %}
 
   {# Programda tüpü olmayan, adı bu hastanınkiyle aynı straw'lar (v6.205'in
@@ -298,6 +319,29 @@
       <em>{% if e.tam_yol %}{{ e.tam_yol }}{% else %}{{ metin("konum_girilmemis") }}{% endif %}</em>
     </span>
   </a>
+  {% endfor %}
+  {% endif %}
+
+  {# Silinen sperm dondurma kayıtları (v6.247): silme ekranından silinmiş,
+     geri alınabilir -- kayıt ve tüpü duruyordu, silme yalnızca işaretliyordu.
+     Onay `onsubmit` tek tırnakla (tuzak #16). #}
+  {% if sperm_silinen %}
+  <div class="kartbolum">{{ metin("silinen_sperm") }}</div>
+  {% for sd in sperm_silinen %}
+  <div class="satir" style="display:block">
+    <div class="no">{{ sd.etiket }}</div>
+    <div class="meta">
+      {{ gg_aa_yyyy(sd.dondurma_zamani) if sd.dondurma_zamani else "—" }}
+      {%- if sd.tam_yol %} · {{ sd.tam_yol }}{% endif %}
+      {%- if sd.sebep %} · {{ sd.sebep }}{% endif %}
+    </div>
+    <div class="meta">{{ metin("silindi_gunu").format(tarih=gg_aa_yyyy(sd.iptal_zamani) if sd.iptal_zamani else "—") }}
+      {%- if sd.kul_cycle_no %} · {{ metin("kullanildigi_tedavi") }}: {{ sd.kul_cycle_no }}{% endif %}</div>
+    <form method="post" action="/sperm-dondurma/{{ sd.id }}/geri-al" style="margin-top:6px"
+          onsubmit='return confirm({{ metin("silmeyi_geri_al_onay").format(etiket=sd.etiket)|tojson }})'>
+      <button class="dugme ikincil" type="submit" style="margin-top:0">{{ metin("silmeyi_geri_al") }}</button>
+    </form>
+  </div>
   {% endfor %}
   {% endif %}
 

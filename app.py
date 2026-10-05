@@ -3491,6 +3491,8 @@ def hasta_detay(request: Request, hasta_id: int):
         request, "hasta_detay.html",
         {"hasta": hasta, "cycles": cycles,
          "sperm_kayitlari": sperm_kayitlari,
+         # Silinen sperm kayıtları (v6.247), "Silmeyi geri al" ile.
+         "silinen_spermler": hastanin_silinen_spermleri(hasta_id),
          "es_sahibi": es_sahibi, "es_sperm": es_sperm,
          "baglanabilir": baglanabilir, "esi_olan": esi_olan,
          "es_bag_acik": es_dosya_no_var() and bool(sperm_kayitlari),
@@ -3724,7 +3726,8 @@ async def hasta_sperm_bagla(request: Request, hasta_id: int, sperm_dondurma_id: 
     cycle_id = (f.get("cycle_id") or "").strip()
     if cycle_id.isdigit() and db.tek(
             "SELECT 1 x FROM cycle WHERE id=? AND hasta_id=?", (int(cycle_id), hasta_id)):
-        sperm_tedaviye_bagla(sperm_dondurma_id, int(cycle_id))
+        sperm_tedaviye_bagla(sperm_dondurma_id, int(cycle_id),
+                             request.state.kullanici["id"])
     return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
 
 
@@ -3739,7 +3742,7 @@ def hasta_sperm_baglanti_kaldir(request: Request, hasta_id: int, sperm_dondurma_
     if db.tek(
         "SELECT 1 x FROM sperm_dondurma sd JOIN cycle c ON c.id = sd.kullanim_cycle_id "
         "WHERE sd.id=? AND c.hasta_id=?", (sperm_dondurma_id, hasta_id)):
-        sperm_baglanti_kaldir(sperm_dondurma_id)
+        sperm_baglanti_kaldir(sperm_dondurma_id, request.state.kullanici["id"])
     return RedirectResponse(f"/hasta/{hasta_id}", status_code=303)
 
 
@@ -4956,12 +4959,17 @@ def androloji(request: Request, cycle_id: int, ornek: str = "",
 
     # Bu tedavide kullanılan, başka bir hastaya (eşe) ait dondurulmuş sperm
     # var mı (v6.86) -- taze örnekten (sperm_ornek) tamamen bağımsız, aynı
-    # ekranda ayrı bir kart olarak gösteriliyor.
-    sd_baglanti = db.tek(
-        "SELECT sd.*, t.etiket, h.dosya_no, h.ad_soyad FROM sperm_dondurma sd "
+    # ekranda ayrı bir kart olarak gösteriliyor. v6.247'den beri birden çok
+    # tüp (kullanıcı aynı gün iki tüp çözdü): `sd_baglantilar` hepsi,
+    # `sd_baglanti` ilki -- yeniden başlatılmamış programın eski şablonu ya da
+    # yeni şablonla eski program (tuzak #5) tek kayıtla çalışmaya devam etsin.
+    sd_baglantilar = db.sorgu(
+        "SELECT sd.*, t.etiket, k.tam_yol, h.dosya_no, h.ad_soyad FROM sperm_dondurma sd "
         "JOIN tasiyici t ON t.id = sd.tasiyici_id "
+        "LEFT JOIN konum k ON k.id = t.konum_id "
         "JOIN hasta h ON h.id = sd.hasta_id "
-        "WHERE sd.kullanim_cycle_id=? AND sd.iptal_mi=0", (cycle_id,))
+        "WHERE sd.kullanim_cycle_id=? AND sd.iptal_mi=0 ORDER BY sd.id", (cycle_id,))
+    sd_baglanti = sd_baglantilar[0] if sd_baglantilar else None
 
     # Bu tedavinin hastası (= bu dosya numarası) adına dondurulmuş, henüz
     # hiçbir tedaviye bağlanmamış sperm var mı (v6.125, kullanıcının isteği:
@@ -4971,8 +4979,8 @@ def androloji(request: Request, cycle_id: int, ornek: str = "",
     # olabildiği için (v6.86). Buradaki fark, aramayı beklemeden haber
     # vermesi: dosya numarası tutuyorsa eşleşme kesindir, personelin
     # arayarak bulmasına gerek yok.
-    dosya_sperm = (hastanin_sperm_kayitlari(c["hasta_id"], yalnizca_bagsiz=True)
-                   if not sd_baglanti else [])
+    # Bir tüp bağlıyken de soruluyor (v6.247): ikinci tüp aynı numaradan.
+    dosya_sperm = hastanin_sperm_kayitlari(c["hasta_id"], yalnizca_bagsiz=True)
 
     return sablon.TemplateResponse(
         request, "androloji.html",
@@ -4991,7 +4999,7 @@ def androloji(request: Request, cycle_id: int, ornek: str = "",
             "gorunumler": db.liste("sperm_gorunum"),
             "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
             "hata": hata, "duzenle": duzenle,
-            "sd_baglanti": sd_baglanti,
+            "sd_baglanti": sd_baglanti, "sd_baglantilar": sd_baglantilar,
             "gezinme": asama_gezinme(cycle_id, "androloji"),
         },
     )
@@ -5029,16 +5037,24 @@ def androloji_sperm_baglama_ekran(request: Request, cycle_id: int, ara: str = ""
     else:
         kayitlar = db.sorgu(
             taban + " ORDER BY sd.dondurma_zamani DESC", (db.LAB_ID,))
+    # Cryo Haritası'nda Excel kaydı olarak duran, programda sperm kaydı hiç
+    # açılmamış straw'lar (v6.247; kullanıcının vakasında bir straw'ın Excel'deki
+    # tarihi ileri yazılmıştı, kayıt açılmamıştı ve bu ekranda hiç çıkmıyordu).
+    # Bağlama kaydın sayfasında: "Hastaya bağla" sahibini kullanıcıya seçtiriyor
+    # (ad tek başına kanıt değil), açılan tüp bu tedaviye de bağlanıyor
+    # (`?tedavi=`). Yalnızca aramada -- bütün Excel kayıtları listelenmez.
+    excel_kayitlari = ([e for e in excel_kaydi_ara(ara) if e["kategori"] == "sperm"]
+                       if ara.strip() else [])
 
     return sablon.TemplateResponse(
         request, "androloji_sperm_baglama.html",
-        {"c": c, "ara": ara, "kayitlar": kayitlar})
+        {"c": c, "ara": ara, "kayitlar": kayitlar, "excel_kayitlari": excel_kayitlari})
 
 
 @uygulama.post("/cycle/{cycle_id}/androloji/sperm-baglama/{sperm_dondurma_id}")
 def androloji_sperm_bagla(request: Request, cycle_id: int, sperm_dondurma_id: int):
     # Bağlama mantığı tek yerde (v6.139) -- hasta kartı da aynı işi yapıyor.
-    sperm_tedaviye_bagla(sperm_dondurma_id, cycle_id)
+    sperm_tedaviye_bagla(sperm_dondurma_id, cycle_id, request.state.kullanici["id"])
     return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
 
 
@@ -5048,7 +5064,7 @@ def androloji_sperm_baglanti_kaldir(request: Request, cycle_id: int, sperm_dondu
     # bu ekrandan koparmak yanlış olurdu (v6.86'nın davranışı korunuyor).
     if db.tek("SELECT 1 x FROM sperm_dondurma WHERE id=? AND kullanim_cycle_id=?",
               (sperm_dondurma_id, cycle_id)):
-        sperm_baglanti_kaldir(sperm_dondurma_id)
+        sperm_baglanti_kaldir(sperm_dondurma_id, request.state.kullanici["id"])
     return RedirectResponse(f"/cycle/{cycle_id}/androloji", status_code=303)
 
 
@@ -9470,11 +9486,14 @@ def cryo_harita(request: Request, ara: str = ""):
         "JOIN hasta h ON h.id = sd.hasta_id "
         "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
         "LEFT JOIN hasta uh ON uh.id = uc.hasta_id "
-        # Başka merkeze taşınan (v6.205) ya da imha edilen (v6.227) sperm
-        # tüpü haritadan çıkıyor -- embriyo tüpünün `durum='dolu'`
-        # süzgecinin karşılığı. Kullanılmış tüp v6.86'daki gibi rozetiyle
-        # kalıyor.
-        f"WHERE sd.lab_id=? AND sd.iptal_mi=0 AND t.durum NOT IN {db.TANKTAN_CIKAN_SQL}")
+        # Haritada yalnızca tankta duran tüp: embriyo tüpünün `durum='dolu'`
+        # süzgeci. Başka merkeze taşınan (v6.205), imha edilen (v6.227) ve
+        # v6.247'den beri bir tedavide kullanılan tüp de çıkıyor (kullanıcı:
+        # "androloji kısmında kullanılınca cryo haritadan silinmesi
+        # gerekiyor"; v6.86'dan v6.246'ya kadar kullanılmış tüp rozetiyle
+        # kalıyordu). Kullanılan tüp hasta kartında ve tedavide görünüyor.
+        "WHERE sd.lab_id=? AND sd.iptal_mi=0 AND t.durum='dolu' "
+        "AND sd.kullanim_cycle_id IS NULL")
     if ara.strip():
         # `h.ad_soyad` her zaman büyük harfle kayıtlı (v6.115) -- arama
         # terimi Türkçe ı/ş/ğ/ö/ü/ç için `tr_buyuk()`'ten geçmeli (v6.116).
@@ -9951,10 +9970,29 @@ def _excel_kaydi(eid):
                   (eid, db.LAB_ID))
 
 
+def _excel_kullanim_tedavisi(e, tedavi) -> dict | None:
+    """Androlojiden gelindiyse (v6.247, `?tedavi=`) sperm straw'ının
+    kullanıldığı tedavi: "Hastaya bağla"nın açtığı tüp ona da bağlanıyor.
+    Yalnızca tankta duran sperm Excel kaydında ve androloji aşaması olan bir
+    tedavide (hasta kartının bağlama kuralı). Adresten gelen değer sayıya
+    sabitleniyor, var olan tedaviye bakılarak doğrulanıyor -- tedavi kimin
+    olursa olsun: spermin sahibi eşin kartı, tedavi çiftin (androloji
+    ekranının arama akışı, v6.86)."""
+    t = str(tedavi or "").strip()
+    if not (e and e["kategori"] == "sperm" and e["durum"] == "tankta"
+            and t.isascii() and t.isdigit()):
+        return None
+    c = db.tek("SELECT id, cycle_no, cycle_tipi FROM cycle WHERE id=? AND lab_id=?",
+               (int(t), db.LAB_ID))
+    if not c or "androloji" not in TIP_ASAMALARI.get(c["cycle_tipi"], ()):
+        return None
+    return dict(c)
+
+
 @uygulama.get("/cryo/excel-kaydi/{eid}")
 def excel_kaydi_ekran(request: Request, eid: int, hata: str = "", etiket: str = "",
                       hasta_ara: str = "", hasta: str = "", tarih: str = "",
-                      sonuc: str = ""):
+                      sonuc: str = "", tedavi: str = ""):
     """Excel kaydı: Excel'de bir gobletde duran, programda karşılığı olan tüp
     bulunamamış satır (v6.189, kullanıcının seçimi). Excel'deki yazısıyla
     gösteriliyor; bir tüpe bağlanabilir ya da tanktan çıkarıldı diye
@@ -10011,6 +10049,8 @@ def excel_kaydi_ekran(request: Request, eid: int, hata: str = "", etiket: str = 
          "hasta_sonuclari": (excel_kaydi_hasta_ara(arama)
                              if arama and e["durum"] == "tankta" else []),
          "secim": secim, "acilan": acilan, "tedaviye": tedaviye,
+         # Androlojiden gelindiyse açılacak sperm tüpünün kullanıldığı tedavi (v6.247).
+         "kullanim": _excel_kullanim_tedavisi(e, tedavi),
          "sonuc": sonuc if sonuc in ("acildi", "geri_alindi", "tedaviye_baglandi") else "",
          "geri": (f"/cryo/excel-kaydi/{e['id']}" if arama or secim else geri_cryo),
          "geri_cryo": geri_cryo})
@@ -10115,9 +10155,14 @@ async def excel_kaydi_hastaya_bagla(request: Request, eid: int):
     f = await request.form()
     hid = (f.get("hasta") or "").strip()
     geri = f"/cryo/excel-kaydi/{eid}"
-    if not hid.isdigit():
+    if not (hid.isascii() and hid.isdigit()):
         return RedirectResponse(geri, status_code=303)
-    secim = urlencode({"hasta": hid, "tarih": (f.get("tarih") or "").strip()})
+    # Androlojiden gelindiyse (v6.247) tedavi adreste kalıyor, açılan tüp ona da
+    # bağlanıyor; doğrulama GET'inkiyle aynı (`_excel_kullanim_tedavisi()`).
+    tedavi = (f.get("tedavi") or "").strip()
+    kullanim = _excel_kullanim_tedavisi(_excel_kaydi(eid), tedavi)
+    secim = urlencode({"hasta": hid, "tarih": (f.get("tarih") or "").strip(),
+                       **({"tedavi": kullanim["id"]} if kullanim else {})})
     gun = _excel_acilis_gunu(f.get("tarih"))
     if not gun:
         return RedirectResponse(f"{geri}?{secim}&hata=acilis_tarih_yok", status_code=303)
@@ -10136,6 +10181,12 @@ async def excel_kaydi_hastaya_bagla(request: Request, eid: int):
                                 status_code=303)
     # Kayan tedavi numaraları: günlüğe kendi bağlantısıyla, işlemden sonra.
     tedavi_sirasini_logla(sonuc["degisen"], kid)
+    # Androlojiden gelindiyse açılan sperm tüpü o tedavide kullanıldı (v6.247):
+    # bağla, androloji ekranına dön. Bağlanamazsa (bu arada başka bir şey
+    # değişti) tüp açık kalır, bağı androloji ekranından kurulur.
+    if kullanim and sonuc.get("sperm") and sperm_tedaviye_bagla(
+            sonuc["sperm"], kullanim["id"], kid):
+        return RedirectResponse(f"/cycle/{kullanim['id']}/androloji", status_code=303)
     return RedirectResponse(f"{geri}?sonuc=acildi", status_code=303)
 
 
@@ -10357,46 +10408,88 @@ def es_dosya_no_var() -> bool:
     return db.kolon_var("hasta", "es_dosya_no")
 
 
-def sperm_tedaviye_bagla(sperm_dondurma_id: int, cycle_id: int) -> bool:
+def _gunluge(b, tablo, kayit_id, alan, eski, yeni, kid, simdi):
+    """Değişiklik geçmişine bir satır, açık yazma işleminin içinde (`b`).
+    `guvenlik.degisiklikleri_yaz()` kendi bağlantısını açar, kilidi beklerdi."""
+    b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+              "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+              (db.LAB_ID, tablo, str(kayit_id), alan,
+               None if eski is None else str(eski), None if yeni is None else str(yeni),
+               kid, simdi))
+
+
+def sperm_tedaviye_bagla(sperm_dondurma_id: int, cycle_id: int, kid: int) -> bool:
     """Dondurulmuş spermi bir tedaviye bağlar (v6.86; v6.139'da paylaşıldı).
 
     İki ekran çağırıyor: androloji (`/cycle/{id}/androloji/sperm-baglama`) ve
     hasta kartı (v6.139, kullanıcının isteği: "Hasta kartında tedaviye
-    bağlama opsiyonu versin"). Sahiplik değişmiyor -- `sperm_dondurma.
-    hasta_id` dondurmayı yaptıran erkekte kalır, yalnızca "hangi tedavi için
-    kullanıldı" yazılır.
+    bağlama opsiyonu versin"); v6.247'den beri Excel kaydının "Hastaya bağla"sı
+    da (androlojiden gelindiyse, açtığı tüpü). Sahiplik değişmiyor --
+    `sperm_dondurma.hasta_id` dondurmayı yaptıran erkekte kalır, yalnızca
+    "hangi tedavi için kullanıldı" yazılır.
 
-    Yalnızca **henüz bağlanmamış** bir kayıt bağlanır; zaten bağlıysa sessizce
-    hiçbir şey yapmaz (False döner) -- iki ekrandan aynı anda basılırsa
-    ikincisi birincinin bağını başka bir tedaviye çevirmesin. Başka merkeze
-    taşınan tüp de bağlanmaz (v6.205): laboratuvarda değil, bağlansaydı
-    `durum`'u 'kullanildi' olup taşındığı bilgisi silinirdi.
+    **Bağlanan tüp kullanılmıştır, Cryo Haritası'ndan çıkar** (v6.247,
+    kullanıcı: "tüp bebek tedavisine bağladıktan sonra androloji kısmında
+    kullanılınca cryo haritadan silinmesi gerekiyor"): `durum='kullanildi'`,
+    goblette başka dolu tüp kalmadıysa konum boşalır. Bir tedaviye birden çok
+    tüp bağlanabilir (aynı gün iki tüp çözülebiliyor).
+
+    Yalnızca **henüz bağlanmamış**, tankta duran bir kayıt bağlanır; denetim
+    ile yazım tek işlemde (koşullu UPDATE): iki ekrandan aynı anda basılırsa
+    ikincisi birincinin bağını başka bir tedaviye çevirmez (False). Başka
+    merkeze taşınan ya da imha edilen tüp bağlanmaz (v6.205, v6.227).
+
+    Değişiklik geçmişine işlemin içinde yazılıyor: açık ekranların tazelemesi,
+    veri klasöründeki Excel haritası ve Cryo yedeği bağlamayı oradan görüyor
+    (v6.246'ya kadar günlük yoktu, harita dosyası bir sonraki değişikliğe kadar
+    tüpü göstermeye devam ediyordu).
     """
-    c = db.tek("SELECT id FROM cycle WHERE id=? AND lab_id=?", (cycle_id, db.LAB_ID))
-    sd = db.tek(
-        "SELECT sd.tasiyici_id FROM sperm_dondurma sd "
-        "JOIN tasiyici t ON t.id = sd.tasiyici_id WHERE sd.id=? AND sd.lab_id=? "
-        "AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL "
-        f"AND t.durum NOT IN {db.TANKTAN_CIKAN_SQL}",
-        (sperm_dondurma_id, db.LAB_ID))
-    if not (c and sd):
-        return False
-    db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=? WHERE id=?",
-           (cycle_id, sperm_dondurma_id))
-    db.yaz("UPDATE tasiyici SET durum='kullanildi' WHERE id=?", (sd["tasiyici_id"],))
+    simdi = _dt.now().isoformat(" ", "seconds")
+    with db.yazma_islemi() as b:
+        if not b.execute("SELECT 1 FROM cycle WHERE id=? AND lab_id=?",
+                         (cycle_id, db.LAB_ID)).fetchone():
+            return False
+        sd = b.execute(
+            "SELECT sd.id, sd.tasiyici_id, t.konum_id, t.durum FROM sperm_dondurma sd "
+            "JOIN tasiyici t ON t.id = sd.tasiyici_id WHERE sd.id=? AND sd.lab_id=? "
+            "AND sd.iptal_mi=0 AND sd.kullanim_cycle_id IS NULL AND t.durum='dolu'",
+            (sperm_dondurma_id, db.LAB_ID)).fetchone()
+        if not sd:
+            return False
+        b.execute("UPDATE sperm_dondurma SET kullanim_cycle_id=? WHERE id=?",
+                  (cycle_id, sd["id"]))
+        b.execute("UPDATE tasiyici SET durum='kullanildi' WHERE id=?", (sd["tasiyici_id"],))
+        if sd["konum_id"] and not b.execute(
+                "SELECT 1 FROM tasiyici WHERE konum_id=? AND durum='dolu' AND id<>? LIMIT 1",
+                (sd["konum_id"], sd["tasiyici_id"])).fetchone():
+            b.execute("UPDATE konum SET durum='bos' WHERE id=?", (sd["konum_id"],))
+        _gunluge(b, "sperm_dondurma", sd["id"], "kullanim_cycle_id", None, cycle_id, kid, simdi)
+        _gunluge(b, "tasiyici", sd["tasiyici_id"], "durum", sd["durum"], "kullanildi", kid, simdi)
     return True
 
 
-def sperm_baglanti_kaldir(sperm_dondurma_id: int) -> bool:
-    """Bağlantıyı kaldırır; taşıyıcı `'dolu'`ya döner (v6.86)."""
-    sd = db.tek(
-        "SELECT tasiyici_id FROM sperm_dondurma WHERE id=? AND lab_id=? "
-        "AND kullanim_cycle_id IS NOT NULL", (sperm_dondurma_id, db.LAB_ID))
-    if not sd:
-        return False
-    db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE id=?",
-           (sperm_dondurma_id,))
-    db.yaz("UPDATE tasiyici SET durum='dolu' WHERE id=?", (sd["tasiyici_id"],))
+def sperm_baglanti_kaldir(sperm_dondurma_id: int, kid: int) -> bool:
+    """Bağlantıyı kaldırır; tüp tanka, Cryo Haritası'na döner (v6.86).
+    Tüp yalnızca "kullanıldı" ise dolu yapılır (başka bir işaret ezilmesin);
+    `sperm_tedaviye_bagla()`'nın tersi, aynı günlükle."""
+    simdi = _dt.now().isoformat(" ", "seconds")
+    with db.yazma_islemi() as b:
+        sd = b.execute(
+            "SELECT sd.id, sd.tasiyici_id, sd.kullanim_cycle_id, t.konum_id, t.durum "
+            "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+            "WHERE sd.id=? AND sd.lab_id=? AND sd.kullanim_cycle_id IS NOT NULL",
+            (sperm_dondurma_id, db.LAB_ID)).fetchone()
+        if not sd:
+            return False
+        b.execute("UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE id=?", (sd["id"],))
+        _gunluge(b, "sperm_dondurma", sd["id"], "kullanim_cycle_id",
+                 sd["kullanim_cycle_id"], None, kid, simdi)
+        if sd["durum"] == "kullanildi":
+            b.execute("UPDATE tasiyici SET durum='dolu' WHERE id=?", (sd["tasiyici_id"],))
+            if sd["konum_id"]:
+                b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (sd["konum_id"],))
+            _gunluge(b, "tasiyici", sd["tasiyici_id"], "durum", "kullanildi", "dolu",
+                     kid, simdi)
     return True
 
 
@@ -10433,6 +10526,23 @@ def hastanin_sperm_kayitlari(hasta_id: int, yalnizca_bagsiz: bool = False) -> li
         f"WHERE sd.hasta_id = ? AND sd.lab_id = ? AND sd.iptal_mi = 0{ek} "
         "ORDER BY sd.dondurma_zamani DESC, sd.id DESC",
         (hasta_id, db.LAB_ID))
+
+
+def hastanin_silinen_spermleri(hasta_id: int) -> list:
+    """Silme ekranından silinmiş (iptal) sperm dondurma kayıtları (v6.247):
+    hasta kartında "Silmeyi geri al" ile. Silme kaydı ve tüpü silmiyor
+    (`iptal_mi`, tüp "boşaltıldı"); v6.246'ya kadar geri almanın yolu yoktu
+    -- kullanılan tüpü haritadan çıkarmak için silinen kayıt tedaviden de
+    düşüyordu."""
+    return db.sorgu(
+        "SELECT sd.id, sd.dondurma_zamani, sd.sebep, sd.iptal_zamani, "
+        "  sd.kullanim_cycle_id, t.etiket, t.durum AS tasiyici_durum, k.tam_yol, "
+        "  uc.cycle_no AS kul_cycle_no "
+        "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
+        "LEFT JOIN konum k ON k.id = t.konum_id "
+        "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
+        "WHERE sd.hasta_id = ? AND sd.lab_id = ? AND sd.iptal_mi = 1 "
+        "ORDER BY sd.iptal_zamani DESC, sd.id DESC", (hasta_id, db.LAB_ID))
 
 
 def _sperm_dondurma_olustur(hasta_id, f, kid):
@@ -10711,11 +10821,15 @@ def sperm_onam_dosya_sil(request: Request, dosya_id: int):
 
 @uygulama.get("/sperm-dondurma/{sperm_dondurma_id}/sil")
 def sperm_dondurma_sil_ekran(request: Request, sperm_dondurma_id: int):
+    # `kul_cycle_no` (v6.247): tedavide kullanılan tüp için uyarı -- haritadan
+    # çıkarmak için silmeye gerek yok, silinen kayıt tedaviden de düşer.
     sd = db.tek(
-        "SELECT sd.*, t.etiket, k.tam_yol, h.dosya_no, h.ad_soyad "
+        "SELECT sd.*, t.etiket, k.tam_yol, h.dosya_no, h.ad_soyad, "
+        "  uc.cycle_no AS kul_cycle_no "
         "FROM sperm_dondurma sd JOIN tasiyici t ON t.id = sd.tasiyici_id "
         "LEFT JOIN konum k ON k.id = t.konum_id "
         "JOIN hasta h ON h.id = sd.hasta_id "
+        "LEFT JOIN cycle uc ON uc.id = sd.kullanim_cycle_id "
         "WHERE sd.id=? AND sd.lab_id=? AND sd.iptal_mi=0",
         (sperm_dondurma_id, db.LAB_ID))
     if not sd:
@@ -10732,14 +10846,63 @@ def sperm_dondurma_sil(request: Request, sperm_dondurma_id: int):
         return RedirectResponse("/cryo", status_code=303)
     kid = request.state.kullanici["id"]
     simdi = _d.now().isoformat(" ", "seconds")
-    db.yaz("UPDATE sperm_dondurma SET iptal_mi=1, iptal_kullanici_id=?, "
-           "iptal_zamani=?, iptal_sebep='Sperm dondurma kaydi silindi' WHERE id=?",
-           (kid, simdi, sperm_dondurma_id))
-    t = db.tek("SELECT konum_id FROM tasiyici WHERE id=?", (sd["tasiyici_id"],))
-    db.yaz("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?", (sd["tasiyici_id"],))
-    if t and t["konum_id"]:
-        db.yaz("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+    # Tek işlem, değişiklik geçmişiyle (v6.247: silme geri alınabiliyor,
+    # `sperm_dondurma_silmeyi_geri_al()`).
+    with db.yazma_islemi() as b:
+        n = b.execute("UPDATE sperm_dondurma SET iptal_mi=1, iptal_kullanici_id=?, "
+                      "iptal_zamani=?, iptal_sebep='Sperm dondurma kaydi silindi' "
+                      "WHERE id=? AND iptal_mi=0", (kid, simdi, sperm_dondurma_id)).rowcount
+        t = b.execute("SELECT konum_id, durum FROM tasiyici WHERE id=?",
+                      (sd["tasiyici_id"],)).fetchone()
+        if n:
+            b.execute("UPDATE tasiyici SET durum='bosaltildi' WHERE id=?", (sd["tasiyici_id"],))
+            if t and t["konum_id"]:
+                b.execute("UPDATE konum SET durum='bos' WHERE id=?", (t["konum_id"],))
+            _gunluge(b, "sperm_dondurma", sperm_dondurma_id, "iptal_mi", 0, 1, kid, simdi)
+            if t:
+                _gunluge(b, "tasiyici", sd["tasiyici_id"], "durum", t["durum"],
+                         "bosaltildi", kid, simdi)
     return RedirectResponse("/cryo", status_code=303)
+
+
+@uygulama.post("/sperm-dondurma/{sperm_dondurma_id}/geri-al")
+def sperm_dondurma_silmeyi_geri_al(request: Request, sperm_dondurma_id: int):
+    """Silinen sperm dondurma kaydını geri alır (v6.247). Rota `geri-al` ile
+    bitiyor: izin "silme" modülü (`yol_modulu()`), silmenin kendisiyle aynı.
+
+    Silme kaydı ve tüpü silmiyor (`iptal_mi`, tüp "boşaltıldı"), yalnızca
+    tüpün önceki durumunu yazmıyordu. Önceki durum tüpün kendi işaretlerinden:
+    başka merkeze taşındıysa ya da imha edildiyse onların günü hâlâ yazılı
+    (işaret kaldırılınca siliniyor), bir tedavide kullanıldıysa bağı duruyor
+    (silme bağı koparmıyordu), hiçbiri değilse tankta. Tüpe yalnızca silmenin
+    bıraktığı "boşaltıldı"daysa dokunuluyor."""
+    kid = request.state.kullanici["id"]
+    simdi = _dt.now().isoformat(" ", "seconds")
+    # Tüpün işaret kolonları (goc_051, goc_059 yoksa o işaret yok).
+    isaretler = {d: kolon for d, kolon in (("gonderildi", "gonderim_zamani"),
+                                           ("imha", "imha_zamani"))
+                 if db.kolon_var("tasiyici", kolon)}
+    with db.yazma_islemi() as b:
+        sd = b.execute(
+            "SELECT sd.id, sd.hasta_id, sd.tasiyici_id, sd.kullanim_cycle_id, "
+            "  t.durum AS tdurum, t.konum_id FROM sperm_dondurma sd "
+            "JOIN tasiyici t ON t.id = sd.tasiyici_id "
+            "WHERE sd.id=? AND sd.lab_id=? AND sd.iptal_mi=1",
+            (sperm_dondurma_id, db.LAB_ID)).fetchone()
+        if not sd:
+            return RedirectResponse("/cryo", status_code=303)
+        b.execute("UPDATE sperm_dondurma SET iptal_mi=0, iptal_kullanici_id=NULL, "
+                  "iptal_zamani=NULL, iptal_sebep=NULL WHERE id=?", (sd["id"],))
+        _gunluge(b, "sperm_dondurma", sd["id"], "iptal_mi", 1, 0, kid, simdi)
+        if sd["tdurum"] == "bosaltildi":
+            t = b.execute("SELECT * FROM tasiyici WHERE id=?", (sd["tasiyici_id"],)).fetchone()
+            yeni = (next((d for d, kolon in isaretler.items() if t[kolon]), None)
+                    or ("kullanildi" if sd["kullanim_cycle_id"] else "dolu"))
+            b.execute("UPDATE tasiyici SET durum=? WHERE id=?", (yeni, sd["tasiyici_id"]))
+            if yeni == "dolu" and sd["konum_id"]:
+                b.execute("UPDATE konum SET durum='dolu' WHERE id=?", (sd["konum_id"],))
+            _gunluge(b, "tasiyici", sd["tasiyici_id"], "durum", "bosaltildi", yeni, kid, simdi)
+    return RedirectResponse(f"/hasta/{sd['hasta_id']}#dondurulmus", status_code=303)
 
 
 @uygulama.get("/cryo/tasiyici/{tasiyici_id}")
@@ -12822,7 +12985,12 @@ def cycle_tamamen_sil(cycle_id: int, kullanici_id: int):
             (cycle_id,)):
         db.yaz("UPDATE sperm_dondurma SET kullanim_cycle_id=NULL WHERE id=?",
                (r["id"],))
-        db.yaz("UPDATE tasiyici SET durum='dolu' WHERE id=?", (r["tasiyici_id"],))
+        # Kullanılan tüp tanka döner (v6.247: bağlı tüp haritada yok); başka
+        # bir işaret (taşındı, imha) ezilmesin.
+        db.yaz("UPDATE tasiyici SET durum='dolu' WHERE id=? AND durum='kullanildi'",
+               (r["tasiyici_id"],))
+        db.yaz("UPDATE konum SET durum='dolu' WHERE id=(SELECT konum_id FROM tasiyici "
+               "WHERE id=? AND durum='dolu')", (r["tasiyici_id"],))
 
     # 3. Bu cycle'ın embriyolarının kullandığı taşıyıcılar
     tasiyicilar = [r["vit_tasiyici_id"] for r in db.sorgu(

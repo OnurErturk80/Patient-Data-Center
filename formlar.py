@@ -114,6 +114,94 @@ def _yapan(cycle_id, asama):
     return r["yapan_ad"] if r else None
 
 
+# ------------------------------------------- sperm kaynağı (v6.247)
+#
+# Kullanıcının isteği: "Eğer sperm TESE ise özet formlarında ilgili yerlerde
+# TESE olarak yazılması gerekiyor." Tedavide dondurulmuş sperm kullanıldıysa
+# (androlojide bağlanan `sperm_dondurma`, `kullanim_cycle_id`) alınma yöntemi
+# o kaydın: v6.246'ya kadar formlar yalnızca androloji örneğinin yöntemini
+# basıyordu -- çözülen TESE "Çözülmüş örnek" ya da boş çıkıyordu.
+
+# Excel'in HÜCRE yazımında TESE / TESA (`cryo_esle._TESE_TESA`'nın aynısı;
+# formlar `cryo_esle`'yi import etmiyor).
+_TESE_TESA = re.compile(r"(?<![A-ZÇĞİÖŞÜ])(TESE|TESA)(?![A-ZÇĞİÖŞÜ])")
+# "Çözülmüş örnek": androloji örneğinin yöntemi bu ise asıl yöntem dondurulmuş
+# kaydın (kurulum listesinin kodu, `kurulum.LISTELER`).
+SPERM_COZULMUS = "thaw"
+
+
+def _buyuk(metin) -> str:
+    """Türkçe büyük harf, boşluklar tek (`app.tr_buyuk()`'ün kuralı)."""
+    return " ".join(str(metin or "").replace("i", "İ").upper().split())
+
+
+def dondurulmus_sperm_yontemi(sebep, notlar, h) -> str | None:
+    """Dondurulmuş spermin alınma yöntemi, `sperm_alinma` listesinin kodu ya da
+    None (bilinmiyor). Kayıtta ayrı bir yöntem alanı yok:
+    - `sebep` listenin bir değerinin adıysa o yöntem ("TESE", "TESA", "PESA";
+      sebep listesi `app.SPERM_DONDURMA_SEBEPLERI` yöntemi ve sebebi bir arada
+      tutuyor). "Onkolojik", "Tedavi Öncesi Koruma" yöntem değil.
+    - Cryo Excel'inden açılan kayıtta (`db.CRYO_EXCEL_ISARETI`) notun "Örnek:"
+      satırı Excel'in HÜCRE'si: "TESE-CA"nın sebebi Onkolojik, yöntemi TESE
+      (`cryo_esle._sperm_sebebi()`: "Onkolojik kazanıyor, HÜCRE'nin tamamı
+      notta"). Elle yazılan notta arama yok -- "TESE planlandı" yöntem değil.
+    `h`: `_etiketler()`."""
+    liste = {kod: etiket for (ad, kod), etiket in h.items()
+             if ad == "sperm_alinma" and kod != SPERM_COZULMUS}
+    s = _buyuk(sebep)
+    if s:
+        for kod, etiket in liste.items():
+            if s in (_buyuk(etiket), _buyuk(kod)):
+                return kod
+    if db.CRYO_EXCEL_ISARETI in (notlar or ""):
+        m = re.search(r"Örnek: ([^·\n]*)", notlar)
+        t = _TESE_TESA.search(_buyuk(m.group(1))) if m else None
+        if t:
+            return next((kod for kod, etiket in liste.items()
+                         if _buyuk(etiket) == t.group(1)), t.group(1).lower())
+    return None
+
+
+def tedavilerin_sperm_yontemleri(cycle_id=None) -> dict:
+    """{tedavi: [yöntem kodu, ...]} -- tedavide kullanılan (bağlı) dondurulmuş
+    spermlerin bilinen yöntemleri, kayıt sırasıyla, tekrarsız. `cycle_id`
+    verilmezse bütün tedaviler tek sorguda (Tüm veri dökümü, v6.239'un
+    kuralı)."""
+    h = _etiketler()
+    ek, par = (("AND kullanim_cycle_id = ?", (db.LAB_ID, cycle_id)) if cycle_id
+               else ("", (db.LAB_ID,)))
+    sonuc = {}
+    for r in db.sorgu(
+            "SELECT kullanim_cycle_id AS cid, sebep, notlar FROM sperm_dondurma "
+            f"WHERE lab_id = ? AND iptal_mi = 0 AND kullanim_cycle_id IS NOT NULL {ek} "
+            "ORDER BY id", par):
+        kod = dondurulmus_sperm_yontemi(r["sebep"], r["notlar"], h)
+        if kod and kod not in sonuc.setdefault(r["cid"], []):
+            sonuc[r["cid"]].append(kod)
+    return sonuc
+
+
+def sperm_kaynagi_metni(h, ornek_yontemi, dondurulmus) -> str | None:
+    """Formun "Sperm kaynağı": androloji örneğinin yöntemi (`ornek_yontemi`,
+    kod) ve kullanılan dondurulmuş spermin bilinen yöntemleri (`dondurulmus`,
+    kodlar). Örnek "Çözülmüş örnek" diyorsa asıl yöntem dondurulmuş kaydınki:
+    çözülen TESE "TESE" basılıyor. Taze örnek ile dondurulmuş TESE birlikteyse
+    ikisi ("Mastürbasyon, TESE"). Dondurulmuş kaydın yöntemi bilinmiyorsa
+    örneğinki olduğu gibi (v6.246'ya kadarki davranış)."""
+    kodlar = [ornek_yontemi] if ornek_yontemi and ornek_yontemi != SPERM_COZULMUS else []
+    kodlar += [k for k in dondurulmus if k not in kodlar]
+    if not kodlar and ornek_yontemi:
+        kodlar = [ornek_yontemi]
+    return ", ".join(_et(h, "sperm_alinma", k) for k in kodlar) or None
+
+
+def sperm_kaynagi(cycle_id, ornek, h) -> str | None:
+    """Bir tedavinin formu için `sperm_kaynagi_metni()` (iki form aynı yerden)."""
+    return sperm_kaynagi_metni(
+        h, ornek["alinma_yontemi"] if ornek else None,
+        tedavilerin_sperm_yontemleri(cycle_id).get(cycle_id, []))
+
+
 def _iptal_notu(c):
     """Cycle iptal edildiyse seçilen sebebin ekran etiketi, değilse None.
 
@@ -1561,8 +1649,8 @@ def ozet_verisi(cycle_id: int):
         "opu_klinisyen": c["opu_hekim"],
         "opu_embriyolog": _yapan(cycle_id, "opu"),
         # --- sperm ---
-        "sperm_kaynagi": _et(h, "sperm_alinma",
-                             ornek["alinma_yontemi"] if ornek else None),
+        # Dondurulmuş sperm kullanıldıysa onun yöntemi (v6.247: çözülen TESE "TESE").
+        "sperm_kaynagi": sperm_kaynagi(cycle_id, ornek, h),
         "bazal_volum": _sayi(bazal, "hacim_ml") or (
             ornek["hacim_ml"] if ornek else None),
         "bazal_konsantrasyon": _sayi(bazal, "konsantrasyon_milyon_ml"),
@@ -1875,8 +1963,7 @@ def artlab_verisi(cycle_id: int):
         "yasi": _yas(c["dogum_tarihi"], db.tedavi_gunu(cycle_id)),
         "esinin_adi": c["es_adi"],
         "islem": metinler.t("tip_" + c["cycle_tipi"]) if c["cycle_tipi"] else "",
-        "sperm_kaynagi": _et(h, "sperm_alinma",
-                             ornek["alinma_yontemi"] if ornek else None) or "",
+        "sperm_kaynagi": sperm_kaynagi(cycle_id, ornek, h) or "",     # v6.247
         "hekim": c["opu_hekim"] or "",
         "et_hekim": _transfer_hekimi(c, transfer_satirlari) or "",   # v6.232: "Hekimler: ... ET"
         "laboratuvar": _yapan(cycle_id, "opu") or "",

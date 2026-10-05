@@ -788,6 +788,9 @@ def _tum_veri(b):
     tupler = formlar.tedavilerin_dondurma_tupleri()
     cozulenler = formlar.tedavilerin_cozulenleri()
     transferler = formlar.tedavilerin_transfer_edilenleri()
+    # Tedavide kullanılan dondurulmuş spermin yöntemi (v6.247): resmî formların
+    # "Sperm kaynağı"nın aynısı -- çözülen TESE "TESE".
+    sperm_yontem = formlar.tedavilerin_sperm_yontemleri()
 
     sonuc = []
     for c in cycleler:
@@ -831,8 +834,8 @@ def _tum_veri(b):
             "sagkalim": formlar.cozme_viabilitesi(coz),
             "kaynak": ", ".join(sorted(
                 tedavi_no.get(k, str(k)) for k in kaynaklar.get(cid, ()))) or None,
-            "sperm_alinma": _et(h, "sperm_alinma",
-                                sp["ornek"]["alinma_yontemi"] if sp else None),
+            "sperm_alinma": formlar.sperm_kaynagi_metni(
+                h, sp["ornek"]["alinma_yontemi"] if sp else None, sperm_yontem.get(cid, [])),
             "sperm_hazirlama": _et(h, "sperm_hazirlama",
                                    sp["ornek"]["hazirlama_yontemi"] if sp else None),
             "bazal_kons": olcu("bazal", "konsantrasyon_milyon_ml"),

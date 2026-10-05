@@ -41,5 +41,24 @@
   {% endfor %}
 </div>
 
+{# Programda sperm kaydı olmayan, Cryo Haritası'nda Excel kaydı olarak duran
+   straw'lar (v6.247). Satır kaydın sayfasına bu tedaviyle gidiyor: orada
+   sahibi seçilip tüp açılınca bu tedaviye de bağlanıyor. Yeniden
+   başlatılmamış programda liste yok (tuzak #5). #}
+{% if excel_kayitlari is defined and excel_kayitlari %}
+<div class="kart">
+  <h2>{{ metin("sperm_excel_kayitlari") }}</h2>
+  <div class="ipucu" style="margin:8px 14px 6px">{{ metin("sperm_excel_kayitlari_ipucu") }}</div>
+  {% for e in excel_kayitlari %}
+  <a class="satir" href="/cryo/excel-kaydi/{{ e.id }}?tedavi={{ c.id }}&amp;hasta_ara={{ ara|urlencode }}#hastaya-bagla">
+    <div class="no">{{ metin("excel_kaydi") }} · {{ e.soyad or "" }} {{ e.ad or "" }}{% if e.es_adi %} · {{ metin("es") }}: {{ e.es_adi }}{% endif %}</div>
+    <div class="meta">{{ gg_aa_yyyy(e.tarih) if e.tarih else (e.tarih_ham or "—") }}
+      {%- if e.icerik %} · {{ e.icerik }}{% endif %}{% if e.vial %} · {{ e.vial }}{% endif %}</div>
+    <div class="meta">{{ e.tam_yol or metin("konum_girilmemis") }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <a class="dugme ikincil" href="/cycle/{{ c.id }}/androloji">{{ metin("vazgec") }}</a>
 {% endblock %}

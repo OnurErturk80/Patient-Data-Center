@@ -104,6 +104,12 @@ toplu birleşmesini istedi (adı ve eşinin adı aynı, numara 1–2 hane farkl�
 `python3 hasta_birlestir.py benzer` (liste) -> `benzer uygula`; kendi
 makinesinde çalıştırıyor -- çalıştırıp çalıştırmadığını ve belirsiz grupların
 hangi yönünü seçtiğini sor. Deneme kopyasında 28 kart birleşti, 2 grup belirsiz.
+**2026-10-05**: kullanıcı aynı gün bir tedavide iki dondurulmuş sperm tüpünün
+kullanıldığı bir vakayı bildirdi (hasta sohbette; biri programın tüpü, öteki
+Excel'de tarihi bir yıl ileri yazıldığı için yalnızca Excel kaydı). v6.247
+ekrandan düzeltme yolunu verdi (README v6.247 "Kullanıcının yapacağı"): ikinci
+tüpü bağla, Excel kaydını hastaya aç ve tedavide kullan, kayıt silindiyse
+"Silmeyi geri al" -- yapıp yapmadığını sor.
 Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
 
 ---
@@ -1603,6 +1609,16 @@ kalıptan**: `form_kalip.json`.
   yaş yazma. Hasta kartının tedavi satırı bilerek yıl farkı
   (`app.tedavi_yasi()`, "o yıl kaçındaydı"): doğum günü o yıl henüz
   gelmemişse formdan bir fazla.
+- **Sperm kaynağı tedavide kullanılan dondurulmuş spermden de** (v6.247,
+  kullanıcı: "Eğer sperm TESE ise özet formlarında ilgili yerlerde TESE
+  olarak yazılması gerekiyor"): Özet'in SPERM KAYNAĞI, ART Lab'ın "Sperm: →",
+  yüklenen formların `{{sperm_kaynagi}}`'si ve Tüm veri'nin "Sperm alınma
+  yöntemi" tek kuraldan, `formlar.sperm_kaynagi_metni()`. Dondurulmuş kaydın
+  yöntemi `dondurulmus_sperm_yontemi()`: sebep `sperm_alinma` listesinin bir
+  değerinin adıysa (TESE, TESA, PESA), yoksa Excel'den açılmış kayıtta notun
+  "Örnek:" (HÜCRE) satırındaki TESE / TESA. Androloji örneği "Çözülmüş örnek"
+  (`SPERM_COZULMUS`) ya da boşsa yalnızca dondurulmuşunki; ikisi farklıysa
+  ikisi ("Mastürbasyon, TESE"). Elle yazılan notta yöntem aranmıyor.
 - **ART raporunda gün 2 "40-45 saat", gün 3 "72 saat" satırına yazılır.**
   Eşleme olduğu için kullanıcıya soruldu, **"kalsın" dedi** (2026-09-11).
   Boşaltma. "24 saat : hücre" satırı boş — programda o kayıt yok.
@@ -2587,6 +2603,10 @@ yazan tek yerler) yazmadan önce çağırıyor.
 ayrı, bilinçli bir yol: dosya no yaz → `SIL` yaz → tarayıcı onayı.
 **Transfer kaydı olan hasta/cycle kalıcı silinemez** — ekranda seçenek
 görünmez, sunucu da reddeder. Bu kuralı gevşetme.
+Silinen sperm dondurma kaydı (iptal) v6.247'den beri hasta kartından geri
+alınıyor ("Silinen sperm kayıtları" → `POST /sperm-dondurma/{id}/geri-al`,
+silme izni): tüp önceki durumuna (taşındı / imha / kullanıldı / tankta --
+tüpün kendi işaretlerinden; silme önceki durumu yazmıyordu).
 
 **Yedekten geri yükleme, uygulamadaki en yıkıcı işlem — kalıcı silmeden
 bile ağır** (v6.120, kullanıcının isteği: "Yönetici isterse yedekten geri
@@ -2946,11 +2966,12 @@ besleniyor.
     silinmez. Taşınanlar türetilmiş (`tasinanlar()`: hasta + gün + yer).
   - Taşınan sperm tüpü /cryo'nun sperm listesinde, androloji'nin bağlama
     listesinde, "bağlanmayı bekleyen" uyarısında yok ve tedaviye bağlanamaz
-    (bağlama `durum`'u 'kullanildi' yapar, taşındı bilgisi silinirdi). Sperm
-    sorgusu yazarken `t.durum NOT IN {db.TANKTAN_CIKAN_SQL}` süzgecini
-    unutma (v6.227'ye kadar `<> 'gonderildi'`; imha edilen de dışarıda):
-    sperm listesi 'kullanildi'yi bilerek gösteriyor, `durum='dolu'`
-    yazılamıyor.
+    (bağlama `durum`'u 'kullanildi' yapar, taşındı bilgisi silinirdi).
+    **Cryo Haritası'nın sperm sorgusu v6.247'den beri `t.durum='dolu' AND
+    sd.kullanim_cycle_id IS NULL`** (embriyo tüpünün süzgeci): taşınan, imha
+    edilen ve tedavide kullanılan tüp haritada yok. Haritada sperm listeleyen
+    yeni bir yer yazarsan bunu kullan; `NOT IN TANKTAN_CIKAN_SQL` (v6.227 --
+    v6.246) kullanılan tüpü gösterirdi.
   - Hasta kartında tüp **dondurulduğu tedavinin** satırında (`db.vit_tedavisi()`),
     içerik formun "Taşınan:" kaynağından (`formlar.tasinan_tupler()`,
     `hastanin_tasinan_tedavileri()`) -- v6.182'nin ayrı kartı kaldırıldı.
@@ -2975,7 +2996,7 @@ besleniyor.
     sonra. Tanktan çıkan yeni bir işaret yazarsan aynı koşulu koy.
   - **"Tanktan çıkan" durumlar tek yerde: `db.TANKTAN_CIKAN`**
     (`gonderildi`, `imha`) ve SQL hali `TANKTAN_CIKAN_SQL`. Çözme ekranının üç
-    kapısı, sperm süzgeçleri ve dondurmanın geri alınma / başka tüpe taşınma
+    kapısı, androlojinin bağlama listesi ve dondurmanın geri alınma / başka tüpe taşınma
     engeli (`_vit_geri_alma_engeli()`: v6.227'den beri taşınan tüpte de; eski
     davranış tüpü "boşaltıldı" yapıp işareti siliyordu) buna bakıyor. Yeni
     bir "tanktan çıkmış ama kaydı duran" durum eklersen oraya ekle.
@@ -3229,6 +3250,15 @@ besleniyor.
     eşleşmeyen satıra dokunma (Excel'de sonradan elle eklenmiş olabilir);
     gobletin yeni straw'ı boş satıra (önce Excel'de boş olan, sonra
     boşalan). Taşınan tüp eski satırının yazısını götürür.
+  - **Sperm satırı silinen kaydı da tanır** (v6.247, `_sperm_kayitlari()`):
+    kayıt silinince program yeri boş gösteriyor, satır da boşalıyor --
+    v6.246'ya kadar silinen kayıt eşleşmede yoktu, satır "programın bilmediği"
+    sayılıp kalıyordu (harita boş, Excel dolu; kullanıcı böyle bildirdi). Adı
+    tutmayan sperm satırı (kart düzeltilmiş / birleştirilmiş) aynı goblet +
+    aynı gün ile eşleşiyor, **Excel kayıtlarından SONRA** (4. adım): önce
+    olsaydı Excel kaydı olan satır, başka hastanın aynı gün aynı goblete konmuş
+    tüpüne yapışırdı. Embriyo / yumurta satırında silinen (geri alınmış)
+    dondurma hâlâ tanınmıyor.
   - **Yeni straw'ın yazısı laboratuvarın yazımından ölçüldü**
     (`_yeni_satirlar()`): "D5 (3BA-1BB)", "OOSİT (4M2-1M1)", "... REFREEZE",
     "1 CRYOLOCKMAVİ 2" (sondaki sayı aynı tedavide AYNI GÜN dondurulanlar
@@ -4396,9 +4426,14 @@ yanıtlanıyor.
   süzülmüyor, çünkü kayıt bilerek başka bir hastaya ait.
 - **Taşıyıcı `durum`'una üçüncü bir değer eklendi: `'kullanildi'`**
   (`'dolu'`/`'bosaltildi'`'nin yanına) — bağlanınca yazılıyor, bağlantı
-  kaldırılınca `'dolu'`ya dönüyor. `/cryo`'nun taşıyıcı sorguları buna göre
-  süzmüyor (geçmiş kayıt olarak görünmeye devam ediyor), yalnızca "Kullanıldığı
-  tedavi" rozeti ekleniyor.
+  kaldırılınca `'dolu'`ya dönüyor. **v6.247'den beri kullanılan tüp Cryo
+  Haritası'nda yok** (kullanıcı: "androloji kısmında kullanılınca cryo
+  haritadan silinmesi gerekiyor"; v6.86–v6.246 "Kullanıldığı tedavi"
+  rozetiyle listede kalıyordu): ağaç, kanister / goblet, arama, Excel
+  haritası, laboratuvarın Excel'i, boş yer. Göründüğü yerler: tedavinin
+  androloji kartı, hasta kartının "Tedavide kullanılan sperm" başlığı (erkeğin
+  ve çiftin kartı), sperm dondurma sayfası, etiket araması (rozetle). Bunu
+  geri alma.
 - **Tuzak #4'ün aynısı, yeni bir cycle_id alanı için**: `cycle_tamamen_sil()`
   artık silinen cycle'a bağlı `sperm_dondurma` kayıtlarının bağını koparıyor
   (`kullanim_cycle_id=NULL`, taşıyıcı `'dolu'`ya döner) — bu olmasaydı eşin
@@ -4473,7 +4508,26 @@ uyarı versin").
 (v6.139): `sperm_tedaviye_bagla()` / `sperm_baglanti_kaldir()`. Androloji
 ekranı (v6.86, arayarak bulur) ve hasta kartı (kayıt zaten gözün önünde)
 ikisi de bunları çağırıyor — iki kopya olsaydı biri `tasiyici.durum`'u
-güncellemeyi unuturdu. Üçüncü bir yerde bağlama yazarsan bu ikisini çağır.
+güncellemeyi unuturdu. Üçüncü bir yerde bağlama yazarsan bu ikisini çağır
+(v6.247'den beri üçüncüsü Excel kaydının "Hastaya bağla"sı, aşağıda).
+- **Bir tedaviye birden çok tüp** (v6.247, vaka: aynı gün iki tüp çözüldü):
+  androloji kartı `sd_baglantilar`'ın hepsini listeliyor (`sd_baglanti` ilki,
+  eski şablon için), "Bir tüp daha bağla" hep var. Tek kayıt varsayan yeni
+  bir sorgu (`db.tek(... kullanim_cycle_id=?)`) yazma.
+- **İki işlev tek işlemde, koşullu ve günlüklü** (v6.247): denetim ile yazım
+  aynı kilidin içinde, yalnızca tankta (`dolu`) ve bağsız kayıt bağlanıyor,
+  goblet boşalıyor / doluyor, değişiklik geçmişine satır (`_gunluge()`, `b`
+  ile). v6.246'ya kadar günlük yoktu: yerinde düzenleme damgayı
+  değiştirmediği için açık ekranlar, Excel haritası ve Cryo yedeği bağlamayı
+  görmüyordu. İkisi de `kid` istiyor.
+- **Excel kaydı olan sperm straw'ı** (programda sperm kaydı yok): androlojinin
+  bağlama araması aramaya uyan sperm Excel kayıtlarını ayrı kartta
+  gösteriyor, satır kaydın sayfasına `?tedavi=` ile gidiyor;
+  `_excel_kullanim_tedavisi()` doğruluyor (sayı, tankta sperm kaydı,
+  androloji aşaması olan tip). "Hastaya bağla" sahibini kullanıcıya
+  seçtiriyor, açılan tüp (`cryo_esle.excel_kaydindan_ac()`'nın `sperm`'i) o
+  tedaviye bağlanıyor, androlojiye dönülüyor. Tedavi bütün GET / POST
+  adımlarında taşınıyor (arama, seçim, gün, kayıt).
 - **Hasta kartındaki seçici yalnızca BU hastanın tedavilerini gösterir**;
   başka bir hastanın tedavisine bağlamak yanlış hasta riski taşır, o iş
   androloji ekranının arama akışında kaldı.

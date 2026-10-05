@@ -141,19 +141,26 @@
 {# Hastaya bağla (v6.213, kullanıcının isteği: "cryodaki hasta kaydı olmayan
    dondurulmuş örneği hastaya bağlama olsun"). Hastayı kullanıcı seçer -- ad
    tek başına kanıt değil. Sonuç arama kutusunun hemen altında (v6.208). #}
+{# Androlojiden gelindiyse (v6.247, `?tedavi=`): açılan sperm tüpü o tedavide
+   kullanıldı olarak da bağlanıyor. Tedavi bütün adımlarda (arama, seçim, gün,
+   kayıt) adreste kalıyor. Yeniden başlatılmamış programda yok (tuzak #5). #}
+{% set ku = kullanim if kullanim is defined else none %}
+{% set ku_ek = ("&tedavi=" ~ ku.id) if ku else "" %}
 <div class="kart" id="hastaya-bagla">
   <h2>{{ metin("hastaya_bagla") }}</h2>
   <div class="ipucu" style="margin:8px 14px 0">{{ metin("excel_sperm_hastaya_bagla_ipucu" if e.kategori == "sperm" else "hastaya_bagla_ipucu") }}</div>
+  {% if ku %}<div class="uyari" style="margin:8px 14px 0">{{ metin("excel_kullanim_tedavisi").format(no=ku.cycle_no) }}</div>{% endif %}
   <form class="arama" method="get" action="/cryo/excel-kaydi/{{ e.id }}#hastaya-bagla" style="padding:10px 14px">
     <input type="search" name="hasta_ara" value="{{ hasta_ara }}" autocomplete="off"
            inputmode="search" placeholder="{{ metin('hastaya_bagla_ara_ipucu') }}">
+    {% if ku %}<input type="hidden" name="tedavi" value="{{ ku.id }}">{% endif %}
   </form>
   <div style="padding:0 14px 10px;display:flex;gap:8px;flex-wrap:wrap">
-    {% if e.soyad or e.ad %}<a class="minidugme ikincil" href="/cryo/excel-kaydi/{{ e.id }}?hasta_ara={{ ((e.soyad or '') ~ ' ' ~ (e.ad or ''))|trim|urlencode }}#hastaya-bagla">{{ metin("excel_adiyla_ara") }}</a>{% endif %}
-    {% if hasta_ara or secim %}<a class="minidugme ikincil" href="/cryo/excel-kaydi/{{ e.id }}">{{ metin("aramayi_temizle") }}</a>{% endif %}
+    {% if e.soyad or e.ad %}<a class="minidugme ikincil" href="/cryo/excel-kaydi/{{ e.id }}?hasta_ara={{ ((e.soyad or '') ~ ' ' ~ (e.ad or ''))|trim|urlencode }}{{ ku_ek }}#hastaya-bagla">{{ metin("excel_adiyla_ara") }}</a>{% endif %}
+    {% if hasta_ara or secim %}<a class="minidugme ikincil" href="/cryo/excel-kaydi/{{ e.id }}{% if ku %}?tedavi={{ ku.id }}{% endif %}">{{ metin("aramayi_temizle") }}</a>{% endif %}
   </div>
   {% for h in hasta_sonuclari %}
-  <a class="satir hasta" href="/cryo/excel-kaydi/{{ e.id }}?hasta={{ h.id }}#secilen-hasta">
+  <a class="satir hasta" href="/cryo/excel-kaydi/{{ e.id }}?hasta={{ h.id }}{{ ku_ek }}#secilen-hasta">
     <div class="ad">{{ h.ad_soyad }}{% if h.durum == "arsiv" %} <span class="rozet arsiv">{{ metin("arsiv") }}</span>{% endif %}</div>
     <div class="no">{{ h.dosya_no }}{% if h.es_adi %} · {{ metin("es") }}: {{ h.es_adi }}{% endif %}</div>
     <div class="meta">{% if h.embriyo_tup or h.sperm_tup %}{{ metin("tasima_tankta") }}:
@@ -289,7 +296,8 @@
         onsubmit='return confirm({{ metin('hastaya_ac_onay').format(ad=h.ad_soyad, dosya=h.dosya_no)|tojson }})'>
     <input type="hidden" name="hasta" value="{{ h.id }}">
     <input type="hidden" name="tarih" value="{{ secim.tarih }}">
-    <button class="dugme" type="submit">{{ metin("hastaya_ac") }}</button>
+    {% if ku %}<input type="hidden" name="tedavi" value="{{ ku.id }}">{% endif %}
+    <button class="dugme" type="submit">{{ metin("hastaya_ac_ve_kullan").format(no=ku.cycle_no) if ku else metin("hastaya_ac") }}</button>
   </form>
   {% endif %}
   {# Dondurma günü: Excel'de yoksa ya da yanlışsa elle (GET: önizleme o günle
@@ -298,6 +306,7 @@
     <summary>{{ metin("dondurma_gunu_degistir") }}</summary>
     <form method="get" action="/cryo/excel-kaydi/{{ e.id }}#secilen-hasta">
       <input type="hidden" name="hasta" value="{{ h.id }}">
+      {% if ku %}<input type="hidden" name="tedavi" value="{{ ku.id }}">{% endif %}
       <div class="alan"><label for="tarih">{{ metin("dondurma_gunu") }}</label>
         <input type="date" id="tarih" name="tarih" min="1900-01-01" value="{{ secim.tarih }}" required></div>
       {% if e.tarih_ham %}<div class="ipucu" style="margin:0 0 6px">{{ metin("dondurma_gunu_excel").format(t=e.tarih_ham) }}</div>{% endif %}

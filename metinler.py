@@ -1180,6 +1180,45 @@ METINLER = {
     "sperm_bagli_yok": {"tr": "Bu tedaviye bağlı dondurulmuş sperm yok.",
                         "en": "No frozen sperm linked to this treatment."},
     "sperm_baglantisini_kaldir": {"tr": "Bağlantıyı kaldır", "en": "Remove link"},
+    # Kullanılan sperm Cryo Haritası'ndan çıkıyor, bir tedaviye birden çok
+    # tüp (v6.247)
+    "sperm_kullanildi_ipucu": {
+        "tr": "Bağlı tüpler bu tedavide kullanıldı, Cryo Haritası'nda görünmüyor. "
+              "Bağı kaldırılan tüp tanka, eski yerine döner.",
+        "en": "Linked tubes were used in this treatment and no longer appear on the "
+              "cryo map. A tube whose link is removed returns to its place."},
+    "dondurulmus_sperm_bagla_baska": {"tr": "Bir tüp daha bağla",
+                                      "en": "Link another tube"},
+    "kullanilan_sperm": {"tr": "Tedavide kullanılan sperm", "en": "Sperm used in a treatment"},
+    "sperm_kullanilan_silinmesin": {
+        "tr": "Bu tüp {no} tedavisinde kullanıldı; Cryo Haritası'nda zaten görünmüyor. "
+              "Silerseniz tedavinin kaydından da düşer. Haritadan çıkarmak için silmeyin.",
+        "en": "This tube was used in treatment {no} and already does not appear on the "
+              "cryo map. Deleting it also removes it from the treatment."},
+    "silinen_sperm": {"tr": "Silinen sperm kayıtları", "en": "Deleted sperm records"},
+    "silindi_gunu": {"tr": "Silindi: {tarih}", "en": "Deleted: {tarih}"},
+    "silmeyi_geri_al": {"tr": "Silmeyi geri al", "en": "Undo deletion"},
+    "silmeyi_geri_al_onay": {
+        "tr": "{etiket} etiketli sperm kaydının silinmesi geri alınsın mı? Kayıt ve "
+              "tüp silinmeden önceki haline döner.",
+        "en": "Undo the deletion of sperm record {etiket}?"},
+    "sperm_excel_kayitlari": {"tr": "Cryo Haritası'nda Excel kaydı olarak duranlar",
+                              "en": "Straws kept as Excel records on the cryo map"},
+    "sperm_excel_kayitlari_ipucu": {
+        "tr": "Bu straw'ların programda sperm kaydı yok (Excel'den açılamadı: tarihi "
+              "yok ya da ileri, adı birden çok kayıtta ...). Kaydı açın, "
+              "\"Hastaya bağla\" ile spermin sahibini seçin; tüp açılınca bu "
+              "tedaviye de bağlanır.",
+        "en": "These straws have no sperm record in the program. Open one, choose its "
+              "owner with \"Link to patient\"; the new tube is linked to this "
+              "treatment too."},
+    "excel_kullanim_tedavisi": {
+        "tr": "Androloji'den geldiniz: açılan sperm tüpü {no} tedavisinde kullanıldı "
+              "olarak da bağlanacak ve Cryo Haritası'ndan çıkacak.",
+        "en": "Came from andrology: the opened sperm tube will also be linked to "
+              "treatment {no} as used."},
+    "hastaya_ac_ve_kullan": {"tr": "Bu hastaya aç ve {no} tedavisinde kullan",
+                             "en": "Open for this patient and use in {no}"},
     # Hasta kartından tedaviye bağlama (v6.139)
     "esin_dondurulmus_spermi": {"tr": "Eşin dondurulmuş spermi",
                                 "en": "Partner's frozen sperm"},

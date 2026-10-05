@@ -2426,7 +2426,8 @@ def excel_kaydindan_ac(b, e, hasta, tarih, kid, simdi) -> dict:
     `b` yazma işleminin bağlantısı: denetim ve yazım aynı kilidin içinde, `e`
     ve `hasta` o bağlantıyla okunmuş olmalı. -> {"hata": kod} ya da
     {"tid", "etiket", "tedavi": id ya da None, "yeni_tedavi", "degisen"}
-    (`degisen`: kayan tedavi numaraları, `db.tedavileri_sirala()`)."""
+    (`degisen`: kayan tedavi numaraları, `db.tedavileri_sirala()`); spermde
+    `sperm`: açılan sperm dondurma kaydı (v6.247)."""
     if e["durum"] != "tankta":
         return {"hata": "durum"}
     p = acilis_plani(b, e, hasta, tarih)
@@ -2459,6 +2460,8 @@ def excel_kaydindan_ac(b, e, hasta, tarih, kid, simdi) -> dict:
             (_db.LAB_ID, hasta["id"], tid, an, p["sebep"], notu, kid, simdi))
         kayit = b.execute("SELECT last_insert_rowid()").fetchone()[0]
         islem = f"{ACILAN}tüp {tid}, sperm {kayit}"
+        # Açılan sperm kaydı (v6.247): androlojiden gelindiyse tedaviye bağlanıyor.
+        sonuc["sperm"] = kayit
     else:
         sayac = collections.Counter()
         gun = p["opu"] or tarih

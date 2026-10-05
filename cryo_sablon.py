@@ -308,17 +308,28 @@ def _cozumle(baytlar: bytes, imza: str) -> dict:
 
 # ------------------------------------------------------------ eşleme
 
-def _sperm_kayitlari(b) -> dict:
-    """{(ad kelimeleri, gün): [tüp id]} -- `cryo_esle._sperm_programda()`'nın
-    ölçüsü (Excel'in sperm satırı hastanın adı + dondurma günüyle açıldı)."""
-    d = collections.defaultdict(list)
+def _sperm_kayitlari(b, konum) -> tuple:
+    """-> ({(ad kelimeleri, gün): [tüp id]}, {(goblet anahtarı, gün): [tüp
+    id]}). Birincisi `cryo_esle._sperm_programda()`'nın ölçüsü (Excel'in sperm
+    satırı hastanın adı + dondurma günüyle açıldı); ikincisi ad tutmadığında
+    (v6.247): kart sonradan düzeltildi ya da birleştirildi -- aynı goblet aynı
+    gün aynı straw (sperm yerinde tek vial).
+
+    **Silinen kayıt da** (v6.247): satır programın bildiği bir straw'ı
+    anlatıyor, kayıt silinince program o yeri boş gösteriyor -- Excel de
+    göstermesin. v6.246'ya kadar silinen kayıt eşleşmede yoktu, satır "programın
+    bilmediği" sayılıp aynen kalıyordu: harita boş, Excel dolu. Tüpler
+    önce silinmemişler gelecek şekilde sıralı (`kur()`: önce yerindeki)."""
+    adla, yerle = collections.defaultdict(list), collections.defaultdict(list)
     for r in b.execute(
-            "SELECT t.id AS tid, h.ad_soyad, date(sd.dondurma_zamani) AS gun "
+            "SELECT t.id AS tid, t.konum_id, h.ad_soyad, date(sd.dondurma_zamani) AS gun "
             "FROM sperm_dondurma sd JOIN hasta h ON h.id = sd.hasta_id "
             "JOIN tasiyici t ON t.id = sd.tasiyici_id "
-            "WHERE sd.lab_id = ? AND sd.iptal_mi = 0 ORDER BY sd.id", (db.LAB_ID,)):
-        d[(cryo_excel.kelimeler(r["ad_soyad"]), r["gun"])].append(r["tid"])
-    return d
+            "WHERE sd.lab_id = ? ORDER BY sd.iptal_mi, sd.id", (db.LAB_ID,)):
+        adla[(cryo_excel.kelimeler(r["ad_soyad"]), r["gun"])].append(r["tid"])
+        if r["konum_id"] in konum:
+            yerle[(konum[r["konum_id"]], r["gun"])].append(r["tid"])
+    return adla, yerle
 
 
 def _konumsuz_sayfa(r) -> bool:
@@ -350,7 +361,7 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
         konum = {r["id"]: yerlesim.konum_anahtari(r) for r in b.execute(
             "SELECT id, seviye1, seviye2, seviye3, tam_yol FROM konum "
             "WHERE lab_id = ?", (db.LAB_ID,))}
-        sperm = _sperm_kayitlari(b)
+        sperm, sperm_yeri = _sperm_kayitlari(b, konum)
         tup_hasta = {t["tid"]: hid for hid, liste in tup.items() for t in liste}
         excel = {}
         if yerlesim.excel_kaydi_var():
@@ -390,7 +401,8 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
         asil_satir.setdefault(t["tid"], kim)
         if yerinde(t["tid"], s):
             ata(kim, ("t", t["tid"]))
-    # 2) Sperm satırları: ad + gün, önce aynı yerdeki tüp.
+    # 2) Sperm satırları: ad + gün, önce aynı yerdeki tüp. Silinen kayıt da
+    #    sayılıyor (v6.247, `_sperm_kayitlari()`).
     kullanilan = set()
     for s in p["cozum"]["satirlar"]:
         if s["kategori"] != "sperm" or not s.get("tarih"):
@@ -422,6 +434,25 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
             if yerinde(e["tasiyici_id"], p["satirlar"][kim]):
                 ata(kim, ("t", e["tasiyici_id"]))
                 bagli_satirlar.append((kim, e["tasiyici_id"]))
+    # 4) Adı tutmayan sperm satırları (v6.247): aynı goblet + aynı gün, henüz
+    #    hiçbir satıra gitmemiş tüp. Excel kaydı olan satır 3'te kaldı -- bu adım
+    #    onu başka bir hastanın aynı gün aynı goblete konmuş tüpüne yapıştırmasın.
+    for s in p["cozum"]["satirlar"]:
+        if s["kategori"] != "sperm" or not s.get("tarih") or _konumsuz_sayfa(s):
+            continue
+        kim = _kimlik(s)
+        if kim in bilinen:
+            continue
+        adaylar = [tid for tid in sperm_yeri.get((_satir_anahtari(s), s["tarih"]), [])
+                   if tid not in kullanilan and ("t", tid) not in atanan]
+        tid = next((t for t in adaylar if yerinde(t, s)), None) or (adaylar[0] if adaylar else None)
+        if tid is None:
+            continue
+        kullanilan.add(tid)
+        bilinen.add(kim)
+        asil_satir.setdefault(tid, kim)
+        if yerinde(tid, s):
+            ata(kim, ("t", tid))
     duzeltilecek = _tedaviye_gore(bagli_satirlar, temsil, tup, p)
 
     duzenleme = {}

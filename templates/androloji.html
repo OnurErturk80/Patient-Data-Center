@@ -92,7 +92,49 @@
    embriyoloğa ait, program yalnızca kaydı tutuyor). #}
 <div class="kart">
   <h2>{{ metin("sperm_dondurma") }}</h2>
-  {% if sd_baglanti %}
+  {# Birden çok tüp (v6.247, kullanıcı aynı gün iki tüp çözdü): bağlı tüplerin
+     hepsi, her birinin bağı ayrı kaldırılıyor; "bağla" düğmesi hep var.
+     Bağlanan tüp kullanılmış sayılıyor, Cryo Haritası'nda görünmüyor.
+     `sd_baglantilar` yoksa (yeniden başlatılmamış program, tuzak #5) eski
+     tek kayıtlı kart. #}
+  {% if sd_baglantilar is defined %}
+  {% if sd_baglantilar %}
+  <div class="ipucu" style="padding:0 2px 6px">{{ metin("sperm_kullanildi_ipucu") }}</div>
+  {% endif %}
+  {% for sd in sd_baglantilar %}
+  <dl style="margin:0{% if not loop.first %};border-top:1px solid var(--line);padding-top:6px;margin-top:6px{% endif %}">
+    <div class="veri"><dt>{{ metin("hasta") }}</dt>
+      <dd>{{ sd.dosya_no }} · {{ sd.ad_soyad }}</dd></div>
+    <div class="veri"><dt>{{ metin("tasiyici") }}</dt>
+      <dd><a href="/sperm-dondurma/{{ sd.id }}">{{ sd.etiket }}</a>
+        {%- if sd.dondurma_zamani %} · {{ gg_aa_yyyy(sd.dondurma_zamani) }}{% endif %}
+        {%- if sd.tam_yol %}<div class="meta">{{ sd.tam_yol }}</div>{% endif %}</dd></div>
+    {% if sd.sebep %}
+    <div class="veri"><dt>{{ metin("dondurma_sebebi") }}</dt><dd>{{ sd.sebep }}</dd></div>
+    {% endif %}
+  </dl>
+  <form method="post"
+        action="/cycle/{{ c.id }}/androloji/sperm-baglanti-kaldir/{{ sd.id }}"
+        style="margin-top:8px">
+    <button class="dugme ikincil" type="submit">{{ metin("sperm_baglantisini_kaldir") }}</button>
+  </form>
+  {% else %}
+  <div class="bos">{{ metin("sperm_bagli_yok") }}</div>
+  {% endfor %}
+  {% if dosya_sperm %}
+  <div class="uyari">
+    {{ metin("sperm_dosyada_bekliyor").format(n=dosya_sperm|length) }}
+    {% for sd in dosya_sperm %}
+    <div class="meta" style="margin-top:4px">
+      <strong>{{ sd.etiket }}</strong>
+      {%- if sd.dondurma_zamani %} · {{ gg_aa_yyyy(sd.dondurma_zamani) }}{% endif %}
+      {%- if sd.sebep %} · {{ sd.sebep }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <a class="dugme ikincil" href="/cycle/{{ c.id }}/androloji/sperm-baglama">{{ metin("dondurulmus_sperm_bagla_baska" if sd_baglantilar else "dondurulmus_sperm_bagla") }}</a>
+  {% elif sd_baglanti %}
   <dl style="margin:0">
     <div class="veri"><dt>{{ metin("hasta") }}</dt>
       <dd>{{ sd_baglanti.dosya_no }} · {{ sd_baglanti.ad_soyad }}</dd></div>

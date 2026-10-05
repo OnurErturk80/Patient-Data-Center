@@ -1370,8 +1370,9 @@ def yeniden_dondurma_var() -> bool:
 # taşındı (v6.182) ve imha edildi (v6.227). İkisi de geri alınabilen bir
 # işaret -- tüp çözülemez, tedaviye bağlanamaz, dondurma kaydı geri alınamaz
 # ya da başka tüpe taşınamaz (önce işaret kaldırılır). "Tankta mı" sorusu
-# `durum = 'dolu'` (embriyo tüpü); sperm listesi kullanılmış tüpü de bilerek
-# gösterdiği için orada `durum NOT IN TANKTAN_CIKAN_SQL`.
+# `durum = 'dolu'` -- v6.247'den beri sperm tüpünde de (Cryo Haritası'nın sperm
+# listesi tedavide kullanılan, `durum='kullanildi'` tüpü artık göstermiyor).
+# Bu sabit "bağlanamaz / çözülemez" kapıları için.
 TANKTAN_CIKAN = ("gonderildi", "imha")
 TANKTAN_CIKAN_SQL = "(" + ", ".join(f"'{d}'" for d in TANKTAN_CIKAN) + ")"
 

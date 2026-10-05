@@ -19507,3 +19507,135 @@ Bilinen sınırlar:
   Python ICSI'de kartı göstermiyor, yumurta formu çalışıyor.
 - Büyük kopya: 1.232 tedavinin ICSI / denüdasyon ekranı ve toplu kipi (2.464
   istek), hata yok; ortalama 67 ms, en yavaş %5 102 ms.
+
+# v6.247 — Kullanılan sperm Cryo Haritası'ndan çıkıyor, tedaviye birden çok tüp, formlarda TESE
+
+Kullanıcı: "Sperm dondurma yapılan hastayı tüp bebek tedavisine bağladıktan
+sonra androloji kısmında kullanılınca cryo haritadan silinmesi gerekiyor.
+Eğer sperm TESE ise özet formlarında ilgili yerlerde TESE olarak yazılması
+gerekiyor." Ayrıca bir vaka (hasta sohbette): erkeğin aynı kanisterde iki
+gobletinde (H2, H3) dondurulmuş TESE'si var, ikisi de aynı gün eşinin
+tedavisinde çözülüp kullanıldı; "Tankları Excel'e aktar"ın dosyasında H2
+duruyordu, programın haritasında H2 boştu.
+
+## Ne oluyordu (deneme kopyasında yeniden üretildi)
+
+- Androloji kartı tedaviye bağlı **tek** dondurulmuş sperm gösteriyordu; bir
+  tüp bağlanınca "Dondurulmuş sperm bağla" düğmesi kayboluyordu. İkinci tüp
+  bağlanamıyordu.
+- Vakadaki ikinci straw (H3) programda sperm kaydı olarak hiç yoktu:
+  laboratuvarın Excel'inde tarihi bir yıl ileri yazılmış, `cryo_esle.py
+  sperm` ileri tarihli satır açmıyor (v6.180); straw Cryo Haritası'nda
+  "Excel kaydı" olarak duruyordu. Androloji'nin bağlama araması Excel
+  kayıtlarını göstermiyordu.
+- Bağlanan tüp `durum='kullanildi'` oluyordu: düzenli haritada (kanister,
+  goblet) görünmüyordu, ama Cryo Haritası'nın aramasında ve hasta kartının
+  "Dondurulmuş sperm" listesinde "Kullanıldığı tedavi" yazısıyla duruyordu
+  (v6.86'nın bilinçli kararı; kullanıcı bugün tersini istedi).
+- Bağlanan tüp indirilen Excel'den düşüyordu. Ama sperm kaydı **silinince**
+  program yeri boş gösterirken Excel'de satır geri geliyordu: laboratuvarın
+  Excel'ini dolduran kod (`cryo_sablon.py`) silinmiş kaydı eşleştirmiyor,
+  satırı "programın bilmediği straw" sayıp olduğu gibi bırakıyordu.
+  Kullanıcının gördüğü fark buna birebir uyuyor; kaydın silinip silinmediği
+  buradan görünmüyor, aşağıdaki yol iki halde de düzeltiyor.
+- Bağlama ve bağı kaldırma değişiklik geçmişine yazmıyordu. Yerinde bir
+  düzenleme olduğu için tazelemenin damgası değişmiyordu: açık ekranlar
+  yenilenmiyor, veri klasöründeki Excel haritası (dakikalık döngü) ve Cryo
+  değişince alınan yedek bir sonraki değişikliğe kadar tetiklenmiyordu.
+- Formların sperm kaynağı yalnızca androloji örneğinin yönteminden: çözülen
+  TESE "Çözülmüş örnek" ya da boş basılıyordu.
+
+## Bugün
+
+- **Kullanılan sperm Cryo Haritası'nda yok**: tedaviye bağlanan tüp
+  haritanın hiçbir yerinde görünmüyor (ağaç, kanister / goblet sayfası,
+  arama, Excel haritası, laboratuvarın Excel'i, boş yer önerisi). Bağı
+  kaldırılınca tanka, eski yerine dönüyor. Göründüğü yerler: tedavinin
+  androloji kartı; erkeğin ve çiftin hasta kartında ayrı "Tedavide kullanılan
+  sperm" başlığı (kullanıldığı tedaviyle, bağı kaldırma düğmesiyle); sperm
+  dondurma sayfası; etiket araması (rozetle, v6.138).
+- **Bir tedaviye birden çok tüp**: androloji kartı bağlı tüplerin hepsini
+  tarih ve yerleriyle listeliyor, her birinin bağı ayrı kaldırılıyor; "Bir
+  tüp daha bağla" hep var. Dosya numarasından gelen "bağlanmayı bekleyen
+  kayıt var" haberi bir tüp bağlıyken de çıkıyor.
+- **Excel kaydı olan straw tedavide kullanılabiliyor**: bağlama aramasında
+  aramaya uyan sperm Excel kayıtları ayrı bir kartta (Excel'deki tarihiyle).
+  Satır kaydın sayfasına bu tedaviyle gidiyor (`?tedavi=`); orada "Hastaya
+  bağla" (v6.213) spermin sahibini kullanıcıya seçtiriyor, Excel'in günü
+  yoksa ya da ileriyse gün elle yazılıyor, düğme "Bu hastaya aç ve <tedavi>
+  tedavisinde kullan": tüp açılıyor, tedaviye bağlanıyor, androloji ekranına
+  dönülüyor. Tedavi adresten geliyor, sayıya sabitlenip doğrulanıyor
+  (androloji aşaması olan tip, tuzak #9).
+- **Bağlama tek işlemde ve günlüklü**: denetim ile yazım aynı kilidin içinde
+  (iki ekrandan aynı anda basılırsa ikincisi hiçbir şey yapmıyor), goblette
+  başka dolu tüp kalmadıysa konum boşalıyor, değişiklik geçmişine iki satır.
+  Açık ekranlar, Excel haritası ve Cryo yedeği bağlamayı görüyor.
+- **Formlarda TESE**: Embriyoloji Özet'in SPERM KAYNAĞI'sı ve ART Lab'ın
+  "Sperm: → ..."sı tedavide kullanılan dondurulmuş spermin yöntemini de
+  yazıyor. Yöntem: sebep "TESE" / "TESA" / "PESA" (sebep listesi yöntemleri
+  de taşıyor) ya da Excel'den açılmış kayıtta notun HÜCRE satırındaki
+  TESE / TESA ("TESE-CA"nın sebebi Onkolojik, yöntemi TESE). Androloji örneği
+  "Çözülmüş örnek" ya da boşsa yalnızca "TESE"; taze örnekle birlikteyse
+  "Mastürbasyon, TESE". Yöntemi bilinmeyen dondurulmuş sperm (onkoloji öncesi
+  ejakülat) formu değiştirmiyor. Tüm veri dökümünün "Sperm alınma yöntemi" ve
+  yüklenen formların `{{sperm_kaynagi}}`'si aynı kural (`formlar.
+  sperm_kaynagi_metni()`).
+- **Laboratuvarın Excel'i silinen sperm kaydını tanıyor**: satır silinmiş
+  kayıtla da eşleşiyor ve boşalıyor (program o yeri boş gösteriyor). Adı
+  tutmayan satır (kart sonradan düzeltilmiş ya da birleştirilmiş) aynı goblet
+  + aynı gün ile eşleşiyor; bu adım Excel kayıtlarından sonra, başka bir
+  hastanın aynı gün aynı goblete konmuş tüpüne yapışmasın diye.
+- **Silinen sperm kaydı geri alınabiliyor**: hasta kartında "Silinen sperm
+  kayıtları" (silme izni olana), "Silmeyi geri al" (onaylı): kayıt ve tüp
+  silinmeden önceki haline döner (taşındıysa taşındı, imha edildiyse imha,
+  tedaviye bağlıysa kullanıldı, yoksa tankta). Silme artık tek işlemde ve
+  günlüklü. Kullanılan tüpün silme ekranı uyarıyor: haritadan çıkarmak için
+  silmeye gerek yok, silinen kayıt tedaviden de düşer.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Vakadaki iki
+straw için (tedavinin androloji ekranından):
+1. "Dondurulmuş sperm bağla"da erkeğin adıyla arayın. H2'nin kaydı listedeyse
+   "Bağla". Listede yoksa kayıt silinmiş olabilir: erkeğin hasta kartında
+   "Silinen sperm kayıtları" → "Silmeyi geri al"; tedaviye bağlıysa
+   kullanılmış olarak döner, değilse sonra bağlayın.
+2. Aynı aramada "Cryo Haritası'nda Excel kaydı olarak duranlar" kartında H3'ü
+   açın → erkeğin kartını seçin → dondurma gününü elle yazın (Excel'de bir
+   yıl ileri yazılı) → "Bu hastaya aç ve ... tedavisinde kullan". "Bu
+   hastanın o gün bir sperm dondurması var" uyarısı çıkar: o, H2'nin tüpü,
+   H3 ayrı bir straw.
+3. Androloji kartında iki tüp; Cryo Haritası'nda H2 ve H3 boş, "Tankları
+   Excel'e aktar"da iki satır boş; formlarda sperm kaynağı TESE.
+
+Yeniden başlatılmamış program (tuzak #5) yeni şablonlarla eskisi gibi: tek
+bağlı tüp, kartta tek liste, yeni metinler yok (denendi).
+
+Bilinen sınırlar:
+- Embriyo / yumurta tüpünün dondurması geri alınırsa laboratuvarın Excel'inde
+  satırı yine aynen kalıyor: silinen kaydı tanıma bu sürümde yalnızca sperm
+  satırlarında.
+- Dondurulmuş sperm yalnızca androloji aşaması olan tedaviye bağlanıyor
+  (v6.139'un kuralı).
+
+## Deneme
+
+- Sahte veritabanında vakanın kopyası (yalnızca sperm kartı olan erkek, TESE
+  tüpü, ileri tarihli sperm Excel kaydı, çift ve IVF/ICSI tedavisi): bağla →
+  harita, arama ve `/cryo` tüpü göstermiyor, goblet boş, damga değişti,
+  günlükte iki satır; aynı kaydı ikinci kez bağlamak hiçbir şey yazmıyor;
+  Excel kaydı → hasta → gün → "aç ve kullan" → androlojide iki tüp, ikinci
+  goblet de boş, Excel kaydı bağlandı, bağı çözülemiyor (tüp kullanıldı);
+  geçersiz tedavi (harf, "²", FET) kabul edilmiyor; formlar "TESE",
+  "Çözülmüş örnek" yerine "TESE", "Mastürbasyon, TESE"; Tüm veri'de TESE;
+  bağı kaldır → tanka dönüyor; silme uyarısı, sil, kartta silinen, geri al →
+  kullanıldı olarak tedaviye dönüyor; bağsız kayıt geri alınınca tankta.
+- Deneme kopyasında (gerçek veri, ad basılmadan) vaka: önce H2 tüp, H3 Excel
+  kaydı; H2 bağlanınca ve sonra silinince Excel'in H2 satırı boş kalıyor
+  (v6.246'da silinince geri geliyordu); H3 Excel kaydından açılıp aynı
+  tedavide kullanılınca H2 ve H3 programda ve Excel'de boş, formlar "TESE".
+  Değişmemiş veride eski ve yeni şablon kodu hücre hücre aynı (0 fark, imza
+  aynı).
+- Eski Python + eski metinler + yeni şablonlar: değişen ekranların hepsi
+  açılıyor, çıplak metin anahtarı yok, bağlama eski yolla çalışıyor.
+- Tarayıcıda 390 ve 1280 genişlikte: bağla, bir tüp daha, Excel kaydından aç
+  ve kullan (onay), hasta kartı bölümleri, "Silmeyi geri al" onayı (vazgeç:
+  hiçbir şey değişmiyor), yatay taşma yok, konsol hatası yok.
