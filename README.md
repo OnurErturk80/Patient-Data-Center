@@ -19303,3 +19303,86 @@ Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak.
   yerinin 277'si hesaplandı ve ekrandaki veritabanından hesaplananla aynı
   (22'si 0, 18'i 0,01'in altında); 3'ünde hazırlık sonrası analizi hiç yok,
   bütün satırlar gibi "girilmedi".
+
+# v6.245 — Denüdasyonda toplu maturasyon (Yumurta Dondurma)
+
+Kullanıcı: "Denüdasyonda Yumurta maturasyonu için toplu yazım bölümü de
+olsun. Mesala 3 M2 2M1 1GV seçtiğimde otomatik sıralama imkanım olsun."
+
+## Önce
+
+- Yumurta Dondurma'da maturasyon denüdasyon ekranında soruluyor (v6.96),
+  yalnızca yumurta yumurta: Düzenle → yumurtayı seç → MII / MI / GV ... →
+  Kaydet, her yumurta için ayrı.
+- IVF/ICSI'de maturasyon ICSI ekranında soruluyor; bu sürüm oraya dokunmadı.
+
+## Bugün
+
+- **"Toplu maturasyon" kartı**, numara şeridinin üstünde (yalnızca Yumurta
+  Dondurma, yumurta açılmışsa): bugünkü dağılım ("3 MII · 2 MI · 1 GV · 2
+  değerlendirilmemiş") ve "Toplu yaz" düğmesi (`?duzenle=toplu`).
+- **Form**: laboratuvarın maturasyon listesinin her etkin değeri için bir sayı
+  kutusu, listenin kendi sırasıyla (MII, MI, GV, Dejenere, Atretik). Yumurtalar
+  **numara sırasıyla** doluyor: 3 MII + 2 MI + 1 GV → 1–3 MII, 4–5 MI, 6 GV.
+  "Kaydedilince" önizlemesi yazdıkça hangi yumurtaya ne yazılacağını gösteriyor:
+  kayıtlı değeri değişecek yumurta turuncu çerçeveli, dokunulmayacak olanlar
+  soluk; altında "Toplam 6 / 6 yumurta". İşlem saati bir tane, bütün
+  yazılanlara (varsayılan şu an, değiştirilebilir).
+- **Ya hepsi ya hiçbiri**, tek işlemde. Hiçbir şey yazılmayan durumlar (form
+  yazılan sayılarla geri açılıyor, mesaj üstte):
+  - sayı okunamıyor ya da hepsi boş;
+  - toplam yumurta sayısını aşıyor: **yeni yumurta açılmıyor** (yumurta sayısı
+    klinik bir sayı, v6.242'nin kuralı); eksikler önce "Yumurta ekle" ile;
+  - kayıtlı maturasyonu değişecek yumurta var ve "Bu yumurtaların
+    maturasyonunu değiştir" işaretlenmedi. Onay, engel değil; sayfa neyin neye
+    değişeceğini yazıyor: "2 (GV → MII), 3 (MI → MII)";
+  - ekranın gösterdiği hal bu arada değişti (başka bir telefondan yazıldı):
+    form önizlemenin dayandığı hali taşıyor, sunucu kayıtta yeniden kurup
+    karşılaştırıyor;
+  - yazılacak bir yumurta bu saatten önce başka bir tedavi için çözülmüş
+    (yumurta yumurta formun v6.231 kuralı), numaralarıyla.
+- Toplam yumurtadan azsa kalanlara dokunulmuyor ("5–6. yumurtalara
+  dokunulmaz"). **Değeri aynı kalan yumurtaya da dokunulmuyor**: kaydı da saati
+  de olduğu gibi. Değişen kayıt değişiklik geçmişine yazılıyor (eski → yeni),
+  değerlendirilmemiş yumurtaya yeni kayıt açılıyor.
+- Yazılan kayıt yumurta yumurta formunkinin aynısı: bu tedavinin
+  maturasyonu (`_denudasyon_mat_kosulu()`). Yumurta sonra bir Yumurta
+  Çözme'de çözülüp ICSI ekranında yeniden değerlendirildiyse (v6.147) o kayıt
+  değişmiyor. Şerit, vitrifikasyonun satırları ve dondurma süzgeci (GV,
+  dejenere, atretik dondurulmaz, v6.208/209) aynı değeri okuyor.
+- "İşlemi yapan" boşsa giriş yapan kişi yazılıyor (v6.208). Yumurta yumurta
+  form ve bulgular yerinde; bulgu toplu yazılmıyor.
+- Telefonda kutular dört sütun, beşincisi alt satırda aynı genişlikte; genişte
+  beşi bir satır.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmamış program yeni şablonla kartı göstermiyor, denüdasyon eskisi gibi
+çalışıyor.
+
+Bilinen sınır: "aynı kaydı başkası düzenliyor" uyarısının anahtarı toplu
+formda ayrı (`cycle:<id>:denudasyon:toplu`); başka bir telefonda tek bir
+yumurtanın formu açıksa uyarı çıkmıyor. O telefon bu arada kaydederse toplu
+kayıt reddediliyor (yukarıdaki "hal değişti"), sessizce ezilmiyor.
+
+## Deneme
+
+- Sentetik veritabanında (5 ve 6 yumurtalı iki Yumurta Dondurma): kart ve
+  dağılım doğru; IVF/ICSI'de kart yok, oraya gelen istek hiçbir şey yazmıyor.
+- Hatalar (fazla, harf, eksi, "²", hepsi boş, eski ya da eksik hal, onaysız
+  değişiklik): hiçbir şey yazılmadı, değişiklik geçmişine satır düşmedi;
+  sayılar adreste ve formda geri.
+- Onaylı kayıt: 3 MII + 1 MI + 1 GV → 1–3 MII, 4 MI, 5 GV; değeri aynı kalan
+  1. yumurtanın saati değişmedi; dört değişen kayıt geçmişte; yeni kayıt
+  açılmadı; şerit ve özet güncel. Kısmi (2 MII, değişiklik yok): onay
+  istenmedi, hiçbir şey yazılmadı.
+- İki yumurtası Yumurta Çözme için çözülmüş tedavide: değişecekse "çözülmüş:
+  1, 2" ile red; değişmeyecekse engel değil; değerlendirilmemiş 6. yumurtaya
+  bu tedavinin kaydı işlem saatiyle açıldı; Yumurta Çözme'nin ICSI
+  maturasyonu birebir aynı kaldı.
+- Adresten gelen bilinmeyen hata anahtarı ve "çözülmüş" listesine yazılan
+  metin ekrana basılmıyor.
+- Tarayıcıda (390 ve 1280 px): önizleme yazdıkça doğru; fazlada Kaydet kapalı,
+  uyarı kırmızı; onaysız kayıt → onay mesajı üstte, sayılar yerinde; onaylı
+  kayıt → şerit "1-MII 2-MII 3-MII 4-MI 5-GV"; yatay taşma yok.
+- Eski Python + yeni şablonlar: denüdasyonun bütün halleri açılıyor, kart
+  yok, yumurta yumurta kayıt çalışıyor.

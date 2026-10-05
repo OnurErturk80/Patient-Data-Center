@@ -1170,6 +1170,23 @@ body.kilitli { overflow: hidden; }
   white-space: nowrap;
 }
 .serit .sn.aktif i { opacity: 1; }
+
+/* --- Denüdasyonda toplu maturasyon (v6.245, Yumurta Dondurma) ---
+   Kutular eşit sütunlu ızgara, sabit kırılma noktası yok: telefonda dört
+   sütun (beşincisi alt satırda aynı genişlikte -- esnek sarmada tek başına
+   bütün satırı kaplıyordu), genişte beşi bir satır. Önizleme şeridi
+   `.serit.sade` (sarar, tıklanmaz), `.alan`'ın kendi dolgusu yetiyor. */
+.topluadet { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+             gap: 8px; }
+.alan .topluadet label.adet { display: flex; flex-direction: column; gap: 4px;
+                              margin: 0; min-width: 0; }
+.alan .topluadet label.adet span { white-space: nowrap; overflow: hidden;
+                                   text-overflow: ellipsis; }
+.alan .topluadet input { text-align: center; }
+.serit.sade.toplu { padding: 0; }
+.serit .sn.kalir { opacity: .45; }                     /* dokunulmayacak */
+.serit .sn.degisir { outline: 2px solid var(--uyari); outline-offset: -1px; }
+.ipucu.hatali { color: #ff9b9b; }
 .zaman {
   background: var(--yuzey); border: 1px solid var(--line); border-radius: var(--r);
   padding: 10px 14px; font-size: 14px; margin-bottom: 10px; color: var(--ink-2);

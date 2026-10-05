@@ -4368,6 +4368,11 @@ from fastapi.responses import FileResponse, Response
 # yazdırılabilirdi. Yalnızca bu anahtarlar geçerli.
 DENUDASYON_HATALARI = {"kare_zaten_kaydedilmis", "kare_bulunamadi",
                        "denudasyon_mat_cozmeden_sonra"}
+# Toplu maturasyonun hataları (v6.245): ekrana sayılarla basılıyor
+# (`_toplu_mat_ekrani()`), sayılar adresten gelse de tamsayıya sabitli.
+TOPLU_MAT_HATALARI = {"toplu_mat_sayi", "toplu_mat_bos", "toplu_mat_fazla",
+                      "toplu_mat_onay", "toplu_mat_degisti", "toplu_mat_cozulmus"}
+DENUDASYON_HATALARI |= TOPLU_MAT_HATALARI
 
 
 def _denudasyon_mat_kosulu(cycle_id, o) -> str:
@@ -4396,13 +4401,101 @@ def _baska_tedavide_cozulmus(specimen_id, cycle_id, zaman) -> bool:
     return bool(t) and t["tid"] != cycle_id
 
 
+# ------------------------------------------- toplu maturasyon (v6.245)
+#
+# Kullanıcı: "Denüdasyonda Yumurta maturasyonu için toplu yazım bölümü de
+# olsun. Mesela 3 M2 2M1 1GV seçtiğimde otomatik sıralama imkanım olsun."
+# Yalnızca Yumurta Dondurma'da (maturasyon orada denüdasyonda soruluyor,
+# v6.96). Sayılar listenin sırasıyla (MII, MI, GV, ...) yumurta numarası
+# sırasına dağıtılıyor: 3 MII + 2 MI + 1 GV -> 1-3 MII, 4-5 MI, 6 GV. Ölçü
+# numara şeridinin gösterdiği (`_bu_tedavinin_maturasyonu()`), yazılan kayıt
+# yumurta yumurta formunkiyle aynı (`_denudasyon_mat_kosulu()`).
+
+_TOPLU_MAT_SAYI = re.compile(r"^[0-9]{1,3}$")
+_TOPLU_MAT_LISTE = re.compile(r"^[0-9]{1,4}(,[0-9]{1,4}){0,199}$")
+
+
+def _toplu_mat_yumurtalari(cycle_id) -> list:
+    """Tedavinin yumurtaları numara sırasıyla, BU tedavideki maturasyonlarıyla
+    -- denüdasyonun numara şeridinin sorgusu (`denudasyon()`'un `kayitli`'si)."""
+    return db.sorgu(
+        f"SELECT s.id, s.cycle_sira_no, {_bu_tedavinin_maturasyonu(cycle_id)} AS mat "
+        "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no", (cycle_id,))
+
+
+def _toplu_mat_adetleri(kaynak, kodlar):
+    """Formdan ya da adresten gelen sayılar, listenin sırasıyla [(kod, n)].
+    Boş kutu 0; rakam olmayan değer -> None (kayıt yapılmaz)."""
+    sonuc = []
+    for kod in kodlar:
+        v = str(kaynak.get(f"adet_{kod}") or "").strip()
+        if not v:
+            sonuc.append((kod, 0))
+        elif _TOPLU_MAT_SAYI.match(v):
+            sonuc.append((kod, int(v)))
+        else:
+            return None
+    return sonuc
+
+
+def _toplu_mat_plani(yumurtalar, adetler) -> list:
+    """[(yumurta, kod)]: sayılar listenin sırasıyla, yumurtalar numara
+    sırasıyla. Toplam yumurta sayısını aşıyorsa fazlası plana girmez --
+    çağıran o durumda hiç yazmıyor (yeni yumurta açılmaz, v6.242'nin kuralı).
+    Ekranın önizlemesi (`denudasyon.html`'in betiği) aynı kuralı izliyor."""
+    sira = [kod for kod, n in adetler for _ in range(n)]
+    return list(zip(yumurtalar, sira))
+
+
+def _toplu_mat_imzasi(yumurtalar) -> str:
+    """Önizlemenin dayandığı hal: "1:mii,2:,3:mi". Kayıtta yeniden kuruluyor;
+    bu arada başka bir telefondan yazılan değer sessizce ezilmesin."""
+    return ",".join(f"{y['cycle_sira_no']}:{y['mat'] or ''}" for y in yumurtalar)
+
+
+def _toplu_mat_degisim_metni(plan) -> str:
+    """Kayıtlı değeri değişecek yumurtalar: "2 (MI → MII), 5 (GV → MI)"."""
+    return ", ".join(f"{y['cycle_sira_no']} ({_mat_kisa(y['mat'])} → {_mat_kisa(kod)})"
+                     for y, kod in plan if y["mat"] and y["mat"] != kod)
+
+
+def _toplu_mat_ekrani(q, yumurtalar, maturasyonlar, duzenle, hata) -> dict:
+    """Denüdasyon ekranının "Toplu maturasyon" kartı: dağılım, (formda) hata
+    dönüşünde yazılan sayılar ve hatanın metni."""
+    kodlar = [m["kod"] for m in maturasyonlar]
+    sayac = {}
+    for y in yumurtalar:
+        sayac[y["mat"]] = sayac.get(y["mat"], 0) + 1
+    # Listeden kaldırılmış (pasif) bir kod kayıtlıysa kendi etiketiyle sayılır
+    # (tuzak #6); toplu yazımın kutuları yalnızca etkin kodlar.
+    dagilim = [(m["etiket"], sayac[m["kod"]]) for m in maturasyonlar if sayac.get(m["kod"])]
+    dagilim += [(_liste_etiket("maturasyon", k), n) for k, n in sayac.items()
+                if k and k not in kodlar]
+    adetler = (_toplu_mat_adetleri(q, kodlar) if duzenle == "toplu" else None) or []
+    plan = _toplu_mat_plani(yumurtalar, adetler)
+    hata_metni = ""
+    if hata in TOPLU_MAT_HATALARI:
+        hata_metni = metinler.t(hata)
+        if hata == "toplu_mat_fazla":
+            hata_metni = hata_metni.format(n=sum(n for _, n in adetler), m=len(yumurtalar))
+        elif hata == "toplu_mat_cozulmus":
+            liste = q.get("cozulmus") or ""
+            hata_metni = hata_metni.format(
+                n=liste.replace(",", ", ") if _TOPLU_MAT_LISTE.match(liste) else "")
+    return {"dagilim": dagilim, "bos": sayac.get(None, 0),
+            "adet": dict(adetler), "imza": _toplu_mat_imzasi(yumurtalar),
+            "degisim_metni": _toplu_mat_degisim_metni(plan),
+            "onay_gerek": hata == "toplu_mat_onay", "hata_metni": hata_metni}
+
+
 @uygulama.get("/cycle/{cycle_id}/denudasyon")
 def denudasyon(request: Request, cycle_id: int, taraf: str = "",
                hata: str = "", duzenle: str = "", oosit: str = ""):
     hata = hata if hata in DENUDASYON_HATALARI else ""
-    # Bu ekranda düzenlenebilecek iki ayrı şey var: cycle'ın denüdasyon saati
-    # ve seçili oositin over'ı. Hangisi olduğu adreste yazıyor.
-    duzenle = duzenle if duzenle in ("saat", "oosit") else ""
+    # Bu ekranda düzenlenebilecek ayrı şeyler var: cycle'ın denüdasyon saati,
+    # seçili oositin over'ı ve (Yumurta Dondurma'da) toplu maturasyon
+    # (v6.245). Hangisi olduğu adreste yazıyor.
+    duzenle = duzenle if duzenle in ("saat", "oosit", "toplu") else ""
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -4423,6 +4516,14 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
         f"  AS goruntu_idler, {mat_sql} AS mat "
         "FROM specimen s WHERE s.cycle_id = ? ORDER BY s.cycle_sira_no", (cycle_id,)
     )
+    maturasyonlar = db.liste("maturasyon")
+    # Toplu maturasyon kartı (v6.245): yalnızca Yumurta Dondurma'da, yumurta
+    # varken. Formun hata dönüşü yazılan sayıları adreste taşıyor.
+    toplu = (_toplu_mat_ekrani(request.query_params, kayitli, maturasyonlar,
+                               duzenle, hata)
+             if yumurta_dondurma and kayitli else None)
+    if duzenle == "toplu" and not toplu:
+        duzenle = ""
     son = db.tek(
         "SELECT id, specimen_id FROM goruntu WHERE cycle_id = ? AND asama = 'denudasyon' "
         "ORDER BY id DESC LIMIT 1", (cycle_id,)
@@ -4470,11 +4571,96 @@ def denudasyon(request: Request, cycle_id: int, taraf: str = "",
             "klasor_var": goruntuler.kaynak_klasor().is_dir(),
             "bos_dosyalar": goruntuler.bos_dosyalar(),
             "mat": mat, "secili_bulgular": secili_bulgular,
-            "maturasyonlar": db.liste("maturasyon"),
+            "maturasyonlar": maturasyonlar,
             "bulgular": db.liste("bulgu_icsi"),
             "simdi": _dt.now().strftime("%Y-%m-%dT%H:%M"),
+            "toplu": toplu,
         },
     )
+
+
+@uygulama.post("/cycle/{cycle_id}/denudasyon/toplu-maturasyon")
+async def denudasyon_toplu_maturasyon(request: Request, cycle_id: int):
+    """Yumurta Dondurma: maturasyonun toplu yazımı (v6.245; yukarıdaki not).
+
+    Ya hepsi ya hiçbiri: sayılar okunamıyorsa, toplam yumurtadan fazlaysa,
+    ekranın gösterdiği hal bu arada değiştiyse ya da kayıtlı bir değer
+    değişecek ve onaylanmadıysa hiçbir şey yazılmaz, form yazılan sayılarla
+    geri açılır. Değeri aynı kalan yumurtaya dokunulmaz (saati de değişmez).
+    """
+    f = await request.form()
+    c = db.tek("SELECT id, cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
+    if not c or c["cycle_tipi"] != "oosit_cryo":
+        return RedirectResponse(f"/cycle/{cycle_id}/denudasyon", status_code=303)
+    kid = request.state.kullanici["id"]
+    secili = str(f.get("secili") or "")
+    secili = secili if secili.isdigit() else ""
+    kodlar = [m["kod"] for m in db.liste("maturasyon")]
+    adetler = _toplu_mat_adetleri(f, kodlar)
+
+    def geri(hata, **ek):
+        q = {"duzenle": "toplu", "hata": hata}
+        if secili:
+            q["oosit"] = secili
+        q.update({f"adet_{kod}": n for kod, n in (adetler or []) if n})
+        q.update(ek)
+        return RedirectResponse(f"/cycle/{cycle_id}/denudasyon?" + urlencode(q),
+                                status_code=303)
+
+    if adetler is None:
+        return geri("toplu_mat_sayi")
+    toplam = sum(n for _, n in adetler)
+    if not toplam:
+        return geri("toplu_mat_bos")
+    yumurtalar = _toplu_mat_yumurtalari(cycle_id)
+    if toplam > len(yumurtalar):
+        return geri("toplu_mat_fazla")
+    if (f.get("mevcut") or "") != _toplu_mat_imzasi(yumurtalar):
+        return geri("toplu_mat_degisti")
+    plan = _toplu_mat_plani(yumurtalar, adetler)
+    if _toplu_mat_degisim_metni(plan) and f.get("onay") != "1":
+        return geri("toplu_mat_onay")
+    simdi = islem_zamani(f.get("islem_zamani"))
+    yazilacak = [(y, kod) for y, kod in plan if y["mat"] != kod]
+    # Başka bir tedavi için çözüldükten sonraki saat o tedavinin kaydı olurdu
+    # (v6.231, yumurta yumurta formun kuralı).
+    cozulmus = [str(y["cycle_sira_no"]) for y, _ in yazilacak
+                if _baska_tedavide_cozulmus(y["id"], cycle_id, simdi)]
+    if cozulmus:
+        return geri("toplu_mat_cozulmus", cozulmus=",".join(cozulmus))
+
+    kosul = _denudasyon_mat_kosulu(cycle_id, "olay")
+    log_zamani = _dt.now().isoformat(" ", "seconds")
+    with db.yazma_islemi() as b:
+        for y, kod in yazilacak:
+            # Güncellenen, yumurta yumurta formun güncellediği kayıt
+            # (`olay_kaydet_veya_guncelle()`'nin seçimi).
+            mevcut = b.execute(
+                "SELECT id, mat_deger FROM olay WHERE specimen_id=? "
+                "AND tip='maturasyon_kontrolu' AND iptal_mi=0 AND (" + kosul + ") "
+                "ORDER BY id DESC LIMIT 1", (y["id"],)).fetchone()
+            if mevcut is None:
+                b.execute(
+                    "INSERT INTO olay (lab_id, specimen_id, cycle_id, tip, zaman, "
+                    "kullanici_id, mat_deger) VALUES (?,?,?,'maturasyon_kontrolu',?,?,?)",
+                    (db.LAB_ID, y["id"], cycle_id, simdi, kid, kod))
+                continue
+            # Saat de yazılıyor: şerit "en son saatli" kaydı okuyor; aynı
+            # yumurtanın bu tedavide ikinci bir kaydı varsa (aktarılmış veri)
+            # yazılan değer görünür kalsın.
+            b.execute("UPDATE olay SET mat_deger=?, zaman=?, kullanici_id=? WHERE id=?",
+                      (kod, simdi, kid, mevcut["id"]))
+            if mevcut["mat_deger"] != kod:
+                # Kilidin içinde: `guvenlik.degisiklikleri_yaz()` kendi
+                # bağlantısını açar, bu işlemin kilidini beklerdi.
+                b.execute(
+                    "INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                    "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                    (db.LAB_ID, "olay", str(mevcut["id"]), "mat_deger",
+                     mevcut["mat_deger"], kod, kid, log_zamani))
+    islem_yapani_doldur(cycle_id, "denudasyon")   # v6.208
+    return RedirectResponse(f"/cycle/{cycle_id}/denudasyon"
+                            + (f"?oosit={secili}" if secili else ""), status_code=303)
 
 
 def _specimen_sirasi(specimen_id) -> str:

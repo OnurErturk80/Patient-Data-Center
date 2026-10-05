@@ -534,6 +534,23 @@ tipte de ICSI aşaması yoksa aynı ihtiyaç doğar, aynı deseni kullan.
   değerlendirme reddediliyor (`_baska_tedavide_cozulmus()`,
   `hata=denudasyon_mat_cozmeden_sonra`). Aynı olay tipini iki tedavinin yazdığı
   yeni bir ekranda "en son kayıt" yazma, tedaviye sor.
+- **Toplu maturasyon** (v6.245, README v6.245; kullanıcı: "3 M2 2M1 1GV
+  seçtiğimde otomatik sıralama imkanım olsun"): şeridin üstünde kart (dağılım +
+  "Toplu yaz", `?duzenle=toplu`), formda listenin etkin değerleri başına sayı.
+  Sayılar listenin sırasıyla, yumurta NUMARASI sırasına (`_toplu_mat_plani()`;
+  önizleme betiği aynı kuralı izliyor -- birini değiştirirsen ikisini).
+  - POST `/cycle/{id}/denudasyon/toplu-maturasyon`, tek işlem, ya hepsi ya
+    hiçbiri: toplam yumurtadan fazlaysa engel (yeni yumurta açılmaz, v6.242);
+    kayıtlı değer değişecekse onay (`onay`, engel değil); önizlemenin dayandığı
+    hal değiştiyse red (`mevcut` = `_toplu_mat_imzasi()`); çözülmüş yumurta
+    yukarıdaki kural. Değeri aynı kalan yumurtaya dokunulmaz (saati de).
+  - Kayıt yumurta yumurta formunkiyle aynı (`_denudasyon_mat_kosulu()`); günlük
+    satırı işlemin İÇİNDE `b` ile -- `degisiklikleri_yaz()` kendi bağlantısıyla
+    kilidi beklerdi. Hata dönüşü sayıları adreste taşıyor (`adet_<kod>`,
+    tamsayıya sabit), metni `_toplu_mat_ekrani()`; şablon `toplu is defined`
+    diye soruyor (tuzak #5).
+  - Yalnızca Yumurta Dondurma. IVF/ICSI'nin maturasyonu ICSI ekranında, orada
+    toplu yazım yok (istenmedi); eklenecekse enjeksiyonla birlikte düşün.
 
 **`fet`, `fet_kultur` ve `yumurta_cozme`'de dondurulan örnek BU cycle'dan
 gelmez** — `FET_TIPLERI` sabiti ve Jinja global `fet_tipi_mi(cycle_tipi)`
@@ -830,8 +847,9 @@ ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
   açılıyor (`data-ilk`, v6.238), örneğin ilk karesinden değil.
 
 **Bir ekranda birden çok düzenlenebilir şey varsa adreste adıyla söyle.**
-Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati) ve `?duzenle=oosit`
-(oositlerin çalışma kipi) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
+Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati), `?duzenle=oosit`
+(oositlerin çalışma kipi) ve `?duzenle=toplu` (Yumurta Dondurma'nın toplu
+maturasyonu, v6.245) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22).
 
 **Aşama ekranının ana fotoğrafının yeri yüklenmeden ayrılır** (v6.208,
 kullanıcı: "Denüdasyon ekranı işlem yaparken sayfa kayıyor"). `.foto img`

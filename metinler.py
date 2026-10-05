@@ -1814,6 +1814,56 @@ METINLER = {
                                 "en": "Type a finding that is not in the list."},
     "oosit_degerlendirmesi": {"tr": "Yumurta değerlendirmesi",
                               "en": "Oocyte assessment"},
+    # Denüdasyonda toplu maturasyon (v6.245, Yumurta Dondurma).
+    "toplu_mat_baslik": {"tr": "Toplu maturasyon", "en": "Bulk maturation"},
+    "toplu_mat_yaz": {"tr": "Toplu yaz", "en": "Enter in bulk"},
+    "toplu_mat_hic": {"tr": "Henüz hiçbir yumurta değerlendirilmedi",
+                      "en": "No oocyte assessed yet"},
+    "toplu_mat_bos_n": {"tr": "{n} değerlendirilmemiş", "en": "{n} not assessed"},
+    "toplu_mat_kac": {"tr": "Kaç yumurta?", "en": "How many oocytes?"},
+    "toplu_mat_ipucu": {
+        "tr": "Yumurtalar numara sırasıyla dolar: ilk sayı 1. yumurtadan başlar, "
+              "sonraki kaldığı yerden devam eder.",
+        "en": "Oocytes are filled in number order: the first count starts at "
+              "oocyte 1, the next continues from there."},
+    "toplu_mat_onizleme": {"tr": "Kaydedilince", "en": "After saving"},
+    "toplu_mat_toplam": {"tr": "Toplam {n} / {m} yumurta", "en": "Total {n} / {m} oocytes"},
+    "toplu_mat_kalan_tek": {"tr": "{n}. yumurtaya dokunulmaz",
+                            "en": "oocyte {n} is left as it is"},
+    "toplu_mat_kalan": {"tr": "{ilk}–{son}. yumurtalara dokunulmaz",
+                        "en": "oocytes {ilk}–{son} are left as they are"},
+    "toplu_mat_fazla_n": {"tr": "{n} fazla: toplam yumurta sayısını aşamaz",
+                          "en": "{n} too many: cannot exceed the number of oocytes"},
+    "toplu_mat_degisecek": {"tr": "Kayıtlı maturasyonu değişecek yumurtalar:",
+                            "en": "Oocytes whose recorded maturation will change:"},
+    "toplu_mat_onayla": {"tr": "Bu yumurtaların maturasyonunu değiştir",
+                         "en": "Change the maturation of these oocytes"},
+    "toplu_mat_vazgec": {"tr": "Vazgeç", "en": "Cancel"},
+    "toplu_mat_sayi": {"tr": "Kaydedilmedi: sayılar 0 ya da pozitif tam sayı olmalı.",
+                       "en": "Not saved: counts must be 0 or a positive whole number."},
+    "toplu_mat_bos": {"tr": "Kaydedilmedi: en az bir sayı yazın.",
+                      "en": "Not saved: enter at least one count."},
+    "toplu_mat_fazla": {
+        "tr": "Kaydedilmedi: toplam {n}, yumurta sayısı {m}. Eksik yumurtaları "
+              "önce açın (\"Yumurta ekle\").",
+        "en": "Not saved: total {n}, number of oocytes {m}. Add the missing "
+              "oocytes first."},
+    "toplu_mat_onay": {
+        "tr": "Kaydedilmedi: kayıtlı maturasyonu değişecek yumurtalar var. "
+              "Aşağıda onaylayıp yeniden kaydedin.",
+        "en": "Not saved: some oocytes already have a different maturation. "
+              "Confirm below and save again."},
+    "toplu_mat_degisti": {
+        "tr": "Kaydedilmedi: bu arada yumurtaların kaydı başka bir ekrandan "
+              "değişti. Önizlemeye yeniden bakıp kaydedin.",
+        "en": "Not saved: the oocyte records changed on another screen in the "
+              "meantime. Check the preview again and save."},
+    "toplu_mat_cozulmus": {
+        "tr": "Kaydedilmedi: şu yumurtalar bu saatten önce başka bir tedavi için "
+              "çözülmüş: {n}. Denüdasyondaki değerlendirmenin saati çözmeden önce "
+              "olmalı.",
+        "en": "Not saved: these oocytes were thawed for another cycle before this "
+              "time: {n}. The denudation assessment must be before the thaw."},
     "temizle": {"tr": "Temizle", "en": "Clear"},
     "tamam": {"tr": "Tamam", "en": "Done"},
     "enjeksiyon": {"tr": "Enjeksiyon", "en": "Injection"},
