@@ -57,8 +57,9 @@ dokunulmaz). HAZIRAN#37'yi kullanıcı 2026-09-25'te kendisi taşıdı
 (`tasi` → 2022-0135'in üç tüpü, 5 embriyo; 2026-0507-1200 yeniden dolu).
 Aralık 2024 #15'in "99"u için düzeltme satırı (`ARALIK2024#15 DOSYA 99
 <gerçek no>`) kullanıcıya verildi; yoksa `aktar_toplu` o ayı "kontrol
-edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2017 için Access dosyası
-verilmedi (Cryo Excel'inde o yıllardan ~200 satır var). Sonra sıra Cryo
+edilemedi" diye listeler (zararsız, ay aktarılmış). 2011–2016 ve ocak–ekim 2017
+için Access dosyası verilmedi (Cryo Excel'inde o yıllardan ~200 satır var;
+kasım–aralık 2017 v6.251'de geldi, aşağıda). Sonra sıra Cryo
 Excel'inde: `cryo_esle.py` (aşağıda). **Kullanıcı 2026-09-26'da Mac'te
 (v6.192) Cryo Excel'inin kiplerini tamamladı**: `onar` ve `sperm` önceden
 çalışmıştı (`yerlesim` onları bekleyen iş olarak göstermedi), `uygula`
@@ -125,6 +126,17 @@ silindi. v6.249 Excel'de yazılı, programda kaydı olmayan straw'ı Cryo
 kartında ve kanister sayfasında gösterip soruyor (aşağıdaki "Programın hiçbir
 kaydıyla eşleşmeyen satır"). Sor: Program sürümü v6.249 mu, H2 kartta
 listelendi mi, hangi cevabı verdi.
+**Kasım–aralık 2017** (140 tedavi) v6.251'de hazırlandı (`kaynak=KASIM2017`,
+`ARALIK2017`; kullanıcı `kasim2017.csv` / `aralik2017.csv` ile
+`aktar_toplu.py` çalıştırıyor -- çalıştırıp çalıştırmadığını sor). Altı hastanın
+2017 straw'ı Cryo Excel'inden geçici numarayla açılmış kartta (v6.179):
+aktarım sonunda iki komut yazıyor (kart, sonra tedavi birleştirmesi) -- yapıp
+yapmadığını sor. Aralık #47 duruyor: Access iki tüp ((4BB) tek; (3BC +
+Morula) birarada), Excel'de o gün tek straw "D5 (3BC)" -- hangi tüp olduğu
+soruldu, cevabını sor. Ayrıca soruldu: kasımın sekiz "ARREST EMBRİYO"
+kaydı (sebepsiz "tamamlandı") iptal mi; "FERTİLİZASYON YOK" gibi sözler
+ayrıntılı sebebe eşlensin mi; ŞUBAT2024#71, AĞUSTOS2025#27, EKİM2025#38
+("ÇÖZME TRANSFERİ" ama OPU / ICSI yazılı, FET olarak aktarıldı) ne.
 
 ---
 
@@ -3651,7 +3663,11 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   yazmak straw'ı ikiye çıkarırdı (büyük kopyada 165 benzetimin 13'ünde öyle
   olacaktı). İleti Excel kaydının sayfasındaki iki adımı söylüyor. Tedavinin
   kaydını Excel'in yazısına uydurmayı önerme; yeri girilmiş tüp aday değil
-  (gobletinde kendi straw'ı).
+  (gobletinde kendi straw'ı). **İçeriği okunamamış tüp** ("?": Excel'in
+  HÜCRE'si "D5 (13AA)", v6.251) sayısı ve okunan skorları tutan, aynı türden
+  TEK tüple aynı straw (`_ayni_straw(okunamayan=...)`, `cryo_esle._uyar()`'ın
+  kuralı -- o eşleşme "sayiyla" sınıfıyla konum yazıyor); esasın kaydı kalır,
+  iki tüp tutuyorsa durur. Birebir eşleşmelerden sonra; "?"siz tüpe genişletme.
 - **Dondurma notunun yazım hataları** (v6.168, `_skor_metni()`): "KACG1"
   kavitasyon (C, V'nin yanında; yalnızca arkasından derece geliyorsa),
   "KAVVİTASYON". Notta birden çok dondurma fiili varsa **parantezi olan ilk
@@ -3873,6 +3889,32 @@ değil, araç** — `.accdb` okunmuyor ("ek bağımlılık yok").
   adından farklıysa Access'in adı da denenir (dosya no zinciri). Bağlanamayan
   ve adı farklı yazılmış olabilecekler sayfa adresiyle basılır, bağlanmaz.
   `liste` her satırın Excel kaydı straw'larını gösteriyor.
+- **v6.251 okumaları** (kasım–aralık 2017, küçük harfli düz Türkçe notlar;
+  okunan 25 dosyanın 1.993 satırında okuma ve not yalnızca 2017'de değişti):
+  - Cümleyle anlatılan tüpler (`_birlikte_gruplari()`): "tek başına",
+    "birarada", "birlikte", "1 tüpte ... diğer tüpte"; "N adet skor"
+    çoğaltılıyor, "2 AA" = "2AA". Toplam DONDURULAN'la tutmuyorsa yazılmıyor.
+    Çarpan ("2X8HG1") ve hücresiz derece ("G1", "HG2") skorsuz embriyo.
+  - **Not dondurmayı anlatmıyorsa** (`_kutu_dondurmasi()`, yalnızca IVF/ICSI;
+    "TOTAL CRYO" ya da boş, sayı DONDURULAN'da): tek embriyo bir tüp (kutudaki
+    skorla ya da skorsuz); birden çok embriyo YAZILMIYOR -- kutudaki "+" / "-"
+    tüp ayırmıyor --, UYARI ve tedavinin notunda "Access'te N embriyo
+    dondurulmuş (dondurma aşaması: ...); notta tüplere dağılımı yazmıyor".
+    Dağılımı tahmin etme.
+  - **"ET uygulanmadı" + dondurma iptal değil** (`_satir_iptali()`): not
+    "İPTAL" demiyorsa, ayrıntılı sebep yoksa ve satırda dondurma varsa tedavi
+    dondurmayla biter (freeze-all; "İptal" resmî forma basılırdı). "İŞLEM
+    İPTAL EDİLDİ ... OOSİT DONDURULDU" iptal kalır. Tedavinin iptalini soran
+    yeni bir yer yazarsan `_iptal_sebebi()` değil `_satir_iptali()`.
+    "ET uygulanmamıştır" da iptal sözü (`_IPTAL_SOZU`).
+  - OPU'suz, toplanansız, ICSI'si ve döllenmesi yazılı FET satırı Yumurta
+    Çözme (`_satir_tipi()`); yumurta sayısı çözülenden de (`_yumurta_sayisi()`).
+  - **Geçici numaralı aynı adlı kart** (`gecici_kartlar()`): Cryo Excel'inden
+    açılmış (v6.179, `GECICI_DOSYA_TABANI`) kartın −1..+7 gündeki tedavisi
+    `liste`'de, aktarımın sonunda çift çift `hasta_birlestir.py` +
+    `tedavi_birlestir.py` komutu. Araç birleştirmez (ad tek başına kanıt
+    değil). Aktarımla birleştirme arasında laboratuvarın Excel'i o satırları
+    "karşılıksız" gösterir (aynı ad iki kartta): cevaplanmamalı.
 - **Kaynak dosya ve ondan üretilen CSV depoya girmez** — gerçek hasta
   verisi. README/CLAUDE.md'ye hasta adı/dosya numarası yazma.
 

@@ -979,6 +979,49 @@ python3 aktar_access.py transfer_hekim agustos.csv
 (Ağustos 2026 etiketsiz aktarıldı, `kaynak=` yok.) Yeni aktarımlar transfer
 hekimini kendisi yazıyor.
 
+### Kasım–aralık 2017 (v6.251)
+
+Önce `git pull origin main`, programı bir kez kapatıp aç, yedek al
+(`/yedekleme` → "Şimdi yedekle"). **Veritabanının olduğu bilgisayarda**
+çalıştır (Cryo Haritası'nın düzeni orada). Sohbette verilen `kasim2017.csv`
+ve `aralik2017.csv`'yi proje klasörüne koy (adları böyle kalsın: etiket
+addan çıkıyor, `KASIM2017` / `ARALIK2017`). Düzeltme dosyası yok. Sonra tek
+komut:
+
+```
+python3 aktar_toplu.py
+```
+
+Önce iki dosyayı kontrol eder ("41 tedavi yazılacak", "99 tedavi
+yazılacak"), "AKTAR" yazınca yazar (bir iki dakika). **Listede başka aylar
+görünüyorsa AKTAR yazma** -- klasörde başka ayın CSV'si kalmış ya da bu
+makinenin veritabanında o aylar yok. İki kez çalıştırmak güvenli.
+
+Aktarımın sonunda **"Cryo Excel'inden geçici numarayla açılmış, aynı adlı
+kart"** listesi çıkar: bu hastaların 2017 straw'ları Cryo Excel'inden geçici
+dosya numarasıyla (9000000xxx) açılmıştı (v6.179), şimdi gerçek kartları
+geldi. Her satırda iki komut yazar. **Aynı hastaysa** önce kart, sonra
+tedavi; ikisi de önce ne yapacağını gösterir, aynı komutun sonuna `uygula`
+ekleyince yapar:
+
+```
+python3 hasta_birlestir.py <geçici no> <gerçek no>
+python3 hasta_birlestir.py <geçici no> <gerçek no> uygula
+python3 tedavi_birlestir.py <Excel tedavisi> <yeni tedavi>
+python3 tedavi_birlestir.py <Excel tedavisi> <yeni tedavi> uygula
+```
+
+Tedavi birleşince straw'ın yeri Access'ten gelen tüpe geçer, Excel'in tüpü
+silinir (Cryo Haritası'nda straw sayısı değişmez). Aktarımla birleştirme
+arasında Cryo Haritası kartı bu satırları "programda karşılığı yok" diye
+gösterebilir: **orada cevap verme**, birleştirince kendiliğinden düzelir.
+Bir tedavi birleştirmesi "ENGEL" derse dur ve sohbete yaz (aralık #47'nin
+Excel'deki straw'ı Access'in iki tüpünden hiçbiriyle birebir tutmuyor).
+
+Bitince `aktar_toplu.log`'da `UYARI` satırlarına bak: aralığın beş kaydında
+not dondurmayı anlatmıyor, dondurulan embriyolar tüplere dağıtılmamış; tüp
+açılmadı, tedavinin notu Access'teki sayıyı yazıyor.
+
 ---
 
 ## Aynı hastanın iki kartı — birleştirme (v6.215)

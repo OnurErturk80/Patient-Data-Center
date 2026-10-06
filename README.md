@@ -20123,3 +20123,126 @@ Bilinen sınır: Z skoru ve zigot bulguları toplu yazılmıyor.
   9.166 yumurtanın hepsinde önizleme şeritle aynı (numara, yazı, renk). ART
   Lab: 1.909 tedavinin 21'inde SEMEN "TESE" (sperm kaynağı TESE olanların
   hepsi), 1.888'inde boş; başlıkla tutarsız yok.
+
+# v6.251 — Kasım–aralık 2017 Access kayıtları
+
+Kullanıcı: "2017 yılının kasım ve aralık hasta kayıtlarını da programa ekler
+misin?" (iki `.accdb` dosyası). Aracın okuması 2017'nin yazımına göre
+genişledi; aktarımı kullanıcı kendi makinesinde çalıştırıyor (`KOMUTLAR.md` →
+"Kasım–aralık 2017 (v6.251)"). Etiketler `KASIM2017`, `ARALIK2017`; CSV'ler
+depoya girmedi.
+
+## Önce
+
+- 2017'nin notları başka bir elden: küçük harfli düz Türkçe ("5. gün 1 adet
+  4BB blastokist tek başına ve 1 adet 3BC blastokist ve 1 adet 1. kalite
+  Morula birarada dondurulmuştur"), çarpanlı kutular ("2X8HG1+1X10HG1").
+  Araç tüpleri parantez gruplarından okuyordu: bu notlarda parantez yok,
+  dondurmaların çoğu yazılmayacaktı.
+- Aralıkta sekiz kaydın notu dondurmayı hiç anlatmıyor ("TOTAL CRYO" ya da
+  boş), dondurulan embriyolar yalnızca DONDURULAN ve "EMBRİYO DONDURMA
+  AŞAMASI" kutularında. `_dondurma_coz()` fiil bulamayınca boş dönüyordu:
+  tedavi "dondurma" ile kapanıyor, tüp yazılmıyor, hiçbir şey söylenmiyordu.
+- "ET uygulanmadı. ... dondurulmuştur" (freeze-all, aralıkta üç kayıt):
+  "UYGULANMADI" iptal sözü ve iptal dondurmadan önce geliyordu; tedavi
+  "İptal" diye kapanacak, resmî formlara "İptal" basılacaktı.
+- Protokolü "ÇÖZME TRANSFERİ" olan, OPU'suz ama ICSI ve döllenmesi yazılı bir
+  kayıt (18 yumurta çözülmüş) FET sayılıyordu.
+- Bu hastaların bir kısmının 2017 straw'ları Cryo Excel'inden geçici dosya
+  numarasıyla (9000000xxx, v6.179) açılmıştı; gerçek kart gelince aynı hasta
+  iki kartta, aynı straw iki tüpte duracaktı -- söyleyen yoktu.
+
+## Bugün: okuma
+
+- **Cümleyle anlatılan tüpler** (`_birlikte_gruplari()`): "tek başına",
+  "birarada", "birlikte" ve "1 tüpte ... diğer tüpte" tüpü kapatıyor ya da
+  açıyor; "N adet skor" çoğaltılıyor, "2 AA" "2AA" okunuyor. Embriyo sayısı
+  DONDURULAN'la tutmuyorsa hiçbir şey yazılmıyor (uydurulmuyor).
+  (4BB) (3BC-Morula), (10HG1-7HG1) (10HG1-8HG1), (3AA) (2AA-2BB).
+- **Çarpan** ("2X8HG1", "3X10HG1") ve hücre sayısı yazılmamış derece ("G1",
+  "HG2"): skorsuz embriyo, sayı doğru (`_tek_skor()`, `_ogeler_sirayla()`).
+- **Not dondurmayı anlatmıyorsa** (`_kutu_dondurmasi()`, yalnızca IVF/ICSI):
+  tek embriyo bir tüp, skoru kutudan ("3BB") ya da skorsuz; birden çok embriyo
+  tüplere dağılımı yazmıyor -- kutudaki "+" ve "-" tüp ayırmıyor (aynı ayın
+  anlatılan notlarında "1X3AA+1X2AA+1X2BB" iki tüp) -- yazılmıyor, UYARI
+  veriyor ve tedavinin notu söylüyor: "Access'te 3 embriyo dondurulmuş
+  (dondurma aşaması: 2X8HG1+1X10HG1); notta tüplere dağılımı yazmıyor."
+  Aralıkta beş kayıt; sonradan Cryo Excel'inden gelen tüp (aşağıda) bu
+  sayıyla karşılaştırılabilsin diye ekranda ve formun NOTLAR'ında.
+- **"ET uygulanmadı" + dondurma iptal değil** (`_satir_iptali()`): not açıkça
+  "İPTAL" demiyor, ayrıntılı bir sebep (arrest, fertilizasyon olmadı ...)
+  yazmıyor ve satırda dondurma varsa tedavi dondurmayla biter. "İŞLEM İPTAL
+  EDİLDİ ... OOSİTLER DONDURULDU" iptal kalır (okunan 23 ayda altı satır).
+  "ET uygulanmamıştır" (dondurmasız) "uygulanmadı"nın aynısı (`_IPTAL_SOZU`).
+- **Yumurta Çözme**: OPU'su ve toplananı olmayan, ICSI'si ve döllenmesi yazılı
+  FET satırı (`_satir_tipi()`); çözülen yumurta sayısı ICSI'den büyükse o
+  kadar yumurta (`_yumurta_sayisi()`). OPU'lu üç 2024/2025 "ÇÖZME TRANSFERİ"
+  satırı bu kurala girmiyor (aşağıdaki soru).
+- **Geçici numaralı aynı adlı kart** (`gecici_kartlar()`): satırın hastasıyla
+  aynı adlı, Cryo Excel'inden geçici numarayla açılmış kartın aynı günlerdeki
+  (−1..+7) tedavisi `liste`'de satırın altında; aktarımın sonunda çift çift
+  iki komut (`hasta_birlestir.py`, `tedavi_birlestir.py`). Araç birleştirmez:
+  ad tek başına kanıt değil, kullanıcı söyler.
+- Okunan 25 dosyanın (önceki 23 ay + 2017'nin iki ayı) 1.993 satırında okuma
+  ve tedavi notu yalnızca 2017 satırlarında değişti.
+
+## Bugün: tedavi birleştirmede okunamayan straw
+
+`tedavi_birlestir.py`'de birleşen tüpün içeriği okunamamışsa ("?": Excel'in
+HÜCRE'si "D5 (13AA)" -- 1×3AA bitişik yazılmış) sayısı ve okunan skorları
+tutan, aynı türden TEK tüp aynı straw (`_ayni_straw(okunamayan=...)`): yeri
+esasın tüpüne geçer, esasın kaydı (3AA) kalır. Kural `cryo_esle._uyar()`'ın
+("?" her şeyi tutar; o eşleşme "sayiyla" sınıfıyla konum da yazıyor); iki tüp
+tutuyorsa araç v6.229'daki gibi durur. Birebir eşleşmelerden sonra
+deneniyor. Laboratuvarın Excel'i aynı satırı tüple yine eşleştiriyor
+(okunamayan içerik), satır aynen kalıyor.
+
+## Kullanıcının yapacağı
+
+`git pull`, programı yeniden başlatmak, yedek, iki CSV'yi proje klasörüne
+koyup `python3 aktar_toplu.py`, sonra aktarımın sonunda yazılan çiftler için
+önce kart, sonra tedavi birleştirmesi (aynı hastaysa). Aktarımla birleştirme
+arasında laboratuvarın Excel kartı o straw'ları "programda karşılığı yok"
+diye gösterebilir (aynı ad iki kartta, eşleştirme hastayı seçemiyor):
+cevaplanmamalı, birleştirince düzeliyor.
+
+## Sorular / bilinen sınırlar
+
+- Aralık #47: Access iki tüp diyor -- (4BB) tek başına, (3BC + Morula)
+  birarada --, Cryo Excel'inde o gün tek straw var: "D5 (3BC)". Tedavi
+  birleştirmesi duruyor (v6.229); hangi tüp olduğu kullanıcıya soruldu.
+- Kasımda sekiz kayıt yalnızca "ARREST EMBRİYO" ya da "OOSİT MORFOLOJİSİ
+  KÖTÜ" yazıyor (transfer de dondurma da yok): not iptal demediği için
+  "tamamlandı, sebep yok" (v6.130'un kuralı). Bazı iptal notları programın
+  sebebiyle aynı sözü kullanmıyor ("FERTİLİZASYON YOK", "3. GÜNDE ARREST
+  EMBRİYO", "İMMATÜR OOSİT İŞLEM İPTAL"): genel "İptal". İkisi de
+  kullanıcıya soruldu.
+- 2018–2023'te "ET uygulanmadı" + dondurma yazılmış kayıt olduysa onlar
+  kullanıcının veritabanında "İptal" görünüyor olabilir: o yılların CSV'leri
+  burada yok, ölçülemedi (2024–2026'da yok).
+- Önceki aktarımlarda üç kayıt (ŞUBAT2024#71, AĞUSTOS2025#27, EKİM2025#38)
+  protokolü "ÇÖZME TRANSFERİ" ama OPU'su ve ICSI'si yazılı; FET olarak
+  aktarıldı. Yeni Yumurta Çözme kuralı OPU'lu satıra girmiyor (taze bir
+  tedavinin protokolü yanlış yazılmış da olabilir); ne oldukları
+  kullanıcıya soruldu.
+
+## Deneme
+
+- Kullanıcının veritabanının kopyasında (2024–2026 aktarılmış, Cryo Excel'i
+  ve tank düzeni kurulu; ad / numara basılmadan): 140 tedavi -- kasım 41
+  (34 IVF/ICSI, 6 FET, 1 Yumurta Dondurma), aralık 99 (92 IVF/ICSI, 6 FET,
+  1 Yumurta Çözme); 140 yeni kart. Bitiş: 85 transfer, 14 dondurma, 33 iptal,
+  8 sebep yok. 21 tüp (kasım 4, aralık 17); aralığın bir tüpü aktarımın
+  sonunda Cryo Haritası'ndaki Excel kaydına bağlandı. Beş UYARI (dağılımsız
+  dondurma). İkinci çalıştırma "yazılacak bir şey yok".
+- Geçici numaralı altı kart bulundu. Hepsinde kart birleşti; beş tedavi
+  birleşti (dördünde straw'ın yeri Access'in tüpüne geçti, ikisinde Excel'in
+  tüpü Access'in değerlendirilmemiş embriyolarına), #47 durdu. Gobletlerin
+  doluluğu önce / sonra aynı (5.391 straw); laboratuvarın Excel planında
+  birleştirmeden sonra karşılıksız satır ve sığmayan straw 0 (aktarımla
+  birleştirme arasında 5 / 5).
+- Ekranlar ve formlar (tedavi, vitrifikasyon, Embriyoloji Özet, ART Lab;
+  sekiz tedavi): hatasız; freeze-all üç tedavide "İptal" yok, NOTLAR
+  kutusu taşmıyor.
+- `tedavi_birlestir.py`: v6.228'in sahte veritabanı senaryoları hepsi geçti;
+  v6.229'un kopyadaki 165 benzetiminin planı v6.250 ile birebir aynı.

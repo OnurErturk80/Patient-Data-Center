@@ -33,6 +33,8 @@ Tüpün esas tedavideki karşılığı:
     en çok bir gün farkla, konumu boş ya da aynı goblet, Excel kaydına bağlı
     değil): Excel kaydı o tüpe bağlanır (`cryo_esle.excel_kaydini_tupe_bagla()`,
     "bağı çöz" bildiği gibi geri alır), fazla tüp örnekleriyle silinir;
+    içeriği okunamamış tüpte ("?", v6.251) sayısı ve okunan skorları tutan
+    TEK tüp aynı straw sayılır (`cryo_esle._uyar()`), esasın kaydı kalır;
   - içerik tutmuyor ama esas tedavide aynı gün dondurulmuş, yeri girilmemiş
     aynı türden bir tüp varsa araç durur (v6.229): Excel aynı straw'ı başka
     bir yazımla gösteriyor olabilir; tüp esasın başka örneklerine yazılsaydı
@@ -344,16 +346,30 @@ def _straw_olabilir(g, tid, h, kullanilan) -> bool:
                 or (ht["konum_id"] and t["konum_id"] and ht["konum_id"] != t["konum_id"]))
 
 
-def _ayni_straw(g, B_orn, A_tupler, A_orn, kullanilan) -> dict:
-    """Esas tedavide aynı straw: `_straw_olabilir()` ve aynı içerik."""
+def _ayni_straw(g, B_orn, A_tupler, A_orn, kullanilan, okunamayan=None) -> dict:
+    """Esas tedavide aynı straw: `_straw_olabilir()` ve aynı içerik.
+
+    okunamayan=(tür, esas tedavi) (v6.251): birleşenin skorsuz örneği ("?":
+    Cryo Excel'inin HÜCRE'si okunamamıştı, "D5 (13AA)") her skoru tutar;
+    sayı ve okunan skorlar birebir -- `cryo_esle._uyar()`'ın kuralı, o
+    eşleşme ("sayiyla") tüplere konum da yazıyor. Tüpün türü (embriyo /
+    yumurta) aynı olmalı ve yalnızca TEK bir tüp tutmalı (`_dagit()`'in
+    ölçüsü): iki tüp tutuyorsa hangisi olduğu bilinmiyor, araç durur."""
     istenen = sorted(B_orn[s]["anahtar"] for s in g["ornekler"])
+    uyan = []
     for tid, h in A_tupler.items():
-        if not _straw_olabilir(g, tid, h, kullanilan):
+        if not _straw_olabilir(g, tid, h, kullanilan) \
+                or len(h["bilgi"]["ornekler"]) != len(g["ornekler"]):
             continue
-        if sorted(A_orn[s]["anahtar"] for s in h["ornekler"] if s in A_orn) == istenen \
-                and len(h["bilgi"]["ornekler"]) == len(g["ornekler"]):
-            return {"tid": tid, **h}
-    return None
+        if okunamayan and _tup_turu(h, A_orn, okunamayan[1]) != okunamayan[0]:
+            continue
+        esasin = sorted(A_orn[s]["anahtar"] for s in h["ornekler"] if s in A_orn)
+        if not okunamayan:
+            if esasin == istenen:
+                return {"tid": tid, **h}
+        elif cryo_esle._uyar(istenen, esasin):
+            uyan.append({"tid": tid, **h})
+    return uyan[0] if len(uyan) == 1 else None
 
 
 def _benzer_tupler(g, tur, p, kullanilan) -> list:
@@ -648,6 +664,16 @@ def _tup_plani(b, p, tasi):
     # Birebir tutmayanlar: esasta aynı straw olabilecek bir tüp varsa durulur
     # (v6.229); yoksa esas tedavinin örneklerine. Birebir eşleşmeler önce --
     # sonraki bir tüpün birebir eşi öncekine "benzer" sayılmasın.
+    # İçeriği okunamamış tüp ("?", v6.251): sayısı ve okunan skorları tutan
+    # TEK tüp aynı straw -- birebir eşleşmelerden sonra.
+    for k in p["tup_kararlari"]:
+        if "karar" in k or "?" not in k["anahtarlar"]:
+            continue
+        ayni = _ayni_straw(k["g"], B_orn, p["A_tupler"], A_orn, kullanilan,
+                           okunamayan=(k["tur"], A))
+        if ayni:
+            kullanilan.add(ayni["tid"])
+            k.update(karar="ayni", hedef=ayni, okunamayan=True)
     for k in p["tup_kararlari"]:
         if "karar" in k:
             continue
@@ -917,6 +943,11 @@ def _ozet_yaz(b, p):
             print(f"     -> aynı straw esas tedavide zaten var: {h['etiket']} "
                   f"({h['tam_yol'] or 'konum girilmemiş'}); {ne}. Bu tüp ve "
                   f"{len(g['ornekler'])} örneği silinir.")
+            if k.get("okunamayan"):
+                esasin = _tup_yazimi([p["A_orn"][s]["yazim"] for s in k["hedef"]["ornekler"]
+                                      if s in p["A_orn"]], k["tur"] == "yumurta")
+                print(f"        (tüpün içeriği okunamamıştı; sayısı tutan tek tüp bu -- "
+                      f"esas tedavinin kaydı ({esasin}) kalır)")
         elif k["karar"] == "tasi":
             yeni = ", ".join(p["yeni_idler"][s][0] for s in g["ornekler"])
             print(f"     -> örnekler esas tedaviye taşınır, yeni numaraları: {yeni}")

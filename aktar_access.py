@@ -414,7 +414,7 @@ def cycle_tipi(protokol: str) -> str:
     return "ivf_icsi"
 
 
-def _satir_tipi(protokol: str, opu, toplanan, cozulen) -> str:
+def _satir_tipi(protokol: str, opu, toplanan, cozulen, icsi=0, dollenme=0) -> str:
     """Satırın tedavi tipi. Protokol adı yetmediğinde sayılar karar veriyor.
 
     Üç satırın protokolü boş ya da ilaç adı ama OPU'su ve toplanan yumurtası
@@ -424,10 +424,21 @@ def _satir_tipi(protokol: str, opu, toplanan, cozulen) -> str:
     karşılığı FET (3→5 kültür) -- `ivf_icsi` sayılsaydı yumurta toplanmış
     gibi görünür, çözme hiç yazılmazdı. Yapılandırılmış alanlara bakılıyor,
     nottaki kelimeye değil (v6.142'nin dersi).
+
+    Protokolü "ÇÖZME TRANSFERİ" ama OPU'su ve toplanan yumurtası yok, ICSI
+    sayısı (`icsi`) ve döllenme sonuçları (`dollenme`: 2PN + intakt + anormal
+    + işlem sonrası dejenere) dolu satır yumurta çözme (v6.251, aralık 2017:
+    ÇÖZDÜRÜLEN 18, 16'sına ICSI, 4 2PN, 11 intakt; not "Dondurulmuş oosit
+    kalmadı"). Embriyoya ICSI yapılmaz; FET sayılsaydı 18 embriyo çözülmüş
+    yazılırdı. OPU'su olan satır bu kurala girmiyor (2024 ve 2025'te
+    protokolü "çözme transferi" yazılmış üç OPU'lu satır, yalnızca
+    ölçüldü, README v6.251).
     """
     tip = cycle_tipi(protokol)
     if tip == "ivf_icsi" and not opu and not toplanan and cozulen:
         return "fet_kultur"
+    if tip == "fet" and not opu and not toplanan and icsi and dollenme:
+        return "yumurta_cozme"
     return tip
 
 
@@ -471,7 +482,11 @@ def satirlari_oku(yol: str) -> list:
         transfer = _tarih(v("TRANSFER TARİHİ"))
         tip = _satir_tipi(v("TEDAVİ PROTOKOLÜ"), opu,
                           _sayi(v("TOPLANAN OOSİT"), 0),
-                          _sayi(v("ÇÖZDÜRÜLEN EMBRİYO SAYISI"), 0))
+                          _sayi(v("ÇÖZDÜRÜLEN EMBRİYO SAYISI"), 0),
+                          _sayi(v("İŞLEME ALINAN OOSİT SAYISI"), 0),
+                          sum(_sayi(v(k), 0) for k in (
+                              "NORMAL FERTİLİZASYON (2PN)", "INTAKT",
+                              "ANORMAL FERTİLİZASYON", "İŞLEM SONRASI DEJENERE")))
         # Viabilite yüzde; 100'ü aşan değer (9080, 10090, 1001000) embriyo
         # başına değerlerin bitişik yazılmışı gibi duruyor ("90 ve 80").
         # Hangi embriyonun hangisi olduğu bilinmiyor -- bölünmüyor, alan boş
@@ -955,7 +970,10 @@ def _asama_gunu(metin: str):
 # sebep olduğuna bakılıyor, tanınmazsa genel "iptal" kalıyor (CLAUDE.md:
 # genel İptal listede olmayan sebepler için duruyor). `liste` kipi hangi
 # satıra hangi sebebin yazılacağını tek tek basıyor -- aktarmadan önce oku.
-_IPTAL_SOZU = ("IPTAL", "UYGULANMADI")
+# "ET UYGULANMAMIŞTIR" (v6.251, aralık 2017: "Embriyo arrest olduğu için ET
+# uygulanmamıştır") "UYGULANMADI"nın aynısı; yalnızca ET / transfer için --
+# "uygulanmamış" başka bir işi de anlatabilir.
+_IPTAL_SOZU = ("IPTAL", "UYGULANMADI", "ET UYGULANMAMIS", "TRANSFER UYGULANMAMIS")
 _IPTAL_AYRINTI = (
     ("fert_olmadi", ("FERTILIZASYON OLMADI",)),
     # "D2 EMBRİYO ARRESTİ", "KLİVAJ ARRESTİ", "D3 ARRESTİ" (v6.148: ocak-haziran
@@ -1033,6 +1051,27 @@ def _iptal_sebebi(notlar: str):
         if any(k in n for k in kaliplar):
             return kod
     return "iptal"
+
+
+def _satir_iptali(r, coz=None):
+    """Satırın iptal sebebi; dondurmayla biten "ET uygulanmadı" iptal değil.
+
+    v6.251 (aralık 2017, üç satır): "ET uygulanmadı. 5. gün 1 adet 4BB
+    blastokist tek başına ve ... birarada dondurulmuştur." Transfer
+    yapılmamış, embriyolar dondurulmuş: tedavi dondurmayla bitti
+    (freeze-all), iptal edilmedi. "UYGULANMADI" iptal sözü (embriyo arrestiyle
+    ET yapılamayan notlar) ve iptal dondurmadan önce geliyor; tedavi "İptal"
+    diye kapanıp resmî forma "İptal" basılacaktı. Not açıkça "İPTAL" demiyor,
+    ayrıntılı bir sebep (arrest, fertilizasyon olmadı ...) yazmıyor ve satırda
+    dondurma varsa iptal sayılmaz. "İŞLEM İPTAL EDİLDİ ... OOSİTLER
+    DONDURULDU" iptal kalır: not iptal diyor (okunan 23 ayda altı satır, hepsi
+    böyle; "ET uygulanmadı" ile dondurma yalnızca aralık 2017'de)."""
+    sebep = _iptal_sebebi(r["notlar"])
+    if sebep != "iptal" or "IPTAL" in _sade(r["notlar"]):
+        return sebep
+    if r["dondurulan"] or (_satir_dondurmasi(r) if coz is None else coz):
+        return None
+    return sebep
 
 
 _ENDIKASYON = (("AOR", "azalmis_over_rezervi"),
@@ -1370,6 +1409,118 @@ def _esanlam(ham: str, hizali: str) -> tuple:
     return ham, hizali
 
 
+def _tek_skor(tok: str):
+    """Tek bir sözcüğün embriyoları (v6.251, kasım-aralık 2017) -> öğe listesi
+    ya da None: skor ("4AB", "10HG1", "MORULA"), çarpanlı skor ("1X4AB",
+    "2X10HG1", "8XG1": N tane aynı embriyo -- `_grup_coz()`'ün parantez içi
+    "3xMORULAG2" kuralının parantezsiz hali) ya da hücre sayısı yazılmamış
+    grade ("G1", "HG2": skorsuz embriyo, yazımı notta -- v6.173'ün kuralı).
+    Yumurta yazımı (`_OOSIT_GRUBU`) burada embriyo değil: None."""
+    t = _sade(tok)
+    m = re.fullmatch(r"(\d+)\s*[X*]\s*(\S+)", t)
+    if m:
+        ic = _tek_skor(m.group(2))
+        if ic and len(ic) == 1 and int(m.group(1)) > 0:
+            return [dict(ic[0]) for _ in range(int(m.group(1)))]
+        return None
+    if re.match(r"\d", t) or _BLAST_DISI.match(_skor_metni(t)):
+        z = _skor_coz(tok)
+        if z and z["tur"] != "oosit":
+            return [z]
+    if re.fullmatch(r"H?G[1-4]", t):
+        return [{"tur": "embriyo", "ham": tok, "okunamadi": True}]
+    return None
+
+
+def _ogeler_sirayla(metin: str) -> list:
+    """Metindeki embriyolar, yazıldıkları sırayla (v6.251): "N ADET skor" N
+    tane, yalın ve çarpanlı skorlar `_tek_skor()`'la. Skor olmayan sözler
+    ("BLASTOKİST", "EMBRİYO", "VE", "5. GÜN", "1. KALİTE") atlanıyor; "N
+    ADET"in arkasındaki ilk skor o sayıyı alıyor. Metin `_KATLA`'lı."""
+    out, bekleyen = [], None
+    parcalar = [p for p in re.split(r"[\s,/+\-]+", metin) if p]
+    i = 0
+    while i < len(parcalar):
+        p = parcalar[i]
+        if re.fullmatch(r"\d+", p) and i + 1 < len(parcalar) and parcalar[i + 1] == "ADET":
+            bekleyen = int(p)
+            i += 2
+            continue
+        z = _tek_skor(p)
+        if z:
+            out.extend([dict(z[0]) for _ in range(bekleyen)]
+                       if bekleyen and len(z) == 1 else z)
+            bekleyen = None
+        i += 1
+    return out
+
+
+# Tüpleri tek tek anlatan parantezsiz cümle (v6.251, aralık 2017).
+_TEK_BASINA = re.compile(r"\bTEK\s+BASINA\b")
+_KAPAYAN = re.compile(r"\bTEK\s+BASINA\b|\bBIR\s*ARADA\b|\bBIRLIKTE\b")
+_ACAN = re.compile(r"(?:\b\d+|\b(?:DIGER|OTEKI|IKINCI))\s*TUPTE")
+
+
+def _birlikte_turu(cumle: str):
+    """Cümle tüpleri tek tek mi anlatıyor -> "acan" ("1 TÜPTE 8HG1 VE DİĞER
+    TÜPTE 2 ADET 8HG1"), "kapayan" ("... 3AA TEK BAŞINA VE ... 2BB BİRARADA",
+    "... BİRLİKTE VE ... BİRLİKTE") ya da None. Tek bir "BİRARADA" bu yazım
+    değil: bütün embriyolar bir tüpte (`_tek_tup()`, v6.173). Metin
+    `_KATLA`'lı."""
+    acan = _ACAN.findall(cumle)
+    if len(acan) >= 2 and any(not re.match(r"\d", a) for a in acan):
+        return "acan"
+    kapayan = _KAPAYAN.findall(cumle)
+    if kapayan and (_TEK_BASINA.search(cumle) or len(kapayan) >= 2):
+        return "kapayan"
+    return None
+
+
+def _birlikte_gruplari(cumle: str, dondurulan):
+    """Tüpleri tek tek anlatan cümlenin tüpleri (v6.251, aralık 2017) ->
+    tüp listesi; okunamıyorsa ya da DONDURULAN'la tutmuyorsa [] (uyarı çıkar,
+    tek tüp UYDURULMAZ); cümle bu yazımda değilse None.
+
+    - "acan": "1 TÜPTE 8HG1 VE DİĞER TÜPTE 2 ADET 8HG1" -- her "N TÜPTE" /
+      "DİĞER TÜPTE"den sonra gelenler o tüpte. v6.250'ye kadar "DİĞER TÜPTE"
+      tüp sayılmıyordu: üç embriyo skorsuz, tek tüpe yazılacaktı.
+    - "kapayan": "1 ADET 3AA TEK BAŞINA VE 1 ADET 2 AA VE 1 ADET 2BB
+      BLASTOKİST BİRARADA", "1 ADET 10HG1 + 1 ADET 7HG1 BİRLİKTE VE 1 ADET
+      10HG1 + 1 ADET 8HG1 EMBRİYO BİRLİKTE" -- "TEK BAŞINA" / "BİRARADA" /
+      "BİRLİKTE"den önceki embriyolar bir tüp; "TEK BAŞINA" tek embriyo.
+      v6.250'ye kadar "BİRARADA" bütün embriyoları tek tüpe koyuyordu (iki
+      tüp bir sayılıyordu). Cryo Excel'i aynı ayın iki notunu doğruluyor:
+      "D5 (3AA)" ve "D5 (2AA 2BB)" ayrı straw.
+    Toplam yalnızca DONDURULAN'la sınanıyor: cümlenin ilk "N ADET"i burada
+    bir embriyonun sayısı ("1 ADET 3AA TEK BAŞINA"), toplam değil."""
+    tur = _birlikte_turu(cumle)
+    if not tur:
+        return None
+    # "2 AA": boşluklu blastokist skoru ("1 ADET 2 AA", aralık 2017)
+    c = re.sub(r"(?<![\d.])\b([1-6])\s+([ABC]{2})\b", r"\1\2", cumle)
+    gruplar = []
+    if tur == "acan":
+        acan = list(_ACAN.finditer(c))
+        gruplar = [_ogeler_sirayla(c[a.end():(acan[i + 1].start()
+                                               if i + 1 < len(acan) else len(c))])
+                   for i, a in enumerate(acan)]
+    else:
+        bas = 0
+        for k in _KAPAYAN.finditer(c):
+            g = _ogeler_sirayla(c[bas:k.start()])
+            if _TEK_BASINA.match(k.group(0)) and len(g) != 1:
+                return []
+            gruplar.append(g)
+            bas = k.end()
+        if _ogeler_sirayla(c[bas:]):
+            return []           # son işaretten sonra embriyo: tüpü yazılmamış
+    if not gruplar or not all(gruplar):
+        return []
+    if dondurulan and sum(len(g) for g in gruplar) != dondurulan:
+        return []
+    return gruplar
+
+
 def _parantezsiz_embriyo(cumle: str, adet, dondurulan=None) -> list:
     """Parantezsiz embriyo dondurması (v6.173, 2018'in yazımı). -> gruplar
     (tüp listesi) ya da boş liste.
@@ -1391,15 +1542,23 @@ def _parantezsiz_embriyo(cumle: str, adet, dondurulan=None) -> list:
     # "KAVİTASYON G3": derece ayrı kelime -- `_skor_coz()` bitişiğini tanıyor
     # ("KAVİTASYONG3", v6.148).
     cumle = re.sub(r"\b(KAV\w*|MOR\w*)\s+G\s*(\d)", r"\1G\2", cumle)
+    birlikte = _birlikte_gruplari(cumle, dondurulan)       # v6.251
+    if birlikte is not None:
+        return birlikte
 
     def skorlar(metin):
         out = []
-        for tok in re.split(r"[\s,/\-]+", metin):
+        for tok in re.split(r"[\s,/+\-]+", metin):
             if not tok:
                 continue
             z = _skor_coz(tok) if re.match(r"\d", tok) or _BLAST_DISI.match(_skor_metni(tok)) else None
             if z:
                 out.append(z)
+            elif re.fullmatch(r"\d+\s*[X*]\s*\S+", _sade(tok)):
+                # "TOTAL CRYO 1X4AB-1X3BB BİRARADA", "8XG1" (v6.251, kasım
+                # 2017): N tane aynı embriyo. Tanınmıyordu, üç not
+                # "okunamadı" diye hiç yazılmıyordu.
+                out.extend(_tek_skor(tok) or [])
         return out
 
     hepsi = skorlar(cumle)
@@ -1727,7 +1886,12 @@ def _dondurma_coz(notlar: str, asama: str = "", tip: str = "",
         gruplar = _parantezsiz_embriyo(cumle, adet, dondurulan)
         grup_gunleri = [None] * len(gruplar)
         ogeler = [o for g in gruplar for o in g]
-    if not gruplar and (adet == 1 or (adet is None and fazla == 1)):
+    # Tüpleri tek tek anlatan cümle okunamadıysa (v6.251) aşağıdaki tek tüp
+    # tahminleri ona uygulanmıyor: "1 ADET 3AA TEK BAŞINA ..." notun ilk
+    # ADET'ini 1 gösteriyor, tek skorsuz embriyo yazılırdı.
+    if not gruplar and not baglam and _birlikte_turu(cumle):
+        pass
+    elif not gruplar and (adet == 1 or (adet is None and fazla == 1)):
         # Parantezsiz tek örnek (v6.148): "1 ADET M2 OOSİT DONDURULARAK
         # SAKLANDI" -- bir örnek ancak bir tüpte olabilir. FET'te sayı hiç
         # yazmıyorsa ("REFREEZ EDİLEN EMBRİYO İLE BİRLİKTE ... KALDI") tek
@@ -1853,8 +2017,54 @@ def _satir_dondurmasi(r) -> dict:
     fazla = None
     if r["tip"] in FET_TIPLERI and not _db.cozulen_yumurta_islenir(r["tip"]):
         fazla = _cozulen_sayisi(r) - (r["transfer_adet"] or 0)
-    return _dondurma_coz(r["notlar"], r["dondurma_asama"], r["tip"],
-                         r["dondurulan"], fazla)
+    coz = _dondurma_coz(r["notlar"], r["dondurma_asama"], r["tip"],
+                        r["dondurulan"], fazla)
+    if not coz and r["dondurulan"] and r["tip"] == "ivf_icsi":
+        coz = _kutu_dondurmasi(r)                      # v6.251
+    return coz
+
+
+def _kutu_dondurmasi(r) -> dict:
+    """Not dondurmayı anlatmıyor ama DONDURULAN dolu (v6.251, aralık 2017:
+    not "TOTAL CRYO" ya da boş, dondurulanlar EMBRİYO DONDURMA AŞAMASI
+    kutusunda: "3BB", "1X8HG1-2X8HG2", "2X8HG1+1X10HG1"). v6.250'ye kadar
+    `_dondurma_coz()` fiil bulamayınca boş dönüyordu: tedavi "dondurma" ile
+    kapanıyor, tüp hiç yazılmıyor ve hiçbir şey söylenmiyordu -- aralıkta 8
+    kayıt, okunan öteki 23 ayda hiç (ölçüldü).
+    - Tek embriyo: bir tüp, kutudaki skoruyla ya da skorsuz. Gün kutudan
+      ("5. GÜN"), yoksa embriyo dondurmanın varsayılanı (OPU + 5).
+    - Birden çok embriyo: tüplere dağılımı yazmıyor -- kutudaki "+" ve "-"
+      tüp ayırmıyor (aynı ayın tüpleri anlatılan iki notunda
+      "1X3AA+1X2AA+1X2BB" iki tüp, "2X10HG1 +1X8HG1+1X7HG1" iki tüp).
+      Uydurulmuyor: yazılmıyor, söyleniyor (`dagilim_yok`).
+    Kutudaki embriyo sayısı DONDURULAN'la tutmuyorsa da yazılmıyor
+    (`kutu_sayisi`). `_dondurma_coz()`'ün sözlüğüyle aynı anahtarlar +
+    `kutudan` (kutunun yazısı)."""
+    n = r["dondurulan"]
+    kutu = (r["dondurma_asama"] or "").strip()
+    ogeler = _ogeler_sirayla(_sade(kutu))
+    sonuc = {"gun": _asama_gunu(kutu), "grup_gunleri": None, "oosit_mi": False,
+             "grup_yumurta": [], "karisik": False, "adet": None, "eksik_not": 0,
+             "beklenen": n, "tup": None, "gruplar": [], "ogeler": [],
+             "ortuk": False, "tekrar_grup": None, "kutudan": kutu or "-"}
+    if ogeler and len(ogeler) != n:
+        sonuc["kutu_sayisi"] = len(ogeler)
+    elif n == 1:
+        tek = ogeler or [{"tur": "embriyo", "ham": "skorsuz"}]
+        sonuc.update(gruplar=[tek], ogeler=list(tek), grup_yumurta=[False])
+    else:
+        sonuc["dagilim_yok"] = True
+    return sonuc
+
+
+def _kutu_uyarisi(coz) -> str:
+    """`_kutu_dondurmasi()`'nin yazılamayan dondurması için tek satır."""
+    if coz.get("kutu_sayisi") is not None:
+        return (f'not dondurmayı anlatmıyor; DONDURULAN {coz["beklenen"]} ama dondurma '
+                f'aşaması kutusunda {coz["kutu_sayisi"]} embriyo ("{coz["kutudan"]}") '
+                "-- tutmuyor")
+    return (f'not dondurmayı anlatmıyor; {coz["beklenen"]} embriyo dondurulmuş (dondurma '
+            f'aşaması kutusu: "{coz["kutudan"]}") ama tüplere dağılımı yazmıyor')
 
 
 def olgunlugu_nottan_duzelt(satirlar) -> None:
@@ -1937,11 +2147,16 @@ def _yumurta_sayisi(r, icsi=True) -> int:
     yazılamıyordu; ağustos 2024'te TOPLANAN 6, olgunluk sayıları 7 (bir
     dejenere düşüyordu). "Toplanan" kutusu (OPU'nun kendi sayısı, v6.112)
     Access'teki değeri tutmaya devam ediyor. `icsi=False`: ICSI sayısını
-    sınamak için (`icsi_sayisini_tamamla()`), onu katmadan."""
+    sınamak için (`icsi_sayisini_tamamla()`), onu katmadan.
+
+    Yumurta Çözme'de ÇÖZDÜRÜLEN de (v6.251, aralık 2017: 18 yumurta çözülmüş,
+    16'sına ICSI -- ICSI'ye alınmayan ikisi de çözüldü). Okunan 23 ayın Yumurta
+    Çözme satırlarında ÇÖZDÜRÜLEN öteki sayıları hiç aşmıyor (ölçüldü)."""
     return max(r["toplanan"] or 0,
                r["mii"] + r["immatur"] + r["empty_zona"] + r["dejenere"]
                + r["atretik"], (r["islenen"] or 0) if icsi else 0,
-               r.get("yumurta_nottan") or 0)
+               r.get("yumurta_nottan") or 0,
+               (r["cozulen"] or 0) if _db.cozulen_yumurta_islenir(r["tip"]) else 0)
 
 
 def yumurta_sayisini_isaretle(satirlar) -> None:
@@ -2080,6 +2295,20 @@ def _not_kur(r: dict) -> str:
         p.append(f"Dondurma notunda aynı tüp iki kez yazılmış "
                  f"({coz['tekrar_grup']}); {coz['adet']} embriyo, "
                  f"{len(coz['gruplar'])} tüp alındı.")
+    if coz.get("kutudan") and not coz["gruplar"]:
+        # v6.251: not dondurmayı anlatmıyor, tüp yazılamadı (`_kutu_dondurmasi()`).
+        # Kaynağın sayısı yalnızca aktarımın raporunda kalmasın: tedavi
+        # "dondurma" ile bitiyor, ekranda ve formda kaç embriyo olduğu dursun --
+        # sonradan bağlanan tüp (Cryo Excel'inden) onunla karşılaştırılabilsin.
+        asama = (f" (dondurma aşaması: {coz['kutudan']})"
+                 if coz["kutudan"] != "-" else "")
+        if coz.get("kutu_sayisi") is not None:
+            p.append(f"Access'te DONDURULAN {r['dondurulan']}, dondurma aşaması "
+                     f"kutusunda {coz['kutu_sayisi']} embriyo ({coz['kutudan']}); "
+                     "notta tüpleri yazmıyor.")
+        else:
+            p.append(f"Access'te {r['dondurulan']} embriyo dondurulmuş{asama}; "
+                     "notta tüplere dağılımı yazmıyor.")
     # İşaret KENDİ satırında: cümlenin sonuna eklenirse `textwrap` onu
     # ortasından bölüyor ("[Access kaydı\nTEMMUZ#9]") ve `_zaten_var()`in
     # `LIKE` deseni tutmuyor -- yani aktarım idempotent olmaktan çıkıyor,
@@ -2231,8 +2460,8 @@ def _cycle_ac(b, r, hasta_id, rapor) -> tuple:
                       (hasta_id,)).fetchone()[0] or 0) + 1
     _tel, endikasyon, _kalan = _gizli_notu_coz(r["gizli_not"])
 
-    sebep = _iptal_sebebi(r["notlar"])
     coz = _satir_dondurmasi(r)
+    sebep = _satir_iptali(r, coz)
     if sebep:
         durum, bitis = "iptal", sebep
         bitis_zamani = r["transfer"] or _islem_gunu(r)
@@ -2792,6 +3021,10 @@ def _dondurma_kayitlari(b, r, cycle_id, kid, rapor, yalnizca_ekle=False):
     """
     coz = _satir_dondurmasi(r)
     if not coz:
+        return
+    if not coz["gruplar"] and coz.get("kutudan"):
+        # Not dondurmayı anlatmıyor, kutudan da yazılamadı (v6.251).
+        rapor.append(f"    UYARI: {_kutu_uyarisi(coz)} -- dondurma kaydı yazılmadı")
         return
     if not coz["gruplar"]:
         # Dondurma cümlesi var ama kaç örnek/tüp olduğu yazmıyor (parantez
@@ -4171,6 +4404,49 @@ def excel_onizleme_satiri(ekler) -> str:
             + "; ".join(parca))
 
 
+# Cryo Excel'inden geçici numarayla açılmış kart (v6.251). `cryo_esle.py
+# yeni_hasta` (v6.179) 2018'den önceki satırların programda adı olmayan
+# hastalarına geçici numarayla (9000000001, ...) kart ve yalnızca dondurmayı
+# taşıyan bir tedavi açtı; straw o tedavinin tüpü, yeri Cryo Haritası'nda.
+# Hasta Access'ten gerçek numarasıyla gelince iki kart olur ve aynı straw
+# iki tüp (Access'inki konumsuz). Ad tek başına hiçbir şeyi bağlamıyor
+# (v6.125): yalnızca gösteriliyor, birleştirmeyi kullanıcı yapar
+# (`hasta_birlestir.py`, sonra `tedavi_birlestir.py` -- ikincisi aynı straw'ın
+# yerini Access'in tüpüne taşıyor, fazla tüpü siliyor).
+_GECICI_DIZINI = {}
+
+
+def gecici_kartlar(r) -> list:
+    """Satırın hastasıyla aynı adlı geçici numaralı kartların, satırın gününe
+    yakın (−1..+7 gün, Excel kaydının penceresi) Cryo Excel tedavileri ->
+    [{dosya_no, cycle_no, gun}]. Hiçbir şey yazmaz."""
+    if not r["tarih"]:
+        return []
+    import cryo_excel
+    from cryo_esle import GECICI_DOSYA_TABANI   # cryo_esle bu modülü import ediyor
+    if "dizin" not in _GECICI_DIZINI:
+        dizin = {}
+        for c in _db.sorgu(
+                "SELECT c.cycle_no, h.dosya_no, h.ad_soyad, "
+                "substr(COALESCE(c.opu_zamani, c.olusturma_zamani), 1, 10) gun "
+                "FROM cycle c JOIN hasta h ON h.id = c.hasta_id "
+                "WHERE c.lab_id = ? AND h.dosya_no >= ? AND c.protokol_notu LIKE ?",
+                (_db.LAB_ID, GECICI_DOSYA_TABANI, f"%{_db.CRYO_EXCEL_ISARETI}%")):
+            dizin.setdefault(cryo_excel.kelimeler(c["ad_soyad"]), []).append(dict(c))
+        _GECICI_DIZINI["dizin"] = dizin
+    bas, son = _gun_ekle(r["tarih"], -_EXCEL_ONCE), _gun_ekle(r["tarih"], _EXCEL_SONRA)
+    return sorted((c for c in _GECICI_DIZINI["dizin"].get(
+                       cryo_excel.kelimeler(r["ad_soyad"]), [])
+                   if c["gun"] and bas <= c["gun"] <= son),
+                  key=lambda c: (c["gun"], c["cycle_no"]))
+
+
+def gecici_kart_satiri(g) -> str:
+    return (f'        Cryo Excel\'inden geçici numarayla açılmış aynı adlı kart: '
+            f'dosya {g["dosya_no"]}, tedavi {g["cycle_no"]} ({_gg(g["gun"])})   '
+            "<- aynı hastaysa aktarımdan sonra birleştir (komutlar aktarımın sonunda)")
+
+
 def _satiri_yaz(r) -> list:
     """Bir Access satırını tek işlemde yazar. Patlarsa hiçbiri yazılmaz."""
     rapor = []
@@ -4207,7 +4483,7 @@ def _satiri_yaz(r) -> list:
 
 
 def _ozet_satiri(r) -> str:
-    sebep = _iptal_sebebi(r["notlar"])
+    sebep = _satir_iptali(r)
     if sebep:
         son = f"İPTAL ({sebep})"
     elif (r["transfer"] or r["tarih_yaklasik"]) and r["transfer_adet"]:
@@ -4289,6 +4565,8 @@ def onizleme(satirlar, kopyalar=(), tutmayan=(), atla=(), ikizler=()):
         if ekler:
             print(excel_onizleme_satiri(ekler) + "   <- aktarımın sonunda tüplerine "
                   "bağlanacak (içerik tutarsa)")
+        for g in gecici_kartlar(r):                       # v6.251
+            print(gecici_kart_satiri(g))
         if r.get("tip_duzeltme"):
             print(f'        tip: Yumurta Dondurma -- protokol "{r["protokol"]}" ama '
                   "ICSI, 2PN ve transfer yok, yalnızca yumurta dondurulmuş")
@@ -4320,7 +4598,11 @@ def onizleme(satirlar, kopyalar=(), tutmayan=(), atla=(), ikizler=()):
                      f'{coz["beklenen"] - coz["eksik_not"]}: {coz["eksik_not"]} '
                      "yazılmayacak" if coz.get("eksik_not") else "")
                   + (f'   <- TANINMADI, yazılmayacak: {", ".join(atilan)}'
-                     if atilan else ""))
+                     if atilan else "")
+                  + ("   <- not anlatmıyor: DONDURULAN ve dondurma aşaması kutusundan"
+                     if coz.get("kutudan") else ""))
+        elif coz and coz.get("kutudan"):
+            print(f"        {_kutu_uyarisi(coz)}   <- YAZILMAYACAK")
         elif coz:
             print("        dondurma notu var   <- kaç örnek/tüp olduğu "
                   "okunamadı, YAZILMAYACAK")
@@ -4427,6 +4709,7 @@ def cryo_haritasina_bagla(tedaviler, adlar=None, kayitlar=None) -> None:
 def aktar(satirlar, ikizler=()):
     toplam = {"tedavi": 0, "atlanan": 0, "hata": 0}
     sonuclar = []
+    gecici = []                     # (satır, açılan tedavi, geçici numaralı kart), v6.251
     tedaviler = []                  # bu aktarımın açtığı (ve programda olan) tedaviler
     adlar = {}                      # hasta id -> Access'teki ad, eş adı (Excel kaydı için)
     kayitlar = set()                # satırların günlerindeki Excel kayıtları
@@ -4458,6 +4741,7 @@ def aktar(satirlar, ikizler=()):
             tedaviler.append(yazilan["id"])
             h = _db.tek("SELECT hasta_id FROM cycle WHERE id = ?", (yazilan["id"],))
             adlar[h["hasta_id"]] = (r["ad_soyad"], r["es_adi"])
+            gecici += [(r, yazilan, g) for g in gecici_kartlar(r)]
         if durum:
             sonuclar.append((r["kimlik"], durum))
         print(f'#{r["kimlik"]:>3}  aktarıldı')
@@ -4479,6 +4763,18 @@ def aktar(satirlar, ikizler=()):
             print("  " + satir)
     _bagla_ozeti(sonuclar)
     cryo_haritasina_bagla(tedaviler, adlar, kayitlar)
+    if gecici:
+        # Uzun çıktının sonunda, komutlarıyla (v6.251). Karar kullanıcının:
+        # iki araç da önce ne yapacağını gösterir (ad, eş, doğum tarihi).
+        print("\nCryo Excel'inden geçici numarayla açılmış, aynı adlı kart -- AYNI HASTAYSA "
+              "birleştir (önce kart, sonra tedavi; ikisi de önce ne yapacağını gösterir, "
+              "sonra aynı komutun sonuna 'uygula' ekle):")
+        for r, yazilan, g in gecici:
+            print(f'  #{r["kimlik"]:>3}  geçici dosya {g["dosya_no"]}, tedavi {g["cycle_no"]} '
+                  f'({_gg(g["gun"])})  <->  dosya {yazilan["dosya_no"]}, '
+                  f'tedavi {yazilan["cycle_no"]}')
+            print(f'        python3 hasta_birlestir.py {g["dosya_no"]} {yazilan["dosya_no"]}')
+            print(f'        python3 tedavi_birlestir.py {g["cycle_no"]} {yazilan["cycle_no"]}')
     # Daha önce aktarılmış FET'ler: çözdükleri tüp bu dosyayla gelmiş
     # olabilir (v6.163). Bu dosyanın FET'leri zaten yukarıda denendi.
     print("\nDaha önce aktarılmış FET'ler yeni gelen tüplerle eşleştiriliyor...")
