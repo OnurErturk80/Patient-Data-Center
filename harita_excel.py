@@ -481,7 +481,8 @@ def _sablonlu():
     bugünkü haliyle doldurulma planı; yoksa ya da doldurulamazsa None --
     o zaman programın düzeni yazılır (dosyasız kalmaktansa), sebebi karta."""
     if not cryo_sablon.var():
-        _DURUM.pop("sablon_hata", None)
+        for a in ("sablon_hata", "karsiliksiz", "bilinmeyen_disarida"):
+            _DURUM.pop(a, None)
         return None
     try:
         plan = cryo_sablon.kur()
@@ -489,8 +490,21 @@ def _sablonlu():
         if _DURUM.get("sablon_hata") != repr(e):
             _gunluk.exception("CRYO EXCEL: laboratuvarin dosyasi doldurulamadi")
         _DURUM["sablon_hata"] = repr(e)
+        _DURUM.pop("karsiliksiz", None)
+        _DURUM.pop("bilinmeyen_disarida", None)
         return None
     _DURUM.pop("sablon_hata", None)
+    # Dosyada yazılı, programda hiçbir kaydı olmayan straw'lar (v6.249): kart
+    # ve kanister sayfası her kurulumda taze listeyi gösteriyor -- dosya
+    # yazılmasa da (satır zaten aynen kalıyordu, imza değişmiyor, `ozet`
+    # güncellenmiyor). Gobleti programın düzeninde olmayanlar yalnızca sayı.
+    try:
+        _DURUM["karsiliksiz"] = cryo_sablon.karsiliksiz_listesi(plan) if plan else []
+    except Exception:                    # liste haritayı durdurmasın
+        _gunluk.exception("CRYO EXCEL: karsiliksiz satirlar listelenemedi")
+        _DURUM["karsiliksiz"] = []
+    _DURUM["bilinmeyen_disarida"] = max(0, ((plan or {}).get("ozet", {}).get("bilinmeyen", 0)
+                                            - len((plan or {}).get("karsiliksiz") or [])))
     return plan
 
 
@@ -558,6 +572,15 @@ def guncel_imza():
 def kurulamadi() -> bool:
     """Harita son denemede kurulamadı mı (bir hata; kartta yazıyor)."""
     return bool(_DURUM.get("kurulamadi"))
+
+
+def karsiliksiz_cikar(kim) -> None:
+    """Kullanıcının cevapladığı karşılıksız satırı listeden düşürür (v6.249):
+    kart hemen güncel görünsün, planı yeniden kurmak (~1 sn) arka planın işi."""
+    with _KILIT:
+        if "karsiliksiz" in _DURUM:
+            _DURUM["karsiliksiz"] = [k for k in _DURUM["karsiliksiz"]
+                                     if (k["sayfa"], k["satir"], k["sutun"]) != tuple(kim)]
 
 
 def durum() -> dict:

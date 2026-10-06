@@ -116,6 +116,15 @@ ilk açılışta eski dosyalar kendiliğinden taşınıyor. Kullanıcının iki
 makinesinde yedek klasörünün nerede / takılı olup olmadığı bilinmiyor --
 "Yedek alınamıyor" uyarısından ya da klasörün halinden söz ederse sor.
 Göç, kalıcı silme, geri yükleme gibi veriye dokunan her işte bunu hesaba kat.
+**v6.249** (2026-10-06, kullanıcı: "H2 de tankları excele aktar dediğimde
+örnek gözüküyor ama programın içinde gözükmüyor" -- v6.247'nin vakası):
+kopyada iki sebep ölçüldü, hangisi olduğu bilinmiyor -- program v6.247'den
+önceki koduyla çalışıyor (yeniden başlatılmadı; silinen kayıt eşleşmede
+yoktu) ya da erkeğin yalnızca sperm kaydı olan geçici numaralı kartı kalıcı
+silindi. v6.249 Excel'de yazılı, programda kaydı olmayan straw'ı Cryo
+kartında ve kanister sayfasında gösterip soruyor (aşağıdaki "Programın hiçbir
+kaydıyla eşleşmeyen satır"). Sor: Program sürümü v6.249 mu, H2 kartta
+listelendi mi, hangi cevabı verdi.
 
 ---
 
@@ -3303,7 +3312,25 @@ besleniyor.
     aynı gün ile eşleşiyor, **Excel kayıtlarından SONRA** (4. adım): önce
     olsaydı Excel kaydı olan satır, başka hastanın aynı gün aynı goblete konmuş
     tüpüne yapışırdı. Embriyo / yumurta satırında silinen (geri alınmış)
-    dondurma hâlâ tanınmıyor.
+    dondurma hâlâ tanınmıyor (v6.249'dan beri aşağıdaki listede soruluyor).
+  - **Programın hiçbir kaydıyla eşleşmeyen satır gösteriliyor ve soruluyor**
+    (v6.249, README v6.249): kaydı kalıcı silinen (hasta kartı, tedavi) ya da
+    eşleşmesi kopan straw Excel'de aynen kalıyor, program yerini boş
+    gösteriyordu -- söylemeden. `kur()`'un `karsiliksiz`'i (gobleti programın
+    düzeninde olan satırlar, "Sayfa1" ve NO'suz satır dahil) ->
+    `harita_excel._sablonlu()` her kurulumda taze listeyi `_DURUM`'a yazıyor
+    (dosya yazılmasa da; kartın `ozet`'i yalnızca yazımda güncelleniyor) ->
+    Excel kartı ve kanister sayfasının gobleti, ortak satır `_karsiliksiz.html`.
+    Cevap `POST /cryo/excel-satiri` -> `karsiliksizi_kaydet()`: "Tankta"
+    gobletinde Excel kaydı (`yerlesim`'in yazımı), "Tankta değil" "tanktan
+    çıkarıldı" Excel kaydı (satır boşalır); sebep `programda_kalmadi`
+    (`cryo_sablon.KARSILIKSIZ`), geri alma Excel kaydının sayfasında. Satır
+    yalnızca planın karşılıksızlarında aranıyor, plan yazma kilidinin içinde
+    yeniden kuruluyor. **Kendiliğinden Excel kaydı AÇMA**: denendi -- kart
+    kalıcı silinip sperm ekrandan yeniden girilince satır yeni kayıtla
+    tanınıyor, arada açılan Excel kaydı aynı straw'ın kopyası olurdu; tankta
+    olup olmadığını da program bilemez. Gobleti programın düzeninde olmayan
+    satır listede değil, sayı (`bilinmeyen_disarida`, yolu `yerlesim`).
   - **Yeni straw'ın yazısı laboratuvarın yazımından ölçüldü**
     (`_yeni_satirlar()`): "D5 (3BA-1BB)", "OOSİT (4M2-1M1)", "... REFREEZE",
     "1 CRYOLOCKMAVİ 2" (sondaki sayı aynı tedavide AYNI GÜN dondurulanlar

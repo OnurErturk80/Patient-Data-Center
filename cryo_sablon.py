@@ -29,6 +29,10 @@ satırlarının değer hücrelerine (SOYAD, AD, EŞİ, TARİH, HÜCRE, VİAL, NO
 - Yer bulamayan straw (goblet dolu, gobleti dosyada yok) yazılmaz; sayısı ve
   listesi Cryo Haritası'nın kartında (`ozet`). Konumu girilmemiş ya da tank
   düzeninde olmayan tüpler laboratuvarın dosyasında da yoktu, yine yok.
+- **Programın hiçbir kaydıyla eşleşmeyen satır aynen kalır** (Excel'de elle
+  eklenmiş olabilir). v6.249'dan beri program onu gösterip soruyor: straw'ın
+  kaydı yok olduysa (kalıcı silinen kart ya da tedavi) Excel'de duruyor,
+  haritada görünmüyordu (`karsiliksiz_listesi()`, `karsiliksizi_kaydet()`).
 
 Dosya XML düzeyinde değiştiriliyor (kütüphanesiz, `excel.py`/`xlsx_oku.py`
 gibi). Paylaşılan metin tablosu (sharedStrings) baştan kuruluyor: boşalan
@@ -341,8 +345,10 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
     """Şablonun bugünkü haliyle doldurulması: hangi hücreye ne yazılacak.
 
     -> {"duzenleme": {(sayfa, satır, sütun): değer}, "ozet": {...},
-        "imza": ...} ya da şablon yoksa None. Değer: None (sil),
-    ("s", metin), ("d", ISO gün). Hiçbir şey yazmaz.
+        "imza": ..., "karsiliksiz": [...]} ya da şablon yoksa None. Değer:
+    None (sil), ("s", metin), ("d", ISO gün). `karsiliksiz`: programda hiçbir
+    kaydı olmayan, aynen bırakılan satırlar (v6.249, `karsiliksiz_listesi()`,
+    `karsiliksizi_kaydet()`). Hiçbir şey yazmaz.
     """
     if baytlar is None:
         s = _sablon()
@@ -467,6 +473,12 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
 
     yazilacak = []       # (satır, sakin)
     sablondaki = set()
+    # Programda hiçbir kaydı olmayan dolu satırlar ve Excel kaydı olurlarsa
+    # yerleri (v6.249, `karsiliksizi_kaydet()`): gobletin konumu, "Sayfa1"de
+    # konumsuz, NO'suz satırda tank / kanister (`yerlesim`'in yazdığı gibi).
+    # Gobleti programın düzeninde olmayan satır burada yok -- o
+    # `cryo_esle.py yerlesim`'in işi (`sablon_bilinmeyen`).
+    karsiliksiz = []
     for g in p["duzen"]["gobletler"]:
         a = _goblet_anahtari(g)
         sablondaki.add(a)
@@ -479,6 +491,11 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
                 ozet["korunan"] += 1
             elif _kimlik(r) not in bilinen:
                 ozet["bilinmeyen"] += 1
+                if _konumsuz_sayfa(r):
+                    karsiliksiz.append({"kim": _kimlik(r), "konum_id": None, "yol": None})
+                elif pg is not None:
+                    karsiliksiz.append({"kim": _kimlik(r), "konum_id": pg["konum_id"],
+                                        "yol": None})
             else:
                 bosalan.append(r)
                 bosalt(r)
@@ -508,6 +525,9 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
             ozet["korunan"] += 1
         elif _kimlik(r) not in bilinen:
             ozet["bilinmeyen"] += 1
+            karsiliksiz.append({"kim": _kimlik(r), "konum_id": None,
+                                "yol": None if _konumsuz_sayfa(r)
+                                else [r["tank"] or "", r["kanister"] or "", "", ""]})
         else:
             bosalt(r)
             ozet["bosalan"] += 1
@@ -546,7 +566,7 @@ def kur(baytlar=None, imza=None, harita=None) -> dict:
     ic = sorted((f"{k[0]}\x1f{k[1]}\x1f{k[2]}", repr(v)) for k, v in duzenleme.items())
     imza_ = hashlib.sha256((imza + repr(ic)).encode("utf-8")).hexdigest()
     return {"duzenleme": duzenleme, "ozet": ozet_d, "imza": imza_,
-            "baytlar": baytlar, "sablon_imza": imza}
+            "baytlar": baytlar, "sablon_imza": imza, "karsiliksiz": karsiliksiz}
 
 
 def _tedaviye_gore(bagli_satirlar, temsil, tup, p) -> dict:
@@ -572,6 +592,107 @@ def _tedaviye_gore(bagli_satirlar, temsil, tup, p) -> dict:
             continue
         sonuc[kim] = tid
     return sonuc
+
+
+KARSILIKSIZ = "programda_kalmadi"       # Excel kaydının `eslesmeme_sebebi` (v6.249)
+
+
+def karsiliksiz_listesi(plan) -> list:
+    """`kur()`'un karşılıksız satırları, ekranda gösterilecek haliyle (v6.249):
+    Cryo Haritası'nın Excel kartı ve kanister sayfasının gobleti.
+
+    Kullanıcı (2026-10-06): "H2 de tankları excele aktar dediğimde örnek
+    gözüküyor ama programın içinde gözükmüyor". Satırın straw'ı programda bir
+    tüptü; tüpün kaydı yok olunca (kalıcı silinen hasta kartı ya da tedavi,
+    adı / günü / yeri değişip eşleşmesi kopan kayıt) satır "programın
+    bilmediği" sayılıp Excel'de aynen kalıyor (v6.199: "programın bilmediği
+    satıra dokunma"), program yeri boş gösteriyordu -- hiçbir yerde
+    söylemeden. Silinen (iptal edilen) kayıt v6.247'den beri eşleşmede, satır
+    boşalıyor; kalıcı silinen kayıttan iz kalmıyor. Straw'ın tankta olup
+    olmadığını program bilemez: satırı gösterip soruyor
+    (`karsiliksizi_kaydet()`)."""
+    if not plan or not plan.get("karsiliksiz"):
+        return []
+    p = _cozumle(plan["baytlar"], plan["sablon_imza"])
+    sonuc = []
+    for k in plan["karsiliksiz"]:
+        r = p["satirlar"].get(k["kim"])
+        if not r:
+            continue
+        sonuc.append({
+            "sayfa": r["sayfa"], "satir": r["satir"], "sutun": r["sutun"],
+            "konum_id": k["konum_id"],
+            "yer": " / ".join(str(x) for x in (r["tank"], r["kanister"], r["goblet"]) if x)
+                   or r["sayfa"],
+            "soyad": r["soyad"], "ad": r["ad"], "tarih_ham": r["tarih_ham"],
+            "tarih": cryo_excel.tarih_coz(r["tarih_ham"])[0],
+            "icerik": r["icerik"], "vial": r["vial_metni"]})
+    return sonuc
+
+
+def karsiliksizi_kaydet(kim, tankta: bool, kid):
+    """Karşılıksız satırın straw'ı için Excel kaydı açar (v6.249) -> kaydın
+    kimliği; satır bu arada tanındıysa ya da dosya değiştiyse None (hiçbir şey
+    yazılmaz).
+
+    Kullanıcı söylüyor: `tankta` ise straw gobletinde Excel kaydı olarak durur
+    (programda görünür, sayfasından hastaya / tüpe bağlanır -- kullanıcının
+    v6.189'daki seçimi, `yerlesim`'in kurulumda açtığı kayıtların aynısı);
+    değilse kayıt "tanktan çıkarıldı" açılır, Excel'deki satırı boşalır.
+    İkisi de Excel kaydının sayfasından geri alınır ("tanka geri koy" /
+    "tanktan çıkarıldı"). Eşleşme kaydın içerik anahtarıyla
+    (`cryo_esle._anahtarlar()`): sonraki `kur()` satırı onunla tanıyor.
+
+    Kendiliğinden açılmıyor: satırın straw'ı programda yeniden kaydedilirse
+    (kart yeniden açılıp sperm girilirse) satır o kayıtla tanınır, Excel kaydı
+    kopya olurdu. Plan yazma kilidinin İÇİNDE yeniden kuruluyor (v6.246'nın
+    kuralı)."""
+    if not yerlesim.excel_kaydi_var():
+        return None
+    simdi = _dt.datetime.now()
+    zaman = simdi.isoformat(" ", "seconds")
+    with db.yazma_islemi() as b:
+        plan = kur()
+        k = next((x for x in ((plan or {}).get("karsiliksiz") or []) if x["kim"] == kim), None)
+        if not k:
+            return None
+        p = _cozumle(plan["baytlar"], plan["sablon_imza"])
+        r, anahtar = p["satirlar"].get(kim), p["anahtar"].get(kim)
+        if not r or not anahtar or b.execute(
+                "SELECT 1 FROM excel_kaydi WHERE lab_id=? AND anahtar=?",
+                (db.LAB_ID, anahtar)).fetchone():
+            return None
+        kodlar = {liste: {x[0] for x in b.execute(
+            "SELECT kod FROM liste_degeri WHERE lab_id=? AND liste_adi=?", (db.LAB_ID, liste))}
+            for liste in ("tasiyici_tipi", "tasiyici_renk")}
+        kategori = next((s["kategori"] for s in p["cozum"]["satirlar"] if _kimlik(s) == kim),
+                        None) or r["kategori"] or "embriyo"
+        konum_id = db.konum_bul_veya_olustur(k["yol"], b) if k["yol"] else k["konum_id"]
+        tarih, _tarih_notu = cryo_excel.tarih_coz(r["tarih_ham"])
+        _adet, tip, renk = cryo_excel.vial_coz(r["vial_metni"])
+        durum = "tankta" if tankta else "kaldirildi"
+        cur = b.execute(
+            "INSERT INTO excel_kaydi (lab_id, anahtar, konum_id, kategori, soyad, ad, "
+            "es_adi, tarih, tarih_ham, icerik, vial, notlar, tip, renk, "
+            "eslesmeme_sebebi, eslesmeme_notu, kaynak_sayfa, kaynak_satir, durum, "
+            "islem_zamani, islem_notu, islem_kullanici_id, kullanici_id, olusturma_zamani) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (db.LAB_ID, anahtar, konum_id, kategori,
+             r["soyad"] or None, r["ad"] or None, r["es_adi"] or None, tarih,
+             r["tarih_ham"] or None, r["icerik"] or None, r["vial_metni"] or None,
+             r["notlar"] or None,
+             tip if tip in kodlar["tasiyici_tipi"] else None,
+             renk if renk in kodlar["tasiyici_renk"] else None,
+             KARSILIKSIZ, f"Programda karşılığı yoktu; {simdi:%d.%m.%Y} günü eklendi.",
+             r["sayfa"], r["satir"], durum,
+             None if tankta else simdi.date().isoformat(),
+             None if tankta else "Programda kaydı yoktu; Excel'deki satırı boşaltıldı.",
+             None if tankta else kid, kid, zaman))
+        eid = cur.lastrowid
+        b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                  "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
+                  (db.LAB_ID, "excel_kaydi", str(eid), "durum", None, durum, kid, zaman))
+    return eid
 
 
 def cikti(plan) -> bytes:

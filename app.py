@@ -9648,6 +9648,12 @@ def cryo_kanister(request: Request, tank: str = "", kanister: str = ""):
 
     etiketler = {r["kod"]: r["etiket"] for r in db.sorgu(
         "SELECT kod, etiket FROM liste_degeri WHERE lab_id=?", (db.LAB_ID,))}
+    # Laboratuvarın Excel'inde bu gobletlerde yazılı, programda kaydı olmayan
+    # straw'lar (v6.249): Cryo Haritası'nın Excel kartıyla aynı liste.
+    karsiliksiz = {}
+    for x in harita_excel.durum().get("karsiliksiz") or []:
+        if x["konum_id"]:
+            karsiliksiz.setdefault(x["konum_id"], []).append(x)
     ilk = gobletler[0]
     return sablon.TemplateResponse(
         request, "cryo_yer.html",
@@ -9657,7 +9663,8 @@ def cryo_kanister(request: Request, tank: str = "", kanister: str = ""):
          "ust_yedek": bool(k["ust"]) and all(g.get("yedek") for g in k["ust"]),
          "yersiz_tup": [tupler[t["id"]] for t in k["yersiz_tup"]],
          "yersiz_excel": [excel_[e["id"]] for e in k["yersiz_excel"]],
-         "etiketler": etiketler, "bos_yuva": sum(yerlesim.bos_yuva(g) for g in gobletler)})
+         "etiketler": etiketler, "bos_yuva": sum(yerlesim.bos_yuva(g) for g in gobletler),
+         "karsiliksiz": karsiliksiz})
 
 
 @uygulama.get("/cryo/yersiz")
@@ -10102,6 +10109,33 @@ def _excel_logla(b, eid, alan, eski, yeni, kid, simdi):
     b.execute("INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
               "eski_deger, yeni_deger, kullanici_id, zaman) VALUES (?,?,?,?,?,?,?,?)",
               (db.LAB_ID, "excel_kaydi", str(eid), alan, eski, yeni, kid, simdi))
+
+
+@uygulama.post("/cryo/excel-satiri")
+async def cryo_excel_satiri(request: Request):
+    """Laboratuvarın Excel'inde yazılı, programda hiçbir kaydı olmayan straw
+    için kullanıcının cevabı (v6.249, `cryo_sablon.karsiliksizi_kaydet()`):
+    tankta -> gobletinde Excel kaydı (programda görünür); değil -> "tanktan
+    çıkarıldı" Excel kaydı, Excel'deki satır boşalır. İkisi de kaydın
+    sayfasına götürüyor, geri alma orada.
+
+    Satır formdan geliyor ama yalnızca planın karşılıksız satırlarında
+    aranıyor (beyaz liste); bulunamazsa (bu arada tanındı, dosya değişti)
+    hiçbir şey yazılmadan karta dönülüyor. İzin Cryo Haritası'nınki."""
+    f = await request.form()
+    try:
+        kim = (str(f.get("sayfa") or "")[:200], int(f.get("satir") or ""),
+               int(f.get("sutun") or ""))
+    except ValueError:
+        return RedirectResponse("/cryo#excelharita", status_code=303)
+    if f.get("tankta") not in ("0", "1"):         # cevap açık olmalı
+        return RedirectResponse("/cryo#excelharita", status_code=303)
+    eid = cryo_sablon.karsiliksizi_kaydet(kim, f.get("tankta") == "1",
+                                          request.state.kullanici["id"])
+    harita_excel.karsiliksiz_cikar(kim)
+    if eid:
+        return RedirectResponse(f"/cryo/excel-kaydi/{eid}", status_code=303)
+    return RedirectResponse("/cryo#excelharita", status_code=303)
 
 
 @uygulama.post("/cryo/excel-kaydi/{eid}/kaldir")

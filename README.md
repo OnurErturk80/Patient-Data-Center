@@ -19875,3 +19875,117 @@ gelebildiği için sessiz kalabiliyordu.
   ve 1280 genişlikte yatay taşma ve konsol hatası yok.
 - Eski Python (v6.247) + yeni şablonlar: aynı ekranlar açılıyor, eski
   satırlar basılıyor, çıplak anahtar yok.
+
+
+# v6.249 — Laboratuvarın Excel'inde yazılı, programda kaydı olmayan straw gösteriliyor ve soruluyor
+
+Kullanıcı: "H2 de tankları excele aktar dediğimde örnek gözüküyor ama
+programın içinde gözükmüyor" (v6.247'deki H2/H3 vakası, aynı goblet).
+
+## Ne oluyordu
+
+"Tankları Excel'e aktar" laboratuvarın kendi Cryo Excel'ini dolduruyor
+(v6.199, `cryo_sablon.py`). Excel'in her satırı programın bir kaydıyla
+eşleştiriliyor: embriyo / yumurta satırı hasta + gün + içerikle, sperm satırı
+ad + günle (v6.247'den beri silinen kayıt da), Excel kaydı içerik anahtarıyla.
+Programın **hiçbir** kaydıyla eşleşmeyen satıra dokunulmuyor (v6.199'un
+kuralı: Excel'de elle eklenmiş olabilir), olduğu gibi kalıyor.
+
+Kullanıcının veritabanı kopyasında (eylül sonu) H2'nin straw'ı, erkeğin
+yalnızca sperm kaydı olan, geçici numaralı kartında bir sperm tüpü. Kopyada
+H2'yi birer birer şu hallere soktum ve indirilen Excel'e baktım:
+
+| H2'nin hali | Program | Excel (v6.246) | Excel (v6.247–v6.248) |
+| --- | --- | --- | --- |
+| Tankta, dokunulmamış | var | var | var |
+| Androlojide tedaviye bağlı | yok | boş | boş |
+| Sperm kaydı silinmiş (iptal) | yok | **var** | boş |
+| Erkeğin kartı kalıcı silinmiş | yok | **var** | **var** |
+| Kaydın günü farklı (ekrandan değişmiyor) | yok | **var** | **var** |
+
+Kullanıcının gördüğü ("Excel'de var, programda yok") iki hale uyuyor:
+
+1. **Program v6.247'den önceki koduyla çalışıyor**: `git pull` yapılıp
+   program yeniden başlatılmadıysa (tuzak #5) silinen kayıt eşleşmede yok,
+   satır kalıyor. Yönetici panelinin "Program sürümü" kartı söylüyor.
+2. **Erkeğin kartı kalıcı silinmiş** (dosya no + SIL): tüp ve sperm kaydı
+   tümden gidiyor, eşleşecek hiçbir şey kalmıyor. v6.247'nin düzeltmesi
+   (silinen kayıt da eşleşmede) bunu kapsamıyordu. Aynısı embriyoda da var:
+   kalıcı silinen tedavinin straw'ı Excel'de kalıyor (kopyada bir tedaviyle
+   denendi).
+
+İkisinde de program yeri boş gösterirken bunu söylemiyordu. Cryo kartındaki
+"programda hiçbir karşılığı yok" uyarısı silmeden sonra çıkmıyordu: satır
+önceden de aynen kaldığı için dosya değişmiyor, kartın özeti yalnızca dosya
+yazılınca güncelleniyor (program yeniden açılınca ya da başka bir Cryo
+değişikliğinde görünüyordu, hangi satır olduğunu da söylemiyordu).
+
+## Bugün
+
+- **Program bu satırları gösteriyor ve soruyor.** Excel'in "Tankların
+  Excel'i" kartında: "Laboratuvarın Excel'inde yazılı ama programda kaydı
+  olmayan N straw var ... Straw tankta mı?" ve satır satır yer, ad, tarih,
+  hücre. Aynı satır kanister sayfasında o gobletin kutusunda da (yuva
+  sayılmıyor). Liste her kurulumda taze (`harita_excel._sablonlu()`, dosya
+  yazılmasa da), kartın özetinden bağımsız.
+- İki cevap (`POST /cryo/excel-satiri`, `cryo_sablon.karsiliksizi_kaydet()`),
+  ikisi de bir Excel kaydı açıp sayfasına götürüyor:
+  - **"Tankta: haritaya al"**: straw gobletinde Excel kaydı olarak durur,
+    programda görünür; sayfasından hastaya / tüpe / tedaviye bağlanır
+    (kullanıcının v6.189'daki seçimi, `yerlesim`'in kurulumda açtığı kayıtların
+    aynı yazımı). Excel'deki satır aynen kalır.
+  - **"Tankta değil: Excel'den çıkar"** (onaylı): kayıt "tanktan çıkarıldı"
+    açılır, Excel'deki satır boşalır.
+  - İkisi de Excel kaydının sayfasından geri alınıyor ("Tanka geri koy" /
+    "Tanktan çıkarıldı"). Kaydın "neden tüp değil"i: "Laboratuvarın Excel'inde
+    yazılı, programda kaydı yok (silinmiş ya da değişmiş olabilir)".
+- **Kendiliğinden açılmıyor, bilerek.** Önce arka planın her karşılıksız
+  satıra Excel kaydı açmasını yazdım, denerken vazgeçtim: kart kalıcı
+  silinip sperm yeniden ekrandan girilirse satır yeni kayıtla tanınıyor, arada
+  açılmış Excel kaydı aynı straw'ın kopyası olurdu (haritada iki straw).
+  Straw'ın tankta olup olmadığını da program bilemez.
+- Satır formdan geliyor ama yalnızca planın karşılıksız satırlarında
+  aranıyor (beyaz liste), plan yazma kilidinin içinde yeniden kuruluyor
+  (v6.246'nın kuralı); bu arada tanınan, dosyası değişen ya da uydurulan satır
+  hiçbir şey yazmadan karta döner. Değişiklik geçmişine yazılıyor.
+- Gobleti programın tank düzeninde olmayan satır (Excel'e sonradan eklenmiş
+  goblet) listede değil, sayı olarak eski uyarıda: onun yolu yine
+  `cryo_esle.py yerlesim`. "Sayfa1" satırı konumsuz, NO'suz satır tank /
+  kanister konumuyla açılıyor (`yerlesim`'in yazdığı gibi).
+- Değişmeyen veride laboratuvar Excel'i v6.248'le bayt bayt aynı.
+
+## Kullanıcının yapacağı
+
+1. Programın yeni sürümle çalıştığına bakın: Yönetici → "Program sürümü"
+   v6.249 olmalı, "yeniden başlatılmadı" uyarısı olmamalı. Varsa programı
+   kapatıp açın.
+2. Cryo Haritası'nda "Tankların Excel'i" kartına bakın:
+   - H2 listede değilse ve Excel'i yeniden indirince H2 boşsa iş bitmiştir
+     (sebep 1: eski programdı).
+   - H2 listedeyse (sebep 2) straw kullanıldığı için **"Tankta değil:
+     Excel'den çıkar"**. Androlojide de görünsün isterseniz önce **"Tankta:
+     haritaya al"**, açılan Excel kaydında H3'teki gibi "Hastaya bağla" ve
+     tedavide kullan.
+
+## Deneme
+
+- Gerçek kopya (ad / numara basılmadan): beş halin her birinde H2 satırı
+  (tablo); değişmemiş veride laboratuvar Excel'i eski kodla hücre hücre ve
+  bayt bayt aynı, karşılıksız satır yok.
+- Uçtan uca, gerçek kopya, sunucu: erkeğin kartı uygulamanın rotasıyla
+  kalıcı silindi -> program H2 boş, Excel dolu, kart 1 satır, kanister
+  sayfasında H2'nin kutusunda satır; kendiliğinden Excel kaydı açılmadı.
+  Uydurma ve bozuk satır numarası hiçbir şey yazmadı. "Tankta değil" ->
+  Excel kaydı "tanktan çıkarıldı" (tarih, kişi, günlük), sayfası sebebi ve
+  "Tanka geri koy"u gösteriyor; Excel'de H2 boşaldı, kart ve kanister notu
+  kalktı; aynı satıra ikinci cevap yazılmadı. "Tanka geri koy" -> programda
+  H2 Excel kaydı, Excel'de satır geri; androloji aramasında çıkıyor.
+- Embriyo: kopyada Excel satırı olan, transferi olmayan bir tedavi kalıcı
+  silindi -> kartta satır, "Tankta" -> gobletinde embriyo Excel kaydı, satır
+  aynen (hücre değişikliği yok).
+- "Sayfa1" (konumsuz) ve NO'suz satır: kayıtları yok edilince doğru konumla
+  (konumsuz / kanister) açıldı, ikinci çalıştırma bir şey açmadı.
+- Tarayıcı (390 ve 1280 px): kart ve kanister sayfasında yatay taşma yok,
+  düğmeler ekranda; "Tankta değil" onayında vazgeçince gönderilmiyor.
+- Eski Python (v6.248) + yeni şablonlar: Cryo Haritası ve kanister sayfası
+  açılıyor, yeni satırlar basılmıyor, eski uyarı duruyor.

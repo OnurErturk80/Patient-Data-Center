@@ -342,6 +342,13 @@ METINLER = {
                            "en": "Only a name in the Excel (no date, cells, vial)"},
     "eslesmeme_gobletsiz": {"tr": "Excel'de gobleti (NO) yazmıyor",
                             "en": "No goblet (NO) in the Excel"},
+    # v6.249: straw'ın programdaki kaydı yok olmuş (kalıcı silinen hasta kartı
+    # ya da tedavi, eşleşmesi kopan kayıt); laboratuvarın Excel'inde duruyor.
+    "eslesmeme_programda_kalmadi": {
+        "tr": "Laboratuvarın Excel'inde yazılı, programda kaydı yok (silinmiş "
+              "ya da değişmiş olabilir)",
+        "en": "In the lab's workbook, no record in the program (it may have been "
+              "deleted or changed)"},
     "eslesmeme_sperm_tarih_yok": {"tr": "Sperm: tarih yok ya da okunamadı",
                                   "en": "Sperm: no readable date"},
     "eslesmeme_sperm_tarih_ileri": {"tr": "Sperm: tarih bugünden ileri (yazım hatası)",
@@ -3890,12 +3897,33 @@ METINLER = {
               "the Excel record is linked to the treatment's tube and the workbook "
               "said something else (the workbook's text stays on the record's page)."},
     "sablon_bilinmeyen": {
-        "tr": "{n} dolu satırın programda hiçbir karşılığı yok (dosya tank düzeni "
-              "kurulduktan sonra Excel'de değiştirilmiş olabilir); olduğu gibi "
-              "bırakıldı. Programa almak için: python3 cryo_esle.py yerlesim <dosya>",
-        "en": "{n} filled rows have no record in the program (the workbook may have "
-              "been edited after the tank layout was built); they were left as they "
-              "are. To bring them in: python3 cryo_esle.py yerlesim <file>"},
+        "tr": "{n} dolu satırın programda hiçbir karşılığı yok ve gobleti programın "
+              "tank düzeninde yok (dosya tank düzeni kurulduktan sonra Excel'de "
+              "değiştirilmiş olabilir); olduğu gibi bırakıldı. Programa almak için: "
+              "python3 cryo_esle.py yerlesim <dosya>",
+        "en": "{n} filled rows have no record in the program and their goblet is not "
+              "in the program's tank layout (the workbook may have been edited after "
+              "the layout was built); they were left as they are. To bring them in: "
+              "python3 cryo_esle.py yerlesim <file>"},
+    # v6.249: Excel'de yazılı, programda kaydı olmayan straw -- program sorar.
+    "sablon_karsiliksiz": {
+        "tr": "Laboratuvarın Excel'inde yazılı ama programda kaydı olmayan {n} straw "
+              "var: Excel'de duruyor, Cryo Haritası'nda görünmüyor (kaydı silinmiş "
+              "ya da değişmiş olabilir). Straw tankta mı?",
+        "en": "{n} straws are in the lab's workbook but have no record in the program: "
+              "the workbook shows them, the Cryo Map does not (the record may have "
+              "been deleted or changed). Is the straw in the tank?"},
+    "goblet_karsiliksiz": {
+        "tr": "Laboratuvarın Excel'inde bu gobletde yazılı, programda kaydı yok:",
+        "en": "In the lab's workbook for this goblet, no record in the program:"},
+    "karsiliksiz_tankta": {"tr": "Tankta: haritaya al", "en": "In the tank: add to map"},
+    "karsiliksiz_degil": {"tr": "Tankta değil: Excel'den çıkar",
+                          "en": "Not in the tank: remove from workbook"},
+    "karsiliksiz_degil_onay": {
+        "tr": "Straw tanktan çıkarılmış olarak kaydedilecek, laboratuvarın Excel'indeki "
+              "satırı boşalacak. Excel kaydının sayfasından geri alınabilir.",
+        "en": "The straw will be recorded as removed from the tank and its workbook "
+              "row emptied. It can be undone on the Excel record's page."},
     "sablon_sigmayan": {
         "tr": "{n} straw yazılamadı: gobleti dolu ya da gobleti dosyada yok.",
         "en": "{n} straws could not be written: the goblet is full or not in the file."},

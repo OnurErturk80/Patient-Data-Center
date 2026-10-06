@@ -1,0 +1,26 @@
+{# Laboratuvarın Excel'inde yazılı, programda hiçbir kaydı olmayan straw
+   (v6.249, `cryo_sablon.karsiliksiz_listesi()`): satırı Excel'de olduğu gibi
+   duruyor, program yerini boş gösteriyor -- kaydı silinmiş ya da değişmiş.
+   Program straw'ın tankta olup olmadığını bilemez, soruyor. Cryo
+   Haritası'nın Excel kartı ve kanister sayfasının gobleti aynı satırı
+   basıyor; iki cevap da `POST /cryo/excel-satiri`, Excel kaydının sayfasına
+   götürür (geri alma orada).
+
+   Onay kutusu tek tırnaklı nitelikte (tuzak #16). #}
+{% macro satir(x, yer=true) %}
+<div class="karsiliksiz">
+  <div class="bilgi">
+    <span>{% if yer %}<b>{{ x.yer }}</b> · {% endif %}{{ x.soyad or "" }} {{ x.ad or "" }}</span>
+    <span class="meta">{{ gg_aa_yyyy(x.tarih) if x.tarih else (x.tarih_ham or "—") }}
+      {%- if x.icerik %} · {{ x.icerik }}{% endif %}{% if x.vial %} · {{ x.vial }}{% endif %}</span>
+  </div>
+  <form method="post" action="/cryo/excel-satiri" class="karsiliksizform">
+    <input type="hidden" name="sayfa" value="{{ x.sayfa }}">
+    <input type="hidden" name="satir" value="{{ x.satir }}">
+    <input type="hidden" name="sutun" value="{{ x.sutun }}">
+    <button class="dugme kucuk ikincil" type="submit" name="tankta" value="1">{{ metin("karsiliksiz_tankta") }}</button>
+    <button class="dugme kucuk ikincil" type="submit" name="tankta" value="0"
+            onclick='return confirm({{ metin("karsiliksiz_degil_onay")|tojson }})'>{{ metin("karsiliksiz_degil") }}</button>
+  </form>
+</div>
+{% endmacro %}

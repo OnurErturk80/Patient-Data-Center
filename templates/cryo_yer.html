@@ -10,6 +10,7 @@
 {% endblock %}
 {% block icerik %}
 {% import "_pgt.html" as pgtm %}
+{% import "_karsiliksiz.html" as ks %}
 
 {# Kanisterin gobletleri, Excel'deki sırasıyla (v6.189). Her goblet 4 yuva
    (kullanıcı: "Her goblete 4 straw/Cryotop konuyor"); dolu yuva tüp ya da
@@ -51,6 +52,16 @@
     {% for tur, x in dolu %}{% if tur == "tup" %}{{ yuva_tup(x) }}{% else %}{{ yuva_excel(x) }}{% endif %}{% endfor %}
     {% for i in range(bos) %}<div class="yuva bosyuva">{{ metin("bos_yuva") }}</div>{% endfor %}
     {% if not dolu and not bos %}<div class="yuva bosyuva">{{ metin("goblet_bos") }}</div>{% endif %}
+    {# Laboratuvarın Excel'inde bu gobletde yazılı, programda kaydı olmayan
+       straw (v6.249): yuva sayılmıyor, soruluyor. Eski program `karsiliksiz`
+       vermiyor (tuzak #5). #}
+    {% set kx = karsiliksiz.get(g.konum_id, []) if karsiliksiz is defined else [] %}
+    {% if kx %}
+    <div class="gobletkarsiliksiz">
+      <div class="meta">{{ metin("goblet_karsiliksiz") }}</div>
+      {% for x in kx %}{{ ks.satir(x, yer=false) }}{% endfor %}
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
 </div>

@@ -2021,3 +2021,19 @@ form.satir.aday .dugme.kucuk {
 .tasimasatir .bilgi em {
   display: block; font-style: normal; font-size: 13px; color: var(--ink-2);
 }
+
+/* Laboratuvarın Excel'inde yazılı, programda kaydı olmayan straw (v6.249,
+   `_karsiliksiz.html`): bilgi + iki cevap; dar ekranda düğmeler alta. Excel
+   kartının uyarısında ve kanister sayfasının gobletinde aynı satır. */
+.karsiliksiz { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
+               justify-content: space-between; padding: 8px 0 0; margin-top: 8px;
+               border-top: 1px solid var(--line); font-size: 13px; }
+.karsiliksiz .bilgi { display: flex; flex-direction: column; flex: 1 1 200px; min-width: 0; }
+.karsiliksiz .meta { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.karsiliksizform { display: flex; flex-wrap: wrap; gap: 6px; }
+.karsiliksizform .dugme.kucuk {
+  width: auto; min-height: 0; margin: 0; padding: 6px 10px; font-size: 12px;
+}
+.gobletkarsiliksiz { border-top: 1px dashed var(--uyari); margin-top: 6px; padding-top: 6px; }
+.gobletkarsiliksiz > .meta { font-size: 12px; color: var(--uyari); }
+.gobletkarsiliksiz > .meta + .karsiliksiz { border-top: 0; margin-top: 0; }

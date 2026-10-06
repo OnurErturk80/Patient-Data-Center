@@ -172,12 +172,26 @@
   <div class="ipucu" style="margin:4px 14px">{{ metin("sablon_ozet").format(
       korunan=o.korunan or 0, bosalan=o.bosalan or 0, yeni=o.yeni or 0) }}</div>
   {% if o.duzeltilen %}<div class="ipucu" style="margin:4px 14px">{{ metin("sablon_duzeltilen").format(n=o.duzeltilen) }}</div>{% endif %}
+  {# Programın bilmediği satırların sayısı: v6.249'dan beri her kurulumda taze
+     (`harita_excel.durum()`), dosya yazılmasa da; yeniden başlatılmamış eski
+     program (tuzak #5) vermiyor, o zaman son yazımın özeti. #}
+  {% if harita_excel.karsiliksiz is not defined %}
   {% if o.bilinmeyen %}<div class="uyari" style="margin:4px 14px">{{ metin("sablon_bilinmeyen").format(n=o.bilinmeyen) }}</div>{% endif %}
+  {% endif %}
   {% if o.sigmayan %}
   <div class="uyari" style="margin:4px 14px">{{ metin("sablon_sigmayan").format(n=o.sigmayan) }}
     <ul style="margin:6px 0 0 18px;padding:0">
       {% for s in o.sigmayanlar[:20] %}<li>{{ s.etiket or metin("excel_kaydi") }} · {{ s.yer }}</li>{% endfor %}
     </ul></div>
+  {% endif %}
+  {% endif %}
+  {% if harita_excel.karsiliksiz is defined and not harita_excel.sablon_hata %}
+  {% if harita_excel.bilinmeyen_disarida %}<div class="uyari" style="margin:4px 14px">{{ metin("sablon_bilinmeyen").format(n=harita_excel.bilinmeyen_disarida) }}</div>{% endif %}
+  {% if harita_excel.karsiliksiz %}
+  {% import "_karsiliksiz.html" as ks %}
+  <div class="uyari" id="karsiliksiz" style="margin:4px 14px">{{ metin("sablon_karsiliksiz").format(n=harita_excel.karsiliksiz|length) }}
+    {% for x in harita_excel.karsiliksiz[:30] %}{{ ks.satir(x) }}{% endfor %}
+  </div>
   {% endif %}
   {% endif %}
   {% else %}
