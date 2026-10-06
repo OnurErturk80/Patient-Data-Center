@@ -181,6 +181,15 @@ def tedavilerin_sperm_yontemleri(cycle_id=None) -> dict:
     return sonuc
 
 
+def _sperm_kaynagi_kodlari(ornek_yontemi, dondurulmus) -> list:
+    """`sperm_kaynagi_metni()`'nin yöntemleri, kod olarak, sırasıyla."""
+    kodlar = [ornek_yontemi] if ornek_yontemi and ornek_yontemi != SPERM_COZULMUS else []
+    kodlar += [k for k in dondurulmus if k not in kodlar]
+    if not kodlar and ornek_yontemi:
+        kodlar = [ornek_yontemi]
+    return kodlar
+
+
 def sperm_kaynagi_metni(h, ornek_yontemi, dondurulmus) -> str | None:
     """Formun "Sperm kaynağı": androloji örneğinin yöntemi (`ornek_yontemi`,
     kod) ve kullanılan dondurulmuş spermin bilinen yöntemleri (`dondurulmus`,
@@ -188,18 +197,40 @@ def sperm_kaynagi_metni(h, ornek_yontemi, dondurulmus) -> str | None:
     çözülen TESE "TESE" basılıyor. Taze örnek ile dondurulmuş TESE birlikteyse
     ikisi ("Mastürbasyon, TESE"). Dondurulmuş kaydın yöntemi bilinmiyorsa
     örneğinki olduğu gibi (v6.246'ya kadarki davranış)."""
-    kodlar = [ornek_yontemi] if ornek_yontemi and ornek_yontemi != SPERM_COZULMUS else []
-    kodlar += [k for k in dondurulmus if k not in kodlar]
-    if not kodlar and ornek_yontemi:
-        kodlar = [ornek_yontemi]
-    return ", ".join(_et(h, "sperm_alinma", k) for k in kodlar) or None
+    return ", ".join(_et(h, "sperm_alinma", k)
+                     for k in _sperm_kaynagi_kodlari(ornek_yontemi, dondurulmus)) or None
+
+
+# Cerrahi alınma yöntemi (v6.250): adında ya da kodunda TESE, TESA, PESA ya da
+# MESA geçen yöntem ("Mikro-TESE" dahil). Liste laboratuvarın, yöntemler
+# listeye eklenebiliyor -- tek tek kod yazılmadı.
+_CERRAHI_YONTEM = re.compile(r"TESE|TESA|PESA|MESA")
+
+
+def cerrahi_sperm_metni(h, ornek_yontemi, dondurulmus) -> str | None:
+    """ART Lab'ın SEMEN bölümüne yazılan (v6.250, kullanıcının isteği: "TESE
+    kullanıldığında ART lab formunda semen bölümünde de yazsın"):
+    `sperm_kaynagi_metni()`'nin yöntemlerinden yalnızca cerrahi olanlar
+    ("TESE"). Ejakülat, donör ve bilinmeyen yöntem yazılmaz -- bölümün
+    değerleri o zaman zaten semen analizinin."""
+    adlar = []
+    for kod in _sperm_kaynagi_kodlari(ornek_yontemi, dondurulmus):
+        ad = _et(h, "sperm_alinma", kod)
+        if _CERRAHI_YONTEM.search(f"{_buyuk(ad)} {_buyuk(kod)}") and ad not in adlar:
+            adlar.append(ad)
+    return ", ".join(adlar) or None
+
+
+def _sperm_yontemleri(cycle_id, ornek):
+    """(androloji örneğinin yöntemi, tedavide kullanılan dondurulmuş spermlerin
+    yöntemleri) -- iki formun ortak girdisi."""
+    return (ornek["alinma_yontemi"] if ornek else None,
+            tedavilerin_sperm_yontemleri(cycle_id).get(cycle_id, []))
 
 
 def sperm_kaynagi(cycle_id, ornek, h) -> str | None:
     """Bir tedavinin formu için `sperm_kaynagi_metni()` (iki form aynı yerden)."""
-    return sperm_kaynagi_metni(
-        h, ornek["alinma_yontemi"] if ornek else None,
-        tedavilerin_sperm_yontemleri(cycle_id).get(cycle_id, []))
+    return sperm_kaynagi_metni(h, *_sperm_yontemleri(cycle_id, ornek))
 
 
 def _iptal_notu(c):
@@ -1947,6 +1978,7 @@ def artlab_verisi(cycle_id: int):
                           (ornek["id"],)):
             analiz[r["asama"]] = r
     bazal, sonrasi = analiz.get("bazal"), analiz.get("hazirlik_sonrasi")
+    sperm_yontemleri = _sperm_yontemleri(cycle_id, ornek)
 
     tupler = dondurma_tupleri(cycle_id)
     cozulenler = cozulen_ornekler(cycle_id)
@@ -1963,7 +1995,9 @@ def artlab_verisi(cycle_id: int):
         "yasi": _yas(c["dogum_tarihi"], db.tedavi_gunu(cycle_id)),
         "esinin_adi": c["es_adi"],
         "islem": metinler.t("tip_" + c["cycle_tipi"]) if c["cycle_tipi"] else "",
-        "sperm_kaynagi": sperm_kaynagi(cycle_id, ornek, h) or "",     # v6.247
+        "sperm_kaynagi": sperm_kaynagi_metni(h, *sperm_yontemleri) or "",   # v6.247
+        # SEMEN bölümünün boş alt satırı: cerrahi yöntem ("TESE", v6.250).
+        "semen_notu": cerrahi_sperm_metni(h, *sperm_yontemleri) or "",
         "hekim": c["opu_hekim"] or "",
         "et_hekim": _transfer_hekimi(c, transfer_satirlari) or "",   # v6.232: "Hekimler: ... ET"
         "laboratuvar": _yapan(cycle_id, "opu") or "",
@@ -2016,6 +2050,12 @@ def artlab_verisi(cycle_id: int):
     }
 
 
+# SEMEN'in Bazal sütununun boş alt kutusu (v6.250): cerrahi yöntem, "TESE".
+# Kutu iki sütunluk birleşik hücre: Excel birleşik hücrenin yazısını sağdaki
+# boş kutuya taşırmaz, keser -- uzun yazı (birden çok yöntem) bu yüzden
+# taşmıyor, küçülüyor (`ARTLAB_SIGDIR_HUCRELER`), iki çıktıda da.
+_ARTLAB_SEMEN_NOTU = (31, 0)
+
 # Özet bloğunun kutuları: (satır, sütun, anahtar). Kâğıt aslındaki yerler.
 _ARTLAB_OZET = [
     (28, 0, "bazal_kons"), (28, 2, "son_kons"),          # M/ml
@@ -2023,6 +2063,7 @@ _ARTLAB_OZET = [
     (31, 5, "oosit_dej"),                                 # Mll / Ml / Pl / Dej
     (28, 6, "oosit_dej_islem"),                           # Dej (fertilizasyon)
     (28, 8, "pn0"), (28, 9, "pn1"), (28, 10, "pn2"), (28, 11, "pn3"),
+    (*_ARTLAB_SEMEN_NOTU, "semen_notu"),                   # TESE (v6.250)
     # FREEZE, THAW ve TRANSFER ayrı: dört kutu, `_ARTLAB_DORT_KUTU` (v6.152).
 ]
 
@@ -2051,7 +2092,9 @@ _ARTLAB_OZET_EK = [
 # küçülüyor. Bulgu yokken basılı yazı zaten sığıyor, punto değişmiyor.
 # "Hekimler: OPU ... ET ..." (v6.232): ET formun sağ kenarında, taşacak yeri
 # yok; OPU'nun sağı artık dolu ET kutusu. İkisi de sığmazsa küçülür.
-ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2), (6, 21), (6, 25), (_ARTLAB_YORUM_SATIR, 0)}
+# SEMEN'in alt kutusu (v6.250, `_ARTLAB_SEMEN_NOTU`): birden çok cerrahi yöntem.
+ARTLAB_SIGDIR_HUCRELER = {(6, 2), (8, 2), (6, 21), (6, 25), (_ARTLAB_YORUM_SATIR, 0),
+                          _ARTLAB_SEMEN_NOTU}
 
 
 def sigdir_hucreleri(ad: str, deger=None) -> set:

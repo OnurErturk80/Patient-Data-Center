@@ -1191,10 +1191,12 @@ body.kilitli { overflow: hidden; }
    `.serit.sade` (sarar, tıklanmaz), `.alan`'ın kendi dolgusu yetiyor. */
 .topluadet { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
              gap: 8px; }
+/* Uzun etiket ("4PN ve üzeri", toplu fertilizasyon, v6.250) iki satıra
+   sarıyor; kutular satırın altına hizalı kalıyor (hücre satır boyunda,
+   `space-between`). */
 .alan .topluadet label.adet { display: flex; flex-direction: column; gap: 4px;
-                              margin: 0; min-width: 0; }
-.alan .topluadet label.adet span { white-space: nowrap; overflow: hidden;
-                                   text-overflow: ellipsis; }
+                              justify-content: space-between; margin: 0; min-width: 0; }
+.alan .topluadet label.adet span { overflow-wrap: break-word; line-height: 1.25; }
 .alan .topluadet input { text-align: center; }
 .serit.sade.toplu { padding: 0; }
 .serit .sn.kalir { opacity: .45; }                     /* dokunulmayacak */

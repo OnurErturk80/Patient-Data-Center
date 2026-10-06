@@ -19989,3 +19989,137 @@ değişikliğinde görünüyordu, hangi satır olduğunu da söylemiyordu).
   düğmeler ekranda; "Tankta değil" onayında vazgeçince gönderilmiyor.
 - Eski Python (v6.248) + yeni şablonlar: Cryo Haritası ve kanister sayfası
   açılıyor, yeni satırlar basılmıyor, eski uyarı duruyor.
+
+# v6.250 — Fertilizasyonda toplu yazım; ART Lab'ın SEMEN bölümünde TESE
+
+Kullanıcı: "Fertilizasyonda da aynı mutasyon gibi topluca yazma olsun.TESE
+kullanıldığında ART lab formunda semen bölümünde de yazsın." ("mutasyon":
+maturasyon -- v6.245 ve v6.246'nın toplu maturasyonu.)
+
+## Önce
+
+- Fertilizasyon kontrolü yumurta yumurta yazılıyordu: sonuç (Normal /
+  Dejenere / Kayıp), PN sayısı, 2PN'de Z skoru, zigot bulguları, saat →
+  "Kaydet → sıradaki yumurta".
+- Toplu yazım yalnızca maturasyondaydı: Yumurta Dondurma'nın denüdasyonu
+  (v6.245), IVF/ICSI ve Yumurta Çözme'nin ICSI ekranı (v6.246).
+- TESE v6.247'den beri ART Lab'ın başında yazıyordu ("Sperm: → TESE"); formun
+  SEMEN bölümü (Bazal / İşlem: M/ml, % Motil, % Normal) spermin nereden
+  alındığını söylemiyordu.
+
+## Bugün: toplu fertilizasyon
+
+- Fertilizasyon ekranında, numara şeridinin üstünde **"Toplu fertilizasyon"
+  kartı**: bugünkü dağılım ("7 2PN · 1 1PN · 1 0PN · 3 enjekte edilmemiş ya da
+  ICSI'de dejenere") ve "Toplu yaz" (`?duzenle=toplu`). Kart, önizleme ve
+  dağıtım kuralı toplu maturasyonla ortak (`templates/_toplu_mat.html`,
+  `_toplu_mat_plani()`): sayılar kutuların sırasıyla yumurtaların ekrandaki
+  sırasına dağılıyor.
+- **Kutular ve sırası**: 2PN, 1PN, 3PN, 4PN ve üzeri, 0PN, Dejenere, Kayıp --
+  iki listenin (PN sayısı, fertilizasyon sonucu) değerleri; laboratuvar
+  listeye değer ekledikçe kutu da ekleniyor. PN kutusu sonucu "Normal"
+  yazıyor. Sıra maturasyonun MII → MI → GV → Dejenere sırasının karşılığı:
+  döllenen önde, öteki PN sayıları listenin sırasıyla, döllenmeyen (0PN)
+  sonra, Dejenere ve Kayıp en sonda. Kullanıcıya sorulmadan seçildi.
+- **Atlanan yumurta**: enjekte edilmeyen (ICSI'de "Yapılmadı"; yumurta yumurta
+  form da ona fertilizasyon sormuyor, v6.105) ve ICSI'de dejenere olan.
+  Önizlemede soluk ve kesik çizgili, numara şeridindeki yazısıyla ("MI",
+  "GV", "Dej."), sırada atlanıyor, hiç yazılmıyor.
+- Yazılan kayıt yumurta yumurta formunkiyle aynı (`fert_kaydet()`):
+  yumurtanın en son fertilizasyon kaydı güncelleniyor, yoksa açılıyor (olay
+  yumurtanın kendi tedavisinde, v6.147); yumurtanın durumu (zigot, 1pn, 0pn,
+  degenere, kayip) iki yolun ortak kuralından (`_fert_durumu()`); işlemi
+  yapan yazılıyor (v6.208). Hepsi formun saatiyle.
+- **Z skoru ve zigot bulguları toplu yazılmıyor**, kendi formundan. Hali
+  değişen yumurtanın Z skoru boşalıyor (Z yalnızca 2PN'nin; değişiklik
+  geçmişinde), hali aynı kalan yumurtaya dokunulmuyor: Z skoru, bulguları,
+  saati yerinde.
+- Kayıtlı fertilizasyonu değişecek yumurta onay istiyor, engel değil: "7 (2PN
+  → 1PN), 9 (0PN → Dejenere)". PN'i girilmemiş "Normal" kayıt kendi adıyla
+  sayılıyor ("1 Normal"), değişirse o da onay istiyor.
+- Hiçbir şey yazılmayan durumlar: sayı okunamıyor ya da hepsi boş; toplam
+  yazılabilecek yumurtadan fazla; ekranın gösterdiği hal bu arada değişti;
+  değişiklik onaylanmadı; **değişecek yumurtanın cleavage ya da sonraki bir
+  aşamada (blastokist, biyopsi, vitrifikasyon, transfer) kaydı var**,
+  numaralarıyla -- sıraya göre dağıtılan bir sayı gelişen bir embriyoya 0PN ya
+  da Dejenere yazmasın (yumurta yumurta form değiştirebiliyor); Yumurta
+  Çözme'de saat bu tedavideki çözmeden önce. Denetimler yazma kilidinin içinde
+  (v6.246). Hata dönüşünde sayılar formda.
+- Toplu kipte yumurta yumurta form basılmıyor; kaydı olan yumurtanın bilgi
+  kartı duruyor. Yumurta Çözme'de yumurtalar bu tedavi için çözülenler.
+- Ekranın `?duzenle=`'si artık metin: `1` seçili yumurtanın formu, `toplu`
+  toplu yazım (ICSI'deki gibi).
+
+## Bugün: ART Lab'ın SEMEN bölümünde TESE
+
+- SEMEN bölümünün Bazal sütununda, "% Normal" satırının altındaki boş kutuya
+  spermin cerrahi alınma yöntemi: **"TESE"**. TESA, PESA, MESA ve mikroTESE
+  de (yöntemin adında ya da kodunda TESE, TESA, PESA ya da MESA geçiyorsa --
+  laboratuvar listeye yöntem ekleyebiliyor). İki yöntem birlikteyse "TESA,
+  TESE". Mastürbasyon, elektroejakülasyon, donör ve yöntemi bilinmeyen
+  çözülmüş örnekte kutu boş: bölümün değerleri zaten semen analizinin.
+- Kaynak v6.247'nin sperm kaynağı: androloji örneğinin yöntemi ve tedavide
+  kullanılan dondurulmuş spermin yöntemi (`formlar.cerrahi_sperm_metni()`,
+  `sperm_kaynagi_metni()`'nin yöntemlerinden yalnızca cerrahi olanlar).
+  Başlıktaki "Sperm: → ..." ile hep aynı yerden.
+- Kutu iki sütunluk birleşik hücre. Uzun yazı küçülüyor, kesilmiyor -- ekranda
+  ve Excel'de (`shrinkToFit`). Excel birleşik hücrenin yazısını yanındaki boş
+  kutuya taşırmıyor, keser; o yüzden "sağa taşır" (v6.135) burada değil.
+- Yalnızca ilk kâğıt. Embriyoloji Özet değişmedi (SPERM KAYNAĞI zaten
+  yazıyor).
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmamış program yeni şablonla fertilizasyonda kartı göstermiyor (yumurta
+formu eskisi gibi); ICSI ve denüdasyonun toplu yazımı eskisi gibi; ART Lab'ın
+SEMEN kutusu boş kalıyor.
+
+Bilinen sınır: Z skoru ve zigot bulguları toplu yazılmıyor.
+
+## Deneme
+
+- Sahte veritabanında 12 yumurtalı bir IVF/ICSI tedavisi (1–9 enjekte, 10
+  ICSI'de dejenere, 11 MI ve 12 GV enjekte edilmedi): kart, boş dağılım ("3
+  enjekte edilmemiş ya da ICSI'de dejenere"), kutuların sırası, toplu kipte
+  yumurta formunun basılmaması, kilitli üç yumurtanın yazısı (Dej., MI, GV).
+  Yumurta Dondurma'da kart yok.
+- Hatalar (fazla, harf, boş, eski ya da bozuk hal, adreste uydurma hata
+  anahtarı): hiçbir şey yazılmadı; sayılar ve seçili yumurta geri, uydurma
+  anahtar ekrana basılmadı.
+- 7 2PN + 1 1PN + 1 0PN: 1–7 2PN (zigot), 8 1PN, 9 0PN, 10–12 dokunulmadı;
+  kayıtlar yumurtanın tedavisinde, formun saatiyle; işlemi yapan yazıldı;
+  ilk yazımda değişiklik geçmişi satırı yok. Tedavi ekranında Döllenen 7, ART
+  Lab'ın 0PN / 1PN / 2PN kutuları 1 / 1 / 7, Özet'te 2PN 7, anormal 2.
+- Aynı sayılar: hiçbir şey yazılmadı, saat değişmedi.
+- 6 2PN + 1 1PN + 1 0PN + 1 Dejenere: onaysız red, metin "7 (2PN → 1PN), 8
+  (1PN → 0PN), 9 (0PN → Dejenere)"; onaylı kayıtta yalnızca 7–9 değişti
+  (kayıtlar güncellendi, yeni satır açılmadı), 7'nin Z skoru boşaldı, 2PN
+  kalan 1'inki yerinde; değişiklik geçmişinde beş satır.
+- PN'i girilmemiş Normal kayıt: dağılımda "1 Normal", "5 (Normal → 2PN)"
+  onayıyla yazıldı.
+- Cleavage kaydı olan yumurta: onu değiştiren sayılar "kaydı var: 3" ile red;
+  aynı hali yazan sayılar geçti, hiçbir şey değişmedi.
+- Yumurta Çözme: çözmeden önceki saat "1, 2 (çözme 20.09.2026 09:00)" ile
+  red; sonraki saatte yazıldı, olaylar yumurtaların kendi (Yumurta Dondurma)
+  tedavisinde, işlemi yapan Yumurta Çözme'nin.
+- Yumurta yumurta form eskisi gibi kaydediyor (Kayıp → durum kayip).
+- Tarayıcıda (320, 360, 375, 390 ve 1280 px): önizleme ("Toplam 9 / 9
+  yumurta", fazla, eksik -- "7–9. yumurtalara dokunulmaz"), değişiklik onayı,
+  Dejenere ve Kayıp kırmızı; kayıt sonrası şerit "1-2PN … 8-1PN 9-0PN 10-Dej.
+  11-MI 12-GV"; hata dönüşü en üstte, sayılar formda; uzun etiket ("4PN ve
+  üzeri") sarıyor, kutular hizalı; yatay taşma ve betik hatası yok.
+- Ortak şablonun öteki iki ekranı: ICSI ve denüdasyonun toplu kartı, önizlemesi
+  ve çiplerin sınıfları v6.249 (eski kod + eski şablon) ile aynı veride metin
+  metin aynı (yedi sayfa, IVF/ICSI, Yumurta Dondurma, Yumurta Çözme).
+- Eski Python (v6.249) + yeni şablonlar: fertilizasyonda kart yok, yumurta
+  formu kaydediyor; ICSI ve denüdasyonun toplu yazımı eskisi gibi.
+- SEMEN, dokuz durum: taze TESE "TESE", mikroTESE "mikroTESE", PESA "PESA",
+  TESA + dondurulmuş TESE "TESA, TESE", çözülmüş örnek + dondurulmuş TESE
+  "TESE", Mastürbasyon + dondurulmuş TESE "TESE"; Mastürbasyon,
+  elektroejakülasyon ve androloji kaydı olmayan tedavide boş. Başlık ve Özet'in
+  SPERM KAYNAĞI aynı yöntemlerden. Ekranda kutu sığıyor, Excel'de A32
+  `shrinkToFit`.
+- Büyük kopya (ad / numara basılmadan): 984 tedavinin fertilizasyon ekranı ve
+  toplu kipi (1.968 istek) hatasız, ortalama 34 ms; 907 tedavide toplu form,
+  9.166 yumurtanın hepsinde önizleme şeritle aynı (numara, yazı, renk). ART
+  Lab: 1.909 tedavinin 21'inde SEMEN "TESE" (sperm kaynağı TESE olanların
+  hepsi), 1.888'inde boş; başlıkla tutarsız yok.

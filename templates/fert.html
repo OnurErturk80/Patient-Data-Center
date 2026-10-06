@@ -3,12 +3,13 @@
 {% block yanmenu %}{% endblock %}
 {# Ayni kaydi baska biri duzenliyorsa uyari (v6.55): birim ALAN degil
    KAYIT, cunku kaydederken formun tamami yaziliyor. #}
-{% block kayitanahtari %}{% if sp %}cycle:{{ c.id }}:fert:{{ sp.id }}{% endif %}{% endblock %}
+{% block kayitanahtari %}{% if toplu is defined and toplu and toplu.form %}cycle:{{ c.id }}:fert:toplu{% elif sp %}cycle:{{ c.id }}:fert:{{ sp.id }}{% endif %}{% endblock %}
 {% import "_kareler.html" as kr %}
 {% import "_gezinme.html" as gez %}
 {% import "_islem_yapan.html" as iy %}
 {% import "_snapshot.html" as snap %}
 {% import "_bilgikart.html" as bk %}
+{% import "_toplu_mat.html" as tm %}
 {% block ustbaslik %}{{ metin("fertilizasyon_kontrolu") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -33,6 +34,17 @@
 {% if fet_tipi_mi(c.cycle_tipi) %}<a class="dugme" href="/cycle/{{ c.id }}/thaw">{{ metin("cozme_ekrani") }}</a>
 {% else %}<a class="dugme" href="/cycle/{{ c.id }}/denudasyon">{{ metin("denudasyon_ekrani") }}</a>{% endif %}
 {% else %}
+
+{#- Toplu fertilizasyon (v6.250, kullanıcının isteği: "Fertilizasyonda da aynı
+    mutasyon [maturasyon] gibi topluca yazma olsun"): ICSI'nin toplu
+    maturasyonunun kartı ve önizlemesi (`_toplu_mat.html`). Toplu kipte yumurta
+    yumurta form basılmıyor -- iki "Kaydet" yan yana olmasın. `toplu is
+    defined`: yeniden başlatılmamış program (tuzak #5). -#}
+{% set toplu_kipi = toplu is defined and toplu and toplu.form %}
+{% if toplu is defined and toplu %}
+{{ tm.kart(toplu, toplu.form, toplu.kategoriler, toplu.yumurtalar, '/cycle/' ~ c.id ~ '/fert',
+           sp.id, simdi) }}
+{% endif %}
 
 <div class="serit">
   {% for o in oositler %}
@@ -126,6 +138,10 @@
    düzenleme akışı (yukarıdaki `kayit and not duzenle` / aşağıdaki form)
    bozulmaz. #}
 <div class="kart"><div class="bos">{{ metin("icsi_yapilmadi_fert_form_yok") }}</div></div>
+
+{% elif toplu_kipi %}
+{# Toplu yazım açık (v6.250): kaydı olmayan yumurtanın formu yukarıdaki
+   toplu formla yan yana basılmıyor. #}
 
 {% else %}
 <form method="post" action="/cycle/{{ c.id }}/fert" id="fertform">
@@ -310,6 +326,7 @@
   });
 })();
 </script>
+{% if toplu is defined and toplu and toplu.form %}{{ tm.betik(toplu) }}{% endif %}
 {{ gez.cubuk(c, gezinme) }}
 {% include "_buyutec.html" %}
 <script>

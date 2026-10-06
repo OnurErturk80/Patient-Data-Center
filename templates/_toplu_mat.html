@@ -11,14 +11,23 @@
     (tuzak #5): hepsi yokken yanlış sayılıyor, denüdasyon eskisi gibi.
     `yumurtalar` ekranın kendi satırları (denüdasyonda `kayitli`, ICSI'de
     `oositler`); ICSI'ye özgü alanlar (`enjekte`, `icsi`, `cozme_dejenere`)
-    denüdasyonun satırında yok, yine yanlış. -#}
+    denüdasyonun satırında yok, yine yanlış.
+
+    Toplu fertilizasyon (v6.250) aynı kartı ve betiği kullanıyor: `t.tur`
+    "fert", kutular ve yumurtalar sunucudan (`app._toplu_fert_ekrani()`), her
+    biri şeridin yazımını (`kisa`), rengini (`deg`), kilidini ve değişiklik
+    listesindeki adını (`hal`) taşıyor. Maturasyonun satırlarında bu alanlar
+    yok (`is defined`): eskisi gibi `mat_kisa()` ve kodun kendisi. -#}
 
 {% macro kart(t, form, maturasyonlar, yumurtalar, kok, secili, simdi) %}
-{% set on = "toplu_icsi_" if t.icsi else "toplu_mat_" %}
+{% set fert = t.tur is defined and t.tur == "fert" %}
+{% set on = "toplu_fert_" if fert else ("toplu_icsi_" if t.icsi else "toplu_mat_") %}
+{% set kilit_on = "toplu_fert_" if fert else "toplu_icsi_" %}
+{% set baslik = metin("toplu_fert_baslik" if fert else "toplu_mat_baslik") %}
 {% if form %}
 <div class="kart" style="margin-top:12px">
-  <h2>{{ metin("toplu_mat_baslik") }}</h2>
-  <form method="post" action="{{ kok }}/toplu-maturasyon" id="topluMatForm">
+  <h2>{{ baslik }}</h2>
+  <form method="post" action="{{ kok }}/{{ t.eylem if t.eylem is defined else 'toplu-maturasyon' }}" id="topluMatForm">
     <input type="hidden" name="secili" value="{{ secili }}">
     <input type="hidden" name="mevcut" value="{{ t.imza }}">
     <div class="alan">
@@ -31,11 +40,14 @@
                  max="{{ t.n if t.n is defined else yumurtalar|length }}"
                  step="1" inputmode="numeric" pattern="[0-9]*"
                  value="{{ t.adet.get(m.kod) or '' }}"
-                 data-kod="{{ m.kod }}" data-kisa="{{ mat_kisa(m.kod) }}">
+                 data-kod="{{ m.kod }}"
+                 data-kisa="{{ m.kisa if m.kisa is defined else mat_kisa(m.kod) }}"
+                 data-hal="{{ m.hal if m.hal is defined else '' }}"
+                 data-deg="{{ 1 if (m.deg if m.deg is defined else m.kod == 'degenere') else 0 }}">
         </label>
         {% endfor %}
       </div>
-      <div class="ipucu">{{ metin("toplu_mat_ipucu") }}{% if t.kilitli %} {{ metin("toplu_icsi_kilitli_ipucu") }}{% endif %}</div>
+      <div class="ipucu">{{ metin("toplu_mat_ipucu") }}{% if fert %} {{ metin("toplu_fert_ipucu") }}{% endif %}{% if t.kilitli %} {{ metin(kilit_on ~ "kilitli_ipucu") }}{% endif %}</div>
     </div>
     {% if t.icsi %}
     {#- ICSI ekranı (v6.246): MII'lerin enjeksiyonu açıkça soruluyor, varsayılan
@@ -61,12 +73,17 @@
           ne olacağını basar. -#}
       <div class="serit sade toplu" id="topluOnizleme">
         {% for o in yumurtalar %}
-        {% set kisa = mat_kisa(o.mat) if o.mat else (metin("mat_kisa_degenere") if o.cozme_dejenere else "") %}
-        <span class="sn {% if o.mat %}dolu{% endif %}{% if o.mat == 'degenere' or o.icsi == 'degenere' or o.cozme_dejenere %} deg{% endif %}{% if o.cozme_dejenere %} kilitli{% endif %}"
+        {% set ozel = o.kisa is defined %}
+        {% set kisa = o.kisa if ozel else (mat_kisa(o.mat) if o.mat else (metin("mat_kisa_degenere") if o.cozme_dejenere else "")) %}
+        {% set kilitli = o.kilitli if ozel else o.cozme_dejenere %}
+        {% set deg = o.deg if ozel else (o.mat == 'degenere' or o.icsi == 'degenere' or o.cozme_dejenere) %}
+        <span class="sn {% if o.mat %}dolu{% endif %}{% if deg %} deg{% endif %}{% if kilitli %} kilitli{% endif %}"
               data-mat="{{ o.mat or '' }}" data-kisa="{{ kisa }}"
+              data-hal="{{ o.hal if ozel else '' }}"
+              data-matdeg="{{ 1 if (o.deg if ozel else o.mat == 'degenere') else 0 }}"
               data-enj="{{ 1 if o.enjekte else 0 }}"
               data-enjdeg="{{ 1 if o.enjekte and o.icsi == 'degenere' else 0 }}"
-              {%- if o.cozme_dejenere %} data-kilitli="1"{% endif %}>
+              {%- if kilitli %} data-kilitli="1"{% endif %}>
           <b>{{ o.cycle_sira_no }}</b><i>{{ kisa }}</i></span>
         {% endfor %}
       </div>
@@ -92,10 +109,10 @@
 </div>
 {% else %}
 <div class="kart" style="margin-top:12px">
-  <h2>{{ metin("toplu_mat_baslik") }}</h2>
+  <h2>{{ baslik }}</h2>
   <dl style="margin:0">
-    <div class="veri"><dt>{{ metin("maturasyon") }}</dt>
-      <dd>{% if t.dagilim %}{% for ad, n in t.dagilim %}{{ n }} {{ ad }}{% if not loop.last %} · {% endif %}{% endfor %}{% if t.bos %} · {{ metin("toplu_mat_bos_n").format(n=t.bos) }}{% endif %}{% else %}{{ metin("toplu_mat_hic") }}{% endif %}{% if t.kilitli %} · {{ metin("toplu_icsi_kilitli_n").format(n=t.kilitli) }}{% endif %}</dd></div>
+    <div class="veri"><dt>{{ metin("fertilizasyon_kontrolu" if fert else "maturasyon") }}</dt>
+      <dd>{% if t.dagilim %}{% for ad, n in t.dagilim %}{{ n }} {{ ad }}{% if not loop.last %} · {% endif %}{% endfor %}{% if t.bos %} · {{ metin("toplu_mat_bos_n").format(n=t.bos) }}{% endif %}{% else %}{{ metin("toplu_mat_hic") }}{% endif %}{% if t.kilitli %} · {{ metin(kilit_on ~ "kilitli_n").format(n=t.kilitli) }}{% endif %}</dd></div>
     {% if t.icsi and t.dagilim %}
     <div class="veri"><dt>{{ metin("enjeksiyon") }}</dt>
       <dd>{{ metin("toplu_icsi_enjekte_n").format(n=t.enjekte_n) if t.enjekte_n else metin("toplu_icsi_enjekte_yok") }}</dd></div>
@@ -113,14 +130,18 @@
 {% macro betik(t) %}
 <script>
 (function () {
-  // Toplu maturasyon (v6.245, v6.246): yalnızca ?duzenle=toplu iken basılıyor;
-  // form yoksa dön (tuzak #10). Önizleme sunucunun kuralını izliyor: kutular
-  // listenin sırasıyla, yumurtalar ekranın sırasıyla, kilitli yumurta atlanır;
-  // ICSI'de enjeksiyon yalnızca MII'ye (`_toplu_hedef_enjekte()`). Kayıt
-  // sunucuda yeniden hesaplanıyor.
+  // Toplu maturasyon (v6.245, v6.246) ve fertilizasyon (v6.250): yalnızca
+  // ?duzenle=toplu iken basılıyor; form yoksa dön (tuzak #10). Önizleme
+  // sunucunun kuralını izliyor: kutular listenin sırasıyla, yumurtalar ekranın
+  // sırasıyla, kilitli yumurta atlanır; ICSI'de enjeksiyon yalnızca MII'ye
+  // (`_toplu_hedef_enjekte()`). Kayıt sunucuda yeniden hesaplanıyor. Kırmızı
+  // ve değişiklik listesindeki ad kutunun / yumurtanın kendi verisinde
+  // (`data-deg`, `data-matdeg`, `data-hal`; v6.250).
   var form = document.getElementById('topluMatForm');
   if (!form) return;
   var kutular = Array.prototype.slice.call(form.querySelectorAll('input[data-kod]'));
+  var kirmizi = {};
+  kutular.forEach(function (k) { if (k.dataset.deg === '1') kirmizi[k.dataset.kod] = true; });
   var cipler = Array.prototype.slice.call(document.querySelectorAll('#topluOnizleme .sn'))
     .filter(function (c) { return !c.dataset.kilitli; });
   var enjAlan = document.getElementById('topluEnjeksiyon');
@@ -172,13 +193,13 @@
       if (k && enjAlan) yeniEnj = kod === 'mii' && (enj ? enj === 'evet' : eskiEnj);
       c.querySelector('i').textContent = k ? k.dataset.kisa : c.dataset.kisa;
       c.classList.toggle('dolu', !!kod);
-      c.classList.toggle('deg', kod === 'degenere'
+      c.classList.toggle('deg', (k ? !!kirmizi[kod] : c.dataset.matdeg === '1')
                                 || (yeniEnj && eskiEnj && c.dataset.enjdeg === '1'));
       c.classList.toggle('kalir', !k && T > 0);          // dokunulmayacak
       var degisir = !!(k && (eski || eskiEnj) && (eski !== kod || eskiEnj !== yeniEnj));
       c.classList.toggle('degisir', degisir);
-      if (degisir) degisen.push(no(c) + ' (' + hal(c.dataset.kisa, eskiEnj) + ' → '
-                                + hal(k.dataset.kisa, yeniEnj) + ')');
+      if (degisir) degisen.push(no(c) + ' (' + hal(c.dataset.hal || c.dataset.kisa, eskiEnj)
+                                + ' → ' + hal(k.dataset.hal || k.dataset.kisa, yeniEnj) + ')');
       if (yeniEnj) enjekte.push(no(c));
     });
     var yazi = bicim(M.toplam, {n: T, m: N});

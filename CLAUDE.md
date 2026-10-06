@@ -455,6 +455,34 @@ enjeksiyonu; IVF/ICSI ve Yumurta Çözme (ICSI aşaması olan tip).
   ekrana numara); imza yumurtanın kimliğiyle (numara tekil değil).
 - Toplu kipte yumurta yumurta form basılmıyor. ICSI'nin `?duzenle=` metin
   (`1` ya da `toplu`); şablon `toplu is defined` diye soruyor (tuzak #5).
+
+**Fertilizasyonda toplu yazım** (v6.250, README v6.250; kullanıcı:
+"Fertilizasyonda da aynı mutasyon [maturasyon] gibi topluca yazma olsun").
+ICSI'nin kartı, önizlemesi ve planı (`_toplu_mat.html` -- sözlüğün `tur` /
+`eylem`'i --, `_toplu_mat_plani()`); fertilizasyon aşaması olan tip (IVF/ICSI,
+Yumurta Çözme). POST `/cycle/{id}/fert/toplu-fertilizasyon`.
+- **Kutular** `_toplu_fert_kategorileri()`: `pn:<kod>` (sonuç Normal) ve
+  `sonuc:<kod>` (Normal olmayan), iki listenin değerleri. Sıra 2PN, öteki
+  PN'ler listenin sırasıyla, 0PN, Dejenere, Kayıp -- kullanıcıya sorulmadan
+  seçildi, değiştirmeden önce sor. PN'i girilmemiş Normal kayıt `normal`:
+  kutusu yok, kendi adıyla sayılır, değişirse onay.
+- **Kilitli** (atlanır): enjekte edilmeyen (`icsi_yapilmadi`) ve ICSI'de
+  dejenere. Önizlemedeki yazı ve renk (`_toplu_fert_yumurtasi()`'nin `kisa` /
+  `deg`'i) `fert.html`'in numara şeridiyle aynı kural -- birini değiştirirsen
+  ikisini (büyük kopyada 9.166 yumurtada karşılaştırıldı).
+- Kayıt `_fert_toplu_yaz()`: yumurta yumurta formun kaydı (en son
+  fertilizasyon kaydı, yoksa yeni; olay yumurtanın kendi tedavisinde), durum
+  `_fert_durumu()` (iki yol ortak), değişen alan değişiklik geçmişine `b` ile.
+  Z skoru ve zigot bulguları toplu yazılmıyor; hali değişen yumurtanın Z'si
+  boşalır, aynı kalana dokunulmaz.
+- **Cleavage ya da sonrasında kaydı olan yumurta toplu yazımla değişmez**
+  (`_sonra_kayit_var()`, `_FERT_SONRAKI_TIPLER`; ICSI'ninkiyle aynı işlev):
+  sıraya göre dağıtılan bir sayı gelişen bir embriyoya 0PN ya da Dejenere
+  yazmasın. Bu engeli gevşetme.
+- Denetimler kilidin içinde (`_TopluDur`), imza `_toplu_fert_imzasi()`, hata
+  anahtarları `TOPLU_FERT_HATALARI` (tuzak #9). Fertilizasyonun `?duzenle=`
+  metin (`1` / `toplu`); şablon `toplu is defined` diye soruyor.
+
 **Dejenere işaretlenen yumurta sonraki aşamalarda GÖRÜNÜR ama KİLİTLİDİR**
 (v6.139, kullanıcının isteği: "dejenere işaretlenen yumurta ileriki menülerde
 yumurtanın kutucuğunda Dej. kısaltmasıyla gösterilsin ve işlem yapılamasın.
@@ -585,9 +613,9 @@ tipte de ICSI aşaması yoksa aynı ihtiyaç doğar, aynı deseni kullan.
   "Toplu yaz", `?duzenle=toplu`), formda listenin etkin değerleri başına sayı.
   Sayılar listenin sırasıyla, yumurta NUMARASI sırasına (`_toplu_mat_plani()`;
   önizleme betiği aynı kuralı izliyor -- birini değiştirirsen ikisini). Kart ve
-  betik v6.246'dan beri ICSI ekranıyla ortak: `_toplu_mat.html` (`kart()`,
-  `betik()`), yumurta satırı `_toplu_yumurta()` biçiminde; ikinci bir kopya
-  yazma.
+  betik v6.246'dan beri ICSI ekranıyla, v6.250'den beri fertilizasyonla ortak:
+  `_toplu_mat.html` (`kart()`, `betik()`), yumurta satırı `_toplu_yumurta()`
+  biçiminde; ikinci bir kopya yazma.
   - POST `/cycle/{id}/denudasyon/toplu-maturasyon`, tek işlem, ya hepsi ya
     hiçbiri: toplam yumurtadan fazlaysa engel (yeni yumurta açılmaz, v6.242);
     kayıtlı değer değişecekse onay (`onay`, engel değil); önizlemenin dayandığı
@@ -905,7 +933,8 @@ ekranı yazarsan formu hep açık bırakma, bu düzene uy. İki parça var
 Denüdasyonda `?duzenle=saat` (cycle'ın denüdasyon saati), `?duzenle=oosit`
 (oositlerin çalışma kipi) ve `?duzenle=toplu` (Yumurta Dondurma'nın toplu
 maturasyonu, v6.245) — `duzenle=1`/`duzenle=2` okunmuyor (v6.22). ICSI'de
-`?duzenle=1` (seçili yumurtanın formu) ve `?duzenle=toplu` (v6.246).
+`?duzenle=1` (seçili yumurtanın formu) ve `?duzenle=toplu` (v6.246);
+fertilizasyonda da (v6.250).
 
 **Aşama ekranının ana fotoğrafının yeri yüklenmeden ayrılır** (v6.208,
 kullanıcı: "Denüdasyon ekranı işlem yaparken sayfa kayıyor"). `.foto img`
@@ -1634,6 +1663,15 @@ kalıptan**: `form_kalip.json`.
   "Örnek:" (HÜCRE) satırındaki TESE / TESA. Androloji örneği "Çözülmüş örnek"
   (`SPERM_COZULMUS`) ya da boşsa yalnızca dondurulmuşunki; ikisi farklıysa
   ikisi ("Mastürbasyon, TESE"). Elle yazılan notta yöntem aranmıyor.
+- **ART Lab'ın SEMEN bölümünde cerrahi yöntem** (v6.250, kullanıcı: "TESE
+  kullanıldığında ART lab formunda semen bölümünde de yazsın"): Bazal
+  sütununun "% Normal" altındaki boş kutu (`_ARTLAB_SEMEN_NOTU`, iki sütunluk
+  birleşik hücre), `formlar.cerrahi_sperm_metni()`: `sperm_kaynagi_metni()`'nin
+  yöntemlerinden adında ya da kodunda TESE, TESA, PESA, MESA geçenler ("TESA,
+  TESE"); ejakülat, donör ve bilinmeyen yöntem yazılmaz. Kutu
+  `ARTLAB_SIGDIR_HUCRELER`'de: Excel birleşik hücrenin yazısını yanındaki boş
+  kutuya taşırmaz, keser -- birleşik hücreye uzun yazı koyarsan taşırma
+  (`tasan`) değil küçült (`sigdir`).
 - **ART raporunda gün 2 "40-45 saat", gün 3 "72 saat" satırına yazılır.**
   Eşleme olduğu için kullanıcıya soruldu, **"kalsın" dedi** (2026-09-11).
   Boşaltma. "24 saat : hücre" satırı boş — programda o kayıt yok.

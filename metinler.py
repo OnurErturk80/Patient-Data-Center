@@ -1964,6 +1964,34 @@ METINLER = {
               "çözmesinden önce: {n} (çözme {z}). Saati düzeltip yeniden kaydedin.",
         "en": "Not saved: the procedure time is before the thaw of these oocytes "
               "in this cycle: {n} (thaw {z}). Correct the time and save again."},
+    # Fertilizasyon ekranında toplu yazım (v6.250). Fazlalığın ve çözmeden
+    # önceki saatin metni ICSI'ninki (`toplu_icsi_fazla`,
+    # `toplu_icsi_cozmeden_once`), ötekiler maturasyonunki.
+    "toplu_fert_baslik": {"tr": "Toplu fertilizasyon", "en": "Bulk fertilization"},
+    "toplu_fert_ipucu": {
+        "tr": "Z skoru ve zigot bulguları yumurtanın kendi formundan girilir.",
+        "en": "Enter the Z score and zygote findings on the oocyte's own form."},
+    "toplu_fert_kilitli_ipucu": {
+        "tr": "Enjekte edilmeyen ve ICSI'de dejenere olan yumurta atlanır.",
+        "en": "Oocytes not injected or degenerate at ICSI are skipped."},
+    "toplu_fert_kilitli_n": {"tr": "{n} enjekte edilmemiş ya da ICSI'de dejenere",
+                             "en": "{n} not injected or degenerate at ICSI"},
+    "toplu_fert_degisecek": {"tr": "Kayıtlı fertilizasyonu değişecek yumurtalar:",
+                             "en": "Oocytes whose recorded fertilization will change:"},
+    "toplu_fert_onayla": {"tr": "Bu yumurtaların fertilizasyon kaydını değiştir",
+                          "en": "Change the fertilization record of these oocytes"},
+    "toplu_fert_onay": {
+        "tr": "Kaydedilmedi: kayıtlı fertilizasyonu değişecek yumurtalar var. "
+              "Aşağıda onaylayıp yeniden kaydedin.",
+        "en": "Not saved: some oocytes already have a different fertilization "
+              "record. Confirm below and save again."},
+    "toplu_fert_sonraki": {
+        "tr": "Kaydedilmedi: şu yumurtaların cleavage ya da sonraki aşamalarda "
+              "kaydı var: {n}. Toplu yazım onları değiştirmez; sayıları "
+              "değiştirin ya da yumurtanın kendi formundan düzeltin.",
+        "en": "Not saved: these oocytes have a cleavage or later record: {n}. "
+              "Bulk entry does not change them; change the counts or correct the "
+              "oocyte on its own form."},
     "temizle": {"tr": "Temizle", "en": "Clear"},
     "tamam": {"tr": "Tamam", "en": "Done"},
     "enjeksiyon": {"tr": "Enjeksiyon", "en": "Injection"},

@@ -4424,6 +4424,12 @@ DENUDASYON_HATALARI |= TOPLU_MAT_HATALARI
 TOPLU_ICSI_HATALARI = {"toplu_mat_sayi", "toplu_mat_bos", "toplu_mat_degisti",
                        "toplu_icsi_fazla", "toplu_icsi_enjeksiyon_yok", "toplu_icsi_onay",
                        "toplu_icsi_sonraki", "toplu_icsi_cozmeden_once"}
+# Fertilizasyon ekranının toplu yazımının hataları (v6.250). Fazlalığın ve
+# çözmeden önceki saatin metni ICSI'ninkiyle aynı (metinleri genel); onay ve
+# sonraki aşama fertilizasyonun kendi metni.
+TOPLU_FERT_HATALARI = {"toplu_mat_sayi", "toplu_mat_bos", "toplu_mat_degisti",
+                       "toplu_icsi_fazla", "toplu_fert_onay", "toplu_fert_sonraki",
+                       "toplu_icsi_cozmeden_once"}
 
 
 def _denudasyon_mat_kosulu(cycle_id, o) -> str:
@@ -4585,6 +4591,18 @@ def _toplu_adresteki_yumurtalar(deger, yumurtalar) -> list:
     return [y for y in yumurtalar if y["id"] in istenen]
 
 
+def _toplu_secilenler(q, yumurtalar, cycle_id, cozme=False):
+    """Hata metninin {n}'i ve {z}'si: `?ornekler=` yumurtalarının numaraları
+    ve (`cozme`) bu tedavideki en son çözmelerinin saati."""
+    secilen = _toplu_adresteki_yumurtalar(q.get("ornekler"), yumurtalar)
+    nolar = ", ".join(str(y["cycle_sira_no"]) for y in secilen)
+    if not cozme:
+        return nolar, ""
+    zamanlar = [cz["zaman"] for cz in (_bu_tedavideki_cozme(y["id"], cycle_id)
+                                        for y in secilen) if cz and cz["zaman"]]
+    return nolar, gg_aa_yyyy_saat(max(zamanlar)) if zamanlar else ""
+
+
 def _toplu_mat_ekrani(q, yumurtalar, maturasyonlar, duzenle, hata,
                       icsi=False, cycle_id=None) -> dict:
     """"Toplu maturasyon" kartı: dağılım, (formda) hata dönüşünde yazılan
@@ -4615,15 +4633,9 @@ def _toplu_mat_ekrani(q, yumurtalar, maturasyonlar, duzenle, hata,
             hata_metni = hata_metni.format(
                 n=liste.replace(",", ", ") if _TOPLU_MAT_LISTE.match(liste) else "")
         elif hata in ("toplu_icsi_sonraki", "toplu_icsi_cozmeden_once"):
-            secilen = _toplu_adresteki_yumurtalar(q.get("ornekler"), yumurtalar)
-            nolar = ", ".join(str(y["cycle_sira_no"]) for y in secilen)
-            if hata == "toplu_icsi_sonraki":
-                hata_metni = hata_metni.format(n=nolar)
-            else:
-                zamanlar = [cz["zaman"] for cz in (_bu_tedavideki_cozme(y["id"], cycle_id)
-                                                    for y in secilen) if cz and cz["zaman"]]
-                hata_metni = hata_metni.format(
-                    n=nolar, z=gg_aa_yyyy_saat(max(zamanlar)) if zamanlar else "")
+            nolar, z = _toplu_secilenler(q, yumurtalar, cycle_id,
+                                         cozme=hata == "toplu_icsi_cozmeden_once")
+            hata_metni = hata_metni.format(n=nolar, z=z)
     return {"form": form, "icsi": icsi, "n": len(acik),
             "dagilim": dagilim, "bos": sayac.get(None, 0),
             "kilitli": len(yumurtalar) - len(acik),
@@ -7014,25 +7026,33 @@ async def icsi_kaydet(request: Request, cycle_id: int):
 
 # --------------------------------------------- ICSI'de toplu maturasyon (v6.246)
 
-# Bu tiplerde kayıt varsa yumurta ICSI'den sonraki aşamaya geçmiş demektir.
+# Bu tiplerde kayıt varsa yumurta ICSI'den (ilki hariç: fertilizasyondan,
+# `_FERT_SONRAKI_TIPLER`, v6.250) sonraki aşamaya geçmiş demektir.
 _ICSI_SONRAKI_TIPLER = ("fertilizasyon_kontrolu", "cleavage_degerlendirme",
                         "blastokist_degerlendirme", "biyopsi", "vitrifikasyon", "transfer")
+_FERT_SONRAKI_TIPLER = _ICSI_SONRAKI_TIPLER[1:]
+
+
+def _sonra_kayit_var(specimen_id, cycle_id, tip, tipler) -> bool:
+    """Yumurtanın BU tedavide `tipler`'den birinde kaydı var mı (`_tedavi_ek()`:
+    Yumurta Çözme'de kaynağın yumurta dondurması sayılmaz)."""
+    isaret = ",".join("?" * len(tipler))
+    return bool(db.tek(
+        f"SELECT 1 x FROM olay WHERE specimen_id=? AND iptal_mi=0 AND tip IN ({isaret})"
+        + _tedavi_ek(tip, cycle_id, "olay") + " LIMIT 1",
+        (specimen_id, *tipler)))
 
 
 def _icsiden_sonra_kayit_var(specimen_id, cycle_id, tip) -> bool:
     """Yumurtanın BU tedavide fertilizasyon ya da sonraki bir aşamada kaydı var
-    mı (`_tedavi_ek()`: Yumurta Çözme'de kaynağın yumurta dondurması sayılmaz).
+    mı (`_sonra_kayit_var()`).
 
     Toplu yazım böyle yumurtanın maturasyonunu ya da enjeksiyonunu değiştirmez:
     enjekte edilmedi yazılan yumurta cleavage ve blastokistte hiç görünmez
     (`_ICSI_YAPILMADI`), kayıtları ekrandan düşerdi -- bir sayının yanlış
     yazılması yetmesin. Yumurta yumurta form değiştirebiliyor (tek yumurta,
-    bilerek)."""
-    isaret = ",".join("?" * len(_ICSI_SONRAKI_TIPLER))
-    return bool(db.tek(
-        f"SELECT 1 x FROM olay WHERE specimen_id=? AND iptal_mi=0 AND tip IN ({isaret})"
-        + _tedavi_ek(tip, cycle_id, "olay") + " LIMIT 1",
-        (specimen_id, *_ICSI_SONRAKI_TIPLER)))
+    bilerek). Toplu fertilizasyonun karşılığı cleavage ve sonrası (v6.250)."""
+    return _sonra_kayit_var(specimen_id, cycle_id, tip, _ICSI_SONRAKI_TIPLER)
 
 
 @uygulama.post("/cycle/{cycle_id}/icsi/toplu-maturasyon")
@@ -7410,9 +7430,292 @@ def fert_durum(cycle_id: int, cycle_tipi=None):
     )
 
 
+def _fert_durumu(sonuc, pn) -> str:
+    """Fertilizasyon kaydından sonra yumurtanın `specimen.durum`'u (yumurta
+    yumurta form ve toplu yazım aynı kural)."""
+    if sonuc == "degenere":
+        return "degenere"
+    if sonuc == "kayip":
+        return "kayip"
+    if pn == "2":
+        return "zigot"
+    return f"{pn}pn" if pn else "kontrol_edildi"
+
+
+# ------------------------------------------------ toplu fertilizasyon (v6.250)
+#
+# Kullanıcı: "Fertilizasyonda da aynı mutasyon [maturasyon] gibi topluca yazma olsun."
+# Toplu maturasyonun (v6.245, v6.246) kuralı: sayılar kutuların sırasıyla
+# yumurtaların ekrandaki sırasına dağıtılıyor (`_toplu_mat_plani()`), kart ve
+# önizleme aynı şablon (`_toplu_mat.html`). Kutular fertilizasyonun iki
+# sorusunun birleşimi: sonucu Normal olan yumurtanın PN sayısı ve Normal
+# olmayan sonuçlar (Dejenere, Kayıp). Yazılan kayıt yumurta yumurta formun
+# (`fert_kaydet()`) kaydı; Z skoru ve zigot bulguları kendi formundan.
+#
+# Kutunun kodu "pn:<PN kodu>" ya da "sonuc:<sonuç kodu>": iki listenin kodları
+# ayrı tutuluyor (laboratuvar listelere aynı kodu ekleyebilir).
+
+
+def _fert_kategorisi(sonuc, pn):
+    """Kayıtlı fertilizasyonun kutusu; kayıt yoksa None. Sonucu Normal, PN'i
+    girilmemiş kayıt "normal": hiçbir kutuya karşılık gelmiyor, toplu yazım onu
+    kayıtlı bir değer sayar (değişecekse onay sorulur)."""
+    if sonuc and sonuc != "normal":
+        return f"sonuc:{sonuc}"
+    if pn:
+        return f"pn:{pn}"
+    return "normal" if sonuc else None
+
+
+def _fert_kategori_adlari() -> dict:
+    """{kutu kodu: ad}: iki listenin bütün değerleri, kaldırılmışlar dahil --
+    kayıtlı bir değer kendi etiketiyle görünür (tuzak #6)."""
+    adlar = {}
+    for r in db.sorgu("SELECT liste_adi, kod, etiket FROM liste_degeri WHERE lab_id=? "
+                      "AND liste_adi IN ('pn_sayisi', 'fert_sonuc')", (db.LAB_ID,)):
+        if r["liste_adi"] == "pn_sayisi":
+            adlar[f"pn:{r['kod']}"] = r["etiket"]
+        else:
+            adlar["normal" if r["kod"] == "normal" else f"sonuc:{r['kod']}"] = r["etiket"]
+    return adlar
+
+
+def _fert_kategori_adi(kat, adlar) -> str:
+    """Kutunun ya da kayıtlı halin adı ("2PN", "Kayıp"); listede yoksa kodu."""
+    return adlar.get(kat) or (kat.partition(":")[2] or kat if kat else "—")
+
+
+def _toplu_fert_kategorileri() -> list:
+    """Toplu fertilizasyonun kutuları, sırasıyla -- `_toplu_mat_plani()` bu
+    sırayla dağıtıyor: 2PN, öteki PN sayıları listenin sırasıyla (1PN, 3PN,
+    4PN ve üzeri), 0PN, sonra Normal olmayan sonuçlar (Dejenere, Kayıp).
+    Maturasyonun MII, MI, GV, Dejenere sırasının karşılığı: döllenen önde,
+    döllenmeyen sonra, dejenere ve kayıp en sonda.
+
+    `kisa` numara şeridinin yazımı (`fert.html`'in şeridi: "2PN", "Dej.",
+    "—"), `deg` şeridin kırmızısı, `hal` değişiklik listesindeki adı."""
+    pnler = db.liste("pn_sayisi")
+    sira = ([p for p in pnler if p["kod"] == "2"]
+            + [p for p in pnler if p["kod"] not in ("0", "2")]
+            + [p for p in pnler if p["kod"] == "0"])
+    kat = [{"kod": f"pn:{p['kod']}", "etiket": p["etiket"], "hal": p["etiket"],
+            "kisa": f"{p['kod']}PN", "deg": False} for p in sira]
+    for s in db.liste("fert_sonuc"):
+        if s["kod"] != "normal":
+            kat.append({"kod": f"sonuc:{s['kod']}", "etiket": s["etiket"],
+                        "hal": s["etiket"],
+                        "kisa": (metinler.t("mat_kisa_degenere")
+                                 if s["kod"] == "degenere" else "—"),
+                        "deg": s["kod"] in ("degenere", "kayip")})
+    return kat
+
+
+def _toplu_fert_yumurtasi(r, adlar) -> dict:
+    """`fert_durum()`'un satırı -> toplu yazımın ortak biçimi (`_toplu_yumurta()`).
+
+    `mat` burada yumurtanın kutusu (`_fert_kategorisi()`): ortak şablon ve
+    plan bu adı okuyor. Kilitli -- sırada atlanır --: enjekte edilmeyen
+    (`_ICSI_YAPILMADI`; yumurta yumurta form da ona fertilizasyon sormuyor,
+    v6.105) ve ICSI'de dejenere olan yumurta. `kisa` / `deg` numara şeridinin
+    yazımı ve rengi, `fert.html`'in şeridiyle aynı kural -- birini
+    değiştirirsen ikisini."""
+    kat = _fert_kategorisi(r["fert"], r["pn"])
+    if r["dejenere"]:
+        kisa = metinler.t("mat_kisa_degenere")
+    elif r["pn"]:
+        kisa = f"{r['pn']}PN"
+    elif r["fert"]:
+        kisa = "—"
+    elif r["icsi_yapilmadi"]:
+        kisa = _mat_kisa(r["mat"]) if r["mat"] else "∅"
+    else:
+        kisa = ""
+    return {"id": r["id"], "cycle_id": r["cycle_id"], "cycle_sira_no": r["cycle_sira_no"],
+            "mat": kat, "hal": _fert_kategori_adi(kat, adlar), "kisa": kisa,
+            "deg": bool(r["dejenere"] or r["fert"] == "kayip" or r["icsi_yapilmadi"]),
+            "enjekte": False, "icsi": None,
+            "kilitli": bool(r["icsi_yapilmadi"] or r["icsi"] == "degenere")}
+
+
+def _toplu_fert_yumurtalari(cycle_id, cycle_tipi) -> list:
+    adlar = _fert_kategori_adlari()
+    return [_toplu_fert_yumurtasi(r, adlar) for r in fert_durum(cycle_id, cycle_tipi)]
+
+
+def _toplu_fert_imzasi(yumurtalar) -> str:
+    """Önizlemenin dayandığı hal (`_toplu_mat_imzasi()`'nin fertilizasyon
+    hali): yumurtanın kimliği, kutusu ve kilidi."""
+    return ",".join(f"{y['id']}:{y['mat'] or ''}:{int(y['kilitli'])}" for y in yumurtalar)
+
+
+def _toplu_fert_degisim_metni(plan, kategoriler) -> str:
+    """Kayıtlı fertilizasyonu değişecek yumurtalar: "2 (1PN → 2PN), 5 (Kayıp →
+    0PN)". Kaydı olmayan yumurta listede yok: ilk kez yazılıyor, onay istemez.
+    Önizleme betiği aynı metni kuruyor (`data-hal`)."""
+    adlar = {k["kod"]: k["hal"] for k in kategoriler}
+    return ", ".join(f"{y['cycle_sira_no']} ({y['hal']} → {adlar.get(kod, kod)})"
+                     for y, kod in plan if y["mat"] and y["mat"] != kod)
+
+
+def _toplu_fert_ekrani(q, yumurtalar, kategoriler, duzenle, hata, cycle_id) -> dict:
+    """"Toplu fertilizasyon" kartı: `_toplu_mat_ekrani()`'nin sözlüğü
+    (`_toplu_mat.html` ikisini aynı basıyor) + kutular ve yumurtalar."""
+    kodlar = [k["kod"] for k in kategoriler]
+    acik = [y for y in yumurtalar if not y["kilitli"]]
+    sayac, adlar = {}, {}
+    for y in acik:
+        sayac[y["mat"]] = sayac.get(y["mat"], 0) + 1
+        adlar[y["mat"]] = y["hal"]
+    # Kutusu olmayan kayıtlı hal (PN'i girilmemiş Normal, listeden kaldırılmış
+    # kod) kendi adıyla sayılır.
+    dagilim = [(k["etiket"], sayac[k["kod"]]) for k in kategoriler if sayac.get(k["kod"])]
+    dagilim += [(adlar[k], n) for k, n in sayac.items() if k and k not in kodlar]
+    form = duzenle == "toplu"
+    adetler = (_toplu_mat_adetleri(q, kodlar) if form else None) or []
+    plan = _toplu_mat_plani(yumurtalar, adetler)
+    hata_metni = ""
+    if hata in TOPLU_FERT_HATALARI:
+        hata_metni = metinler.t(hata)
+        if hata == "toplu_icsi_fazla":
+            hata_metni = hata_metni.format(n=sum(n for _, n in adetler), m=len(acik))
+        elif hata in ("toplu_fert_sonraki", "toplu_icsi_cozmeden_once"):
+            nolar, z = _toplu_secilenler(q, yumurtalar, cycle_id,
+                                         cozme=hata == "toplu_icsi_cozmeden_once")
+            hata_metni = hata_metni.format(n=nolar, z=z)
+    return {"tur": "fert", "eylem": "toplu-fertilizasyon",
+            "form": form, "icsi": False, "n": len(acik),
+            "dagilim": dagilim, "bos": sayac.get(None, 0),
+            "kilitli": len(yumurtalar) - len(acik), "enjekte_n": 0,
+            "adet": dict(adetler), "enjeksiyon": None,
+            "imza": _toplu_fert_imzasi(yumurtalar),
+            "degisim_metni": _toplu_fert_degisim_metni(plan, kategoriler),
+            "onay_gerek": hata == "toplu_fert_onay", "hata_metni": hata_metni,
+            "kategoriler": kategoriler, "yumurtalar": yumurtalar}
+
+
+@uygulama.post("/cycle/{cycle_id}/fert/toplu-fertilizasyon")
+async def fert_toplu(request: Request, cycle_id: int):
+    """Fertilizasyonun toplu yazımı (v6.250; kural yukarıdaki notta).
+
+    Yazılan, yumurta yumurta formun (`fert_kaydet()`) kaydı: sonuç ve PN
+    sayısı, yumurtanın durumu formunkiyle aynı (`_fert_durumu()`), olay
+    yumurtanın KENDİ tedavisine (v6.62, v6.147). Z skoru boşalır (yalnızca
+    2PN'de, kendi formundan girilir); zigot bulgularına dokunulmaz.
+
+    Ya hepsi ya hiçbiri: sayılar okunamıyorsa, toplam fertilizasyona alınan
+    yumurtadan fazlaysa, ekranın gösterdiği hal bu arada değiştiyse, kayıtlı
+    bir fertilizasyon değişecek ve onaylanmadıysa, yazılacak yumurtanın
+    cleavage ya da sonraki aşamada kaydı varsa ya da saat bu tedavideki
+    çözmeden önceyse hiçbir şey yazılmaz, form yazılanlarla geri açılır. Hali
+    aynı kalan yumurtaya dokunulmaz (saati de değişmez).
+    """
+    f = await request.form()
+    kok = f"/cycle/{cycle_id}/fert"
+    c = db.tek("SELECT id, cycle_tipi FROM cycle WHERE id=?", (cycle_id,))
+    if not c or "fert" not in TIP_ASAMALARI.get(c["cycle_tipi"], ()):
+        return RedirectResponse(kok, status_code=303)
+    tip = c["cycle_tipi"]
+    kid = request.state.kullanici["id"]
+    kategoriler = _toplu_fert_kategorileri()
+    adetler = _toplu_mat_adetleri(f, [k["kod"] for k in kategoriler])
+    # Dönüş adresine formdan gelen değer değil, listedeki kimlik yazılır.
+    istenen = str(f.get("secili") or "")
+    secili = istenen if any(o["id"] == istenen for o in fert_durum(cycle_id, tip)) else ""
+
+    def geri(hata, **ek):
+        q = {"duzenle": "toplu", "hata": hata}
+        if secili:
+            q["oosit"] = secili
+        q.update({f"adet_{kod}": n for kod, n in (adetler or []) if n})
+        q.update(ek)
+        return RedirectResponse(kok + "?" + urlencode(q), status_code=303)
+
+    if adetler is None:
+        return geri("toplu_mat_sayi")
+    toplam = sum(n for _, n in adetler)
+    if not toplam:
+        return geri("toplu_mat_bos")
+    simdi = islem_zamani(f.get("islem_zamani"))
+    log_zamani = _dt.now().isoformat(" ", "seconds")
+    try:
+        with db.yazma_islemi() as b:
+            # Denetimler kilidin içinde (`_TopluDur`, v6.246).
+            yumurtalar = _toplu_fert_yumurtalari(cycle_id, tip)
+            if toplam > sum(1 for y in yumurtalar if not y["kilitli"]):
+                raise _TopluDur("toplu_icsi_fazla")
+            if (f.get("mevcut") or "") != _toplu_fert_imzasi(yumurtalar):
+                raise _TopluDur("toplu_mat_degisti")
+            plan = _toplu_mat_plani(yumurtalar, adetler)
+            if _toplu_fert_degisim_metni(plan, kategoriler) and f.get("onay") != "1":
+                raise _TopluDur("toplu_fert_onay")
+            yazilacak = [(y, kod) for y, kod in plan if y["mat"] != kod]
+            # Cleavage ya da sonrasında kaydı olan yumurtanın fertilizasyonu
+            # toplu yazımla değişmez (`_icsiden_sonra_kayit_var()`'ın kuralı):
+            # sıraya göre dağıtılan bir sayı, gelişen bir embriyoya 0PN ya da
+            # Dejenere yazmasın. Yumurta yumurta form değiştirebiliyor.
+            sonraki = [y["id"] for y, _ in yazilacak
+                       if _sonra_kayit_var(y["id"], cycle_id, tip, _FERT_SONRAKI_TIPLER)]
+            if sonraki:
+                raise _TopluDur("toplu_fert_sonraki", ornekler=",".join(sonraki))
+            # Yumurta Çözme'de saat bu tedavideki çözmeden önce olamaz (v6.147).
+            once = [y["id"] for y, _ in yazilacak
+                    if _cozmeden_once(y["id"], cycle_id, tip, simdi)]
+            if once:
+                raise _TopluDur("toplu_icsi_cozmeden_once", ornekler=",".join(once))
+            _fert_toplu_yaz(b, yazilacak, simdi, kid, log_zamani)
+    except _TopluDur as d:
+        return geri(d.hata, **d.ek)
+    islem_yapani_doldur(cycle_id, "fert")   # v6.208
+    return RedirectResponse(kok + (("?" + urlencode({"oosit": secili})) if secili else ""),
+                            status_code=303)
+
+
+def _fert_toplu_yaz(b, yazilacak, simdi, kid, log_zamani):
+    """Toplu fertilizasyonun kayıtları -- `yazma_islemi()`'nin içinde.
+
+    Güncellenen kayıt yumurta yumurta formun bulduğu: yumurtanın en son
+    fertilizasyon kaydı (`olay_kaydet_veya_guncelle()`'nin seçimi). Değişen
+    alanlar değişiklik geçmişine, `guvenlik.degisiklikleri_yaz()`'ın satırı --
+    kilidin içinde `b` ile (o işlev kendi bağlantısını açar, kilidi beklerdi)."""
+    for y, kod in yazilacak:
+        tur, _, deger = kod.partition(":")
+        yeni = {"fert_sonuc": "normal" if tur == "pn" else deger,
+                "fert_pn_sayisi": deger if tur == "pn" else None,
+                "fert_pn_skoru": None}
+        mevcut = b.execute(
+            "SELECT id, fert_sonuc, fert_pn_sayisi, fert_pn_skoru FROM olay "
+            "WHERE specimen_id=? AND tip='fertilizasyon_kontrolu' AND iptal_mi=0 "
+            "ORDER BY id DESC LIMIT 1", (y["id"],)).fetchone()
+        if mevcut is None:
+            b.execute(
+                "INSERT INTO olay (lab_id, specimen_id, cycle_id, tip, zaman, kullanici_id, "
+                "fert_sonuc, fert_pn_sayisi, fert_pn_skoru) "
+                "VALUES (?,?,?,'fertilizasyon_kontrolu',?,?,?,?,?)",
+                (db.LAB_ID, y["id"], y["cycle_id"], simdi, kid, *yeni.values()))
+        else:
+            b.execute("UPDATE olay SET fert_sonuc=?, fert_pn_sayisi=?, fert_pn_skoru=?, "
+                      "zaman=?, kullanici_id=? WHERE id=?",
+                      (*yeni.values(), simdi, kid, mevcut["id"]))
+            for alan, deger_yeni in yeni.items():
+                if str(mevcut[alan] or "") != str(deger_yeni or ""):
+                    b.execute(
+                        "INSERT INTO degisiklik_log (lab_id, tablo_adi, kayit_id, alan, "
+                        "eski_deger, yeni_deger, kullanici_id, zaman) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
+                        (db.LAB_ID, "olay", str(mevcut["id"]), alan, mevcut[alan],
+                         deger_yeni, kid, log_zamani))
+        b.execute("UPDATE specimen SET durum=? WHERE id=?",
+                  (_fert_durumu(yeni["fert_sonuc"], yeni["fert_pn_sayisi"]), y["id"]))
+
+
 @uygulama.get("/cycle/{cycle_id}/fert")
 def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
-               duzenle: int = 0, hata: str = ""):
+               duzenle: str = "", hata: str = ""):
+    # Bu ekranda iki ayrı düzenleme var, adreste adıyla: seçili yumurtanın
+    # formu (`?duzenle=1`) ve toplu fertilizasyon (`?duzenle=toplu`, v6.250).
+    toplu_kipi = "toplu" if duzenle == "toplu" else ""
+    # Yalnızca ASCII rakam: '²'.isdigit() doğru ama int('²') patlar.
+    duzenle = 1 if duzenle.isascii() and duzenle.isdigit() and int(duzenle) else 0
     c = db.tek(
         "SELECT c.*, h.dosya_no, h.ad_soyad FROM cycle c "
         "JOIN hasta h ON h.id = c.hasta_id WHERE c.id = ?", (cycle_id,)
@@ -7443,6 +7746,18 @@ def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
 
     sp = _secili_ornek(oositler, oosit)     # v6.35 -- bkz. ICSI ekranı
 
+    # Toplu fertilizasyon kartı (v6.250): fertilizasyona alınan (enjekte
+    # edilmiş, ICSI'de dejenere olmamış) yumurta varken. Hata dönüşü sayıları
+    # ve seçimi adreste taşıyor.
+    toplu = None
+    if "fert" in TIP_ASAMALARI.get(c["cycle_tipi"], ()):
+        adlar = _fert_kategori_adlari()
+        toplu = _toplu_fert_ekrani(request.query_params,
+                                   [_toplu_fert_yumurtasi(o, adlar) for o in oositler],
+                                   _toplu_fert_kategorileri(), toplu_kipi, hata, cycle_id)
+        if not toplu["n"]:
+            toplu = None
+
     kayit = db.tek(
         "SELECT * FROM olay WHERE specimen_id=? AND tip='fertilizasyon_kontrolu' "
         "AND iptal_mi=0 ORDER BY id DESC LIMIT 1", (sp["id"],)
@@ -7464,7 +7779,8 @@ def fert_ekran(request: Request, cycle_id: int, oosit: str = "",
     return sablon.TemplateResponse(
         request, "fert.html",
         {**ortak, "sp": sp, "kayit": kayit, "secili_bulgular": secili, "gecen": gecen,
-         "hata": _asama_hatasi(hata, sp, cycle_id)},
+         "hata": (toplu and toplu["hata_metni"]) or _asama_hatasi(hata, sp, cycle_id),
+         "toplu": toplu},
     )
 
 
@@ -7517,15 +7833,7 @@ async def fert_kaydet(request: Request, cycle_id: int):
                    "zaman, kullanici_id) "
                    "VALUES (?,'fertilizasyon_kontrolu',?,?,?)", (specimen_id, b, simdi, kid))
 
-    if sonuc == "degenere":
-        durum = "degenere"
-    elif sonuc == "kayip":
-        durum = "kayip"
-    elif pn == "2":
-        durum = "zigot"
-    else:
-        durum = f"{pn}pn" if pn else "kontrol_edildi"
-    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (durum, specimen_id))
+    db.yaz("UPDATE specimen SET durum=? WHERE id=?", (_fert_durumu(sonuc, pn), specimen_id))
 
     sonraki = _sonraki_ornek(fert_durum(cycle_id, tip), specimen_id,
                              lambda o: not o["fert"])
