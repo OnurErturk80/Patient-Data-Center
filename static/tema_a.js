@@ -65,11 +65,19 @@
     });
     kap.insertBefore(ser, kap.firstChild);
     var sablon = document.getElementById('anamenusablon');
-    if (sablon && sablon.content) nav.replaceWith(sablon.content.cloneNode(true));
-    else nav.hidden = true;
+    // Ana menü gövdede, `.kap`'ın KARDEŞİ olmalı (CSS `.yanmenu ~ .kap`):
+    // aşama listesi başka bir kabın içinde duruyor olabilir.
+    if (sablon && sablon.content && sablon.parentNode) {
+      nav.parentNode.removeChild(nav);
+      sablon.parentNode.insertBefore(sablon.content.cloneNode(true), sablon);
+    } else nav.hidden = true;
     var simdi = ser.querySelector('.simdi');
-    // Geçerli adım görünmüyorsa şeridi ona kaydır; görünüyorsa dokunma.
-    if (simdi && simdi.offsetLeft + simdi.offsetWidth > ser.clientWidth) {
+    // Fotoğraflı aşama ekranı: taslaktaki gibi iki sütun (fotoğraf | bilgi).
+    if (kap.querySelector(':scope > .foto')) kap.classList.add('asamaekrani');
+    // Dar ekranda (şerit kayar) geçerli adım görünmüyorsa ona kaydır; geniş
+    // ekranda şerit sarıyor, hiçbir adım gizlenmiyor.
+    if (simdi && ser.scrollWidth > ser.clientWidth + 2 &&
+        simdi.offsetLeft + simdi.offsetWidth > ser.clientWidth) {
       try { ser.scrollLeft = Math.max(0, simdi.offsetLeft - 24); } catch (e) {}
     }
   }

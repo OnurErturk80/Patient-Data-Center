@@ -216,3 +216,52 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
 .tema-a .bugunbaslik > div { min-width: 0; flex: 1 1 auto; }
 .tema-a .bugunbaslik .dugme { flex: 0 0 auto; white-space: nowrap; }
 .tema-a .arama.kucuk { max-width: none; }
+
+/* ---- tam ekran yerleşim (v6.256): taslaktaki gibi ---- */
+@media (min-width: 1100px) {
+  /* Sol menü bütün ekran boyunca */
+  body.tema-a .yanmenu {
+    top: 0; left: 0; bottom: 0; width: 260px; max-height: none;
+    border: 0; border-right: 1px solid #243247; border-radius: 0;
+    background: var(--ust-bg); z-index: 45; padding: 12px 10px;
+  }
+  body.tema-a .yanmenu .baslik {
+    background: transparent; padding: 14px 12px 18px;
+    font-family: var(--yaz-b); border-radius: 0;
+  }
+  body.tema-a .yanmenu .baslik .no { font-size: 20px; }
+  body.tema-a .yanmenu .oge { padding: 12px 14px; margin: 3px 0; font-size: 15px; font-weight: 600; color: #b5c3d6; }
+  body.tema-a .yanmenu .oge:hover { color: #fff; }
+  body.tema-a .yanmenu .oge.aktif { color: #fff; }
+  body.tema-a .yanmenu .altgrup { margin-top: 8px; }
+  /* Üst çubuk menünün sağında başlıyor */
+  body.tema-a .ust { padding-left: calc(260px + 20px); }
+  /* İçerik menünün sağındaki bütün alanı kullanıyor */
+  body.tema-a.tema-a .yanmenu ~ .kap {
+    max-width: 1500px; margin: 0 0 0 260px; padding: 0 32px 96px;
+  }
+  body.tema-a.tema-a .yanmenu ~ .kimlik {
+    margin-left: 260px; padding-left: 32px; padding-right: 32px;
+  }
+  /* Adım şeridi sarıyor: hiçbir aşama gizli kalmıyor */
+  .tema-a .asamaseridi { flex-wrap: wrap; overflow: visible; }
+  /* Fotoğraflı aşama ekranı: fotoğraf solda, bilgi sağda */
+  body.tema-a .kap.asamaekrani {
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    column-gap: 24px; align-items: start; grid-auto-flow: row dense;
+  }
+  body.tema-a .kap.asamaekrani > * { grid-column: 1 / -1; }
+  body.tema-a .kap.asamaekrani > .foto,
+  body.tema-a .kap.asamaekrani > .fotoalt,
+  body.tema-a .kap.asamaekrani > .karestrip,
+  body.tema-a .kap.asamaekrani > .snapkart { grid-column: 1; }
+  body.tema-a .kap.asamaekrani > .bilgikart,
+  body.tema-a .kap.asamaekrani > form,
+  body.tema-a .kap.asamaekrani > a.dugme { grid-column: 2; }
+  body.tema-a .kap.asamaekrani > .bilgikart,
+  body.tema-a .kap.asamaekrani > form { margin-top: 0; }
+}
+@media (min-width: 1100px) {
+  .tema-a .asamaseridi { gap: 6px; }
+  .tema-a .asamaseridi .adim { padding: 0 12px 0 6px; font-size: 13.5px; }
+}

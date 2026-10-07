@@ -20386,3 +20386,21 @@ yerleşim parçaları eklendi (hepsi yalnızca tasarım açıkken):
   açılır), tam genişlikte arama; liste satırlarında tedavi tipi rengli hap
   rozet (`_cyclesatir.html`, `.tiprozet`).
 - Pencere ve adım şeridi betiği `statik_surum()` ile önbelleğe takılmaz.
+
+
+# v6.256 — Klinik Koyu: tam ekran yerleşim
+
+Kullanıcı (taslağın ekran görüntüsüyle): "Tam böyle ekrana yayılmıyor. Masaüstünde
+üst menü tam görünmüyor. OPU, denüdasyon, ICSI seçilince OPU menüsüne
+dönemiyorum. Fotodaki gibi bütün ekranı kaplasa."
+
+- ≥1100 px: sol menü bütün ekran boyunca (260 px), üst çubuk ve kimlik bandı
+  onun sağında, içerik kalan alanın tamamında (en çok 1500 px).
+- Aşama adım şeridi geniş ekranda SARIYOR (v6.255'te kaydırılıyordu ve ilk
+  adımlar gizli kalıyordu: OPU'ya dönülemiyordu); dar ekranda kayar, geçerli
+  adım görünmüyorsa yalnızca o zaman kaydırılır.
+- Ana menü artık `.kap`'ın kardeşi olarak gövdeye konuyor (CSS `.yanmenu ~ .kap`);
+  aşama listesi başka bir kabın içinde duruyordu, yerleşim kaymıyordu.
+- Fotoğraflı aşama ekranı iki sütun: fotoğraf solda, bilgi / form sağda
+  (`.kap.asamaekrani`, CLAUDE.md'deki v6.59 kuralının kullanıcı kararıyla
+  değişen hali; Klasik tasarım aynı).
