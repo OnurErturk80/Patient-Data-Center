@@ -20246,3 +20246,78 @@ cevaplanmamalı, birleştirince düzeliyor.
   kutusu taşmıyor.
 - `tedavi_birlestir.py`: v6.228'in sahte veritabanı senaryoları hepsi geçti;
   v6.229'un kopyadaki 165 benzetiminin planı v6.250 ile birebir aynı.
+
+# v6.252 — Çözme listesinde tüplerin içindeki embriyolar; taşıyıcı sayfasında kalite
+
+Kullanıcı: "Çözma yani FET tedavilerinde çözme menüsünde tankta duran
+taşıyıcılar bölümü var. İçeriği gör dediğimiz zaman embriyoların kalitesi
+hakkında bilgi göstermiyor. Tankta duran taşıyıcılar bölümünde taşıyıcıların
+içindeki embriyoları da göstersin."
+
+## Önce
+
+- Çözme ekranının "Tankta duran taşıyıcılar" kartı her tüp için tipini,
+  rengini, sayısını ("Cryotop · Mavi · 2 embriyo"), yerini, PGT'sini ve
+  dondurulduğu tedaviyi yazıyordu; içinde ne olduğu için "içeriği gör"e
+  basmak gerekiyordu.
+- Taşıyıcı sayfası ("içeriği gör") ve çözme formu her örneğin yalnızca
+  **blastokist skorunu** okuyordu (`tasiyici_icerigi()`'nin `skor`'u).
+  Cleavage embriyosunun kalitesi ("8HG1", "Birleşme G2"), günü ve yumurtanın
+  olgunluğu hiç yazılmıyordu: kullanıcının veritabanının kopyasında tanktaki
+  3.489 örneğin 2.150'si kalitesiz görünüyordu (636 cleavage embriyosu, 1.347
+  yumurta, 167 kalitesi gerçekten kayıtlı olmayan).
+- Oysa aynı tüpün içeriği Cryo Haritası'nın goblet satırında ve resmî
+  formlarda tam yazılıyordu ("D5 (3AB-8HG1)", "(4*MII)"): onlar
+  `formlar.tup_icerikleri()`'nden, taşıyıcı sayfası kendi sorgusundan
+  okuyordu.
+
+## Bugün
+
+- Çözme listesinde her tüpün altında **içindekiler**. Embriyo tek tek:
+  numarası, kalitesi (blastokist skoru, yoksa cleavage) ve günü --
+  "Embriyo 3 · **4AA** · gün 5", "Embriyo 2 · **8HG2** · gün 3", "Embriyo 6 ·
+  **Birleşme** · gün 3". Kalitesi kayıtlı olmayan embriyo "kalitesi kayıtlı
+  değil" (aktarılmış tüpte notun okunamayan skoru da olabilir;
+  "değerlendirilmemiş" demek yanlış olurdu).
+- Biyopsili embriyonun PGT'si artık **kendi satırında** (rozet ve genetik
+  sonuç). v6.226'dan beri tüpün altında ayrı duruyordu; iki embriyolu tüpte
+  hangisinin "PGT 2" olduğu yazmıyordu. Sorunsuz tüpün listenin başında
+  olması değişmedi.
+- Yumurta tüplerinde aynı olgunluktaki yumurtalar bir satırda: "Yumurta 1–4
+  · **MII**", "Yumurta 5 · **MI**" -- laboratuvarın "(4*MII-1*MI)" yazımı
+  gibi; yumurtanın olgunluğundan başka ayırt edici bilgisi yok, beş satır
+  aynı şeyi söylerdi. Bu kullanıcıya sorulmadan seçildi.
+- Taşıyıcı sayfasında ("içeriği gör") ve çözme formunun başlığında da aynı
+  kalite ve gün: "embriyo 4 · 6HG3 · gün 3", yumurtada "MII". Çözme formunun
+  başlığı kalite kayıtlı değilse eskisi gibi yalnızca numarayı yazıyor.
+- **Kaynak tek**: kalite ve gün tüpün parantezinin kaynağından,
+  `formlar.tup_ornekleri()` (`tup_icerikleri()`'nin örnek örnek hali; ikisi
+  aynı dondurma satırlarını okuyor, `_tup_satirlari()`): her tüpün KENDİ
+  dondurmasının tedavisindeki değerlendirme (`db.bu_tedavinin_skoru()`,
+  v6.148). Çözme listesi, taşıyıcı sayfası, çözme formu, Cryo Haritası'nın
+  goblet satırı ve resmî formlar aynı kaliteyi yazıyor. Satırın yazımı tek
+  şablonda (`_ornek_kalite.html`); numara aralığı `db.nolar_yazisi()`
+  (PGT numaralarının "1–3, 5" yazımı ondan ayrıldı).
+- Değişmeyen: tüpün sayısı, yeri, listenin sırası, "Çöz" düğmesi, FET
+  (3→5)'te blastokist tüpünün kapalı olması (`skor` ve `blastokist` alanları
+  duruyor), "Çözülmüş taşıyıcılar" kartı.
+
+Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak. Yeniden
+başlatılmamış program yeni şablonla eskisi gibi: içindekiler yok, PGT tüpün
+altında, taşıyıcı sayfasında yalnızca blastokist skoru (denendi).
+
+## Deneme
+
+- Kullanıcının veritabanının kopyasında (ad / numara basılmadan): Cryo
+  Haritası ve resmî formların tüp içerikleri (1.890 tüp, 1.909 tedavinin
+  dondurma tüpleri) eski kodla birebir aynı. Tanktaki her tüpte örneklerin
+  kalitesi parantezle aynı, blastokist skoru eskisiyle aynı; kalitesi
+  görünen örnek 1.339'dan 3.322'ye (1.975 embriyo, 1.347 yumurta).
+- Kopyada bütün FET, FET (3→5), Yumurta Çözme ve Yumurta Dondurma
+  tedavilerinin çözme ekranı (953), tanktaki bütün tüplerin sayfası ve çözme
+  formu (1.600 + 1.600): hepsi açıldı, hata yok; 690 tüpün altında
+  içindekiler. Medyan 28–35 ms, `tasiyici_icerigi()` tüp başına medyan 3 ms.
+- Tarayıcıda 390 ve 1280 px: blastokist, cleavage, birleşme, yumurta (toplu)
+  ve PGT'li (sorunsuz + sorunlu) tüpler; satırlar "Çöz" düğmesinin altına
+  girmiyor, yatay taşma ve betik hatası yok. Ekran görüntüleri sahte veriyle.
+- Eski kod (v6.251) + yeni şablonlar: üç ekran hatasız, eski görünüm.

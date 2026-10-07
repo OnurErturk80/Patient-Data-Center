@@ -9059,8 +9059,19 @@ def tasiyici_icerigi(tasiyici_id):
     # Satırlar sözlük: `sqlite3.Row`'a alan eklenemiyor.
     satirlar = [dict(r) for r in satirlar]
     biy = db.biyopsi_bilgisi([r["id"] for r in satirlar])
+    # Kalite (v6.252, kullanıcı: "İçeriği gör dediğimiz zaman embriyoların
+    # kalitesi hakkında bilgi göstermiyor"): `skor` yalnızca blastokist
+    # skoru, cleavage embriyosunda ("8HG1") ve yumurtada boştu. `kalite`,
+    # `kalite_gun`, `olgunluk` tüpün parantezinin kaynağından
+    # (`formlar.tup_ornekleri()`: Cryo Haritası ve resmî formlar aynı yazımı
+    # basıyor). `skor` duruyor (blastokist tüpü kuralı ona bakıyor).
+    ornekler = {o["specimen_id"]: o for o in
+                formlar.tup_ornekleri([tasiyici_id]).get(tasiyici_id, [])}
     for r in satirlar:
         r["pgt"] = biy.get(r["id"])
+        o = ornekler.get(r["id"], {})
+        r["kalite"], r["kalite_gun"] = o.get("kalite"), o.get("gun")
+        r["olgunluk"] = o.get("olgunluk")
     return satirlar
 
 
@@ -12812,6 +12823,31 @@ def thaw_sil(request: Request, specimen_id: str):
     return RedirectResponse(hedef, status_code=303)
 
 
+def tup_ornek_satirlari(ornekler) -> list:
+    """Çözme listesinde bir tüpün içindekiler (v6.252): embriyo tek tek --
+    numarası, kalitesi, günü, PGT'si; hangi tüpün çözüleceği embriyoya göre
+    seçiliyor --, yumurta aynı olgunluktakiler bir satırda ("Yumurta 6–9 ·
+    MII", laboratuvarın "(4*MII)" yazımı gibi): yumurtanın olgunluğundan başka
+    ayırt edici bilgisi yok, beş satır aynı şeyi söylerdi. Satırlar tüpteki
+    ilk numaranın sırasıyla; `nolar` satırın numarası ya da numaraları
+    (`db.nolar_yazisi()`). `ornekler`: `formlar.tup_ornekleri()`'nin bir
+    tüpü, `pgt` eklenmiş."""
+    satirlar, gruplar = [], {}
+    for o in ornekler:
+        if not o["yumurta"] or o.get("pgt"):
+            satirlar.append({**o, "nolar": str(o["sira"])})
+            continue
+        anahtar = (o["kalite"], o["gun"], o["olgunluk"])
+        if anahtar not in gruplar:
+            gruplar[anahtar] = {**o, "sira_listesi": []}
+            satirlar.append(gruplar[anahtar])
+        gruplar[anahtar]["sira_listesi"].append(o["sira"])
+    for s in satirlar:
+        if "sira_listesi" in s:
+            s["nolar"] = db.nolar_yazisi(s.pop("sira_listesi"))
+    return satirlar
+
+
 @uygulama.get("/cycle/{cycle_id}/thaw")
 def cycle_thaw_listesi(request: Request, cycle_id: int, kaydedildi: int = 0):
     """Bu cycle'ın embriyolarını içeren taşıyıcılar — çözme girişi.
@@ -12885,6 +12921,19 @@ def cycle_thaw_listesi(request: Request, cycle_id: int, kaydedildi: int = 0):
     tasiyicilar = [{**dict(t), "pgt": pgtler.get(t["id"], [])} for t in tasiyicilar]
     tasiyicilar.sort(key=lambda t: (t["durum"] != "dolu",
                                     db.pgt_tup_sirasi(t["pgt"]) if t["durum"] == "dolu" else 0))
+    # Tankta duran tüplerin içindekiler (v6.252, kullanıcı: "Tankta duran
+    # taşıyıcılar bölümünde taşıyıcıların içindeki embriyoları da
+    # göstersin"): örnek örnek, kalitesi ve günüyle -- tüpün parantezinin
+    # kaynağı (`formlar.tup_ornekleri()`, Cryo Haritası ve resmî formlar).
+    # Biyopsili embriyonun PGT'si kendi satırında (`db.biyopsi_bilgisi()`):
+    # tüpün PGT listesi hangi embriyonun "PGT 2" olduğunu söylemiyordu.
+    ornekler = formlar.tup_ornekleri(
+        [t["id"] for t in tasiyicilar if t["durum"] == "dolu"])
+    biy = db.biyopsi_bilgisi(
+        [o["specimen_id"] for liste in ornekler.values() for o in liste])
+    for t in tasiyicilar:
+        t["ornekler"] = tup_ornek_satirlari(
+            [{**o, "pgt": biy.get(o["specimen_id"])} for o in ornekler.get(t["id"], [])])
 
     # Bu cycle için yapılmış çözmeler. Transfere ulaşmayan (canlı çıkmayan)
     # embriyo da burada görünür — FET'in kaydı budur (README v6.7).

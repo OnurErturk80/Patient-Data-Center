@@ -9,6 +9,7 @@
 {% endblock %}
 {% block icerik %}
 {% import "_pgt.html" as pgtm %}
+{% import "_ornek_kalite.html" as kl %}
 
 {% if hata %}<div class="tehlike">{{ hata }}</div>{% endif %}
 
@@ -85,8 +86,12 @@
   <div class="kart">
     {# Yumurta tüpünde "Yumurta" (v6.147): tüpün içeriğinden (`icerik`,
        v6.167 -- app.icerik_sql()), taşıyıcı sayfasının aynı kuralı. #}
+    {#- Kalite (v6.252): blastokist skoru, cleavage ("8HG1") ve günü, yumurtada
+        olgunluk (`_ornek_kalite.html`); kayıtlı değilse başlıkta yazılmıyor.
+        `kalite` tanımsızsa (tuzak #5) eski yazım: yalnızca blastokist skoru. #}
     <h2>{{ e.dosya_no }} · {{ e.ad_soyad }} · {{ metin("oosit_ad" if e.icerik == 'yumurta' else "embriyo_ad") }} {{ e.cycle_sira_no }}
-        {% if e.skor %}· {{ e.skor }}{% endif %}</h2>
+        {% if e.kalite is defined %}{% if e.kalite or e.olgunluk %}· {{ kl.kalite(e.kalite, e.kalite_gun, e.olgunluk, e.icerik == 'yumurta') }}{% endif %}
+        {%- elif e.skor %}· {{ e.skor }}{% endif %}</h2>
     {#- PGT (v6.225): biyopsili embriyonun numarası, kararı ve genetik
         sonucu (v6.226). -#}
     {% if e.pgt %}<div class="alan" style="border:0;padding-bottom:0">{{ pgtm.ayrinti(e.pgt) }}</div>{% endif %}

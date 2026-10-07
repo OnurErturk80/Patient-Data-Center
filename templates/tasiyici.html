@@ -4,6 +4,7 @@
 {% import "_pgt.html" as pgtm %}
 {% import "_tup_durum.html" as td %}
 {% import "_imha.html" as im %}
+{% import "_ornek_kalite.html" as kl %}
 {% block ustbaslik %}{{ metin("tasiyici") }}{% endblock %}
 {% block geri %}<a class="geri" href="{{ geri }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -157,7 +158,13 @@
       <div class="meta">
         {# Örneğin adı tedavi tipinden (CLAUDE.md: "Yumurta diye sabit yazma") --
            `oosit_n` v6.134'ten beri "Yumurta N" basıyordu, embriyo tüpünde de. #}
-        {{ e.cycle_no }} · {{ (metin('oosit_ad' if e.icerik == 'yumurta' else 'embriyo_ad') ~ ' ' ~ e.cycle_sira_no)|lower }}{% if e.skor %} · {{ e.skor }}{% endif %}
+        {#- Kalite (v6.252): blastokist skoru, cleavage ("8HG1") ve günü,
+            yumurtada olgunluk (`_ornek_kalite.html`). `kalite` tanımsızsa
+            (program yeniden başlatılmadı, tuzak #5) eski yazım: yalnızca
+            blastokist skoru. #}
+        {{ e.cycle_no }} · {{ (metin('oosit_ad' if e.icerik == 'yumurta' else 'embriyo_ad') ~ ' ' ~ e.cycle_sira_no)|lower }}
+        {%- if e.kalite is defined %} · {{ kl.kalite(e.kalite, e.kalite_gun, e.olgunluk, e.icerik == 'yumurta') }}
+        {%- elif e.skor %} · {{ e.skor }}{% endif %}
       </div>
       {% if e.pgt %}<div class="meta">{{ pgtm.rozet(e.pgt) }}</div>{% endif %}
       {# Bu tüpten çözülüp başka bir tüpe yeniden dondurulduysa (v6.143) --

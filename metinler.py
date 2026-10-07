@@ -1451,6 +1451,12 @@ METINLER = {
         "en": "Thawed a re-frozen tube"},
     "n_tedaviden": {"tr": "{n}. tedaviden", "en": "from cycle {n}"},
     "degerlendirilmemis": {"tr": "değerlendirilmemiş", "en": "not assessed"},
+    # Tüpteki örneğin kalitesi kayıtlı değil (v6.252, `_ornek_kalite.html`):
+    # aktarılmış tüpte notun okunamayan skoru da olabilir, "değerlendirilmemiş"
+    # demek yanlış olurdu.
+    "kalite_kayitli_degil": {"tr": "kalitesi kayıtlı değil", "en": "grade not recorded"},
+    "olgunluk_kayitli_degil": {"tr": "olgunluğu kayıtlı değil",
+                               "en": "maturity not recorded"},
     "gun_n": {"tr": "gün {n}", "en": "day {n}"},
     "ayni_tasiyici_ipucu": {
         "tr": "Aynı taşıyıcıya konacakları birlikte seç. Farklı taşıyıcılara "

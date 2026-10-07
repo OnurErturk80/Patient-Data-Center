@@ -588,15 +588,43 @@ def tup_icerikleri(tasiyici_idler) -> dict:
     KENDİ dondurmasının tedavisinden (`db.bu_tedavinin_skoru()`), formlarla
     aynı kural -- iki yerde iki ayrı yazım olmasın.
     """
+    return {t["tup"]: t for t in _tuplere_topla(_tup_satirlari(tasiyici_idler))}
+
+
+def tup_ornekleri(tasiyici_idler) -> dict:
+    """Tüplerdeki örnekler tek tek -- `tup_icerikleri()`'nin örnek örnek hali
+    (v6.252, kullanıcı: "Tankta duran taşıyıcılar bölümünde taşıyıcıların
+    içindeki embriyoları da göstersin").
+
+    -> {taşıyıcı id: [{"specimen_id", "sira", "kalite", "gun", "olgunluk",
+    "yumurta"}, ...]}, tüpteki sırayla (yumurta / embriyo numarası). Kalite ve
+    gün tüpün parantezininkiyle aynı kuraldan (`_dondurma_kalitesi()`,
+    `_ornek_gunu()`): her tüpün KENDİ dondurmasının tedavisindeki
+    değerlendirme -- blastokist skoru, yoksa cleavage ("8HG1", "Birleşme G2"),
+    yoksa None. `olgunluk` yalnızca yumurtada (maturasyon kodu). Çözme
+    ekranının tüp listesi, taşıyıcı sayfası ve çözme formu soruyor: örneğin
+    satırı ile tüpün parantezi ayrı yazılmasın."""
     sonuc = {}
+    for r in _tup_satirlari(tasiyici_idler):
+        sonuc.setdefault(r["tup"], []).append({
+            "specimen_id": r["specimen_id"], "sira": r["cycle_sira_no"],
+            "kalite": _dondurma_kalitesi(r), "gun": _ornek_gunu(r),
+            "olgunluk": r["mat"] if r["yumurta"] else None,
+            "yumurta": bool(r["yumurta"])})
+    return sonuc
+
+
+def _tup_satirlari(tasiyici_idler) -> list:
+    """Tüplerin dondurma satırları, örnek örnek (`tup_icerikleri()`,
+    `tup_ornekleri()`): kalite her tüpün KENDİ dondurmasının tedavisinden."""
+    satirlar = []
     idler = [int(x) for x in tasiyici_idler]
     for i in range(0, len(idler), 500):          # SQLite'ın parametre sınırı
         parca = idler[i:i + 500]
         yer = ",".join("?" * len(parca))
-        for t in _tuplere_topla(_dondurma_satirlari(
-                f"o.vit_tasiyici_id IN ({yer})", tuple(parca), db.vit_tedavisi("o"))):
-            sonuc[t["tup"]] = t
-    return sonuc
+        satirlar += _dondurma_satirlari(
+            f"o.vit_tasiyici_id IN ({yer})", tuple(parca), db.vit_tedavisi("o"))
+    return satirlar
 
 
 def _dondurma_satirlari(kosul, parametre, tedavi):
@@ -606,7 +634,7 @@ def _dondurma_satirlari(kosul, parametre, tedavi):
     return db.sorgu(
         f"""
         SELECT o.vit_tasiyici_id AS tup, t.etiket, s.cycle_sira_no,
-               {db.vit_tedavisi('o')} AS vit_tedavi,
+               s.id AS specimen_id, {db.vit_tedavisi('o')} AS vit_tedavi,
                o.notlar LIKE ? || '%' AS aktarim,
                {db.dondurulan_yumurta_sql('o')} AS yumurta,
                {_olgunluk_sql()} AS mat,
@@ -646,10 +674,17 @@ def _tuplere_topla(satirlar) -> list:
         t["olgunluk"].append(r["mat"] if r["yumurta"] else None)
         # Tüp Access notundan mı yazıldı (v6.159): hepsi öyleyse evet.
         t["aktarim"] = t["aktarim"] and bool(r["aktarim"])
-        gun = r["bl_gun"] if r["bl_skor"] or r["bl_gun"] else r["cl_gun"]
+        gun = _ornek_gunu(r)
         if gun and gun not in t["gunler"]:
             t["gunler"].append(gun)
     return tupler
+
+
+def _ornek_gunu(r):
+    """Dondurulan örneğin günü: kalitesini veren değerlendirmenin günü
+    (blastokist, yoksa cleavage) -- "kaçıncı günde donduruldu" diye ayrı bir
+    alan yok, uydurulmuyor."""
+    return r["bl_gun"] if r["bl_skor"] or r["bl_gun"] else r["cl_gun"]
 
 
 def _sar(metin, genislik=68):

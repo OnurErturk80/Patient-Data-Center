@@ -1270,6 +1270,13 @@ body.kilitli { overflow: hidden; }
 .fsatir .no { font-weight: 700; font-size: 16px; }
 .fsatir .ad { font-size: 15px; }
 .fsatir .meta { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+/* Çözme listesinde tüpün içindekiler (v6.252): örnek örnek, kalite öne
+   çıkıyor (`_ornek_kalite.html`); kaydı yoksa sönük. */
+.tupornekleri { list-style: none; margin: 4px 0 2px; padding: 0;
+                font-size: 14px; line-height: 1.45; color: var(--ink); }
+.tupornekleri li { padding: 1px 0; }
+.tupornekleri .pgttup { margin: 2px 0 4px; }
+.kalitesiz { color: var(--ink-2); }
 
 .kfoto {
   flex: 0 0 64px; width: 64px; height: 64px; padding: 0; border: 0;

@@ -887,9 +887,11 @@ imha kaydı bütün tüplerde (v6.227). Şemanın ilk sürümündeki `olay.tip=
   kartının altında (yalnızca varsa) ve `/pgt-bekleyenler`; satır kipi `pgt`
   PGT ekranına gidiyor.
 - Tüplerin PGT'si tek sorgu `db.tup_pgt()` (goblet satırı, FET çözme
-  listesi); FET'in listesi `db.pgt_tup_sirasi()` ile: sorunsuz önde, sonra
-  PGT'siz, kararsız, sorunlu. Bant kararları `pgt_bandi()`'nın `kararlar`'ı.
-  `_pgt.html`'in `ayrinti()`: rozet + sonuç metni (`rozet()` metni `title`'da).
+  listesinin sırası); FET'in listesi `db.pgt_tup_sirasi()` ile: sorunsuz önde,
+  sonra PGT'siz, kararsız, sorunlu. Bant kararları `pgt_bandi()`'nın
+  `kararlar`'ı. `_pgt.html`'in `ayrinti()`: rozet + sonuç metni (`rozet()`
+  metni `title`'da). Çözme listesinde PGT v6.252'den beri embriyonun kendi
+  satırında (`db.biyopsi_bilgisi()`; aşağıdaki "Tüpün içindekiler").
 - Formlar: `formlar.pgt_notu()` kararları yazıyor; FET'te
   `pgt_cozulen_notu()` ("PGT, çözülen: PGT 2 sorunlu (2026-0xxx)",
   biyopsinin tedavisinin numarasıyla).
@@ -2893,6 +2895,34 @@ yeri) ve biri unutulursa ekranlar birbirini tutmaz.
   orada tek kelime seçilemez; sıfır olmayan basılıyor.
 - `oosit_ad` metni v6.133'te dokunulmadan bırakılmıştı; v6.134'te
   kullanıcı "her yer" dedi ve o da "Yumurta" oldu (aşağıya bak).
+
+**Tüpün içindekiler örnek örnek: `formlar.tup_ornekleri()`** (v6.252, README
+v6.252; kullanıcı: "İçeriği gör dediğimiz zaman embriyoların kalitesi
+hakkında bilgi göstermiyor. Tankta duran taşıyıcılar bölümünde taşıyıcıların
+içindeki embriyoları da göstersin").
+- `tup_icerikleri()`'nin (tüpün parantezi, "(3AB-8HG1)") örnek örnek hali,
+  aynı dondurma satırlarından (`_tup_satirlari()`): kalite
+  `_dondurma_kalitesi()` (blastokist skoru, yoksa cleavage yazımı), gün
+  `_ornek_gunu()`, olgunluk yalnızca yumurtada -- her tüpün KENDİ
+  dondurmasının tedavisindeki değerlendirme (`db.bu_tedavinin_skoru()`).
+  Parantez ile örneğin satırı aynı şeyi söylüyor; ikinci bir kalite sorgusu
+  yazma.
+- Çözme listesi (`cycle_thaw_listesi()` → `tup_ornek_satirlari()`): embriyo
+  tek tek (numara, kalite, gün, PGT'si kendi satırında), aynı olgunluktaki
+  yumurtalar bir satırda ("Yumurta 1–4 · MII"; kullanıcıya sorulmadan
+  seçildi). Taşıyıcı sayfası ve çözme formu `tasiyici_icerigi()`'nin
+  `kalite` / `kalite_gun` / `olgunluk`'u. Satırın yazımı `_ornek_kalite.html`
+  ("kalitesi kayıtlı değil": aktarılmış tüpte okunamayan skor da olabilir,
+  "değerlendirilmemiş" deme).
+- `tasiyici_icerigi()`'nin `skor`'u yalnızca blastokist skoru ve duruyor
+  (FET (3→5)'in kuralı `blastokist`'e bakıyor); v6.251'e kadar taşıyıcı
+  sayfası onu basıyordu, cleavage embriyosu ve yumurta kalitesiz görünüyordu
+  (kopyada tanktaki 3.489 örneğin 2.150'si). Tüpteki örneğin kalitesini
+  basan yeni bir yer yazarsan `skor`'u değil bunları kullan.
+- Şablonlar `kalite is defined` / `t.ornekler` diye soruyor (tuzak #5): eski
+  programda eski yazım (yalnızca blastokist skoru, PGT tüpün altında).
+- Numara aralığı `db.nolar_yazisi()` ("1–3, 5"; `pgt_nolar_yazisi()` onu
+  çağırıyor).
 
 **Ekranda "oosit" değil "yumurta" denir** (v6.134, kullanıcının isteği:
 "oosit yazan her yeri Yumurta ile değiştir"). v6.79'un ("cycle" → "tedavi")

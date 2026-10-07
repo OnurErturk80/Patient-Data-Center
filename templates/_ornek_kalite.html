@@ -1,0 +1,13 @@
+{#- Dondurulan örneğin kalitesi (v6.252, kullanıcı: "İçeriği gör dediğimiz
+    zaman embriyoların kalitesi hakkında bilgi göstermiyor"): blastokist
+    skoru, yoksa cleavage ("8HG1", "Birleşme G2"), günüyle; yumurtada
+    olgunluk. Veri tüpün parantezinin kaynağından (`formlar.tup_ornekleri()`;
+    taşıyıcı sayfası ve çözme formu `app.tasiyici_icerigi()`'nin `kalite`'si
+    üzerinden): Cryo Haritası'nın "(3AA-8HG1)"i ile aynı değerlendirme. Çözme
+    listesi, taşıyıcı sayfası ve çözme formu bunu çağırıyor -- ikinci bir
+    yazım kurma. -#}
+{% macro kalite(kalite, gun, olgunluk, yumurta) -%}
+{%- if kalite %}<b class="kalite">{{ kalite }}</b>{% if gun %} · {{ metin("gun_n").format(n=gun) }}{% endif %}
+{%- elif olgunluk %}<b class="kalite">{{ liste_etiket("maturasyon", olgunluk) }}</b>
+{%- else %}<span class="kalitesiz">{{ metin("olgunluk_kayitli_degil" if yumurta else "kalite_kayitli_degil") }}</span>{% endif %}
+{%- endmacro %}

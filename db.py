@@ -910,6 +910,14 @@ def pgt_tup_sirasi(pgt) -> int:
 def pgt_nolar_yazisi(nolar) -> str:
     """PGT numaraları: "PGT 1–3, 5" (ardışık olanlar aralık). "PGT" iki
     dilde aynı; resmî formun NOTLAR'ı da bant da bunu basıyor."""
+    yazi = nolar_yazisi(nolar)
+    return "PGT " + yazi if yazi else ""
+
+
+def nolar_yazisi(nolar) -> str:
+    """Numaralar, ardışık olanlar aralık: "1–3, 5" (v6.252'de
+    `pgt_nolar_yazisi()`'nden ayrıldı; çözme listesi yumurta numaralarını da
+    böyle yazıyor). Boşsa boş metin."""
     nolar = sorted({int(n) for n in nolar if n is not None})
     if not nolar:
         return ""
@@ -919,7 +927,7 @@ def pgt_nolar_yazisi(nolar) -> str:
             continue
         parcalar.append(f"{bas}–{onceki}" if onceki != bas else str(bas))
         bas = n
-    return "PGT " + ", ".join(parcalar)
+    return ", ".join(parcalar)
 
 
 def pgt_bandi(cycle_id):
