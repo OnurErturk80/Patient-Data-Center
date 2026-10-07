@@ -20321,3 +20321,23 @@ altında, taşıyıcı sayfasında yalnızca blastokist skoru (denendi).
   ve PGT'li (sorunsuz + sorunlu) tüpler; satırlar "Çöz" düğmesinin altına
   girmiyor, yatay taşma ve betik hatası yok. Ekran görüntüleri sahte veriyle.
 - Eski kod (v6.251) + yeni şablonlar: üç ekran hatasız, eski görünüm.
+
+
+# v6.253 — "Klinik Koyu" arayüz tasarımı (açılıp kapanabilir)
+
+Kullanıcı üç taslaktan A'yı (Klinik Koyu) seçti: "A'yı beğendim. Uygula. Ama
+sıkıntı çıkarsa eski haline döndürebilelim."
+
+- **Katman, değişiklik değil.** `static/tema_a.css` `style.css`'in ÜSTÜNE biner;
+  yalnızca yazı tipi (Bricolage Grotesque + Figtree), köşe yuvarlaklığı, hap
+  rozetler, düğme / şerit / yan menü görünümü. Yerleşim ve genişlikler
+  değişmedi, `style.css`'teki ölçümler ve tuzaklar aynen geçerli.
+- **Geri dönüş:** Yönetici → Arayüz tasarımı (`/tasarim`, yalnızca yönetici):
+  Klasik / Klinik Koyu. Ayar `ayarlar.arayuz_tasarimi` ('a' ya da boş), laboratuvar
+  geneli, hemen geçerli, yeniden başlatma yok. Hiçbir kayıt etkilenmez.
+  `base.html` `tasarim_a is defined` diye soruyor (tuzak #5): yeniden
+  başlatılmamış program eski görünümde kalır.
+- Varsayılan KAPALI: kullanıcı açana kadar hiçbir şey değişmez.
+- Taslaktaki açılır pencereler (toplu maturasyon, vitrifikasyon, yeni tedavi
+  için alttan açılan pencere) bu sürümde YOK: onlar şablon ve betik değişikliği,
+  ekran ekran yapılacak; önce görünüm denensin.

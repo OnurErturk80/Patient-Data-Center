@@ -8,6 +8,13 @@
 <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
 <title>{% block baslik %}{{ metin("program_adi") }}{% endblock %}</title>
 <link rel="stylesheet" href="/static/style.css?v={{ statik_surum() }}">
+{# "Klinik Koyu" tasarımı (v6.253): yalnızca yönetici açtıysa, style.css'in
+   ÜSTÜNDE. `tasarim_a` tanımsızsa (yeniden başlatılmamış program, tuzak #5)
+   eski görünüm. #}
+{% if tasarim_a is defined and tasarim_a() %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/static/tema_a.css?v={{ statik_surum() }}">
+{% endif %}
 
 {# Ana ekrana eklenince uygulama gibi acilsin (v6.45). iOS manifest'in
    `display` alanini yeni surumlerde okuyor, eskilerde `apple-...-capable`
@@ -22,7 +29,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="{{ metin('kisa_ad') }}">
 </head>
-<body class="{% block govde %}{% endblock %}">
+<body class="{% block govde %}{% endblock %}{% if tasarim_a is defined and tasarim_a() %} tema-a{% endif %}">
 <div class="ust">
   {% block geri %}{% endblock %}
   {# Ana menüye dönüş her ekranda, geri okunun yanında. Burada durduğu için

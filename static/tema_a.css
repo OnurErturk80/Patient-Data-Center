@@ -1,0 +1,99 @@
+/* "Klinik Koyu" tasarımı (v6.253). style.css'in ÜSTÜNE biner: yalnızca
+   yazı tipi, köşe yuvarlaklığı, gölge, rozet / düğme / şerit görünümü.
+   Yerleşim (genişlikler, sütunlar, menü konumları) DEĞİŞMEZ -- böylece
+   style.css'teki bütün ölçümler ve tuzaklar aynen geçerli kalıyor.
+   Açma / kapama: Yönetici -> Arayüz tasarımı (/tasarim). Bu dosya
+   yüklenmezse program eski görünümüne döner; hiçbir şablon buna bağlı
+   değil. Koyu tek tema (v6.72); renk değişkenleri style.css'ten. */
+:root {
+  --yaz:   'Figtree', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --yaz-b: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --r: 14px;
+  --yuzey2: #1e2c3e;
+  --golge: 0 10px 40px rgba(0, 0, 0, .5);
+}
+body.tema-a {
+  font-family: var(--yaz);
+}
+body.tema-a h1, body.tema-a h2, body.tema-a h3,
+body.tema-a .kimlik .isim, body.tema-a .kimlik.tekli .dosya,
+body.tema-a .satir .no, body.tema-a .satir.hasta .ad {
+  font-family: var(--yaz-b);
+}
+body.tema-a input, body.tema-a select, body.tema-a textarea,
+body.tema-a button { font-family: inherit; }
+body.tema-a :focus-visible { outline: 3px solid #5aa7ff; outline-offset: 2px; }
+
+/* üst çubuk ve kimlik bandı */
+.tema-a .ust { box-shadow: 0 1px 0 #243247; }
+.tema-a .kimlik {
+  border-bottom: 3px solid var(--vurgu);
+}
+.tema-a .kimlik .rozet {
+  border-radius: 999px; padding: 2px 10px; font-size: 11px;
+  letter-spacing: .03em; vertical-align: 4px;
+}
+
+/* kartlar */
+.tema-a .kart {
+  border-radius: var(--r);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset;
+}
+.tema-a .kart h2 {
+  font-family: var(--yaz-b); letter-spacing: -.01em; padding: 14px 16px 10px;
+}
+.tema-a .satir { padding: 14px 16px; transition: background .12s; }
+.tema-a .satir:hover { background: var(--yuzey2); }
+.tema-a .satir .no { font-family: var(--yaz); }
+.tema-a .satir.hasta .no { font-variant-numeric: tabular-nums; }
+
+/* rozetler: hap biçimi */
+.tema-a .rozet, .tema-a .pgtrozet, .tema-a .kart h2.ikili .rozet {
+  border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 600;
+  letter-spacing: .02em;
+}
+.tema-a .pgtrozet { background: transparent; border: 1px solid var(--pgt-yazi); color: var(--pgt-yazi); }
+.tema-a .kart h2.ikili .rozet { background: var(--yuzey2); color: var(--ink-2); }
+
+/* düğmeler */
+.tema-a .dugme { border-radius: 12px; min-height: 48px; transition: filter .12s, transform .12s; }
+.tema-a .dugme:hover { filter: brightness(1.08); }
+.tema-a .dugme.ikincil { background: var(--yuzey2); }
+.tema-a .dugme.ikincil:hover { filter: brightness(1.12); }
+
+/* form alanları */
+.tema-a .alan input, .tema-a .alan select, .tema-a .alan textarea,
+.tema-a .arama input {
+  border-radius: 10px;
+}
+.tema-a .arama input { background: var(--yuzey); }
+
+/* seçenek düğmeleri (Kız/Erkek, MII/MI gibi) */
+.tema-a .secenek .sec span { border-radius: 12px; }
+
+/* yumurta numara şeridi: renkli kutucuklar */
+.tema-a .serit .sn {
+  border-radius: 12px; min-height: 44px;
+}
+.tema-a .serit .sn.dolu { background: #123428; color: #6fe0b2; border-color: #2c6a53; }
+.tema-a .serit .sn.deg  { background: #3a1c24; color: #ff8c9c; border-color: #6a2a38; }
+
+/* yan menü ve alt menü: hap öğeler */
+.tema-a .yanmenu { border-radius: 0 var(--r) var(--r) 0; }
+.tema-a .yanmenu .oge { border-top: 0; margin: 3px 8px; border-radius: 10px; }
+.tema-a .yanmenu .oge:hover { background: rgba(255, 255, 255, .07); }
+.tema-a .yanmenu .oge.aktif {
+  background: rgba(224, 53, 111, .18); color: #fff; box-shadow: none;
+}
+.tema-a .yanmenu .baslik { border-radius: 0 var(--r) 0 0; padding: 14px 16px; }
+.tema-a .yanmenu .altgrup { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+
+/* uyarılar ve bantlar */
+.tema-a .uyari { border-radius: 12px; }
+
+/* açılır / sürüklenir pencereler: telefonda alttan, masaüstünde ortada */
+.tema-a .menuperde { backdrop-filter: blur(2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tema-a * { transition: none !important; animation: none !important; }
+}

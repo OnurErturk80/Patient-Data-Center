@@ -1786,6 +1786,47 @@ def dil_kaydet(request: Request, dil_kodu: str = Form(...)):
     return RedirectResponse("/dil?kaydedildi=1", status_code=303)
 
 
+# ------------------------------------------------------- arayüz tasarımı
+#
+# "Klinik Koyu" tasarımı (v6.253, kullanıcı taslağı beğendi: "A'yı beğendim.
+# Uygula. Ama sıkıntı çıkarsa eski haline döndürebilelim"). Yeni görünüm
+# `static/tema_a.css` -- `style.css`'in ÜSTÜNE biner, ona dokunmaz. Açık/kapalı
+# anahtarı laboratuvar ayarı (`ayarlar.arayuz_tasarimi`: 'a' ya da boş = eski).
+# Sorun çıkarsa yönetici /tasarim'dan kapatır; program yeniden başlamaz.
+TASARIM_A = "a"
+
+
+def tasarim_a_mi() -> bool:
+    try:
+        return db.ayar("arayuz_tasarimi", "") == TASARIM_A
+    except Exception:
+        return False
+
+
+sablon.env.globals["tasarim_a"] = tasarim_a_mi
+
+
+@uygulama.get("/tasarim")
+def tasarim_ekran(request: Request, kaydedildi: int = 0):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(request, "tasarim.html", {
+        "acik": tasarim_a_mi(), "kaydedildi": kaydedildi})
+
+
+@uygulama.post("/tasarim")
+def tasarim_kaydet(request: Request, tasarim: str = Form("")):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    deger = TASARIM_A if tasarim == TASARIM_A else ""
+    db.yaz("INSERT INTO ayarlar (lab_id, anahtar, deger) VALUES (?, 'arayuz_tasarimi', ?) "
+           "ON CONFLICT (lab_id, anahtar) DO UPDATE SET deger = excluded.deger",
+           (db.LAB_ID, deger))
+    return RedirectResponse("/tasarim?kaydedildi=1", status_code=303)
+
+
 # ----------------------------------------------------- bu makinenin klasörleri
 #
 # Kamera klasörünü (mikroskobun snapshot attığı yer) yöneticinin ekrandan

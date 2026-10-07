@@ -4051,6 +4051,12 @@ METINLER = {
     # ---- dil ----
     "dil": {"tr": "Dil", "en": "Language"},
     "dil_secimi": {"tr": "Dil seçimi", "en": "Language"},
+    "tasarim_baslik": {"tr": "Arayüz tasarımı", "en": "Interface design"},
+    "tasarim_klasik": {"tr": "Klasik (eski görünüm)", "en": "Classic (previous look)"},
+    "tasarim_a": {"tr": "Klinik Koyu (yeni görünüm)", "en": "Clinical Dark (new look)"},
+    "tasarim_kaydet": {"tr": "Uygula", "en": "Apply"},
+    "tasarim_kaydedildi": {"tr": "Tasarım değişti. Sayfayı yenileyince bütün ekranlarda geçerli.", "en": "Design changed. Reload to see it everywhere."},
+    "tasarim_not": {"tr": "Bu ayar bütün laboratuvar için geçerli ve hemen etkili olur; programı yeniden başlatmak gerekmez. Yeni görünümde bir sorun olursa buradan Klasik'e dönebilirsiniz; hiçbir kayıt etkilenmez.", "en": "Applies to the whole laboratory immediately. If the new look causes problems, switch back to Classic here; no records are affected."},
     "dili_degistir": {"tr": "Dili değiştir", "en": "Change language"},
     "dil_lab_geneli": {
         "tr": "Dil <b>laboratuvar geneli</b>dir. Değiştirdiğinde giriş ekranı "
