@@ -257,8 +257,12 @@ def statik_surum() -> str:
     kullanıcıdan "sert yenile" istemeye gerek kalmıyor.
     """
     try:
-        return str(int((KOK / "static" / "style.css").stat().st_mtime))
-    except OSError:
+        # v6.254: tema_a.css / tema_a.js da değişince adres değişsin.
+        return str(int(max(
+            (KOK / "static" / ad).stat().st_mtime
+            for ad in ("style.css", "tema_a.css", "tema_a.js")
+            if (KOK / "static" / ad).exists())))
+    except (OSError, ValueError):
         return "0"
 
 

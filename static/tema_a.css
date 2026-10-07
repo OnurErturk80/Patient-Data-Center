@@ -97,3 +97,48 @@ body.tema-a :focus-visible { outline: 3px solid #5aa7ff; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .tema-a * { transition: none !important; animation: none !important; }
 }
+
+/* ---- açılır pencereler (tema_a.js) ----
+   Telefonda alttan çıkan pencere, geniş ekranda ortada. Renkler style.css'in
+   değişkenlerinden. */
+.pencereperde {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(4, 8, 14, .66); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.pencereperde[hidden] { display: none; }
+.pencere {
+  position: relative; width: 100%; max-width: 640px;
+  max-height: 92vh; max-height: 92dvh;
+  display: flex; flex-direction: column;
+  background: var(--yuzey); color: var(--ink);
+  border: 1px solid var(--line); border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--golge);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: pencere-ac .22s ease-out;
+  outline: none;
+}
+.pencere.mesgul { opacity: .72; pointer-events: none; }
+.pencere-tutac { width: 44px; height: 5px; border-radius: 3px; background: #3b4c61; margin: 8px auto 0; flex: 0 0 auto; }
+.pencere-ust {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px 10px 18px; border-bottom: 1px solid var(--line); flex: 0 0 auto;
+}
+.pencere-ust h2 { margin: 0; font-family: var(--yaz-b); font-size: 18px; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.pencere-kapat {
+  -webkit-appearance: none; appearance: none;
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 12px;
+  background: var(--yuzey2); color: var(--ink); border: 1px solid var(--line);
+  font-size: 16px; cursor: pointer;
+}
+.pencere-govde { overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 20px; flex: 1 1 auto; }
+.pencere-govde .kart { margin-top: 12px; box-shadow: none; }
+.pencere-govde .kimlik { display: none; }
+html.pencere-acik, html.pencere-acik body { overflow: hidden; }
+@media (min-width: 700px) {
+  .pencereperde { align-items: center; padding: 24px; }
+  .pencere { border-radius: 18px; border-bottom: 1px solid var(--line); max-height: 88vh; animation-name: pencere-orta; }
+}
+@keyframes pencere-ac { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes pencere-orta { from { transform: scale(.96); opacity: .4; } to { transform: none; opacity: 1; } }

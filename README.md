@@ -20341,3 +20341,29 @@ sıkıntı çıkarsa eski haline döndürebilelim."
 - Taslaktaki açılır pencereler (toplu maturasyon, vitrifikasyon, yeni tedavi
   için alttan açılan pencere) bu sürümde YOK: onlar şablon ve betik değişikliği,
   ekran ekran yapılacak; önce görünüm denensin.
+
+
+# v6.254 — Klinik Koyu: açılır pencereler
+
+Kullanıcı: "Bu tasarımı tam anlamıyla açılır pencereleri ile uygula. Main'e de
+gönder." (`static/tema_a.js`, yalnızca tasarım açıkken yüklenir.)
+
+- **Şablonlara dokunmadan.** Seçili bağlantılara (yeni hasta / tedavi / sperm
+  dondurma, hasta ve tedavi düzenle, bitir, fotoğraf ekle, silme ekranları,
+  taşıma, toplu maturasyon `?duzenle=toplu`) tıklanınca hedef ekran getirilir,
+  içeriği (`.kap`) pencerede gösterilir: telefonda alttan çıkan pencere (aşağı
+  sürükleyerek kapanır), geniş ekranda ortada; Esc, dışarı tıklama, odak
+  tuzağı. Liste `tema_a.js`'in `YOLLAR`'ında; yeni bir ekranı pencere yapmak
+  için oraya yol ekle. Pencere istemeyen bağlantıya `data-pencere-yok`.
+- **Form pencerenin içinden gönderilir** (`fetch`). Yönlendirme = başarı: ana
+  sayfa yenilenir (aynı ekransa) ya da yeni ekrana gidilir; `?hata=` ya da
+  yönlendirmesiz cevap pencerede gösterilir, yazılanlar silinmez. Betik hata
+  verirse bağlantı eskisi gibi sayfa olarak açılır.
+- Pencere açıkken ana sayfa kendiliğinden yenilenmez (`pdcGeziniyor`).
+- `data-pencere-icerik` işaretli öğe hedef ekranda varsa yalnızca o gösterilir
+  (`_toplu_mat.html`'in kartı: aşama ekranının geri kalanı gelmez).
+- `statik_surum()` artık `tema_a.css` / `tema_a.js`'in değişimini de görüyor.
+- Geri dönüş aynı: Yönetici → Arayüz tasarımı → Klasik. Pencereler de kapanır.
+- Denendi (Playwright, 400 ve 1280 px): yeni tedavi, toplu maturasyon (yazma,
+  şerit güncellenmesi), yeni hasta (kayıt, çift numarada mevcut karta gidiş),
+  fotoğraf ekle / bitir / silme pencereleri; yatay taşma yok.
