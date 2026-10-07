@@ -36,6 +36,46 @@
     return false;
   }
 
+  /* Aşama ekranları: aşama listesi (`nav.yanmenu`) taslaktaki adım şeridine
+     çevrilir, yerine ana menü konur (base.html'deki şablon). Menü zaten
+     sayfada; bu yalnızca görünümünü değiştirir, bağlantılar aynı. */
+  function asamaSeridi() {
+    var baslik = document.querySelector('nav.yanmenu a.baslik');
+    var nav = baslik && baslik.closest('nav');
+    var kap = document.querySelector('.kap');
+    if (!nav || !kap || document.querySelector('.asamaseridi')) return;
+    var ogeler = Array.prototype.slice.call(nav.querySelectorAll('a.oge'));
+    if (!ogeler.length) return;
+    var aktif = -1;
+    ogeler.forEach(function (o, i) { if (o.classList.contains('aktif')) aktif = i; });
+    var ser = document.createElement('nav');
+    ser.className = 'asamaseridi';
+    ser.setAttribute('aria-label', nav.getAttribute('aria-label') || '');
+    ogeler.forEach(function (o, i) {
+      var a = document.createElement('a');
+      a.href = o.getAttribute('href');
+      a.className = 'adim' + (i === aktif ? ' simdi' : (aktif > -1 && i < aktif ? ' bitti' : ''));
+      if (i === aktif) a.setAttribute('aria-current', 'step');
+      var n = document.createElement('i');
+      n.textContent = (aktif > -1 && i < aktif) ? '\u2713' : String(i + 1);
+      var t = document.createElement('span');
+      t.textContent = o.textContent.trim();
+      a.appendChild(n); a.appendChild(t);
+      ser.appendChild(a);
+    });
+    kap.insertBefore(ser, kap.firstChild);
+    var sablon = document.getElementById('anamenusablon');
+    if (sablon && sablon.content) nav.replaceWith(sablon.content.cloneNode(true));
+    else nav.hidden = true;
+    var simdi = ser.querySelector('.simdi');
+    // Geçerli adım görünmüyorsa şeridi ona kaydır; görünüyorsa dokunma.
+    if (simdi && simdi.offsetLeft + simdi.offsetWidth > ser.clientWidth) {
+      try { ser.scrollLeft = Math.max(0, simdi.offsetLeft - 24); } catch (e) {}
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', asamaSeridi);
+  else asamaSeridi();
+
   var perde, kutu, govde, baslikEl, acik = false, sonOdak = null;
 
   function kur() {

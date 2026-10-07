@@ -1808,6 +1808,7 @@ def tasarim_a_mi() -> bool:
 
 
 sablon.env.globals["tasarim_a"] = tasarim_a_mi
+sablon.env.globals["bugun_iso"] = lambda: _dt.now().strftime("%Y-%m-%d")
 
 
 @uygulama.get("/tasarim")

@@ -20367,3 +20367,22 @@ gönder." (`static/tema_a.js`, yalnızca tasarım açıkken yüklenir.)
 - Denendi (Playwright, 400 ve 1280 px): yeni tedavi, toplu maturasyon (yazma,
   şerit güncellenmesi), yeni hasta (kayıt, çift numarada mevcut karta gidiş),
   fotoğraf ekle / bitir / silme pencereleri; yatay taşma yok.
+
+
+# v6.255 — Klinik Koyu: taslağın eksik parçaları
+
+Kullanıcı: "Tam birebir tasarım aynı değil. Tasarım A'daki her şeyi
+göremiyorum." v6.253–254 yalnızca renk / yazı / köşe katmanıydı; taslağın
+yerleşim parçaları eklendi (hepsi yalnızca tasarım açıkken):
+
+- **Aşama adım şeridi** (tedavi ve aşama ekranları): aşama listesi `nav.yanmenu`
+  `tema_a.js` ile ✓ / numaralı hap adımlara çevriliyor (geçerli adım pembe,
+  önceki adımlar yeşil ✓; "bitti" yalnızca sıradan türetilen yaklaşım, kaydın
+  durumu değil). Aşama listesinin yerine ana menü geliyor (`base.html`'in
+  `#anamenusablon`'u).
+- **Telefonda alt sekme çubuğu** (Ana ekran, Hasta kayıtları, Cryo, Yönetici;
+  1100 px altı); üst çubuktaki menü düğmesi ve ana ekranın düğme yığını gizli.
+- **Ana ekran**: "Bugün" başlığı, tarih, + Yeni hasta düğmesi (pencere olarak
+  açılır), tam genişlikte arama; liste satırlarında tedavi tipi rengli hap
+  rozet (`_cyclesatir.html`, `.tiprozet`).
+- Pencere ve adım şeridi betiği `statik_surum()` ile önbelleğe takılmaz.

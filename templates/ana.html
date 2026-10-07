@@ -19,6 +19,15 @@
 {# Hastayı bulmanın kısayolu — sonuç hasta kayıtları ekranındaki Tüm
    Hastalar/arama sütununda açılıyor (v6.65), ayrı bir arama mantığı
    yazılmadı. #}
+{% if tasarim_a is defined and tasarim_a() %}
+<div class="bugunbaslik">
+  <div>
+    <h1>Bugün</h1>
+    <div class="alt">{{ takvim_basligi(bugun_iso()) }} · {{ liste|length }} devam eden {{ metin("cycle")|lower }}</div>
+  </div>
+  {% if yetkim("hasta") %}<a class="dugme" href="/hasta/yeni">+ {{ metin("yeni_hasta") }}</a>{% endif %}
+</div>
+{% endif %}
 <form class="arama kucuk" method="get" action="/hastalar" style="margin-top:8px">
   <input type="search" name="ara" placeholder="{{ metin('ara_ipucu') }}"
          inputmode="search" autocomplete="off">

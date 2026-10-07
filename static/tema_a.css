@@ -142,3 +142,77 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
 }
 @keyframes pencere-ac { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
 @keyframes pencere-orta { from { transform: scale(.96); opacity: .4; } to { transform: none; opacity: 1; } }
+
+/* ---- taslağın eksik parçaları (v6.255) ---- */
+/* Tedavi tipi rozetleri (liste satırlarında) */
+.tema-a .tiprozet {
+  display: inline-block; padding: 1px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .03em; margin-right: 4px;
+  background: #3a1f2c; color: #ff9ac0; vertical-align: 1px;
+}
+.tema-a .tiprozet.t-fet, .tema-a .tiprozet.t-fet_kultur { background: #14304f; color: #8fc4ff; }
+.tema-a .tiprozet.t-oosit_cryo, .tema-a .tiprozet.t-yumurta_cozme { background: #2a2350; color: #b8acff; }
+
+/* Ana ekran başlığı */
+.tema-a .bugunbaslik {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-top: 16px;
+}
+.tema-a .bugunbaslik h1 { margin: 0; font-family: var(--yaz-b); font-size: 30px; letter-spacing: -.02em; }
+.tema-a .bugunbaslik .alt { color: var(--ink-2); font-size: 14px; margin-top: 2px; }
+.tema-a .bugunbaslik .dugme { width: auto; min-height: 44px; margin: 0; padding: 10px 18px; }
+
+/* Aşama adım şeridi */
+.tema-a .asamaseridi {
+  display: flex; gap: 8px; overflow-x: auto; padding: 14px 0 4px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.tema-a .asamaseridi::-webkit-scrollbar { display: none; }
+.tema-a .asamaseridi .adim {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 14px 0 8px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--yuzey);
+  color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 600;
+}
+.tema-a .asamaseridi .adim i {
+  font-style: normal; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700;
+  background: var(--yuzey2); color: var(--ink-2);
+}
+.tema-a .asamaseridi .adim.bitti { color: var(--ink); }
+.tema-a .asamaseridi .adim.bitti i { background: #43c59e; color: #07271d; }
+.tema-a .asamaseridi .adim.simdi {
+  color: #fff; border-color: var(--vurgu); box-shadow: 0 0 0 1px var(--vurgu) inset;
+}
+.tema-a .asamaseridi .adim.simdi i { background: var(--vurgu); color: #fff; }
+.tema-a .asamaseridi .adim:hover { filter: brightness(1.12); }
+
+/* Alt sekme çubuğu (dar ekran) */
+.tema-a .altsekme {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; justify-content: space-around;
+  background: var(--ust-bg); border-top: 1px solid #243247;
+  padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px));
+}
+.tema-a .altsekme a {
+  flex: 1 1 0; min-width: 0; min-height: 52px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  color: #9fb0c5; text-decoration: none; font-size: 12px; font-weight: 600;
+}
+.tema-a .altsekme a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tema-a .altsekme svg {
+  width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.tema-a .altsekme a[aria-current="page"] { color: #fff; }
+.tema-a .altsekme a[aria-current="page"] svg { stroke: var(--vurgu); }
+@media (max-width: 1099px) {
+  .tema-a .ust .menudugme { display: none !important; }
+  .tema-a .anadugmeler { display: none; }
+  .tema-a .kap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (min-width: 1100px) { .tema-a .altsekme { display: none; } }
+.tema-a .bugunbaslik { flex-wrap: nowrap; align-items: center; }
+.tema-a .bugunbaslik > div { min-width: 0; flex: 1 1 auto; }
+.tema-a .bugunbaslik .dugme { flex: 0 0 auto; white-space: nowrap; }
+.tema-a .arama.kucuk { max-width: none; }

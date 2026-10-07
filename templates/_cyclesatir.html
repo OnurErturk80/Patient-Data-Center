@@ -49,7 +49,8 @@
     {%- endif %}</div>
   <div class="no">{{ s.dosya_no }} · {{ s.cycle_no }}</div>
   <div class="meta">
-    {{ tip_kisa(s.cycle_tipi) }}
+    {%- if tasarim_a is defined and tasarim_a() %}<span class="tiprozet t-{{ s.cycle_tipi }}">{{ tip_kisa(s.cycle_tipi) }}</span>
+    {%- else %}{{ tip_kisa(s.cycle_tipi) }}{% endif %}
     {%- if kip == "bitmis" %}
       {%- if s.bitis_sebebi %} · {{ metin("bitis_" ~ s.bitis_sebebi) }}{% endif %}
       {%- if s.bitis_zamani %} · {{ gg_aa_yyyy(s.bitis_zamani) }}{% endif %}
