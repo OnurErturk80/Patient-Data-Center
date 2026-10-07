@@ -20404,3 +20404,17 @@ dönemiyorum. Fotodaki gibi bütün ekranı kaplasa."
 - Fotoğraflı aşama ekranı iki sütun: fotoğraf solda, bilgi / form sağda
   (`.kap.asamaekrani`, CLAUDE.md'deki v6.59 kuralının kullanıcı kararıyla
   değişen hali; Klasik tasarım aynı).
+
+
+# v6.257 — Klinik Koyu: örnek küçük resimleri
+
+Kullanıcı: "Masaüstünde Dondurulmuş örnek fotoğrafları çok büyük görünüyor.
+Sayı artınca ekranı kaplıyor. Daha küçük görünsün, üzerine tıklayınca büyük
+görünsün. Fotoğrafsız ise daha da küçük görünsün."
+
+- `_ornekkart.html`'in `.izgara` / `.hucre` küçük resimleri (vitrifikasyonun
+  Dondurulmuş kartı, çözme listesi, transfer): üç eşit sütun yerine sabit küçük
+  kareler (masaüstünde 76 px, telefonda 88 px), sığdığı kadar yan yana, sarar.
+  Fotoğrafsız örnek 48 / 52 px. Tıklayınca bilgi kartı ve büyük fotoğraf (var
+  olan davranış) açılıyor; açılan fotoğraf en çok 380 px.
+- Yalnızca Klinik Koyu açıkken (`tema_a.css`); Klasik tasarım değişmedi.
