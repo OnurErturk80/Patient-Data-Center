@@ -36,6 +36,113 @@
     return false;
   }
 
+  /* ---- işlem sürerken gösterge (v6.260, kullanıcının isteği: "Programda bir
+     işlem sürerken kullanıcı programın ilgilendiğini gösteren belirteç olsun").
+     Sayfa geçişlerinin üst çizgisini base.html'in gezinti betiği zaten çiziyor
+     (`.yukleniyor`, 150 ms); burada eksik olanlar: basılan düğmenin "İşleniyor…"
+     olması, aynı formun ikinci kez gönderilmesinin engellenmesi, pencere içi
+     formlar ve yanıt gelmezse uyarı. Hızlı işlemde (BEKLE_SURESI altında)
+     hiçbir şey değişmez. Sunucuya hiçbir şey gönderilmez, yalnızca görünüm. */
+  var BEKLE_SURESI = 400, KILIT_SURESI = 8000, YANIT_SURESI = 120000;
+  var etiket = function () { return (document.getElementById('asamaetiket') || {}).dataset || {}; };
+  var bekleyenler = [];
+
+  function bildir(metin) {
+    var n = document.getElementById('pdcBildirim');
+    if (!n) {
+      n = document.createElement('div');
+      n.id = 'pdcBildirim';
+      n.className = 'pdcbildirim';
+      n.setAttribute('role', 'alert');
+      document.body.appendChild(n);
+    }
+    n.textContent = metin;
+    n.hidden = false;
+    clearTimeout(n._z);
+    n._z = setTimeout(function () { n.hidden = true; }, 7000);
+  }
+
+  function formunDugmesi(form, dugme) {
+    return dugme || form.querySelector('button[type=submit], button:not([type]), input[type=submit]');
+  }
+
+  // Düğmeyi "İşleniyor…" yapar (BEKLE_SURESI sonra); dönen işlev eski haline getirir.
+  function bekleBasla(form, dugme, yanitYokta) {
+    var d = formunDugmesi(form, dugme);
+    var durum = { form: form, d: d, bitti: false, eski: null };
+    form.dataset.pdcGonderildi = String(Date.now());
+    durum.z1 = setTimeout(function () {
+      if (durum.bitti) return;
+      form.classList.add('pdc-bekliyor');
+      form.setAttribute('aria-busy', 'true');
+      if (d) {
+        durum.eski = d.tagName === 'INPUT' ? d.value : d.innerHTML;
+        var yazi = etiket().bekle || '\u0130\u015fleniyor\u2026';
+        if (d.tagName === 'INPUT') d.value = yazi;
+        else d.innerHTML = '<span class="pdcdonus" aria-hidden="true"></span><span>' + yazi.replace(/</g, '&lt;') + '</span>';
+        d.disabled = true;
+        d.classList.add('pdc-bekliyor');
+      }
+    }, BEKLE_SURESI);
+    // Çok uzun süren bilinen işlerde (yedek, geri yükleme, taşıma) uyarı yok:
+    // yeniden basılması yanıt gelmemesinden daha tehlikeli.
+    var uzunIs = /\/(yedekleme|tasi|kurulum)/.test(form.getAttribute('action') || '');
+    if (!uzunIs) durum.z2 = setTimeout(function () {
+      if (durum.bitti) return;
+      bitir();
+      bildir(etiket().yanitYok || 'Sunucudan yan\u0131t gelmedi. Ba\u011flant\u0131y\u0131 kontrol edip yeniden deneyin.');
+    }, yanitYokta || YANIT_SURESI);
+    function bitir() {
+      if (durum.bitti) return;
+      durum.bitti = true;
+      clearTimeout(durum.z1); clearTimeout(durum.z2);
+      form.classList.remove('pdc-bekliyor');
+      form.removeAttribute('aria-busy');
+      delete form.dataset.pdcGonderildi;
+      if (d && durum.eski !== null) {
+        if (d.tagName === 'INPUT') d.value = durum.eski; else d.innerHTML = durum.eski;
+        d.disabled = false;
+        d.classList.remove('pdc-bekliyor');
+      }
+    }
+    durum.bitir = bitir;
+    bekleyenler.push(durum);
+    return bitir;
+  }
+  window.pdcBekleBasla = bekleBasla;
+
+  function sessizMi(form) {
+    var hedef = (form.getAttribute('target') || '').toLowerCase();
+    var yol = form.getAttribute('action') || '';
+    return hedef === '_blank' || yol.indexOf('/disari/') !== -1 ||
+      form.hasAttribute('data-pdc-sessiz');
+  }
+
+  // İkinci gönderim (çift tık, yavaş yanıtta tekrar basma) engellenir.
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || f.tagName !== 'FORM' || sessizMi(f)) return;
+    var onceki = Number(f.dataset.pdcGonderildi || 0);
+    if (onceki && Date.now() - onceki < KILIT_SURESI) {
+      e.preventDefault(); e.stopImmediatePropagation();
+    }
+  }, true);
+  // Başka bir işlev göndermeyi iptal etmediyse (onay penceresi, doğrulama) bekleme başlar.
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || f.tagName !== 'FORM' || e.defaultPrevented || sessizMi(f)) return;
+    if (f.dataset.pdcGonderildi) return;
+    bekleBasla(f, e.submitter);
+    // Kilit yalnızca birkaç saniye: sayfa yerinde kalırsa (indirme) yeniden basılabilsin.
+    setTimeout(function () { delete f.dataset.pdcGonderildi; }, KILIT_SURESI);
+  });
+  // Önbellekten geri dönülen sayfada kilitli düğme kalmasın.
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    bekleyenler.forEach(function (b) { b.bitir(); });
+    bekleyenler = [];
+  });
+
   /* Aşama ekranları: aşama listesi (`nav.yanmenu`) taslaktaki adım şeridine
      çevrilir, yerine ana menü konur (base.html'deki şablon). Menü zaten
      sayfada; bu yalnızca görünümünü değiştirir, bağlantılar aynı. */
@@ -285,6 +392,7 @@
     var veri = new FormData(form);
     if (dugme && dugme.name) veri.append(dugme.name, dugme.value);
     mesgul(true);
+    var bekleBitir = bekleBasla(form, dugme);
     fetch(form.getAttribute('action') || location.href, {
       method: 'POST', body: veri, credentials: 'same-origin',
       headers: { 'X-Pencere': '1' }
@@ -293,6 +401,8 @@
     }).then(function (s) {
       mesgul(false);
       var u = new URL(s.r.url, location.href);
+      var basari = s.r.ok && !(/[?&]hata=/.test(u.search) || !s.r.redirected);
+      if (!basari) bekleBitir();   // başarıda sayfa değişiyor, düğme kilitli kalsın
       var hataVar = /[?&]hata=/.test(u.search) || !s.r.redirected;
       if (s.r.ok && !hataVar) {
         // Başarı: aynı ekransa yenile, başka ekransa oraya git.
@@ -301,7 +411,7 @@
         return;
       }
       if (!doldur(s.t, baslikEl.textContent)) location.href = u.pathname + u.search;
-    }).catch(function () { mesgul(false); form.submit(); });
+    }).catch(function () { mesgul(false); bekleBitir(); form.submit(); });
   }
 
   function ac(a) {

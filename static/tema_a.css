@@ -320,3 +320,46 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
   .tema-a .asamaseridi .adim, .tema-a .asamaseridi .halka { flex: 1 1 0; }
 }
 @media (prefers-reduced-motion: reduce) { .tema-a .ilerleme i, .tema-a .asamaseridi .adim { transition: none; } }
+
+/* ---- işlem sürerken gösterge (v6.260) ---- */
+/* Sayfa geçişinin üst çizgisi (base.html, 150 ms sonra): daha belirgin */
+.tema-a .yukleniyor { height: 5px; background: rgba(224, 53, 111, .18); }
+.tema-a .yukleniyor::before {
+  width: 45%; left: -45%;
+  background: linear-gradient(90deg, #43c59e, var(--vurgu));
+  box-shadow: 0 0 12px var(--vurgu);
+}
+.tema-a .yukleniyor { z-index: 60; }
+/* Basılan düğme */
+.tema-a .pdcdonus {
+  display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .35); border-top-color: #fff;
+  animation: pdcdon .8s linear infinite; margin-right: 10px; vertical-align: -3px;
+}
+.tema-a .pdc-bekliyor { cursor: progress; }
+.tema-a button.pdc-bekliyor, .tema-a .dugme.pdc-bekliyor { opacity: .8; }
+@keyframes pdcdon { to { transform: rotate(360deg); } }
+/* Pencere içi form gönderilirken üst çizgi */
+.tema-a .pencere.mesgul { opacity: 1; }
+.tema-a .pencere.mesgul .pencere-govde { opacity: .7; }
+.tema-a .pencere.mesgul::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; z-index: 5;
+  border-radius: 20px 20px 0 0; overflow: hidden;
+  background: linear-gradient(90deg, transparent, var(--vurgu), #43c59e, transparent);
+  background-size: 45% 100%; background-repeat: no-repeat;
+  animation: pdcpencere 1s ease-in-out infinite;
+}
+@keyframes pdcpencere { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+/* Yanıt gelmedi bildirimi */
+.tema-a .pdcbildirim {
+  position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%); z-index: 95; width: min(440px, calc(100% - 24px));
+  background: #3a2a17; color: #f4d9a8; border: 1px solid #5a4020; border-radius: 14px;
+  padding: 12px 16px; font-size: 14px; box-shadow: 0 14px 40px rgba(0, 0, 0, .6);
+}
+.tema-a .pdcbildirim[hidden] { display: none; }
+@media (min-width: 1100px) { .tema-a .pdcbildirim { bottom: 24px; } }
+@media (prefers-reduced-motion: reduce) {
+  .tema-a .pdcdonus { animation-duration: 3s; }
+  .tema-a .pencere.mesgul::before { animation: none; background-size: 100% 100%; }
+}

@@ -20463,3 +20463,33 @@ artık kayda bakıyor.
 - Yeniden başlatılmamış program (`data-tamam` yok): eski sıraya göre görünüm.
 - "Kayıtlı" bir aşamanın TAM bittiği anlamına gelmez (örneğin ICSI'de 6 yumurtanın
   3'ü kaydedilmiş olabilir); en az bir kayıt var demektir.
+
+
+# v6.260 — Klinik Koyu: işlem sürerken gösterge (A)
+
+Kullanıcı: "Programda bir işlem sürerken kullanıcı programın ilgilendiğini
+gösteren belirteç olsun. Yani mesela fotoğraf yüklediğimde biraz bekliyor."
+Dört tarz denendi; "Önce A yap": her işlemde otomatik üst çizgi + düğme.
+
+- **Üst çizgi:** sayfa geçişi / form gönderimi 150 ms'yi aşınca base.html'in
+  gezinti betiğinin çizdiği `.yukleniyor` çizgisi (v6.236) Klinik Koyu'da
+  belirgin (5 px, yeşil→pembe, parlama).
+- **Düğme** (`tema_a.js` `bekleBasla()`): form gönderilir ve 400 ms içinde yanıt
+  gelmezse basılan düğme "İşleniyor…" + dönen simge olur ve kilitlenir. Hızlı
+  işlemde hiçbir şey değişmez. Düğme gönderimden SONRA (zamanlayıcıyla)
+  kilitleniyor: `submit` olayında kilitlenirse düğmenin adı/değeri (`eylem=...`)
+  forma girmezdi.
+- **Çift gönderim engeli:** aynı form 8 sn içinde ikinci kez gönderilemez
+  (yakalama aşamasında `preventDefault`). İptal edilen gönderim (onay penceresi,
+  tarayıcı doğrulaması) bekleme başlatmaz; kendi betiğiyle gönderenler
+  (`preventDefault` + fetch) etkilenmez.
+- **Atlananlar:** `/disari/` (indirme: bitişi bilinemez), `target=_blank`,
+  `data-pdc-sessiz`. `/yedekleme`, `/tasi`, `/kurulum` işlemleri çok uzun
+  sürebildiği için "yanıt gelmedi" uyarısı yok (yeniden basmak daha tehlikeli).
+- **Yanıt gelmezse** (120 sn): düğme eski haline döner, altta "Sunucudan yanıt
+  gelmedi. Bağlantıyı kontrol edip yeniden deneyin." bildirimi.
+- **Açılır pencere:** pencere içi form aynı düğme durumu + pencerenin üstünde
+  akan çizgi; hata ya da başarısızlıkta düğme açılır, başarıda sayfa değişiyor.
+- Bellek önbelleğinden dönülen sayfada (`pageshow`) kilitli düğme kalmaz.
+- Fotoğraf yüklemede YÜZDELİ gösterge ayrı iş (yüklemeyi arka planda göndermeyi
+  gerektirir): B ya da D tarzı, istenirse.

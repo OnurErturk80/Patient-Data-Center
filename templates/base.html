@@ -114,7 +114,7 @@
 {% if tasarim_a is defined and tasarim_a() %}
 {% set _yk3 = kullanici or request.state.kullanici %}
 {% if _yk3 %}
-<span id="asamaetiket" hidden data-baslik="{{ metin('asama_seridi_baslik') }}" data-tamam="{{ metin('asama_tamam') }}" data-simdi="{{ metin('asama_simdi') }}" data-asama="{{ metin('asama_no') }}"></span>
+<span id="asamaetiket" hidden data-baslik="{{ metin('asama_seridi_baslik') }}" data-tamam="{{ metin('asama_tamam') }}" data-simdi="{{ metin('asama_simdi') }}" data-asama="{{ metin('asama_no') }}" data-bekle="{{ metin('bekle_islem') }}" data-yanit-yok="{{ metin('bekle_yanit_yok') }}"></span>
 <template id="anamenusablon">{{ gz.yan_ana(_yk3, None) }}</template>
 <nav class="altsekme" aria-label="{{ metin('ana_menu') }}">
   <a href="/"{% if request.url.path == '/' %} aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"/></svg><span>{{ metin("ana_ekran") }}</span></a>

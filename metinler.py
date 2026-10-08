@@ -4055,6 +4055,8 @@ METINLER = {
     "asama_tamam": {"tr": "Tamam", "en": "Done"},
     "asama_simdi": {"tr": "Şimdi", "en": "Now"},
     "asama_no": {"tr": "Aşama {n}", "en": "Stage {n}"},
+    "bekle_islem": {"tr": "İşleniyor…", "en": "Working…"},
+    "bekle_yanit_yok": {"tr": "Sunucudan yanıt gelmedi. Bağlantıyı kontrol edip yeniden deneyin.", "en": "No response from the server. Check the connection and try again."},
     "tasarim_baslik": {"tr": "Arayüz tasarımı", "en": "Interface design"},
     "tasarim_klasik": {"tr": "Klasik (eski görünüm)", "en": "Classic (previous look)"},
     "tasarim_a": {"tr": "Klinik Koyu (yeni görünüm)", "en": "Clinical Dark (new look)"},
