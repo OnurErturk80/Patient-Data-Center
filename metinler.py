@@ -1770,6 +1770,10 @@ METINLER = {
     "bu_fotografi_sil": {"tr": "Bu fotoğrafı sil", "en": "Delete this photo"},
     "fotograf_ekle_kucuk": {"tr": "fotoğraf ekle", "en": "add photo"},
     "arti_ekle": {"tr": "+ ekle", "en": "+ add"},
+    "yeniden_degerlendirme": {"tr": "Yeniden değerlendirme", "en": "Re-evaluation"},
+    "yeniden_degerlendirme_ipucu": {"tr": "isteğe bağlı. Boş bırakırsanız önceki fotoğraf ve değerler kalır.", "en": "optional. If left empty, the previous photo and values stay."},
+    "transfer_oncesi_foto": {"tr": "Transfer öncesi fotoğraf", "en": "Pre-transfer photo"},
+    "transfer_foto_hata": {"tr": "Transfer kaydedildi, ancak fotoğraf eklenemedi:", "en": "Transfer saved, but the photo could not be added:"},
     "canlilik_orani": {"tr": "Canlılık oranı (%)", "en": "Viability (%)"},
     "re_expansion": {"tr": "Re-expansion (%)", "en": "Re-expansion (%)"},
     "canlilik_reexp_ipucu": {

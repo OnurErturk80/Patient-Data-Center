@@ -13155,6 +13155,8 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = "",
     edilen = db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no, c2.hasta_cycle_no, "
         "  o.zaman, o.tr_tipi, o.id AS olay_id, "
+        + ("o.tr_canlilik" if db.kolon_var("olay", "tr_canlilik") else "NULL")
+        + " AS tr_canlilik, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
@@ -13173,6 +13175,8 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = "",
         {"c": c, "adaylar": adaylar, "edilen": _pgt_ekle(edilen), "hata": hata,
          # Transfer hekimini düzeltmek (v6.232): transferden sonra form yok.
          "duzenle": "hekim" if duzenle == "hekim" else "",
+         # Yeniden değerlendirme (v6.262): göç yoksa alan basılmaz.
+         "yeniden_degerlendirme": db.kolon_var("olay", "tr_canlilik"),
          "gezinme": asama_gezinme(cycle_id, "transfer"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -13208,6 +13212,7 @@ async def transfer_kaydet(request: Request, cycle_id: int):
         return RedirectResponse(f"/cycle/{cycle_id}/transfer?hata=pgt_onay",
                                 status_code=303)
 
+    foto_hatalari = []
     for sid in secilen:
         if sid not in uygun:
             continue
@@ -13217,17 +13222,43 @@ async def transfer_kaydet(request: Request, cycle_id: int):
         # Çözülmüşse donmuş, değilse taze
         cozuldu = db.tek("SELECT id FROM olay WHERE specimen_id=? AND tip='thaw' "
                          "AND iptal_mi=0", (sid,))
-        olay_kaydet_veya_guncelle(
-            sid, sp["cycle_id"], "transfer",
-            {"tr_cycle_id": cycle_id, "tr_tipi": "donmus" if cozuldu else "taze"},
-            kid, simdi)
+        alanlar = {"tr_cycle_id": cycle_id,
+                   "tr_tipi": "donmus" if cozuldu else "taze"}
+        # Yeniden değerlendirme (v6.262): transfer öncesi canlılık oranı (%).
+        # Formda alan yoksa (eski sekme) ya da boşsa yazılmaz.
+        if db.kolon_var("olay", "tr_canlilik") and f.get(f"canlilik_{sid}") is not None:
+            try:
+                oran = sayi(f.get(f"canlilik_{sid}"), "Canlılık oranı")
+            except FormHatasi:
+                oran = None
+            alanlar["tr_canlilik"] = (None if oran is None
+                                      else max(0.0, min(100.0, oran)))
+        olay_kaydet_veya_guncelle(sid, sp["cycle_id"], "transfer", alanlar, kid, simdi)
         db.yaz("UPDATE specimen SET durum='transfer_edildi' WHERE id=?", (sid,))
+        # İkinci fotoğraf (v6.262): embriyonun KENDİ tedavisinin arşivine,
+        # "transfer öncesi" aşamasıyla; yüklenmezse önceki kare gösterilmeye
+        # devam eder (`ornek_kareleri_sql()`). Transfer fotoğraf yüzünden
+        # geri alınmaz, hata ekrana yazılır.
+        d = f.get(f"foto_{sid}")
+        ad = getattr(d, "filename", "") or ""
+        if ad:
+            kaynak = db.tek("SELECT cycle_no FROM cycle WHERE id=?", (sp["cycle_id"],))
+            mesaj = goruntuler.elle_ekle(
+                await d.read(), ad, sp["cycle_id"], kaynak["cycle_no"], sid,
+                "transfer_oncesi", kid)
+            if mesaj:
+                foto_hatalari.append(f"{sp['cycle_sira_no']}: {mesaj}")
 
     # Transfer hekimi transferle birlikte (v6.232): formdaki menü.
     _transfer_hekimini_yaz(c, f, kid)
     # FET'in günü transfer günü de olabilir (v6.144, `db.tedavi_tarihi()`).
     tedavi_sirasini_duzelt(c["hasta_id"], kid)
     islem_yapani_doldur(cycle_id, "transfer")   # v6.208
+    if foto_hatalari:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/transfer?hata="
+            + quote(metinler.t("transfer_foto_hata") + " " + " ".join(foto_hatalari)),
+            status_code=303)
     return RedirectResponse(f"/cycle/{cycle_id}/transfer", status_code=303)
 
 

@@ -36,6 +36,7 @@
     <div class="veri"><dt>{{ metin("skor") }}</dt>
       <dd {% if not e.skor %}class="yok"{% endif %}>
         {{ e.skor if e.skor else metin("girilmedi") }}</dd></div>
+    {% if e.tr_canlilik is not none and e.tr_canlilik is defined %}<div class="veri"><dt>{{ metin("canlilik_orani") }}</dt><dd>%{{ e.tr_canlilik|int if e.tr_canlilik == e.tr_canlilik|int else e.tr_canlilik }}</dd></div>{% endif %}
     <div class="veri"><dt>{{ metin("geldigi_cycle") }}</dt>
       <dd>{{ e.cycle_no }}{% if e.hasta_cycle_no %}
           ({{ say("n_cycle_sirali", e.hasta_cycle_no) }}){% endif %}</dd></div>
@@ -83,7 +84,7 @@
 </div></div>
 {% else %}
 
-<form method="post" action="/cycle/{{ c.id }}/transfer" id="trform">
+<form method="post" action="/cycle/{{ c.id }}/transfer" id="trform" enctype="multipart/form-data">
   <div class="kart">
     <h2>{{ metin("transfer_edilecek_embriyolar") }}</h2>
     {% for e in adaylar %}
@@ -102,6 +103,23 @@
         {% if e.pgt %}<span class="pgtsatirici">{{ pgtm.ayrinti(e.pgt) }}</span>{% endif %}
       </span>
     </label>
+    {#- Yeniden değerlendirme (v6.262): seçilince açılır; boş bırakılırsa
+        hiçbir şey yazılmaz, önceki kare ve değerler kalır. -#}
+    {% if yeniden_degerlendirme is defined and yeniden_degerlendirme %}
+    <div class="trdeger" data-embriyo="{{ e.id }}" hidden>
+      <div class="ipucu"><strong>{{ metin("yeniden_degerlendirme") }}</strong> — {{ metin("yeniden_degerlendirme_ipucu") }}</div>
+      <div class="alan ikili">
+        <div>
+          <label for="canlilik_{{ e.id }}">{{ metin("canlilik_orani") }}</label>
+          <input id="canlilik_{{ e.id }}" name="canlilik_{{ e.id }}" type="text" inputmode="decimal" autocomplete="off">
+        </div>
+        <div>
+          <label for="foto_{{ e.id }}">{{ metin("transfer_oncesi_foto") }}</label>
+          <input id="foto_{{ e.id }}" name="foto_{{ e.id }}" type="file" accept="image/*">
+        </div>
+      </div>
+    </div>
+    {% endif %}
     {% endfor %}
     <div class="alan" style="border:0">
       <div class="ipucu">
@@ -150,6 +168,8 @@
 document.querySelectorAll('.secsatir input').forEach(function (i) {
   i.addEventListener('change', function () {
     i.closest('.secsatir').classList.toggle('secili', i.checked);
+    var d = document.querySelector('.trdeger[data-embriyo="' + i.value + '"]');
+    if (d) d.hidden = !i.checked;
   });
 });
 (function () {

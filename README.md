@@ -20515,3 +20515,33 @@ izliyor.
 - Dosya başına yüzde yok: tek istek, tek ilerleme; "N dosya · MB · %x".
 - Denendi: Playwright + CDP upload kısıtlaması, 3 dosya / 19 MB: %2 → %76 →
   tamam, 3 kayıt yazıldı, /cycle/1'e yönlendi.
+
+---
+
+# v6.262 — Transferde yeniden değerlendirme: canlılık oranı + ikinci fotoğraf
+
+Kullanıcı (2026-10-08): "Transfer menüsünde blastokist aşamasından veya
+çözmeden gelen embriyonun yeniden değerlendirmesi olsun. Yani canlılık oranı
+girilebilsin. Ayrıca ikinci foto yüklenebilsin. Eğer yüklenmez ise önceki
+yükleneni göstersin."
+
+- Transfer formunda embriyo seçilince altında "Yeniden değerlendirme" açılır:
+  **Canlılık oranı (%)** ve **Transfer öncesi fotoğraf**. İkisi de isteğe bağlı;
+  boş bırakılan hiçbir şey yazmaz.
+- Oran `olay.tr_canlilik` (`goc_062`) -- transfer kaydında. Çözmenin
+  `thaw_canlilik`'inden ayrı: taze blastokistin çözme olayı yok; çözülende de
+  çözme sonrası ilk ölçüm ile transfer öncesi yeniden değerlendirme iki ayrı
+  bilgi. Transferden sonra bilgi kartında "Canlılık oranı". 0–100'e sıkıştırılır.
+- Fotoğraf `goruntu.asama='transfer_oncesi'` (çözme ekranının "İkinci kontrol"
+  karesiyle aynı aşama), embriyonun KENDİ tedavisinin arşivine. Gösterilen kare
+  `ornek_kareleri_sql(("transfer_oncesi", "blastokist"))`: yüklenirse en son
+  transfer öncesi kare, yüklenmezse önceki kare (blastokist / çözme sonrası) --
+  yeni bir kural yazılmadı, var olan sıra bu isteği zaten karşılıyor.
+- Fotoğraf hatası (uzantı, boyut) transferi geri almaz; transfer kaydedilir,
+  ekranda hata yazar.
+- Form dosya taşıdığı için `multipart`; Klinik Koyu'da yüklemede v6.261'in
+  yüzdeli bildirimi çıkar.
+- Resmî formlara ve Excel'e girmedi (istenmedi); formlardaki "%90-%85" çözme
+  canlılığı olarak kalıyor.
+- Göç yoksa (`tr_canlilik` kolonu) alan basılmaz, eski davranış. Şablon
+  `yeniden_degerlendirme is defined` diye soruyor (tuzak #5).
