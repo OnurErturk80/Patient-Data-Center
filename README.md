@@ -20439,3 +20439,27 @@ fark edilemiyor" -- dört tarz taslağı gösterildi, "1 bölmeli hoşuma gitti"
 - Metinler `metinler.py`'de (`asama_seridi_baslik`, `asama_tamam`, `asama_simdi`,
   `asama_no`), `base.html`'deki gizli `#asamaetiket`'ten JS'e geçiyor.
 - v6.255'in hap biçimli adım şeridi kalktı. Klasik tasarım değişmedi.
+
+
+# v6.259 — Aşama şeridi: kaydedilmiş veri yeşil ve ✓
+
+Kullanıcı: "Veri girilmiş ve kaydedilmiş bölüm yeşil ve check'li olarak
+göstersin." v6.258'de "tamam" yalnızca geçerli aşamadan öncekilerdi (sıra);
+artık kayda bakıyor.
+
+- `app.asama_durumlari()`: aşama kodu -> bu tedavide kaydedilmiş veri var mı.
+  Olay tabanlı aşamalar (ICSI: `icsi` ya da `maturasyon_kontrolu`, fertilizasyon,
+  cleavage, blastokist, biyopsi, vitrifikasyon, çözme, transfer) bu tedavide
+  YAPILAN, iptal edilmemiş olaylardan (`db.tedavide_yapilan()`, `cycle_ozet()`'in
+  koşulu); OPU: OPU zamanı ya da sağ / sol sayısı; denüdasyon: denüdasyon zamanı
+  ya da tedavinin yumurta kaydı; androloji: taze örnek ya da bağlı dondurulmuş
+  sperm; PGT: biyopsiye girilmiş karar; gebelik: sonuç kaydı. Hata verirse boş
+  döner (her tedavi ekranında çalışıyor).
+- `asama_gezinme()` her aşamaya `tamam` ekliyor, `_gezinme.html` `data-tamam`
+  olarak basıyor, `tema_a.js` şeridi ona göre boyuyor: kayıtlı bölme yeşil +
+  ✓; geçerli aşama pembe kalıyor, kayıtlıysa ✓ da taşıyor. Üstteki sayaç ve
+  ilerleme çubuğu kayıtlı aşama sayısı ("2 / 10"). Tedavi özet ekranında da
+  kayıtlı aşamalar yeşil.
+- Yeniden başlatılmamış program (`data-tamam` yok): eski sıraya göre görünüm.
+- "Kayıtlı" bir aşamanın TAM bittiği anlamına gelmez (örneğin ICSI'de 6 yumurtanın
+  3'ü kaydedilmiş olabilir); en az bir kayıt var demektir.

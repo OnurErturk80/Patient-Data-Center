@@ -50,6 +50,13 @@
     ogeler.forEach(function (o, i) { if (o.classList.contains('aktif')) aktif = i; });
     var D = (document.getElementById('asamaetiket') || {}).dataset || {};
     var toplam = ogeler.length;
+    // Sunucu "veri kaydedilmiş mi" söylüyorsa (data-tamam) ✓ ona göre; söylemiyorsa
+    // (yeniden başlatılmamış program) eski gibi geçerli aşamadan öncekiler.
+    var veriVar = ogeler.some(function (o) { return o.hasAttribute('data-tamam'); });
+    function tamamMi(o, i) {
+      return veriVar ? o.getAttribute('data-tamam') === '1' : (aktif > -1 && i < aktif);
+    }
+    var tamamSayisi = ogeler.filter(tamamMi).length;
     var kutu_ = document.createElement('div');
     kutu_.className = 'asamakap';
     var ust_ = document.createElement('div');
@@ -57,9 +64,9 @@
     var et = document.createElement('span');
     et.className = 'et';
     et.appendChild(document.createTextNode((D.baslik || 'Tedavi aşamaları')));
-    if (aktif > -1) {
+    if (veriVar || aktif > -1) {
       var b = document.createElement('b');
-      b.textContent = ' \u00b7 ' + (aktif + 1) + ' / ' + toplam;
+      b.textContent = ' \u00b7 ' + (veriVar ? tamamSayisi : aktif + 1) + ' / ' + toplam;
       et.appendChild(b);
     }
     ust_.appendChild(et);
@@ -71,8 +78,10 @@
     ogeler.forEach(function (o, i) {
       var a = document.createElement('a');
       a.href = o.getAttribute('href');
-      var durum = i === aktif ? 'simdi' : (aktif > -1 && i < aktif ? 'bitti' : 'bekle');
-      a.className = 'adim ' + durum + (i === 0 ? ' pri' : '') + (i === toplam - 1 ? ' son' : '');
+      var kayitli = tamamMi(o, i);
+      var durum = i === aktif ? 'simdi' : (kayitli ? 'bitti' : 'bekle');
+      a.className = 'adim ' + durum + (kayitli ? ' kayitli' : '') +
+        (i === 0 ? ' pri' : '') + (i === toplam - 1 ? ' son' : '');
       if (i === aktif) a.setAttribute('aria-current', 'step');
       var n = document.createElement('span');
       n.className = 'no';
@@ -94,7 +103,7 @@
     var ilr = document.createElement('div');
     ilr.className = 'ilerleme';
     var dolu = document.createElement('i');
-    dolu.style.width = (aktif > -1 ? Math.round((aktif + 1) * 100 / toplam) : 0) + '%';
+    dolu.style.width = Math.round((veriVar ? tamamSayisi : (aktif > -1 ? aktif + 1 : 0)) * 100 / toplam) + '%';
     ilr.appendChild(dolu);
     kutu_.appendChild(ust_); kutu_.appendChild(alan); kutu_.appendChild(ilr);
     function kenarlar() {

@@ -296,7 +296,7 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
 .tema-a .asamaseridi .ad { font-family: var(--yaz-b); font-weight: 700; font-size: 14px; line-height: 1.15; white-space: nowrap; }
 .tema-a .asamaseridi .adim.bitti { background: #1f7a62; color: #eafff7; }
 .tema-a .asamaseridi .adim.bitti:hover { background: #26906f; }
-.tema-a .asamaseridi .adim.bitti .ad::before { content: "\2713  "; }
+.tema-a .asamaseridi .adim.kayitli .ad::before { content: "\2713  "; }
 .tema-a .asamaseridi .adim.simdi {
   z-index: 2; background: var(--vurgu); color: #fff;
 }

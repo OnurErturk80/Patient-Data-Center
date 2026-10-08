@@ -13770,6 +13770,58 @@ def cycle_ozet(cycle: dict, kodlar: set) -> list:
     return satirlar
 
 
+# Aşamanın "kaydedilmiş veri var" sayılması için tedavide yapılan olay tipleri
+# (v6.259, kullanıcı: "Veri girilmiş ve kaydedilmiş bölüm yeşil ve check'li
+# olarak göstersin"). `cycle_ozet()` ile aynı koşul: bu tedavide YAPILAN
+# (`db.tedavide_yapilan()`), iptal edilmemiş olaylar.
+_ASAMA_OLAYLARI = {
+    "icsi": ("icsi", "maturasyon_kontrolu"),
+    "fert": ("fertilizasyon_kontrolu",),
+    "cleavage": ("cleavage_degerlendirme",),
+    "blast": ("blastokist_degerlendirme",),
+    "biyopsi": ("biyopsi",),
+    "vitrifikasyon": ("vitrifikasyon",),
+    "thaw": ("thaw",),
+    "transfer": ("transfer",),
+}
+
+
+def asama_durumlari(cycle_id: int, c=None) -> dict:
+    """Aşama kodu -> bu tedavide kaydedilmiş veri var mı (v6.259).
+
+    Hata verirse boş sözlük (aşama menüsü her tedavi ekranında çalışıyor):
+    ekran o zaman sıraya göre eski görünümde kalır.
+    """
+    try:
+        c = c or db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+        if not c:
+            return {}
+        kosul, p = db.tedavide_yapilan(cycle_id)
+        tipler = {r["tip"] for r in db.sorgu(
+            f"SELECT DISTINCT o.tip FROM olay o WHERE o.iptal_mi = 0 AND {kosul}",
+            tuple(p))}
+        d = {k: bool(tipler & set(v)) for k, v in _ASAMA_OLAYLARI.items()}
+        d["opu"] = (c["opu_zamani"] is not None or c["opu_sag_oosit"] is not None
+                    or c["opu_sol_oosit"] is not None)
+        d["denudasyon"] = (c["denudasyon_zamani"] is not None or bool(db.tek(
+            "SELECT 1 x FROM specimen WHERE cycle_id=? LIMIT 1", (cycle_id,))))
+        d["androloji"] = bool(db.tek(
+            "SELECT 1 x FROM sperm_ornek WHERE cycle_id=? LIMIT 1", (cycle_id,)))
+        if not d["androloji"] and db.kolon_var("sperm_dondurma", "kullanim_cycle_id"):
+            d["androloji"] = bool(db.tek(
+                "SELECT 1 x FROM sperm_dondurma WHERE kullanim_cycle_id=? LIMIT 1",
+                (cycle_id,)))
+        d["gebelik"] = bool(db.tek(
+            "SELECT 1 x FROM gebelik_sonucu WHERE cycle_id=? LIMIT 1", (cycle_id,)))
+        d["pgt"] = bool(db.tek(
+            f"SELECT 1 x FROM olay o WHERE o.tip='biyopsi' AND o.iptal_mi=0 "
+            f"AND o.biy_sonuc IS NOT NULL AND o.biy_sonuc <> '' AND {kosul} LIMIT 1",
+            tuple(p)))
+        return d
+    except Exception:
+        return {}
+
+
 def asama_gezinme(cycle_id: int, anahtar: str):
     """Bir aşama ekranının gezinme verisi: önceki/sonraki **ve tüm liste**.
 
@@ -13780,8 +13832,10 @@ def asama_gezinme(cycle_id: int, anahtar: str):
     c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
     liste = cycle_asamalari(c["cycle_tipi"] if c else "ivf_icsi", pgt_mi(c))
     kodlar = [a[0] for a in liste]
+    durum = asama_durumlari(cycle_id, c)
     tumu = [{"kod": k, "ad": asama_adi(k), "yol": yol.format(id=cycle_id),
-             "aktif": k == anahtar}
+             "aktif": k == anahtar,
+             **({"tamam": bool(durum.get(k))} if durum else {})}
             for k, _ad, yol in liste]
     if anahtar not in kodlar:
         return {"onceki": None, "sonraki": None, "sira": None,
