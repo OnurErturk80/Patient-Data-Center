@@ -1216,6 +1216,17 @@ def _cozulenleri_kur(cycle_id, satirlar, h=None) -> list:
             "WHERE x.specimen_id = ? AND x.tip = 'transfer' AND x.iptal_mi = 0 "
             "AND COALESCE(x.tr_cycle_id, s.cycle_id) = ? AND x.id > ?",
             (r["specimen_id"], cycle_id, r["id"])) is not None
+        # Transferde girilen ikinci canlılık (v6.263, `goc_062`): bu çözmeden
+        # sonra bu tedavide yapılan transferin kaydı.
+        tr_oran = None
+        if transfer and db.kolon_var("olay", "tr_canlilik"):
+            tr = db.tek(
+                "SELECT x.tr_canlilik FROM olay x JOIN specimen s ON s.id = x.specimen_id "
+                "WHERE x.specimen_id = ? AND x.tip = 'transfer' AND x.iptal_mi = 0 "
+                "AND COALESCE(x.tr_cycle_id, s.cycle_id) = ? AND x.id > ? "
+                "ORDER BY x.id DESC LIMIT 1",
+                (r["specimen_id"], cycle_id, r["id"]))
+            tr_oran = _yuzde(tr["tr_canlilik"]) if tr else None
         yeniden = db.tek(
             f"SELECT 1 FROM olay v WHERE v.specimen_id = ? "
             f"AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
@@ -1237,6 +1248,7 @@ def _cozulenleri_kur(cycle_id, satirlar, h=None) -> list:
             # kendi çözmesi) -- Deselect yalnızca embriyoyu sayıyor (v6.208).
             "yumurta": bool(v and v["yumurta"]),
             "canlilik": _yuzde(r["thaw_canlilik"]),
+            "transfer_canlilik": tr_oran,
             "transfer": transfer,
             "yeniden": yeniden,
         })
@@ -1265,7 +1277,8 @@ def cozme_viabilitesi(cozulenler) -> str | None:
     """ÇÖZDÜRME SONRASI VİABİLİTE kutusu: "2 Canlı, 1 Dejenere · %90-%80".
 
     Sağkalım etiketleri sayılarıyla (ekrandaki seçenekler), girilmişse
-    canlılık oranları embriyo embriyo, çözme sırasıyla. Ortalama alınmıyor:
+    canlılık oranları embriyo embriyo, çözme sırasıyla; transferde ikinci
+    canlılık girilmişse "%90→%85". Ortalama alınmıyor:
     resmî forma programın hesapladığı bir sayı değil, girilen yazılsın.
     """
     sayim = {}
@@ -1273,7 +1286,18 @@ def cozme_viabilitesi(cozulenler) -> str | None:
         if o["sagkalim"]:
             sayim[o["sagkalim"]] = sayim.get(o["sagkalim"], 0) + 1
     parca = ", ".join(f"{n} {e}" for e, n in sayim.items())
-    oranlar = "-".join(o["canlilik"] for o in cozulenler if o["canlilik"])
+    # Transferde ikinci canlılık girilmişse "%90→%85" (v6.263); yalnızca
+    # ikincisi varsa "→%85", birinci yoksa kutu o embriyo için boş kalmaz.
+    parcalar = []
+    for o in cozulenler:
+        ilk, son = o["canlilik"], o.get("transfer_canlilik")
+        if ilk and son:
+            parcalar.append(f"{ilk}\u2192{son}")
+        elif son:
+            parcalar.append(f"\u2192{son}")
+        elif ilk:
+            parcalar.append(ilk)
+    oranlar = "-".join(parcalar)
     return " · ".join(p for p in (parca, oranlar) if p) or None
 
 

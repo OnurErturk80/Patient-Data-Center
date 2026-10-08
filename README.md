@@ -20545,3 +20545,22 @@ yükleneni göstersin."
   canlılığı olarak kalıyor.
 - Göç yoksa (`tr_canlilik` kolonu) alan basılmaz, eski davranış. Şablon
   `yeniden_degerlendirme is defined` diye soruyor (tuzak #5).
+
+---
+
+# v6.263 — Özet formu: çözme canlılığından transfer canlılığına ok
+
+Kullanıcı (2026-10-08): "Eğer transferde canlılık girilmiş ise özet formunda
+birinci canlılıktan ok ile ikinci canlılığı göstersin."
+
+- Embriyoloji Özet'in ÇÖZDÜRME SONRASI VİABİLİTE kutusu
+  (`formlar.cozme_viabilitesi()`): çözmede girilen canlılık ile o çözmeden
+  sonra bu tedavide yapılan transferin `tr_canlilik`'i (v6.262) varsa
+  "%90→%85". Örnek: "1 Canlı · %90→%85"; iki embriyoda "2 Canlı · %90-%80→%75"
+  (ortalama yok, embriyo embriyo, çözme sırasıyla).
+- Yalnızca transfer değeri varsa "→%85"; transfer değeri yoksa eskisi gibi tek
+  oran. Yüklenen formların `{{cozdurme_viabilite}}` etiketi de aynı metni alır.
+- Kutu yalnızca çözülen embriyoları sayıyor: taze (çözülmemiş) embriyonun
+  transfer canlılığı bu kutuya girmiyor.
+- ART Lab'ın "Uterus grade" satırı ("3AA x2 · %90-%85") değişmedi: istenen
+  yalnızca Özet; ARTLab'a da isterseniz aynı yazım konabilir.
