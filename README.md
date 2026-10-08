@@ -20418,3 +20418,24 @@ görünsün. Fotoğrafsız ise daha da küçük görünsün."
   Fotoğrafsız örnek 48 / 52 px. Tıklayınca bilgi kartı ve büyük fotoğraf (var
   olan davranış) açılıyor; açılan fotoğraf en çok 380 px.
 - Yalnızca Klinik Koyu açıkken (`tema_a.css`); Klasik tasarım değişmedi.
+
+
+# v6.258 — Klinik Koyu: aşama menüsü "Bölmeli şerit"
+
+Kullanıcı: "Tedavi bölümünde OPU, denüdasyon, ICSI veya FET'lerde çözme,
+blastokist, transfer gibi menüler daha belirgin olsun. Sayfada diğer alanlardan
+fark edilemiyor" -- dört tarz taslağı gösterildi, "1 bölmeli hoşuma gitti".
+
+- Aşama listesi (`nav.yanmenu`) `tema_a.js` ile tam genişlikte ok uçlu bölmelere
+  çevriliyor: tamamlanan yeşil ✓ ("TAMAM"), geçerli pembe ve parlak ("ŞİMDİ"),
+  bekleyen sönük ("AŞAMA n"); üstte "TEDAVİ AŞAMALARI · 4 / 10", altta ilerleme
+  çubuğu. "Tamam" yalnızca sıradan türetiliyor (geçerli aşamadan öncekiler),
+  kaydın gerçek durumu değil. Tedavi özeti ekranında geçerli aşama yok: hepsi
+  sönük, sayaç yok.
+- ≥1100 px: üst çubuğun altında yapışık, bölmeler eşit genişlikte. Telefon:
+  sayfayla birlikte kayar (dikey yer; yapışık olsaydı ~130 px), kendi içinde
+  yana kayar, geçerli bölme ortada, kenarlarda solma.
+- Parlama `.halka` sarmalayıcısında: `clip-path` kendi gölgesini keserdi.
+- Metinler `metinler.py`'de (`asama_seridi_baslik`, `asama_tamam`, `asama_simdi`,
+  `asama_no`), `base.html`'deki gizli `#asamaetiket`'ten JS'e geçiyor.
+- v6.255'in hap biçimli adım şeridi kalktı. Klasik tasarım değişmedi.

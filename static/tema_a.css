@@ -162,31 +162,6 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
 .tema-a .bugunbaslik .alt { color: var(--ink-2); font-size: 14px; margin-top: 2px; }
 .tema-a .bugunbaslik .dugme { width: auto; min-height: 44px; margin: 0; padding: 10px 18px; }
 
-/* Aşama adım şeridi */
-.tema-a .asamaseridi {
-  display: flex; gap: 8px; overflow-x: auto; padding: 14px 0 4px;
-  scrollbar-width: none; -webkit-overflow-scrolling: touch;
-}
-.tema-a .asamaseridi::-webkit-scrollbar { display: none; }
-.tema-a .asamaseridi .adim {
-  flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
-  min-height: 44px; padding: 0 14px 0 8px; border-radius: 999px;
-  border: 1px solid var(--line); background: var(--yuzey);
-  color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 600;
-}
-.tema-a .asamaseridi .adim i {
-  font-style: normal; width: 26px; height: 26px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 12px; font-weight: 700;
-  background: var(--yuzey2); color: var(--ink-2);
-}
-.tema-a .asamaseridi .adim.bitti { color: var(--ink); }
-.tema-a .asamaseridi .adim.bitti i { background: #43c59e; color: #07271d; }
-.tema-a .asamaseridi .adim.simdi {
-  color: #fff; border-color: var(--vurgu); box-shadow: 0 0 0 1px var(--vurgu) inset;
-}
-.tema-a .asamaseridi .adim.simdi i { background: var(--vurgu); color: #fff; }
-.tema-a .asamaseridi .adim:hover { filter: brightness(1.12); }
-
 /* Alt sekme çubuğu (dar ekran) */
 .tema-a .altsekme {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
@@ -243,8 +218,6 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
   body.tema-a.tema-a .yanmenu ~ .kimlik {
     margin-left: 260px; padding-left: 32px; padding-right: 32px;
   }
-  /* Adım şeridi sarıyor: hiçbir aşama gizli kalmıyor */
-  .tema-a .asamaseridi { flex-wrap: wrap; overflow: visible; }
   /* Fotoğraflı aşama ekranı: fotoğraf solda, bilgi sağda */
   body.tema-a .kap.asamaekrani {
     display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
@@ -260,10 +233,6 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
   body.tema-a .kap.asamaekrani > a.dugme { grid-column: 2; }
   body.tema-a .kap.asamaekrani > .bilgikart,
   body.tema-a .kap.asamaekrani > form { margin-top: 0; }
-}
-@media (min-width: 1100px) {
-  .tema-a .asamaseridi { gap: 6px; }
-  .tema-a .asamaseridi .adim { padding: 0 12px 0 6px; font-size: 13.5px; }
 }
 
 /* ---- örnek küçük resimleri (dondurulmuş örnekler, çözülenler, transfer) ----
@@ -283,3 +252,71 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
   .tema-a .hucre .kk img { width: 76px; height: 76px; }
   .tema-a .hucre .kk.bos { width: 48px; }
 }
+
+/* ---- aşama şeridi: "Bölmeli şerit" (v6.258, kullanıcının seçimi: Stil 1) ----
+   Tam genişlikte ok uçlu bölmeler: tamamlanan yeşil ✓, geçerli pembe ve
+   parlak, bekleyen sönük çizgili; altında ilerleme çubuğu. Geniş ekranda
+   üst çubuğun altında yapışık; telefonda sayfayla kayar (dikey yer). */
+.tema-a .asamakap {
+  background: var(--zemin); padding: 12px 0 10px; margin-top: 0;
+  border-bottom: 1px solid var(--line);
+}
+.tema-a .asamaust { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tema-a .asamaust .et {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.tema-a .asamaust .et b { color: var(--baslik); font-family: var(--yaz-b); font-size: 15px; letter-spacing: 0; }
+.tema-a .asamaalan { position: relative; }
+.tema-a .asamaalan::before, .tema-a .asamaalan::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 36px; z-index: 3;
+  pointer-events: none; opacity: 0; transition: opacity .2s;
+}
+.tema-a .asamaalan::before { left: 0; background: linear-gradient(90deg, var(--zemin), transparent); }
+.tema-a .asamaalan::after { right: 0; background: linear-gradient(270deg, var(--zemin), transparent); }
+.tema-a .asamaalan.sol::before, .tema-a .asamaalan.sag::after { opacity: 1; }
+.tema-a .asamaseridi {
+  display: flex; padding: 6px 4px 10px; overflow-x: auto; scroll-snap-type: x proximity;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.tema-a .asamaseridi::-webkit-scrollbar { display: none; }
+.tema-a .asamaseridi .adim {
+  position: relative; flex: 1 0 118px; min-width: 118px; height: 64px; margin-left: -9px;
+  padding: 0 22px 0 24px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 1px; text-align: center; text-decoration: none;
+  scroll-snap-align: center;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%);
+  transition: background .2s, color .2s; background: #121c29; color: var(--ink-3);
+}
+.tema-a .asamaseridi .adim.pri { padding-left: 14px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%); }
+.tema-a .asamaseridi .adim.son { padding-right: 14px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%); }
+.tema-a .asamaseridi .no { font-size: 11px; font-weight: 700; letter-spacing: .06em; opacity: .85; text-transform: uppercase; }
+.tema-a .asamaseridi .ad { font-family: var(--yaz-b); font-weight: 700; font-size: 14px; line-height: 1.15; white-space: nowrap; }
+.tema-a .asamaseridi .adim.bitti { background: #1f7a62; color: #eafff7; }
+.tema-a .asamaseridi .adim.bitti:hover { background: #26906f; }
+.tema-a .asamaseridi .adim.bitti .ad::before { content: "\2713  "; }
+.tema-a .asamaseridi .adim.simdi {
+  z-index: 2; background: var(--vurgu); color: #fff;
+}
+.tema-a .asamaseridi .adim.simdi .ad { font-size: 16.5px; font-weight: 800; }
+.tema-a .asamaseridi .adim.simdi .no { opacity: 1; }
+.tema-a .asamaseridi .adim.bekle:hover { background: #18273a; color: var(--ink); }
+.tema-a .asamaseridi .adim:focus-visible { outline: 3px solid #fff; outline-offset: -4px; }
+/* ilk bölmede negatif kenar boşluğu yok */
+.tema-a .asamaseridi > .adim:first-child { margin-left: 0; }
+/* geçerli bölmenin parlaması: clip-path kırpar, o yüzden sarmalayıcıya gölge */
+.tema-a .asamaseridi .halka { position: relative; flex: 1 0 118px; min-width: 118px; margin-left: -9px; z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(224, 53, 111, .65)) drop-shadow(0 4px 10px rgba(0, 0, 0, .5)); }
+.tema-a .asamaseridi .halka:first-child { margin-left: 0; }
+.tema-a .asamaseridi .halka .adim { margin-left: 0; width: 100%; }
+.tema-a .ilerleme { height: 6px; border-radius: 99px; background: #1b2a3c; overflow: hidden; }
+.tema-a .ilerleme i { display: block; height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #43c59e, var(--vurgu)); transition: width .35s ease; }
+@media (min-width: 1100px) {
+  .tema-a .asamakap { position: sticky; top: var(--ust-h, 60px); z-index: 20;
+    box-shadow: 0 10px 18px -12px rgba(0, 0, 0, .7); }
+  .tema-a .asamaseridi .adim, .tema-a .asamaseridi .halka { flex: 1 1 0; }
+}
+@media (prefers-reduced-motion: reduce) { .tema-a .ilerleme i, .tema-a .asamaseridi .adim { transition: none; } }

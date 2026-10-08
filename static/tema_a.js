@@ -48,22 +48,64 @@
     if (!ogeler.length) return;
     var aktif = -1;
     ogeler.forEach(function (o, i) { if (o.classList.contains('aktif')) aktif = i; });
+    var D = (document.getElementById('asamaetiket') || {}).dataset || {};
+    var toplam = ogeler.length;
+    var kutu_ = document.createElement('div');
+    kutu_.className = 'asamakap';
+    var ust_ = document.createElement('div');
+    ust_.className = 'asamaust';
+    var et = document.createElement('span');
+    et.className = 'et';
+    et.appendChild(document.createTextNode((D.baslik || 'Tedavi aşamaları')));
+    if (aktif > -1) {
+      var b = document.createElement('b');
+      b.textContent = ' \u00b7 ' + (aktif + 1) + ' / ' + toplam;
+      et.appendChild(b);
+    }
+    ust_.appendChild(et);
+    var alan = document.createElement('div');
+    alan.className = 'asamaalan';
     var ser = document.createElement('nav');
     ser.className = 'asamaseridi';
     ser.setAttribute('aria-label', nav.getAttribute('aria-label') || '');
     ogeler.forEach(function (o, i) {
       var a = document.createElement('a');
       a.href = o.getAttribute('href');
-      a.className = 'adim' + (i === aktif ? ' simdi' : (aktif > -1 && i < aktif ? ' bitti' : ''));
+      var durum = i === aktif ? 'simdi' : (aktif > -1 && i < aktif ? 'bitti' : 'bekle');
+      a.className = 'adim ' + durum + (i === 0 ? ' pri' : '') + (i === toplam - 1 ? ' son' : '');
       if (i === aktif) a.setAttribute('aria-current', 'step');
-      var n = document.createElement('i');
-      n.textContent = (aktif > -1 && i < aktif) ? '\u2713' : String(i + 1);
+      var n = document.createElement('span');
+      n.className = 'no';
+      n.textContent = durum === 'bitti' ? (D.tamam || 'Tamam')
+        : durum === 'simdi' ? (D.simdi || 'Şimdi')
+        : (D.asama || 'Aşama {n}').replace('{n}', i + 1);
       var t = document.createElement('span');
+      t.className = 'ad';
       t.textContent = o.textContent.trim();
       a.appendChild(n); a.appendChild(t);
-      ser.appendChild(a);
+      if (durum === 'simdi') {
+        var h = document.createElement('div');   // gölge clip-path'e kırpılmasın
+        h.className = 'halka';
+        h.appendChild(a);
+        ser.appendChild(h);
+      } else ser.appendChild(a);
     });
-    kap.insertBefore(ser, kap.firstChild);
+    alan.appendChild(ser);
+    var ilr = document.createElement('div');
+    ilr.className = 'ilerleme';
+    var dolu = document.createElement('i');
+    dolu.style.width = (aktif > -1 ? Math.round((aktif + 1) * 100 / toplam) : 0) + '%';
+    ilr.appendChild(dolu);
+    kutu_.appendChild(ust_); kutu_.appendChild(alan); kutu_.appendChild(ilr);
+    function kenarlar() {
+      alan.classList.toggle('sol', ser.scrollLeft > 4);
+      alan.classList.toggle('sag', ser.scrollLeft + ser.clientWidth < ser.scrollWidth - 4);
+    }
+    ser.addEventListener('scroll', kenarlar, { passive: true });
+    window.addEventListener('resize', kenarlar);
+    var ustCubuk = document.querySelector('.ust');
+    if (ustCubuk) document.documentElement.style.setProperty('--ust-h', ustCubuk.offsetHeight + 'px');
+    kap.insertBefore(kutu_, kap.firstChild);
     var sablon = document.getElementById('anamenusablon');
     // Ana menü gövdede, `.kap`'ın KARDEŞİ olmalı (CSS `.yanmenu ~ .kap`):
     // aşama listesi başka bir kabın içinde duruyor olabilir.
@@ -72,14 +114,14 @@
       sablon.parentNode.insertBefore(sablon.content.cloneNode(true), sablon);
     } else nav.hidden = true;
     var simdi = ser.querySelector('.simdi');
+    // Geçerli bölmeyi ortala (yalnızca şerit kayıyorsa); kenar solmaları.
+    if (simdi && ser.scrollWidth > ser.clientWidth + 2) {
+      var hedef = simdi.parentNode.classList.contains('halka') ? simdi.parentNode : simdi;
+      try { ser.scrollLeft = Math.max(0, hedef.offsetLeft - (ser.clientWidth - hedef.offsetWidth) / 2); } catch (e) {}
+    }
+    kenarlar();
     // Fotoğraflı aşama ekranı: taslaktaki gibi iki sütun (fotoğraf | bilgi).
     if (kap.querySelector(':scope > .foto')) kap.classList.add('asamaekrani');
-    // Dar ekranda (şerit kayar) geçerli adım görünmüyorsa ona kaydır; geniş
-    // ekranda şerit sarıyor, hiçbir adım gizlenmiyor.
-    if (simdi && ser.scrollWidth > ser.clientWidth + 2 &&
-        simdi.offsetLeft + simdi.offsetWidth > ser.clientWidth) {
-      try { ser.scrollLeft = Math.max(0, simdi.offsetLeft - 24); } catch (e) {}
-    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', asamaSeridi);
   else asamaSeridi();
