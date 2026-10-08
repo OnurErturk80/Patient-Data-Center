@@ -20493,3 +20493,25 @@ Dört tarz denendi; "Önce A yap": her işlemde otomatik üst çizgi + düğme.
 - Bellek önbelleğinden dönülen sayfada (`pageshow`) kilitli düğme kalmaz.
 - Fotoğraf yüklemede YÜZDELİ gösterge ayrı iş (yüklemeyi arka planda göndermeyi
   gerektirir): B ya da D tarzı, istenirse.
+
+---
+
+# v6.261 — Dosya yüklemede yüzdeli bildirim (Klinik Koyu)
+
+Kullanıcı: "Fotoğraf için C daha hoşuma gitti." Dosya seçili bir POST formu
+(Fotoğraf ekle, Doktor Notu, PGT raporu, sperm onamı, .xlsx şablonlar) artık
+`XMLHttpRequest` ile gönderiliyor ki gönderilen miktar ölçülsün: altta
+bildirim, "3 dosya · 19,3 MB · %37" + ilerleme çubuğu; gönderim bitince
+"Kaydediliyor…", sunucu yanıtlayınca "✓ Kaydedildi" ve sayfa yönlendirmeyi
+izliyor.
+
+- Yalnızca Klinik Koyu açıkken (`tema_a.js`); Klasik tasarımda eski gönderim.
+- Yanıt normal form yanıtı gibi işleniyor: yönlendirme (hatasız) → sayfa
+  gidiyor; yönlendirme yok ya da `?hata=` → sunucunun sayfası belgenin yerine
+  geçiyor (hata mesajı görünür). Ağ hatasında "Yükleme tamamlanamadı"
+  bildirimi, düğme açılır, seçilen dosyalar formda durur.
+- Düğme "İşleniyor…" kilidi (v6.260) uzun yüklemede 15 dk'ya kadar bekler.
+- Açılır pencere içindeki dosya formları da aynı yolu kullanıyor.
+- Dosya başına yüzde yok: tek istek, tek ilerleme; "N dosya · MB · %x".
+- Denendi: Playwright + CDP upload kısıtlaması, 3 dosya / 19 MB: %2 → %76 →
+  tamam, 3 kayıt yazıldı, /cycle/1'e yönlendi.

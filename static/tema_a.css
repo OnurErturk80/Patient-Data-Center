@@ -363,3 +363,39 @@ html.pencere-acik, html.pencere-acik body { overflow: hidden; }
   .tema-a .pdcdonus { animation-duration: 3s; }
   .tema-a .pencere.mesgul::before { animation: none; background-size: 100% 100%; }
 }
+
+/* ---- dosya yükleme bildirimi (v6.261, "C" tarzı) ---- */
+.tema-a .pdcyukleme {
+  position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 200%); z-index: 96; width: min(460px, calc(100% - 24px));
+  background: var(--yuzey2); border: 1px solid var(--line); border-radius: 16px;
+  padding: 12px 14px; display: flex; gap: 12px; align-items: center;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .6); transition: transform .3s;
+}
+.tema-a .pdcyukleme[hidden] { display: none; }
+.tema-a .pdcyukleme.acik { transform: translate(-50%, 0); }
+.tema-a .pdcyukleme .pdckucuk {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; position: relative;
+  border: 4px solid #2a3a4f; border-top-color: var(--vurgu); animation: pdcdon .9s linear infinite;
+}
+.tema-a .pdcyukleme.bitti .pdckucuk { animation: none; border-color: #43c59e; background: #43c59e; }
+.tema-a .pdcyukleme.bitti .pdckucuk::after {
+  content: "\2713"; position: absolute; inset: 0; display: grid; place-items: center;
+  color: #07271d; font: 800 16px var(--yaz);
+}
+.tema-a .pdcyukleme.hata .pdckucuk { animation: none; border-color: #f0b24a; background: #f0b24a; }
+.tema-a .pdcyukleme.hata .pdckucuk::after {
+  content: "!"; position: absolute; inset: 0; display: grid; place-items: center;
+  color: #3a2a17; font: 800 17px var(--yaz);
+}
+.tema-a .pdcyukleme .pdcm { flex: 1; min-width: 0; }
+.tema-a .pdcyukleme b { display: block; font-size: 14px; color: var(--ink); }
+.tema-a .pdcyukleme small { color: var(--ink-2); font-size: 12.5px; }
+.tema-a .pdcyukleme .pdccubuk { height: 6px; border-radius: 99px; background: #1b2a3c; overflow: hidden; margin-top: 6px; }
+.tema-a .pdcyukleme .pdccubuk i {
+  display: block; height: 100%; width: 0; border-radius: 99px;
+  background: linear-gradient(90deg, #43c59e, var(--vurgu)); transition: width .2s;
+}
+.tema-a .pdcyukleme.hata .pdccubuk { display: none; }
+@media (min-width: 1100px) { .tema-a .pdcyukleme { bottom: 24px; } }
+@media (prefers-reduced-motion: reduce) { .tema-a .pdcyukleme .pdckucuk { animation-duration: 3s; } }

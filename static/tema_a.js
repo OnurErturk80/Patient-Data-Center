@@ -62,6 +62,117 @@
     n._z = setTimeout(function () { n.hidden = true; }, 7000);
   }
 
+  /* ---- fotoğraf / dosya yükleme: alttaki bildirim ("C" tarzı, v6.261) ----
+     Dosya seçili bir form XMLHttpRequest ile gönderilir ki gönderilen miktar
+     ölçülsün: "3 dosya · 12,4 MB · %62". Bittiğinde ✓ Kaydedildi. Yanıt normal
+     bir form gönderiminin yanıtı gibi işlenir (yönlendirme ya da sayfa). */
+  function boyutYazisi(b) {
+    return b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB'
+      : Math.max(1, Math.round(b / 1024)) + ' KB';
+  }
+  function dosyalar(form) {
+    var liste = [];
+    Array.prototype.forEach.call(form.querySelectorAll('input[type=file]'), function (i) {
+      if (i.webkitdirectory) return;
+      Array.prototype.forEach.call(i.files || [], function (f) { liste.push(f); });
+    });
+    return liste;
+  }
+  function yuklemeKutusu() {
+    var k = document.getElementById('pdcYukleme');
+    if (k) return k;
+    k = document.createElement('div');
+    k.id = 'pdcYukleme';
+    k.className = 'pdcyukleme';
+    k.setAttribute('role', 'status');
+    k.setAttribute('aria-live', 'polite');
+    k.hidden = true;
+    k.innerHTML = '<div class="pdckucuk" aria-hidden="true"></div><div class="pdcm">' +
+      '<b></b><small></small><div class="pdccubuk"><i></i></div></div>';
+    document.body.appendChild(k);
+    return k;
+  }
+  var yuklemeZamani = null;
+  function yuklemeGoster(baslik, alt, oran) {
+    var k = yuklemeKutusu();
+    clearTimeout(yuklemeZamani);
+    k.hidden = false;
+    k.classList.remove('bitti', 'hata');
+    k.querySelector('b').textContent = baslik;
+    k.querySelector('small').textContent = alt;
+    k.querySelector('.pdccubuk i').style.width = Math.round(oran * 100) + '%';
+    requestAnimationFrame(function () { k.classList.add('acik'); });
+  }
+  function yuklemeBitti(baslik, alt, hata) {
+    var k = yuklemeKutusu();
+    k.classList.toggle('bitti', !hata);
+    k.classList.toggle('hata', !!hata);
+    k.querySelector('b').textContent = baslik;
+    k.querySelector('small').textContent = alt;
+    k.querySelector('.pdccubuk i').style.width = '100%';
+    yuklemeZamani = setTimeout(function () {
+      k.classList.remove('acik');
+      setTimeout(function () { k.hidden = true; }, 350);
+    }, hata ? 7000 : 2500);
+  }
+
+  // Formu XHR ile gönderir; `{r: {ok, url, redirected}, t: metin}` ile çözülür
+  // (fetch tabanlı yolun beklediği biçim). Ağ hatasında reddeder.
+  function xhrGonder(form, veri, dosyaSayisi, toplamBoyut) {
+    var D = etiket();
+    return new Promise(function (coz, red) {
+      var x = new XMLHttpRequest();
+      var adres = new URL(form.getAttribute('action') || location.href, location.href).href;
+      var baslik = (D.yuklemeBaslik || 'Dosyalar y\u00fckleniyor');
+      var dosyaYazi = dosyaSayisi + ' ' + (D.yuklemeDosya || 'dosya') + ' \u00b7 ' + boyutYazisi(toplamBoyut);
+      yuklemeGoster(baslik, dosyaYazi + ' \u00b7 %0', 0);
+      x.upload.addEventListener('progress', function (e) {
+        if (!e.lengthComputable) return;
+        var oran = e.total ? e.loaded / e.total : 0;
+        // Gönderim bitince sunucu işliyor: %100'de "kaydediliyor" yazısı.
+        yuklemeGoster(oran >= 1 ? (D.yuklemeKaydediliyor || 'Kaydediliyor\u2026') : baslik,
+          dosyaYazi + ' \u00b7 %' + Math.min(100, Math.round(oran * 100)), oran);
+      });
+      x.addEventListener('load', function () {
+        coz({ r: { ok: x.status >= 200 && x.status < 400, url: x.responseURL || adres,
+                   redirected: (x.responseURL || adres) !== adres }, t: x.responseText });
+      });
+      x.addEventListener('error', function () { red(new Error('ag')); });
+      x.addEventListener('abort', function () { red(new Error('iptal')); });
+      x.open('POST', adres);
+      x.setRequestHeader('X-Pencere', '1');
+      x.send(veri);
+    });
+  }
+
+  // Normal (pencere olmayan) sayfa formu: yanıt gelince sayfa yönlendirmeyi izler
+  // ya da (hata sayfası) yanıt belgenin yerine geçer.
+  function sayfaFormuYukle(form, dugme) {
+    var D = etiket();
+    var liste = dosyalar(form);
+    var toplam = liste.reduce(function (a, f) { return a + f.size; }, 0);
+    var veri = new FormData(form);
+    if (dugme && dugme.name) veri.append(dugme.name, dugme.value);
+    var bitir = bekleBasla(form, dugme, 900000);
+    xhrGonder(form, veri, liste.length, toplam).then(function (s) {
+      var u = new URL(s.r.url, location.href);
+      if (s.r.ok && s.r.redirected && !/[?&]hata=/.test(u.search)) {
+        yuklemeBitti(D.yuklemeKaydedildi || 'Kaydedildi', liste.length + ' ' + (D.yuklemeDosya || 'dosya'), false);
+        setTimeout(function () {
+          if (u.pathname + u.search === location.pathname + location.search) location.reload();
+          else location.href = u.pathname + u.search;
+        }, 450);
+        return;
+      }
+      // Yönlendirme yok ya da hata: sunucunun sayfası (hata mesajıyla) açılır.
+      yuklemeBitti('', '', false); document.getElementById('pdcYukleme').hidden = true;
+      document.open(); document.write(s.t); document.close();
+    }).catch(function () {
+      bitir();
+      yuklemeBitti(D.yuklemeHata || 'Y\u00fckleme tamamlanamad\u0131', D.yuklemeHataAlt || 'Ba\u011flant\u0131y\u0131 kontrol edip yeniden deneyin.', true);
+    });
+  }
+
   function formunDugmesi(form, dugme) {
     return dugme || form.querySelector('button[type=submit], button:not([type]), input[type=submit]');
   }
@@ -132,6 +243,12 @@
     var f = e.target;
     if (!f || f.tagName !== 'FORM' || e.defaultPrevented || sessizMi(f)) return;
     if (f.dataset.pdcGonderildi) return;
+    if ((f.method || '').toLowerCase() === 'post' && dosyalar(f).length &&
+        window.XMLHttpRequest && window.FormData) {
+      e.preventDefault();
+      sayfaFormuYukle(f, e.submitter);
+      return;
+    }
     bekleBasla(f, e.submitter);
     // Kilit yalnızca birkaç saniye: sayfa yerinde kalırsa (indirme) yeniden basılabilsin.
     setTimeout(function () { delete f.dataset.pdcGonderildi; }, KILIT_SURESI);
@@ -392,13 +509,18 @@
     var veri = new FormData(form);
     if (dugme && dugme.name) veri.append(dugme.name, dugme.value);
     mesgul(true);
-    var bekleBitir = bekleBasla(form, dugme);
-    fetch(form.getAttribute('action') || location.href, {
-      method: 'POST', body: veri, credentials: 'same-origin',
-      headers: { 'X-Pencere': '1' }
-    }).then(function (r) {
-      return r.text().then(function (t) { return { r: r, t: t }; });
-    }).then(function (s) {
+    var liste = dosyalar(form);
+    var bekleBitir = bekleBasla(form, dugme, liste.length ? 900000 : 0);
+    var istek = liste.length
+      ? xhrGonder(form, veri, liste.length, liste.reduce(function (a, f) { return a + f.size; }, 0))
+      : fetch(form.getAttribute('action') || location.href, {
+          method: 'POST', body: veri, credentials: 'same-origin',
+          headers: { 'X-Pencere': '1' }
+        }).then(function (r) {
+          return r.text().then(function (t) { return { r: r, t: t }; });
+        });
+    istek.then(function (s) {
+      if (liste.length) yuklemeBitti((etiket().yuklemeKaydedildi || 'Kaydedildi'), liste.length + ' ' + (etiket().yuklemeDosya || 'dosya'), false);
       mesgul(false);
       var u = new URL(s.r.url, location.href);
       var basari = s.r.ok && !(/[?&]hata=/.test(u.search) || !s.r.redirected);
@@ -411,7 +533,13 @@
         return;
       }
       if (!doldur(s.t, baslikEl.textContent)) location.href = u.pathname + u.search;
-    }).catch(function () { mesgul(false); bekleBitir(); form.submit(); });
+    }).catch(function () {
+      mesgul(false); bekleBitir();
+      if (liste.length) {
+        yuklemeBitti(etiket().yuklemeHata || 'Y\u00fckleme tamamlanamad\u0131',
+          etiket().yuklemeHataAlt || 'Ba\u011flant\u0131y\u0131 kontrol edip yeniden deneyin.', true);
+      } else form.submit();
+    });
   }
 
   function ac(a) {
