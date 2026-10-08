@@ -10,6 +10,7 @@
 {% import "_yer_oneri.html" as yo %}
 {% import "_pgt.html" as pgtm %}
 {% import "_tup_durum.html" as td %}
+{% import "_ornek_kalite.html" as kl %}
 {% block ustbaslik %}{{ metin("asama_vitrifikasyon") }}{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ c.id }}">&#8249;</a>{% endblock %}
 {% block kimlik %}
@@ -109,6 +110,38 @@
     <a href="/specimen/{{ e.id }}/vit-sil?cycle={{ c.id }}">{{ metin("kaydi_geri_al") }}</a>
   </div>
 {% endcall %}
+{% endif %}
+
+{#- Tüp tüp döküm (v6.253): hangi tüpe ne konduğu -- çözme listesinin
+    satırıyla aynı (`_ornek_kalite.html`). `tupler` tanımsızsa (program
+    yeniden başlatılmadı, tuzak #5) kart yok. -#}
+{% if tupler is defined and tupler %}
+<div class="kart">
+  <h2>{{ metin("dondurma_tupleri") }} ({{ tupler|length }})</h2>
+  {% for t in tupler %}
+  <div class="fsatir">
+    <div class="bilgi">
+      <div class="no"><a href="/cryo/tasiyici/{{ t.id }}">{{ t.etiket }}</a>
+        {%- if t.durum in ("gonderildi", "imha") %} {{ td.rozet(t.durum) }}{% endif %}</div>
+      <div class="meta">
+        {{ liste_etiket('tasiyici_tipi', t.tip) if t.tip }}{% if t.renk %} · {{ liste_etiket('tasiyici_renk', t.renk) }}{% endif %}
+        · {{ icerik_sayisi(t.adet, icerik=t.icerik) }}
+      </div>
+      <ul class="tupornekleri">
+        {% for o in t.ornekler %}
+        <li>{{ metin("oosit_ad" if o.yumurta else "embriyo_ad") }} {{ o.nolar }} · {{ kl.kalite(o.kalite, o.gun, o.olgunluk, o.yumurta) }}
+          {%- if o.pgt %}<span class="pgttup">{{ pgtm.ayrinti(o.pgt) }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      <div class="meta">
+        {% if t.haritada_yok %}<span style="color:var(--uyari)">{{ metin("cryo_haritasinda_yok") }}</span>
+        {% elif t.tam_yol %}{{ t.tam_yol }}
+        {% else %}<span style="color:var(--uyari)">{{ metin("konum_girilmemis") }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
 {% endif %}
 
 {% set adaylar = embriyolar|rejectattr('tasiyici_id')|list %}

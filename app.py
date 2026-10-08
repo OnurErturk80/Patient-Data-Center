@@ -9441,6 +9441,31 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
     for e in embriyolar:
         e["pgt"] = biy.get(e["id"])
 
+    # Bu tedavide dondurulanların tüp tüp dökümü (v6.253, kullanıcı: "Vitrifikasyon
+    # ekranında dondurulmuş örnekleri gösteriyor. Ama içeriği ve nasıl tüplere
+    # konduğunu göremiyorum. Çözme ekranında detay gözüküyor"): çözme listesinin
+    # satırı (`tup_ornek_satirlari()`, kalite `formlar.tup_ornekleri()`).
+    tup_idleri = list(dict.fromkeys(
+        e["tasiyici_id"] for e in embriyolar if e["tasiyici_id"]))
+    tupler = []
+    if tup_idleri:
+        yer = ",".join("?" * len(tup_idleri))
+        tup_satirlari = {r["id"]: dict(r) for r in db.sorgu(
+            "SELECT t.id, t.etiket, t.tip, t.renk, t.durum, t.vitrifikasyon_zamani, "
+            f"k.tam_yol, {db.haritada_yok_sql('t')} AS haritada_yok, " + icerik_sql() +
+            f" FROM tasiyici t LEFT JOIN konum k ON k.id = t.konum_id "
+            f"WHERE t.id IN ({yer})", tuple(tup_idleri))}
+        ornekler = formlar.tup_ornekleri(tup_idleri)
+        biyler = db.biyopsi_bilgisi(
+            [o["specimen_id"] for l in ornekler.values() for o in l])
+        for tid in tup_idleri:
+            if tid in tup_satirlari:
+                tup_satirlari[tid]["adet"] = len(ornekler.get(tid, []))
+                tup_satirlari[tid]["ornekler"] = tup_ornek_satirlari(
+                    [{**o, "pgt": biyler.get(o["specimen_id"])}
+                     for o in ornekler.get(tid, [])])
+                tupler.append(tup_satirlari[tid])
+
     # Boş yer önerisi (v6.190): tank düzeni kuruluysa (v6.189). Hastanın
     # straw'ları bir arada, gobletteki renklerle çakışmadan (`yerlesim`).
     # v6.202: ekran bütün tanklara bakan otomatik öneriyle açılıyor; tank /
@@ -9468,7 +9493,7 @@ def vit_ekran(request: Request, cycle_id: int, hata: str = "",
     return sablon.TemplateResponse(
         request, "vitrifikasyon.html",
         {"c": c, "embriyolar": embriyolar, "sema": konum_semasi(), "oneri": oneri,
-         "oneri_yerleri": oneri_yerleri,
+         "oneri_yerleri": oneri_yerleri, "tupler": tupler,
          "gezinme": asama_gezinme(cycle_id, "vitrifikasyon"),
          "tipler": db.liste("tasiyici_tipi"), "renkler": db.liste("tasiyici_renk"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M"), "hata": hata,

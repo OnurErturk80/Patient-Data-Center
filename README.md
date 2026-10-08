@@ -20321,3 +20321,18 @@ altında, taşıyıcı sayfasında yalnızca blastokist skoru (denendi).
   ve PGT'li (sorunsuz + sorunlu) tüpler; satırlar "Çöz" düğmesinin altına
   girmiyor, yatay taşma ve betik hatası yok. Ekran görüntüleri sahte veriyle.
 - Eski kod (v6.251) + yeni şablonlar: üç ekran hatasız, eski görünüm.
+
+# v6.253 — Vitrifikasyon ekranında tüplerin içindekiler
+
+Kullanıcı: "Vitrifikasyon ekranında dondurulmuş örnekleri gösteriyor. Ama
+içeriği ve nasıl tüplere konduğunu göremiyorum. Çözme ekranında detay
+gözüküyor. Aynı şekilde vitrifikasyonda da görünmesi iyi olur."
+
+- "Dondurulmuş" kartının altına **"Tüpler ve içindekiler"** kartı: bu
+  tedavide dondurulan her tüp için etiket, tip, renk, sayı, içindeki
+  embriyolar (numara, kalite, gün, PGT'si) ve Cryo Haritası'ndaki yeri.
+  Yumurta tüpünde aynı olgunluktakiler tek satırda ("Yumurta 1–4 · MII").
+- Çözme listesiyle aynı kaynak ve aynı yazım (v6.252: `formlar.tup_ornekleri()`,
+  `app.tup_ornek_satirlari()`, `_ornek_kalite.html`); yeni sorgu ya da yazım yok.
+- Şablon `tupler is defined` diye soruyor (yeniden başlatılmamış programda
+  kart yok). Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak.

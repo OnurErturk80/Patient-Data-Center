@@ -1454,6 +1454,7 @@ METINLER = {
     # Tüpteki örneğin kalitesi kayıtlı değil (v6.252, `_ornek_kalite.html`):
     # aktarılmış tüpte notun okunamayan skoru da olabilir, "değerlendirilmemiş"
     # demek yanlış olurdu.
+    "dondurma_tupleri": {"tr": "Tüpler ve içindekiler", "en": "Tubes and contents"},
     "kalite_kayitli_degil": {"tr": "kalitesi kayıtlı değil", "en": "grade not recorded"},
     "olgunluk_kayitli_degil": {"tr": "olgunluğu kayıtlı değil",
                                "en": "maturity not recorded"},
