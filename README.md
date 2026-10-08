@@ -20562,5 +20562,6 @@ birinci canlılıktan ok ile ikinci canlılığı göstersin."
   oran. Yüklenen formların `{{cozdurme_viabilite}}` etiketi de aynı metni alır.
 - Kutu yalnızca çözülen embriyoları sayıyor: taze (çözülmemiş) embriyonun
   transfer canlılığı bu kutuya girmiyor.
-- ART Lab'ın "Uterus grade" satırı ("3AA x2 · %90-%85") değişmedi: istenen
-  yalnızca Özet; ARTLab'a da isterseniz aynı yazım konabilir.
+- ART Lab'ın "Uterus grade" satırı da aynı yazımı alıyor (v6.264'te eklendi,
+  kullanıcı: "Art lab. da da olsun"): "3AA x2 · %90→%85". İki form tek işlevden
+  (`formlar._canlilik_yazisi()`).

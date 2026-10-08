@@ -826,7 +826,9 @@ def _transfer_satirlari(cycle_id, cozulenler, edilenler=None) -> list:
     çözme yok, oran da yok). Kalitesi kayıtlı olmayan embriyo "?" ile, kutu
     boş kalıp "transfer yok" demesin.
     """
-    oran = {o["kod"]: o["canlilik"] for o in cozulenler}
+    # Transferde ikinci canlılık girilmişse "%90→%85" (v6.264, Özet'in
+    # viabilite kutusuyla aynı yazım: `_canlilik_yazisi()`).
+    oran = {o["kod"]: _canlilik_yazisi(o) for o in cozulenler}
     gruplar = {}
     # `edilenler`: tüm veri dökümü bütün tedavilerinkini bir kez okuyor
     # (`tedavilerin_transfer_edilenleri()`, v6.239).
@@ -1273,6 +1275,17 @@ def cozulen_tupler(cozulenler) -> list:
     return tupler
 
 
+def _canlilik_yazisi(o) -> str | None:
+    """Bir çözülenin canlılığı: "%90", transferde ikincisi girilmişse
+    "%90→%85" (yalnızca ikincisi varsa "→%85"). Özet ve ART Lab aynı yazım."""
+    ilk, son = o["canlilik"], o.get("transfer_canlilik")
+    if ilk and son:
+        return f"{ilk}\u2192{son}"
+    if son:
+        return f"\u2192{son}"
+    return ilk or None
+
+
 def cozme_viabilitesi(cozulenler) -> str | None:
     """ÇÖZDÜRME SONRASI VİABİLİTE kutusu: "2 Canlı, 1 Dejenere · %90-%80".
 
@@ -1288,16 +1301,7 @@ def cozme_viabilitesi(cozulenler) -> str | None:
     parca = ", ".join(f"{n} {e}" for e, n in sayim.items())
     # Transferde ikinci canlılık girilmişse "%90→%85" (v6.263); yalnızca
     # ikincisi varsa "→%85", birinci yoksa kutu o embriyo için boş kalmaz.
-    parcalar = []
-    for o in cozulenler:
-        ilk, son = o["canlilik"], o.get("transfer_canlilik")
-        if ilk and son:
-            parcalar.append(f"{ilk}\u2192{son}")
-        elif son:
-            parcalar.append(f"\u2192{son}")
-        elif ilk:
-            parcalar.append(ilk)
-    oranlar = "-".join(parcalar)
+    oranlar = "-".join(y for y in map(_canlilik_yazisi, cozulenler) if y)
     return " · ".join(p for p in (parca, oranlar) if p) or None
 
 
