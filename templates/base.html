@@ -8,6 +8,14 @@
 <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
 <title>{% block baslik %}{{ metin("program_adi") }}{% endblock %}</title>
 <link rel="stylesheet" href="/static/style.css?v={{ statik_surum() }}">
+{# "Klinik Koyu" tasarımı (v6.253): yalnızca yönetici açtıysa, style.css'in
+   ÜSTÜNDE. `tasarim_a` tanımsızsa (yeniden başlatılmamış program, tuzak #5)
+   eski görünüm. #}
+{% if tasarim_a is defined and tasarim_a() %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/static/tema_a.css?v={{ statik_surum() }}">
+<script src="/static/tema_a.js?v={{ statik_surum() }}" defer></script>
+{% endif %}
 
 {# Ana ekrana eklenince uygulama gibi acilsin (v6.45). iOS manifest'in
    `display` alanini yeni surumlerde okuyor, eskilerde `apple-...-capable`
@@ -22,7 +30,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="{{ metin('kisa_ad') }}">
 </head>
-<body class="{% block govde %}{% endblock %}">
+<body class="{% block govde %}{% endblock %}{% if tasarim_a is defined and tasarim_a() %} tema-a{% endif %}">
 <div class="ust">
   {% block geri %}{% endblock %}
   {# Ana menüye dönüş her ekranda, geri okunun yanında. Burada durduğu için
@@ -99,6 +107,23 @@
 {{ gz.yan_ana(_yk, _aktif_menu) }}
 {% endif %}
 {% endblock %}
+{# Klinik Koyu (v6.255): taslaktaki alt sekme çubuğu (dar ekran) ve aşama
+   ekranlarında ana menünün geri gelmesi. Aşama ekranları kendi `.yanmenu`'sünü
+   (aşama listesi) basıyor; tema_a.js onu adım şeridine çevirip bu şablondaki
+   ana menüyü yerine koyuyor. `tasarim_a` tanımsızsa (eski program) hiçbiri. #}
+{% if tasarim_a is defined and tasarim_a() %}
+{% set _yk3 = kullanici or request.state.kullanici %}
+{% if _yk3 %}
+<span id="asamaetiket" hidden data-baslik="{{ metin('asama_seridi_baslik') }}" data-tamam="{{ metin('asama_tamam') }}" data-simdi="{{ metin('asama_simdi') }}" data-asama="{{ metin('asama_no') }}" data-bekle="{{ metin('bekle_islem') }}" data-yanit-yok="{{ metin('bekle_yanit_yok') }}" data-yukleme-baslik="{{ metin('yukleme_baslik') }}" data-yukleme-dosya="{{ metin('yukleme_dosya') }}" data-yukleme-kaydediliyor="{{ metin('yukleme_kaydediliyor') }}" data-yukleme-kaydedildi="{{ metin('yukleme_kaydedildi') }}" data-yukleme-hata="{{ metin('yukleme_hata') }}" data-yukleme-hata-alt="{{ metin('yukleme_hata_alt') }}"></span>
+<template id="anamenusablon">{{ gz.yan_ana(_yk3, None) }}</template>
+<nav class="altsekme" aria-label="{{ metin('ana_menu') }}">
+  <a href="/"{% if request.url.path == '/' %} aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"/></svg><span>{{ metin("ana_ekran") }}</span></a>
+  <a href="/hastalar"{% if request.url.path.startswith('/hastalar') or request.url.path.startswith('/hasta/') %} aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 2.7-4.6 5.5-4.6s4.9 1.6 5.5 4.6M16 11.2a3 3 0 1 0 0-6M17.5 14.6c1.8.5 3 1.9 3.5 4.4"/></svg><span>{{ metin("hasta_kayitlari") }}</span></a>
+  {% if yetkim("cryo") %}<a href="/cryo"{% if request.url.path.startswith('/cryo') %} aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/></svg><span>Cryo</span></a>{% endif %}
+  {% if _yk3.rol == "yonetici" %}<a href="/yonetim"{% if request.url.path.startswith('/yonetim') %} aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><span>{{ metin("yonetim") }}</span></a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
 {% block kimlik %}{% endblock %}
 {# Bulaş hastalığı uyarısı (v6.219): kimlik bandı olan her ekranda, bandın
    hemen altında -- ayrıntı `_bulas_bandi.html`'de. PGT'li tedavinin kutusu

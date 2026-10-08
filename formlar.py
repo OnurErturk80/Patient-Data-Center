@@ -826,7 +826,9 @@ def _transfer_satirlari(cycle_id, cozulenler, edilenler=None) -> list:
     çözme yok, oran da yok). Kalitesi kayıtlı olmayan embriyo "?" ile, kutu
     boş kalıp "transfer yok" demesin.
     """
-    oran = {o["kod"]: o["canlilik"] for o in cozulenler}
+    # Transferde ikinci canlılık girilmişse "%90→%85" (v6.264, Özet'in
+    # viabilite kutusuyla aynı yazım: `_canlilik_yazisi()`).
+    oran = {o["kod"]: _canlilik_yazisi(o) for o in cozulenler}
     gruplar = {}
     # `edilenler`: tüm veri dökümü bütün tedavilerinkini bir kez okuyor
     # (`tedavilerin_transfer_edilenleri()`, v6.239).
@@ -1216,6 +1218,17 @@ def _cozulenleri_kur(cycle_id, satirlar, h=None) -> list:
             "WHERE x.specimen_id = ? AND x.tip = 'transfer' AND x.iptal_mi = 0 "
             "AND COALESCE(x.tr_cycle_id, s.cycle_id) = ? AND x.id > ?",
             (r["specimen_id"], cycle_id, r["id"])) is not None
+        # Transferde girilen ikinci canlılık (v6.263, `goc_062`): bu çözmeden
+        # sonra bu tedavide yapılan transferin kaydı.
+        tr_oran = None
+        if transfer and db.kolon_var("olay", "tr_canlilik"):
+            tr = db.tek(
+                "SELECT x.tr_canlilik FROM olay x JOIN specimen s ON s.id = x.specimen_id "
+                "WHERE x.specimen_id = ? AND x.tip = 'transfer' AND x.iptal_mi = 0 "
+                "AND COALESCE(x.tr_cycle_id, s.cycle_id) = ? AND x.id > ? "
+                "ORDER BY x.id DESC LIMIT 1",
+                (r["specimen_id"], cycle_id, r["id"]))
+            tr_oran = _yuzde(tr["tr_canlilik"]) if tr else None
         yeniden = db.tek(
             f"SELECT 1 FROM olay v WHERE v.specimen_id = ? "
             f"AND v.tip = 'vitrifikasyon' AND v.iptal_mi = 0 "
@@ -1237,6 +1250,7 @@ def _cozulenleri_kur(cycle_id, satirlar, h=None) -> list:
             # kendi çözmesi) -- Deselect yalnızca embriyoyu sayıyor (v6.208).
             "yumurta": bool(v and v["yumurta"]),
             "canlilik": _yuzde(r["thaw_canlilik"]),
+            "transfer_canlilik": tr_oran,
             "transfer": transfer,
             "yeniden": yeniden,
         })
@@ -1261,11 +1275,23 @@ def cozulen_tupler(cozulenler) -> list:
     return tupler
 
 
+def _canlilik_yazisi(o) -> str | None:
+    """Bir çözülenin canlılığı: "%90", transferde ikincisi girilmişse
+    "%90→%85" (yalnızca ikincisi varsa "→%85"). Özet ve ART Lab aynı yazım."""
+    ilk, son = o["canlilik"], o.get("transfer_canlilik")
+    if ilk and son:
+        return f"{ilk}\u2192{son}"
+    if son:
+        return f"\u2192{son}"
+    return ilk or None
+
+
 def cozme_viabilitesi(cozulenler) -> str | None:
     """ÇÖZDÜRME SONRASI VİABİLİTE kutusu: "2 Canlı, 1 Dejenere · %90-%80".
 
     Sağkalım etiketleri sayılarıyla (ekrandaki seçenekler), girilmişse
-    canlılık oranları embriyo embriyo, çözme sırasıyla. Ortalama alınmıyor:
+    canlılık oranları embriyo embriyo, çözme sırasıyla; transferde ikinci
+    canlılık girilmişse "%90→%85". Ortalama alınmıyor:
     resmî forma programın hesapladığı bir sayı değil, girilen yazılsın.
     """
     sayim = {}
@@ -1273,7 +1299,9 @@ def cozme_viabilitesi(cozulenler) -> str | None:
         if o["sagkalim"]:
             sayim[o["sagkalim"]] = sayim.get(o["sagkalim"], 0) + 1
     parca = ", ".join(f"{n} {e}" for e, n in sayim.items())
-    oranlar = "-".join(o["canlilik"] for o in cozulenler if o["canlilik"])
+    # Transferde ikinci canlılık girilmişse "%90→%85" (v6.263); yalnızca
+    # ikincisi varsa "→%85", birinci yoksa kutu o embriyo için boş kalmaz.
+    oranlar = "-".join(y for y in map(_canlilik_yazisi, cozulenler) if y)
     return " · ".join(p for p in (parca, oranlar) if p) or None
 
 

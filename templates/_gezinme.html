@@ -11,6 +11,7 @@
   </a>
   {% for a in g.liste %}
   <a class="oge{% if a.aktif %} aktif{% endif %}" href="{{ a.yol }}"
+     {% if a.tamam is defined %}data-tamam="{{ 1 if a.tamam else 0 }}"{% endif %}
      {% if a.aktif %}aria-current="page"{% endif %}>{{ a.ad }}</a>
   {% endfor %}
 </nav>

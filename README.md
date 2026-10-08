@@ -20322,7 +20322,251 @@ altında, taşıyıcı sayfasında yalnızca blastokist skoru (denendi).
   girmiyor, yatay taşma ve betik hatası yok. Ekran görüntüleri sahte veriyle.
 - Eski kod (v6.251) + yeni şablonlar: üç ekran hatasız, eski görünüm.
 
-# v6.253 — Vitrifikasyon ekranında tüplerin içindekiler
+
+# v6.253 — "Klinik Koyu" arayüz tasarımı (açılıp kapanabilir)
+
+Kullanıcı üç taslaktan A'yı (Klinik Koyu) seçti: "A'yı beğendim. Uygula. Ama
+sıkıntı çıkarsa eski haline döndürebilelim."
+
+- **Katman, değişiklik değil.** `static/tema_a.css` `style.css`'in ÜSTÜNE biner;
+  yalnızca yazı tipi (Bricolage Grotesque + Figtree), köşe yuvarlaklığı, hap
+  rozetler, düğme / şerit / yan menü görünümü. Yerleşim ve genişlikler
+  değişmedi, `style.css`'teki ölçümler ve tuzaklar aynen geçerli.
+- **Geri dönüş:** Yönetici → Arayüz tasarımı (`/tasarim`, yalnızca yönetici):
+  Klasik / Klinik Koyu. Ayar `ayarlar.arayuz_tasarimi` ('a' ya da boş), laboratuvar
+  geneli, hemen geçerli, yeniden başlatma yok. Hiçbir kayıt etkilenmez.
+  `base.html` `tasarim_a is defined` diye soruyor (tuzak #5): yeniden
+  başlatılmamış program eski görünümde kalır.
+- Varsayılan KAPALI: kullanıcı açana kadar hiçbir şey değişmez.
+- Taslaktaki açılır pencereler (toplu maturasyon, vitrifikasyon, yeni tedavi
+  için alttan açılan pencere) bu sürümde YOK: onlar şablon ve betik değişikliği,
+  ekran ekran yapılacak; önce görünüm denensin.
+
+
+# v6.254 — Klinik Koyu: açılır pencereler
+
+Kullanıcı: "Bu tasarımı tam anlamıyla açılır pencereleri ile uygula. Main'e de
+gönder." (`static/tema_a.js`, yalnızca tasarım açıkken yüklenir.)
+
+- **Şablonlara dokunmadan.** Seçili bağlantılara (yeni hasta / tedavi / sperm
+  dondurma, hasta ve tedavi düzenle, bitir, fotoğraf ekle, silme ekranları,
+  taşıma, toplu maturasyon `?duzenle=toplu`) tıklanınca hedef ekran getirilir,
+  içeriği (`.kap`) pencerede gösterilir: telefonda alttan çıkan pencere (aşağı
+  sürükleyerek kapanır), geniş ekranda ortada; Esc, dışarı tıklama, odak
+  tuzağı. Liste `tema_a.js`'in `YOLLAR`'ında; yeni bir ekranı pencere yapmak
+  için oraya yol ekle. Pencere istemeyen bağlantıya `data-pencere-yok`.
+- **Form pencerenin içinden gönderilir** (`fetch`). Yönlendirme = başarı: ana
+  sayfa yenilenir (aynı ekransa) ya da yeni ekrana gidilir; `?hata=` ya da
+  yönlendirmesiz cevap pencerede gösterilir, yazılanlar silinmez. Betik hata
+  verirse bağlantı eskisi gibi sayfa olarak açılır.
+- Pencere açıkken ana sayfa kendiliğinden yenilenmez (`pdcGeziniyor`).
+- `data-pencere-icerik` işaretli öğe hedef ekranda varsa yalnızca o gösterilir
+  (`_toplu_mat.html`'in kartı: aşama ekranının geri kalanı gelmez).
+- `statik_surum()` artık `tema_a.css` / `tema_a.js`'in değişimini de görüyor.
+- Geri dönüş aynı: Yönetici → Arayüz tasarımı → Klasik. Pencereler de kapanır.
+- Denendi (Playwright, 400 ve 1280 px): yeni tedavi, toplu maturasyon (yazma,
+  şerit güncellenmesi), yeni hasta (kayıt, çift numarada mevcut karta gidiş),
+  fotoğraf ekle / bitir / silme pencereleri; yatay taşma yok.
+
+
+# v6.255 — Klinik Koyu: taslağın eksik parçaları
+
+Kullanıcı: "Tam birebir tasarım aynı değil. Tasarım A'daki her şeyi
+göremiyorum." v6.253–254 yalnızca renk / yazı / köşe katmanıydı; taslağın
+yerleşim parçaları eklendi (hepsi yalnızca tasarım açıkken):
+
+- **Aşama adım şeridi** (tedavi ve aşama ekranları): aşama listesi `nav.yanmenu`
+  `tema_a.js` ile ✓ / numaralı hap adımlara çevriliyor (geçerli adım pembe,
+  önceki adımlar yeşil ✓; "bitti" yalnızca sıradan türetilen yaklaşım, kaydın
+  durumu değil). Aşama listesinin yerine ana menü geliyor (`base.html`'in
+  `#anamenusablon`'u).
+- **Telefonda alt sekme çubuğu** (Ana ekran, Hasta kayıtları, Cryo, Yönetici;
+  1100 px altı); üst çubuktaki menü düğmesi ve ana ekranın düğme yığını gizli.
+- **Ana ekran**: "Bugün" başlığı, tarih, + Yeni hasta düğmesi (pencere olarak
+  açılır), tam genişlikte arama; liste satırlarında tedavi tipi rengli hap
+  rozet (`_cyclesatir.html`, `.tiprozet`).
+- Pencere ve adım şeridi betiği `statik_surum()` ile önbelleğe takılmaz.
+
+
+# v6.256 — Klinik Koyu: tam ekran yerleşim
+
+Kullanıcı (taslağın ekran görüntüsüyle): "Tam böyle ekrana yayılmıyor. Masaüstünde
+üst menü tam görünmüyor. OPU, denüdasyon, ICSI seçilince OPU menüsüne
+dönemiyorum. Fotodaki gibi bütün ekranı kaplasa."
+
+- ≥1100 px: sol menü bütün ekran boyunca (260 px), üst çubuk ve kimlik bandı
+  onun sağında, içerik kalan alanın tamamında (en çok 1500 px).
+- Aşama adım şeridi geniş ekranda SARIYOR (v6.255'te kaydırılıyordu ve ilk
+  adımlar gizli kalıyordu: OPU'ya dönülemiyordu); dar ekranda kayar, geçerli
+  adım görünmüyorsa yalnızca o zaman kaydırılır.
+- Ana menü artık `.kap`'ın kardeşi olarak gövdeye konuyor (CSS `.yanmenu ~ .kap`);
+  aşama listesi başka bir kabın içinde duruyordu, yerleşim kaymıyordu.
+- Fotoğraflı aşama ekranı iki sütun: fotoğraf solda, bilgi / form sağda
+  (`.kap.asamaekrani`, CLAUDE.md'deki v6.59 kuralının kullanıcı kararıyla
+  değişen hali; Klasik tasarım aynı).
+
+
+# v6.257 — Klinik Koyu: örnek küçük resimleri
+
+Kullanıcı: "Masaüstünde Dondurulmuş örnek fotoğrafları çok büyük görünüyor.
+Sayı artınca ekranı kaplıyor. Daha küçük görünsün, üzerine tıklayınca büyük
+görünsün. Fotoğrafsız ise daha da küçük görünsün."
+
+- `_ornekkart.html`'in `.izgara` / `.hucre` küçük resimleri (vitrifikasyonun
+  Dondurulmuş kartı, çözme listesi, transfer): üç eşit sütun yerine sabit küçük
+  kareler (masaüstünde 76 px, telefonda 88 px), sığdığı kadar yan yana, sarar.
+  Fotoğrafsız örnek 48 / 52 px. Tıklayınca bilgi kartı ve büyük fotoğraf (var
+  olan davranış) açılıyor; açılan fotoğraf en çok 380 px.
+- Yalnızca Klinik Koyu açıkken (`tema_a.css`); Klasik tasarım değişmedi.
+
+
+# v6.258 — Klinik Koyu: aşama menüsü "Bölmeli şerit"
+
+Kullanıcı: "Tedavi bölümünde OPU, denüdasyon, ICSI veya FET'lerde çözme,
+blastokist, transfer gibi menüler daha belirgin olsun. Sayfada diğer alanlardan
+fark edilemiyor" -- dört tarz taslağı gösterildi, "1 bölmeli hoşuma gitti".
+
+- Aşama listesi (`nav.yanmenu`) `tema_a.js` ile tam genişlikte ok uçlu bölmelere
+  çevriliyor: tamamlanan yeşil ✓ ("TAMAM"), geçerli pembe ve parlak ("ŞİMDİ"),
+  bekleyen sönük ("AŞAMA n"); üstte "TEDAVİ AŞAMALARI · 4 / 10", altta ilerleme
+  çubuğu. "Tamam" yalnızca sıradan türetiliyor (geçerli aşamadan öncekiler),
+  kaydın gerçek durumu değil. Tedavi özeti ekranında geçerli aşama yok: hepsi
+  sönük, sayaç yok.
+- ≥1100 px: üst çubuğun altında yapışık, bölmeler eşit genişlikte. Telefon:
+  sayfayla birlikte kayar (dikey yer; yapışık olsaydı ~130 px), kendi içinde
+  yana kayar, geçerli bölme ortada, kenarlarda solma.
+- Parlama `.halka` sarmalayıcısında: `clip-path` kendi gölgesini keserdi.
+- Metinler `metinler.py`'de (`asama_seridi_baslik`, `asama_tamam`, `asama_simdi`,
+  `asama_no`), `base.html`'deki gizli `#asamaetiket`'ten JS'e geçiyor.
+- v6.255'in hap biçimli adım şeridi kalktı. Klasik tasarım değişmedi.
+
+
+# v6.259 — Aşama şeridi: kaydedilmiş veri yeşil ve ✓
+
+Kullanıcı: "Veri girilmiş ve kaydedilmiş bölüm yeşil ve check'li olarak
+göstersin." v6.258'de "tamam" yalnızca geçerli aşamadan öncekilerdi (sıra);
+artık kayda bakıyor.
+
+- `app.asama_durumlari()`: aşama kodu -> bu tedavide kaydedilmiş veri var mı.
+  Olay tabanlı aşamalar (ICSI: `icsi` ya da `maturasyon_kontrolu`, fertilizasyon,
+  cleavage, blastokist, biyopsi, vitrifikasyon, çözme, transfer) bu tedavide
+  YAPILAN, iptal edilmemiş olaylardan (`db.tedavide_yapilan()`, `cycle_ozet()`'in
+  koşulu); OPU: OPU zamanı ya da sağ / sol sayısı; denüdasyon: denüdasyon zamanı
+  ya da tedavinin yumurta kaydı; androloji: taze örnek ya da bağlı dondurulmuş
+  sperm; PGT: biyopsiye girilmiş karar; gebelik: sonuç kaydı. Hata verirse boş
+  döner (her tedavi ekranında çalışıyor).
+- `asama_gezinme()` her aşamaya `tamam` ekliyor, `_gezinme.html` `data-tamam`
+  olarak basıyor, `tema_a.js` şeridi ona göre boyuyor: kayıtlı bölme yeşil +
+  ✓; geçerli aşama pembe kalıyor, kayıtlıysa ✓ da taşıyor. Üstteki sayaç ve
+  ilerleme çubuğu kayıtlı aşama sayısı ("2 / 10"). Tedavi özet ekranında da
+  kayıtlı aşamalar yeşil.
+- Yeniden başlatılmamış program (`data-tamam` yok): eski sıraya göre görünüm.
+- "Kayıtlı" bir aşamanın TAM bittiği anlamına gelmez (örneğin ICSI'de 6 yumurtanın
+  3'ü kaydedilmiş olabilir); en az bir kayıt var demektir.
+
+
+# v6.260 — Klinik Koyu: işlem sürerken gösterge (A)
+
+Kullanıcı: "Programda bir işlem sürerken kullanıcı programın ilgilendiğini
+gösteren belirteç olsun. Yani mesela fotoğraf yüklediğimde biraz bekliyor."
+Dört tarz denendi; "Önce A yap": her işlemde otomatik üst çizgi + düğme.
+
+- **Üst çizgi:** sayfa geçişi / form gönderimi 150 ms'yi aşınca base.html'in
+  gezinti betiğinin çizdiği `.yukleniyor` çizgisi (v6.236) Klinik Koyu'da
+  belirgin (5 px, yeşil→pembe, parlama).
+- **Düğme** (`tema_a.js` `bekleBasla()`): form gönderilir ve 400 ms içinde yanıt
+  gelmezse basılan düğme "İşleniyor…" + dönen simge olur ve kilitlenir. Hızlı
+  işlemde hiçbir şey değişmez. Düğme gönderimden SONRA (zamanlayıcıyla)
+  kilitleniyor: `submit` olayında kilitlenirse düğmenin adı/değeri (`eylem=...`)
+  forma girmezdi.
+- **Çift gönderim engeli:** aynı form 8 sn içinde ikinci kez gönderilemez
+  (yakalama aşamasında `preventDefault`). İptal edilen gönderim (onay penceresi,
+  tarayıcı doğrulaması) bekleme başlatmaz; kendi betiğiyle gönderenler
+  (`preventDefault` + fetch) etkilenmez.
+- **Atlananlar:** `/disari/` (indirme: bitişi bilinemez), `target=_blank`,
+  `data-pdc-sessiz`. `/yedekleme`, `/tasi`, `/kurulum` işlemleri çok uzun
+  sürebildiği için "yanıt gelmedi" uyarısı yok (yeniden basmak daha tehlikeli).
+- **Yanıt gelmezse** (120 sn): düğme eski haline döner, altta "Sunucudan yanıt
+  gelmedi. Bağlantıyı kontrol edip yeniden deneyin." bildirimi.
+- **Açılır pencere:** pencere içi form aynı düğme durumu + pencerenin üstünde
+  akan çizgi; hata ya da başarısızlıkta düğme açılır, başarıda sayfa değişiyor.
+- Bellek önbelleğinden dönülen sayfada (`pageshow`) kilitli düğme kalmaz.
+- Fotoğraf yüklemede YÜZDELİ gösterge ayrı iş (yüklemeyi arka planda göndermeyi
+  gerektirir): B ya da D tarzı, istenirse.
+
+---
+
+# v6.261 — Dosya yüklemede yüzdeli bildirim (Klinik Koyu)
+
+Kullanıcı: "Fotoğraf için C daha hoşuma gitti." Dosya seçili bir POST formu
+(Fotoğraf ekle, Doktor Notu, PGT raporu, sperm onamı, .xlsx şablonlar) artık
+`XMLHttpRequest` ile gönderiliyor ki gönderilen miktar ölçülsün: altta
+bildirim, "3 dosya · 19,3 MB · %37" + ilerleme çubuğu; gönderim bitince
+"Kaydediliyor…", sunucu yanıtlayınca "✓ Kaydedildi" ve sayfa yönlendirmeyi
+izliyor.
+
+- Yalnızca Klinik Koyu açıkken (`tema_a.js`); Klasik tasarımda eski gönderim.
+- Yanıt normal form yanıtı gibi işleniyor: yönlendirme (hatasız) → sayfa
+  gidiyor; yönlendirme yok ya da `?hata=` → sunucunun sayfası belgenin yerine
+  geçiyor (hata mesajı görünür). Ağ hatasında "Yükleme tamamlanamadı"
+  bildirimi, düğme açılır, seçilen dosyalar formda durur.
+- Düğme "İşleniyor…" kilidi (v6.260) uzun yüklemede 15 dk'ya kadar bekler.
+- Açılır pencere içindeki dosya formları da aynı yolu kullanıyor.
+- Dosya başına yüzde yok: tek istek, tek ilerleme; "N dosya · MB · %x".
+- Denendi: Playwright + CDP upload kısıtlaması, 3 dosya / 19 MB: %2 → %76 →
+  tamam, 3 kayıt yazıldı, /cycle/1'e yönlendi.
+
+---
+
+# v6.262 — Transferde yeniden değerlendirme: canlılık oranı + ikinci fotoğraf
+
+Kullanıcı (2026-10-08): "Transfer menüsünde blastokist aşamasından veya
+çözmeden gelen embriyonun yeniden değerlendirmesi olsun. Yani canlılık oranı
+girilebilsin. Ayrıca ikinci foto yüklenebilsin. Eğer yüklenmez ise önceki
+yükleneni göstersin."
+
+- Transfer formunda embriyo seçilince altında "Yeniden değerlendirme" açılır:
+  **Canlılık oranı (%)** ve **Transfer öncesi fotoğraf**. İkisi de isteğe bağlı;
+  boş bırakılan hiçbir şey yazmaz.
+- Oran `olay.tr_canlilik` (`goc_062`) -- transfer kaydında. Çözmenin
+  `thaw_canlilik`'inden ayrı: taze blastokistin çözme olayı yok; çözülende de
+  çözme sonrası ilk ölçüm ile transfer öncesi yeniden değerlendirme iki ayrı
+  bilgi. Transferden sonra bilgi kartında "Canlılık oranı". 0–100'e sıkıştırılır.
+- Fotoğraf `goruntu.asama='transfer_oncesi'` (çözme ekranının "İkinci kontrol"
+  karesiyle aynı aşama), embriyonun KENDİ tedavisinin arşivine. Gösterilen kare
+  `ornek_kareleri_sql(("transfer_oncesi", "blastokist"))`: yüklenirse en son
+  transfer öncesi kare, yüklenmezse önceki kare (blastokist / çözme sonrası) --
+  yeni bir kural yazılmadı, var olan sıra bu isteği zaten karşılıyor.
+- Fotoğraf hatası (uzantı, boyut) transferi geri almaz; transfer kaydedilir,
+  ekranda hata yazar.
+- Form dosya taşıdığı için `multipart`; Klinik Koyu'da yüklemede v6.261'in
+  yüzdeli bildirimi çıkar.
+- Resmî formlara ve Excel'e girmedi (istenmedi); formlardaki "%90-%85" çözme
+  canlılığı olarak kalıyor.
+- Göç yoksa (`tr_canlilik` kolonu) alan basılmaz, eski davranış. Şablon
+  `yeniden_degerlendirme is defined` diye soruyor (tuzak #5).
+
+---
+
+# v6.263 — Özet formu: çözme canlılığından transfer canlılığına ok
+
+Kullanıcı (2026-10-08): "Eğer transferde canlılık girilmiş ise özet formunda
+birinci canlılıktan ok ile ikinci canlılığı göstersin."
+
+- Embriyoloji Özet'in ÇÖZDÜRME SONRASI VİABİLİTE kutusu
+  (`formlar.cozme_viabilitesi()`): çözmede girilen canlılık ile o çözmeden
+  sonra bu tedavide yapılan transferin `tr_canlilik`'i (v6.262) varsa
+  "%90→%85". Örnek: "1 Canlı · %90→%85"; iki embriyoda "2 Canlı · %90-%80→%75"
+  (ortalama yok, embriyo embriyo, çözme sırasıyla).
+- Yalnızca transfer değeri varsa "→%85"; transfer değeri yoksa eskisi gibi tek
+  oran. Yüklenen formların `{{cozdurme_viabilite}}` etiketi de aynı metni alır.
+- Kutu yalnızca çözülen embriyoları sayıyor: taze (çözülmemiş) embriyonun
+  transfer canlılığı bu kutuya girmiyor.
+- ART Lab'ın "Uterus grade" satırı da aynı yazımı alıyor (v6.264'te eklendi,
+  kullanıcı: "Art lab. da da olsun"): "3AA x2 · %90→%85". İki form tek işlevden
+  (`formlar._canlilik_yazisi()`).
+
+# v6.265 — Vitrifikasyon ekranında tüplerin içindekiler
 
 Kullanıcı: "Vitrifikasyon ekranında dondurulmuş örnekleri gösteriyor. Ama
 içeriği ve nasıl tüplere konduğunu göremiyorum. Çözme ekranında detay

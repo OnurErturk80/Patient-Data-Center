@@ -2046,3 +2046,7 @@ form.satir.aday .dugme.kucuk {
 .gobletkarsiliksiz { border-top: 1px dashed var(--uyari); margin-top: 6px; padding-top: 6px; }
 .gobletkarsiliksiz > .meta { font-size: 12px; color: var(--uyari); }
 .gobletkarsiliksiz > .meta + .karsiliksiz { border-top: 0; margin-top: 0; }
+
+/* Transferde yeniden değerlendirme (v6.262): seçilen embriyonun altında açılır. */
+.trdeger { padding: 4px 16px 12px; border-bottom: 1px solid var(--cizgi, rgba(255,255,255,.08)); }
+.trdeger[hidden] { display: none; }

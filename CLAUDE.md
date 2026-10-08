@@ -1062,7 +1062,12 @@ yanda ~400'er piksel boş kalıyor, sayfa boşuna uzuyordu. `/cycle/{id}` ve
   - Tek geniş sütun (940px) da denendi ve gösterildi: simetrik ve fotoğraf
     608 → 908px, **ama sayfa boyu hiç kısalmıyor** (formlar zaten `.alan ikili`
     ile iki sütunlu satır kullanıyor). Kullanıcı onu da istemedi.
-  - Bugün bu ekranlar 640px'lik tek sütunda. Büyük monitörde iki yanda geniş
+  - **v6.256 (kullanıcının kararı, 2026-10-07: "Fotodaki gibi bütün ekranı
+    kaplasa")**: Klinik Koyu tasarımı AÇIKKEN (`/tasarim`) fotoğraflı aşama
+    ekranları ≥1100 px'te menünün sağındaki bütün alanı kaplıyor, fotoğraf
+    solda, bilgi kartı / form sağda (`tema_a.css` `.kap.asamaekrani`). Klasik
+    tasarım aşağıdaki gibi 640px tek sütun kalıyor.
+  - Bugün (Klasik tasarımda) bu ekranlar 640px'lik tek sütunda. Büyük monitörde iki yanda geniş
     boşluk kalıyor; kullanıcı "daha sonra bir şeyler düşünürüz" dedi
     (2026-09-12). Ona sormadan yeniden bölme.
 - **Kimlik bandı + geniş + yan menüsüz üçlüsü ayrı ölçü ister**

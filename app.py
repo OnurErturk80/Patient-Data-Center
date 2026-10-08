@@ -257,8 +257,12 @@ def statik_surum() -> str:
     kullanıcıdan "sert yenile" istemeye gerek kalmıyor.
     """
     try:
-        return str(int((KOK / "static" / "style.css").stat().st_mtime))
-    except OSError:
+        # v6.254: tema_a.css / tema_a.js da değişince adres değişsin.
+        return str(int(max(
+            (KOK / "static" / ad).stat().st_mtime
+            for ad in ("style.css", "tema_a.css", "tema_a.js")
+            if (KOK / "static" / ad).exists())))
+    except (OSError, ValueError):
         return "0"
 
 
@@ -1784,6 +1788,48 @@ def dil_kaydet(request: Request, dil_kodu: str = Form(...)):
            "ON CONFLICT (lab_id, anahtar) DO UPDATE SET deger = excluded.deger",
            (db.LAB_ID, dil_kodu))
     return RedirectResponse("/dil?kaydedildi=1", status_code=303)
+
+
+# ------------------------------------------------------- arayüz tasarımı
+#
+# "Klinik Koyu" tasarımı (v6.253, kullanıcı taslağı beğendi: "A'yı beğendim.
+# Uygula. Ama sıkıntı çıkarsa eski haline döndürebilelim"). Yeni görünüm
+# `static/tema_a.css` -- `style.css`'in ÜSTÜNE biner, ona dokunmaz. Açık/kapalı
+# anahtarı laboratuvar ayarı (`ayarlar.arayuz_tasarimi`: 'a' ya da boş = eski).
+# Sorun çıkarsa yönetici /tasarim'dan kapatır; program yeniden başlamaz.
+TASARIM_A = "a"
+
+
+def tasarim_a_mi() -> bool:
+    try:
+        return db.ayar("arayuz_tasarimi", "") == TASARIM_A
+    except Exception:
+        return False
+
+
+sablon.env.globals["tasarim_a"] = tasarim_a_mi
+sablon.env.globals["bugun_iso"] = lambda: _dt.now().strftime("%Y-%m-%d")
+
+
+@uygulama.get("/tasarim")
+def tasarim_ekran(request: Request, kaydedildi: int = 0):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    return sablon.TemplateResponse(request, "tasarim.html", {
+        "acik": tasarim_a_mi(), "kaydedildi": kaydedildi})
+
+
+@uygulama.post("/tasarim")
+def tasarim_kaydet(request: Request, tasarim: str = Form("")):
+    red = yonetici_kontrol(request)
+    if red:
+        return red
+    deger = TASARIM_A if tasarim == TASARIM_A else ""
+    db.yaz("INSERT INTO ayarlar (lab_id, anahtar, deger) VALUES (?, 'arayuz_tasarimi', ?) "
+           "ON CONFLICT (lab_id, anahtar) DO UPDATE SET deger = excluded.deger",
+           (db.LAB_ID, deger))
+    return RedirectResponse("/tasarim?kaydedildi=1", status_code=303)
 
 
 # ----------------------------------------------------- bu makinenin klasörleri
@@ -13134,6 +13180,8 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = "",
     edilen = db.sorgu(
         "SELECT s.id, s.cycle_sira_no, s.cycle_id, c2.cycle_no, c2.hasta_cycle_no, "
         "  o.zaman, o.tr_tipi, o.id AS olay_id, "
+        + ("o.tr_canlilik" if db.kolon_var("olay", "tr_canlilik") else "NULL")
+        + " AS tr_canlilik, "
         "  (SELECT b.bl_skor FROM olay b WHERE b.specimen_id=s.id "
         "   AND b.tip='blastokist_degerlendirme' AND b.iptal_mi=0 "
         "   ORDER BY b.gun DESC LIMIT 1) AS skor, "
@@ -13152,6 +13200,8 @@ def transfer_ekran(request: Request, cycle_id: int, hata: str = "",
         {"c": c, "adaylar": adaylar, "edilen": _pgt_ekle(edilen), "hata": hata,
          # Transfer hekimini düzeltmek (v6.232): transferden sonra form yok.
          "duzenle": "hekim" if duzenle == "hekim" else "",
+         # Yeniden değerlendirme (v6.262): göç yoksa alan basılmaz.
+         "yeniden_degerlendirme": db.kolon_var("olay", "tr_canlilik"),
          "gezinme": asama_gezinme(cycle_id, "transfer"),
          "simdi": _d.now().strftime("%Y-%m-%dT%H:%M")})
 
@@ -13187,6 +13237,7 @@ async def transfer_kaydet(request: Request, cycle_id: int):
         return RedirectResponse(f"/cycle/{cycle_id}/transfer?hata=pgt_onay",
                                 status_code=303)
 
+    foto_hatalari = []
     for sid in secilen:
         if sid not in uygun:
             continue
@@ -13196,17 +13247,43 @@ async def transfer_kaydet(request: Request, cycle_id: int):
         # Çözülmüşse donmuş, değilse taze
         cozuldu = db.tek("SELECT id FROM olay WHERE specimen_id=? AND tip='thaw' "
                          "AND iptal_mi=0", (sid,))
-        olay_kaydet_veya_guncelle(
-            sid, sp["cycle_id"], "transfer",
-            {"tr_cycle_id": cycle_id, "tr_tipi": "donmus" if cozuldu else "taze"},
-            kid, simdi)
+        alanlar = {"tr_cycle_id": cycle_id,
+                   "tr_tipi": "donmus" if cozuldu else "taze"}
+        # Yeniden değerlendirme (v6.262): transfer öncesi canlılık oranı (%).
+        # Formda alan yoksa (eski sekme) ya da boşsa yazılmaz.
+        if db.kolon_var("olay", "tr_canlilik") and f.get(f"canlilik_{sid}") is not None:
+            try:
+                oran = sayi(f.get(f"canlilik_{sid}"), "Canlılık oranı")
+            except FormHatasi:
+                oran = None
+            alanlar["tr_canlilik"] = (None if oran is None
+                                      else max(0.0, min(100.0, oran)))
+        olay_kaydet_veya_guncelle(sid, sp["cycle_id"], "transfer", alanlar, kid, simdi)
         db.yaz("UPDATE specimen SET durum='transfer_edildi' WHERE id=?", (sid,))
+        # İkinci fotoğraf (v6.262): embriyonun KENDİ tedavisinin arşivine,
+        # "transfer öncesi" aşamasıyla; yüklenmezse önceki kare gösterilmeye
+        # devam eder (`ornek_kareleri_sql()`). Transfer fotoğraf yüzünden
+        # geri alınmaz, hata ekrana yazılır.
+        d = f.get(f"foto_{sid}")
+        ad = getattr(d, "filename", "") or ""
+        if ad:
+            kaynak = db.tek("SELECT cycle_no FROM cycle WHERE id=?", (sp["cycle_id"],))
+            mesaj = goruntuler.elle_ekle(
+                await d.read(), ad, sp["cycle_id"], kaynak["cycle_no"], sid,
+                "transfer_oncesi", kid)
+            if mesaj:
+                foto_hatalari.append(f"{sp['cycle_sira_no']}: {mesaj}")
 
     # Transfer hekimi transferle birlikte (v6.232): formdaki menü.
     _transfer_hekimini_yaz(c, f, kid)
     # FET'in günü transfer günü de olabilir (v6.144, `db.tedavi_tarihi()`).
     tedavi_sirasini_duzelt(c["hasta_id"], kid)
     islem_yapani_doldur(cycle_id, "transfer")   # v6.208
+    if foto_hatalari:
+        return RedirectResponse(
+            f"/cycle/{cycle_id}/transfer?hata="
+            + quote(metinler.t("transfer_foto_hata") + " " + " ".join(foto_hatalari)),
+            status_code=303)
     return RedirectResponse(f"/cycle/{cycle_id}/transfer", status_code=303)
 
 
@@ -13749,6 +13826,58 @@ def cycle_ozet(cycle: dict, kodlar: set) -> list:
     return satirlar
 
 
+# Aşamanın "kaydedilmiş veri var" sayılması için tedavide yapılan olay tipleri
+# (v6.259, kullanıcı: "Veri girilmiş ve kaydedilmiş bölüm yeşil ve check'li
+# olarak göstersin"). `cycle_ozet()` ile aynı koşul: bu tedavide YAPILAN
+# (`db.tedavide_yapilan()`), iptal edilmemiş olaylar.
+_ASAMA_OLAYLARI = {
+    "icsi": ("icsi", "maturasyon_kontrolu"),
+    "fert": ("fertilizasyon_kontrolu",),
+    "cleavage": ("cleavage_degerlendirme",),
+    "blast": ("blastokist_degerlendirme",),
+    "biyopsi": ("biyopsi",),
+    "vitrifikasyon": ("vitrifikasyon",),
+    "thaw": ("thaw",),
+    "transfer": ("transfer",),
+}
+
+
+def asama_durumlari(cycle_id: int, c=None) -> dict:
+    """Aşama kodu -> bu tedavide kaydedilmiş veri var mı (v6.259).
+
+    Hata verirse boş sözlük (aşama menüsü her tedavi ekranında çalışıyor):
+    ekran o zaman sıraya göre eski görünümde kalır.
+    """
+    try:
+        c = c or db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
+        if not c:
+            return {}
+        kosul, p = db.tedavide_yapilan(cycle_id)
+        tipler = {r["tip"] for r in db.sorgu(
+            f"SELECT DISTINCT o.tip FROM olay o WHERE o.iptal_mi = 0 AND {kosul}",
+            tuple(p))}
+        d = {k: bool(tipler & set(v)) for k, v in _ASAMA_OLAYLARI.items()}
+        d["opu"] = (c["opu_zamani"] is not None or c["opu_sag_oosit"] is not None
+                    or c["opu_sol_oosit"] is not None)
+        d["denudasyon"] = (c["denudasyon_zamani"] is not None or bool(db.tek(
+            "SELECT 1 x FROM specimen WHERE cycle_id=? LIMIT 1", (cycle_id,))))
+        d["androloji"] = bool(db.tek(
+            "SELECT 1 x FROM sperm_ornek WHERE cycle_id=? LIMIT 1", (cycle_id,)))
+        if not d["androloji"] and db.kolon_var("sperm_dondurma", "kullanim_cycle_id"):
+            d["androloji"] = bool(db.tek(
+                "SELECT 1 x FROM sperm_dondurma WHERE kullanim_cycle_id=? LIMIT 1",
+                (cycle_id,)))
+        d["gebelik"] = bool(db.tek(
+            "SELECT 1 x FROM gebelik_sonucu WHERE cycle_id=? LIMIT 1", (cycle_id,)))
+        d["pgt"] = bool(db.tek(
+            f"SELECT 1 x FROM olay o WHERE o.tip='biyopsi' AND o.iptal_mi=0 "
+            f"AND o.biy_sonuc IS NOT NULL AND o.biy_sonuc <> '' AND {kosul} LIMIT 1",
+            tuple(p)))
+        return d
+    except Exception:
+        return {}
+
+
 def asama_gezinme(cycle_id: int, anahtar: str):
     """Bir aşama ekranının gezinme verisi: önceki/sonraki **ve tüm liste**.
 
@@ -13759,8 +13888,10 @@ def asama_gezinme(cycle_id: int, anahtar: str):
     c = db.tek("SELECT * FROM cycle WHERE id=?", (cycle_id,))
     liste = cycle_asamalari(c["cycle_tipi"] if c else "ivf_icsi", pgt_mi(c))
     kodlar = [a[0] for a in liste]
+    durum = asama_durumlari(cycle_id, c)
     tumu = [{"kod": k, "ad": asama_adi(k), "yol": yol.format(id=cycle_id),
-             "aktif": k == anahtar}
+             "aktif": k == anahtar,
+             **({"tamam": bool(durum.get(k))} if durum else {})}
             for k, _ad, yol in liste]
     if anahtar not in kodlar:
         return {"onceki": None, "sonraki": None, "sira": None,

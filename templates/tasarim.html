@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block ustbaslik %}{{ metin("tasarim_baslik") }}{% endblock %}
+{% block geri %}<a class="geri" href="/yonetim">&#8249;</a>{% endblock %}
+{% block icerik %}
+{% if kaydedildi %}<div class="uyari">{{ metin("tasarim_kaydedildi") }}</div>{% endif %}
+<form method="post" action="/tasarim">
+  <div class="kart" style="margin-top:12px">
+    {% for kod, anahtar in [("", "tasarim_klasik"), ("a", "tasarim_a")] %}
+    <label class="alan" style="display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer{% if loop.last %};border:0{% endif %}">
+      <input type="radio" name="tasarim" value="{{ kod }}" style="width:20px;height:20px;flex:0 0 auto"
+             {% if (kod == "a") == acik %}checked{% endif %}>
+      <span style="font-size:16px">{{ metin(anahtar) }}</span>
+    </label>
+    {% endfor %}
+    <div class="alan" style="border:0">
+      <button class="dugme" type="submit">{{ metin("tasarim_kaydet") }}</button>
+    </div>
+  </div>
+</form>
+<div class="kart" style="margin-top:12px">
+  <div class="alan" style="border:0"><div class="ipucu">{{ metin("tasarim_not") }}</div></div>
+</div>
+{% endblock %}
