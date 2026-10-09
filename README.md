@@ -20580,3 +20580,31 @@ gözüküyor. Aynı şekilde vitrifikasyonda da görünmesi iyi olur."
   `app.tup_ornek_satirlari()`, `_ornek_kalite.html`); yeni sorgu ya da yazım yok.
 - Şablon `tupler is defined` diye soruyor (yeniden başlatılmamış programda
   kart yok). Kullanıcının yapacağı: `git pull`, programı yeniden başlatmak.
+
+
+# v6.266 — Resmî formlar yazıcıda: menü çıkmasın, NOTLAR kesilmesin, revizyon no
+
+Kullanıcı (2026-10-09): "Formlar yazıcıdan güzel çıkmıyor. Embriyoloji özet
+formlarında notlar bölümü çok not varsa kağıt çıktıda kesiliyor. Ve formun
+altında ana ekran hasta kaydı ve cryo şeklinde menü isimleri gözüküyor. Bunlar
+olmasın. Formların revizyon numaraları ile görünsün."
+
+- **Menü isimleri**: Klinik Koyu tasarımın alt sekme çubuğu (`.altsekme`: Ana
+  ekran / Hasta kayıtları / Cryo) 1100 px'ten dar her yerde açık. Yazdırmada
+  kâğıt genişliği bu sınırın altında kaldığı için sekmeler çıktıya giriyordu
+  (ekranda geniş pencerede görünmediği için denemede de çıkmamıştı). Artık
+  `body.formsayfa` formda her zaman gizli, `@media print` de gizliyor
+  (`.altsekme`, `.menuperde`, `.yukleniyor`, `.asamaseridi`, "birlikte"
+  uyarısı). `.tema-a .kap`'ın alt dolgusu (96 px) yazdırmada ikinci boş sayfa
+  açabilirdi: `padding: 0 !important`.
+- **NOTLAR kesilmesi**: yazdırmadan önce (`baskiyaSigdir()`) önce NOTLAR yazısı
+  küçülüyor (en çok %70'e), hâlâ taşıyorsa eski `zoom`. `zoom`u tanımayan
+  tarayıcıda uzayan not formu ikinci sayfaya taşıyıp altını kesiyordu; yazı
+  küçülünce düzen boyu gerçekten kısalıyor. Kutuyu şablon tanıyor
+  (`td.notlarkutu`: "NOTLAR" etiketinin yanındaki değer hücresi). Kalıp
+  değişmedi. Chromium'da 15 satırlık notla tek A4, 44 satırla da tek A4.
+- **Revizyon no**: `form_kalip.revizyon()` kâğıdın kendi yazısından ("Doküman
+  Kodu:DH.FR.91", "Revizyon No:03") okuyor -- ayrı bir yerde tutulmuyor, kâğıt
+  değişince kendiliğinden değişir. Tedavi ekranının form düğmelerinde ve
+  `/formlar`'da ("Embriyoloji Özet Formu · DH.FR.91 · Rev. 03"), form
+  sayfasının başlığında görünüyor. Bulunamazsa boş.

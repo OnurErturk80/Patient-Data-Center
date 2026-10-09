@@ -222,7 +222,7 @@
    Yönetici bunları /formlar'dan gizleyebiliyor: başka bir laboratuvarda bu
    kurumun belgesini basmak yanlış olur (v6.41). #}
 {% for f in gomulu_formlar %}
-<a class="dugme ikincil" href="/form/{{ f.ad }}/{{ c.id }}">{{ f.baslik }}</a>
+<a class="dugme ikincil" href="/form/{{ f.ad }}/{{ c.id }}">{{ f.baslik }}{% if f.rev %} · {{ f.rev }}{% endif %}</a>
 {% endfor %}
 
 {# Laboratuvarın kendi yüklediği formlar (yönetici alanından). Yoksa hiç

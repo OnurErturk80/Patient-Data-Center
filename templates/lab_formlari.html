@@ -69,7 +69,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;
                 gap:8px;flex-wrap:wrap">
       <div>
-        <b>{{ f.baslik }}</b>
+        <b>{{ f.baslik }}</b>{% if f.rev %} <span class="ipucu">{{ f.rev }}</span>{% endif %}
         {% if f.gizli %}<span class="rozet">{{ metin("form_gizli") }}</span>{% endif %}
       </div>
       <form method="post" action="/formlar/gomulu/{{ f.ad }}/gizle">

@@ -88,6 +88,32 @@ def _sayfa_olcusu(kaynak):
     return (y, 535.0 if y == "yatay" else 780.0)
 
 
+_KOD = re.compile(r"Doküman\s*Kodu\s*:\s*(\S+)", re.I)
+_REV = re.compile(r"Revizyon\s*No\s*:\s*(\S+)", re.I)
+
+
+def revizyon(kaynak) -> dict:
+    """Kâğıdın üstündeki doküman kodu ve revizyon no (v6.266, kullanıcının
+    isteği: "Formların revizyon numaraları ile görünsün"). Kalıbın kendi
+    yazısından okunuyor, ayrı bir yerde tutulmuyor: kâğıt aslı değişince
+    (kalite sistemi yeni revizyon verirse) liste de kendiliğinden değişir.
+    Bulunamazsa boş: uydurulmuyor. `yazi`: "DH.FR.91 · Rev. 03"."""
+    kod = rev = ""
+    try:
+        for satir in _kalip_al(kaynak)["satirlar"][:12]:
+            for h in satir:
+                m = _KOD.search(str(h[3]))
+                if m and not kod:
+                    kod = m.group(1)
+                m = _REV.search(str(h[3]))
+                if m and not rev:
+                    rev = m.group(1)
+    except (KeyError, TypeError, IndexError):
+        pass
+    yazi = " · ".join(x for x in (kod, ("Rev. " + rev) if rev else "") if x)
+    return {"kod": kod, "rev": rev, "yazi": yazi}
+
+
 def yon(kaynak) -> str:
     return _sayfa_olcusu(kaynak)[0]
 

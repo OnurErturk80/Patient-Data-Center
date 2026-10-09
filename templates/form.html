@@ -2,7 +2,9 @@
 {# Yazdirma ekrani kendini tazelemez: Ctrl+P acikken sayfanin altindan
    degismesi cikti bozar. Resmi form zaten o andaki veriyle basiliyor. #}
 {% block tazeleme %}{% endblock %}
-{% block ustbaslik %}{{ baslik }}{% endblock %}
+{% block ustbaslik %}{{ baslik }}{% if revizyon is defined and revizyon %} · {{ revizyon }}{% endif %}{% endblock %}
+{# Alttaki ana menü sekmeleri (Klinik Koyu) formun altında görünmesin (v6.266). #}
+{% block govde %}formsayfa{% endblock %}
 {% block geri %}<a class="geri" href="/cycle/{{ cycle_id }}">&#8249;</a>{% endblock %}
 {% block kapsinif %}{% if yon == "yatay" %} genis{% endif %}{% endblock %}
 {% block icerik %}
@@ -54,7 +56,7 @@
       {%- for r in s.satirlar %}
       <tr style="height:{{ r.yukseklik }}pt">
         {%- for h in r.hucreler -%}
-        <td{% if h.sinif %} class="{{ h.sinif }}"{% endif %}
+        <td{% set _sn = ((h.sinif or '') ~ (' notlarkutu' if (loop.index == 2 and h.sutun_yayilim == 7 and (r.hucreler[0].metin|trim) == 'NOTLAR') else '')).strip() %}{% if _sn %} class="{{ _sn }}"{% endif %}
            {%- if h.sutun_yayilim > 1 %} colspan="{{ h.sutun_yayilim }}"{% endif %}
            {%- if h.satir_yayilim > 1 %} rowspan="{{ h.satir_yayilim }}"{% endif %}>{{ h.metin }}</td>
         {%- endfor %}
@@ -149,6 +151,19 @@
     document.querySelectorAll('.kalipkap').forEach(function (kap) {
       kap.style.zoom = '';
       var hedef = parseFloat(kap.dataset.yukseklik) * 4 / 3;
+      // Önce NOTLAR yazısı küçülüyor (v6.266: `zoom`u tanımayan tarayıcıda
+      // uzayan not formu ikinci sayfaya taşıyıp altını kesiyordu); başka
+      // her şey kâğıdın puntosunda kalıyor. En çok %70'ine kadar, gerisini `zoom`.
+      var notlar = kap.querySelector('td.notlarkutu');
+      if (notlar) {
+        notlar.style.fontSize = '';
+        var boy = parseFloat(getComputedStyle(notlar).fontSize);
+        var alt = boy * 0.7;
+        while (kap.scrollHeight > hedef + 1 && boy > alt) {
+          boy -= 0.25;
+          notlar.style.fontSize = boy + 'px';
+        }
+      }
       var gercek = kap.scrollHeight;
       if (hedef > 0 && gercek > hedef + 1) {
         kap.style.zoom = hedef / gercek;
@@ -158,6 +173,8 @@
   function baskiBitti() {
     document.querySelectorAll('.kalipkap').forEach(function (kap) {
       kap.style.zoom = '';
+      var n = kap.querySelector('td.notlarkutu');
+      if (n) n.style.fontSize = '';
     });
     adlariSigdir();
   }

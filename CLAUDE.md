@@ -1649,7 +1649,14 @@ kalıptan**: `form_kalip.json`.
   oradan geliyor. **`form_kalip.json`'ı elle düzenleme** — kâğıt asıl
   değişirse onu değiştir, sonra aracı tekrar çalıştır (araç `xlrd` istiyor;
   programın bağımlılığı değil, tek seferlik geliştirme aracı).
-- **Kalıba dokunma.** Doküman kodu, revizyon tarihi, alan adları ve form
+- - **Yazdırmada ekran menüsü çıkmaz** (v6.266): `@media print` `.altsekme`
+  dahil bütün ekran gezintisini gizler ve `.kap` alt dolgusunu sıfırlar
+  (`!important`: `.tema-a .kap` daha özel); formda `body.formsayfa`. Yazdırma
+  genişliği 1100 px'in altında, ekranda geniş pencerede görünmeyen bir öge
+  çıktıda çıkabilir -- yeni bir ekran öğesi eklersen `@media print` listesine
+  koy. NOTLAR taşarsa yazı küçülür (`td.notlarkutu`, `baskiyaSigdir()`), sonra
+  zoom. Revizyon no kâğıdın yazısından (`form_kalip.revizyon()`).
+**Kalıba dokunma.** Doküman kodu, revizyon tarihi, alan adları ve form
   numarası kalite sisteminden geliyor. Kâğıttaki **yazım hataları da öyle**:
   "TRANSFES EMBRİYOLOG", "Nukleus durmu", "Labratuvar", "Oasit tipi" —
   düzeltme, belge o.

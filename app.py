@@ -5955,7 +5955,9 @@ def gomulu_form_gizli(ad: str) -> bool:
 def gomulu_formlar(yalniz_gorunen=True):
     """Programla gelen formlar. Kalıbı olmayan (ticari dağıtımda silinen) yok."""
     return [{"ad": ad, "baslik": metinler.t("form_" + ad),
-             "gizli": gomulu_form_gizli(ad)}
+             "gizli": gomulu_form_gizli(ad),
+             # Kâğıdın doküman kodu ve revizyon no'su (v6.266).
+             "rev": form_kalip.revizyon(FORMLAR[ad][2])["yazi"]}
             for ad in FORMLAR
             if not (yalniz_gorunen and gomulu_form_gizli(ad))]
 
@@ -5992,6 +5994,7 @@ def form_ekrani(request: Request, ad: str, cycle_id: int):
     return sablon.TemplateResponse(
         request, "form.html",
         {"sayfalar": sayfalar, "baslik": metinler.t("form_" + ad),
+         "revizyon": form_kalip.revizyon(kalip)["yazi"],
          "cycle_id": cycle_id, "yon": form_kalip.yon(kalip),
          "excel_yolu": f"/disari/form/{ad}/{cycle_id}",
          # Yalnızca ART Lab'da (v6.104) -- Özet'te aynı bilgi zaten NOTLAR

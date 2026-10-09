@@ -1750,6 +1750,12 @@ body.menuacik .ust .menudugme { background: var(--vurgu); border-color: var(--vu
    sutun genisligi ve satir yuksekligi satir ici stil olarak geliyor, burada
    yalniz punto, hiza ve kenarlik sinifi var (v6.39). */
 
+/* Formun altında ana menü sekmeleri (Klinik Koyu `.altsekme`) çıkmasın
+   (v6.266, kullanıcı: "Formun altında ana ekran hasta kaydı ve cryo ...
+   menü isimleri gözüküyor"). Dar ekranda ve yazdırmada kâğıt genişliği 1100
+   px'in altında olduğu için sekmeler geliyordu. */
+body.formsayfa .altsekme { display: none !important; }
+
 .yazdirmadugmeleri { display: flex; gap: 10px; margin-bottom: 14px; }
 .yazdirmadugmeleri .dugme { margin-top: 0; }
 
@@ -1858,9 +1864,10 @@ body.menuacik .ust .menudugme { background: var(--vurgu); border-color: var(--vu
 @media print {
   /* Kagida yalniz form insin: ust cubuk, menu, dugmeler ekranda kalir. */
   .ust, .yanmenu, .gezinme, .yazdirmadugmeleri,
-  .anadugmeler { display: none !important; }
+  .anadugmeler, .altsekme, .menuperde, .yukleniyor, .asamaseridi,
+  #birlikte { display: none !important; }
   body { background: #fff; }
-  .kap, .kap.genis { max-width: none; padding: 0; margin: 0; }
+  .kap, .kap.genis, .tema-a .kap { max-width: none; padding: 0 !important; margin: 0; }
   .kagit { border: 0; border-radius: 0; padding: 0; overflow: visible; }
   .kalipkap, .kagit.yatay .kalipkap { min-width: 0; }
   /* Ekrana sığdırma ölçeği (v6.107) yazdırmaya karışmasın -- çıktı hep
